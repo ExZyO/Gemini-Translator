@@ -57,7 +57,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.0.1');
+          const [version, setVersion] = useState('2.0.2');
 
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
@@ -796,6 +796,19 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
             ReactDOM.createRoot(rootElement).render(React.createElement(App));
         } else {
             console.error('Root element not found to render React app.');
+        }
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js')
+              .then(registration => {
+                console.log('Service Worker registered with scope:', registration.scope);
+              })
+              .catch(error => {
+                console.error('Service Worker registration failed:', error);
+              });
+          });
         }
     </script>
 </body>
