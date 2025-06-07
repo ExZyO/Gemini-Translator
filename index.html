@@ -24,7 +24,8 @@
     <script type="module">
         import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
         import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
-        import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2 } from 'https://esm.sh/lucide-react@0.372.0';
+        // Importing Eye and EyeOff icons for the password toggle
+        import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff } from 'https://esm.sh/lucide-react@0.372.0';
 
         function App() {
           const [inputText, setInputText] = useState('');
@@ -42,9 +43,9 @@
           const [newGlossaryName, setNewGlossaryName] = useState('');
           const [activeGlossaryId, setActiveGlossaryId] = useState(null);
           const [targetLanguage, setTargetLanguage] = useState('English');
+          const [showApiKey, setShowApiKey] = useState(false); // New state to toggle API key visibility
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
-          // Base URL without the key parameter, to be appended conditionally
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
 
           const languages = [
@@ -67,7 +68,7 @@
             if (localApiKey) {
               setApiKeyStatus('Using your saved API key. This is required for translation outside of the Google AI Studio environment (e.g., on GitHub Pages).');
             } else {
-              setApiKeyStatus('No API key provided. Translation will likely fail outside of Google AI Studio. Please enter your key below.');
+              setApiKeyStatus('API key is missing. A valid Gemini API key is REQUIRED for translation functionality outside of Google AI Studio (e.g., on GitHub Pages). Please enter your key below.');
             }
           }, [localApiKey]);
 
@@ -86,7 +87,7 @@
             localStorage.removeItem('geminiApiKey');
             setLocalApiKey('');
             setApiKeyInput('');
-            setApiKeyStatus('API key cleared. Translation will likely fail outside of Google AI Studio. Please enter your key below.');
+            setApiKeyStatus('API key cleared. A valid Gemini API key is REQUIRED for translation functionality outside of Google AI Studio (e.g., on GitHub Pages). Please enter your key below.');
             setError('');
           };
 
@@ -147,15 +148,14 @@
             const keyToUse = localApiKey;
             let finalApiUrl = BASE_GEMINI_API_URL;
 
-            // Only append the key parameter if a key is provided
-            if (keyToUse) {
-                finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
-            } else {
-                // If no key, the request will be unauthenticated.
-                // It will likely fail on GitHub Pages, but won't give "API key not valid" error
-                // for the parameter itself.
-                console.warn('No API key provided. Translation requests may fail outside of Google AI Studio environment.');
+            // CRITICAL: Ensure a key is present before attempting the API call
+            if (!keyToUse) {
+                setError('Translation failed: A valid Gemini API key is REQUIRED. Please enter and save your key.');
+                setLoading(false);
+                return;
             }
+            finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
+
 
             let prompt = `Please translate the following text into ${targetLanguage}.`;
 
@@ -223,7 +223,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
               }
             } catch (err) {
               console.error("Translation error during fetch or parsing:", err);
-              setError(`Translation error: ${err.message}. Please check your input and try again. If using a custom model, ensure your API key is valid and has permissions.`);
+              setError(`Translation error: ${err.message}. Please check your input and try again. Ensure your API key is valid and has permissions.`);
             } finally {
               setLoading(false);
             }
@@ -410,7 +410,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                 React.createElement('textarea', {
                   id: 'terminology',
                   className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[100px]',
-                  placeholder: 'Paste your compendium of terms, names, and concepts here',
+                  placeholder: 'Paste your compendium of terms, names, and concepts here (e.g., from Lord of the Mysteries universe)...',
                   value: terminology,
                   onChange: (e) => setTerminology(e.target.value)
                 }),
@@ -456,13 +456,23 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
 
               React.createElement('div', { className: 'space-y-4' },
                 React.createElement('label', { htmlFor: 'apiKeyInput', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Your Gemini API Key (Required):'),
-                React.createElement('textarea', {
-                  id: 'apiKeyInput',
-                  className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[50px]',
-                  placeholder: 'Paste your Gemini API key here...',
-                  value: apiKeyInput,
-                  onChange: (e) => setApiKeyInput(e.target.value)
-                }),
+                React.createElement('div', { className: 'relative flex items-center' }, // Flex container for input and toggle
+                    React.createElement('input', { // Changed from textarea to input
+                        id: 'apiKeyInput',
+                        type: showApiKey ? 'text' : 'password', // Toggle type based on state
+                        className: 'w-full p-3 pr-10 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
+                        placeholder: 'Paste your Gemini API key here...',
+                        value: apiKeyInput,
+                        onChange: (e) => setApiKeyInput(e.target.value)
+                    }),
+                    React.createElement('button', {
+                        type: 'button', // Prevent form submission
+                        onClick: () => setShowApiKey(!showApiKey),
+                        className: 'absolute right-3 p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+                    },
+                        showApiKey ? React.createElement(EyeOff, { size: 20 }) : React.createElement(Eye, { size: 20 })
+                    )
+                ),
                 React.createElement('div', { className: 'flex gap-2 mt-2' },
                   React.createElement('button', {
                     onClick: handleSaveApiKey,
