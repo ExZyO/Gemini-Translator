@@ -24,6 +24,602 @@
     <script type="module">
         import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
         import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
+        // Importing new icons for expand/collapse, and existing ones
+        import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, ChevronDown, ChevronUp } from 'https://esm.sh/lucide-react@0.372.0';
+
+        function App() {
+          const [inputText, setInputText] = useState('');
+          const [translatedText, setTranslatedText] = useState('');
+          const [terminology, setTerminology] = useState('');
+          const [activeTab, setActiveTab] = useState('text');
+          const [loading, setLoading] = useState(false); // For translation button
+          const [error, setError] = useState('');
+          const [localApiKey, setLocalApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
+          const [apiKeyInput, setApiKeyInput] = useState(localApiKey);
+          const [apiKeyStatus, setApiKeyStatus] = useState('');
+          const [copySuccess, setCopySuccess] = useState('');
+          const [savedGlossaries, setSavedGlossaries] = useState([]);
+          const [newGlossaryName, setNewGlossaryName] = useState('');
+          const [activeGlossaryId, setActiveGlossaryId] = useState(null);
+          const [targetLanguage, setTargetLanguage] = useState('English');
+          const [showApiKey, setShowApiKey] = useState(false);
+          const [downloadingPdf, setDownloadingPdf] = useState(false); // New state for PDF download loading
+          const [downloadingEpub, setDownloadingEpub] = useState(false); // New state for EPUB download loading
+
+          // States for expand/collapse functionality - true means expanded/default view
+          const [isInputExpanded, setIsInputExpanded] = useState(true);
+          const [isGlossaryExpanded, setIsGlossaryExpanded] = useState(true);
+          const [isTranslatedExpanded, setIsTranslatedExpanded] = useState(true);
+
+
+          const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
+          const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
+
+          const languages = [
+            'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+            'Chinese (Simplified)', 'Japanese', 'Korean', 'Russian', 'Arabic',
+            'Hindi', 'Bengali', 'Urdu', 'Vietnamese', 'Turkish', 'Polish',
+            'Dutch', 'Swedish', 'Norwegian', 'Danish', 'Finnish', 'Greek',
+            'Hebrew', 'Thai', 'Indonesian', 'Malay', 'Filipino', 'Romanian',
+            'Hungarian', 'Czech', 'Slovak', 'Bulgarian', 'Serbian', 'Croatian',
+            'Ukrainian', 'Lithuanian', 'Latvian', 'Estonian', 'Slovenian',
+            'Catalan', 'Basque', 'Galician'
+          ];
+
+          useEffect(() => {
+            const storedGlossaries = JSON.parse(localStorage.getItem('savedGlossaries') || '[]');
+            setSavedGlossaries(storedGlossaries);
+          }, []);
+
+          useEffect(() => {
+            if (localApiKey) {
+              setApiKeyStatus('Using your saved API key. This is required for translation outside of the Google AI Studio environment (e.g., on GitHub Pages).');
+            } else {
+              setApiKeyStatus('API key is missing. A valid Gemini API key is REQUIRED for translation functionality outside of Google AI Studio (e.g., on GitHub Pages). Please enter your key below.');
+            }
+          }, [localApiKey]);
+
+          const handleSaveApiKey = () => {
+            if (!apiKeyInput.trim()) {
+                setError('API key cannot be empty. Please enter a valid key.');
+                return;
+            }
+            localStorage.setItem('geminiApiKey', apiKeyInput.trim());
+            setLocalApiKey(apiKeyInput.trim());
+            setApiKeyStatus('API key saved locally successfully! This is required for translation outside of the Google AI Studio environment (e.g., on GitHub Pages).');
+            setError('');
+          };
+
+          const handleClearApiKey = () => {
+            localStorage.removeItem('geminiApiKey');
+            setLocalApiKey('');
+            setApiKeyInput('');
+            setApiKeyStatus('API key cleared. A valid Gemini API key is REQUIRED for translation functionality outside of Google AI Studio (e.g., on GitHub Pages). Please enter your key below.');
+            setError('');
+          };
+
+          const handleSaveGlossary = () => {
+            if (!newGlossaryName.trim()) {
+              setError('Please enter a name for your glossary.');
+              return;
+            }
+            if (!terminology.trim()) {
+              setError('Glossary content cannot be empty when saving.');
+              return;
+            }
+
+            const existingIndex = savedGlossaries.findIndex(g => g.name === newGlossaryName.trim());
+            let updatedGlossaries;
+
+            if (existingIndex > -1) {
+              if (!window.confirm(`A glossary named "${newGlossaryName.trim()}" already exists. Do you want to overwrite it?`)) {
+                return;
+              }
+              updatedGlossaries = [...savedGlossaries];
+              updatedGlossaries[existingIndex] = { name: newGlossaryName.trim(), content: terminology };
+            } else {
+              updatedGlossaries = [...savedGlossaries, { name: newGlossaryName.trim(), content: terminology }];
+            }
+
+            setSavedGlossaries(updatedGlossaries);
+            localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
+            setNewGlossaryName('');
+            setActiveGlossaryId(newGlossaryName.trim());
+            setError('');
+          };
+
+          const handleLoadGlossary = (glossaryToLoad) => {
+            setTerminology(glossaryToLoad.content);
+            setActiveGlossaryId(glossaryToLoad.name);
+            setError('');
+          };
+
+          const handleDeleteGlossary = (glossaryName) => {
+            if (window.confirm(`Are you sure you want to delete "${glossaryName}"?`)) {
+              const updatedGlossaries = savedGlossaries.filter(g => g.name !== glossaryName);
+              setSavedGlossaries(updatedGlossaries);
+              localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
+              if (activeGlossaryId === glossaryName) {
+                setTerminology('');
+                setActiveGlossaryId(null);
+              }
+              setError('');
+            }
+          };
+
+          const translateContent = async (textToTranslate) => {
+            setLoading(true);
+            setError('');
+            setTranslatedText('');
+
+            const keyToUse = localApiKey;
+            let finalApiUrl = BASE_GEMINI_API_URL;
+
+            // CRITICAL: Ensure a key is present before attempting the API call
+            if (!keyToUse) {
+                setError('Translation failed: A valid Gemini API key is REQUIRED. Please enter and save your key.');
+                setLoading(false);
+                return;
+            }
+            finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
+
+
+            let prompt = `Please translate the following text into ${targetLanguage}.`;
+
+            if (terminology.trim()) {
+              prompt += `
+Use the provided Terminology Guide to ensure accuracy for specific words, names, and phrases. Words or phrases in the guide should either remain untranslated or be translated precisely as indicated within the guide's context.
+
+---
+Terminology Guide:
+${terminology}
+---
+`;
+            }
+
+            prompt += `
+Original Text to Translate:
+${textToTranslate}
+
+Provide ONLY the ${targetLanguage} translation of the Original Text to Translate. Do not include the Terminology Guide or any conversational text in your response.`;
+
+            try {
+              const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+              const payload = { contents: chatHistory };
+
+              const response = await fetch(finalApiUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+              });
+
+              if (!response.ok) {
+                let errorDetails = `HTTP error! status: ${response.status}`;
+                try {
+                  const errorBody = await response.text();
+                  if (errorBody) {
+                    errorDetails += `, details: ${errorBody.substring(0, 200)}...`;
+                  }
+                } catch (e) {
+                  errorDetails += `, could not read error body: ${e.message}`;
+                }
+                throw new Error(`API response error: ${errorDetails}`);
+              }
+
+              const responseText = await response.text();
+              if (!responseText) {
+                throw new Error('API returned an empty response.');
+              }
+
+              let result;
+              try {
+                result = JSON.parse(responseText);
+              } catch (jsonParseError) {
+                throw new Error(`Failed to parse API response as JSON: ${jsonParseError.message}. Response: ${responseText.substring(0, 200)}...`);
+              }
+
+              if (result && result.candidates && result.candidates.length > 0 &&
+                  result.candidates[0].content && result.candidates[0].content.parts &&
+                  result.candidates[0].content.parts.length > 0) {
+                setTranslatedText(result.candidates[0].content.parts[0].text);
+              } else {
+                console.error("Unexpected API response structure:", result);
+                setError('Translation failed: Unexpected API response format or no content in candidates.');
+              }
+            } catch (err) {
+              console.error("Translation error during fetch or parsing:", err);
+              setError(`Translation error: ${err.message}. Please check your input and try again. Ensure your API key is valid and has permissions.`);
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          const handlePasteTranslate = () => {
+            if (inputText.trim()) {
+              translateContent(inputText);
+            } else {
+              setError('Please paste some text to translate.');
+            }
+          };
+
+          const handleClearInput = () => {
+            setInputText('');
+            setError('');
+          };
+
+          const handleSwapText = () => {
+            const tempInput = inputText;
+            setInputText(translatedText);
+            setTranslatedText(tempInput);
+            setError('');
+          };
+
+          const handleDownloadPDF = () => {
+            if (!translatedText) {
+              setError('No translated text to download.');
+              return;
+            }
+            setDownloadingPdf(true); // Start PDF loading
+            setError('');
+            try {
+              if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+                setError('PDF library (jsPDF) not loaded. Cannot generate PDF.');
+                setDownloadingPdf(false); // End loading on error
+                return;
+              }
+              const doc = new window.jspdf.jsPDF();
+              doc.setFont('Inter', 'normal');
+              doc.setFontSize(12);
+              doc.setTextColor(0, 0, 0);
+
+              const textLines = doc.splitTextToSize(translatedText, 180);
+              const lineHeight = 10;
+              let y = 10;
+
+              textLines.forEach(line => {
+                if (y + lineHeight > doc.internal.pageSize.height - 10) {
+                  doc.addPage();
+                  y = 10;
+                }
+                doc.text(line, 10, y);
+                y += lineHeight;
+              });
+
+              doc.save(`translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.pdf`);
+            } catch (err) {
+              console.error("PDF download error:", err);
+              setError(`Failed to generate PDF: ${err.message}`);
+            } finally {
+              setDownloadingPdf(false); // Always end loading
+            }
+          };
+
+          const handleDownloadEPUB = async () => {
+            if (!translatedText) {
+              setError('No translated text to download.');
+              return;
+            }
+            setDownloadingEpub(true); // Start EPUB loading
+            setError('');
+            try {
+              if (typeof window.Epub === 'undefined') {
+                setError('EPUB library (Epub) not loaded. Cannot generate EPUB. Please ensure the CDN is accessible.');
+                setDownloadingEpub(false); // End loading on error
+                return;
+              }
+              const options = {
+                title: `Translated Content (${targetLanguage})`,
+                author: 'Gemini Translator',
+                output: `translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.epub`,
+                content: [
+                  {
+                    title: `Translation in ${targetLanguage}`,
+                    data: `<p>${translatedText.replace(/\n\s*\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`
+                  }
+                ]
+              };
+              await new window.Epub(options).render();
+            } catch (err) {
+              console.error("EPUB download error:", err);
+              setError(`Failed to generate EPUB: ${err.message}`);
+            } finally {
+              setDownloadingEpub(false); // Always end loading
+            }
+          };
+
+          const handleCopyToClipboard = () => {
+            if (!translatedText) {
+              setCopySuccess('No text to copy.');
+              return;
+            }
+            try {
+              const textarea = document.createElement('textarea');
+              textarea.value = translatedText;
+              document.body.appendChild(textarea);
+              textarea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textarea);
+              setCopySuccess('Translated text copied to clipboard!');
+            } catch (err) {
+              console.error('Failed to copy text: ', err);
+              setCopySuccess('Failed to copy text. Please try again manually.');
+            }
+            setTimeout(() => setCopySuccess(''), 3000);
+          };
+
+          return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-purple-500 to-indigo-700 p-4 font-sans text-gray-800 flex items-center justify-center' },
+            React.createElement('div', { className: 'w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 space-y-8 backdrop-blur-md bg-opacity-90' },
+              React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-800 mb-8 tracking-tight' }, 'Universal Translator'),
+
+              React.createElement('div', { className: 'flex justify-center border-b border-gray-200' },
+                React.createElement('button', {
+                  onClick: () => setActiveTab('text'),
+                  className: `py-3 px-6 text-lg font-medium rounded-t-lg transition-colors duration-200 ${activeTab === 'text' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-indigo-100'}`
+                }, React.createElement(Clipboard, { className: 'inline-block mr-2', size: 20 }), ' Text Paste'),
+                React.createElement('button', {
+                  onClick: () => setActiveTab('url'),
+                  className: `py-3 px-6 text-lg font-medium rounded-t-lg transition-colors duration-200 ${activeTab === 'url' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-indigo-100'}`
+                }, React.createElement(Link, { className: 'inline-block mr-2', size: 20 }), ' URL (Info)')
+              ),
+
+              React.createElement('div', { className: 'bg-gray-50 p-6 rounded-b-xl rounded-r-xl shadow-inner' },
+                activeTab === 'text' && React.createElement('div', { className: 'space-y-6' },
+                  React.createElement('div', { className: 'relative' },
+                    React.createElement('label', { htmlFor: 'inputText', className: 'block text-lg font-semibold text-gray-700 mb-2 flex justify-between items-center' }, // Added flex, justify-between, items-center
+                      'Paste Text for Translation:',
+                      React.createElement('button', {
+                        type: 'button',
+                        onClick: () => setIsInputExpanded(!isInputExpanded),
+                        className: 'p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 -mt-2' // Adjust margin-top to align
+                      },
+                        isInputExpanded ? React.createElement(ChevronUp, { size: 20 }) : React.createElement(ChevronDown, { size: 20 })
+                      )
+                    ),
+                    React.createElement('textarea', {
+                      id: 'inputText',
+                      className: `w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 ease-in-out text-base resize-y ${isInputExpanded ? 'h-auto max-h-[9999px] overflow-y-auto' : 'min-h-[150px] max-h-[150px] overflow-hidden'}`,
+                      placeholder: 'Paste your content here (e.g., from a Lofter post, article, or document)...',
+                      value: inputText,
+                      onChange: (e) => setInputText(e.target.value)
+                    })
+                  ),
+                  React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' },
+                    React.createElement('button', {
+                      onClick: handleClearInput,
+                      className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-md hover:bg-gray-300 transition-colors'
+                    }, 'Clear Input'),
+                    React.createElement('button', {
+                      onClick: handleSwapText,
+                      className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-md hover:bg-gray-300 transition-colors flex items-center justify-center'
+                    }, React.createElement(RefreshCcw, { size: 16, className: 'mr-1' }), ' Swap Text')
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { htmlFor: 'targetLanguage', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Translate to:'),
+                    React.createElement('select', {
+                      id: 'targetLanguage',
+                      className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
+                      value: targetLanguage,
+                      onChange: (e) => setTargetLanguage(e.target.value)
+                    },
+                      languages.map(lang =>
+                        React.createElement('option', { key: lang, value: lang }, lang)
+                      )
+                    )
+                  ),
+                  React.createElement('button', {
+                    onClick: handlePasteTranslate,
+                    className: 'w-full md:w-auto px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
+                    disabled: loading
+                  },
+                    loading ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 24 }) : React.createElement(BookText, { className: 'mr-2', size: 24 }),
+                    loading ? 'Translating...' : 'Translate Text'
+                  )
+                ),
+
+                activeTab === 'url' && React.createElement('div', { className: 'space-y-6' },
+                  React.createElement('h2', { className: 'text-xl font-bold text-gray-800' }, 'URL Content Information'),
+                  React.createElement('p', { className: 'text-gray-700 leading-relaxed' },
+                    React.createElement('span', { className: 'font-semibold' }, 'Important Considerations for URL Scanning:'),
+                    React.createElement('br'),
+                    'Due to browser security policies (CORS) and the client-side nature of this application, direct arbitrary URL scanning and content extraction is not possible.'
+                  ),
+                  React.createElement('p', { className: 'text-gray-700 leading-relaxed' },
+                    React.createElement('span', { className: 'font-semibold' }, 'How it would typically work with a backend:'),
+                    React.createElement('br'),
+                    'In a full-stack application, you would input a URL here. A backend server (e.g., Node.js, Python Flask/Django) would then:'
+                  ),
+                  React.createElement('ol', { className: 'list-decimal list-inside ml-4 mt-2 space-y-1 text-gray-700' },
+                    React.createElement('li', null, 'Use a library like `requests` (Python) or `axios` (`Node.js`) to fetch the HTML content from the provided URL.'),
+                    React.createElement('li', null, 'Parse the HTML using libraries like `BeautifulSoup` (Python) or `cheerio` (`Node.js`) to extract the main textual content.'),
+                    React.createElement('li', null, 'Send this extracted text to the Gemini API for translation.'),
+                    React.createElement('li', null, 'Return the translated text to the frontend.')
+                  ),
+                  React.createElement('p', { className: 'text-gray-700 font-semibold' }, 'For now, please manually copy content from any URL (e.g., Lofter posts) and paste it into the "Text Paste" section to utilize the translation functionality.')
+                )
+              ),
+
+              React.createElement('div', { className: 'space-y-4' },
+                React.createElement('div', { className: 'relative' }, // Container for label, textarea, and toggle button
+                  React.createElement('label', { htmlFor: 'terminology', className: 'block text-lg font-semibold text-gray-700 mb-2 flex justify-between items-center' }, // Added flex, justify-between, items-center
+                    'Glossary:',
+                    React.createElement('button', { // Button positioned within the label's flex container
+                        type: 'button',
+                        onClick: () => setIsGlossaryExpanded(!isGlossaryExpanded),
+                        className: 'p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 -mt-2' // Adjust margin-top to align
+                    },
+                      isGlossaryExpanded ? React.createElement(ChevronUp, { size: 20 }) : React.createElement(ChevronDown, { size: 20 })
+                    )
+                  ),
+                  React.createElement('textarea', {
+                    id: 'terminology',
+                    className: `w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 ease-in-out text-base resize-y ${isGlossaryExpanded ? 'h-auto max-h-[9999px] overflow-y-auto' : 'min-h-[100px] max-h-[100px] overflow-hidden'}`,
+                    placeholder: 'Paste your glossary here.',
+                    value: terminology,
+                    onChange: (e) => setTerminology(e.target.value)
+                  }),
+                  React.createElement('p', { className: 'text-sm text-gray-600' }, 'Enter your terminology guide. The translator will refer to this text to ensure specific words, names, or phrases are handled accurately.')
+                )
+              ),
+
+              React.createElement('div', { className: 'space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50' },
+                React.createElement('h3', { className: 'text-xl font-bold text-gray-800' }, 'Manage Saved Glossaries'),
+                React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4 items-stretch' }, // Added flex-col and sm:flex-row
+                  React.createElement('input', {
+                    type: 'text',
+                    className: 'w-full sm:flex-grow p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500', // w-full for mobile
+                    placeholder: 'Name for current glossary...',
+                    value: newGlossaryName,
+                    onChange: (e) => setNewGlossaryName(e.target.value)
+                  }),
+                  React.createElement('button', {
+                    onClick: handleSaveGlossary,
+                    className: 'w-full sm:w-auto px-4 py-2 bg-purple-600 text-white font-semibold rounded-md hover:bg-purple-700 transition-colors' // w-full for mobile
+                  }, 'Save Current Glossary')
+                ),
+                savedGlossaries.length > 0 && React.createElement('div', {className: 'max-h-40 overflow-y-auto pr-2'}, // Added max-height and overflow for scroll
+                  React.createElement('h4', { className: 'text-lg font-semibold text-gray-700 mb-2' }, 'Your Saved Glossaries:'),
+                  React.createElement('ul', { className: 'space-y-2' },
+                    savedGlossaries.map((glossary, index) =>
+                      React.createElement('li', { key: index, className: 'flex items-center justify-between p-3 bg-white border border-gray-200 rounded-md shadow-sm' },
+                        React.createElement('span', { className: `font-medium ${activeGlossaryId === glossary.name ? 'text-indigo-700' : 'text-gray-800'}` }, glossary.name),
+                        React.createElement('div', { className: 'flex gap-2' },
+                          React.createElement('button', {
+                            onClick: () => handleLoadGlossary(glossary),
+                            className: 'px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors'
+                          }, 'Load'),
+                          React.createElement('button', {
+                            onClick: () => handleDeleteGlossary(glossary.name),
+                            className: 'px-3 py-1 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors'
+                          }, 'Delete')
+                        )
+                      )
+                    )
+                  )
+                )
+              ),
+
+              React.createElement('div', { className: 'space-y-4' },
+                React.createElement('label', { htmlFor: 'apiKeyInput', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Your Gemini API Key (Required):'),
+                React.createElement('div', { className: 'relative flex items-center' }, // Flex container for input and toggle
+                    React.createElement('input', { // Changed from textarea to input
+                        id: 'apiKeyInput',
+                        type: showApiKey ? 'text' : 'password', // Toggle type based on state
+                        className: 'w-full p-3 pr-10 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
+                        placeholder: 'Paste your Gemini API key here...',
+                        value: apiKeyInput,
+                        onChange: (e) => setApiKeyInput(e.target.value)
+                    }),
+                    React.createElement('button', {
+                        type: 'button', // Prevent form submission
+                        onClick: () => setShowApiKey(!showApiKey),
+                        className: 'absolute right-3 p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+                    },
+                        showApiKey ? React.createElement(EyeOff, { size: 20 }) : React.createElement(Eye, { size: 20 })
+                    )
+                ),
+                React.createElement('div', { className: 'flex gap-2 mt-2' },
+                  React.createElement('button', {
+                    onClick: handleSaveApiKey,
+                    className: 'px-4 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 transition-colors'
+                  }, 'Save API Key'),
+                  React.createElement('button', {
+                    onClick: handleClearApiKey,
+                    className: 'px-4 py-2 bg-yellow-500 text-white font-semibold rounded-md hover:bg-yellow-600 transition-colors'
+                  }, 'Clear API Key')
+                ),
+                React.createElement('p', { className: 'text-sm text-gray-600 mt-2' }, apiKeyStatus),
+              ),
+
+
+              error && React.createElement('div', { className: 'bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-md flex items-center animate-fade-in-down' },
+                React.createElement(XCircle, { className: 'mr-3 cursor-pointer', size: 20, onClick: () => setError('') }), // Dismiss button
+                React.createElement('p', { className: 'font-medium' }, error)
+              ),
+
+              translatedText && React.createElement('div', { className: 'space-y-6' },
+                React.createElement('div', { className: 'relative' }, // Container for label, textarea, and toggle button
+                  React.createElement('label', { htmlFor: 'translatedText', className: 'block text-lg font-semibold text-gray-700 mb-2 flex justify-between items-center' }, // Added flex, justify-between, items-center
+                    `Translated Content (${targetLanguage}):`,
+                  ),
+                  React.createElement('textarea', {
+                    id: 'translatedText',
+                    className: `w-full p-4 border border-green-300 bg-green-50 rounded-lg shadow-inner focus:outline-none resize-y text-base ${isTranslatedExpanded ? 'h-auto max-h-[9999px] overflow-y-auto' : 'min-h-[200px] max-h-[200px] overflow-hidden'}`,
+                    readOnly: true,
+                    value: translatedText
+                  }),
+                  React.createElement('button', {
+                      type: 'button',
+                      onClick: () => setIsTranslatedExpanded(!isTranslatedExpanded),
+                      className: 'absolute top-2 right-2 p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500' // Adjusted top/right
+                  },
+                    isTranslatedExpanded ? React.createElement(ChevronUp, { size: 20 }) : React.createElement(ChevronDown, { size: 20 })
+                  )
+                ),
+                copySuccess && React.createElement('p', { className: 'text-sm text-green-700 mt-2 text-center' }, copySuccess),
+                React.createElement('div', { className: 'flex flex-col sm:flex-row justify-center gap-4' },
+                  React.createElement('button', {
+                    onClick: handleCopyToClipboard,
+                    className: 'w-full sm:w-auto px-6 py-3 bg-blue-500 text-white font-bold rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition transform hover:scale-105 flex items-center justify-center text-lg'
+                  }, React.createElement(Copy, { className: 'mr-2', size: 20 }), ' Copy Translation'),
+                  React.createElement('button', {
+                    onClick: handleDownloadEPUB,
+                    className: 'w-full sm:w-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full shadow-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
+                    disabled: downloadingEpub // Disable during download
+                  },
+                    downloadingEpub ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
+                    downloadingEpub ? 'Generating EPUB...' : 'Download EPUB'
+                  ),
+                  React.createElement('button', {
+                    onClick: handleDownloadPDF,
+                    className: 'w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
+                    disabled: downloadingPdf // Disable during download
+                  },
+                    downloadingPdf ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
+                    downloadingPdf ? 'Generating PDF...' : 'Download PDF'
+                  )
+                )
+              )
+            )
+          );
+        }
+
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+            ReactDOM.createRoot(rootElement).render(React.createElement(App));
+        } else {
+            console.error('Root element not found to render React app.');
+        }
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Translator App</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- jsPDF CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- epub-gen-browser CDN -->
+    <script src="https://unpkg.com/epub-gen-browser/dist/epub-gen-browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+        import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
         // Importing Eye and EyeOff icons for the password toggle
         import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw } from 'https://esm.sh/lucide-react@0.372.0';
 
