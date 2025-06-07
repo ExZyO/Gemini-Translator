@@ -10,8 +10,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- jsPDF CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- jEpub CDN for EPUB generation -->
-    <script src="https://unpkg.com/jepub/dist/jepub.min.js"></script>
+    <!-- JSZip (local) -->
+    <script src="./jszip.min.js"></script>
+    <!-- EJS (local) -->
+    <script src="./ejs.min.js"></script>
+    <!-- jEpub (local) -->
+    <script src="./jepub.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -52,7 +56,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('1.0.0');
+          const [version, setVersion] = useState('1.0.3'); // Updated version to 1.0.3
 
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
@@ -332,9 +336,9 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
             await new Promise(resolve => setTimeout(resolve, 100));
 
             try {
-              // Check for jEpub global object
-              if (typeof window.jEpub === 'undefined') {
-                setError('EPUB library (jEpub) not loaded. Please ensure "https://unpkg.com/jepub/dist/jepub.min.js" is accessible.');
+              // Check for jEpub global object AND JSZip
+              if (typeof window.jEpub === 'undefined' || typeof window.JSZip === 'undefined' || typeof window.ejs === 'undefined') {
+                setError('EPUB generation libraries not loaded. Please ensure "jszip.min.js", "ejs.min.js", and "jepub.min.js" are saved in the same directory as your index.html file.');
                 setDownloadingEpub(false);
                 return;
               }
