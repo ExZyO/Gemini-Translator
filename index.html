@@ -66,7 +66,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('1.0.8'); // Updated version for PWA functionality
+          const [version, setVersion] = useState('1.0.9'); // Updated version for PWA functionality
 
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
@@ -430,7 +430,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                     React.createElement('textarea', {
                       id: 'inputText',
                       className: 'w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-y min-h-[150px] text-base',
-                      placeholder: 'Paste your content here (e.g., from a Lofter post, article, or document)...',
+                      placeholder: 'Paste your content here...',
                       value: inputText,
                       onChange: (e) => setInputText(e.target.value)
                     })
