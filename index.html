@@ -336,7 +336,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
             await new Promise(resolve => setTimeout(resolve, 100));
 
             try {
-              // Check for jEpub global object AND JSZip
+              // Check for jEpub global object AND JSZip and ejs
               if (typeof window.jEpub === 'undefined' || typeof window.JSZip === 'undefined' || typeof window.ejs === 'undefined') {
                 setError('EPUB generation libraries not loaded. Please ensure "jszip.min.js", "ejs.min.js", and "jepub.min.js" are saved in the same directory as your index.html file.');
                 setDownloadingEpub(false);
@@ -351,10 +351,11 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                 lang: targetLanguage.split(' ')[0].toLowerCase() // Use the first word of language for lang code
               });
 
-              jepub.addChapter({
-                title: `Translation in ${targetLanguage}`,
-                content: `<p>${translatedText.replace(/\n\s*\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`
-              });
+              // Correct method for adding a chapter/content to jEpub
+              jepub.add(
+                `Translation in ${targetLanguage}`,
+                `<p>${translatedText.replace(/\n\s*\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`
+              );
 
               const epubBlob = await jepub.generate('blob'); // Generate as Blob for client-side download
 
