@@ -1,6 +1,6 @@
 {
-  "name": "Universal Translator App",
-  "short_name": "Translator",
+  "name": "Gemini Translator App",
+  "short_name": "Gemini Translator",
   "description": "Translate text with glossary support.",
   "start_url": "./",
   "display": "standalone",
