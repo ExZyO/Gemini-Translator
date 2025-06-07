@@ -51,6 +51,9 @@
           const [modalMessage, setModalMessage] = useState('');
           const [modalCallback, setModalCallback] = useState(null);
 
+          // Version state for the app
+          const [version, setVersion] = useState('1.0.0');
+
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -391,7 +394,8 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
 
           return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-purple-500 to-indigo-700 p-4 font-sans text-gray-800 flex items-center justify-center' },
             React.createElement('div', { className: 'w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 space-y-8 backdrop-blur-md bg-opacity-90' },
-              React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-800 mb-8 tracking-tight' }, 'Universal Translator'),
+              React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-800 mb-2 tracking-tight' }, 'Universal Translator'), // Added mb-2 to create space
+              React.createElement('p', { className: 'text-center text-sm text-gray-500 mb-6' }, `Version: ${version}`), // Display version here
 
               React.createElement('div', { className: 'flex justify-center border-b border-gray-200' },
                 React.createElement('button', {
