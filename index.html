@@ -66,7 +66,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('1.0.9'); // Updated version for PWA functionality
+          const [version, setVersion] = useState('1.0.9');
 
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
@@ -409,8 +409,8 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
 
           return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-purple-500 to-indigo-700 p-4 font-sans text-gray-800 flex items-center justify-center' },
             React.createElement('div', { className: 'w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 space-y-8 backdrop-blur-md bg-opacity-90' },
-              React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-800 mb-2 tracking-tight' }, 'Gemini Translator'), // Added mb-2 to create space
-              React.createElement('p', { className: 'text-center text-sm text-gray-500 mb-6' }, `Version: ${version}`), // Display version here
+              React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-800 mb-2 tracking-tight' }, 'Gemini Translator'),
+              React.createElement('p', { className: 'text-center text-sm text-gray-500 mb-6' }, `Version: ${version}`),
 
               React.createElement('div', { className: 'flex justify-center border-b border-gray-200' },
                 React.createElement('button', {
@@ -460,7 +460,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   ),
                   React.createElement('button', {
                     onClick: handlePasteTranslate,
-                    className: 'w-full md:w-auto px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
+                    className: 'w-full md:w-auto md:mx-auto px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
                     disabled: loading
                   },
                     loading ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 24 }) : React.createElement(BookText, { className: 'mr-2', size: 24 }),
@@ -499,7 +499,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   value: terminology,
                   onChange: (e) => setTerminology(e.target.value)
                 }),
-                React.createElement('p', { className: 'text-sm text-gray-600' }, 'Enter your terminology guide. The translator will refer to this text to ensure specific words, names, or phrases are handled accurately.')
+                React.createElement('p', { className: 'text-sm text-gray-600' }, 'Enter your glossary. The translator will refer to this text to ensure specific words, names, or phrases are handled accurately.')
               ),
 
               React.createElement('div', { className: 'space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50' },
