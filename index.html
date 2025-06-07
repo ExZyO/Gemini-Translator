@@ -352,7 +352,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
               });
 
               // Correct method for adding a chapter/content to jEpub
-              jepub.add(
+              jepub.add( // Changed from jepub.addChapter to jepub.add
                 `Translation in ${targetLanguage}`,
                 `<p>${translatedText.replace(/\n\s*\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`
               );
