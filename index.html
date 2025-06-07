@@ -66,7 +66,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('1.1.2');
+          const [version, setVersion] = useState('1.1');
 
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
@@ -562,25 +562,25 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                       value: inputText,
                       onChange: (e) => setInputText(e.target.value)
                     }),
-                    React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
+                    React.createElement('div', { className: 'flex flex-col gap-2 mt-2' },
                       React.createElement('button', {
                         onClick: handlePasteInputText,
-                        className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
+                        className: 'w-full px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center'
                       }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste from Clipboard'),
                       React.createElement('button', {
                         onClick: handleCopyInputText,
-                        className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
+                        className: 'w-full px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center'
                       }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy Input Text')
                     )
                   ),
-                  React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' }, // Buttons for Clear and Swap, now responsive
+                  React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' },
                     React.createElement('button', {
                       onClick: handleSwapText,
-                      className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
+                      className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition-all duration-200 hover:scale-105 flex items-center justify-center'
                     }, React.createElement(RefreshCcw, { size: 16, className: 'mr-1' }), ' Swap Text'),
                     React.createElement('button', {
                       onClick: handleClearInput,
-                      className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition-all duration-200 hover:scale-105' // Added shadow, rounded-lg, transition
+                      className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition-all duration-200 hover:scale-105'
                     }, 'Clear Input')
                   ),
                   React.createElement('div', null,
@@ -637,18 +637,18 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   value: terminology,
                   onChange: (e) => setTerminology(e.target.value)
                 }),
-                React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
+                React.createElement('div', { className: 'flex flex-col gap-2 mt-2' },
                   React.createElement('button', {
                     onClick: handlePasteTerminology,
-                    className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
+                    className: 'w-full px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center'
                   }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste Glossary'),
                   React.createElement('button', {
                     onClick: handleCopyTerminology,
-                    className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
+                    className: 'w-full px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center'
                   }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy Glossary'),
                   React.createElement('button', {
                     onClick: handleClearTerminology,
-                    className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105' // Added shadow, rounded-lg, transition
+                    className: 'w-full px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105'
                   }, 'Clear Glossary')
                 ),
                 React.createElement('p', { className: 'text-sm text-gray-600' }, 'Enter your glossary. The translator will refer to this text to ensure specific words, names, or phrases are handled accurately.')
@@ -656,39 +656,39 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
 
               React.createElement('div', { className: 'space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50' },
                 React.createElement('h3', { className: 'text-xl font-bold text-gray-800' }, 'Manage Saved Glossaries'),
-                React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4 items-stretch' }, // Added flex-col and sm:flex-row
+                React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4 items-stretch' },
                   React.createElement('input', {
                     type: 'text',
-                    className: 'w-full sm:flex-grow p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500', // w-full for mobile
+                    className: 'w-full sm:flex-grow p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500',
                     placeholder: 'Name for current glossary...',
                     value: newGlossaryName,
                     onChange: (e) => setNewGlossaryName(e.target.value)
                   }),
                   React.createElement('button', {
                     onClick: handleSaveGlossary,
-                    className: 'w-full sm:w-auto px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-all duration-200 hover:scale-105' // w-full for mobile // Added shadow, rounded-lg, transition
+                    className: 'w-full sm:w-auto px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-all duration-200 hover:scale-105'
                   }, 'Save Current Glossary')
                 ),
-                savedGlossaries.length > 0 && React.createElement('div', {className: 'max-h-40 overflow-y-auto pr-2'}, // Added max-height and overflow for scroll
+                savedGlossaries.length > 0 && React.createElement('div', {className: 'max-h-40 overflow-y-auto pr-2'},
                   React.createElement('h4', { className: 'text-lg font-semibold text-gray-700 mb-2' }, 'Your Saved Glossaries:'),
                   React.createElement('ul', { className: 'space-y-2' },
                     savedGlossaries.map((glossary, index) =>
-                      React.createElement('li', { key: index, className: 'flex flex-wrap items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm' }, // Added flex-wrap // Added shadow, rounded-lg
-                        React.createElement('span', { className: `font-medium ${activeGlossaryId === glossary.name ? 'text-indigo-700' : 'text-gray-800'} mb-2 sm:mb-0` }, glossary.name), // Added margin for spacing
-                        React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' }, // Changed to flex-col for vertical stacking, with responsive horizontal on sm+
+                      React.createElement('li', { key: index, className: 'flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm' }, {/* Changed to flex-col on mobile, flex-row on sm+ */
+                        React.createElement('span', { className: `font-medium ${activeGlossaryId === glossary.name ? 'text-indigo-700' : 'text-gray-800'} mb-2 sm:mb-0 flex-grow text-left sm:text-left` }, glossary.name),
+                        React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 w-full sm:w-auto' }, {/* Flex column on mobile, flex row on sm+, full width on mobile */
                           React.createElement('button', {
                             onClick: () => handleLoadGlossary(glossary),
-                            className: 'px-3 py-1 text-sm bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105' // Added shadow, rounded-lg, transition
+                            className: 'w-full sm:w-auto px-3 py-1 text-sm bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105'
                           }, 'Load'),
                           activeGlossaryId === glossary.name && React.createElement('button', {
                             onClick: () => handleUpdateSpecificGlossary(glossary.name),
-                            className: 'px-3 py-1 text-sm bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
+                            className: 'w-full sm:w-auto px-3 py-1 text-sm bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105 flex items-center justify-center'
                           }, React.createElement(Save, { size: 14, className: 'mr-1' }), ' Save Edits'),
                           React.createElement('button', {
                             onClick: () => handleDeleteGlossary(glossary.name),
-                            className: 'px-3 py-1 text-sm bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105' // Added shadow, rounded-lg, transition
+                            className: 'w-full sm:w-auto px-3 py-1 text-sm bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105'
                           }, 'Delete')
-                        )
+                        })
                       )
                     )
                   )
@@ -697,35 +697,35 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
 
               React.createElement('div', { className: 'space-y-4' },
                 React.createElement('label', { htmlFor: 'apiKeyInput', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Your Gemini API Key (Required):'),
-                React.createElement('div', { className: 'relative flex items-center' }, // Flex container for input and toggle
-                    React.createElement('input', { // Changed from textarea to input
+                React.createElement('div', { className: 'relative flex items-center' },
+                    React.createElement('input', {
                         id: 'apiKeyInput',
-                        type: showApiKey ? 'text' : 'password', // Toggle type based on state
+                        type: showApiKey ? 'text' : 'password',
                         className: 'w-full p-3 pr-10 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
                         placeholder: 'Paste your Gemini API key here...',
                         value: apiKeyInput,
                         onChange: (e) => setApiKeyInput(e.target.value)
                     }),
                     React.createElement('button', {
-                        type: 'button', // Prevent form submission
+                        type: 'button',
                         onClick: () => setShowApiKey(!showApiKey),
                         className: 'absolute right-3 p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500'
                     },
                         showApiKey ? React.createElement(EyeOff, { size: 20 }) : React.createElement(Eye, { size: 20 })
                     )
                 ),
-                React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
+                React.createElement('div', { className: 'flex flex-col gap-2 mt-2' },
                   React.createElement('button', {
                     onClick: handleSaveApiKey,
-                    className: 'px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105' // Added shadow, rounded-lg, transition
+                    className: 'w-full px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105'
                   }, 'Save API Key'),
                   React.createElement('button', {
                     onClick: handleCopyApiKey,
-                    className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
+                    className: 'w-full px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center'
                   }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy API Key'),
                   React.createElement('button', {
                     onClick: handleClearApiKey,
-                    className: 'px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition-all duration-200 hover:scale-105' // Added shadow, rounded-lg, transition
+                    className: 'w-full px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition-all duration-200 hover:scale-105'
                   }, 'Clear API Key')
                 ),
                 React.createElement('p', { className: 'text-sm text-gray-600 mt-2' }, apiKeyStatus),
@@ -733,7 +733,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
 
 
               error && React.createElement('div', { className: 'bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-md flex items-center animate-fade-in-down' },
-                React.createElement(XCircle, { className: 'mr-3 cursor-pointer', size: 20, onClick: () => setError('') }), // Dismiss button
+                React.createElement(XCircle, { className: 'mr-3 cursor-pointer', size: 20, onClick: () => setError('') }),
                 React.createElement('p', { className: 'font-medium' }, error)
               ),
 
@@ -748,7 +748,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   })
                 ),
                 copySuccess && React.createElement('p', { className: 'text-sm text-green-700 mt-2 text-center' }, copySuccess),
-                React.createElement('div', { className: 'flex flex-col sm:flex-row justify-center gap-4' }, // Still horizontal on sm+ for main download buttons
+                React.createElement('div', { className: 'flex flex-col sm:flex-row justify-center gap-4' },
                   React.createElement('button', {
                     onClick: handleCopyToClipboard,
                     className: 'w-full sm:w-auto px-6 py-3 bg-blue-500 text-white font-bold rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition transform hover:scale-105 flex items-center justify-center text-lg'
@@ -756,7 +756,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   React.createElement('button', {
                     onClick: handleDownloadEPUB,
                     className: 'w-full sm:w-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full shadow-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
-                    disabled: downloadingEpub // Disable during download
+                    disabled: downloadingEpub
                   },
                     downloadingEpub ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
                     downloadingEpub ? 'Generating EPUB...' : 'Download EPUB'
@@ -764,7 +764,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   React.createElement('button', {
                     onClick: handleDownloadPDF,
                     className: 'w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
-                    disabled: downloadingPdf // Disable during download
+                    disabled: downloadingPdf
                   },
                     downloadingPdf ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
                     downloadingPdf ? 'Generating PDF...' : 'Download PDF'
