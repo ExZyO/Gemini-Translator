@@ -57,7 +57,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.0.0');
+          const [version, setVersion] = useState('1.1.1');
 
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
@@ -551,7 +551,8 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                       className: 'w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-y min-h-[150px] text-base',
                       placeholder: 'Paste your content here...',
                       value: inputText,
-                      onChange: (e) => setInputText(e.target.value)
+                      onChange: (e) => setInputText(e.target.value),
+                      onTouchStart: (e) => e.target.focus() // Added for mobile keyboard focus
                     }),
                     React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
                       React.createElement('button', {
@@ -626,7 +627,8 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[100px]',
                   placeholder: 'Paste your glossary here.',
                   value: terminology,
-                  onChange: (e) => setTerminology(e.target.value)
+                  onChange: (e) => setTerminology(e.target.value),
+                  onTouchStart: (e) => e.target.focus() // Added for mobile keyboard focus
                 }),
                 React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
                   React.createElement('button', {
@@ -700,7 +702,8 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                         className: 'w-full p-3 pr-10 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
                         placeholder: 'Paste your Gemini API key here...',
                         value: apiKeyInput,
-                        onChange: (e) => setApiKeyInput(e.target.value)
+                        onChange: (e) => setApiKeyInput(e.target.value),
+                        onTouchStart: (e) => e.target.focus() // Added for mobile keyboard focus
                     }),
                     React.createElement('button', {
                         type: 'button', // Prevent form submission
@@ -721,7 +724,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy API Key'),
                   React.createElement('button', {
                     onClick: handleClearApiKey,
-                    className: 'px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition-all duration-200 hover:scale-105' // Added shadow, rounded-lg, transition
+                    className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105' // Changed bg-yellow-500 to bg-red-500 and hover:bg-yellow-600 to hover:bg-red-600
                   }, 'Clear API Key')
                 ),
                 React.createElement('p', { className: 'text-sm text-gray-600 mt-2' }, apiKeyStatus),
