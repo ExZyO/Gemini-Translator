@@ -44,10 +44,18 @@
 
     <script type="module">
         console.log('Script started: Attempting to load React app.');
-        import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+        import React, { useState, useEffect } = 'https://esm.sh/react@18.2.0';
         import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
-        // Importing Eye and EyeOff icons for the password toggle
+        // Importing Lucide-React icons
         import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save } from 'https://esm.sh/lucide-react@0.372.0';
+
+        // Check if React and ReactDOM are actually loaded
+        if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
+            console.error('Error: React or ReactDOM failed to load from esm.sh. Please check your network connection or the CDN status.');
+        } else {
+            console.log('React and ReactDOM loaded successfully. Attempting to render App.');
+        }
+
 
         function App() {
           console.log('App component is rendering.');
@@ -76,7 +84,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('1.1.4');
+          const [version, setVersion] = useState('1.1.5');
 
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
@@ -750,7 +758,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                     className: 'w-full px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105'
                   }, 'Save API Key'),
                   React.createElement('button', {
-                    onClick: handlePasteApiKey, /* New Paste API Key button */
+                    onClick: handlePasteApiKey,
                     className: 'w-full px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center'
                   }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste API Key'),
                   React.createElement('button', {
@@ -829,7 +837,18 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
         const rootElement = document.getElementById('root');
         console.log('Root element:', rootElement);
         if (rootElement) {
-            ReactDOM.createRoot(rootElement).render(React.createElement(App));
+            try {
+                ReactDOM.createRoot(rootElement).render(React.createElement(App));
+                console.log('React application rendered successfully.');
+            } catch (renderError) {
+                console.error('Error during React application rendering:', renderError);
+                // Optionally display a fallback UI message here for the user
+                rootElement.innerHTML = `<div style="text-align: center; padding: 20px; color: red;">
+                    <h3>Application Error</h3>
+                    <p>There was an error loading the application. Please check the console for details and try again.</p>
+                    <p>Error: ${renderError.message}</p>
+                </div>`;
+            }
         } else {
             console.error('Root element not found to render React app.');
         }
