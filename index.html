@@ -66,7 +66,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('1.1');
+          const [version, setVersion] = useState('1.1.1');
 
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
@@ -175,6 +175,18 @@
             setShowModal(true);
           };
 
+          // Function to clear the terminology textarea
+          const handleClearTerminology = () => {
+            setModalMessage('Are you sure you want to clear the current glossary text area? This will not delete saved glossaries.');
+            setModalCallback(() => {
+              setTerminology('');
+              setActiveGlossaryId(null);
+              setError('');
+              setShowModal(false);
+            });
+            setShowModal(true);
+          };
+
           const handleModalConfirm = () => {
             if (modalCallback) {
               modalCallback();
@@ -185,6 +197,29 @@
             setShowModal(false);
             setModalCallback(null);
           };
+
+          // Function to paste text into the input text area
+          const handlePasteInputText = async () => {
+            try {
+              const text = await navigator.clipboard.readText();
+              setInputText(prevText => prevText + text); // Append pasted text
+              setError('');
+            } catch (err) {
+              setError('Failed to paste text: ' + err.message);
+            }
+          };
+
+          // Function to paste text into the glossary text area
+          const handlePasteTerminology = async () => {
+            try {
+              const text = await navigator.clipboard.readText();
+              setTerminology(prevText => prevText + text); // Append pasted text
+              setError('');
+            } catch (err) {
+              setError('Failed to paste text: ' + err.message);
+            }
+          };
+
 
           const translateContent = async (textToTranslate) => {
             setLoading(true);
@@ -433,7 +468,11 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                       placeholder: 'Paste your content here...',
                       value: inputText,
                       onChange: (e) => setInputText(e.target.value)
-                    })
+                    }),
+                    React.createElement('button', {
+                      onClick: handlePasteInputText,
+                      className: 'mt-2 px-4 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600 transition-colors flex items-center'
+                    }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste from Clipboard')
                   ),
                   React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' }, // Buttons for Clear and Swap, now responsive
                     React.createElement('button', {
@@ -499,6 +538,16 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   value: terminology,
                   onChange: (e) => setTerminology(e.target.value)
                 }),
+                React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' },
+                  React.createElement('button', {
+                    onClick: handlePasteTerminology,
+                    className: 'w-full sm:flex-1 px-4 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600 transition-colors flex items-center justify-center'
+                  }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste Glossary'),
+                  React.createElement('button', {
+                    onClick: handleClearTerminology,
+                    className: 'w-full sm:flex-1 px-4 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600 transition-colors'
+                  }, 'Clear Glossary')
+                ),
                 React.createElement('p', { className: 'text-sm text-gray-600' }, 'Enter your glossary. The translator will refer to this text to ensure specific words, names, or phrases are handled accurately.')
               ),
 
