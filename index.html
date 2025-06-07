@@ -34,7 +34,7 @@
           const [activeTab, setActiveTab] = useState('text');
           const [loading, setLoading] = useState(false);
           const [error, setError] = useState('');
-          const [showDisclaimer, setShowDisclaimer] = useState(true);
+          // Removed showDisclaimer state as the disclaimer is no longer present
           const [localApiKey, setLocalApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
           const [apiKeyInput, setApiKeyInput] = useState(localApiKey);
           const [apiKeyStatus, setApiKeyStatus] = useState('');
@@ -66,7 +66,7 @@
 
           useEffect(() => {
             if (localApiKey) {
-              setApiKeyStatus('Using your saved API key. This is required for translation outside of the Google AI Studio environment (e.g., on GitHub Pages).');
+              setApiKeyStatus('Using your locally saved API key. This is required for translation outside of the Google AI Studio environment (e.g., on GitHub Pages).');
             } else {
               setApiKeyStatus('API key is missing. A valid Gemini API key is REQUIRED for translation functionality outside of Google AI Studio (e.g., on GitHub Pages). Please enter your key below.');
             }
@@ -325,17 +325,6 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
           return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-purple-500 to-indigo-700 p-4 font-sans text-gray-800 flex items-center justify-center' },
             React.createElement('div', { className: 'w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 space-y-8 backdrop-blur-md bg-opacity-90' },
               React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-800 mb-8 tracking-tight' }, 'Universal Translator'),
-
-              showDisclaimer && React.createElement('div', { className: 'bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded-md shadow-md flex items-center justify-between' },
-                React.createElement('div', null,
-                  React.createElement('p', { className: 'font-semibold text-lg mb-1' }, 'Important Note on URL Scanning:'),
-                  React.createElement('p', { className: 'text-sm' }, 'Due to browser security policies (CORS) and the client-side nature of this application, direct arbitrary URL scanning and content extraction is not possible. For URL content, please copy the text and paste it into the "Text Paste" section below.')
-                ),
-                React.createElement('button', {
-                  onClick: () => setShowDisclaimer(false),
-                  className: 'ml-4 text-yellow-700 hover:text-yellow-900 focus:outline-none'
-                }, React.createElement(XCircle, { size: 20 }))
-              ),
 
               React.createElement('div', { className: 'flex justify-center border-b border-gray-200' },
                 React.createElement('button', {
