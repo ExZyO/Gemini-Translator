@@ -10,8 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- jsPDF CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- epub-gen-browser CDN -->
-    <script src="https://unpkg.com/epub-gen-browser/dist/epub-gen-browser.min.js"></script>
+    <!-- jEpub CDN for EPUB generation -->
+    <script src="https://unpkg.com/jepub/dist/jepub.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -45,6 +45,12 @@
           const [showApiKey, setShowApiKey] = useState(false);
           const [downloadingPdf, setDownloadingPdf] = useState(false); // New state for PDF download loading
           const [downloadingEpub, setDownloadingEpub] = useState(false); // New state for EPUB download loading
+
+          // State for the custom modal
+          const [showModal, setShowModal] = useState(false);
+          const [modalMessage, setModalMessage] = useState('');
+          const [modalCallback, setModalCallback] = useState(null);
+
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -106,13 +112,19 @@
             let updatedGlossaries;
 
             if (existingIndex > -1) {
-              // Using a custom modal/message box instead of window.confirm
-              const confirmOverwrite = window.confirm(`A glossary named "${newGlossaryName.trim()}" already exists. Do you want to overwrite it?`);
-              if (!confirmOverwrite) {
-                return;
-              }
-              updatedGlossaries = [...savedGlossaries];
-              updatedGlossaries[existingIndex] = { name: newGlossaryName.trim(), content: terminology };
+              setModalMessage(`A glossary named "${newGlossaryName.trim()}" already exists. Do you want to overwrite it?`);
+              setModalCallback(() => {
+                updatedGlossaries = [...savedGlossaries];
+                updatedGlossaries[existingIndex] = { name: newGlossaryName.trim(), content: terminology };
+                setSavedGlossaries(updatedGlossaries);
+                localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
+                setNewGlossaryName('');
+                setActiveGlossaryId(newGlossaryName.trim());
+                setError('');
+                setShowModal(false);
+              });
+              setShowModal(true);
+              return;
             } else {
               updatedGlossaries = [...savedGlossaries, { name: newGlossaryName.trim(), content: terminology }];
             }
@@ -131,9 +143,8 @@
           };
 
           const handleDeleteGlossary = (glossaryName) => {
-            // Using a custom modal/message box instead of window.confirm
-            const confirmDelete = window.confirm(`Are you sure you want to delete "${glossaryName}"?`);
-            if (confirmDelete) {
+            setModalMessage(`Are you sure you want to delete "${glossaryName}"?`);
+            setModalCallback(() => {
               const updatedGlossaries = savedGlossaries.filter(g => g.name !== glossaryName);
               setSavedGlossaries(updatedGlossaries);
               localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
@@ -142,7 +153,20 @@
                 setActiveGlossaryId(null);
               }
               setError('');
+              setShowModal(false);
+            });
+            setShowModal(true);
+          };
+
+          const handleModalConfirm = () => {
+            if (modalCallback) {
+              modalCallback();
             }
+          };
+
+          const handleModalCancel = () => {
+            setShowModal(false);
+            setModalCallback(null);
           };
 
           const translateContent = async (textToTranslate) => {
@@ -153,7 +177,6 @@
             const keyToUse = localApiKey;
             let finalApiUrl = BASE_GEMINI_API_URL;
 
-            // CRITICAL: Ensure a key is present before attempting the API call
             if (!keyToUse) {
                 setError('Translation failed: A valid Gemini API key is REQUIRED. Please enter and save your key.');
                 setLoading(false);
@@ -301,27 +324,46 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
             }
             setDownloadingEpub(true); // Start EPUB loading
             setError('');
+
+            // Give the library a moment to load from the CDN
+            await new Promise(resolve => setTimeout(resolve, 100));
+
             try {
-              if (typeof window.Epub === 'undefined') {
-                setError('EPUB library (Epub) not loaded. Cannot generate EPUB. Please ensure the CDN is accessible.');
-                setDownloadingEpub(false); // End loading on error
+              // Check for jEpub global object
+              if (typeof window.jEpub === 'undefined') {
+                setError('EPUB library (jEpub) not loaded. Please ensure "https://unpkg.com/jepub/dist/jepub.min.js" is accessible.');
+                setDownloadingEpub(false);
                 return;
               }
-              const options = {
+              const jepub = new window.jEpub();
+              jepub.init({
                 title: `Translated Content (${targetLanguage})`,
                 author: 'Gemini Translator',
-                output: `translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.epub`,
-                content: [
-                  {
-                    title: `Translation in ${targetLanguage}`,
-                    data: `<p>${translatedText.replace(/\n\s*\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`
-                  }
-                ]
-              };
-              await new window.Epub(options).render();
+                publisher: 'Gemini Translator App',
+                description: `Translated from source by Gemini Translator to ${targetLanguage}`,
+                lang: targetLanguage.split(' ')[0].toLowerCase() // Use the first word of language for lang code
+              });
+
+              jepub.addChapter({
+                title: `Translation in ${targetLanguage}`,
+                content: `<p>${translatedText.replace(/\n\s*\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`
+              });
+
+              const epubBlob = await jepub.generate('blob'); // Generate as Blob for client-side download
+
+              // Create a download link for the Blob
+              const url = URL.createObjectURL(epubBlob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.epub`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url); // Clean up the object URL
+
             } catch (err) {
               console.error("EPUB download error:", err);
-              setError(`Failed to generate EPUB: ${err.message}`);
+              setError(`Failed to generate EPUB: ${err.message}. Please ensure the jEpub library is loaded and accessible.`);
             } finally {
               setDownloadingEpub(false); // Always end loading
             }
@@ -417,7 +459,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   React.createElement('p', { className: 'text-gray-700 leading-relaxed' },
                     React.createElement('span', { className: 'font-semibold' }, 'How it would typically work with a backend:'),
                     React.createElement('br'),
-                    'In a full-stack application, you would input a URL here. A backend server (e.g., Node.js, Python Flask/Django) would then:'
+                    'In a full-stack application, you would input a URL here. A backend server (e.js., Node.js, Python Flask/Django) would then:'
                   ),
                   React.createElement('ol', { className: 'list-decimal list-inside ml-4 mt-2 space-y-1 text-gray-700' },
                     React.createElement('li', null, 'Use a library like `requests` (Python) or `axios` (`Node.js`) to fetch the HTML content from the provided URL.'),
@@ -547,6 +589,23 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   },
                     downloadingPdf ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
                     downloadingPdf ? 'Generating PDF...' : 'Download PDF'
+                  )
+                )
+              ),
+
+              // Custom Modal Component
+              showModal && React.createElement('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4' },
+                React.createElement('div', { className: 'bg-white rounded-lg shadow-xl p-6 max-w-sm w-full space-y-4' },
+                  React.createElement('p', { className: 'text-lg font-semibold text-gray-800 text-center' }, modalMessage),
+                  React.createElement('div', { className: 'flex justify-center gap-4 mt-4' },
+                    React.createElement('button', {
+                      onClick: handleModalConfirm,
+                      className: 'px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors'
+                    }, 'Confirm'),
+                    React.createElement('button', {
+                      onClick: handleModalCancel,
+                      className: 'px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors'
+                    }, 'Cancel')
                   )
                 )
               )
