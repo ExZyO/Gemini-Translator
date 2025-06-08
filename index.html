@@ -58,6 +58,7 @@ const [downloadingEpub, setDownloadingEpub] = useState(false); // New state for 
 const [uploadingFile, setUploadingFile] = useState(false); // New state for file upload loading
 const fileInputRef = useRef(null); // Ref for the file input element
 const [defaultGlossaryName, setDefaultGlossaryName] = useState(() => localStorage.getItem('defaultGlossaryName') || null); // New state for default glossary
+          const [translatedChapters, setTranslatedChapters] = useState([]); // Stores objects like { title: 'Chapter 1', content: 'Translated content...' }
 
 // State for the custom modal
 const [showModal, setShowModal] = useState(false);
@@ -65,8 +66,8 @@ const [modalMessage, setModalMessage] = useState('');
 const [modalCallback, setModalCallback] = useState(null);
 
 // Version state for the app
-       //   const [version, setVersion] = useState('2.1.0'); // CurrentVer
-          const [version, setVersion] = useState('2.1.4'); // CurrentVer
+          const [version, setVersion] = useState('2.1.1'); // CurrentVer
+          const [version, setVersion] = useState('2.1.3'); // CurrentVer - Updated for chapter list feature
 
 const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
 const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -522,39 +523,85 @@ throw new Error(`Translation error: ${err.message}. Please check your input and 
 };
 
 // Main function to translate an entire ebook by chunking
-const translateEbook = async (rawText) => {
+          const translateEbook = async (rawText) => {
+          const translateEbook = async (chaptersToTranslate) => {
 setIsEbookTranslating(true);
 setEbookTranslationProgress(0);
 setError('');
 setAssembledTranslatedText('');
-const translatedParts = [];
+            const translatedParts = [];
+            setTranslatedChapters([]); // Clear previous state
 
-if (!rawText.trim()) {
-setError('No content to translate from the file.');
-setIsEbookTranslating(false);
-return;
+            if (!rawText.trim()) {
+              setError('No content to translate from the file.');
+              setIsEbookTranslating(false);
+              return;
+            const allTranslatedPartsForDisplay = [];
+            const newTranslatedChapters = [];
+            let totalChunks = 0;
+            chaptersToTranslate.forEach(chap => {
+                totalChunks += splitIntoChunks(chap.text).length;
+            });
+            let processedChunks = 0;
+
+            if (!chaptersToTranslate || chaptersToTranslate.length === 0) {
+                setError('No content to translate from the file.');
+                setIsEbookTranslating(false);
+                return;
 }
 
 try {
-const chunks = splitIntoChunks(rawText);
-for (let i = 0; i < chunks.length; i++) {
-const chunk = chunks[i];
-const translatedChunk = await translateChunk(chunk);
-translatedParts.push(translatedChunk);
-setEbookTranslationProgress(Math.floor(((i + 1) / chunks.length) * 100));
-// Add a small delay between API calls to avoid rate limits
-await new Promise(resolve => setTimeout(resolve, 500));
+              const chunks = splitIntoChunks(rawText);
+              for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i];
+                const translatedChunk = await translateChunk(chunk);
+                translatedParts.push(translatedChunk);
+                setEbookTranslationProgress(Math.floor(((i + 1) / chunks.length) * 100));
+                // Add a small delay between API calls to avoid rate limits
+                await new Promise(resolve => setTimeout(resolve, 500));
+              for (let i = 0; i < chaptersToTranslate.length; i++) {
+                const chapter = chaptersToTranslate[i];
+                const chunks = splitIntoChunks(chapter.text);
+                const translatedChapterChunks = [];
+
+                for (let j = 0; j < chunks.length; j++) {
+                  const chunk = chunks[j];
+                  const translatedChunk = await translateChunk(chunk);
+                  translatedChapterChunks.push(translatedChunk);
+                  processedChunks++;
+                  setEbookTranslationProgress(Math.floor((processedChunks / totalChunks) * 100));
+                  await new Promise(resolve => setTimeout(resolve, 500)); // Delay between API calls
+                }
+                const translatedChapterContentRaw = translatedChapterChunks.join(' '); // Join chunks with space
+                // Normalize paragraph breaks for the translated chapter content
+                const normalizedTranslatedChapter = translatedChapterContentRaw
+                    .split(/\s*\n\s*\n\s*/) // Split by multiple newlines (with optional whitespace)
+                    .filter(p => p.trim() !== '') // Remove empty paragraphs
+                    .map(p => p.trim()) // Trim each paragraph
+                    .join('\n\n'); // Re-join with consistent double newlines
+
+                newTranslatedChapters.push({
+                    title: chapter.title,
+                    content: normalizedTranslatedChapter // Store normalized content for the chapter
+                });
+                // Add to the list for overall display text, including chapter markers
+                allTranslatedPartsForDisplay.push(`--- Start Chapter: ${chapter.title} ---\n\n${normalizedTranslatedChapter}\n\n--- End Chapter ---`);
+
 }
-              setAssembledTranslatedText(translatedParts.join('\n\n')); // Join translated chunks with double newlines
               // Normalize multiple newlines to ensure proper paragraph breaks
               const fullTranslatedText = translatedParts.join('\n\n');
               const normalizedText = fullTranslatedText.replace(/(\n\s*){2,}/g, '\n\n').trim();
               setAssembledTranslatedText(normalizedText);
+              // Set the state for individual translated chapters (for EPUB generation)
+              setTranslatedChapters(newTranslatedChapters);
+              // Set the state for the overall text area display and PDF generation
+              setAssembledTranslatedText(allTranslatedPartsForDisplay.join('\n\n').trim());
 
 } catch (err) {
 console.error("Ebook translation error:", err);
 setError(`Ebook translation failed: ${err.message}`);
 setAssembledTranslatedText('Translation failed for the ebook.');
+              setTranslatedChapters([]);
 } finally {
 setIsEbookTranslating(false);
 setEbookTranslationProgress(0);
@@ -566,6 +613,7 @@ const handleTranslateFromInputText = async () => {
 setLoading(true);
 setError('');
 setAssembledTranslatedText(''); // Clear previous translation for new request
+            setTranslatedChapters([]); // Clear chapters if translating single text
 
 if (!inputText.trim()) {
 setError('Please paste some text to translate.');
@@ -575,10 +623,15 @@ return;
 
 try {
 const translated = await translateChunk(inputText); // Use translateChunk for single text area translation
-              setAssembledTranslatedText(translated);
-              // Normalize multiple newlines to ensure proper paragraph breaks
+// Normalize multiple newlines to ensure proper paragraph breaks
               const normalizedTranslated = translated.replace(/(\n\s*){2,}/g, '\n\n').trim();
-              setAssembledTranslatedText(normalizedTranslated);
+              const normalizedTranslated = translated
+                  .split(/\s*\n\s*\n\s*/)
+                  .filter(p => p.trim() !== '')
+                  .map(p => p.trim())
+                  .join('\n\n');
+setAssembledTranslatedText(normalizedTranslated);
+              setTranslatedChapters([{ title: 'Translated Document', content: normalizedTranslated }]); // Treat single text as one chapter for download
 } catch (err) {
 setError(err.message);
 } finally {
@@ -606,93 +659,94 @@ await processFile(file);
 }
 };
 
-// Function to process the uploaded file based on its type
-const processFile = async (file) => {
-setUploadingFile(true);
-setError('');
-setInputText(''); // Clear previous text from the input area
+          // Function to process the uploaded file based on its type
+          const processFile = async (file) => {
+              setUploadingFile(true);
+              setError('');
+              setInputText(''); // Clear previous text from the input area
 
-try {
-const fileType = file.type;
-let extractedText = '';
+              try {
+                  const fileType = file.type;
+                  let extractedText = '';
 
-if (fileType === 'text/plain') {
-extractedText = await readFileAsText(file);
-} else if (fileType === 'application/pdf') {
-extractedText = await readPdfFile(file);
-} else if (fileType === 'application/epub+zip') {
-extractedText = await readEpubFile(file);
-} else {
-throw new Error('Unsupported file type. Please upload a .txt, .pdf, or .epub file.');
-}
+                  if (fileType === 'text/plain') {
+                      extractedText = await readFileAsText(file);
+                  } else if (fileType === 'application/pdf') {
+                      extractedText = await readPdfFile(file);
+                  } else if (fileType === 'application/epub+zip') {
+                      extractedText = await readEpubFile(file);
+                  } else {
+                      throw new Error('Unsupported file type. Please upload a .txt, .pdf, or .epub file.');
+                  }
 
-setCopySuccess(`Content extracted from ${file.name}! Starting translation...`);
-setTimeout(() => setCopySuccess(''), 3000);
+                  setCopySuccess(`Content extracted from ${file.name}! Starting translation...`);
+                  setTimeout(() => setCopySuccess(''), 3000);
 
-// Directly translate the extracted ebook content in chunks
-await translateEbook(extractedText);
+                  // Directly translate the extracted ebook content in chunks
+                  await translateEbook(extractedText);
 
-} catch (err) {
-console.error("File processing error:", err);
-setError(`Failed to process file: ${err.message}`);
-} finally {
-setUploadingFile(false);
-if (fileInputRef.current) {
-fileInputRef.current.value = ''; // Clear the file input
-}
-}
-};
+              } catch (err) {
+                  console.error("File processing error:", err);
+                  setError(`Failed to process file: ${err.message}`);
+              } finally {
+                  setUploadingFile(false);
+                  if (fileInputRef.current) {
+                      fileInputRef.current.value = ''; // Clear the file input
+                  }
+              }
+          };
 
-// Helper function to read a text file
-const readFileAsText = (file) => {
-return new Promise((resolve, reject) => {
-const reader = new FileReader();
-reader.onload = (e) => resolve(e.target.result);
-reader.onerror = (e) => reject(e.target.error);
-reader.readAsText(file);
-});
-};
+          // Helper function to read a text file
+          const readFileAsText = (file) => {
+              return new Promise((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = (e) => resolve(e.target.result);
+                  reader.onerror = (e) => reject(e.target.error);
+                  reader.readAsText(file);
+              });
+          };
 
-// Helper function to read a PDF file with better paragraph detection
-const readPdfFile = async (file) => {
-if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
-throw new Error('PDF.js library not loaded. Cannot process PDF files.');
-}
-const arrayBuffer = await file.arrayBuffer();
-const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-let fullText = '';
-const minParagraphSpacing = 1.5; // Heuristic for paragraph spacing (e.g., 1.5 times typical line height)
+          // Helper function to read a PDF file with better paragraph detection
+          const readPdfFile = async (file) => {
+            if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
+                throw new Error('PDF.js library not loaded. Cannot process PDF files.');
+            }
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            const minParagraphSpacing = 1.5; // Heuristic for paragraph spacing (e.g., 1.5 times typical line height)
 
-for (let i = 1; i <= pdf.numPages; i++) {
-const page = await pdf.getPage(i);
-const textContent = await page.getTextContent();
-let lastY = -1;
-let lastLineHeight = -1;
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                let lastY = -1;
+                let lastLineHeight = -1;
 
-textContent.items.forEach(item => {
-const currentY = item.transform[5]; // Y-coordinate of the text item
-const currentLineHeight = item.height; // Height of the text item (approx line height)
+                textContent.items.forEach(item => {
+                    const currentY = item.transform[5]; // Y-coordinate of the text item
+                    const currentLineHeight = item.height; // Height of the text item (approx line height)
 
-if (lastY !== -1) {
-// Check for significant vertical jump (potential paragraph break)
-if (currentY < lastY - (lastLineHeight * minParagraphSpacing)) {
-fullText += '\n\n'; // New paragraph
-} else if (currentY < lastY) {
-fullText += '\n'; // New line within a paragraph (if not just horizontal flow)
-} else {
-fullText += ' '; // Regular space
-}
-}
-fullText += item.str;
-lastY = currentY;
-lastLineHeight = currentLineHeight;
-});
-fullText += '\n\n--- Page End ---\n\n'; // Mark page breaks clearly
-}
-return fullText;
-};
+                    if (lastY !== -1) {
+                        // Check for significant vertical jump (potential paragraph break)
+                        if (currentY < lastY - (lastLineHeight * minParagraphSpacing)) {
+                            fullText += '\n\n'; // New paragraph
+                        } else if (currentY < lastY) {
+                            fullText += '\n'; // New line within a paragraph (if not just horizontal flow)
+                        } else {
+                            fullText += ' '; // Regular space
+                        }
+                    }
+                    fullText += item.str;
+                    lastY = currentY;
+                    lastLineHeight = currentLineHeight;
+                });
+                fullText += '\n\n--- Page End ---\n\n'; // Mark page breaks clearly
+            }
+            return fullText;
+          };
 
-// Helper function to read an EPUB file (using JSZip) with better HTML parsing
+          // Helper function to read an EPUB file (using JSZip) with better HTML parsing
+          // Helper function to read an EPUB file (using JSZip) and extract chapters with titles
 const readEpubFile = async (file) => {
 if (typeof window.JSZip === 'undefined') {
 throw new Error('JSZip library not loaded. Cannot process EPUB files.');
@@ -700,7 +754,9 @@ throw new Error('JSZip library not loaded. Cannot process EPUB files.');
 
 const zip = new window.JSZip();
 const contents = await zip.loadAsync(file);
-let fullText = '';
+              let fullText = '';
+              const chapterData = [];
+              let fullTextConcatenated = ''; // Keep this for overall text content
 
 // 1. Find the container.xml file (usually at META-INF/container.xml)
 const containerFile = contents.file('META-INF/container.xml');
@@ -715,6 +771,7 @@ const rootfilePath = containerDoc.querySelector('rootfile').getAttribute('full-p
 if (!rootfilePath) {
 throw new Error('EPUB error: Rootfile path not found in container.xml.');
 }
+              const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
 
 // 2. Load and parse the OPF file
 const opfFile = contents.file(rootfilePath);
@@ -724,26 +781,57 @@ throw new Error(`EPUB error: OPF file not found at ${rootfilePath}`);
 const opfContent = await opfFile.async('text');
 const opfDoc = new DOMParser().parseFromString(opfContent, "text/xml");
 
-// Get the directory of the OPF file to resolve relative paths
-const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
+              // Get the directory of the OPF file to resolve relative paths
+              const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
+              // 3. Find the NCX file (Table of Contents) from the OPF manifest
+              let ncxHref = null;
+              const ncxItem = opfDoc.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
+              if (ncxItem) {
+                  ncxHref = ncxItem.getAttribute('href');
+              }
 
-// 3. Build a map of manifest items (id to href)
-const manifestItems = new Map();
-opfDoc.querySelectorAll('manifest item').forEach(item => {
-manifestItems.set(item.getAttribute('id'), item.getAttribute('href'));
-});
+              const navMapTitles = new Map(); // Map content href (cleaned) to navLabel (title)
+              if (ncxHref) {
+                  const ncxPath = opfDir + ncxHref;
+                  const ncxFile = contents.file(ncxPath);
+                  if (ncxFile) {
+                      const ncxContent = await ncxFile.async('text');
+                      const ncxDoc = new DOMParser().parseFromString(ncxContent, "text/xml");
+                      ncxDoc.querySelectorAll('navPoint').forEach(navPoint => {
+                          const navLabel = navPoint.querySelector('navLabel text')?.textContent;
+                          const contentSrc = navPoint.querySelector('content')?.getAttribute('src');
+                          if (navLabel && contentSrc) {
+                              // Normalize contentSrc: remove anchor if present
+                              const cleanContentSrc = contentSrc.split('#')[0];
+                              navMapTitles.set(cleanContentSrc, navLabel);
+                          }
+                      });
+                  } else {
+                      console.warn(`NCX file not found at ${ncxPath}`);
+                  }
+              } else {
+                  console.warn('NCX manifest item not found in OPF. Chapter titles might be missing.');
+              }
+
+              // 3. Build a map of manifest items (id to href)
+              const manifestItems = new Map();
+              opfDoc.querySelectorAll('manifest item').forEach(item => {
+                  manifestItems.set(item.getAttribute('id'), item.getAttribute('href'));
+              });
 
 // Function to extract text from an HTML node, preserving breaks
 const extractTextFromNode = (node) => {
 let text = '';
 if (node.nodeType === Node.TEXT_NODE) {
-return node.textContent;
+                    return node.textContent;
+                    text += node.textContent; // Use += for text content
 }
 if (node.nodeType === Node.ELEMENT_NODE) {
-// Handle specific block-level elements
+                    // Handle specific block-level elements
 const tagName = node.tagName.toLowerCase();
 if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote'].includes(tagName)) {
-text += '\n\n'; // Add double newline before block element
+                        text += '\n\n'; // Add double newline before block element
+                        text += '\n\n';
 }
 
 for (const childNode of node.childNodes) {
@@ -751,26 +839,31 @@ text += extractTextFromNode(childNode);
 }
 
 if (tagName === 'br') {
-text += '\n'; // Convert <br> to newline
+                        text += '\n'; // Convert <br> to newline
+                        text += '\n';
 } else if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote'].includes(tagName)) {
-// Ensure text ends with a newline, but avoid triple newlines
+                        // Ensure text ends with a newline, but avoid triple newlines
 if (!text.endsWith('\n\n')) {
 text += '\n\n';
 }
 }
 }
-return text.replace(/ {2,}/g, ' ').trim(); // Remove multiple spaces and trim
+                return text.replace(/ {2,}/g, ' ').trim(); // Remove multiple spaces and trim
+                // Normalize spaces and trim the content of each block
+                return text.replace(/ {2,}/g, ' ').trim();
 };
 
 // 4. Iterate through the spine (reading order)
 const spine = opfDoc.querySelectorAll('spine itemref');
 for (const itemref of spine) {
 const idref = itemref.getAttribute('idref');
-const href = manifestItems.get(idref);
+                  const href = manifestItems.get(idref);
+                  const href = opfDoc.querySelector(`manifest item[id="${idref}"]`)?.getAttribute('href');
 
 if (href) {
-const mediaType = opfDoc.querySelector(`manifest item[id="${idref}"]`).getAttribute('media-type');
-// Only process HTML/XHTML content
+                      const mediaType = opfDoc.querySelector(`manifest item[id="${idref}"]`).getAttribute('media-type');
+                      // Only process HTML/XHTML content
+                      const mediaType = opfDoc.querySelector(`manifest item[id="${idref}"]`)?.getAttribute('media-type');
 if (mediaType && (mediaType === 'application/xhtml+xml' || mediaType === 'text/html')) {
 const contentPath = opfDir + href;
 const contentFile = contents.file(contentPath);
@@ -784,28 +877,160 @@ const doc = parser.parseFromString(htmlContent, "text/html");
 // Remove script and style tags
 doc.querySelectorAll('script, style').forEach(el => el.remove());
 
-// Extract text using the recursive helper function
-fullText += extractTextFromNode(doc.body);
-fullText += '\n\n--- Chapter End ---\n\n'; // Mark chapter breaks
+                                  // Extract text using the recursive helper function
+                                  fullText += extractTextFromNode(doc.body);
+                                  fullText += '\n\n--- Chapter End ---\n\n'; // Mark chapter breaks
+                                  const chapterText = extractTextFromNode(doc.body);
+                                  // Get title from navMap, fallback to heuristic or generic
+                                  let chapterTitle = navMapTitles.get(href.split('#')[0]); // Use cleaned href for lookup
+
+                                  // Fallback: If no navMap title, try to extract a main heading from the HTML
+                                  if (!chapterTitle) {
+                                      const firstHeading = doc.querySelector('h1, h2, h3, h4');
+                                      if (firstHeading && firstHeading.textContent.trim()) {
+                                          chapterTitle = firstHeading.textContent.trim();
+                                      }
+                                  }
+                                  // Final fallback for title
+                                  if (!chapterTitle) {
+                                      chapterTitle = `Chapter ${chapterData.length + 1}`;
+                                      // If the chapter text starts with a line that looks like a title, use it
+                                      const firstLine = chapterText.split('\n')[0].trim();
+                                      if (firstLine.length > 5 && firstLine.length < 100 && !firstLine.includes('.')) {
+                                          chapterTitle = firstLine;
+                                      }
+                                  }
+
+
+                                  chapterData.push({ title: chapterTitle, text: chapterText });
+                                  // Also concatenate for the fullText output
+                                  fullTextConcatenated += `\n\n--- Start Chapter: ${chapterTitle} ---\n\n` + chapterText.trim();
+                                  fullTextConcatenated += '\n\n--- End Chapter ---\n\n';
+
 } catch (e) {
 console.warn(`Could not parse or extract text from ${contentFile.name}:`, e);
-// Continue processing other files even if one fails
+                                  // Continue processing other files even if one fails
+                                  const errorChapterTitle = navMapTitles.get(href.split('#')[0]) || `Chapter ${chapterData.length + 1} (Error)`;
+                                  chapterData.push({ title: errorChapterTitle, text: '' }); // Push empty content for failed chapter
+                                  fullTextConcatenated += `\n\n--- Start Chapter: ${errorChapterTitle} ---\n\n` + 'Content extraction failed for this chapter.';
+                                  fullTextConcatenated += '\n\n--- End Chapter ---\n\n';
 }
 }
 }
 }
 }
 
-if (!fullText.trim()) {
+              if (!fullText.trim()) {
+              if (!fullTextConcatenated.trim() && chapterData.length === 0) {
 throw new Error('Could not extract readable text from EPUB file. No text content found in spine items or within HTML blocks.');
 }
-return fullText.trim(); // Final trim
+              return fullText.trim(); // Final trim
+
+              // Return both the full concatenated text and the structured chapter data
+              return { fullText: fullTextConcatenated.trim(), chapters: chapterData };
+          };
+
+
+          // Function to process the uploaded file based on its type
+          const processFile = async (file) => {
+              setUploadingFile(true);
+              setError('');
+              setInputText(''); // Clear previous text from the input area
+              setAssembledTranslatedText(''); // Clear previous assembled text
+              setTranslatedChapters([]); // Clear previous translated chapters
+
+              try {
+                  const fileType = file.type;
+                  let extractedData = { fullText: '', chapters: [] }; // Standardize extracted data structure
+
+                  if (fileType === 'text/plain') {
+                      extractedData.fullText = await readFileAsText(file);
+                      extractedData.chapters = [{ title: file.name || 'Document', text: extractedData.fullText }]; // Treat as single chapter
+                  } else if (fileType === 'application/pdf') {
+                      extractedData.fullText = await readPdfFile(file);
+                      // For PDF, we don't have explicit chapters from the file itself unless OCR/advanced parsing is used.
+                      // So we'll treat it as one large chapter for now, but label it for the TOC.
+                      extractedData.chapters = [{ title: file.name || 'PDF Document', text: extractedData.fullText }];
+                  } else if (fileType === 'application/epub+zip') {
+                      extractedData = await readEpubFile(file); // This now returns { fullText, chapters }
+                  } else {
+                      throw new Error('Unsupported file type. Please upload a .txt, .pdf, or .epub file.');
+                  }
+
+                  setCopySuccess(`Content extracted from ${file.name}! Starting translation...`);
+                  setTimeout(() => setCopySuccess(''), 3000);
+
+                  // Pass the structured chapter data to translateEbook
+                  await translateEbook(extractedData.chapters);
+
+              } catch (err) {
+                  console.error("File processing error:", err);
+                  setError(`Failed to process file: ${err.message}`);
+                  setAssembledTranslatedText('Failed to extract content from file.');
+                  setTranslatedChapters([]);
+              } finally {
+                  setUploadingFile(false);
+                  if (fileInputRef.current) {
+                      fileInputRef.current.value = ''; // Clear the file input
+                  }
+              }
+          };
+
+          // Helper function to read a text file
+          const readFileAsText = (file) => {
+              return new Promise((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = (e) => resolve(e.target.result);
+                  reader.onerror = (e) => reject(e.target.error);
+                  reader.readAsText(file);
+              });
+          };
+
+          // Helper function to read a PDF file with better paragraph detection
+          const readPdfFile = async (file) => {
+            if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
+                throw new Error('PDF.js library not loaded. Cannot process PDF files.');
+            }
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            const minParagraphSpacing = 1.5; // Heuristic for paragraph spacing (e.g., 1.5 times typical line height)
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                let lastY = -1;
+                let lastLineHeight = -1;
+
+                textContent.items.forEach(item => {
+                    const currentY = item.transform[5]; // Y-coordinate of the text item
+                    const currentLineHeight = item.height; // Height of the text item (approx line height)
+
+                    if (lastY !== -1) {
+                        // Check for significant vertical jump (potential paragraph break)
+                        if (currentY < lastY - (lastLineHeight * minParagraphSpacing)) {
+                            fullText += '\n\n'; // New paragraph
+                        } else if (currentY < lastY) {
+                            fullText += '\n'; // New line within a paragraph (if not just horizontal flow)
+                        } else {
+                            fullText += ' '; // Regular space
+                        }
+                    }
+                    fullText += item.str;
+                    lastY = currentY;
+                    lastLineHeight = currentLineHeight;
+                });
+                fullText += '\n\n--- Page End ---\n\n'; // Mark page breaks clearly
+            }
+            return fullText;
 };
 
 
 const handleDownloadPDF = () => {
-if (!assembledTranslatedText) {
-setError('No translated text to download.');
+            if (!assembledTranslatedText) {
+              setError('No translated text to download.');
+            if (!assembledTranslatedText || translatedChapters.length === 0) { // Ensure we have structured chapters
+              setError('No translated text or chapter data to download as PDF.');
 return;
 }
 setDownloadingPdf(true); // Start PDF loading
@@ -821,110 +1046,183 @@ doc.setFont('Inter', 'normal');
 doc.setFontSize(12);
 doc.setTextColor(0, 0, 0);
 
-              const textLines = doc.splitTextToSize(assembledTranslatedText, 180);
 const lineHeight = 10;
-              const paragraphSpacing = 5; // Additional space between paragraphs
-let y = 10;
-              const margin = 10;
-              const maxWidth = doc.internal.pageSize.width - 2 * margin;
+const paragraphSpacing = 5; // Additional space between paragraphs
+              let y = 10;
+const margin = 10;
+const maxWidth = doc.internal.pageSize.width - 2 * margin;
 
               // Split the assembled translated text into paragraphs
               const paragraphs = assembledTranslatedText.split(/\n\n+/).filter(p => p.trim() !== ''); // Split by one or more blank lines
+              let currentY = margin;
+              const chapterPageMap = new Map(); // To store chapter titles and their start pages
 
-              textLines.forEach(line => {
-                if (y + lineHeight > doc.internal.pageSize.height - 10) {
-                  doc.addPage();
-                  y = 10;
+              // 1. Generate Table of Contents page
+              doc.setFontSize(18);
+              doc.text("Table of Contents", margin, currentY);
+              currentY += lineHeight * 2; // Space after title
+              doc.setFontSize(12);
+
+              const tocStartPage = doc.internal.getCurrentPageInfo().pageNumber;
+              const tocYOffset = currentY; // Store initial Y for TOC entries
+
               paragraphs.forEach((paragraph, index) => {
                 const textLines = doc.splitTextToSize(paragraph.trim(), maxWidth);
+              // Create a placeholder for TOC entries, will fill later
+              // Each TOC entry will be added with its title and page number
+              // This requires knowing page numbers beforehand, which means processing content first.
+              // So we'll iterate through chapters for their page numbers later.
+              // For now, reserve space or just add them sequentially after content is rendered.
 
                 textLines.forEach(line => {
                   if (y + lineHeight > doc.internal.pageSize.height - margin) {
-                    doc.addPage();
+              doc.addPage(); // Start content on a new page after TOC placeholder
+              currentY = margin; // Reset Y for content pages
+
+              // 2. Add each translated chapter content
+              translatedChapters.forEach((chapter, chapterIndex) => {
+                // Record the starting page for this chapter
+                const chapterStartPage = doc.internal.getCurrentPageInfo().pageNumber;
+                chapterPageMap.set(chapter.title, chapterStartPage);
+
+                // Add chapter title if it's not the first (or always for clarity)
+                // Ensure there's space for the title before adding it
+                if (currentY + lineHeight * 1.5 > doc.internal.pageSize.height - margin && chapterIndex > 0) {
+doc.addPage();
                     y = margin;
                   }
                   doc.text(line, margin, y);
                   y += lineHeight;
                 });
+                    currentY = margin;
+                }
 
                 // Add extra spacing after each paragraph, except the last one
                 if (index < paragraphs.length - 1) {
                   y += paragraphSpacing;
+                if (chapter.title.trim()) {
+                    doc.setFontSize(14); // Larger font for chapter titles
+                    doc.text(chapter.title, margin, currentY);
+                    currentY += lineHeight * 1.5; // Space after chapter title
+                    doc.setFontSize(12); // Back to normal for content
 }
-                doc.text(line, 10, y);
-                y += lineHeight;
+              });
+
+
+              doc.save(`translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.pdf`);
+            } catch (err) {
+              console.error("PDF download error:", err);
+              setError(`Failed to generate PDF: ${err.message}`);
+            } finally {
+              setDownloadingPdf(false); // Always end loading
+            }
+          };
+                const paragraphs = chapter.content.split(/\n\n+/).filter(p => p.trim() !== '');
+
+          const handleDownloadEPUB = async () => {
+            if (!assembledTranslatedText) {
+              setError('No translated text to download.');
+              return;
+            }
+            setDownloadingEpub(true); // Start EPUB loading
+            setError('');
+                paragraphs.forEach((paragraph, paraIndex) => {
+                  const textLines = doc.splitTextToSize(paragraph.trim(), maxWidth);
+
+            // Give the library a moment to load from the CDN
+            await new Promise(resolve => setTimeout(resolve, 100));
+                  textLines.forEach(line => {
+                    if (currentY + lineHeight > doc.internal.pageSize.height - margin) {
+                      doc.addPage();
+                      currentY = margin;
+                    }
+                    doc.text(line, margin, currentY);
+                    currentY += lineHeight;
+                  });
+
+            try {
+              // Check for jEpub global object AND JSZip and ejs
+              if (typeof window.jEpub === 'undefined' || typeof window.JSZip === 'undefined' || typeof window.ejs === 'undefined') {
+                setError('EPUB generation libraries not loaded. Please ensure "jszip.min.js", "ejs.min.js", and "jepub.min.js" are saved in the same directory as your index.html file.');
+                setDownloadingEpub(false);
+                return;
+              }
+              const jepub = new window.jEpub();
+              jepub.init({
+                title: `Translated Content (${targetLanguage})`,
+                author: 'Gemini Translator',
+                publisher: 'Gemini Translator App',
+                description: `Translated from source by Gemini Translator to ${targetLanguage}`,
+                lang: targetLanguage.split(' ')[0].toLowerCase() // Use the first word of language for lang code
+              });
+                  // Add extra spacing after each paragraph, except the last one in the chapter
+                  if (paraIndex < paragraphs.length - 1) {
+                    currentY += paragraphSpacing;
+                  }
+                });
+                // Ensure a break between chapters, even if the last paragraph of previous chapter was short
+                currentY += paragraphSpacing * 2; // Extra spacing between distinct chapters
+
+              // --- IMPROVED EPUB CONTENT FORMATTING ---
+              const paragraphs = assembledTranslatedText.trim().split(/\n\s*\n+/); // Split by one or more blank lines for paragraphs
+              let htmlContent = '';
+              paragraphs.forEach(para => {
+                if (para.trim()) {
+                  const lines = para.trim().split(/\n+/); // Split remaining lines by one or more newlines within a paragraph
+                  htmlContent += `<p>${lines.join('<br/>')}</p>`;
+                }
 });
+              // --- END IMPROVED EPUB CONTENT FORMATTING ---
 
+              jepub.add(
+                `Translation in ${targetLanguage}`,
+                htmlContent
+              );
+              // 3. Fill in the Table of Contents on the TOC page
+              doc.setPage(tocStartPage); // Go back to the TOC page
+              doc.setFontSize(12);
+              currentY = tocYOffset; // Reset Y to where TOC entries should start
 
-doc.save(`translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.pdf`);
+              const epubBlob = await jepub.generate('blob'); // Generate as Blob for client-side download
+              chapterPageMap.forEach((pageNumber, title) => {
+                // Ensure TOC entries don't overflow the page
+                if (currentY + lineHeight > doc.internal.pageSize.height - margin) {
+                    // This scenario is unlikely for TOC unless there are hundreds of chapters
+                    // but it's good practice to handle potential overflow for very long TOCs.
+                    doc.addPage();
+                    currentY = margin;
+                    doc.setFontSize(12); // Reset font size if new page
+                }
+                // Right align page number
+                const pageNumberText = `Page ${pageNumber}`;
+                const titleWidth = doc.getStringUnitWidth(title) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+                const pageNumWidth = doc.getStringUnitWidth(pageNumberText) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+                const dotsWidth = maxWidth - titleWidth - pageNumWidth;
+                const dots = '.'.repeat(Math.floor(dotsWidth / (doc.getStringUnitWidth('.') * doc.internal.getFontSize() / doc.internal.scaleFactor)));
+
+                doc.text(`${title} ${dots} ${pageNumberText}`, margin, currentY);
+                currentY += lineHeight;
+              });
+
+              // Create a download link for the Blob
+              const url = URL.createObjectURL(epubBlob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.epub`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url); // Clean up the object URL
+
+              doc.save(`translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.pdf`);
 } catch (err) {
-console.error("PDF download error:", err);
-setError(`Failed to generate PDF: ${err.message}`);
+              console.error("EPUB download error:", err);
+              setError(`Failed to generate EPUB: ${err.message}. Please ensure the jEpub library is loaded and accessible.`);
+              console.error("PDF download error:", err);
+              setError(`Failed to generate PDF: ${err.message}`);
 } finally {
-setDownloadingPdf(false); // Always end loading
-}
-};
-
-const handleDownloadEPUB = async () => {
-if (!assembledTranslatedText) {
-setError('No translated text to download.');
-return;
-}
-setDownloadingEpub(true); // Start EPUB loading
-setError('');
-
-// Give the library a moment to load from the CDN
-await new Promise(resolve => setTimeout(resolve, 100));
-
-try {
-// Check for jEpub global object AND JSZip and ejs
-if (typeof window.jEpub === 'undefined' || typeof window.JSZip === 'undefined' || typeof window.ejs === 'undefined') {
-setError('EPUB generation libraries not loaded. Please ensure "jszip.min.js", "ejs.min.js", and "jepub.min.js" are saved in the same directory as your index.html file.');
-setDownloadingEpub(false);
-return;
-}
-const jepub = new window.jEpub();
-jepub.init({
-title: `Translated Content (${targetLanguage})`,
-author: 'Gemini Translator',
-publisher: 'Gemini Translator App',
-description: `Translated from source by Gemini Translator to ${targetLanguage}`,
-lang: targetLanguage.split(' ')[0].toLowerCase() // Use the first word of language for lang code
-});
-
-// --- IMPROVED EPUB CONTENT FORMATTING ---
-const paragraphs = assembledTranslatedText.trim().split(/\n\s*\n+/); // Split by one or more blank lines for paragraphs
-let htmlContent = '';
-paragraphs.forEach(para => {
-if (para.trim()) {
-const lines = para.trim().split(/\n+/); // Split remaining lines by one or more newlines within a paragraph
-htmlContent += `<p>${lines.join('<br/>')}</p>`;
-}
-});
-// --- END IMPROVED EPUB CONTENT FORMATTING ---
-
-jepub.add(
-`Translation in ${targetLanguage}`,
-htmlContent
-);
-
-const epubBlob = await jepub.generate('blob'); // Generate as Blob for client-side download
-
-// Create a download link for the Blob
-const url = URL.createObjectURL(epubBlob);
-const a = document.createElement('a');
-a.href = url;
-a.download = `translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.epub`;
-document.body.appendChild(a);
-a.click();
-document.body.removeChild(a);
-URL.revokeObjectURL(url); // Clean up the object URL
-
-} catch (err) {
-console.error("EPUB download error:", err);
-setError(`Failed to generate EPUB: ${err.message}. Please ensure the jEpub library is loaded and accessible.`);
-} finally {
-setDownloadingEpub(false); // Always end loading
+              setDownloadingEpub(false); // Always end loading
+              setDownloadingPdf(false); // Always end loading
 }
 };
 
