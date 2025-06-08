@@ -61,7 +61,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.0.5'); // Updated version to 2.0.5
+          const [version, setVersion] = useState('2.0.5'); //CurrentVersion
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -737,8 +737,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                       className: 'w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-y min-h-[150px] text-base',
                       placeholder: 'Paste your content here...',
                       value: inputText,
-                      onChange: (e) => setInputText(e.target.value),
-                      onTouchStart: (e) => e.target.focus() // Added for mobile keyboard focus
+                      onChange: (e) => setInputText(e.target.value)
                     }),
                     React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
                       React.createElement('button', {
@@ -799,7 +798,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   React.createElement('ol', { className: 'list-decimal list-inside ml-4 mt-2 space-y-1 text-gray-700' },
                     React.createElement('li', null, 'Use a library like `requests` (Python) or `axios` (`Node.js`) to fetch the HTML content from the provided URL.'),
                     React.createElement('li', null, 'Parse the HTML using libraries like `BeautifulSoup` (Python) or `cheerio` (`Node.js`) to extract the main textual content.'),
-                    React.createElement('li', null, 'Send this extracted text to the Gemini API for translation.'),
+                    React('li', null, 'Send this extracted text to the Gemini API for translation.'),
                     React.createElement('li', null, 'Return the translated text to the frontend.')
                   ),
                   React.createElement('p', { className: 'text-gray-700 font-semibold' }, 'For now, please manually copy content from any URL (e.g., Lofter posts) and paste it into the "Text Paste" section to utilize the translation functionality.')
@@ -813,8 +812,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[100px]',
                   placeholder: 'Paste your glossary here.',
                   value: terminology,
-                  onChange: (e) => setTerminology(e.target.value),
-                  onTouchStart: (e) => e.target.focus() // Added for mobile keyboard focus
+                  onChange: (e) => setTerminology(e.target.value)
                 }),
                 React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
                   React.createElement('button', {
@@ -888,8 +886,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                         className: 'w-full p-3 pr-10 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
                         placeholder: 'Paste your Gemini API key here...',
                         value: apiKeyInput,
-                        onChange: (e) => setApiKeyInput(e.target.value),
-                        onTouchStart: (e) => e.target.focus() // Added for mobile keyboard focus
+                        onChange: (e) => setApiKeyInput(e.target.value)
                     }),
                     React.createElement('button', {
                         type: 'button', // Prevent form submission
