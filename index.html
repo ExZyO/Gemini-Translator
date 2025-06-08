@@ -231,6 +231,19 @@
             }
           };
 
+          // Function to paste text into the API key input area
+          const handlePasteApiKey = async () => {
+            try {
+              const text = await navigator.clipboard.readText();
+              setApiKeyInput(text); // Replace content with pasted text
+              setError('');
+              setCopySuccess('API key pasted from clipboard!');
+              setTimeout(() => setCopySuccess(''), 3000);
+            } catch (err) {
+              setError('Failed to paste API key: ' + err.message);
+            }
+          };
+
           // Function to copy API key to clipboard
           const handleCopyApiKey = () => {
             if (!apiKeyInput.trim()) {
@@ -718,6 +731,10 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                     onClick: handleSaveApiKey,
                     className: 'px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105' // Added shadow, rounded-lg, transition
                   }, 'Save API Key'),
+                  React.createElement('button', {
+                    onClick: handlePasteApiKey, // New paste button for API key
+                    className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
+                  }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste API Key'),
                   React.createElement('button', {
                     onClick: handleCopyApiKey,
                     className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
