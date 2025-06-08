@@ -61,7 +61,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.0.6'); //CurrentVersion
+          const [version, setVersion] = useState('2.0.6');
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -479,7 +479,8 @@
             finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
 
 
-            let prompt = `Please translate the following text into ${targetLanguage}.`;
+            // IMPORTANT: Modified prompt to request preservation of formatting
+            let prompt = `Please translate the following text into ${targetLanguage}. Maintain original paragraph breaks and formatting where appropriate.`;
 
             if (terminology.trim()) {
               prompt += `
@@ -798,7 +799,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   React.createElement('ol', { className: 'list-decimal list-inside ml-4 mt-2 space-y-1 text-gray-700' },
                     React.createElement('li', null, 'Use a library like `requests` (Python) or `axios` (`Node.js`) to fetch the HTML content from the provided URL.'),
                     React.createElement('li', null, 'Parse the HTML using libraries like `BeautifulSoup` (Python) or `cheerio` (`Node.js`) to extract the main textual content.'),
-                    React('li', null, 'Send this extracted text to the Gemini API for translation.'),
+                    React.createElement('li', null, 'Send this extracted text to the Gemini API for translation.'),
                     React.createElement('li', null, 'Return the translated text to the frontend.')
                   ),
                   React.createElement('p', { className: 'text-gray-700 font-semibold' }, 'For now, please manually copy content from any URL (e.g., Lofter posts) and paste it into the "Text Paste" section to utilize the translation functionality.')
