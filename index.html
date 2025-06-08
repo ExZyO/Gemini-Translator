@@ -54,6 +54,7 @@
           const [downloadingEpub, setDownloadingEpub] = useState(false); // New state for EPUB download loading
           const [uploadingFile, setUploadingFile] = useState(false); // New state for file upload loading
           const fileInputRef = useRef(null); // Ref for the file input element
+          const [defaultGlossaryName, setDefaultGlossaryName] = useState(() => localStorage.getItem('defaultGlossaryName') || null); // New state for default glossary
 
           // State for the custom modal
           const [showModal, setShowModal] = useState(false);
@@ -61,7 +62,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.0.7'); // CurrentVersion
+          const [version, setVersion] = useState('2.0.8'); // CurrentVer
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -80,6 +81,21 @@
           useEffect(() => {
             const storedGlossaries = JSON.parse(localStorage.getItem('savedGlossaries') || '[]');
             setSavedGlossaries(storedGlossaries);
+
+            const storedDefaultGlossaryName = localStorage.getItem('defaultGlossaryName');
+            if (storedDefaultGlossaryName) {
+                setDefaultGlossaryName(storedDefaultGlossaryName);
+                const defaultGlossary = storedGlossaries.find(g => g.name === storedDefaultGlossaryName);
+                if (defaultGlossary) {
+                    setTerminology(defaultGlossary.content);
+                    setActiveGlossaryId(defaultGlossary.name);
+                    setError('');
+                } else {
+                    // If default glossary is not found in saved list, clear the default setting
+                    localStorage.removeItem('defaultGlossaryName');
+                    setDefaultGlossaryName(null);
+                }
+            }
 
             // Set the worker source for PDF.js
             if (typeof window.pdfjsLib !== 'undefined') {
@@ -184,8 +200,40 @@
                 setTerminology('');
                 setActiveGlossaryId(null);
               }
+              // If the deleted glossary was the default, clear default setting
+              if (defaultGlossaryName === glossaryName) {
+                localStorage.removeItem('defaultGlossaryName');
+                setDefaultGlossaryName(null);
+              }
               setError('');
               setShowModal(false);
+            });
+            setShowModal(true);
+          };
+
+          // Function to set the current active glossary as default
+          const handleSetDefaultGlossary = () => {
+            if (activeGlossaryId) {
+                localStorage.setItem('defaultGlossaryName', activeGlossaryId);
+                setDefaultGlossaryName(activeGlossaryId);
+                setCopySuccess(`"${activeGlossaryId}" set as default glossary!`);
+                setError('');
+                setTimeout(() => setCopySuccess(''), 3000);
+            } else {
+                setError('Please load a glossary first to set it as default.');
+            }
+          };
+
+          // Function to clear the default glossary setting
+          const handleClearDefaultGlossary = () => {
+            setModalMessage('Are you sure you want to clear the default glossary setting?');
+            setModalCallback(() => {
+              localStorage.removeItem('defaultGlossaryName');
+              setDefaultGlossaryName(null);
+              setCopySuccess('Default glossary setting cleared!');
+              setError('');
+              setShowModal(false);
+              setTimeout(() => setCopySuccess(''), 3000);
             });
             setShowModal(true);
           };
@@ -480,7 +528,7 @@
 
 
             // IMPORTANT: Modified prompt to request preservation of formatting
-            let prompt = `Please translate the following text into ${targetLanguage}. Maintain original paragraph breaks and formatting where appropriate.`;
+            let prompt = `Please translate the following text into ${targetLanguage}. Ensure that all original paragraph breaks and sentence separations are preserved in the translation. Each new paragraph in the original text should correspond to a new paragraph in the translated text. Each sentence should end with appropriate punctuation and be followed by a space before the next sentence, unless it's a new paragraph.`;
 
             if (terminology.trim()) {
               prompt += `
@@ -847,6 +895,18 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                     className: 'w-full sm:w-auto px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-all duration-200 hover:scale-105' // w-full for mobile // Added shadow, rounded-lg, transition
                   }, 'Save Current Glossary')
                 ),
+                React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4 items-stretch' },
+                  React.createElement('button', {
+                    onClick: handleSetDefaultGlossary,
+                    className: 'w-full sm:w-auto px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105',
+                    disabled: !activeGlossaryId
+                  }, 'Set Current as Default'),
+                  React.createElement('button', {
+                    onClick: handleClearDefaultGlossary,
+                    className: 'w-full sm:w-auto px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg shadow-md hover:bg-orange-600 transition-all duration-200 hover:scale-105',
+                    disabled: !defaultGlossaryName
+                  }, 'Clear Default Setting')
+                ),
                 savedGlossaries.length > 0 && React.createElement('div', {className: 'max-h-40 overflow-y-auto pr-2'}, // Added max-height and overflow for scroll
                   React.createElement('h4', { className: 'text-lg font-semibold text-gray-700 mb-2' }, 'Your Saved Glossaries:'),
                   React.createElement('ul', { className: 'space-y-2' },
@@ -857,7 +917,9 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                       return 0;
                     }).map((glossary, index) =>
                       React.createElement('li', { key: index, className: 'flex flex-wrap items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm' }, // Added flex-wrap // Added shadow, rounded-lg
-                        React.createElement('span', { className: `font-medium ${activeGlossaryId === glossary.name ? 'text-indigo-700' : 'text-gray-800'} mb-2 sm:mb-0` }, glossary.name), // Added margin for spacing
+                        React.createElement('span', { className: `font-medium ${activeGlossaryId === glossary.name ? 'text-indigo-700' : 'text-gray-800'} mb-2 sm:mb-0` }, glossary.name,
+                          defaultGlossaryName === glossary.name && React.createElement('span', { className: 'text-xs text-indigo-500 ml-2' }, '(Default)')
+                        ), // Added margin for spacing
                         React.createElement('div', { className: 'flex flex-col w-full sm:w-auto sm:flex-row gap-2' }, // Added w-full here to stretch container, and sm:w-auto to revert on larger screens
                           React.createElement('button', {
                             onClick: () => handleLoadGlossary(glossary),
