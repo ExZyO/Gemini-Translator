@@ -66,7 +66,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.1.8'); // CurrentVer - Fix for chapter spacing and jumbling
+          const [version, setVersion] = useState('2.1.9'); // CurrentVer - Fix for chapter spacing and jumbling
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -738,39 +738,37 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
               let cleanedText = text;
 
               // Step 1: Remove PDF page markers (e.g., "--- PAGE 1 ---", "--- Page End ---")
-              cleanedText = cleanedText.replace(/--- PAGE \d+ ---\n\n/g, '');
-              cleanedText = cleanedText.replace(/--- Page End ---\n\n?/g, '');
+              // Using \r?\n to handle both LF and CRLF newlines
+              cleanedText = cleanedText.replace(/--- PAGE \d+ ---\r?\n\r?\n?/g, '');
+              cleanedText = cleanedText.replace(/--- Page End ---\r?\n\r?\n?/g, '');
               cleanedText = cleanedText.replace(/--- Page End ---/g, '');
 
               // Step 2: Aggressively remove known redundant chapter/title patterns.
-              // This is designed to catch cases like:
-              // "548 : Delilah's Will [ 3 ]\n\nChapter 548 : Delilah's Will [ 3 ]"
-              // or just "548 : Delilah's Will [ 3 ]" on its own line
-              // or just "Chapter 548 : Delilah's Will [ 3 ]" on its own line
-              // and remove *all* instances that match these header-like patterns.
+              // These patterns are applied globally (g) and multiline (m), meaning they affect
+              // the start of the string and the start of each line.
 
-              // Remove "Number : Title [Number]" at the beginning of a line
-              // This also handles variations in spacing around ':' and '[' ']'
-              cleanedText = cleanedText.replace(/^\s*"?\d+\s*:\s*[^"\]]+?\[\s*\d+\s*\]"?\s*\n*/gm, '');
+              // Pattern 1: "Number : Title [Number]" - e.g., "548 : Delilah's Will [ 3 ]"
+              // Catches optional quotes, varying whitespace, and the bracketed number.
+              // `.+?` is non-greedy to prevent over-matching across lines.
+              cleanedText = cleanedText.replace(/^\s*"?\d+\s*:\s*.+?\[\s*\d+\s*\]"?\s*\r?\n*/gm, '');
 
-              // Remove "Chapter Number : Title [Number]" at the beginning of a line
-              // This covers cases like "Chapter 548: Delilah's Will [3]"
-              cleanedText = cleanedText.replace(/^\s*"?Chapter\s+\d+\s*:\s*[^"\]]+?\[\s*\d+\s*\]"?\s*\n*/gm, '');
+              // Pattern 2: "Chapter Number : Title [Number]" - e.g., "Chapter 548 : Delilah's Will [ 3 ]"
+              // Catches "Chapter" prefix, varying whitespace, and bracketed number.
+              cleanedText = cleanedText.replace(/^\s*"?Chapter\s+\d+\s*:\s*.+?\[\s*\d+\s*\]"?\s*\r?\n*/gm, '');
 
-              // Remove generic "Chapter Number" lines, usually found in EPUB TOCs or simple chapter markers
-              cleanedText = cleanedText.replace(/^\s*"?Chapter\s+\d+"?\s*\n*/gm, '');
+              // Pattern 3: Generic "Chapter Number" lines - e.g., "Chapter 1"
+              // Catches "Chapter" prefix and number.
+              cleanedText = cleanedText.replace(/^\s*"?Chapter\s+\d+"?\s*\r?\n*/gm, '');
 
-              // Remove any stray quotes around empty lines that might be remnants from parsing
-              cleanedText = cleanedText.replace(/^"\s*"\s*\n*/gm, '');
+              // Pattern 4: Remove any stray quotes around empty lines that might be remnants from parsing
+              cleanedText = cleanedText.replace(/^"\s*"\s*\r?\n*/gm, '');
 
-              // Step 3: Remove other general EPUB/PDF artifacts like "Table of Contents" and "Page X"
-              cleanedText = cleanedText.replace(/^\s*(?:Table of Contents|Page \d+)\s*\n*/gm, '');
+              // Pattern 5: Remove image URLs if extracted as text. Added SVG support.
+              cleanedText = cleanedText.replace(/https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp|svg)(\s*\r?\n+|$)/gi, '');
 
-              // Step 4: Remove image URLs if extracted as text
-              cleanedText = cleanedText.replace(/https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)(\s*\n+|$)/gi, '');
-
-              // Step 5: Normalize multiple newlines to consistent paragraph breaks (maximum two newlines)
-              cleanedText = cleanedText.replace(/(\n\s*){3,}/g, '\n\n');
+              // Step 6: Normalize multiple newlines to consistent paragraph breaks (maximum two newlines)
+              // This is crucial for fixing "jumbled" appearances due to inconsistent line breaks.
+              cleanedText = cleanedText.replace(/(\r?\n\s*){3,}/g, '\n\n');
               cleanedText = cleanedText.trim(); // Trim leading/trailing whitespace
 
               console.log('cleanExtractedText finished. Cleaned text length:', cleanedText.length);
