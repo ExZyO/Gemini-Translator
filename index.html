@@ -56,7 +56,8 @@
           const [downloadingPdf, setDownloadingPdf] = useState(false); // New state for PDF download loading
           const [downloadingEpub, setDownloadingEpub] = useState(false); // New state for EPUB download loading
           const [uploadingFile, setUploadingFile] = useState(false); // New state for file upload loading
-          const fileInputRef = useRef(null); // Ref for the file input element
+          const fileInputRef = useRef(null); // Ref for the main file input element (for PDF/EPUB)
+          const glossaryFileInputRef = useRef(null); // Ref for the glossary file input element
           const [defaultGlossaryName, setDefaultGlossaryName] = useState(() => localStorage.getItem('defaultGlossaryName') || null); // New state for default glossary
           const [translatedChapters, setTranslatedChapters] = useState([]); // Stores objects like { title: 'Chapter 1', content: 'Translated content...' }
 
@@ -66,7 +67,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.2.0'); // CurrentVer - Fix for chapter spacing and jumbling
+          const [version, setVersion] = useState('2.2.1'); // CurrentVer - Upload Glossaries
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -437,6 +438,60 @@
             setTimeout(() => setCopySuccess(''), 3000);
           };
 
+          // --- Glossary File Upload Handlers ---
+          const handleGlossaryFileButtonClick = () => {
+            glossaryFileInputRef.current.click(); // Trigger click on hidden input
+          };
+
+          const handleGlossaryFileChange = async (event) => {
+            console.log('handleGlossaryFileChange called.');
+            const file = event.target.files[0];
+            if (!file) {
+              console.log('No file selected for glossary.');
+              return;
+            }
+
+            console.log('Glossary file selected:', file.name, file.type);
+            // Only allow text-like files for glossaries
+            const allowedTypes = ['text/plain', 'text/markdown', 'application/json', 'text/csv', 'application/xml', 'text/html'];
+            if (!allowedTypes.includes(file.type) && !file.name.match(/\.(txt|md|json|csv|xml|html)$/i)) {
+              setError('Unsupported glossary file type. Please upload a .txt, .md, .json, .csv, .xml, or .html file.');
+              if (glossaryFileInputRef.current) {
+                glossaryFileInputRef.current.value = ''; // Clear the file input
+              }
+              return;
+            }
+
+            setLoading(true); // Use general loading for glossary upload
+            setError('');
+            try {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const fileContent = e.target.result;
+                setTerminology(fileContent); // Load content into the glossary textarea
+                setNewGlossaryName(file.name.split('.').slice(0, -1).join('.')); // Pre-fill name without extension
+                setCopySuccess(`Glossary loaded from ${file.name}!`);
+                setTimeout(() => setCopySuccess(''), 3000);
+                setLoading(false);
+                console.log('Glossary file loaded successfully. Content length:', fileContent.length);
+              };
+              reader.onerror = (e) => {
+                setError('Failed to read glossary file: ' + e.target.error);
+                setLoading(false);
+                console.error('Error reading glossary file:', e.target.error);
+              };
+              reader.readAsText(file);
+            } catch (err) {
+              setError('Failed to process glossary file: ' + err.message);
+              setLoading(false);
+              console.error('Error in handleGlossaryFileChange processing:', err);
+            } finally {
+              if (glossaryFileInputRef.current) {
+                glossaryFileInputRef.current.value = ''; // Clear the file input
+              }
+            }
+          };
+          // --- End Glossary File Upload Handlers ---
 
           const MAX_CHUNK_LENGTH = 15000; // Characters, considering token limits and prompt size
 
@@ -502,30 +557,58 @@
             }
             finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
 
+            // Base prompt structure without the glossary for length calculation
+            let basePrompt = `Please translate the following text into ${targetLanguage}. Ensure that all original paragraph breaks and sentence separations are preserved in the translation. Each new paragraph in the original text should correspond to a new paragraph in the translated text. Each sentence should end with appropriate punctuation and be followed by a space before the next sentence, unless it's a new paragraph.`;
 
-            // IMPORTANT: Modified prompt to request preservation of formatting
-            let prompt = `Please translate the following text into ${targetLanguage}. Ensure that all original paragraph breaks and sentence separations are preserved in the translation. Each new paragraph in the original text should correspond to a new paragraph in the translated text. Each sentence should end with appropriate punctuation and be followed by a space before the next sentence, unless it's a new paragraph.`;
-
-            if (terminology.trim()) {
-              prompt += `
-Use the provided Terminology Guide to ensure accuracy for specific words, names, and phrases. Words or phrases in the guide should either remain untranslated or be translated precisely as indicated within the guide's context.
-
----
-Terminology Guide:
-${terminology}
----
-`;
-            }
-
-            prompt += `
+            basePrompt += `
 Original Text to Translate:
 ${textToTranslate}
 
 Provide ONLY the ${targetLanguage} translation of the Original Text to Translate. Do not include the Terminology Guide or any conversational text in your response.`;
 
+
+            // Define a conservative maximum prompt character limit (heuristic)
+            // Gemini 2.0 Flash has a much larger context window (1M tokens), but a smaller portion is practical for a single request
+            // We'll use 25,000 characters as a practical safe limit for the entire prompt, including instructions, text, and glossary.
+            const MAX_TOTAL_PROMPT_CHARS = 25000; // This is a heuristic, not an exact token count
+
+            let glossaryContentForPrompt = terminology.trim();
+            let promptWithGlossary = basePrompt;
+
+            if (glossaryContentForPrompt) {
+                // Calculate space available for glossary
+                const fixedPromptLength = basePrompt.length;
+                const availableSpaceForGlossary = MAX_TOTAL_PROMPT_CHARS - fixedPromptLength - 100; // 100 for buffer/markers
+
+                if (availableSpaceForGlossary <= 0) {
+                    // If no space left for glossary, ensure it's empty
+                    glossaryContentForPrompt = '';
+                    setError('Warning: Prompt for translation is too large. Glossary could not be included. Consider shortening text to translate.');
+                    console.warn('Glossary excluded due to extremely large main text prompt.');
+                } else if (glossaryContentForPrompt.length > availableSpaceForGlossary) {
+                    // Truncate glossary if too long
+                    glossaryContentForPrompt = glossaryContentForPrompt.substring(0, availableSpaceForGlossary) + '\n\n--- GLOSSARY TRUNCATED DUE TO LENGTH ---';
+                    setError('Warning: Glossary was too large and has been truncated for this translation to fit within model limits. Consider reducing glossary size or using a more advanced glossary management solution.');
+                    console.warn('Glossary truncated for translation.');
+                }
+
+                if (glossaryContentForPrompt) {
+                  promptWithGlossary = `
+Use the provided Terminology Guide to ensure accuracy for specific words, names, and phrases. Words or phrases in the guide should either remain untranslated or be translated precisely as indicated within the guide's context.
+
+---
+Terminology Guide:
+${glossaryContentForPrompt}
+---
+
+` + basePrompt; // Add glossary section
+                }
+            }
+
+
             try {
               console.log('Sending API request for chunk...');
-              const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+              const chatHistory = [{ role: "user", parts: [{ text: promptWithGlossary }] }];
               const payload = { contents: chatHistory };
 
               const response = await fetch(finalApiUrl, {
@@ -780,17 +863,18 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
 
               // Trim each line and then re-join, ensuring consistency
               // This is a crucial step to remove leading/trailing spaces per line.
-              cleanedText = cleanedText.split('\n').map(line => line.trim()).join('\n');
+              cleanedText = cleanedText.replace(/[ \t]+/g, ' '); // Remove multiple spaces and tabs
+              cleanedText = cleanedText.replace(/ +(\n|$)/g, '$1'); // Remove trailing spaces before newlines
 
               // Normalize multiple newlines to consistent paragraph breaks (max two newlines)
               cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n');
 
-              // Final trim of leading/trailing whitespace for the whole text
+              // Remove leading/trailing newlines and spaces from the whole text
               cleanedText = cleanedText.trim();
-
               console.log('cleanExtractedText finished. Cleaned text length:', cleanedText.length);
               return cleanedText;
           };
+
 
           // Function to handle file selection
           const handleFileChange = async (event) => {
@@ -857,7 +941,8 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   await translateEbook(extractedData.chapters);
                   console.log('translateEbook process completed.');
 
-              } catch (err) {
+              }
+                catch (err) {
                   console.error("File processing error in processFile catch block:", err);
                   setError(`Failed to process file: ${err.message}`);
                   setAssembledTranslatedText('Failed to extract content from file.');
@@ -1119,7 +1204,7 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                   return { fullText: fullTextConcatenated.trim(), chapters: chapterData };
               } catch (err) {
                 console.error('Error during EPUB file processing in readEpubFile:', err);
-                throw new Error(`Error reading EPUB file: ${err.message}`);
+                throw new Error(`Error extracting text from EPUB: ${err.message}`);
               }
           };
 
@@ -1489,7 +1574,20 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                     onClick: handleClearTerminology,
                     className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105', // Added shadow, rounded-lg, transition
                     disabled: isEbookTranslating
-                  }, 'Clear Glossary')
+                  }, 'Clear Glossary'),
+                  // Hidden file input for glossary upload
+                  React.createElement('input', {
+                      type: 'file',
+                      ref: glossaryFileInputRef,
+                      onChange: handleGlossaryFileChange,
+                      className: 'hidden',
+                      accept: '.txt,.md,.json,.csv,.xml,.html'
+                  }),
+                  React.createElement('button', {
+                      onClick: handleGlossaryFileButtonClick,
+                      className: 'px-4 py-2 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-all duration-200 hover:scale-105 flex items-center justify-center',
+                      disabled: isEbookTranslating || loading || uploadingFile // Disable during translation or main file upload
+                  }, React.createElement(Upload, { size: 16, className: 'mr-1' }), ' Upload Glossary')
                 ),
                 React.createElement('p', { className: 'text-sm text-gray-600' }, 'Enter your glossary. The translator will refer to this text to ensure specific words, names, or phrases are handled accurately.')
               ),
