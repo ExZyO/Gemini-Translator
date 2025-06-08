@@ -65,7 +65,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.1.0'); // CurrentVer
+          const [version, setVersion] = useState('2.1.1'); // CurrentVer
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -544,7 +544,11 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
                 // Add a small delay between API calls to avoid rate limits
                 await new Promise(resolve => setTimeout(resolve, 500));
               }
-              setAssembledTranslatedText(translatedParts.join('\n\n')); // Join translated chunks with double newlines
+              // Normalize multiple newlines to ensure proper paragraph breaks
+              const fullTranslatedText = translatedParts.join('\n\n');
+              const normalizedText = fullTranslatedText.replace(/(\n\s*){2,}/g, '\n\n').trim();
+              setAssembledTranslatedText(normalizedText);
+
             } catch (err) {
               console.error("Ebook translation error:", err);
               setError(`Ebook translation failed: ${err.message}`);
@@ -569,7 +573,9 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
 
             try {
               const translated = await translateChunk(inputText); // Use translateChunk for single text area translation
-              setAssembledTranslatedText(translated);
+              // Normalize multiple newlines to ensure proper paragraph breaks
+              const normalizedTranslated = translated.replace(/(\n\s*){2,}/g, '\n\n').trim();
+              setAssembledTranslatedText(normalizedTranslated);
             } catch (err) {
               setError(err.message);
             } finally {
@@ -812,18 +818,33 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
               doc.setFontSize(12);
               doc.setTextColor(0, 0, 0);
 
-              const textLines = doc.splitTextToSize(assembledTranslatedText, 180);
               const lineHeight = 10;
+              const paragraphSpacing = 5; // Additional space between paragraphs
               let y = 10;
+              const margin = 10;
+              const maxWidth = doc.internal.pageSize.width - 2 * margin;
 
-              textLines.forEach(line => {
-                if (y + lineHeight > doc.internal.pageSize.height - 10) {
-                  doc.addPage();
-                  y = 10;
+              // Split the assembled translated text into paragraphs
+              const paragraphs = assembledTranslatedText.split(/\n\n+/).filter(p => p.trim() !== ''); // Split by one or more blank lines
+
+              paragraphs.forEach((paragraph, index) => {
+                const textLines = doc.splitTextToSize(paragraph.trim(), maxWidth);
+
+                textLines.forEach(line => {
+                  if (y + lineHeight > doc.internal.pageSize.height - margin) {
+                    doc.addPage();
+                    y = margin;
+                  }
+                  doc.text(line, margin, y);
+                  y += lineHeight;
+                });
+
+                // Add extra spacing after each paragraph, except the last one
+                if (index < paragraphs.length - 1) {
+                  y += paragraphSpacing;
                 }
-                doc.text(line, 10, y);
-                y += lineHeight;
               });
+
 
               doc.save(`translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.pdf`);
             } catch (err) {
