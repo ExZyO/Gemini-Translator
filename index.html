@@ -61,7 +61,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.0.4'); // Current version is 2.0.3
+          const [version, setVersion] = useState('2.0.5'); // Updated version to 2.0.5
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -393,39 +393,71 @@
               const zip = new window.JSZip();
               const contents = await zip.loadAsync(file);
               let fullText = '';
-              const htmlFiles = [];
 
-              // Find all HTML/XHTML files within the EPUB
-              contents.forEach((relativePath, zipEntry) => {
-                  if (zipEntry.name.match(/\.(html|xhtml|htm)$/i) && !zipEntry.dir) {
-                      htmlFiles.push(zipEntry);
-                  }
-              });
+              // 1. Find the container.xml file (usually at META-INF/container.xml)
+              const containerFile = contents.file('META-INF/container.xml');
+              if (!containerFile) {
+                  throw new Error('EPUB error: META-INF/container.xml not found.');
+              }
+              const containerContent = await containerFile.async('text');
+              const containerDoc = new DOMParser().parseFromString(containerContent, "text/xml");
 
-              if (htmlFiles.length === 0) {
-                  throw new Error('No readable HTML/XHTML content found in EPUB file.');
+              // Get the path to the OPF file (rootfile)
+              const rootfilePath = containerDoc.querySelector('rootfile').getAttribute('full-path');
+              if (!rootfilePath) {
+                  throw new Error('EPUB error: Rootfile path not found in container.xml.');
               }
 
-              for (const entry of htmlFiles) {
-                  try {
-                      const htmlContent = await entry.async('text');
-                      const parser = new DOMParser();
-                      const doc = parser.parseFromString(htmlContent, "text/html");
+              // 2. Load and parse the OPF file
+              const opfFile = contents.file(rootfilePath);
+              if (!opfFile) {
+                  throw new Error(`EPUB error: OPF file not found at ${rootfilePath}`);
+              }
+              const opfContent = await opfFile.async('text');
+              const opfDoc = new DOMParser().parseFromString(opfContent, "text/xml");
 
-                      // Remove script and style tags to get clean text
-                      doc.querySelectorAll('script, style').forEach(el => el.remove());
+              // Get the directory of the OPF file to resolve relative paths
+              const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
 
-                      // Extract text content from the body
-                      fullText += doc.body.textContent || doc.body.innerText || '';
-                      fullText += '\n\n'; // Add some spacing between sections
-                  } catch (e) {
-                      console.warn(`Could not parse or extract text from ${entry.name}:`, e);
-                      // Continue processing other files even if one fails
+              // 3. Build a map of manifest items (id to href)
+              const manifestItems = new Map();
+              opfDoc.querySelectorAll('manifest item').forEach(item => {
+                  manifestItems.set(item.getAttribute('id'), item.getAttribute('href'));
+              });
+
+              // 4. Iterate through the spine (reading order)
+              const spine = opfDoc.querySelectorAll('spine itemref');
+              for (const itemref of spine) {
+                  const idref = itemref.getAttribute('idref');
+                  const href = manifestItems.get(idref);
+
+                  if (href) {
+                      // Resolve the full path to the content file
+                      const contentPath = opfDir + href;
+                      const contentFile = contents.file(contentPath);
+
+                      if (contentFile && contentFile.name.match(/\.(html|xhtml|htm)$/i)) {
+                          try {
+                              const htmlContent = await contentFile.async('text');
+                              const parser = new DOMParser();
+                              const doc = parser.parseFromString(htmlContent, "text/html");
+
+                              // Remove script and style tags to get clean text
+                              doc.querySelectorAll('script, style').forEach(el => el.remove());
+
+                              // Extract text content from the body
+                              fullText += doc.body.textContent || doc.body.innerText || '';
+                              fullText += '\n\n'; // Add some spacing between sections
+                          } catch (e) {
+                              console.warn(`Could not parse or extract text from ${contentFile.name}:`, e);
+                              // Continue processing other files even if one fails
+                          }
+                      }
                   }
               }
 
               if (!fullText.trim()) {
-                  throw new Error('Could not extract readable text from EPUB file.');
+                  throw new Error('Could not extract readable text from EPUB file. No text content found in spine items.');
               }
               return fullText;
           };
