@@ -1,594 +1,513 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini Translator App</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gemini Translator</title>
-<link rel="manifest" href="./manifest.json">
-<link rel="apple-touch-icon" href="https://placehold.co/192x192/8b5cf6/ffffff?text=GT" sizes="192x192">
-<link rel="apple-touch-icon" href="https://placehold.co/512x512/8b5cf6/ffffff?text=GT" sizes="512x512">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Gemini Translator">
+    <!-- Removed PWA related links and meta tags as Service Worker registration was failing -->
+    <!-- <link rel="manifest" href="./manifest.json"> -->
+    <!-- <link rel="apple-touch-icon" href="https://placehold.co/192x192/8b5cf6/ffffff?text=GT" sizes="192x192"> -->
+    <!-- <link rel="apple-touch-icon" href="https://placehold.co/512x512/8b5cf6/ffffff?text=GT" sizes="512x512"> -->
+    <!-- <meta name="apple-mobile-web-app-capable" content="yes"> -->
+    <!-- <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> -->
+    <!-- <meta name="apple-mobile-web-app-title" content="Gemini Translator"> -->
 
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="./jszip.min.js"></script>
-<script src="./ejs.min.js"></script>
-<script src="./jepub.min.js"></script>
-<!-- PDF.js library for PDF parsing -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-<style>
-body {
-font-family: 'Inter', sans-serif;
-}
-</style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="./jszip.min.js"></script>
+    <script src="./ejs.min.js"></script>
+    <script src="./jepub.min.js"></script>
+    <!-- PDF.js library for PDF parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
 </head>
 <body>
-<div id="root"></div>
-
-<script type="module">
-import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
-import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
-// Importing Eye and EyeOff icons for the password toggle
-import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload } from 'https://esm.sh/lucide-react@0.372.0';
-
-function App() {
-const [inputText, setInputText] = useState('');
-const [translatedText, setTranslatedText] = useState('');
-const [terminology, setTerminology] = useState('');
-const [activeTab, setActiveTab] = useState('text');
-const [loading, setLoading] = useState(false); // For translation button
-const [error, setError] = useState('');
-const [localApiKey, setLocalApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
-const [apiKeyInput, setApiKeyInput] = localApiKey.trim().length > 0 ? useState(localApiKey) : useState('');
-const [apiKeyStatus, setApiKeyStatus] = useState('');
-const [copySuccess, setCopySuccess] = useState('');
-const [savedGlossaries, setSavedGlossaries] = useState([]);
-const [newGlossaryName, setNewGlossaryName] = useState('');
-const [activeGlossaryId, setActiveGlossaryId] = useState(null);
-const [targetLanguage, setTargetLanguage] = useState('English');
-const [showApiKey, setShowApiKey] = useState(false);
-const [downloadingPdf, setDownloadingPdf] = useState(false); // New state for PDF download loading
-const [downloadingEpub, setDownloadingEpub] = useState(false); // New state for EPUB download loading
-const [uploadingFile, setUploadingFile] = useState(false); // New state for file upload loading
-const fileInputRef = useRef(null); // Ref for the file input element
-const [defaultGlossaryName, setDefaultGlossaryName] = useState(() => localStorage.getItem('defaultGlossaryName') || null); // New state for default glossary
-
-// State for the custom modal
-const [showModal, setShowModal] = useState(false);
-const [modalMessage, setModalMessage] = useState('');
-const [modalCallback, setModalCallback] = useState(null);
-
-// Version state for the app
-  //        const [version, setVersion] = useState('2.0.8'); // CurrentVer
-          const [version, setVersion] = useState('2.0.9'); // CurrentVer
-
-const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
-const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
-
-const languages = [
-'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
-'Chinese (Simplified)', 'Japanese', 'Korean', 'Russian', 'Arabic',
-'Hindi', 'Bengali', 'Urdu', 'Vietnamese', 'Turkish', 'Polish',
-'Dutch', 'Swedish', 'Norwegian', 'Danish', 'Finnish', 'Greek',
-'Hebrew', 'Thai', 'Indonesian', 'Malay', 'Filipino', 'Romanian',
-'Hungarian', 'Czech', 'Slovak', 'Bulgarian', 'Serbian', 'Croatian',
-'Ukrainian', 'Lithuanian', 'Latvian', 'Estonian', 'Slovenian',
-'Catalan', 'Basque', 'Galician'
-];
-
-useEffect(() => {
-const storedGlossaries = JSON.parse(localStorage.getItem('savedGlossaries') || '[]');
-setSavedGlossaries(storedGlossaries);
-
-const storedDefaultGlossaryName = localStorage.getItem('defaultGlossaryName');
-if (storedDefaultGlossaryName) {
-setDefaultGlossaryName(storedDefaultGlossaryName);
-const defaultGlossary = storedGlossaries.find(g => g.name === storedDefaultGlossaryName);
-if (defaultGlossary) {
-setTerminology(defaultGlossary.content);
-setActiveGlossaryId(defaultGlossary.name);
-setError('');
-} else {
-// If default glossary is not found in saved list, clear the default setting
-localStorage.removeItem('defaultGlossaryName');
-setDefaultGlossaryName(null);
-}
-}
-
-// Set the worker source for PDF.js
-if (typeof window.pdfjsLib !== 'undefined') {
-window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-}
-}, []);
-
-useEffect(() => {
-if (localApiKey) {
-setApiKeyStatus('Using your saved API key. This is saved locally, no one will be able to access it except you.');
-} else {
-setApiKeyStatus('API key is missing. A valid Gemini API key is REQUIRED for translation functionality outside of Google AI Studio (e.g., on GitHub Pages). Please enter your key below.');
-}
-}, [localApiKey]);
-
-const handleSaveApiKey = () => {
-if (!apiKeyInput.trim()) {
-setError('API key cannot be empty. Please enter a valid key.');
-return;
-}
-localStorage.setItem('geminiApiKey', apiKeyInput.trim());
-setLocalApiKey(apiKeyInput.trim());
-setApiKeyStatus('API key saved locally! This is required for translation outside of the Google AI Studio environment (e.g., on GitHub Pages).');
-setError('');
-};
-
-const handleClearApiKey = () => {
-localStorage.removeItem('geminiApiKey');
-setLocalApiKey('');
-setApiKeyInput('');
-setApiKeyStatus('API key cleared. A valid Gemini API key is REQUIRED for translation functionality outside of Google AI Studio (e.g., on GitHub Pages). Please enter your key below.');
-setError('');
-};
-
-// New function to handle updating a specific loaded glossary
-const handleUpdateSpecificGlossary = (glossaryName) => {
-const existingIndex = savedGlossaries.findIndex(g => g.name === glossaryName);
-if (existingIndex > -1) {
-const updatedGlossaries = [...savedGlossaries];
-updatedGlossaries[existingIndex] = { name: glossaryName, content: terminology };
-setSavedGlossaries(updatedGlossaries);
-localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
-setCopySuccess(`Glossary "${glossaryName}" updated successfully!`);
-setError('');
-setTimeout(() => setCopySuccess(''), 3000); // Clear message after 3 seconds
-} else {
-setError(`Error: Glossary "${glossaryName}" not found.`);
-}
-};
-
-const handleSaveGlossary = () => {
-if (!newGlossaryName.trim()) {
-setError('Please enter a name for your glossary.');
-return;
-}
-if (!terminology.trim()) {
-setError('Glossary content cannot be empty when saving.');
-return;
-}
-
-const existingIndex = savedGlossaries.findIndex(g => g.name === newGlossaryName.trim());
-let updatedGlossaries;
-
-if (existingIndex > -1) {
-setModalMessage(`A glossary named "${newGlossaryName.trim()}" already exists. Do you want to overwrite it?`);
-setModalCallback(() => {
-updatedGlossaries = [...savedGlossaries];
-updatedGlossaries[existingIndex] = { name: newGlossaryName.trim(), content: terminology };
-setSavedGlossaries(updatedGlossaries);
-localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
-setNewGlossaryName('');
-setActiveGlossaryId(newGlossaryName.trim());
-setError('');
-setShowModal(false);
-});
-setShowModal(true);
-return;
-} else {
-updatedGlossaries = [...savedGlossaries, { name: newGlossaryName.trim(), content: terminology }];
-}
-
-setSavedGlossaries(updatedGlossaries);
-localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
-setNewGlossaryName('');
-setActiveGlossaryId(newGlossaryName.trim());
-setError('');
-};
-
-const handleLoadGlossary = (glossaryToLoad) => {
-setTerminology(glossaryToLoad.content);
-setActiveGlossaryId(glossaryToLoad.name);
-setError('');
-};
-
-const handleDeleteGlossary = (glossaryName) => {
-setModalMessage(`Are you sure you want to delete "${glossaryName}"?`);
-setModalCallback(() => {
-const updatedGlossaries = savedGlossaries.filter(g => g.name !== glossaryName);
-setSavedGlossaries(updatedGlossaries);
-localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
-if (activeGlossaryId === glossaryName) {
-setTerminology('');
-setActiveGlossaryId(null);
-}
-// If the deleted glossary was the default, clear default setting
-if (defaultGlossaryName === glossaryName) {
-localStorage.removeItem('defaultGlossaryName');
-setDefaultGlossaryName(null);
-}
-setError('');
-setShowModal(false);
-});
-setShowModal(true);
-};
-
-// Function to set the current active glossary as default
-const handleSetDefaultGlossary = () => {
-if (activeGlossaryId) {
-localStorage.setItem('defaultGlossaryName', activeGlossaryId);
-setDefaultGlossaryName(activeGlossaryId);
-setCopySuccess(`"${activeGlossaryId}" set as default glossary!`);
-setError('');
-setTimeout(() => setCopySuccess(''), 3000);
-} else {
-setError('Please load a glossary first to set it as default.');
-}
-};
-
-// Function to clear the default glossary setting
-const handleClearDefaultGlossary = () => {
-setModalMessage('Are you sure you want to clear the default glossary setting?');
-setModalCallback(() => {
-localStorage.removeItem('defaultGlossaryName');
-setDefaultGlossaryName(null);
-setCopySuccess('Default glossary setting cleared!');
-setError('');
-setShowModal(false);
-setTimeout(() => setCopySuccess(''), 3000);
-});
-setShowModal(true);
-};
-
-// Function to clear the terminology textarea
-const handleClearTerminology = () => {
-setModalMessage('Are you sure you want to clear the current glossary text area? This will not delete saved glossaries.');
-setModalCallback(() => {
-setTerminology('');
-setActiveGlossaryId(null);
-setError('');
-setShowModal(false);
-});
-setShowModal(true);
-};
-
-const handleModalConfirm = () => {
-if (modalCallback) {
-modalCallback();
-}
-};
-
-const handleModalCancel = () => {
-setShowModal(false);
-setModalCallback(null);
-};
-
-// Function to paste text into the input text area
-const handlePasteInputText = async () => {
-try {
-const text = await navigator.clipboard.readText();
-setInputText(prevText => prevText + text); // Append pasted text
-setError('');
-setCopySuccess('Text pasted from clipboard!');
-setTimeout(() => setCopySuccess(''), 3000);
-} catch (err) {
-setError('Failed to paste text: ' + err.message);
-}
-};
-
-// Function to paste text into the glossary text area
-const handlePasteTerminology = async () => {
-try {
-const text = await navigator.clipboard.readText();
-setTerminology(prevText => prevText + text); // Append pasted text
-setError('');
-setCopySuccess('Text pasted to glossary from clipboard!');
-setTimeout(() => setCopySuccess(''), 3000);
-} catch (err) {
-setError('Failed to paste text: ' + err.message);
-}
-};
-
-// Function to paste text into the API key input area
-const handlePasteApiKey = async () => {
-try {
-const text = await navigator.clipboard.readText();
-setApiKeyInput(text); // Replace content with pasted text
-setError('');
-setCopySuccess('API key pasted from clipboard!');
-setTimeout(() => setCopySuccess(''), 3000);
-} catch (err) {
-setError('Failed to paste API key: ' + err.message);
-}
-};
-
-// Function to copy API key to clipboard
-const handleCopyApiKey = () => {
-if (!apiKeyInput.trim()) {
-setCopySuccess('No API key to copy.');
-return;
-}
-try {
-const textarea = document.createElement('textarea');
-textarea.value = apiKeyInput;
-document.body.appendChild(textarea);
-textarea.select();
-document.execCommand('copy');
-document.body.removeChild(textarea);
-setCopySuccess('API key copied to clipboard!');
-} catch (err) {
-console.error('Failed to copy API key: ', err);
-setCopySuccess('Failed to copy API key. Please try again manually.');
-}
-setTimeout(() => setCopySuccess(''), 3000);
-};
-
-// Function to copy glossary text to clipboard
-const handleCopyTerminology = () => {
-if (!terminology.trim()) {
-setCopySuccess('No glossary text to copy.');
-return;
-}
-try {
-const textarea = document.createElement('textarea');
-textarea.value = terminology;
-document.body.appendChild(textarea);
-textarea.select();
-document.execCommand('copy');
-document.body.removeChild(textarea);
-setCopySuccess('Glossary text copied to clipboard!');
-} catch (err) {
-console.error('Failed to copy glossary text: ', err);
-setCopySuccess('Failed to copy glossary text. Please try again manually.');
-}
-setTimeout(() => setCopySuccess(''), 3000);
-};
-
-// Function to copy input text for translation to clipboard
-const handleCopyInputText = () => {
-if (!inputText.trim()) {
-setCopySuccess('No input text to copy.');
-return;
-}
-try {
-const textarea = document.createElement('textarea');
-textarea.value = inputText;
-document.body.appendChild(textarea);
-textarea.select();
-document.execCommand('copy');
-document.body.removeChild(textarea);
-setCopySuccess('Input text copied to clipboard!');
-} catch (err) {
-console.error('Failed to copy input text: ', err);
-setCopySuccess('Failed to copy input text. Please try again manually.');
-}
-setTimeout(() => setCopySuccess(''), 3000);
-};
-
-// Function to handle file selection
-const handleFileChange = (event) => {
-const file = event.target.files[0];
-if (file) {
-processFile(file);
-}
-};
-
-// Function to process the uploaded file based on its type
-const processFile = async (file) => {
-setUploadingFile(true);
-setError('');
-setInputText(''); // Clear previous text
-
-try {
-const fileType = file.type;
-let extractedText = '';
-
-if (fileType === 'text/plain') {
-extractedText = await readFileAsText(file);
-} else if (fileType === 'application/pdf') {
-extractedText = await readPdfFile(file);
-} else if (fileType === 'application/epub+zip') {
-extractedText = await readEpubFile(file);
-} else {
-throw new Error('Unsupported file type. Please upload a .txt, .pdf, or .epub file.');
-}
-
-setInputText(extractedText);
-setCopySuccess(`Content extracted from ${file.name}!`);
-setTimeout(() => setCopySuccess(''), 3000);
-
-} catch (err) {
-console.error("File processing error:", err);
-setError(`Failed to process file: ${err.message}`);
-} finally {
-setUploadingFile(false);
-if (fileInputRef.current) {
-fileInputRef.current.value = ''; // Clear the file input
-}
-}
-};
-
-// Helper function to read a text file
-const readFileAsText = (file) => {
-return new Promise((resolve, reject) => {
-const reader = new FileReader();
-reader.onload = (e) => resolve(e.target.result);
-reader.onerror = (e) => reject(e.target.error);
-reader.readAsText(file);
-});
-};
-
-// Helper function to read a PDF file with better paragraph detection
-const readPdfFile = async (file) => {
-if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
-throw new Error('PDF.js library not loaded. Cannot process PDF files.');
-}
-const arrayBuffer = await file.arrayBuffer();
-const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-let fullText = '';
-const minParagraphSpacing = 1.5; // Heuristic for paragraph spacing (e.g., 1.5 times typical line height)
-
-for (let i = 1; i <= pdf.numPages; i++) {
-const page = await pdf.getPage(i);
-const textContent = await page.getTextContent();
-let lastY = -1;
-let lastLineHeight = -1;
-
-textContent.items.forEach(item => {
-const currentY = item.transform[5]; // Y-coordinate of the text item
-const currentLineHeight = item.height; // Height of the text item (approx line height)
-
-if (lastY !== -1) {
-// Check for significant vertical jump (potential paragraph break)
-if (currentY < lastY - (lastLineHeight * minParagraphSpacing)) {
-fullText += '\n\n'; // New paragraph
-} else if (currentY < lastY) {
-fullText += '\n'; // New line within a paragraph (if not just horizontal flow)
-} else {
-fullText += ' '; // Regular space
-}
-}
-fullText += item.str;
-lastY = currentY;
-lastLineHeight = currentLineHeight;
-});
-fullText += '\n\n--- Page End ---\n\n'; // Mark page breaks clearly
-}
-return fullText;
-};
-
-// Helper function to read an EPUB file (using JSZip) with better HTML parsing
-const readEpubFile = async (file) => {
-if (typeof window.JSZip === 'undefined') {
-throw new Error('JSZip library not loaded. Cannot process EPUB files.');
-}
-
-const zip = new window.JSZip();
-const contents = await zip.loadAsync(file);
-let fullText = '';
-
-// 1. Find the container.xml file (usually at META-INF/container.xml)
-const containerFile = contents.file('META-INF/container.xml');
-if (!containerFile) {
-throw new Error('EPUB error: META-INF/container.xml not found.');
-}
-const containerContent = await containerFile.async('text');
-const containerDoc = new DOMParser().parseFromString(containerContent, "text/xml");
-
-// Get the path to the OPF file (rootfile)
-const rootfilePath = containerDoc.querySelector('rootfile').getAttribute('full-path');
-if (!rootfilePath) {
-throw new Error('EPUB error: Rootfile path not found in container.xml.');
-}
-
-// 2. Load and parse the OPF file
-const opfFile = contents.file(rootfilePath);
-if (!opfFile) {
-throw new Error(`EPUB error: OPF file not found at ${rootfilePath}`);
-}
-const opfContent = await opfFile.async('text');
-const opfDoc = new DOMParser().parseFromString(opfContent, "text/xml");
-
-// Get the directory of the OPF file to resolve relative paths
-const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
-
-// 3. Build a map of manifest items (id to href)
-const manifestItems = new Map();
-opfDoc.querySelectorAll('manifest item').forEach(item => {
-manifestItems.set(item.getAttribute('id'), item.getAttribute('href'));
-});
-
-// Function to extract text from an HTML node, preserving breaks
-const extractTextFromNode = (node) => {
-let text = '';
-if (node.nodeType === Node.TEXT_NODE) {
-return node.textContent;
-}
-if (node.nodeType === Node.ELEMENT_NODE) {
-// Handle specific block-level elements
-const tagName = node.tagName.toLowerCase();
-if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote'].includes(tagName)) {
-text += '\n\n'; // Add double newline before block element
-}
-
-for (const childNode of node.childNodes) {
-text += extractTextFromNode(childNode);
-}
-
-if (tagName === 'br') {
-text += '\n'; // Convert <br> to newline
-} else if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote'].includes(tagName)) {
-// Ensure text ends with a newline, but avoid triple newlines
-if (!text.endsWith('\n\n')) {
-text += '\n\n';
-}
-}
-}
-return text.replace(/ {2,}/g, ' ').trim(); // Remove multiple spaces and trim
-};
-
-// 4. Iterate through the spine (reading order)
-const spine = opfDoc.querySelectorAll('spine itemref');
-for (const itemref of spine) {
-const idref = itemref.getAttribute('idref');
-const href = manifestItems.get(idref);
-
-if (href) {
-const mediaType = opfDoc.querySelector(`manifest item[id="${idref}"]`).getAttribute('media-type');
-// Only process HTML/XHTML content
-if (mediaType && (mediaType === 'application/xhtml+xml' || mediaType === 'text/html')) {
-const contentPath = opfDir + href;
-const contentFile = contents.file(contentPath);
-
-if (contentFile) {
-try {
-const htmlContent = await contentFile.async('text');
-const parser = new DOMParser();
-const doc = parser.parseFromString(htmlContent, "text/html");
-
-// Remove script and style tags
-doc.querySelectorAll('script, style').forEach(el => el.remove());
-
-// Extract text using the recursive helper function
-fullText += extractTextFromNode(doc.body);
-fullText += '\n\n--- Chapter End ---\n\n'; // Mark chapter breaks
-} catch (e) {
-console.warn(`Could not parse or extract text from ${contentFile.name}:`, e);
-// Continue processing other files even if one fails
-}
-}
-}
-}
-}
-
-if (!fullText.trim()) {
-throw new Error('Could not extract readable text from EPUB file. No text content found in spine items or within HTML blocks.');
-}
-return fullText.trim(); // Final trim
-};
-
-
-const translateContent = async (textToTranslate) => {
-setLoading(true);
-setError('');
-setTranslatedText('');
-
-const keyToUse = localApiKey;
-let finalApiUrl = BASE_GEMINI_API_URL;
-
-if (!keyToUse) {
-setError('Translation failed: A valid Gemini API key is REQUIRED. Please enter and save your key.');
-setLoading(false);
-return;
-}
-finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
-
-
-// IMPORTANT: Modified prompt to request preservation of formatting
-let prompt = `Please translate the following text into ${targetLanguage}. Ensure that all original paragraph breaks and sentence separations are preserved in the translation. Each new paragraph in the original text should correspond to a new paragraph in the translated text. Each sentence should end with appropriate punctuation and be followed by a space before the next sentence, unless it's a new paragraph.`;
-
-if (terminology.trim()) {
-prompt += `
+    <div id="root"></div>
+
+    <script type="module">
+        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
+        import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
+        // Importing Eye and EyeOff icons for the password toggle
+        import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload } from 'https://esm.sh/lucide-react@0.372.0';
+
+        function App() {
+          const [inputText, setInputText] = useState('');
+          const [assembledTranslatedText, setAssembledTranslatedText] = useState(''); // Renamed from translatedText
+          const [terminology, setTerminology] = useState('');
+          const [activeTab, setActiveTab] = useState('text');
+          const [loading, setLoading] = useState(false); // For translation button for small texts
+          const [isEbookTranslating, setIsEbookTranslating] = useState(false); // New state for ebook translation
+          const [ebookTranslationProgress, setEbookTranslationProgress] = useState(0); // New state for ebook translation progress
+          const [error, setError] = useState('');
+          const [localApiKey, setLocalApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
+          const [apiKeyInput, setApiKeyInput] = localApiKey.trim().length > 0 ? useState(localApiKey) : useState('');
+          const [apiKeyStatus, setApiKeyStatus] = useState('');
+          const [copySuccess, setCopySuccess] = useState('');
+          const [savedGlossaries, setSavedGlossaries] = useState([]);
+          const [newGlossaryName, setNewGlossaryName] = useState('');
+          const [activeGlossaryId, setActiveGlossaryId] = useState(null);
+          const [targetLanguage, setTargetLanguage] = useState('English');
+          const [showApiKey, setShowApiKey] = useState(false);
+          const [downloadingPdf, setDownloadingPdf] = useState(false); // New state for PDF download loading
+          const [downloadingEpub, setDownloadingEpub] = useState(false); // New state for EPUB download loading
+          const [uploadingFile, setUploadingFile] = useState(false); // New state for file upload loading
+          const fileInputRef = useRef(null); // Ref for the file input element
+          const [defaultGlossaryName, setDefaultGlossaryName] = useState(() => localStorage.getItem('defaultGlossaryName') || null); // New state for default glossary
+          const [translatedChapters, setTranslatedChapters] = useState([]); // Stores objects like { title: 'Chapter 1', content: 'Translated content...' }
+
+          // State for the custom modal
+          const [showModal, setShowModal] = useState(false);
+          const [modalMessage, setModalMessage] = useState('');
+          const [modalCallback, setModalCallback] = useState(null);
+
+          // Version state for the app
+          const [version, setVersion] = useState('2.1.8'); // CurrentVer - Fix for chapter spacing and jumbling
+
+          const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
+          const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
+
+          const languages = [
+            'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+            'Chinese (Simplified)', 'Japanese', 'Korean', 'Russian', 'Arabic',
+            'Hindi', 'Bengali', 'Urdu', 'Vietnamese', 'Turkish', 'Polish',
+            'Dutch', 'Swedish', 'Norwegian', 'Danish', 'Finnish', 'Greek',
+            'Hebrew', 'Thai', 'Indonesian', 'Malay', 'Filipino', 'Romanian',
+            'Hungarian', 'Czech', 'Slovak', 'Bulgarian', 'Serbian', 'Croatian',
+            'Ukrainian', 'Lithuanian', 'Latvian', 'Estonian', 'Slovenian',
+            'Catalan', 'Basque', 'Galician'
+          ];
+
+          useEffect(() => {
+            console.log('App useEffect: Initializing and loading glossaries.');
+            const storedGlossaries = JSON.parse(localStorage.getItem('savedGlossaries') || '[]');
+            setSavedGlossaries(storedGlossaries);
+
+            const storedDefaultGlossaryName = localStorage.getItem('defaultGlossaryName');
+            if (storedDefaultGlossaryName) {
+                setDefaultGlossaryName(storedDefaultGlossaryName);
+                const defaultGlossary = storedGlossaries.find(g => g.name === storedDefaultGlossaryName);
+                if (defaultGlossary) {
+                    setTerminology(defaultGlossary.content);
+                    setActiveGlossaryId(defaultGlossary.name);
+                    setError('');
+                } else {
+                    // If default glossary is not found in saved list, clear the default setting
+                    localStorage.removeItem('defaultGlossaryName');
+                    setDefaultGlossaryName(null);
+                }
+            }
+
+            // Set the worker source for PDF.js
+            if (typeof window.pdfjsLib !== 'undefined') {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+                console.log('PDF.js worker source set.');
+            } else {
+                console.warn('PDF.js library not detected during initialization.');
+            }
+          }, []);
+
+          useEffect(() => {
+            console.log('App useEffect: localApiKey changed. Status:', localApiKey ? 'Present' : 'Missing');
+            if (localApiKey) {
+              setApiKeyStatus('Using your saved API key. This is saved locally, no one will be able to access it except you.');
+            } else {
+              setApiKeyStatus('API key is missing. A valid Gemini API key is REQUIRED for translation functionality outside of Google AI Studio (e.g., on GitHub Pages). Please enter your key below.');
+            }
+          }, [localApiKey]);
+
+          const handleSaveApiKey = () => {
+            console.log('handleSaveApiKey called.');
+            if (!apiKeyInput.trim()) {
+                setError('API key cannot be empty. Please enter a valid key.');
+                return;
+            }
+            localStorage.setItem('geminiApiKey', apiKeyInput.trim());
+            setLocalApiKey(apiKeyInput.trim());
+            setApiKeyStatus('API key saved locally! This is required for translation outside of the Google AI Studio environment (e.g., on GitHub Pages).');
+            setError('');
+            console.log('API key saved.');
+          };
+
+          const handleClearApiKey = () => {
+            console.log('handleClearApiKey called.');
+            localStorage.removeItem('geminiApiKey');
+            setLocalApiKey('');
+            setApiKeyInput('');
+            setApiKeyStatus('API key cleared. A valid Gemini API key is REQUIRED for translation functionality outside of Google AI Studio (e.g., on GitHub Pages). Please enter your key below.');
+            setError('');
+            console.log('API key cleared.');
+          };
+
+          // New function to handle updating a specific loaded glossary
+          const handleUpdateSpecificGlossary = (glossaryName) => {
+            console.log('handleUpdateSpecificGlossary called for:', glossaryName);
+            const existingIndex = savedGlossaries.findIndex(g => g.name === glossaryName);
+            if (existingIndex > -1) {
+              const updatedGlossaries = [...savedGlossaries];
+              updatedGlossaries[existingIndex] = { name: glossaryName, content: terminology };
+              setSavedGlossaries(updatedGlossaries);
+              localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
+              setCopySuccess(`Glossary "${glossaryName}" updated successfully!`);
+              setError('');
+              setTimeout(() => setCopySuccess(''), 3000); // Clear message after 3 seconds
+              console.log('Glossary updated:', glossaryName);
+            } else {
+              setError(`Error: Glossary "${glossaryName}" not found.`);
+              console.error('Failed to update glossary:', glossaryName, 'not found.');
+            }
+          };
+
+          const handleSaveGlossary = () => {
+            console.log('handleSaveGlossary called.');
+            if (!newGlossaryName.trim()) {
+              setError('Please enter a name for your glossary.');
+              return;
+            }
+            if (!terminology.trim()) {
+              setError('Glossary content cannot be empty when saving.');
+              return;
+            }
+
+            const existingIndex = savedGlossaries.findIndex(g => g.name === newGlossaryName.trim());
+            let updatedGlossaries;
+
+            if (existingIndex > -1) {
+              setModalMessage(`A glossary named "${newGlossaryName.trim()}" already exists. Do you want to overwrite it?`);
+              setModalCallback(() => {
+                updatedGlossaries = [...savedGlossaries];
+                updatedGlossaries[existingIndex] = { name: newGlossaryName.trim(), content: terminology };
+                setSavedGlossaries(updatedGlossaries);
+                localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
+                setNewGlossaryName('');
+                setActiveGlossaryId(newGlossaryName.trim());
+                setError('');
+                setShowModal(false);
+                console.log('Glossary overwritten:', newGlossaryName.trim());
+              });
+              setShowModal(true);
+              console.log('Modal shown for glossary overwrite confirmation.');
+              return;
+            } else {
+              updatedGlossaries = [...savedGlossaries, { name: newGlossaryName.trim(), content: terminology }];
+            }
+
+            setSavedGlossaries(updatedGlossaries);
+            localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
+            setNewGlossaryName('');
+            setActiveGlossaryId(newGlossaryName.trim());
+            setError('');
+            console.log('New glossary saved:', newGlossaryName.trim());
+          };
+
+          const handleLoadGlossary = (glossaryToLoad) => {
+            console.log('handleLoadGlossary called for:', glossaryToLoad.name);
+            setTerminology(glossaryToLoad.content);
+            setActiveGlossaryId(glossaryToLoad.name);
+            setError('');
+            console.log('Glossary loaded:', glossaryToLoad.name);
+          };
+
+          const handleDeleteGlossary = (glossaryName) => {
+            console.log('handleDeleteGlossary called for:', glossaryName);
+            setModalMessage(`Are you sure you want to delete "${glossaryName}"?`);
+            setModalCallback(() => {
+              const updatedGlossaries = savedGlossaries.filter(g => g.name !== glossaryName);
+              setSavedGlossaries(updatedGlossaries);
+              localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
+              if (activeGlossaryId === glossaryName) {
+                setTerminology('');
+                setActiveGlossaryId(null);
+              }
+              // If the deleted glossary was the default, clear default setting
+              if (defaultGlossaryName === glossaryName) {
+                localStorage.removeItem('defaultGlossaryName');
+                setDefaultGlossaryName(null);
+              }
+              setError('');
+              setShowModal(false);
+              console.log('Glossary deleted:', glossaryName);
+            });
+            setShowModal(true);
+            console.log('Modal shown for glossary deletion confirmation.');
+          };
+
+          // Function to set the current active glossary as default
+          const handleSetDefaultGlossary = () => {
+            console.log('handleSetDefaultGlossary called.');
+            if (activeGlossaryId) {
+                localStorage.setItem('defaultGlossaryName', activeGlossaryId);
+                setDefaultGlossaryName(activeGlossaryId);
+                setCopySuccess(`"${activeGlossaryId}" set as default glossary!`);
+                setError('');
+                setTimeout(() => setCopySuccess(''), 3000);
+                console.log('Default glossary set to:', activeGlossaryId);
+            } else {
+                setError('Please load a glossary first to set it as default.');
+                console.warn('Attempted to set default glossary without an active glossary.');
+            }
+          };
+
+          // Function to clear the default glossary setting
+          const handleClearDefaultGlossary = () => {
+            console.log('handleClearDefaultGlossary called.');
+            setModalMessage('Are you sure you want to clear the default glossary setting?');
+            setModalCallback(() => {
+              localStorage.removeItem('defaultGlossaryName');
+              setDefaultGlossaryName(null);
+              setCopySuccess('Default glossary setting cleared!');
+              setError('');
+              setShowModal(false);
+              setTimeout(() => setCopySuccess(''), 3000);
+              console.log('Default glossary setting cleared.');
+            });
+            setShowModal(true);
+            console.log('Modal shown for clearing default glossary confirmation.');
+          };
+
+          // Function to clear the terminology textarea
+          const handleClearTerminology = () => {
+            console.log('handleClearTerminology called.');
+            setModalMessage('Are you sure you want to clear the current glossary text area? This will not delete saved glossaries.');
+            setModalCallback(() => {
+              setTerminology('');
+              setActiveGlossaryId(null);
+              setError('');
+              setShowModal(false);
+              console.log('Glossary text area cleared.');
+            });
+            setShowModal(true);
+            console.log('Modal shown for clearing terminology confirmation.');
+          };
+
+          const handleModalConfirm = () => {
+            console.log('Modal confirmed.');
+            if (modalCallback) {
+              modalCallback();
+            }
+          };
+
+          const handleModalCancel = () => {
+            console.log('Modal cancelled.');
+            setShowModal(false);
+            setModalCallback(null);
+          };
+
+          // Function to paste text into the input text area
+          const handlePasteInputText = async () => {
+            console.log('handlePasteInputText called.');
+            try {
+              const text = await navigator.clipboard.readText();
+              setInputText(prevText => prevText + text); // Append pasted text
+              setError('');
+              setCopySuccess('Text pasted from clipboard!');
+              setTimeout(() => setCopySuccess(''), 3000);
+              console.log('Text pasted to input area. Length:', text.length);
+            } catch (err) {
+              setError('Failed to paste text: ' + err.message);
+              console.error('Error pasting to input text:', err);
+            }
+          };
+
+          // Function to paste text into the glossary text area
+          const handlePasteTerminology = async () => {
+            console.log('handlePasteTerminology called.');
+            try {
+              const text = await navigator.clipboard.readText();
+              setTerminology(prevText => prevText + text); // Append pasted text
+              setError('');
+              setCopySuccess('Text pasted to glossary from clipboard!');
+              setTimeout(() => setCopySuccess(''), 3000);
+              console.log('Text pasted to glossary. Length:', text.length);
+            } catch (err) {
+              setError('Failed to paste text: ' + err.message);
+              console.error('Error pasting to glossary:', err);
+            }
+          };
+
+          // Function to paste text into the API key input area
+          const handlePasteApiKey = async () => {
+            console.log('handlePasteApiKey called.');
+            try {
+              const text = await navigator.clipboard.readText();
+              setApiKeyInput(text); // Replace content with pasted text
+              setError('');
+              setCopySuccess('API key pasted from clipboard!');
+              setTimeout(() => setCopySuccess(''), 3000);
+              console.log('API key pasted. Length:', text.length);
+            } catch (err) {
+              setError('Failed to paste API key: ' + err.message);
+              console.error('Error pasting API key:', err);
+            }
+          };
+
+          // Function to copy API key to clipboard
+          const handleCopyApiKey = () => {
+            console.log('handleCopyApiKey called.');
+            if (!apiKeyInput.trim()) {
+              setCopySuccess('No API key to copy.');
+              return;
+            }
+            try {
+              const textarea = document.createElement('textarea');
+              textarea.value = apiKeyInput;
+              document.body.appendChild(textarea);
+              textarea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textarea);
+              setCopySuccess('API key copied to clipboard!');
+              console.log('API key copied.');
+            } catch (err) {
+              console.error('Failed to copy API key: ', err);
+              setCopySuccess('Failed to copy API key. Please try again manually.');
+            }
+            setTimeout(() => setCopySuccess(''), 3000);
+          };
+
+          // Function to copy glossary text to clipboard
+          const handleCopyTerminology = () => {
+            console.log('handleCopyTerminology called.');
+            if (!terminology.trim()) {
+              setCopySuccess('No glossary text to copy.');
+              return;
+            }
+            try {
+              const textarea = document.createElement('textarea');
+              textarea.value = terminology;
+              document.body.appendChild(textarea);
+              textarea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textarea);
+              setCopySuccess('Glossary text copied to clipboard!');
+              console.log('Glossary text copied.');
+            } catch (err) {
+              console.error('Failed to copy glossary text: ', err);
+              setCopySuccess('Failed to copy glossary text. Please try again manually.');
+            }
+            setTimeout(() => setCopySuccess(''), 3000);
+          };
+
+          // Function to copy input text for translation to clipboard
+          const handleCopyInputText = () => {
+            console.log('handleCopyInputText called.');
+            if (!inputText.trim()) {
+              setCopySuccess('No input text to copy.');
+              return;
+            }
+            try {
+              const textarea = document.createElement('textarea');
+              textarea.value = inputText;
+              document.body.appendChild(textarea);
+              textarea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textarea);
+              setCopySuccess('Input text copied to clipboard!');
+              console.log('Input text copied.');
+            } catch (err) {
+              console.error('Failed to copy input text: ', err);
+              setCopySuccess('Failed to copy input text. Please try again manually.');
+            }
+            setTimeout(() => setCopySuccess(''), 3000);
+          };
+
+          // Function to copy assembled translated text to clipboard
+          const handleCopyToClipboard = () => {
+            console.log('handleCopyToClipboard called.');
+            if (!assembledTranslatedText) {
+              setCopySuccess('No text to copy.');
+              return;
+            }
+            try {
+              const textarea = document.createElement('textarea');
+              textarea.value = assembledTranslatedText; // Copy the raw text content
+              document.body.appendChild(textarea);
+              textarea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textarea);
+              setCopySuccess('Translated text copied to clipboard!');
+              console.log('Translated text copied.');
+            } catch (err) {
+              console.error('Failed to copy translated text: ', err);
+              setCopySuccess('Failed to copy text. Please try again manually.');
+            }
+            setTimeout(() => setCopySuccess(''), 3000);
+          };
+
+
+          const MAX_CHUNK_LENGTH = 15000; // Characters, considering token limits and prompt size
+
+          // Helper function to split text into chunks
+          const splitIntoChunks = (text) => {
+              console.log('splitIntoChunks called. Input text length:', text.length);
+              const chunks = [];
+              let remainingText = text;
+
+              while (remainingText.length > 0) {
+                  if (remainingText.length <= MAX_CHUNK_LENGTH) {
+                      chunks.push(remainingText);
+                      remainingText = '';
+                      break;
+                  }
+
+                  let splitPoint = MAX_CHUNK_LENGTH;
+
+                  // Try to split at a double newline first
+                  let doubleNewlineIndex = remainingText.lastIndexOf('\n\n', MAX_CHUNK_LENGTH);
+                  if (doubleNewlineIndex !== -1 && doubleNewlineIndex > MAX_CHUNK_LENGTH * 0.7) { // Prefer splits close to MAX_CHUNK_LENGTH
+                      splitPoint = doubleNewlineIndex + 2;
+                  } else {
+                      // If not found or too far, try a single newline
+                      let singleNewlineIndex = remainingText.lastIndexOf('\n', MAX_CHUNK_LENGTH);
+                      if (singleNewlineIndex !== -1 && singleNewlineIndex > MAX_CHUNK_LENGTH * 0.7) {
+                          splitPoint = singleNewlineIndex + 1;
+                      } else {
+                          // If not found or too far, try a sentence end (.?!)
+                          let sentenceEndIndex = Math.max(
+                              remainingText.lastIndexOf('.', MAX_CHUNK_LENGTH),
+                              remainingText.lastIndexOf('?', MAX_CHUNK_LENGTH),
+                              remainingText.lastIndexOf('!', MAX_CHUNK_LENGTH)
+                          );
+                          if (sentenceEndIndex !== -1 && sentenceEndIndex > MAX_CHUNK_LENGTH * 0.7) {
+                              splitPoint = sentenceEndIndex + 1;
+                          }
+                      }
+                  }
+
+                  // Fallback to simple character split if no good natural break found
+                  if (splitPoint <= 0 || splitPoint > MAX_CHUNK_LENGTH) {
+                      splitPoint = MAX_CHUNK_LENGTH;
+                  }
+
+                  chunks.push(remainingText.substring(0, splitPoint));
+                  remainingText = remainingText.substring(splitPoint).trimStart();
+              }
+              console.log('splitIntoChunks finished. Generated', chunks.length, 'chunks.');
+              return chunks;
+          };
+
+
+          // Function to translate a single chunk of text
+          const translateChunk = async (textToTranslate) => {
+            console.log('translateChunk called. Chunk length:', textToTranslate.length);
+            const keyToUse = localApiKey;
+            let finalApiUrl = BASE_GEMINI_API_URL;
+
+            if (!keyToUse) {
+                console.error('API Key missing for translation.');
+                throw new Error('Translation failed: A valid Gemini API key is REQUIRED. Please enter and save your key.');
+            }
+            finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
+
+
+            // IMPORTANT: Modified prompt to request preservation of formatting
+            let prompt = `Please translate the following text into ${targetLanguage}. Ensure that all original paragraph breaks and sentence separations are preserved in the translation. Each new paragraph in the original text should correspond to a new paragraph in the translated text. Each sentence should end with appropriate punctuation and be followed by a space before the next sentence, unless it's a new paragraph.`;
+
+            if (terminology.trim()) {
+              prompt += `
 Use the provided Terminology Guide to ensure accuracy for specific words, names, and phrases. Words or phrases in the guide should either remain untranslated or be translated precisely as indicated within the guide's context.
 
 ---
@@ -596,526 +515,1148 @@ Terminology Guide:
 ${terminology}
 ---
 `;
-}
+            }
 
-prompt += `
+            prompt += `
 Original Text to Translate:
 ${textToTranslate}
 
 Provide ONLY the ${targetLanguage} translation of the Original Text to Translate. Do not include the Terminology Guide or any conversational text in your response.`;
 
-try {
-const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
-const payload = { contents: chatHistory };
+            try {
+              console.log('Sending API request for chunk...');
+              const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+              const payload = { contents: chatHistory };
 
-const response = await fetch(finalApiUrl, {
-method: 'POST',
-headers: {
-'Content-Type': 'application/json',
-},
-body: JSON.stringify(payload),
-});
+              const response = await fetch(finalApiUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+              });
 
-if (!response.ok) {
-let errorDetails = `HTTP error! status: ${response.status}`;
-try {
-const errorBody = await response.text();
-if (errorBody) {
-errorDetails += `, details: ${errorBody.substring(0, 200)}...`;
-}
-} catch (e) {
-errorDetails += `, could not read error body: ${e.message}`;
-}
-throw new Error(`API response error: ${errorDetails}`);
-}
+              if (!response.ok) {
+                let errorDetails = `HTTP error! status: ${response.status}`;
+                try {
+                  const errorBody = await response.text();
+                  if (errorBody) {
+                    errorDetails += `, details: ${errorBody.substring(0, 200)}...`;
+                  }
+                } catch (e) {
+                  errorDetails += `, could not read error body: ${e.message}`;
+                }
+                console.error(`API response error: ${errorDetails}`);
+                throw new Error(`API response error: ${errorDetails}`);
+              }
 
-const responseText = await response.text();
-if (!responseText) {
-throw new Error('API returned an empty response.');
-}
+              const responseText = await response.text();
+              if (!responseText) {
+                console.error('API returned an empty response.');
+                throw new Error('API returned an empty response.');
+              }
 
-let result;
-try {
-result = JSON.parse(responseText);
-} catch (jsonParseError) {
-throw new Error(`Failed to parse API response as JSON: ${jsonParseError.message}. Response: ${responseText.substring(0, 200)}...`);
-}
+              let result;
+              try {
+                result = JSON.parse(responseText);
+              } catch (jsonParseError) {
+                console.error(`Failed to parse API response as JSON: ${jsonParseError.message}. Response: ${responseText.substring(0, 200)}...`);
+                throw new Error(`Failed to parse API response as JSON: ${jsonParseError.message}. Response: ${responseText.substring(0, 200)}...`);
+              }
 
-if (result && result.candidates && result.candidates.length > 0 &&
-result.candidates[0].content && result.candidates[0].content.parts &&
-result.candidates[0].content.parts.length > 0) {
-setTranslatedText(result.candidates[0].content.parts[0].text);
-} else {
-console.error("Unexpected API response structure:", result);
-setError('Translation failed: Unexpected API response format or no content in candidates.');
-}
-} catch (err) {
-console.error("Translation error during fetch or parsing:", err);
-setError(`Translation error: ${err.message}. Please check your input and try again. Ensure your API key is valid and has permissions.`);
-} finally {
-setLoading(false);
-}
-};
+              if (result && result.candidates && result.candidates.length > 0 &&
+                  result.candidates[0].content && result.candidates[0].content.parts &&
+                  result.candidates[0].content.parts.length > 0) {
+                const translated = result.candidates[0].content.parts[0].text;
+                console.log('translateChunk successful. Translated length:', translated.length);
+                return translated;
+              } else {
+                console.error("Unexpected API response structure:", result);
+                throw new Error('Translation failed: Unexpected API response format or no content in candidates.');
+              }
+            } catch (err) {
+              console.error("Translation error during fetch or parsing in translateChunk:", err);
+              throw new Error(`Translation error: ${err.message}. Please check your input and try again. Ensure your API key is valid and has permissions.`);
+            }
+          };
 
-const handlePasteTranslate = () => {
-if (inputText.trim()) {
-translateContent(inputText);
-} else {
-setError('Please paste some text to translate.');
-}
-};
+          // Main function to translate an entire ebook by chunking
+          const translateEbook = async (chaptersToTranslate) => {
+            console.log('Starting translateEbook with', chaptersToTranslate.length, 'chapters.');
+            setIsEbookTranslating(true);
+            setEbookTranslationProgress(0);
+            setError('');
+            setAssembledTranslatedText('');
+            setTranslatedChapters([]); // Clear previous state
 
-const handleClearInput = () => {
-setInputText('');
-setError('');
-};
+            const allTranslatedPartsForDisplay = [];
+            const newTranslatedChapters = [];
+            let totalChunks = 0;
+            // Calculate total chunks for progress, including one "chunk" for each title translation
+            chaptersToTranslate.forEach(chap => {
+                totalChunks += splitIntoChunks(chap.text).length;
+                totalChunks += 1; // Add 1 for title translation
+            });
+            let processedChunks = 0;
 
-const handleSwapText = () => {
-const tempInput = inputText;
-setInputText(translatedText);
-setTranslatedText(tempInput);
-setError('');
-};
+            if (!chaptersToTranslate || chaptersToTranslate.length === 0) {
+                setError('No content to translate from the file.');
+                setIsEbookTranslating(false);
+                console.log('translateEbook finished: No content to translate.');
+                return;
+            }
 
-const handleDownloadPDF = () => {
-if (!translatedText) {
-setError('No translated text to download.');
-return;
-}
-setDownloadingPdf(true); // Start PDF loading
-setError('');
-try {
-if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
-setError('PDF library (jsPDF) not loaded. Cannot generate PDF.');
-setDownloadingPdf(false); // End loading on error
-return;
-}
-const doc = new window.jspdf.jsPDF();
-doc.setFont('Inter', 'normal');
-doc.setFontSize(12);
-doc.setTextColor(0, 0, 0);
+            try {
+              for (let i = 0; i < chaptersToTranslate.length; i++) {
+                const chapter = chaptersToTranslate[i];
+                let translatedChapterTitle = chapter.title; // Default to original title
 
-const textLines = doc.splitTextToSize(translatedText, 180);
-const lineHeight = 10;
-let y = 10;
+                // Translate chapter title first
+                if (chapter.title.trim()) {
+                    console.log(`Translating chapter title (${i + 1}/${chaptersToTranslate.length}): "${chapter.title}"`);
+                    try {
+                        translatedChapterTitle = await translateChunk(chapter.title);
+                        processedChunks++; // Increment progress for title translation
+                        setEbookTranslationProgress(Math.floor((processedChunks / totalChunks) * 100));
+                        await new Promise(resolve => setTimeout(resolve, 500)); // Delay after title translation
+                    } catch (titleError) {
+                        console.error(`Error translating chapter title "${chapter.title}":`, titleError);
+                        translatedChapterTitle = chapter.title + ` [Translation error: ${titleError.message}]`; // Append error to title
+                    }
+                }
 
-textLines.forEach(line => {
-if (y + lineHeight > doc.internal.pageSize.height - 10) {
-doc.addPage();
-y = 10;
-}
-doc.text(line, 10, y);
-y += lineHeight;
-});
+                console.log(`Translating chapter content (${i + 1}/${chaptersToTranslate.length}): "${chapter.title}"`);
+                const chunks = splitIntoChunks(chapter.text);
+                const translatedChapterChunks = [];
 
-doc.save(`translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.pdf`);
-} catch (err) {
-console.error("PDF download error:", err);
-setError(`Failed to generate PDF: ${err.message}`);
-} finally {
-setDownloadingPdf(false); // Always end loading
-}
-};
+                for (let j = 0; j < chunks.length; j++) {
+                  const chunk = chunks[j];
+                  try {
+                    const translatedChunk = await translateChunk(chunk);
+                    translatedChapterChunks.push(translatedChunk);
+                  } catch (chunkError) {
+                    console.error(`Error translating chunk ${j + 1} of chapter "${chapter.title}":`, chunkError);
+                    translatedChapterChunks.push(`[Translation error for this segment: ${chunkError.message}]`); // Add placeholder for failed chunk
+                  }
+                  processedChunks++;
+                  setEbookTranslationProgress(Math.floor((processedChunks / totalChunks) * 100));
+                  await new Promise(resolve => setTimeout(resolve, 500)); // Delay between API calls
+                }
+                const translatedChapterContentRaw = translatedChapterChunks.join(' '); // Join chunks with space
+                // Normalize paragraph breaks for the translated chapter content
+                const normalizedTranslatedChapter = translatedChapterContentRaw
+                    .split(/\s*\n\s*\n\s*/) // Split by multiple newlines (with optional whitespace)
+                    .filter(p => p.trim() !== '') // Remove empty paragraphs
+                    .map(p => p.trim()) // Trim each paragraph
+                    .join('\n\n'); // Re-join with consistent double newlines
 
-const handleDownloadEPUB = async () => {
-if (!translatedText) {
-setError('No translated text to download.');
-return;
-}
-setDownloadingEpub(true); // Start EPUB loading
-setError('');
+                newTranslatedChapters.push({
+                    originalTitle: chapter.title, // Keep original title for reference
+                    title: translatedChapterTitle, // Store the translated title
+                    content: normalizedTranslatedChapter // Store normalized content for the chapter
+                });
+                // Add to the list for overall display text, including chapter markers
+                allTranslatedPartsForDisplay.push(`--- Start Chapter: ${translatedChapterTitle} ---\n\n${normalizedTranslatedChapter}\n\n--- End Chapter ---`);
 
-// Give the library a moment to load from the CDN
-await new Promise(resolve => setTimeout(resolve, 100));
+              }
+              // Set the state for individual translated chapters (for EPUB generation)
+              setTranslatedChapters(newTranslatedChapters);
+              // Set the state for the overall text area display and PDF generation
+              const finalAssembledText = allTranslatedPartsForDisplay.join('\n\n').trim();
+              setAssembledTranslatedText(finalAssembledText);
+              console.log('translateEbook completed successfully. Final assembled text length:', finalAssembledText.length);
+              console.log('Translated chapters count:', newTranslatedChapters.length);
 
-try {
-// Check for jEpub global object AND JSZip and ejs
-if (typeof window.jEpub === 'undefined' || typeof window.JSZip === 'undefined' || typeof window.ejs === 'undefined') {
-setError('EPUB generation libraries not loaded. Please ensure "jszip.min.js", "ejs.min.js", and "jepub.min.js" are saved in the same directory as your index.html file.');
-setDownloadingEpub(false);
-return;
-}
-const jepub = new window.jEpub();
-jepub.init({
-title: `Translated Content (${targetLanguage})`,
-author: 'Gemini Translator',
-publisher: 'Gemini Translator App',
-description: `Translated from source by Gemini Translator to ${targetLanguage}`,
-lang: targetLanguage.split(' ')[0].toLowerCase() // Use the first word of language for lang code
-});
+            } catch (err) {
+              console.error("Critical Ebook translation error in translateEbook:", err);
+              setError(`Ebook translation failed: ${err.message}`);
+              setAssembledTranslatedText('Translation failed for the ebook.');
+              setTranslatedChapters([]);
+            } finally {
+              setIsEbookTranslating(false);
+              setEbookTranslationProgress(0);
+              console.log('translateEbook function execution finished.');
+            }
+          };
 
-// --- IMPROVED EPUB CONTENT FORMATTING ---
-const paragraphs = translatedText.trim().split(/\n\s*\n+/); // Split by one or more blank lines for paragraphs
-let htmlContent = '';
-paragraphs.forEach(para => {
-if (para.trim()) {
-const lines = para.trim().split(/\n+/); // Split remaining lines by one or more newlines within a paragraph
-htmlContent += `<p>${lines.join('<br/>')}</p>`;
-}
-});
-// --- END IMPROVED EPUB CONTENT FORMATTING ---
+          // Function to handle translation of text from the input box
+          const handleTranslateFromInputText = async () => {
+            console.log('handleTranslateFromInputText called.');
+            setLoading(true);
+            setError('');
+            setAssembledTranslatedText(''); // Clear previous translation for new request
+            setTranslatedChapters([]); // Clear chapters if translating single text
 
-jepub.add(
-`Translation in ${targetLanguage}`,
-htmlContent
-);
+            if (!inputText.trim()) {
+              setError('Please paste some text to translate.');
+              setLoading(false);
+              console.log('handleTranslateFromInputText finished: No input text.');
+              return;
+            }
 
-const epubBlob = await jepub.generate('blob'); // Generate as Blob for client-side download
+            try {
+              const translated = await translateChunk(inputText); // Use translateChunk for single text area translation
+              // Normalize multiple newlines to ensure proper paragraph breaks
+              const normalizedTranslated = translated
+                  .split(/\s*\n\s*\n\s*/)
+                  .filter(p => p.trim() !== '')
+                  .map(p => p.trim())
+                  .join('\n\n');
+              setAssembledTranslatedText(normalizedTranslated);
+              setTranslatedChapters([{ title: 'Translated Document', content: normalizedTranslated }]); // Treat single text as one chapter for download
+              console.log('handleTranslateFromInputText successful. Translated text length:', normalizedTranslated.length);
+            } catch (err) {
+              console.error('Error in handleTranslateFromInputText:', err);
+              setError(err.message);
+            } finally {
+              setLoading(false);
+              console.log('handleTranslateFromInputText function execution finished.');
+            }
+          };
 
-// Create a download link for the Blob
-const url = URL.createObjectURL(epubBlob);
-const a = document.createElement('a');
-a.href = url;
-a.download = `translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.epub`;
-document.body.appendChild(a);
-a.click();
-document.body.removeChild(a);
-URL.revokeObjectURL(url); // Clean up the object URL
+          const handleClearInput = () => {
+            console.log('handleClearInput called.');
+            setInputText('');
+            setError('');
+            setAssembledTranslatedText('');
+            setTranslatedChapters([]);
+            console.log('Input and translated content cleared.');
+          };
 
-} catch (err) {
-console.error("EPUB download error:", err);
-setError(`Failed to generate EPUB: ${err.message}. Please ensure the jEpub library is loaded and accessible.`);
-} finally {
-setDownloadingEpub(false); // Always end loading
-}
-};
+          const handleSwapText = () => {
+            console.log('handleSwapText called.');
+            const tempInput = inputText;
+            setInputText(assembledTranslatedText);
+            setAssembledTranslatedText(tempInput);
+            setError('');
+            console.log('Text swapped.');
+          };
 
-const handleCopyToClipboard = () => {
-if (!translatedText) {
-setCopySuccess('No text to copy.');
-return;
-}
-try {
-const textarea = document.createElement('textarea');
-textarea.value = translatedText; // Copy the raw text content
-document.body.appendChild(textarea);
-textarea.select();
-document.execCommand('copy');
-document.body.removeChild(textarea);
-setCopySuccess('Translated text copied to clipboard!');
-} catch (err) {
-console.error('Failed to copy text: ', err);
-setCopySuccess('Failed to copy text. Please try again manually.');
-}
-setTimeout(() => setCopySuccess(''), 3000);
-};
+          // Helper function to clean extracted text from various file types
+          const cleanExtractedText = (text) => {
+              console.log('cleanExtractedText called. Original text length:', text.length);
+              let cleanedText = text;
 
-return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-purple-500 to-indigo-700 p-4 font-sans text-gray-800 flex items-center justify-center' },
-React.createElement('div', { className: 'w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 space-y-8 backdrop-blur-md bg-opacity-90' },
-React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-800 mb-2 tracking-tight' }, 'Gemini Translator'),
-React.createElement('p', { className: 'text-center text-sm text-gray-500 mb-6' }, `Version: ${version}`),
+              // Step 1: Remove PDF page markers (e.g., "--- PAGE 1 ---", "--- Page End ---")
+              cleanedText = cleanedText.replace(/--- PAGE \d+ ---\n\n/g, '');
+              cleanedText = cleanedText.replace(/--- Page End ---\n\n?/g, '');
+              cleanedText = cleanedText.replace(/--- Page End ---/g, '');
 
-React.createElement('div', { className: 'flex justify-center border-b border-gray-200' },
-React.createElement('button', {
-onClick: () => setActiveTab('text'),
-className: `py-3 px-6 text-lg font-medium rounded-t-lg transition-colors duration-200 ${activeTab === 'text' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-indigo-100'}`
-}, React.createElement(Clipboard, { className: 'inline-block mr-2', size: 20 }), ' Text Paste'),
-React.createElement('button', {
-onClick: () => setActiveTab('url'),
-className: `py-3 px-6 text-lg font-medium rounded-t-lg transition-colors duration-200 ${activeTab === 'url' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-indigo-100'}`
-}, React.createElement(Link, { className: 'inline-block mr-2', size: 20 }), ' URL (Info)')
-),
+              // Step 2: Aggressively remove known redundant chapter/title patterns.
+              // This is designed to catch cases like:
+              // "548 : Delilah's Will [ 3 ]\n\nChapter 548 : Delilah's Will [ 3 ]"
+              // or just "548 : Delilah's Will [ 3 ]" on its own line
+              // or just "Chapter 548 : Delilah's Will [ 3 ]" on its own line
+              // and remove *all* instances that match these header-like patterns.
 
-React.createElement('div', { className: 'bg-gray-50 p-6 rounded-b-xl rounded-r-xl shadow-inner' },
-activeTab === 'text' && React.createElement('div', { className: 'space-y-6' },
-React.createElement('div', null,
-React.createElement('label', { htmlFor: 'fileUpload', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Upload File (Text, PDF, EPUB):'),
-React.createElement('input', {
-type: 'file',
-id: 'fileUpload',
-ref: fileInputRef, // Assign ref
-onChange: handleFileChange,
-accept: '.txt, .pdf, .epub', // Accepted file types
-className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base mb-4',
-disabled: uploadingFile // Disable during upload
-}),
-React.createElement('button', {
-onClick: () => fileInputRef.current.click(), // Trigger file input click
-className: 'w-full px-4 py-2 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-all duration-200 hover:scale-105 flex items-center justify-center mb-4', // Added mb-4 for spacing
-disabled: uploadingFile
-},
-uploadingFile ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 16 }) : React.createElement(Upload, { size: 16, className: 'mr-1' }),
-uploadingFile ? 'Processing File...' : 'Choose and Upload File'
-),
-React.createElement('label', { htmlFor: 'inputText', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Paste Text for Translation:'),
-React.createElement('textarea', {
-id: 'inputText',
-className: 'w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-y min-h-[150px] text-base',
-placeholder: 'Paste your content here...',
-value: inputText,
-onChange: (e) => setInputText(e.target.value)
-}),
-React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
-React.createElement('button', {
-onClick: handlePasteInputText,
-className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
-}, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste from Clipboard'),
-React.createElement('button', {
-onClick: handleCopyInputText,
-className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
-}, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy Input Text'),
-React.createElement('button', { // Moved this button to be below the copy button
-onClick: handleClearInput,
-className: 'w-full px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105' // Changed to red
-}, 'Clear Input')
-)
-),
-React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' }, // Buttons for Clear and Swap, now responsive
-React.createElement('button', {
-onClick: handleSwapText,
-className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
-}, React.createElement(RefreshCcw, { size: 16, className: 'mr-1' }), ' Swap Text')
-),
-React.createElement('div', null,
-React.createElement('label', { htmlFor: 'targetLanguage', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Translate to:'),
-React.createElement('select', {
-id: 'targetLanguage',
-className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
-value: targetLanguage,
-onChange: (e) => setTargetLanguage(e.target.value)
-},
-languages.map(lang =>
-React.createElement('option', { key: lang, value: lang }, lang)
-)
-)
-),
-React.createElement('button', {
-onClick: handlePasteTranslate,
-className: 'w-full md:w-auto md:mx-auto px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
-disabled: loading
-},
-loading ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 24 }) : React.createElement(BookText, { className: 'mr-2', size: 24 }),
-loading ? 'Translating...' : 'Translate Text'
-)
-),
+              // Remove "Number : Title [Number]" at the beginning of a line
+              // This also handles variations in spacing around ':' and '[' ']'
+              cleanedText = cleanedText.replace(/^\s*"?\d+\s*:\s*[^"\]]+?\[\s*\d+\s*\]"?\s*\n*/gm, '');
 
-activeTab === 'url' && React.createElement('div', { className: 'space-y-6' },
-React.createElement('h2', { className: 'text-xl font-bold text-gray-800' }, 'URL Content Information'),
-React.createElement('p', { className: 'text-gray-700 leading-relaxed' },
-React.createElement('span', { className: 'font-semibold' }, 'Important Considerations for URL Scanning:'),
-React.createElement('br'),
-'Due to browser security policies (CORS) and the client-side nature of this application, direct arbitrary URL scanning and content extraction is not possible.'
-),
-React.createElement('p', { className: 'text-gray-700 leading-relaxed' },
-React.createElement('span', { className: 'font-semibold' }, 'How it would typically work with a backend:'),
-React.createElement('br'),
-'In a full-stack application, you would input a URL here. A backend server (e.js., Node.js, Python Flask/Django) would then:'
-),
-React.createElement('ol', { className: 'list-decimal list-inside ml-4 mt-2 space-y-1 text-gray-700' },
-React.createElement('li', null, 'Use a library like `requests` (Python) or `axios` (`Node.js`) to fetch the HTML content from the provided URL.'),
-React.createElement('li', null, 'Parse the HTML using libraries like `BeautifulSoup` (Python) or `cheerio` (`Node.js`) to extract the main textual content.'),
-React.createElement('li', null, 'Send this extracted text to the Gemini API for translation.'),
-React.createElement('li', null, 'Return the translated text to the frontend.')
-),
-React.createElement('p', { className: 'text-gray-700 font-semibold' }, 'For now, please manually copy content from any URL (e.g., Lofter posts) and paste it into the "Text Paste" section to utilize the translation functionality.')
-)
-),
+              // Remove "Chapter Number : Title [Number]" at the beginning of a line
+              // This covers cases like "Chapter 548: Delilah's Will [3]"
+              cleanedText = cleanedText.replace(/^\s*"?Chapter\s+\d+\s*:\s*[^"\]]+?\[\s*\d+\s*\]"?\s*\n*/gm, '');
 
-React.createElement('div', { className: 'space-y-4' },
-React.createElement('label', { htmlFor: 'terminology', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Glossary:'),
-React.createElement('textarea', {
-id: 'terminology',
-className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[100px]',
-placeholder: 'Paste your glossary here.',
-value: terminology,
-onChange: (e) => setTerminology(e.target.value)
-}),
-React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
-React.createElement('button', {
-onClick: handlePasteTerminology,
-className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
-}, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste Glossary'),
-React.createElement('button', {
-onClick: handleCopyTerminology,
-className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
-}, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy Glossary'),
-React.createElement('button', {
-onClick: handleClearTerminology,
-className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105' // Added shadow, rounded-lg, transition
-}, 'Clear Glossary')
-),
-React.createElement('p', { className: 'text-sm text-gray-600' }, 'Enter your glossary. The translator will refer to this text to ensure specific words, names, or phrases are handled accurately.')
-),
+              // Remove generic "Chapter Number" lines, usually found in EPUB TOCs or simple chapter markers
+              cleanedText = cleanedText.replace(/^\s*"?Chapter\s+\d+"?\s*\n*/gm, '');
 
-React.createElement('div', { className: 'space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50' },
-React.createElement('h3', { className: 'text-xl font-bold text-gray-800' }, 'Manage Saved Glossaries'),
-React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4 items-stretch' }, // Added flex-col and sm:flex-row
-React.createElement('input', {
-type: 'text',
-className: 'w-full sm:flex-grow p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500', // w-full for mobile
-placeholder: 'Name for current glossary...',
-value: newGlossaryName,
-onChange: (e) => setNewGlossaryName(e.target.value)
-}),
-React.createElement('button', {
-onClick: handleSaveGlossary,
-className: 'w-full sm:w-auto px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-all duration-200 hover:scale-105' // w-full for mobile // Added shadow, rounded-lg, transition
-}, 'Save Current Glossary')
-),
-React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4 items-stretch' },
-React.createElement('button', {
-onClick: handleSetDefaultGlossary,
-className: 'w-full sm:w-auto px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105',
-disabled: !activeGlossaryId
-}, 'Set Current as Default'),
-React.createElement('button', {
-onClick: handleClearDefaultGlossary,
-className: 'w-full sm:w-auto px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg shadow-md hover:bg-orange-600 transition-all duration-200 hover:scale-105',
-disabled: !defaultGlossaryName
-}, 'Clear Default Setting')
-),
-savedGlossaries.length > 0 && React.createElement('div', {className: 'max-h-40 overflow-y-auto pr-2'}, // Added max-height and overflow for scroll
-React.createElement('h4', { className: 'text-lg font-semibold text-gray-700 mb-2' }, 'Your Saved Glossaries:'),
-React.createElement('ul', { className: 'space-y-2' },
-// Sort savedGlossaries to put the active one first
-[...savedGlossaries].sort((a, b) => {
-if (a.name === activeGlossaryId) return -1;
-if (b.name === activeGlossaryId) return 1;
-return 0;
-}).map((glossary, index) =>
-React.createElement('li', { key: index, className: 'flex flex-wrap items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm' }, // Added flex-wrap // Added shadow, rounded-lg
-React.createElement('span', { className: `font-medium ${activeGlossaryId === glossary.name ? 'text-indigo-700' : 'text-gray-800'} mb-2 sm:mb-0` }, glossary.name,
-defaultGlossaryName === glossary.name && React.createElement('span', { className: 'text-xs text-indigo-500 ml-2' }, '(Default)')
-), // Added margin for spacing
-React.createElement('div', { className: 'flex flex-col w-full sm:w-auto sm:flex-row gap-2' }, // Added w-full here to stretch container, and sm:w-auto to revert on larger screens
-React.createElement('button', {
-onClick: () => handleLoadGlossary(glossary),
-className: 'px-3 py-1 text-sm bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 w-full' // Added w-full
-}, 'Load'),
-activeGlossaryId === glossary.name && React.createElement('button', {
-onClick: () => handleUpdateSpecificGlossary(glossary.name),
-className: 'px-3 py-1 text-sm bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105 flex items-center justify-center w-full' // Added w-full
-}, React.createElement(Save, { size: 14, className: 'mr-1' }), ' Save Edits'),
-React.createElement('button', {
-onClick: () => handleDeleteGlossary(glossary.name),
-className: 'px-3 py-1 text-sm bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105 w-full' // Added w-full
-}, 'Delete')
-)
-)
-)
-)
-)
-),
+              // Remove any stray quotes around empty lines that might be remnants from parsing
+              cleanedText = cleanedText.replace(/^"\s*"\s*\n*/gm, '');
 
-React.createElement('div', { className: 'space-y-4' },
-React.createElement('label', { htmlFor: 'apiKeyInput', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Your Gemini API Key (Required):'),
-React.createElement('div', { className: 'relative flex items-center' }, // Flex container for input and toggle
-React.createElement('input', { // Changed from textarea to input
-id: 'apiKeyInput',
-type: showApiKey ? 'text' : 'password', // Toggle type based on state
-className: 'w-full p-3 pr-10 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
-placeholder: 'Paste your Gemini API key here...',
-value: apiKeyInput,
-onChange: (e) => setApiKeyInput(e.target.value)
-}),
-React.createElement('button', {
-type: 'button', // Prevent form submission
-onClick: () => setShowApiKey(!showApiKey),
-className: 'absolute right-3 p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500'
-},
-showApiKey ? React.createElement(EyeOff, { size: 20 }) : React.createElement(Eye, { size: 20 })
-)
-),
-React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
-React.createElement('button', {
-onClick: handleSaveApiKey,
-className: 'px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105' // Added shadow, rounded-lg, transition
-}, 'Save API Key'),
-React.createElement('button', {
-onClick: handlePasteApiKey, // New paste button for API key
-className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
-}, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste API Key'),
-React.createElement('button', {
-onClick: handleCopyApiKey,
-className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center' // Added shadow, rounded-lg, transition
-}, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy API Key'),
-React.createElement('button', {
-onClick: handleClearApiKey,
-className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105' // Changed bg-yellow-500 to bg-red-500 and hover:bg-yellow-600 to hover:bg-red-600
-}, 'Clear API Key')
-),
-React.createElement('p', { className: 'text-sm text-gray-600 mt-2' }, apiKeyStatus),
-),
+              // Step 3: Remove other general EPUB/PDF artifacts like "Table of Contents" and "Page X"
+              cleanedText = cleanedText.replace(/^\s*(?:Table of Contents|Page \d+)\s*\n*/gm, '');
+
+              // Step 4: Remove image URLs if extracted as text
+              cleanedText = cleanedText.replace(/https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)(\s*\n+|$)/gi, '');
+
+              // Step 5: Normalize multiple newlines to consistent paragraph breaks (maximum two newlines)
+              cleanedText = cleanedText.replace(/(\n\s*){3,}/g, '\n\n');
+              cleanedText = cleanedText.trim(); // Trim leading/trailing whitespace
+
+              console.log('cleanExtractedText finished. Cleaned text length:', cleanedText.length);
+              return cleanedText;
+          };
+
+          // Function to handle file selection
+          const handleFileChange = async (event) => {
+              console.log('handleFileChange called.');
+              const file = event.target.files[0];
+              if (file) {
+                  console.log('File selected:', file.name, file.type);
+                  await processFile(file);
+              } else {
+                  console.log('No file selected.');
+              }
+          };
+
+          // Function to process the uploaded file based on its type
+          const processFile = async (file) => {
+              console.log('Starting processFile for:', file.name, file.type);
+              setUploadingFile(true);
+              setError('');
+              setInputText(''); // Clear previous text from the input area
+              setAssembledTranslatedText(''); // Clear previous assembled text
+              setTranslatedChapters([]); // Clear previous translated chapters
+
+              try {
+                  const fileType = file.type;
+                  let extractedData = { fullText: '', chapters: [] }; // Standardize extracted data structure
+                  console.log('Determining file type:', fileType);
+
+                  if (fileType === 'text/plain') {
+                      console.log('Processing as plain text file...');
+                      const rawText = await readFileAsText(file);
+                      const cleanedText = cleanExtractedText(rawText);
+                      extractedData.fullText = cleanedText;
+                      extractedData.chapters = [{ title: file.name || 'Document', text: cleanedText }]; // Treat as single chapter
+                      console.log('Finished readFileAsText & cleaned. Full text length:', extractedData.fullText.length);
+                  } else if (fileType === 'application/pdf') {
+                      console.log('Processing as PDF file...');
+                      const rawText = await readPdfFile(file);
+                      const cleanedText = cleanExtractedText(rawText);
+                      extractedData.fullText = cleanedText;
+                      // For PDF, we don't have explicit chapters from the file itself unless OCR/advanced parsing is used.
+                      // So we'll treat it as one large chapter for now, but label it for the TOC.
+                      extractedData.chapters = [{ title: file.name || 'PDF Document', text: cleanedText }];
+                      console.log('Finished readPdfFile & cleaned. Full text length:', extractedData.fullText.length);
+                  } else if (fileType === 'application/epub+zip') {
+                      console.log('Processing as EPUB file...');
+                      const rawEpubData = await readEpubFile(file); // This now returns { fullText, chapters }
+                      // Clean individual chapter texts from EPUB
+                      extractedData.chapters = rawEpubData.chapters.map(chap => ({
+                          title: chap.title,
+                          text: cleanExtractedText(chap.text)
+                      }));
+                      // Reconstruct fullText from cleaned chapters for consistent display
+                      extractedData.fullText = extractedData.chapters.map(chap => chap.text).join('\n\n'); // Rejoin for fullText display
+                      console.log('Finished readEpubFile & cleaned. Full text length:', extractedData.fullText.length, 'Chapters:', extractedData.chapters.length);
+                  } else {
+                      console.warn('Unsupported file type detected:', fileType);
+                      throw new Error('Unsupported file type. Please upload a .txt, .pdf, or .epub file.');
+                  }
+
+                  setCopySuccess(`Content extracted from ${file.name}! Starting translation...`);
+                  setTimeout(() => setCopySuccess(''), 3000);
+                  console.log('Starting translateEbook with', extractedData.chapters.length, 'chapters.');
+                  // Pass the structured chapter data to translateEbook
+                  await translateEbook(extractedData.chapters);
+                  console.log('translateEbook process completed.');
+
+              } catch (err) {
+                  console.error("File processing error in processFile catch block:", err);
+                  setError(`Failed to process file: ${err.message}`);
+                  setAssembledTranslatedText('Failed to extract content from file.');
+                  setTranslatedChapters([]);
+              } finally {
+                  setUploadingFile(false);
+                  if (fileInputRef.current) {
+                      fileInputRef.current.value = ''; // Clear the file input
+                  }
+                  console.log('Finished processFile execution.');
+              }
+          };
+
+          // Helper function to read a text file
+          const readFileAsText = (file) => {
+              console.log('readFileAsText called.');
+              return new Promise((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = (e) => {
+                    console.log('FileReader finished reading text file.');
+                    resolve(e.target.result);
+                  };
+                  reader.onerror = (e) => {
+                    console.error('FileReader error reading text file:', e.target.error);
+                    reject(e.target.error);
+                  };
+                  reader.readAsText(file);
+              });
+          };
+
+          // Helper function to read a PDF file with better paragraph detection
+          const readPdfFile = async (file) => {
+            console.log('Executing readPdfFile...');
+            if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
+                console.error('PDF.js library not loaded. Cannot process PDF files.');
+                throw new Error('PDF.js library not loaded. Cannot process PDF files.');
+            }
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                console.log('PDF array buffer loaded. Size:', arrayBuffer.byteLength);
+                const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                console.log('PDF document loaded. Pages:', pdf.numPages);
+                let fullText = '';
+                const minParagraphSpacing = 1.5; // Heuristic for paragraph spacing (e.g., 1.5 times typical line height)
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const pageObject = await pdf.getPage(i); // Corrected variable name
+                    const textContent = await pageObject.getTextContent(); // Corrected variable name
+                    console.log(`Processing PDF page ${i}. Items:`, textContent.items.length);
+                    let lastY = -1;
+                    let lastLineHeight = -1;
+
+                    textContent.items.forEach(item => {
+                        const currentY = item.transform[5]; // Y-coordinate of the text item
+                        const currentLineHeight = item.height; // Height of the text item (approx line height)
+
+                        if (lastY !== -1) {
+                            // Check for significant vertical jump (potential paragraph break)
+                            if (currentY < lastY - (lastLineHeight * minParagraphSpacing)) {
+                                fullText += '\n\n'; // New paragraph
+                            } else if (currentY < lastY) {
+                                fullText += '\n'; // New line within a paragraph (if not just horizontal flow)
+                            } else {
+                                fullText += ' '; // Regular space
+                            }
+                        }
+                        fullText += item.str;
+                        lastY = currentY;
+                        lastLineHeight = currentLineHeight;
+                    });
+                    fullText += '\n\n--- Page End ---\n\n'; // Mark page breaks clearly
+                }
+                console.log('PDF text extraction complete. Total text length:', fullText.length);
+                return fullText;
+            } catch (err) {
+                console.error('Error reading PDF file:', err);
+                throw new Error(`Error extracting text from PDF: ${err.message}`);
+            }
+          };
+
+          // Helper function to read an EPUB file (using JSZip) and extract chapters with titles
+          const readEpubFile = async (file) => {
+              console.log('Executing readEpubFile...');
+              if (typeof window.JSZip === 'undefined') {
+                  console.error('JSZip library not loaded. Cannot process EPUB files.');
+                  throw new Error('JSZip library not loaded. Cannot process EPUB files.');
+              }
+
+              try {
+                  const zip = new window.JSZip();
+                  const contents = await zip.loadAsync(file);
+                  const chapterData = [];
+                  let fullTextConcatenated = ''; // Keep this for overall text content
+                  console.log('EPUB zip file loaded. Number of files:', Object.keys(contents.files).length);
+
+                  // 1. Find the container.xml file (usually at META-INF/container.xml)
+                  const containerFile = contents.file('META-INF/container.xml');
+                  if (!containerFile) {
+                      throw new Error('EPUB error: META-INF/container.xml not found.');
+                  }
+                  const containerContent = await containerFile.async('text');
+                  const containerDoc = new DOMParser().parseFromString(containerContent, "text/xml");
+                  console.log('container.xml parsed.');
+
+                  // Get the path to the OPF file (rootfile)
+                  const rootfilePath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
+                  if (!rootfilePath) {
+                      throw new Error('EPUB error: Rootfile path not found in container.xml.');
+                  }
+                  const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
+                  console.log('OPF rootfile path:', rootfilePath, 'OPF directory:', opfDir);
+
+                  // 2. Load and parse the OPF file
+                  const opfFile = contents.file(rootfilePath);
+                  if (!opfFile) {
+                      throw new Error(`EPUB error: OPF file not found at ${rootfilePath}`);
+                  }
+                  const opfContent = await opfFile.async('text');
+                  const opfDoc = new DOMParser().parseFromString(opfContent, "text/xml");
+                  console.log('OPF file parsed.');
+
+                  // 3. Find the NCX file (Table of Contents) from the OPF manifest
+                  let ncxHref = null;
+                  const ncxItem = opfDoc.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
+                  if (ncxItem) {
+                      ncxHref = ncxItem.getAttribute('href');
+                      console.log('NCX href found:', ncxHref);
+                  }
+
+                  const navMapTitles = new Map(); // Map content href (cleaned) to navLabel (title)
+                  if (ncxHref) {
+                      const ncxPath = opfDir + ncxHref;
+                      const ncxFile = contents.file(ncxPath);
+                      if (ncxFile) {
+                          const ncxContent = await ncxFile.async('text');
+                          const ncxDoc = new DOMParser().parseFromString(ncxContent, "text/xml");
+                          ncxDoc.querySelectorAll('navPoint').forEach(navPoint => {
+                              const navLabel = navPoint.querySelector('navLabel text')?.textContent;
+                              const contentSrc = navPoint.querySelector('content')?.getAttribute('src');
+                              if (navLabel && contentSrc) {
+                                  // Normalize contentSrc: remove anchor if present
+                                  const cleanContentSrc = contentSrc.split('#')[0];
+                                  navMapTitles.set(cleanContentSrc, navLabel);
+                                  console.log(`  NCX map: ${cleanContentSrc} -> ${navLabel}`);
+                              }
+                          });
+                      } else {
+                          console.warn(`NCX file not found at ${ncxPath}. Chapter titles might be missing.`);
+                      }
+                  } else {
+                      console.warn('NCX manifest item not found in OPF. Chapter titles might be missing.');
+                  }
 
 
-error && React.createElement('div', { className: 'bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-md flex items-center animate-fade-in-down' },
-React.createElement(XCircle, { className: 'mr-3 cursor-pointer', size: 20, onClick: () => setError('') }), // Dismiss button
-React.createElement('p', { className: 'font-medium' }, error)
-),
+                  // Function to extract text from an HTML node, preserving breaks
+                  const extractTextFromNode = (node) => {
+                    let text = '';
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        text += node.textContent; // Use += for text content
+                    }
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        const tagName = node.tagName.toLowerCase();
+                        if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote'].includes(tagName)) {
+                            text += '\n\n';
+                        }
 
-translatedText && React.createElement('div', { className: 'space-y-6' },
-React.createElement('div', null,
-React.createElement('label', { htmlFor: 'translatedText', className: 'block text-lg font-semibold text-gray-700 mb-2' }, `Translated Content (${targetLanguage}):`),
-React.createElement('textarea', {
-id: 'translatedText',
-className: 'w-full p-4 border border-green-300 bg-green-50 rounded-lg shadow-inner focus:outline-none resize-y min-h-[200px] text-base',
-readOnly: true,
-value: translatedText
-})
-),
-copySuccess && React.createElement('p', { className: 'text-sm text-green-700 mt-2 text-center' }, copySuccess),
-React.createElement('div', { className: 'flex flex-col sm:flex-row justify-center gap-4' }, // Still horizontal on sm+ for main download buttons
-React.createElement('button', {
-onClick: handleCopyToClipboard,
-className: 'w-full sm:w-auto px-6 py-3 bg-blue-500 text-white font-bold rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition transform hover:scale-105 flex items-center justify-center text-lg'
-}, React.createElement(Copy, { className: 'mr-2', size: 20 }), ' Copy Translation'),
-React.createElement('button', {
-onClick: handleDownloadEPUB,
-className: 'w-full sm:w-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full shadow-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
-disabled: downloadingEpub // Disable during download
-},
-downloadingEpub ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
-downloadingEpub ? 'Generating EPUB...' : 'Download EPUB'
-),
-React.createElement('button', {
-onClick: handleDownloadPDF,
-className: 'w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
-disabled: downloadingPdf // Disable during download
-},
-downloadingPdf ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
-downloadingPdf ? 'Generating PDF...' : 'Download PDF'
-)
-)
-),
+                        for (const childNode of node.childNodes) {
+                            text += extractTextFromNode(childNode);
+                        }
 
-// Custom Modal Component
-showModal && React.createElement('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4' },
-React.createElement('div', { className: 'bg-white rounded-lg shadow-xl p-6 max-w-sm w-full space-y-4' },
-React.createElement('p', { className: 'text-lg font-semibold text-gray-800 text-center' }, modalMessage),
-React.createElement('div', { className: 'flex justify-center gap-4 mt-4' },
-React.createElement('button', {
-onClick: handleModalConfirm,
-className: 'px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors'
-}, 'Confirm'),
-React.createElement('button', {
-onClick: handleModalCancel,
-className: 'px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors'
-}, 'Cancel')
-)
-)
-)
-)
-);
-}
+                        if (tagName === 'br') {
+                            text += '\n';
+                        } else if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote'].includes(tagName)) {
+                            if (!text.endsWith('\n\n')) {
+                                text += '\n\n';
+                            }
+                        }
+                    }
+                    // Normalize spaces and trim the content of each block
+                    return text.replace(/ {2,}/g, ' ').trim();
+                  };
 
-const rootElement = document.getElementById('root');
-if (rootElement) {
-ReactDOM.createRoot(rootElement).render(React.createElement(App));
-} else {
-console.error('Root element not found to render React app.');
-}
+                  // 4. Iterate through the spine (reading order)
+                  const spine = opfDoc.querySelectorAll('spine itemref');
+                  console.log('Processing spine. Number of items:', spine.length);
+                  for (const itemref of spine) {
+                      const idref = itemref.getAttribute('idref');
+                      const href = opfDoc.querySelector(`manifest item[id="${idref}"]`)?.getAttribute('href');
 
-// Register Service Worker
-if ('serviceWorker' in navigator) {
-window.addEventListener('load', () => {
-navigator.serviceWorker.register('/service-worker.js')
-.then(registration => {
-console.log('Service Worker registered with scope:', registration.scope);
-})
-.catch(error => {
-console.error('Service Worker registration failed:', error);
-});
-});
-}
-</script>
+                      if (href) {
+                          const mediaType = opfDoc.querySelector(`manifest item[id="${idref}"]`)?.getAttribute('media-type');
+                          if (mediaType && (mediaType === 'application/xhtml+xml' || mediaType === 'text/html')) {
+                              const contentPath = opfDir + href;
+                              const contentFile = contents.file(contentPath);
+                              console.log(`  Processing spine item: ${idref} -> ${contentPath}`);
+
+                              if (contentFile) {
+                                  try {
+                                      const htmlContent = await contentFile.async('text');
+                                      const parser = new DOMParser();
+                                      const doc = parser.parseFromString(htmlContent, "text/html");
+                                      console.log(`    HTML content for ${contentPath} parsed. Body innerHTML length:`, doc.body?.innerHTML.length);
+
+                                      // Remove script and style tags
+                                      doc.querySelectorAll('script, style').forEach(el => el.remove());
+
+                                      const chapterText = extractTextFromNode(doc.body);
+                                      // Get title from navMap, fallback to heuristic or generic
+                                      let chapterTitle = navMapTitles.get(href.split('#')[0]); // Use cleaned href for lookup
+
+                                      // Fallback: If no navMap title, try to extract a main heading from the HTML
+                                      if (!chapterTitle) {
+                                          const firstHeading = doc.querySelector('h1, h2, h3, h4');
+                                          if (firstHeading && firstHeading.textContent.trim()) {
+                                              chapterTitle = firstHeading.textContent.trim();
+                                              console.log(`    Fallback: Found heading title "${chapterTitle}" for ${contentPath}`);
+                                          }
+                                      }
+                                      // Final fallback for title
+                                      if (!chapterTitle) {
+                                          chapterTitle = `Chapter ${chapterData.length + 1}`;
+                                          // If the chapter text starts with a line that looks like a title, use it
+                                          const firstLine = chapterText.split('\n')[0].trim();
+                                          if (firstLine.length > 5 && firstLine.length < 100 && !firstLine.includes('.')) {
+                                              chapterTitle = firstLine;
+                                              console.log(`    Final Fallback: Used first line as title "${chapterTitle}" for ${contentPath}`);
+                                          }
+                                      }
+                                      console.log(`    Resolved chapter title: "${chapterTitle}"`);
+
+                                      chapterData.push({ title: chapterTitle, text: chapterText });
+                                      // Also concatenate for the fullText output
+                                      fullTextConcatenated += `\n\n--- Start Chapter: ${chapterTitle} ---\n\n` + chapterText.trim();
+                                      fullTextConcatenated += '\n\n--- End Chapter ---\n\n';
+
+                                  } catch (e) {
+                                      console.error(`Error processing content file ${contentPath}:`, e);
+                                      const errorChapterTitle = navMapTitles.get(href.split('#')[0]) || `Chapter ${chapterData.length + 1} (Error)`;
+                                      chapterData.push({ title: errorChapterTitle, text: '' }); // Push empty content for failed chapter
+                                      fullTextConcatenated += `\n\n--- Start Chapter: ${errorChapterTitle} ---\n\n` + 'Content extraction failed for this chapter.';
+                                      fullTextConcatenated += '\n\n--- End Chapter ---\n\n';
+                                  }
+                              } else {
+                                console.warn(`Content file not found for path: ${contentPath}`);
+                              }
+                          } else {
+                            console.log(`  Skipping spine item ${idref} due to unsupported media type: ${mediaType}`);
+                          }
+                      } else {
+                        console.warn(`  Skipping spine item ${idref}: href not found.`);
+                      }
+                  }
+
+                  if (!fullTextConcatenated.trim() && chapterData.length === 0) {
+                      throw new Error('Could not extract readable text from EPUB file. No text content found in spine items or within HTML blocks.');
+                  }
+                  console.log('EPUB parsing complete. Extracted full text length:', fullTextConcatenated.length, 'Chapters:', chapterData.length);
+                  // Return both the full concatenated text and the structured chapter data
+                  return { fullText: fullTextConcatenated.trim(), chapters: chapterData };
+              } catch (err) {
+                console.error('Error during EPUB file processing in readEpubFile:', err);
+                throw new Error(`Error reading EPUB file: ${err.message}`);
+              }
+          };
+
+
+          const handleDownloadPDF = () => {
+            console.log('handleDownloadPDF called. Translated chapters count:', translatedChapters.length);
+            if (!assembledTranslatedText || translatedChapters.length === 0) { // Ensure we have structured chapters
+              setError('No translated text or chapter data to download as PDF.');
+              console.warn('PDF download aborted: No translated text or chapter data.');
+              return;
+            }
+            setDownloadingPdf(true); // Start PDF loading
+            setError('');
+            try {
+              if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+                setError('PDF library (jsPDF) not loaded. Cannot generate PDF.');
+                setDownloadingPdf(false); // End loading on error
+                console.error('PDF library (jsPDF) not loaded.');
+                return;
+              }
+              const doc = new window.jspdf.jsPDF();
+              doc.setFont('Inter', 'normal');
+              doc.setFontSize(12);
+              doc.setTextColor(0, 0, 0);
+
+              const lineHeight = 10;
+              const paragraphSpacing = 5; // Additional space between paragraphs
+              const margin = 10;
+              const maxWidth = doc.internal.pageSize.width - 2 * margin;
+
+              let currentY = margin;
+              const chapterPageMap = new Map(); // To store chapter titles and their start pages
+
+              // 1. Generate Table of Contents page
+              console.log('Generating PDF Table of Contents...');
+              doc.setFontSize(18);
+              doc.text("Table of Contents", margin, currentY);
+              currentY += lineHeight * 2; // Space after title
+              doc.setFontSize(12);
+
+              const tocStartPage = doc.internal.getCurrentPageInfo().pageNumber;
+              const tocYOffset = currentY; // Store initial Y for TOC entries
+              let currentTocEntryY = tocYOffset; // Track Y position for TOC entries
+
+              doc.addPage(); // Start content on a new page after TOC placeholder
+              currentY = margin; // Reset Y for content pages
+              console.log('TOC page generated. Moving to content pages.');
+
+
+              // 2. Add each translated chapter content
+              translatedChapters.forEach((chapter, chapterIndex) => {
+                // Use chapter.title which now contains the translated title
+                console.log(`Adding chapter "${chapter.title}" to PDF.`);
+
+                // Always add a new page for each chapter, except for the very first one
+                if (chapterIndex > 0) {
+                    doc.addPage();
+                    currentY = margin; // Reset Y to top margin for new page
+                    console.log(`  Added new page for chapter "${chapter.title}".`);
+                }
+
+                // Record the starting page for this chapter
+                const chapterStartPage = doc.internal.getCurrentPageInfo().pageNumber;
+                chapterPageMap.set(chapter.title, chapterStartPage); // Use translated title for TOC map
+
+                if (chapter.title.trim()) {
+                    doc.setFontSize(14); // Larger font for chapter titles
+                    doc.text(chapter.title, margin, currentY); // Use translated title here
+                    currentY += lineHeight * 1.5; // Space after chapter title
+                    doc.setFontSize(12); // Back to normal for content
+                    console.log(`  Chapter title "${chapter.title}" added.`);
+                }
+
+
+                const paragraphs = chapter.content.split(/\n\n+/).filter(p => p.trim() !== '');
+                console.log(`  Chapter has ${paragraphs.length} paragraphs.`);
+
+                paragraphs.forEach((paragraph, paraIndex) => {
+                  const textLines = doc.splitTextToSize(paragraph.trim(), maxWidth);
+
+                  textLines.forEach(line => {
+                    if (currentY + lineHeight > doc.internal.pageSize.height - margin) {
+                      doc.addPage();
+                      currentY = margin;
+                    }
+                    doc.text(line, margin, currentY);
+                    currentY += lineHeight;
+                  });
+
+                  // Add extra spacing after each paragraph, except the last one in the chapter
+                  if (paraIndex < paragraphs.length - 1) {
+                    currentY += paragraphSpacing;
+                  }
+                });
+                // Ensure a break between chapters, even if the last paragraph of previous chapter was short
+                // This extra space is handled by the new page logic for subsequent chapters
+                // currentY += paragraphSpacing * 2; // Extra spacing between distinct chapters - removed as new page handles it
+                console.log(`  Chapter "${chapter.title}" content added.`);
+              });
+
+              // 3. Fill in the Table of Contents on the TOC page
+              console.log('Filling in PDF Table of Contents...');
+              doc.setPage(tocStartPage); // Go back to the TOC page
+              doc.setFontSize(12);
+              currentTocEntryY = tocYOffset; // Reset Y to where TOC entries should start
+
+              chapterPageMap.forEach((pageNumber, title) => {
+                // Ensure TOC entries don't overflow the page
+                if (currentTocEntryY + lineHeight > doc.internal.pageSize.height - margin) {
+                    doc.addPage(); // Add a new page for TOC if needed
+                    currentTocEntryY = margin;
+                    doc.setFontSize(12); // Reset font size if new page
+                    console.log('  Adding new TOC page due to overflow.');
+                }
+                // Right align page number
+                const pageNumberText = `Page ${pageNumber}`;
+                // Measure title width
+                const titleTextWidth = doc.getStringUnitWidth(title) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+                // Measure page number text width
+                const pageNumTextWidth = doc.getStringUnitWidth(pageNumberText) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+                // Calculate space for dots
+                const availableDotsWidth = maxWidth - titleTextWidth - pageNumTextWidth;
+                const dots = '.'.repeat(Math.floor(availableDotsWidth / (doc.getStringUnitWidth('.') * doc.internal.getFontSize() / doc.internal.scaleFactor)));
+
+                doc.text(`${title} ${dots} ${pageNumberText}`, margin, currentTocEntryY);
+                currentTocEntryY += lineHeight;
+                console.log(`  TOC entry added: "${title}" on page ${pageNumber}`);
+              });
+
+              doc.save(`translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.pdf`);
+              console.log('PDF saved successfully.');
+            } catch (err) {
+              console.error("PDF download error in handleDownloadPDF:", err);
+              setError(`Failed to generate PDF: ${err.message}`);
+            } finally {
+              setDownloadingPdf(false); // Always end loading
+              console.log('handleDownloadPDF execution finished.');
+            }
+          };
+
+          const handleDownloadEPUB = async () => {
+            console.log('handleDownloadEPUB called. Translated chapters count:', translatedChapters.length);
+            if (!assembledTranslatedText || translatedChapters.length === 0) {
+              setError('No translated text or chapter data to download as EPUB.');
+              console.warn('EPUB download aborted: No translated text or chapter data.');
+              return;
+            }
+            setDownloadingEpub(true); // Start EPUB loading
+            setError('');
+
+            // Give the library a moment to load from the CDN
+            await new Promise(resolve => setTimeout(resolve, 100));
+            console.log('EPUB library load delay finished.');
+
+            try {
+              // Check for jEpub global object AND JSZip and ejs
+              if (typeof window.jEpub === 'undefined' || typeof window.JSZip === 'undefined' || typeof window.ejs === 'undefined') {
+                setError('EPUB generation libraries not loaded. Please ensure "jszip.min.js", "ejs.min.js", and "jepub.min.js" are saved in the same directory as your index.html file.');
+                setDownloadingEpub(false);
+                console.error('EPUB generation libraries not loaded.');
+                return;
+              }
+              const jepub = new window.jEpub();
+              jepub.init({
+                title: `Translated Content (${targetLanguage})`,
+                author: 'Gemini Translator',
+                publisher: 'Gemini Translator App',
+                description: `Translated from source by Gemini Translator to ${targetLanguage}`,
+                lang: targetLanguage.split(' ')[0].toLowerCase() // Use the first word of language for lang code
+              });
+              console.log('jEpub initialized.');
+
+              // Add each translated chapter to the EPUB
+              translatedChapters.forEach((chapter, index) => {
+                // Use chapter.title which now contains the translated title
+                console.log(`Adding chapter "${chapter.title}" to EPUB.`);
+                // Ensure content is wrapped in paragraphs for EPUB HTML
+                const paragraphs = chapter.content.split(/\n\n+/).filter(p => p.trim() !== '');
+                let htmlContent = '';
+                paragraphs.forEach(p => {
+                  if (p.trim()) {
+                    htmlContent += `<p>${p.trim().split('\n').join('<br/>')}</p>`; // Preserve line breaks within paragraphs
+                  }
+                });
+                if (!htmlContent) {
+                    htmlContent = `<p>No content for this chapter.</p>`; // Fallback for empty chapters
+                }
+                jepub.add(chapter.title, htmlContent); // Use translated title here
+              });
+              console.log('All chapters added to jEpub.');
+
+              const epubBlob = await jepub.generate('blob'); // Generate as Blob for client-side download
+              console.log('EPUB blob generated. Size:', epubBlob.size, 'bytes.');
+
+              // Create a download link for the Blob
+              const url = URL.createObjectURL(epubBlob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.epub`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url); // Clean up the object URL
+              console.log('EPUB file download initiated.');
+
+            } catch (err) {
+              console.error("EPUB download error in handleDownloadEPUB:", err);
+              setError(`Failed to generate EPUB: ${err.message}. Please ensure the jEpub library is loaded and accessible.`);
+            } finally {
+              setDownloadingEpub(false); // Always end loading
+              console.log('handleDownloadEPUB execution finished.');
+            }
+          };
+
+          console.log('App is rendering. Current state values:');
+          console.log('  inputText length:', inputText.length);
+          console.log('  assembledTranslatedText length:', assembledTranslatedText.length);
+          console.log('  isEbookTranslating:', isEbookTranslating);
+          console.log('  ebookTranslationProgress:', ebookTranslationProgress);
+          console.log('  error:', error);
+          console.log('  translatedChapters count:', translatedChapters.length);
+          console.log('  uploadingFile:', uploadingFile);
+
+
+          return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-purple-500 to-indigo-700 p-4 font-sans text-gray-800 flex items-center justify-center' },
+            React.createElement('div', { className: 'w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 space-y-8 backdrop-blur-md bg-opacity-90' },
+              React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-800 mb-2 tracking-tight' }, 'Gemini Translator'),
+              React.createElement('p', { className: 'text-center text-sm text-gray-500 mb-6' }, `Version: ${version}`),
+
+              React.createElement('div', { className: 'flex justify-center border-b border-gray-200' },
+                React.createElement('button', {
+                  onClick: () => setActiveTab('text'),
+                  className: `py-3 px-6 text-lg font-medium rounded-t-lg transition-colors duration-200 ${activeTab === 'text' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-indigo-100'}`
+                }, React.createElement(Clipboard, { className: 'inline-block mr-2', size: 20 }), ' Text Paste'),
+                React.createElement('button', {
+                  onClick: () => setActiveTab('url'),
+                  className: `py-3 px-6 text-lg font-medium rounded-t-lg transition-colors duration-200 ${activeTab === 'url' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-indigo-100'}`
+                }, React.createElement(Link, { className: 'inline-block mr-2', size: 20 }), ' URL (Info)')
+              ),
+
+              React.createElement('div', { className: 'bg-gray-50 p-6 rounded-b-xl rounded-r-xl shadow-inner' },
+                activeTab === 'text' && React.createElement('div', { className: 'space-y-6' },
+                  React.createElement('div', null,
+                    React.createElement('label', { htmlFor: 'fileUpload', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Upload File (Text, PDF, EPUB) for direct translation:'),
+                    React.createElement('input', {
+                        type: 'file',
+                        id: 'fileUpload',
+                        ref: fileInputRef, // Assign ref
+                        onChange: handleFileChange,
+                        accept: '.txt, .pdf, .epub', // Accepted file types
+                        className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base mb-4',
+                        disabled: uploadingFile || isEbookTranslating // Disable during upload or translation
+                    }),
+                    React.createElement('button', {
+                        onClick: () => fileInputRef.current.click(), // Trigger file input click
+                        className: 'w-full px-4 py-2 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-all duration-200 hover:scale-105 flex items-center justify-center mb-4', // Added mb-4 for spacing
+                        disabled: uploadingFile || isEbookTranslating
+                    },
+                        (uploadingFile || isEbookTranslating) ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 16 }) : React.createElement(Upload, { size: 16, className: 'mr-1' }),
+                        uploadingFile ? 'Processing File...' : (isEbookTranslating ? `Translating Ebook (${ebookTranslationProgress}%)` : 'Choose and Upload File')
+                    ),
+                    isEbookTranslating && React.createElement('div', { className: 'w-full bg-gray-200 rounded-full h-2.5 mb-4' },
+                      React.createElement('div', { className: 'bg-indigo-600 h-2.5 rounded-full', style: { width: `${ebookTranslationProgress}%` } })
+                    ),
+                    React.createElement('label', { htmlFor: 'inputText', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Paste Text for Translation (for smaller texts):'),
+                    React.createElement('textarea', {
+                      id: 'inputText',
+                      className: 'w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-y min-h-[150px] text-base',
+                      placeholder: 'Paste your content here...',
+                      value: inputText,
+                      onChange: (e) => setInputText(e.target.value),
+                      disabled: isEbookTranslating // Disable if ebook translation is active
+                    }),
+                    React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
+                      React.createElement('button', {
+                        onClick: handlePasteInputText,
+                        className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
+                        disabled: isEbookTranslating
+                      }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste from Clipboard'),
+                      React.createElement('button', {
+                        onClick: handleCopyInputText,
+                        className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
+                        disabled: isEbookTranslating
+                      }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy Input Text'),
+                      React.createElement('button', { // Moved this button to be below the copy button
+                        onClick: handleClearInput,
+                        className: 'w-full px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105', // Changed to red
+                        disabled: isEbookTranslating
+                      }, 'Clear Input')
+                    )
+                  ),
+                  React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' }, // Buttons for Clear and Swap, now responsive
+                    React.createElement('button', {
+                      onClick: handleSwapText,
+                      className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
+                      disabled: isEbookTranslating
+                    }, React.createElement(RefreshCcw, { size: 16, className: 'mr-1' }), ' Swap Text')
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { htmlFor: 'targetLanguage', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Translate to:'),
+                    React.createElement('select', {
+                      id: 'targetLanguage',
+                      className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
+                      value: targetLanguage,
+                      onChange: (e) => setTargetLanguage(e.target.value),
+                      disabled: isEbookTranslating
+                    },
+                      languages.map(lang =>
+                        React.createElement('option', { key: lang, value: lang }, lang)
+                      )
+                    )
+                  ),
+                  React.createElement('button', {
+                    onClick: handleTranslateFromInputText, // Calls the specific handler for input text
+                    className: 'w-full md:w-auto md:mx-auto px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
+                    disabled: loading || isEbookTranslating // Disable if any translation is ongoing
+                  },
+                    loading ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 24 }) : React.createElement(BookText, { className: 'mr-2', size: 24 }),
+                    loading ? 'Translating...' : 'Translate Text'
+                  )
+                ),
+
+                activeTab === 'url' && React.createElement('div', { className: 'space-y-6' },
+                  React.createElement('h2', { className: 'text-xl font-bold text-gray-800' }, 'URL Content Information'),
+                  React.createElement('p', { className: 'text-gray-700 leading-relaxed' },
+                    React.createElement('span', { className: 'font-semibold' }, 'Important Considerations for URL Scanning:'),
+                    React.createElement('br'),
+                    'Due to browser security policies (CORS) and the client-side nature of this application, direct arbitrary URL scanning and content extraction is not possible.'
+                  ),
+                  React.createElement('p', { className: 'text-gray-700 leading-relaxed' },
+                    React.createElement('span', { className: 'font-semibold' }, 'How it would typically work with a backend:'),
+                    React.createElement('br'),
+                    'In a full-stack application, you would input a URL here. A backend server (e.js., Node.js, Python Flask/Django) would then:'
+                  ),
+                  React.createElement('ol', { className: 'list-decimal list-inside ml-4 mt-2 space-y-1 text-gray-700' },
+                    React.createElement('li', null, 'Use a library like `requests` (Python) or `axios` (`Node.js`) to fetch the HTML content from the provided URL.'),
+                    React.createElement('li', null, 'Parse the HTML using libraries like `BeautifulSoup` (Python) or `cheerio` (`Node.js`) to extract the main textual content.'),
+                    React.createElement('li', null, 'Send this extracted text to the Gemini API for translation.'),
+                    React.createElement('li', null, 'Return the translated text to the frontend.')
+                  ),
+                  React.createElement('p', { className: 'text-gray-700 font-semibold' }, 'For now, please manually copy content from any URL (e.g., Lofter posts) and paste it into the "Text Paste" section to utilize the translation functionality.')
+                )
+              ),
+
+              React.createElement('div', { className: 'space-y-4' },
+                React.createElement('label', { htmlFor: 'terminology', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Glossary:'),
+                React.createElement('textarea', {
+                  id: 'terminology',
+                  className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[100px]',
+                  placeholder: 'Paste your glossary here.',
+                  value: terminology,
+                  onChange: (e) => setTerminology(e.target.value),
+                  disabled: isEbookTranslating // Disable if ebook translation is active
+                }),
+                React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
+                  React.createElement('button', {
+                    onClick: handlePasteTerminology,
+                    className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
+                    disabled: isEbookTranslating
+                  }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste Glossary'),
+                  React.createElement('button', {
+                    onClick: handleCopyTerminology,
+                    className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
+                    disabled: isEbookTranslating
+                  }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy Glossary'),
+                  React.createElement('button', {
+                    onClick: handleClearTerminology,
+                    className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105', // Added shadow, rounded-lg, transition
+                    disabled: isEbookTranslating
+                  }, 'Clear Glossary')
+                ),
+                React.createElement('p', { className: 'text-sm text-gray-600' }, 'Enter your glossary. The translator will refer to this text to ensure specific words, names, or phrases are handled accurately.')
+              ),
+
+              React.createElement('div', { className: 'space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50' },
+                React.createElement('h3', { className: 'text-xl font-bold text-gray-800' }, 'Manage Saved Glossaries'),
+                React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4 items-stretch' }, // Added flex-col and sm:flex-row
+                  React.createElement('input', {
+                    type: 'text',
+                    className: 'w-full sm:flex-grow p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500', // w-full for mobile
+                    placeholder: 'Name for current glossary...',
+                    value: newGlossaryName,
+                    onChange: (e) => setNewGlossaryName(e.target.value),
+                    disabled: isEbookTranslating
+                  }),
+                  React.createElement('button', {
+                    onClick: handleSaveGlossary,
+                    className: 'w-full sm:w-auto px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-all duration-200 hover:scale-105', // w-full for mobile // Added shadow, rounded-lg, transition
+                    disabled: isEbookTranslating
+                  }, 'Save Current Glossary')
+                ),
+                React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4 items-stretch' },
+                  React.createElement('button', {
+                    onClick: handleSetDefaultGlossary,
+                    className: 'w-full sm:w-auto px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105',
+                    disabled: !activeGlossaryId || isEbookTranslating
+                  }, 'Set Current as Default'),
+                  React.createElement('button', {
+                    onClick: handleClearDefaultGlossary,
+                    className: 'w-full sm:w-auto px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg shadow-md hover:bg-orange-600 transition-all duration-200 hover:scale-105',
+                    disabled: !defaultGlossaryName || isEbookTranslating
+                  }, 'Clear Default Setting')
+                ),
+                savedGlossaries.length > 0 && React.createElement('div', {className: 'max-h-40 overflow-y-auto pr-2'}, // Added max-height and overflow for scroll
+                  React.createElement('h4', { className: 'text-lg font-semibold text-gray-700 mb-2' }, 'Your Saved Glossaries:'),
+                  React.createElement('ul', { className: 'space-y-2' },
+                    // Sort savedGlossaries to put the active one first
+                    [...savedGlossaries].sort((a, b) => {
+                      if (a.name === activeGlossaryId) return -1;
+                      if (b.name === activeGlossaryId) return 1;
+                      return 0;
+                    }).map((glossary, index) =>
+                      React.createElement('li', { key: index, className: 'flex flex-wrap items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm' }, // Added flex-wrap // Added shadow, rounded-lg
+                        React.createElement('span', { className: `font-medium ${activeGlossaryId === glossary.name ? 'text-indigo-700' : 'text-gray-800'} mb-2 sm:mb-0` }, glossary.name,
+                          defaultGlossaryName === glossary.name && React.createElement('span', { className: 'text-xs text-indigo-500 ml-2' }, '(Default)')
+                        ), // Added margin for spacing
+                        React.createElement('div', { className: 'flex flex-col w-full sm:w-auto sm:flex-row gap-2' }, // Added w-full here to stretch container, and sm:w-auto to revert on larger screens
+                          React.createElement('button', {
+                            onClick: () => handleLoadGlossary(glossary),
+                            className: 'px-3 py-1 text-sm bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 w-full', // Added w-full
+                            disabled: isEbookTranslating
+                          }, 'Load'),
+                          activeGlossaryId === glossary.name && React.createElement('button', {
+                            onClick: () => handleUpdateSpecificGlossary(glossary.name),
+                            className: 'px-3 py-1 text-sm bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105 flex items-center justify-center w-full', // Added w-full
+                            disabled: isEbookTranslating
+                          }, React.createElement(Save, { size: 14, className: 'mr-1' }), ' Save Edits'),
+                          React.createElement('button', {
+                            onClick: () => handleDeleteGlossary(glossary.name),
+                            className: 'px-3 py-1 text-sm bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105 w-full', // Added w-full
+                            disabled: isEbookTranslating
+                          }, 'Delete')
+                        )
+                      )
+                    )
+                  )
+                )
+              ),
+
+              React.createElement('div', { className: 'space-y-4' },
+                React.createElement('label', { htmlFor: 'apiKeyInput', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Your Gemini API Key (Required):'),
+                React.createElement('div', { className: 'relative flex items-center' }, // Flex container for input and toggle
+                    React.createElement('input', { // Changed from textarea to input
+                        id: 'apiKeyInput',
+                        type: showApiKey ? 'text' : 'password', // Toggle type based on state
+                        className: 'w-full p-3 pr-10 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
+                        placeholder: 'Paste your Gemini API key here...',
+                        value: apiKeyInput,
+                        onChange: (e) => setApiKeyInput(e.target.value),
+                        disabled: isEbookTranslating
+                    }),
+                    React.createElement('button', {
+                        type: 'button', // Prevent form submission
+                        onClick: () => setShowApiKey(!showApiKey),
+                        className: 'absolute right-3 p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                        disabled: isEbookTranslating
+                    },
+                        showApiKey ? React.createElement(EyeOff, { size: 20 }) : React.createElement(Eye, { size: 20 })
+                    )
+                ),
+                React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
+                  React.createElement('button', {
+                    onClick: handleSaveApiKey,
+                    className: 'px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105', // Added shadow, rounded-lg, transition
+                    disabled: isEbookTranslating
+                  }, 'Save API Key'),
+                  React.createElement('button', {
+                    onClick: handlePasteApiKey, // New paste button for API key
+                    className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
+                    disabled: isEbookTranslating
+                  }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste API Key'),
+                  React.createElement('button', {
+                    onClick: handleCopyApiKey,
+                    className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
+                    disabled: isEbookTranslating
+                  }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy API Key'),
+                  React.createElement('button', {
+                    onClick: handleClearApiKey,
+                    className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105', // Changed bg-yellow-500 to bg-red-500 and hover:bg-yellow-600 to hover:bg-red-600
+                    disabled: isEbookTranslating
+                  }, 'Clear API Key')
+                ),
+                React.createElement('p', { className: 'text-sm text-gray-600 mt-2' }, apiKeyStatus),
+              ),
+
+
+              error && React.createElement('div', { className: 'bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-md flex items-center animate-fade-in-down' },
+                React.createElement(XCircle, { className: 'mr-3 cursor-pointer', size: 20, onClick: () => setError('') }), // Dismiss button
+                React.createElement('p', { className: 'font-medium' }, error)
+              ),
+
+              assembledTranslatedText && React.createElement('div', { className: 'space-y-6' },
+                React.createElement('div', null,
+                  React.createElement('label', { htmlFor: 'assembledTranslatedText', className: 'block text-lg font-semibold text-gray-700 mb-2' }, `Translated Content (${targetLanguage}):`),
+                  React.createElement('textarea', {
+                    id: 'assembledTranslatedText',
+                    className: 'w-full p-4 border border-green-300 bg-green-50 rounded-lg shadow-inner focus:outline-none resize-y min-h-[200px] text-base',
+                    readOnly: true,
+                    value: assembledTranslatedText
+                  })
+                ),
+                copySuccess && React.createElement('p', { className: 'text-sm text-green-700 mt-2 text-center' }, copySuccess),
+                React.createElement('div', { className: 'flex flex-col sm:flex-row justify-center gap-4' }, // Still horizontal on sm+ for main download buttons
+                  React.createElement('button', {
+                    onClick: handleCopyToClipboard,
+                    className: 'w-full sm:w-auto px-6 py-3 bg-blue-500 text-white font-bold rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition transform hover:scale-105 flex items-center justify-center text-lg'
+                  }, React.createElement(Copy, { className: 'mr-2', size: 20 }), ' Copy Translation'),
+                  React.createElement('button', {
+                    onClick: handleDownloadEPUB,
+                    className: 'w-full sm:w-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full shadow-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
+                    disabled: downloadingEpub || isEbookTranslating // Disable during download or ebook translation
+                  },
+                    downloadingEpub ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
+                    downloadingEpub ? 'Generating EPUB...' : 'Download EPUB'
+                  ),
+                  React.createElement('button', {
+                    onClick: handleDownloadPDF,
+                    className: 'w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
+                    disabled: downloadingPdf || isEbookTranslating // Disable during download or ebook translation
+                  },
+                    downloadingPdf ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
+                    downloadingPdf ? 'Generating PDF...' : 'Download PDF'
+                  )
+                )
+              ),
+
+              // Custom Modal Component
+              showModal && React.createElement('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4' },
+                React.createElement('div', { className: 'bg-white rounded-lg shadow-xl p-6 max-w-sm w-full space-y-4' },
+                  React.createElement('p', { className: 'text-lg font-semibold text-gray-800 text-center' }, modalMessage),
+                  React.createElement('div', { className: 'flex justify-center gap-4 mt-4' },
+                    React.createElement('button', {
+                      onClick: handleModalConfirm,
+                      className: 'px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors'
+                    }, 'Confirm'),
+                    React.createElement('button', {
+                      onClick: handleModalCancel,
+                      className: 'px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors'
+                    }, 'Cancel')
+                  )
+                )
+              )
+            )
+          );
+        }
+
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+            ReactDOM.createRoot(rootElement).render(React.createElement(App));
+        } else {
+            console.error('Root element not found to render React app.');
+        }
+    </script>
 </body>
+</html>
