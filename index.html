@@ -19,8 +19,6 @@
     <script src="./jepub.min.js"></script>
     <!-- PDF.js library for PDF parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <!-- Important: PDF.js worker script, needs to be set later in JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -63,7 +61,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.0.4'); // Updated version to 2.0.3
+          const [version, setVersion] = useState('2.0.4'); // Current version is 2.0.3
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -395,51 +393,34 @@
               const zip = new window.JSZip();
               const contents = await zip.loadAsync(file);
               let fullText = '';
+              const htmlFiles = [];
 
-              // Try to find the OPF file (usually at OEBPS/content.opf or similar)
-              const opfFile = contents.file(/(\.opf|\.ncx)$/i)[0]; // Find content.opf or toc.ncx
-
-              if (opfFile) {
-                  const opfContent = await opfFile.async('text');
-                  const parser = new DOMParser();
-                  const xmlDoc = parser.parseFromString(opfContent, "text/xml");
-
-                  // Extract all itemref hrefs from spine to find content documents
-                  const itemrefs = xmlDoc.querySelectorAll('itemref');
-                  const itemMap = new Map();
-                  xmlDoc.querySelectorAll('manifest item').forEach(item => {
-                      itemMap.set(item.getAttribute('id'), item.getAttribute('href'));
-                  });
-
-                  for (const itemref of itemrefs) {
-                      const idref = itemref.getAttribute('idref');
-                      const href = itemMap.get(idref);
-                      if (href) {
-                          // Construct path relative to OPF file
-                          const opfPathParts = opfFile.name.split('/');
-                          opfPathParts.pop(); // Remove file name itself
-                          const relativePath = opfPathParts.join('/') + '/' + href;
-
-                          const htmlFile = contents.file(relativePath);
-                          if (htmlFile) {
-                              const htmlContent = await htmlFile.async('text');
-                              const tempDiv = document.createElement('div');
-                              tempDiv.innerHTML = htmlContent;
-                              // Basic text extraction, might need more refinement for complex HTML
-                              fullText += tempDiv.textContent || tempDiv.innerText || '';
-                              fullText += '\n\n'; // Add some spacing between sections
-                          }
-                      }
+              // Find all HTML/XHTML files within the EPUB
+              contents.forEach((relativePath, zipEntry) => {
+                  if (zipEntry.name.match(/\.(html|xhtml|htm)$/i) && !zipEntry.dir) {
+                      htmlFiles.push(zipEntry);
                   }
-              } else {
-                  // Fallback: If no OPF, try to find common HTML/XHTML files directly
-                  const htmlFiles = contents.file(/\.(html|xhtml|htm)$/i);
-                  for (const entry of htmlFiles) {
+              });
+
+              if (htmlFiles.length === 0) {
+                  throw new Error('No readable HTML/XHTML content found in EPUB file.');
+              }
+
+              for (const entry of htmlFiles) {
+                  try {
                       const htmlContent = await entry.async('text');
-                      const tempDiv = document.createElement('div');
-                      tempDiv.innerHTML = htmlContent;
-                      fullText += tempDiv.textContent || tempDiv.innerText || '';
-                      fullText += '\n\n';
+                      const parser = new DOMParser();
+                      const doc = parser.parseFromString(htmlContent, "text/html");
+
+                      // Remove script and style tags to get clean text
+                      doc.querySelectorAll('script, style').forEach(el => el.remove());
+
+                      // Extract text content from the body
+                      fullText += doc.body.textContent || doc.body.innerText || '';
+                      fullText += '\n\n'; // Add some spacing between sections
+                  } catch (e) {
+                      console.warn(`Could not parse or extract text from ${entry.name}:`, e);
+                      // Continue processing other files even if one fails
                   }
               }
 
