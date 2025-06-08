@@ -17,6 +17,10 @@
     <script src="./jszip.min.js"></script>
     <script src="./ejs.min.js"></script>
     <script src="./jepub.min.js"></script>
+    <!-- PDF.js library for PDF parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <!-- Important: PDF.js worker script, needs to be set later in JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -27,10 +31,10 @@
     <div id="root"></div>
 
     <script type="module">
-        import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
         import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
         // Importing Eye and EyeOff icons for the password toggle
-        import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save } from 'https://esm.sh/lucide-react@0.372.0';
+        import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload } from 'https://esm.sh/lucide-react@0.372.0';
 
         function App() {
           const [inputText, setInputText] = useState('');
@@ -50,6 +54,8 @@
           const [showApiKey, setShowApiKey] = useState(false);
           const [downloadingPdf, setDownloadingPdf] = useState(false); // New state for PDF download loading
           const [downloadingEpub, setDownloadingEpub] = useState(false); // New state for EPUB download loading
+          const [uploadingFile, setUploadingFile] = useState(false); // New state for file upload loading
+          const fileInputRef = useRef(null); // Ref for the file input element
 
           // State for the custom modal
           const [showModal, setShowModal] = useState(false);
@@ -57,8 +63,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.0.3');
-
+          const [version, setVersion] = useState('2.0.3'); // Updated version to 2.0.3
 
           const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -77,6 +82,11 @@
           useEffect(() => {
             const storedGlossaries = JSON.parse(localStorage.getItem('savedGlossaries') || '[]');
             setSavedGlossaries(storedGlossaries);
+
+            // Set the worker source for PDF.js
+            if (typeof window.pdfjsLib !== 'undefined') {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+            }
           }, []);
 
           useEffect(() => {
@@ -305,6 +315,138 @@
               setCopySuccess('Failed to copy input text. Please try again manually.');
             }
             setTimeout(() => setCopySuccess(''), 3000);
+          };
+
+          // Function to handle file selection
+          const handleFileChange = (event) => {
+              const file = event.target.files[0];
+              if (file) {
+                  processFile(file);
+              }
+          };
+
+          // Function to process the uploaded file based on its type
+          const processFile = async (file) => {
+              setUploadingFile(true);
+              setError('');
+              setInputText(''); // Clear previous text
+
+              try {
+                  const fileType = file.type;
+                  let extractedText = '';
+
+                  if (fileType === 'text/plain') {
+                      extractedText = await readFileAsText(file);
+                  } else if (fileType === 'application/pdf') {
+                      extractedText = await readPdfFile(file);
+                  } else if (fileType === 'application/epub+zip') {
+                      extractedText = await readEpubFile(file);
+                  } else {
+                      throw new Error('Unsupported file type. Please upload a .txt, .pdf, or .epub file.');
+                  }
+
+                  setInputText(extractedText);
+                  setCopySuccess(`Content extracted from ${file.name}!`);
+                  setTimeout(() => setCopySuccess(''), 3000);
+
+              } catch (err) {
+                  console.error("File processing error:", err);
+                  setError(`Failed to process file: ${err.message}`);
+              } finally {
+                  setUploadingFile(false);
+                  if (fileInputRef.current) {
+                      fileInputRef.current.value = ''; // Clear the file input
+                  }
+              }
+          };
+
+          // Helper function to read a text file
+          const readFileAsText = (file) => {
+              return new Promise((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = (e) => resolve(e.target.result);
+                  reader.onerror = (e) => reject(e.target.error);
+                  reader.readAsText(file);
+              });
+          };
+
+          // Helper function to read a PDF file
+          const readPdfFile = async (file) => {
+            if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
+                throw new Error('PDF.js library not loaded. Cannot process PDF files.');
+            }
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+            }
+            return fullText;
+          };
+
+          // Helper function to read an EPUB file (using JSZip)
+          const readEpubFile = async (file) => {
+              if (typeof window.JSZip === 'undefined') {
+                  throw new Error('JSZip library not loaded. Cannot process EPUB files.');
+              }
+
+              const zip = new window.JSZip();
+              const contents = await zip.loadAsync(file);
+              let fullText = '';
+
+              // Try to find the OPF file (usually at OEBPS/content.opf or similar)
+              const opfFile = contents.file(/(\.opf|\.ncx)$/i)[0]; // Find content.opf or toc.ncx
+
+              if (opfFile) {
+                  const opfContent = await opfFile.async('text');
+                  const parser = new DOMParser();
+                  const xmlDoc = parser.parseFromString(opfContent, "text/xml");
+
+                  // Extract all itemref hrefs from spine to find content documents
+                  const itemrefs = xmlDoc.querySelectorAll('itemref');
+                  const itemMap = new Map();
+                  xmlDoc.querySelectorAll('manifest item').forEach(item => {
+                      itemMap.set(item.getAttribute('id'), item.getAttribute('href'));
+                  });
+
+                  for (const itemref of itemrefs) {
+                      const idref = itemref.getAttribute('idref');
+                      const href = itemMap.get(idref);
+                      if (href) {
+                          // Construct path relative to OPF file
+                          const opfPathParts = opfFile.name.split('/');
+                          opfPathParts.pop(); // Remove file name itself
+                          const relativePath = opfPathParts.join('/') + '/' + href;
+
+                          const htmlFile = contents.file(relativePath);
+                          if (htmlFile) {
+                              const htmlContent = await htmlFile.async('text');
+                              const tempDiv = document.createElement('div');
+                              tempDiv.innerHTML = htmlContent;
+                              // Basic text extraction, might need more refinement for complex HTML
+                              fullText += tempDiv.textContent || tempDiv.innerText || '';
+                              fullText += '\n\n'; // Add some spacing between sections
+                          }
+                      }
+                  }
+              } else {
+                  // Fallback: If no OPF, try to find common HTML/XHTML files directly
+                  const htmlFiles = contents.file(/\.(html|xhtml|htm)$/i);
+                  for (const entry of htmlFiles) {
+                      const htmlContent = await entry.async('text');
+                      const tempDiv = document.createElement('div');
+                      tempDiv.innerHTML = htmlContent;
+                      fullText += tempDiv.textContent || tempDiv.innerText || '';
+                      fullText += '\n\n';
+                  }
+              }
+
+              if (!fullText.trim()) {
+                  throw new Error('Could not extract readable text from EPUB file.');
+              }
+              return fullText;
           };
 
 
@@ -558,6 +700,24 @@ Provide ONLY the ${targetLanguage} translation of the Original Text to Translate
               React.createElement('div', { className: 'bg-gray-50 p-6 rounded-b-xl rounded-r-xl shadow-inner' },
                 activeTab === 'text' && React.createElement('div', { className: 'space-y-6' },
                   React.createElement('div', null,
+                    React.createElement('label', { htmlFor: 'fileUpload', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Upload File (Text, PDF, EPUB):'),
+                    React.createElement('input', {
+                        type: 'file',
+                        id: 'fileUpload',
+                        ref: fileInputRef, // Assign ref
+                        onChange: handleFileChange,
+                        accept: '.txt, .pdf, .epub', // Accepted file types
+                        className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base mb-4',
+                        disabled: uploadingFile // Disable during upload
+                    }),
+                    React.createElement('button', {
+                        onClick: () => fileInputRef.current.click(), // Trigger file input click
+                        className: 'w-full px-4 py-2 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-all duration-200 hover:scale-105 flex items-center justify-center mb-4', // Added mb-4 for spacing
+                        disabled: uploadingFile
+                    },
+                        uploadingFile ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 16 }) : React.createElement(Upload, { size: 16, className: 'mr-1' }),
+                        uploadingFile ? 'Processing File...' : 'Choose and Upload File'
+                    ),
                     React.createElement('label', { htmlFor: 'inputText', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Paste Text for Translation:'),
                     React.createElement('textarea', {
                       id: 'inputText',
