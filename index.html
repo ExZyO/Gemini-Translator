@@ -416,7 +416,7 @@
               });
           };
 
-          // Helper function to read a PDF file
+          // Helper function to read a PDF file with better paragraph detection
           const readPdfFile = async (file) => {
             if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
                 throw new Error('PDF.js library not loaded. Cannot process PDF files.');
@@ -424,15 +424,38 @@
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let fullText = '';
+            const minParagraphSpacing = 1.5; // Heuristic for paragraph spacing (e.g., 1.5 times typical line height)
+
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
-                fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+                let lastY = -1;
+                let lastLineHeight = -1;
+
+                textContent.items.forEach(item => {
+                    const currentY = item.transform[5]; // Y-coordinate of the text item
+                    const currentLineHeight = item.height; // Height of the text item (approx line height)
+
+                    if (lastY !== -1) {
+                        // Check for significant vertical jump (potential paragraph break)
+                        if (currentY < lastY - (lastLineHeight * minParagraphSpacing)) {
+                            fullText += '\n\n'; // New paragraph
+                        } else if (currentY < lastY) {
+                            fullText += '\n'; // New line within a paragraph (if not just horizontal flow)
+                        } else {
+                            fullText += ' '; // Regular space
+                        }
+                    }
+                    fullText += item.str;
+                    lastY = currentY;
+                    lastLineHeight = currentLineHeight;
+                });
+                fullText += '\n\n--- Page End ---\n\n'; // Mark page breaks clearly
             }
             return fullText;
           };
 
-          // Helper function to read an EPUB file (using JSZip)
+          // Helper function to read an EPUB file (using JSZip) with better HTML parsing
           const readEpubFile = async (file) => {
               if (typeof window.JSZip === 'undefined') {
                   throw new Error('JSZip library not loaded. Cannot process EPUB files.');
@@ -473,6 +496,35 @@
                   manifestItems.set(item.getAttribute('id'), item.getAttribute('href'));
               });
 
+              // Function to extract text from an HTML node, preserving breaks
+              const extractTextFromNode = (node) => {
+                let text = '';
+                if (node.nodeType === Node.TEXT_NODE) {
+                    return node.textContent;
+                }
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    // Handle specific block-level elements
+                    const tagName = node.tagName.toLowerCase();
+                    if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote'].includes(tagName)) {
+                        text += '\n\n'; // Add double newline before block element
+                    }
+
+                    for (const childNode of node.childNodes) {
+                        text += extractTextFromNode(childNode);
+                    }
+
+                    if (tagName === 'br') {
+                        text += '\n'; // Convert <br> to newline
+                    } else if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote'].includes(tagName)) {
+                        // Ensure text ends with a newline, but avoid triple newlines
+                        if (!text.endsWith('\n\n')) {
+                            text += '\n\n';
+                        }
+                    }
+                }
+                return text.replace(/ {2,}/g, ' ').trim(); // Remove multiple spaces and trim
+              };
+
               // 4. Iterate through the spine (reading order)
               const spine = opfDoc.querySelectorAll('spine itemref');
               for (const itemref of spine) {
@@ -480,34 +532,37 @@
                   const href = manifestItems.get(idref);
 
                   if (href) {
-                      // Resolve the full path to the content file
-                      const contentPath = opfDir + href;
-                      const contentFile = contents.file(contentPath);
+                      const mediaType = opfDoc.querySelector(`manifest item[id="${idref}"]`).getAttribute('media-type');
+                      // Only process HTML/XHTML content
+                      if (mediaType && (mediaType === 'application/xhtml+xml' || mediaType === 'text/html')) {
+                          const contentPath = opfDir + href;
+                          const contentFile = contents.file(contentPath);
 
-                      if (contentFile && contentFile.name.match(/\.(html|xhtml|htm)$/i)) {
-                          try {
-                              const htmlContent = await contentFile.async('text');
-                              const parser = new DOMParser();
-                              const doc = parser.parseFromString(htmlContent, "text/html");
+                          if (contentFile) {
+                              try {
+                                  const htmlContent = await contentFile.async('text');
+                                  const parser = new DOMParser();
+                                  const doc = parser.parseFromString(htmlContent, "text/html");
 
-                              // Remove script and style tags to get clean text
-                              doc.querySelectorAll('script, style').forEach(el => el.remove());
+                                  // Remove script and style tags
+                                  doc.querySelectorAll('script, style').forEach(el => el.remove());
 
-                              // Extract text content from the body
-                              fullText += doc.body.textContent || doc.body.innerText || '';
-                              fullText += '\n\n'; // Add some spacing between sections
-                          } catch (e) {
-                              console.warn(`Could not parse or extract text from ${contentFile.name}:`, e);
-                              // Continue processing other files even if one fails
+                                  // Extract text using the recursive helper function
+                                  fullText += extractTextFromNode(doc.body);
+                                  fullText += '\n\n--- Chapter End ---\n\n'; // Mark chapter breaks
+                              } catch (e) {
+                                  console.warn(`Could not parse or extract text from ${contentFile.name}:`, e);
+                                  // Continue processing other files even if one fails
+                              }
                           }
                       }
                   }
               }
 
               if (!fullText.trim()) {
-                  throw new Error('Could not extract readable text from EPUB file. No text content found in spine items.');
+                  throw new Error('Could not extract readable text from EPUB file. No text content found in spine items or within HTML blocks.');
               }
-              return fullText;
+              return fullText.trim(); // Final trim
           };
 
 
