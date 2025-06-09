@@ -67,7 +67,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('3.0'); // CurrentVer - Advanced EPUB formatting preservation
+          const [version, setVersion] = useState('3.1'); // CurrentVer - Advanced EPUB formatting preservation
 
           const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -1430,7 +1430,13 @@ ${terminology.trim()}
                  ),
                 savedGlossaries.length > 0 && React.createElement('div', {className: 'max-h-40 overflow-y-auto pr-2 -mr-2'},
                   React.createElement('ul', { className: 'space-y-2' },
-                    [...savedGlossaries].sort((a, b) => a.name.localeCompare(b.name)).map((glossary, index) =>
+                    [...savedGlossaries].sort((a, b) => {
+                        if (activeGlossaryId) {
+                            if (a.name === activeGlossaryId) return -1;
+                            if (b.name === activeGlossaryId) return 1;
+                        }
+                        return a.name.localeCompare(b.name);
+                    }).map((glossary, index) =>
                       React.createElement('li', { key: index, className: `flex flex-wrap items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm ${activeGlossaryId === glossary.name ? 'ring-2 ring-indigo-500' : ''}` },
                         React.createElement('span', { className: `font-medium ${activeGlossaryId === glossary.name ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-800 dark:text-gray-200'} mb-2 sm:mb-0 mr-2` }, glossary.name,
                           defaultGlossaryName === glossary.name && React.createElement('span', { className: 'text-xs text-indigo-500 dark:text-indigo-400 ml-2' }, '(Default)')
