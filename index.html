@@ -4,20 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gemini Translator</title>
-    <!-- Removed PWA related links and meta tags as Service Worker registration was failing -->
-    <!-- <link rel="manifest" href="./manifest.json"> -->
-    <!-- <link rel="apple-touch-icon" href="https://placehold.co/192x192/8b5cf6/ffffff?text=GT" sizes="192x192"> -->
-    <!-- <link rel="apple-touch-icon" href="https://placehold.co/512x512/8b5cf6/ffffff?text=GT" sizes="512x512"> -->
-    <!-- <meta name="apple-mobile-web-app-capable" content="yes"> -->
-    <!-- <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> -->
-    <!-- <meta name="apple-mobile-web-app-title" content="Gemini Translator"> -->
+    <!-- PWA Manifest -->     <link rel="manifest" href="./manifest.json">     <!-- Apple Touch Icon (for iOS Home Screen) -->     <link rel="apple-touch-icon" href="https://placehold.co/192x192/8b5cf6/ffffff?text=GT" sizes="192x192">     <link rel="apple-touch-icon" href="https://placehold.co/512x512/8b5cf6/ffffff?text=GT" sizes="512x512">     <!-- iOS PWA Meta Tags -->     <meta name="apple-mobile-web-app-capable" content="yes">     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">     <meta name="apple-mobile-web-app-title" content="Gemini Translator">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="./jszip.min.js"></script>
-    <script src="./ejs.min.js"></script>
-    <script src="./jepub.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ejs/3.1.9/ejs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jepub/dist/jepub.min.js"></script>
     <!-- PDF.js library for PDF parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <style>
@@ -67,9 +61,9 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.2.4'); // CurrentVer - Trying gemini-2.5-flash-preview-05-20
+          const [version, setVersion] = useState('2.2.6'); // CurrentVer - EPUB3 and formatting fixes
 
-          const GEMINI_MODEL_NAME = 'gemini-2.0-flash';
+          const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
 
           const languages = [
@@ -179,7 +173,7 @@
 
             if (existingIndex > -1) {
               setModalMessage(`A glossary named "${newGlossaryName.trim()}" already exists. Do you want to overwrite it?`);
-              setModalCallback(() => {
+              setModalCallback(() => () => {
                 updatedGlossaries = [...savedGlossaries];
                 updatedGlossaries[existingIndex] = { name: newGlossaryName.trim(), content: terminology };
                 setSavedGlossaries(updatedGlossaries);
@@ -216,7 +210,7 @@
           const handleDeleteGlossary = (glossaryName) => {
             console.log('handleDeleteGlossary called for:', glossaryName);
             setModalMessage(`Are you sure you want to delete "${glossaryName}"?`);
-            setModalCallback(() => {
+            setModalCallback(() => () => {
               const updatedGlossaries = savedGlossaries.filter(g => g.name !== glossaryName);
               setSavedGlossaries(updatedGlossaries);
               localStorage.setItem('savedGlossaries', JSON.stringify(updatedGlossaries));
@@ -257,7 +251,7 @@
           const handleClearDefaultGlossary = () => {
             console.log('handleClearDefaultGlossary called.');
             setModalMessage('Are you sure you want to clear the default glossary setting?');
-            setModalCallback(() => {
+            setModalCallback(() => () => {
               localStorage.removeItem('defaultGlossaryName');
               setDefaultGlossaryName(null);
               setCopySuccess('Default glossary setting cleared!');
@@ -274,7 +268,7 @@
           const handleClearTerminology = () => {
             console.log('handleClearTerminology called.');
             setModalMessage('Are you sure you want to clear the current glossary text area? This will not delete saved glossaries.');
-            setModalCallback(() => {
+            setModalCallback(() => () => {
               setTerminology('');
               setActiveGlossaryId(null);
               setError('');
@@ -557,51 +551,46 @@
             }
             finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
 
-            // Base prompt structure without the glossary for length calculation
-            let basePrompt = `Please translate the following text into ${targetLanguage}. Ensure that all original paragraph breaks and sentence separations are preserved in the translation. Each new paragraph in the original text should correspond to a new paragraph in the translated text. Each sentence should end with appropriate punctuation and be followed by a space before the next sentence, unless it's a new paragraph.`;
+            // Updated prompt to be more insistent on preserving formatting
+            let basePrompt = `Please translate the following text into ${targetLanguage}. IMPORTANT: Preserve all original paragraph breaks (double newlines) and line breaks (single newlines) exactly as they appear in the original text. The translated text's structure must mirror the original's structure.`;
 
             basePrompt += `
+
 Original Text to Translate:
+---
 ${textToTranslate}
+---
 
-Provide ONLY the ${targetLanguage} translation of the Original Text to Translate. Do not include the Terminology Guide or any conversational text in your response.`;
-
+Provide ONLY the ${targetLanguage} translation of the "Original Text to Translate". Do not add any extra commentary, greetings, or explanations.`;
 
             // Define a conservative maximum prompt character limit (heuristic)
-            // Gemini 2.0 Flash has a much larger context window (1M tokens), but a smaller portion is practical for a single request
-            // We'll use 25,000 characters as a practical safe limit for the entire prompt, including instructions, text, and glossary.
-            const MAX_TOTAL_PROMPT_CHARS = 25000; // This is a heuristic, not an exact token count
+            const MAX_TOTAL_PROMPT_CHARS = 25000; // Heuristic, not exact token count
 
             let glossaryContentForPrompt = terminology.trim();
             let promptWithGlossary = basePrompt;
 
             if (glossaryContentForPrompt) {
-                // Calculate space available for glossary
                 const fixedPromptLength = basePrompt.length;
-                const availableSpaceForGlossary = MAX_TOTAL_PROMPT_CHARS - fixedPromptLength - 100; // 100 for buffer/markers
+                const availableSpaceForGlossary = MAX_TOTAL_PROMPT_CHARS - fixedPromptLength - 100; // Buffer
 
                 if (availableSpaceForGlossary <= 0) {
-                    // If no space left for glossary, ensure it's empty
                     glossaryContentForPrompt = '';
-                    setError('Warning: Prompt for translation is too large. Glossary could not be included. Consider shortening text to translate.');
-                    console.warn('Glossary excluded due to extremely large main text prompt.');
+                    setError('Warning: Prompt for translation is too large. Glossary could not be included.');
+                    console.warn('Glossary excluded due to large main text prompt.');
                 } else if (glossaryContentForPrompt.length > availableSpaceForGlossary) {
-                    // Truncate glossary if too long
-                    glossaryContentForPrompt = glossaryContentForPrompt.substring(0, availableSpaceForGlossary) + '\n\n--- GLOSSARY TRUNCATED DUE TO LENGTH ---';
-                    setError('Warning: Glossary was too large and has been truncated for this translation to fit within model limits. Consider reducing glossary size or using a more advanced glossary management solution.');
+                    glossaryContentForPrompt = glossaryContentForPrompt.substring(0, availableSpaceForGlossary) + '\n\n--- GLOSSARY TRUNCATED ---';
+                    setError('Warning: Glossary was too large and has been truncated for this translation.');
                     console.warn('Glossary truncated for translation.');
                 }
 
                 if (glossaryContentForPrompt) {
-                  promptWithGlossary = `
-Use the provided Terminology Guide to ensure accuracy for specific words, names, and phrases. Words or phrases in the guide should either remain untranslated or be translated precisely as indicated within the guide's context.
-
+                  promptWithGlossary = `Use the provided Terminology Guide for specific terms.
 ---
 Terminology Guide:
 ${glossaryContentForPrompt}
 ---
 
-` + basePrompt; // Add glossary section
+` + basePrompt;
                 }
             }
 
@@ -675,10 +664,10 @@ ${glossaryContentForPrompt}
             const allTranslatedPartsForDisplay = [];
             const newTranslatedChapters = [];
             let totalChunks = 0;
-            // Calculate total chunks for progress, including one "chunk" for each title translation
+            // Calculate total chunks for progress
             chaptersToTranslate.forEach(chap => {
                 totalChunks += splitIntoChunks(chap.text).length;
-                totalChunks += 1; // Add 1 for title translation
+                if (chap.title.trim()) totalChunks += 1; // Add 1 for title translation
             });
             let processedChunks = 0;
 
@@ -699,12 +688,12 @@ ${glossaryContentForPrompt}
                     console.log(`Translating chapter title (${i + 1}/${chaptersToTranslate.length}): "${chapter.title}"`);
                     try {
                         translatedChapterTitle = await translateChunk(chapter.title);
-                        processedChunks++; // Increment progress for title translation
+                        processedChunks++;
                         setEbookTranslationProgress(Math.floor((processedChunks / totalChunks) * 100));
-                        await new Promise(resolve => setTimeout(resolve, 500)); // Delay after title translation
+                        await new Promise(resolve => setTimeout(resolve, 500)); // Delay
                     } catch (titleError) {
                         console.error(`Error translating chapter title "${chapter.title}":`, titleError);
-                        translatedChapterTitle = chapter.title + ` [Translation error: ${titleError.message}]`; // Append error to title
+                        translatedChapterTitle = chapter.title + ` [Translation error: ${titleError.message}]`;
                     }
                 }
 
@@ -719,33 +708,33 @@ ${glossaryContentForPrompt}
                     translatedChapterChunks.push(translatedChunk);
                   } catch (chunkError) {
                     console.error(`Error translating chunk ${j + 1} of chapter "${chapter.title}":`, chunkError);
-                    translatedChapterChunks.push(`[Translation error for this segment: ${chunkError.message}]`); // Add placeholder for failed chunk
+                    translatedChapterChunks.push(`\n\n[Translation error for this segment: ${chunkError.message}]\n\n`);
                   }
                   processedChunks++;
                   setEbookTranslationProgress(Math.floor((processedChunks / totalChunks) * 100));
                   await new Promise(resolve => setTimeout(resolve, 500)); // Delay between API calls
                 }
-                const translatedChapterContentRaw = translatedChapterChunks.join(' '); // Join chunks with space
+                
+                // *** FIX: Join chunks with double newline to preserve paragraph breaks between chunks ***
+                const translatedChapterContentRaw = translatedChapterChunks.join('\n\n'); 
+
                 // Normalize paragraph breaks for the translated chapter content
                 const normalizedTranslatedChapter = translatedChapterContentRaw
-                    .split(/\s*\n\s*\n\s*/) // Split by multiple newlines (with optional whitespace)
-                    .filter(p => p.trim() !== '') // Remove empty paragraphs
-                    .map(p => p.trim()) // Trim each paragraph
-                    .join('\n\n'); // Re-join with consistent double newlines
+                    .replace(/\r\n/g, '\n') // Standardize newlines
+                    .replace(/(\n\s*){3,}/g, '\n\n') // Collapse 3+ newlines to 2
+                    .trim();
 
                 newTranslatedChapters.push({
-                    originalTitle: chapter.title, // Keep original title for reference
-                    title: translatedChapterTitle, // Store the translated title
-                    content: normalizedTranslatedChapter // Store normalized content for the chapter
+                    originalTitle: chapter.title,
+                    title: translatedChapterTitle,
+                    content: normalizedTranslatedChapter
                 });
-                // Add to the list for overall display text, including chapter markers
-                allTranslatedPartsForDisplay.push(`--- Start Chapter: ${translatedChapterTitle} ---\n\n${normalizedTranslatedChapter}\n\n--- End Chapter ---`);
-
+                
+                allTranslatedPartsForDisplay.push(`--- Chapter: ${translatedChapterTitle} ---\n\n${normalizedTranslatedChapter}`);
               }
-              // Set the state for individual translated chapters (for EPUB generation)
+              
               setTranslatedChapters(newTranslatedChapters);
-              // Set the state for the overall text area display and PDF generation
-              const finalAssembledText = allTranslatedPartsForDisplay.join('\n\n').trim();
+              const finalAssembledText = allTranslatedPartsForDisplay.join('\n\n\n').trim();
               setAssembledTranslatedText(finalAssembledText);
               console.log('translateEbook completed successfully. Final assembled text length:', finalAssembledText.length);
               console.log('Translated chapters count:', newTranslatedChapters.length);
@@ -767,8 +756,8 @@ ${glossaryContentForPrompt}
             console.log('handleTranslateFromInputText called.');
             setLoading(true);
             setError('');
-            setAssembledTranslatedText(''); // Clear previous translation for new request
-            setTranslatedChapters([]); // Clear chapters if translating single text
+            setAssembledTranslatedText('');
+            setTranslatedChapters([]);
 
             if (!inputText.trim()) {
               setError('Please paste some text to translate.');
@@ -778,15 +767,13 @@ ${glossaryContentForPrompt}
             }
 
             try {
-              const translated = await translateChunk(inputText); // Use translateChunk for single text area translation
-              // Normalize multiple newlines to ensure proper paragraph breaks
+              const translated = await translateChunk(inputText);
               const normalizedTranslated = translated
-                  .split(/\s*\n\s*\n\s*/)
-                  .filter(p => p.trim() !== '')
-                  .map(p => p.trim())
-                  .join('\n\n');
+                  .replace(/\r\n/g, '\n')
+                  .replace(/(\n\s*){3,}/g, '\n\n')
+                  .trim();
               setAssembledTranslatedText(normalizedTranslated);
-              setTranslatedChapters([{ title: 'Translated Document', content: normalizedTranslated }]); // Treat single text as one chapter for download
+              setTranslatedChapters([{ title: 'Translated Document', content: normalizedTranslated }]);
               console.log('handleTranslateFromInputText successful. Translated text length:', normalizedTranslated.length);
             } catch (err) {
               console.error('Error in handleTranslateFromInputText:', err);
@@ -820,56 +807,24 @@ ${glossaryContentForPrompt}
               console.log('cleanExtractedText called. Original text length:', text.length);
               let cleanedText = text;
 
-              // Step 0: Standardize all newlines to '\n' and replace common HTML entities/special spaces
-              cleanedText = cleanedText.replace(/\r\n|\r/g, '\n'); // Convert all newlines to \n
-              cleanedText = cleanedText.replace(/&nbsp;/g, ' '); // Replace non-breaking spaces with regular spaces
-              cleanedText = cleanedText.replace(/\u00A0/g, ' '); // Also replace unicode non-breaking space
-              cleanedText = cleanedText.replace(/\u200B/g, ''); // Remove zero-width spaces
-
-              // Step 1: Remove PDF page markers (e.g., "--- PAGE 1 ---", "--- Page End ---")
+              cleanedText = cleanedText.replace(/\r\n|\r/g, '\n'); 
+              cleanedText = cleanedText.replace(/&nbsp;/g, ' ');
+              cleanedText = cleanedText.replace(/\u00A0/g, ' ');
+              cleanedText = cleanedText.replace(/\u200B/g, ''); 
               cleanedText = cleanedText.replace(/--- PAGE \d+ ---\n\n?/g, '');
               cleanedText = cleanedText.replace(/--- Page End ---\n\n?/g, '');
               cleanedText = cleanedText.replace(/--- Page End ---/g, '');
-
-              // Step 2: Aggressively remove known redundant chapter/title patterns.
-              // These patterns are applied globally (g) and multiline (m), meaning they affect
-              // the start of the string and the start of each line.
-
-              // Pattern 1: "Number : Title [Number]" - e.g., "548 : Delilah's Will [ 3 ]"
               cleanedText = cleanedText.replace(/^\s*"?\d+\s*:\s*.+?\[\s*\d+\s*\]"?\s*\n*/gm, '');
-
-              // Pattern 2: "Chapter Number : Title [Number]" - e.g., "Chapter 548 : Delilah's Will [ 3 ]"
               cleanedText = cleanedText.replace(/^\s*"?Chapter\s+\d+\s*:\s*.+?\[\s*\d+\s*\]"?\s*\n*/gm, '');
-
-              // Pattern 3: Generic "Chapter Number" lines - e.g., "Chapter 1"
               cleanedText = cleanedText.replace(/^\s*"?Chapter\s+\d+"?\s*\n*/gm, '');
-
-              // Pattern 4: Remove common book/document headers/footers that might be extracted
               cleanedText = cleanedText.replace(/^\s*(?:Table of Contents|Contents)\s*\n*/gm, '');
-              // Specific for page numbers, but careful not to remove valid short sentences.
-              // This targets lines that *only* contain "Page X" with optional quotes and surrounding whitespace
               cleanedText = cleanedText.replace(/^\s*"?Page\s+\d+"?\s*\n*/gm, '');
-
-
-              // Pattern 5: Remove any stray quotes around empty lines or single words that might be remnants from parsing
-              cleanedText = cleanedText.replace(/^"\s*"\s*\n*/gm, ''); // Empty quotes
-
-              // Pattern 6: Remove image URLs if extracted as text. Added SVG support.
+              cleanedText = cleanedText.replace(/^"\s*"\s*\n*/gm, ''); 
               cleanedText = cleanedText.replace(/https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp|svg)(\s*\n+|$)/gi, '');
-
-              // Step 7: Normalize whitespace within lines and for paragraph breaks
-              // Reduce all multiple spaces to a single space
               cleanedText = cleanedText.replace(/\s{2,}/g, ' ');
-
-              // Trim each line and then re-join, ensuring consistency
-              // This is a crucial step to remove leading/trailing spaces per line.
-              cleanedText = cleanedText.replace(/[ \t]+/g, ' '); // Remove multiple spaces and tabs
-              cleanedText = cleanedText.replace(/ +(\n|$)/g, '$1'); // Remove trailing spaces before newlines
-
-              // Normalize multiple newlines to consistent paragraph breaks (max two newlines)
+              cleanedText = cleanedText.replace(/[ \t]+/g, ' '); 
+              cleanedText = cleanedText.replace(/ +(\n|$)/g, '$1');
               cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n');
-
-              // Remove leading/trailing newlines and spaces from the whole text
               cleanedText = cleanedText.trim();
               console.log('cleanExtractedText finished. Cleaned text length:', cleanedText.length);
               return cleanedText;
@@ -893,13 +848,13 @@ ${glossaryContentForPrompt}
               console.log('Starting processFile for:', file.name, file.type);
               setUploadingFile(true);
               setError('');
-              setInputText(''); // Clear previous text from the input area
-              setAssembledTranslatedText(''); // Clear previous assembled text
-              setTranslatedChapters([]); // Clear previous translated chapters
+              setInputText('');
+              setAssembledTranslatedText('');
+              setTranslatedChapters([]);
 
               try {
                   const fileType = file.type;
-                  let extractedData = { fullText: '', chapters: [] }; // Standardize extracted data structure
+                  let extractedData = { fullText: '', chapters: [] };
                   console.log('Determining file type:', fileType);
 
                   if (fileType === 'text/plain') {
@@ -907,27 +862,23 @@ ${glossaryContentForPrompt}
                       const rawText = await readFileAsText(file);
                       const cleanedText = cleanExtractedText(rawText);
                       extractedData.fullText = cleanedText;
-                      extractedData.chapters = [{ title: file.name || 'Document', text: cleanedText }]; // Treat as single chapter
+                      extractedData.chapters = [{ title: file.name || 'Document', text: cleanedText }];
                       console.log('Finished readFileAsText & cleaned. Full text length:', extractedData.fullText.length);
                   } else if (fileType === 'application/pdf') {
                       console.log('Processing as PDF file...');
                       const rawText = await readPdfFile(file);
                       const cleanedText = cleanExtractedText(rawText);
                       extractedData.fullText = cleanedText;
-                      // For PDF, we don't have explicit chapters from the file itself unless OCR/advanced parsing is used.
-                      // So we'll treat it as one large chapter for now, but label it for the TOC.
                       extractedData.chapters = [{ title: file.name || 'PDF Document', text: cleanedText }];
                       console.log('Finished readPdfFile & cleaned. Full text length:', extractedData.fullText.length);
                   } else if (fileType === 'application/epub+zip') {
                       console.log('Processing as EPUB file...');
-                      const rawEpubData = await readEpubFile(file); // This now returns { fullText, chapters }
-                      // Clean individual chapter texts from EPUB
+                      const rawEpubData = await readEpubFile(file);
                       extractedData.chapters = rawEpubData.chapters.map(chap => ({
                           title: chap.title,
                           text: cleanExtractedText(chap.text)
                       }));
-                      // Reconstruct fullText from cleaned chapters for consistent display
-                      extractedData.fullText = extractedData.chapters.map(chap => chap.text).join('\n\n'); // Rejoin for fullText display
+                      extractedData.fullText = extractedData.chapters.map(chap => chap.text).join('\n\n');
                       console.log('Finished readEpubFile & cleaned. Full text length:', extractedData.fullText.length, 'Chapters:', extractedData.chapters.length);
                   } else {
                       console.warn('Unsupported file type detected:', fileType);
@@ -937,7 +888,6 @@ ${glossaryContentForPrompt}
                   setCopySuccess(`Content extracted from ${file.name}! Starting translation...`);
                   setTimeout(() => setCopySuccess(''), 3000);
                   console.log('Starting translateEbook with', extractedData.chapters.length, 'chapters.');
-                  // Pass the structured chapter data to translateEbook
                   await translateEbook(extractedData.chapters);
                   console.log('translateEbook process completed.');
 
@@ -950,7 +900,7 @@ ${glossaryContentForPrompt}
               } finally {
                   setUploadingFile(false);
                   if (fileInputRef.current) {
-                      fileInputRef.current.value = ''; // Clear the file input
+                      fileInputRef.current.value = '';
                   }
                   console.log('Finished processFile execution.');
               }
@@ -973,12 +923,12 @@ ${glossaryContentForPrompt}
               });
           };
 
-          // Helper function to read a PDF file with better paragraph detection
+          // Helper function to read a PDF file with improved paragraph detection
           const readPdfFile = async (file) => {
             console.log('Executing readPdfFile...');
             if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
-                console.error('PDF.js library not loaded. Cannot process PDF files.');
-                throw new Error('PDF.js library not loaded. Cannot process PDF files.');
+                console.error('PDF.js library not loaded.');
+                throw new Error('PDF.js library not loaded.');
             }
             try {
                 const arrayBuffer = await file.arrayBuffer();
@@ -986,34 +936,45 @@ ${glossaryContentForPrompt}
                 const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 console.log('PDF document loaded. Pages:', pdf.numPages);
                 let fullText = '';
-                const minParagraphSpacing = 1.5; // Heuristic for paragraph spacing (e.g., 1.5 times typical line height)
-
+                
                 for (let i = 1; i <= pdf.numPages; i++) {
-                    const pageObject = await pdf.getPage(i); // Corrected variable name
-                    const textContent = await pageObject.getTextContent(); // Corrected variable name
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
                     console.log(`Processing PDF page ${i}. Items:`, textContent.items.length);
                     let lastY = -1;
-                    let lastLineHeight = -1;
+                    let lastHeight = -1;
+                    let line = '';
 
-                    textContent.items.forEach(item => {
-                        const currentY = item.transform[5]; // Y-coordinate of the text item
-                        const currentLineHeight = item.height; // Height of the text item (approx line height)
+                    // Sort items by vertical position, then horizontal
+                    const sortedItems = textContent.items.sort((a, b) => {
+                        if (a.transform[5] > b.transform[5]) return -1;
+                        if (a.transform[5] < b.transform[5]) return 1;
+                        if (a.transform[4] < b.transform[4]) return -1;
+                        if (a.transform[4] > b.transform[4]) return 1;
+                        return 0;
+                    });
+                    
+                    sortedItems.forEach(item => {
+                        const currentY = item.transform[5];
+                        const currentHeight = item.height;
 
                         if (lastY !== -1) {
-                            // Check for significant vertical jump (potential paragraph break)
-                            if (currentY < lastY - (lastLineHeight * minParagraphSpacing)) {
-                                fullText += '\n\n'; // New paragraph
-                            } else if (currentY < lastY) {
-                                fullText += '\n'; // New line within a paragraph (if not just horizontal flow)
-                            } else {
-                                fullText += ' '; // Regular space
+                            const yDiff = Math.abs(currentY - lastY);
+                            // If new line is on a significantly different Y, it's a new line/paragraph
+                            if (yDiff > currentHeight * 0.5) {
+                                fullText += line.trim() + '\n';
+                                line = '';
+                                // If gap is larger than line height, assume paragraph break
+                                if (yDiff > lastHeight * 1.5) {
+                                    fullText += '\n';
+                                }
                             }
                         }
-                        fullText += item.str;
+                        line += item.str + ' ';
                         lastY = currentY;
-                        lastLineHeight = currentLineHeight;
+                        lastHeight = currentHeight;
                     });
-                    fullText += '\n\n--- Page End ---\n\n'; // Mark page breaks clearly
+                    fullText += line.trim() + '\n\n'; // Add remaining line and page break
                 }
                 console.log('PDF text extraction complete. Total text length:', fullText.length);
                 return fullText;
@@ -1027,55 +988,41 @@ ${glossaryContentForPrompt}
           const readEpubFile = async (file) => {
               console.log('Executing readEpubFile...');
               if (typeof window.JSZip === 'undefined') {
-                  console.error('JSZip library not loaded. Cannot process EPUB files.');
-                  throw new Error('JSZip library not loaded. Cannot process EPUB files.');
+                  console.error('JSZip library not loaded.');
+                  throw new Error('JSZip library not loaded.');
               }
 
               try {
-                  const zip = new window.JSZip();
-                  const contents = await zip.loadAsync(file);
+                  const zip = await window.JSZip.loadAsync(file);
                   const chapterData = [];
-                  let fullTextConcatenated = ''; // Keep this for overall text content
-                  console.log('EPUB zip file loaded. Number of files:', Object.keys(contents.files).length);
+                  let fullTextConcatenated = '';
+                  console.log('EPUB zip file loaded. Number of files:', Object.keys(zip.files).length);
 
-                  // 1. Find the container.xml file (usually at META-INF/container.xml)
-                  const containerFile = contents.file('META-INF/container.xml');
-                  if (!containerFile) {
-                      throw new Error('EPUB error: META-INF/container.xml not found.');
-                  }
+                  const containerFile = zip.file('META-INF/container.xml');
+                  if (!containerFile) throw new Error('EPUB error: META-INF/container.xml not found.');
                   const containerContent = await containerFile.async('text');
                   const containerDoc = new DOMParser().parseFromString(containerContent, "text/xml");
                   console.log('container.xml parsed.');
 
-                  // Get the path to the OPF file (rootfile)
                   const rootfilePath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
-                  if (!rootfilePath) {
-                      throw new Error('EPUB error: Rootfile path not found in container.xml.');
-                  }
+                  if (!rootfilePath) throw new Error('EPUB error: Rootfile path not found in container.xml.');
                   const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
                   console.log('OPF rootfile path:', rootfilePath, 'OPF directory:', opfDir);
 
-                  // 2. Load and parse the OPF file
-                  const opfFile = contents.file(rootfilePath);
-                  if (!opfFile) {
-                      throw new Error(`EPUB error: OPF file not found at ${rootfilePath}`);
-                  }
+                  const opfFile = zip.file(rootfilePath);
+                  if (!opfFile) throw new Error(`EPUB error: OPF file not found at ${rootfilePath}`);
                   const opfContent = await opfFile.async('text');
                   const opfDoc = new DOMParser().parseFromString(opfContent, "text/xml");
                   console.log('OPF file parsed.');
 
-                  // 3. Find the NCX file (Table of Contents) from the OPF manifest
                   let ncxHref = null;
                   const ncxItem = opfDoc.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
-                  if (ncxItem) {
-                      ncxHref = ncxItem.getAttribute('href');
-                      console.log('NCX href found:', ncxHref);
-                  }
+                  if (ncxItem) ncxHref = ncxItem.getAttribute('href');
 
-                  const navMapTitles = new Map(); // Map content href (cleaned) to navLabel (title)
+                  const navMapTitles = new Map();
                   if (ncxHref) {
                       const ncxPath = opfDir + ncxHref;
-                      const ncxFile = contents.file(ncxPath);
+                      const ncxFile = zip.file(ncxPath);
                       if (ncxFile) {
                           const ncxContent = await ncxFile.async('text');
                           const ncxDoc = new DOMParser().parseFromString(ncxContent, "text/xml");
@@ -1083,49 +1030,38 @@ ${glossaryContentForPrompt}
                               const navLabel = navPoint.querySelector('navLabel text')?.textContent;
                               const contentSrc = navPoint.querySelector('content')?.getAttribute('src');
                               if (navLabel && contentSrc) {
-                                  // Normalize contentSrc: remove anchor if present
-                                  const cleanContentSrc = contentSrc.split('#')[0];
-                                  navMapTitles.set(cleanContentSrc, navLabel);
-                                  console.log(`  NCX map: ${cleanContentSrc} -> ${navLabel}`);
+                                  navMapTitles.set(contentSrc.split('#')[0], navLabel);
                               }
                           });
-                      } else {
-                          console.warn(`NCX file not found at ${ncxPath}. Chapter titles might be missing.`);
                       }
                   } else {
-                      console.warn('NCX manifest item not found in OPF. Chapter titles might be missing.');
+                      console.warn('NCX manifest item not found. Chapter titles might be missing.');
                   }
 
 
-                  // Function to extract text from an HTML node, preserving breaks
                   const extractTextFromNode = (node) => {
                     let text = '';
                     if (node.nodeType === Node.TEXT_NODE) {
-                        text += node.textContent; // Use += for text content
-                    }
-                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        text += node.textContent;
+                    } else if (node.nodeType === Node.ELEMENT_NODE) {
                         const tagName = node.tagName.toLowerCase();
-                        if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote'].includes(tagName)) {
-                            text += '\n\n';
+                        if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote', 'tr'].includes(tagName)) {
+                           if (text.length > 0 && !text.endsWith('\n\n')) text += '\n\n';
                         }
-
+                        
                         for (const childNode of node.childNodes) {
                             text += extractTextFromNode(childNode);
                         }
 
                         if (tagName === 'br') {
                             text += '\n';
-                        } else if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote'].includes(tagName)) {
-                            if (!text.endsWith('\n\n')) {
-                                text += '\n\n';
-                            }
+                        } else if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote', 'tr'].includes(tagName)) {
+                            if (!text.endsWith('\n\n')) text += '\n\n';
                         }
                     }
-                    // Normalize spaces and trim the content of each block
-                    return text.replace(/ {2,}/g, ' ').trim();
+                    return text;
                   };
 
-                  // 4. Iterate through the spine (reading order)
                   const spine = opfDoc.querySelectorAll('spine itemref');
                   console.log('Processing spine. Number of items:', spine.length);
                   for (const itemref of spine) {
@@ -1136,71 +1072,43 @@ ${glossaryContentForPrompt}
                           const mediaType = opfDoc.querySelector(`manifest item[id="${idref}"]`)?.getAttribute('media-type');
                           if (mediaType && (mediaType === 'application/xhtml+xml' || mediaType === 'text/html')) {
                               const contentPath = opfDir + href;
-                              const contentFile = contents.file(contentPath);
-                              console.log(`  Processing spine item: ${idref} -> ${contentPath}`);
+                              const contentFile = zip.file(contentPath);
 
                               if (contentFile) {
                                   try {
                                       const htmlContent = await contentFile.async('text');
                                       const parser = new DOMParser();
                                       const doc = parser.parseFromString(htmlContent, "text/html");
-                                      console.log(`    HTML content for ${contentPath} parsed. Body innerHTML length:`, doc.body?.innerHTML.length);
-
-                                      // Remove script and style tags
                                       doc.querySelectorAll('script, style').forEach(el => el.remove());
 
-                                      const chapterText = extractTextFromNode(doc.body);
-                                      // Get title from navMap, fallback to heuristic or generic
-                                      let chapterTitle = navMapTitles.get(href.split('#')[0]); // Use cleaned href for lookup
-
-                                      // Fallback: If no navMap title, try to extract a main heading from the HTML
+                                      let chapterText = extractTextFromNode(doc.body).replace(/ \n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+                                      
+                                      let chapterTitle = navMapTitles.get(href.split('#')[0]);
                                       if (!chapterTitle) {
                                           const firstHeading = doc.querySelector('h1, h2, h3, h4');
                                           if (firstHeading && firstHeading.textContent.trim()) {
                                               chapterTitle = firstHeading.textContent.trim();
-                                              console.log(`    Fallback: Found heading title "${chapterTitle}" for ${contentPath}`);
+                                          } else {
+                                              chapterTitle = `Chapter ${chapterData.length + 1}`;
                                           }
                                       }
-                                      // Final fallback for title
-                                      if (!chapterTitle) {
-                                          chapterTitle = `Chapter ${chapterData.length + 1}`;
-                                          // If the chapter text starts with a line that looks like a title, use it
-                                          const firstLine = chapterText.split('\n')[0].trim();
-                                          if (firstLine.length > 5 && firstLine.length < 100 && !firstLine.includes('.')) {
-                                              chapterTitle = firstLine;
-                                              console.log(`    Final Fallback: Used first line as title "${chapterTitle}" for ${contentPath}`);
-                                          }
-                                      }
-                                      console.log(`    Resolved chapter title: "${chapterTitle}"`);
 
                                       chapterData.push({ title: chapterTitle, text: chapterText });
-                                      // Also concatenate for the fullText output
-                                      fullTextConcatenated += `\n\n--- Start Chapter: ${chapterTitle} ---\n\n` + chapterText.trim();
-                                      fullTextConcatenated += '\n\n--- End Chapter ---\n\n';
-
+                                      fullTextConcatenated += `\n\n--- Chapter: ${chapterTitle} ---\n\n` + chapterText;
                                   } catch (e) {
                                       console.error(`Error processing content file ${contentPath}:`, e);
                                       const errorChapterTitle = navMapTitles.get(href.split('#')[0]) || `Chapter ${chapterData.length + 1} (Error)`;
-                                      chapterData.push({ title: errorChapterTitle, text: '' }); // Push empty content for failed chapter
-                                      fullTextConcatenated += `\n\n--- Start Chapter: ${errorChapterTitle} ---\n\n` + 'Content extraction failed for this chapter.';
-                                      fullTextConcatenated += '\n\n--- End Chapter ---\n\n';
+                                      chapterData.push({ title: errorChapterTitle, text: '' });
                                   }
-                              } else {
-                                console.warn(`Content file not found for path: ${contentPath}`);
                               }
-                          } else {
-                            console.log(`  Skipping spine item ${idref} due to unsupported media type: ${mediaType}`);
                           }
-                      } else {
-                        console.warn(`  Skipping spine item ${idref}: href not found.`);
                       }
                   }
 
-                  if (!fullTextConcatenated.trim() && chapterData.length === 0) {
-                      throw new Error('Could not extract readable text from EPUB file. No text content found in spine items or within HTML blocks.');
+                  if (chapterData.length === 0) {
+                      throw new Error('Could not extract readable text from EPUB file.');
                   }
-                  console.log('EPUB parsing complete. Extracted full text length:', fullTextConcatenated.length, 'Chapters:', chapterData.length);
-                  // Return both the full concatenated text and the structured chapter data
+                  console.log('EPUB parsing complete. Extracted chapters:', chapterData.length);
                   return { fullText: fullTextConcatenated.trim(), chapters: chapterData };
               } catch (err) {
                 console.error('Error during EPUB file processing in readEpubFile:', err);
@@ -1211,80 +1119,70 @@ ${glossaryContentForPrompt}
 
           const handleDownloadPDF = () => {
             console.log('handleDownloadPDF called. Translated chapters count:', translatedChapters.length);
-            if (!assembledTranslatedText || translatedChapters.length === 0) { // Ensure we have structured chapters
+            if (!assembledTranslatedText || translatedChapters.length === 0) {
               setError('No translated text or chapter data to download as PDF.');
               console.warn('PDF download aborted: No translated text or chapter data.');
               return;
             }
-            setDownloadingPdf(true); // Start PDF loading
+            setDownloadingPdf(true);
             setError('');
             try {
               if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
-                setError('PDF library (jsPDF) not loaded. Cannot generate PDF.');
-                setDownloadingPdf(false); // End loading on error
-                console.error('PDF library (jsPDF) not loaded.');
+                setError('PDF library (jsPDF) not loaded.');
+                setDownloadingPdf(false);
                 return;
               }
-              const doc = new window.jspdf.jsPDF();
-              doc.setFont('Inter', 'normal');
+              const { jsPDF } = window.jspdf;
+              const doc = new jsPDF();
+              
+              // It's important to embed a font that supports the characters in the target language.
+              // 'Inter' might not support all languages. jsPDF's built-in fonts are limited.
+              // For broader support, a font like Noto Sans would need to be loaded.
+              // This is a complex step, so we'll proceed with standard fonts and add a console warning.
+              console.warn("PDF Generation: Using standard fonts. Some characters in the target language may not render correctly unless a fully-featured font is embedded.");
+              doc.setFont('Helvetica', 'normal');
               doc.setFontSize(12);
               doc.setTextColor(0, 0, 0);
 
-              const lineHeight = 10;
-              const paragraphSpacing = 5; // Additional space between paragraphs
+              const lineHeight = 7; // Adjust line height for better spacing
+              const paragraphSpacing = 4;
               const margin = 10;
               const maxWidth = doc.internal.pageSize.width - 2 * margin;
 
               let currentY = margin;
-              const chapterPageMap = new Map(); // To store chapter titles and their start pages
+              const chapterPageMap = new Map();
 
-              // 1. Generate Table of Contents page
-              console.log('Generating PDF Table of Contents...');
+              // TOC Generation
               doc.setFontSize(18);
               doc.text("Table of Contents", margin, currentY);
-              currentY += lineHeight * 2; // Space after title
+              currentY += lineHeight * 2;
               doc.setFontSize(12);
-
               const tocStartPage = doc.internal.getCurrentPageInfo().pageNumber;
-              const tocYOffset = currentY; // Store initial Y for TOC entries
-              let currentTocEntryY = tocYOffset; // Track Y position for TOC entries
+              const tocYOffset = currentY;
+              let currentTocEntryY = tocYOffset;
 
-              doc.addPage(); // Start content on a new page after TOC placeholder
-              currentY = margin; // Reset Y for content pages
-              console.log('TOC page generated. Moving to content pages.');
+              doc.addPage();
+              currentY = margin;
 
-
-              // 2. Add each translated chapter content
+              // Content Generation
               translatedChapters.forEach((chapter, chapterIndex) => {
-                // Use chapter.title which now contains the translated title
-                console.log(`Adding chapter "${chapter.title}" to PDF.`);
-
-                // Always add a new page for each chapter, except for the very first one
                 if (chapterIndex > 0) {
                     doc.addPage();
-                    currentY = margin; // Reset Y to top margin for new page
-                    console.log(`  Added new page for chapter "${chapter.title}".`);
+                    currentY = margin;
                 }
-
-                // Record the starting page for this chapter
                 const chapterStartPage = doc.internal.getCurrentPageInfo().pageNumber;
-                chapterPageMap.set(chapter.title, chapterStartPage); // Use translated title for TOC map
+                chapterPageMap.set(chapter.title, chapterStartPage);
 
                 if (chapter.title.trim()) {
-                    doc.setFontSize(14); // Larger font for chapter titles
-                    doc.text(chapter.title, margin, currentY); // Use translated title here
-                    currentY += lineHeight * 1.5; // Space after chapter title
-                    doc.setFontSize(12); // Back to normal for content
-                    console.log(`  Chapter title "${chapter.title}" added.`);
+                    doc.setFontSize(16);
+                    doc.text(chapter.title, margin, currentY);
+                    currentY += lineHeight * 2;
+                    doc.setFontSize(12);
                 }
 
-
                 const paragraphs = chapter.content.split(/\n\n+/).filter(p => p.trim() !== '');
-                console.log(`  Chapter has ${paragraphs.length} paragraphs.`);
-
-                paragraphs.forEach((paragraph, paraIndex) => {
+                paragraphs.forEach((paragraph) => {
                   const textLines = doc.splitTextToSize(paragraph.trim(), maxWidth);
-
                   textLines.forEach(line => {
                     if (currentY + lineHeight > doc.internal.pageSize.height - margin) {
                       doc.addPage();
@@ -1293,45 +1191,28 @@ ${glossaryContentForPrompt}
                     doc.text(line, margin, currentY);
                     currentY += lineHeight;
                   });
-
-                  // Add extra spacing after each paragraph, except the last one in the chapter
-                  if (paraIndex < paragraphs.length - 1) {
-                    currentY += paragraphSpacing;
-                  }
+                  currentY += paragraphSpacing;
                 });
-                // Ensure a break between chapters, even if the last paragraph of previous chapter was short
-                // This extra space is handled by the new page logic for subsequent chapters
-                // currentY += paragraphSpacing * 2; // Extra spacing between distinct chapters - removed as new page handles it
-                console.log(`  Chapter "${chapter.title}" content added.`);
               });
 
-              // 3. Fill in the Table of Contents on the TOC page
-              console.log('Filling in PDF Table of Contents...');
-              doc.setPage(tocStartPage); // Go back to the TOC page
+              // Fill in TOC
+              doc.setPage(tocStartPage);
               doc.setFontSize(12);
-              currentTocEntryY = tocYOffset; // Reset Y to where TOC entries should start
-
+              currentTocEntryY = tocYOffset;
               chapterPageMap.forEach((pageNumber, title) => {
-                // Ensure TOC entries don't overflow the page
                 if (currentTocEntryY + lineHeight > doc.internal.pageSize.height - margin) {
-                    doc.addPage(); // Add a new page for TOC if needed
+                    doc.addPage();
                     currentTocEntryY = margin;
-                    doc.setFontSize(12); // Reset font size if new page
-                    console.log('  Adding new TOC page due to overflow.');
+                    doc.setFontSize(12);
                 }
-                // Right align page number
-                const pageNumberText = `Page ${pageNumber}`;
-                // Measure title width
-                const titleTextWidth = doc.getStringUnitWidth(title) * doc.internal.getFontSize() / doc.internal.scaleFactor;
-                // Measure page number text width
-                const pageNumTextWidth = doc.getStringUnitWidth(pageNumberText) * doc.internal.getFontSize() / doc.internal.scaleFactor;
-                // Calculate space for dots
-                const availableDotsWidth = maxWidth - titleTextWidth - pageNumTextWidth;
-                const dots = '.'.repeat(Math.floor(availableDotsWidth / (doc.getStringUnitWidth('.') * doc.internal.getFontSize() / doc.internal.scaleFactor)));
-
-                doc.text(`${title} ${dots} ${pageNumberText}`, margin, currentTocEntryY);
+                const pageNumberText = `${pageNumber}`;
+                const titleWidth = doc.getStringUnitWidth(title) * doc.getFontSize() / doc.internal.scaleFactor;
+                const pageNumWidth = doc.getStringUnitWidth(pageNumberText) * doc.getFontSize() / doc.internal.scaleFactor;
+                const dotsWidth = maxWidth - titleWidth - pageNumWidth;
+                const dots = '.'.repeat(Math.max(0, Math.floor(dotsWidth / (doc.getStringUnitWidth('.') * doc.getFontSize() / doc.internal.scaleFactor))));
+                
+                doc.text(`${title} ${dots} ${pageNumberText}`, margin, currentTocEntryY, { align: 'left' });
                 currentTocEntryY += lineHeight;
-                console.log(`  TOC entry added: "${title}" on page ${pageNumber}`);
               });
 
               doc.save(`translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.pdf`);
@@ -1340,8 +1221,7 @@ ${glossaryContentForPrompt}
               console.error("PDF download error in handleDownloadPDF:", err);
               setError(`Failed to generate PDF: ${err.message}`);
             } finally {
-              setDownloadingPdf(false); // Always end loading
-              console.log('handleDownloadPDF execution finished.');
+              setDownloadingPdf(false);
             }
           };
 
@@ -1349,57 +1229,57 @@ ${glossaryContentForPrompt}
             console.log('handleDownloadEPUB called. Translated chapters count:', translatedChapters.length);
             if (!assembledTranslatedText || translatedChapters.length === 0) {
               setError('No translated text or chapter data to download as EPUB.');
-              console.warn('EPUB download aborted: No translated text or chapter data.');
               return;
             }
-            setDownloadingEpub(true); // Start EPUB loading
+            setDownloadingEpub(true);
             setError('');
 
-            // Give the library a moment to load from the CDN
             await new Promise(resolve => setTimeout(resolve, 100));
-            console.log('EPUB library load delay finished.');
 
             try {
-              // Check for jEpub global object AND JSZip and ejs
-              if (typeof window.jEpub === 'undefined' || typeof window.JSZip === 'undefined' || typeof window.ejs === 'undefined') {
-                setError('EPUB generation libraries not loaded. Please ensure "jszip.min.js", "ejs.min.js", and "jepub.min.js" are saved in the same directory as your index.html file.');
+              if (typeof jEpub === 'undefined') {
+                setError('EPUB generation library (jEpub) not loaded.');
                 setDownloadingEpub(false);
-                console.error('EPUB generation libraries not loaded.');
                 return;
               }
-              const jepub = new window.jEpub();
+              const jepub = new jEpub();
+              // Initialize with EPUB 3 specific metadata if possible.
+              // While jEpub is primarily EPUB 2, providing modern metadata is good practice.
               jepub.init({
                 title: `Translated Content (${targetLanguage})`,
                 author: 'Gemini Translator',
                 publisher: 'Gemini Translator App',
                 description: `Translated from source by Gemini Translator to ${targetLanguage}`,
-                lang: targetLanguage.split(' ')[0].toLowerCase() // Use the first word of language for lang code
+                lang: targetLanguage.split(/[-_ ]/)[0].toLowerCase(), // e.g., 'en' from 'English'
+                version: '3' // Attempt to flag as EPUB 3
               });
-              console.log('jEpub initialized.');
+              console.log('jEpub initialized for EPUB 3.');
 
-              // Add each translated chapter to the EPUB
               translatedChapters.forEach((chapter, index) => {
-                // Use chapter.title which now contains the translated title
                 console.log(`Adding chapter "${chapter.title}" to EPUB.`);
-                // Ensure content is wrapped in paragraphs for EPUB HTML
+                // Convert plain text paragraphs to HTML paragraphs.
                 const paragraphs = chapter.content.split(/\n\n+/).filter(p => p.trim() !== '');
-                let htmlContent = '';
+                let htmlContent = `<h1>${chapter.title}</h1>\n`;
                 paragraphs.forEach(p => {
-                  if (p.trim()) {
-                    htmlContent += `<p>${p.trim().split('\n').join('<br/>')}</p>`; // Preserve line breaks within paragraphs
+                    // Sanitize text for HTML. Replace < > &
+                    const sanitizedParagraph = p.trim()
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .split('\n').join('<br/>'); // Preserve single newlines as line breaks
+                  if (sanitizedParagraph) {
+                    htmlContent += `<p>${sanitizedParagraph}</p>\n`;
                   }
                 });
-                if (!htmlContent) {
-                    htmlContent = `<p>No content for this chapter.</p>`; // Fallback for empty chapters
-                }
-                jepub.add(chapter.title, htmlContent); // Use translated title here
+                
+                // Add chapter with XHTML content
+                jepub.add(chapter.title, htmlContent);
               });
               console.log('All chapters added to jEpub.');
 
-              const epubBlob = await jepub.generate('blob'); // Generate as Blob for client-side download
+              const epubBlob = await jepub.generate(); // Default is blob
               console.log('EPUB blob generated. Size:', epubBlob.size, 'bytes.');
 
-              // Create a download link for the Blob
               const url = URL.createObjectURL(epubBlob);
               const a = document.createElement('a');
               a.href = url;
@@ -1407,107 +1287,99 @@ ${glossaryContentForPrompt}
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
-              URL.revokeObjectURL(url); // Clean up the object URL
+              URL.revokeObjectURL(url);
               console.log('EPUB file download initiated.');
 
             } catch (err) {
               console.error("EPUB download error in handleDownloadEPUB:", err);
-              setError(`Failed to generate EPUB: ${err.message}. Please ensure the jEpub library is loaded and accessible.`);
+              setError(`Failed to generate EPUB: ${err.message}.`);
             } finally {
-              setDownloadingEpub(false); // Always end loading
+              setDownloadingEpub(false);
               console.log('handleDownloadEPUB execution finished.');
             }
           };
 
-          console.log('App is rendering. Current state values:');
-          console.log('  inputText length:', inputText.length);
-          console.log('  assembledTranslatedText length:', assembledTranslatedText.length);
-          console.log('  isEbookTranslating:', isEbookTranslating);
-          console.log('  ebookTranslationProgress:', ebookTranslationProgress);
-          console.log('  error:', error);
-          console.log('  translatedChapters count:', translatedChapters.length);
-          console.log('  uploadingFile:', uploadingFile);
+          console.log('App is rendering...');
 
+          return React.createElement('div', { className: 'min-h-screen bg-gray-100 dark:bg-gray-900 p-4 font-sans text-gray-800 dark:text-gray-200 flex items-center justify-center' },
+            React.createElement('div', { className: 'w-full max-w-4xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 sm:p-8 space-y-8' },
+              React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-600 dark:text-indigo-400 mb-2 tracking-tight' }, 'Gemini Translator'),
+              React.createElement('p', { className: 'text-center text-sm text-gray-500 dark:text-gray-400 mb-6' }, `Version: ${version}`),
 
-          return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-purple-500 to-indigo-700 p-4 font-sans text-gray-800 flex items-center justify-center' },
-            React.createElement('div', { className: 'w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 space-y-8 backdrop-blur-md bg-opacity-90' },
-              React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-800 mb-2 tracking-tight' }, 'Gemini Translator'),
-              React.createElement('p', { className: 'text-center text-sm text-gray-500 mb-6' }, `Version: ${version}`),
-
-              React.createElement('div', { className: 'flex justify-center border-b border-gray-200' },
+              React.createElement('div', { className: 'flex justify-center border-b border-gray-200 dark:border-gray-700' },
                 React.createElement('button', {
                   onClick: () => setActiveTab('text'),
-                  className: `py-3 px-6 text-lg font-medium rounded-t-lg transition-colors duration-200 ${activeTab === 'text' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-indigo-100'}`
-                }, React.createElement(Clipboard, { className: 'inline-block mr-2', size: 20 }), ' Text Paste'),
+                  className: `py-3 px-6 text-lg font-medium rounded-t-lg transition-colors duration-200 ${activeTab === 'text' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-gray-700'}`
+                }, React.createElement(Clipboard, { className: 'inline-block mr-2', size: 20 }), ' Text & File'),
                 React.createElement('button', {
                   onClick: () => setActiveTab('url'),
-                  className: `py-3 px-6 text-lg font-medium rounded-t-lg transition-colors duration-200 ${activeTab === 'url' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-indigo-100'}`
+                  className: `py-3 px-6 text-lg font-medium rounded-t-lg transition-colors duration-200 ${activeTab === 'url' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-gray-700'}`
                 }, React.createElement(Link, { className: 'inline-block mr-2', size: 20 }), ' URL (Info)')
               ),
 
-              React.createElement('div', { className: 'bg-gray-50 p-6 rounded-b-xl rounded-r-xl shadow-inner' },
+              React.createElement('div', { className: 'bg-gray-50 dark:bg-gray-800/50 p-6 rounded-b-xl rounded-r-xl shadow-inner' },
                 activeTab === 'text' && React.createElement('div', { className: 'space-y-6' },
                   React.createElement('div', null,
-                    React.createElement('label', { htmlFor: 'fileUpload', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Upload File (Text, PDF, EPUB) for direct translation:'),
+                    React.createElement('label', { htmlFor: 'fileUpload', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, 'Upload File (TXT, PDF, EPUB):'),
+                    React.createElement('button', {
+                        onClick: () => fileInputRef.current && fileInputRef.current.click(), // Trigger file input click
+                        className: 'w-full px-4 py-3 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-all duration-200 flex items-center justify-center mb-4 disabled:opacity-50 disabled:cursor-not-allowed',
+                        disabled: uploadingFile || isEbookTranslating
+                    },
+                        (uploadingFile || isEbookTranslating) ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Upload, { size: 20, className: 'mr-2' }),
+                        uploadingFile ? 'Processing...' : (isEbookTranslating ? `Translating (${ebookTranslationProgress}%)` : 'Choose File & Translate')
+                    ),
                     React.createElement('input', {
                         type: 'file',
                         id: 'fileUpload',
                         ref: fileInputRef, // Assign ref
                         onChange: handleFileChange,
-                        accept: '.txt, .pdf, .epub', // Accepted file types
-                        className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base mb-4',
+                        accept: '.txt, .pdf, .epub, application/epub+zip', // Accepted file types
+                        className: 'hidden',
                         disabled: uploadingFile || isEbookTranslating // Disable during upload or translation
                     }),
-                    React.createElement('button', {
-                        onClick: () => fileInputRef.current.click(), // Trigger file input click
-                        className: 'w-full px-4 py-2 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-all duration-200 hover:scale-105 flex items-center justify-center mb-4', // Added mb-4 for spacing
-                        disabled: uploadingFile || isEbookTranslating
-                    },
-                        (uploadingFile || isEbookTranslating) ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 16 }) : React.createElement(Upload, { size: 16, className: 'mr-1' }),
-                        uploadingFile ? 'Processing File...' : (isEbookTranslating ? `Translating Ebook (${ebookTranslationProgress}%)` : 'Choose and Upload File')
-                    ),
-                    isEbookTranslating && React.createElement('div', { className: 'w-full bg-gray-200 rounded-full h-2.5 mb-4' },
+                    isEbookTranslating && React.createElement('div', { className: 'w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-4' },
                       React.createElement('div', { className: 'bg-indigo-600 h-2.5 rounded-full', style: { width: `${ebookTranslationProgress}%` } })
                     ),
-                    React.createElement('label', { htmlFor: 'inputText', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Paste Text for Translation (for smaller texts):'),
+                    React.createElement('label', { htmlFor: 'inputText', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, 'Or Paste Text:'),
                     React.createElement('textarea', {
                       id: 'inputText',
-                      className: 'w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-y min-h-[150px] text-base',
+                      className: 'w-full p-4 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-y min-h-[150px] text-base',
                       placeholder: 'Paste your content here...',
                       value: inputText,
                       onChange: (e) => setInputText(e.target.value),
-                      disabled: isEbookTranslating // Disable if ebook translation is active
+                      disabled: isEbookTranslating
                     }),
-                    React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
+                     React.createElement('div', { className: 'grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2' }, // Changed to flex-col for vertical stacking
                       React.createElement('button', {
                         onClick: handlePasteInputText,
-                        className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
+                        className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50',
                         disabled: isEbookTranslating
-                      }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste from Clipboard'),
+                      }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste'),
                       React.createElement('button', {
                         onClick: handleCopyInputText,
-                        className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
+                        className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 flex items-center justify-center disabled:opacity-50',
                         disabled: isEbookTranslating
-                      }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy Input Text'),
-                      React.createElement('button', { // Moved this button to be below the copy button
+                      }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy'),
+                       React.createElement('button', {
                         onClick: handleClearInput,
-                        className: 'w-full px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105', // Changed to red
+                        className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 disabled:opacity-50 col-span-2 sm:col-span-1',
                         disabled: isEbookTranslating
                       }, 'Clear Input')
                     )
                   ),
-                  React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' }, // Buttons for Clear and Swap, now responsive
+                  React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' },
                     React.createElement('button', {
                       onClick: handleSwapText,
-                      className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
+                      className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-lg shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50',
                       disabled: isEbookTranslating
                     }, React.createElement(RefreshCcw, { size: 16, className: 'mr-1' }), ' Swap Text')
                   ),
                   React.createElement('div', null,
-                    React.createElement('label', { htmlFor: 'targetLanguage', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Translate to:'),
+                    React.createElement('label', { htmlFor: 'targetLanguage', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, 'Translate to:'),
                     React.createElement('select', {
                       id: 'targetLanguage',
-                      className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
+                      className: 'w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base disabled:opacity-50',
                       value: targetLanguage,
                       onChange: (e) => setTargetLanguage(e.target.value),
                       disabled: isEbookTranslating
@@ -1518,138 +1390,75 @@ ${glossaryContentForPrompt}
                     )
                   ),
                   React.createElement('button', {
-                    onClick: handleTranslateFromInputText, // Calls the specific handler for input text
-                    className: 'w-full md:w-auto md:mx-auto px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
-                    disabled: loading || isEbookTranslating // Disable if any translation is ongoing
+                    onClick: handleTranslateFromInputText,
+                    className: 'w-full md:w-auto md:mx-auto px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 transition transform hover:scale-105 flex items-center justify-center text-lg disabled:opacity-50 disabled:cursor-not-allowed',
+                    disabled: loading || isEbookTranslating
                   },
                     loading ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 24 }) : React.createElement(BookText, { className: 'mr-2', size: 24 }),
-                    loading ? 'Translating...' : 'Translate Text'
+                    loading ? 'Translating...' : 'Translate Pasted Text'
                   )
                 ),
 
                 activeTab === 'url' && React.createElement('div', { className: 'space-y-6' },
-                  React.createElement('h2', { className: 'text-xl font-bold text-gray-800' }, 'URL Content Information'),
-                  React.createElement('p', { className: 'text-gray-700 leading-relaxed' },
-                    React.createElement('span', { className: 'font-semibold' }, 'Important Considerations for URL Scanning:'),
-                    React.createElement('br'),
-                    'Due to browser security policies (CORS) and the client-side nature of this application, direct arbitrary URL scanning and content extraction is not possible.'
-                  ),
-                  React.createElement('p', { className: 'text-gray-700 leading-relaxed' },
-                    React.createElement('span', { className: 'font-semibold' }, 'How it would typically work with a backend:'),
-                    React.createElement('br'),
-                    'In a full-stack application, you would input a URL here. A backend server (e.js., Node.js, Python Flask/Django) would then:'
-                  ),
-                  React.createElement('ol', { className: 'list-decimal list-inside ml-4 mt-2 space-y-1 text-gray-700' },
-                    React.createElement('li', null, 'Use a library like `requests` (Python) or `axios` (`Node.js`) to fetch the HTML content from the provided URL.'),
-                    React.createElement('li', null, 'Parse the HTML using libraries like `BeautifulSoup` (Python) or `cheerio` (`Node.js`) to extract the main textual content.'),
-                    React.createElement('li', null, 'Send this extracted text to the Gemini API for translation.'),
-                    React.createElement('li', null, 'Return the translated text to the frontend.')
-                  ),
-                  React.createElement('p', { className: 'text-gray-700 font-semibold' }, 'For now, please manually copy content from any URL (e.g., Lofter posts) and paste it into the "Text Paste" section to utilize the translation functionality.')
+                   React.createElement('h2', { className: 'text-xl font-bold text-gray-800 dark:text-gray-200' }, 'URL Content Information'),
+                    React.createElement('p', { className: 'text-gray-700 dark:text-gray-300 leading-relaxed' },
+                      React.createElement('span', { className: 'font-semibold' }, 'Important Note:'),
+                      ' This application runs entirely in your browser. For security reasons, it cannot directly fetch content from other websites (e.g., from a URL).',
+                       React.createElement('br'), React.createElement('br'),
+                      React.createElement('span', { className: 'font-semibold' }, 'Workaround:'),
+                      ' Please copy the text from the website or document you wish to translate and paste it into the "Text & File" tab.'
+                    )
                 )
               ),
 
               React.createElement('div', { className: 'space-y-4' },
-                React.createElement('label', { htmlFor: 'terminology', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Glossary:'),
+                React.createElement('label', { htmlFor: 'terminology', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, 'Glossary:'),
                 React.createElement('textarea', {
                   id: 'terminology',
-                  className: 'w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[100px]',
-                  placeholder: 'Paste your glossary here.',
+                  className: 'w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[100px] disabled:opacity-50',
+                  placeholder: 'e.g.,\nSun God=Apollo\nDemon Wolf Flegrea=Fenrir',
                   value: terminology,
                   onChange: (e) => setTerminology(e.target.value),
-                  disabled: isEbookTranslating // Disable if ebook translation is active
+                  disabled: isEbookTranslating
                 }),
-                React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
-                  React.createElement('button', {
-                    onClick: handlePasteTerminology,
-                    className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
-                    disabled: isEbookTranslating
-                  }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste Glossary'),
-                  React.createElement('button', {
-                    onClick: handleCopyTerminology,
-                    className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
-                    disabled: isEbookTranslating
-                  }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy Glossary'),
-                  React.createElement('button', {
-                    onClick: handleClearTerminology,
-                    className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105', // Added shadow, rounded-lg, transition
-                    disabled: isEbookTranslating
-                  }, 'Clear Glossary'),
-                  // Hidden file input for glossary upload
-                  React.createElement('input', {
-                      type: 'file',
-                      ref: glossaryFileInputRef,
-                      onChange: handleGlossaryFileChange,
-                      className: 'hidden',
-                      accept: '.txt,.md,.json,.csv,.xml,.html'
-                  }),
-                  React.createElement('button', {
-                      onClick: handleGlossaryFileButtonClick,
-                      className: 'px-4 py-2 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-all duration-200 hover:scale-105 flex items-center justify-center',
-                      disabled: isEbookTranslating || loading || uploadingFile // Disable during translation or main file upload
-                  }, React.createElement(Upload, { size: 16, className: 'mr-1' }), ' Upload Glossary')
+                React.createElement('div', { className: 'grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2' },
+                  React.createElement('button', { onClick: handlePasteTerminology, className: 'p-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating }, React.createElement(Clipboard, { size: 16, className: 'mr-1 sm:mr-2' }), React.createElement('span', {className: 'hidden sm:inline'}, 'Paste')),
+                  React.createElement('button', { onClick: handleCopyTerminology, className: 'p-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating }, React.createElement(Copy, { size: 16, className: 'mr-1 sm:mr-2' }), React.createElement('span', {className: 'hidden sm:inline'}, 'Copy')),
+                  React.createElement('button', { onClick: handleClearTerminology, className: 'p-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating }, React.createElement(XCircle, { size: 16, className: 'mr-1 sm:mr-2' }), React.createElement('span', {className: 'hidden sm:inline'}, 'Clear')),
+                  React.createElement('button', { onClick: handleGlossaryFileButtonClick, className: 'p-2 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating || loading || uploadingFile }, React.createElement(Upload, { size: 16, className: 'mr-1 sm:mr-2' }), React.createElement('span', {className: 'hidden sm:inline'}, 'Upload')),
+                  React.createElement('input', { type: 'file', ref: glossaryFileInputRef, onChange: handleGlossaryFileChange, className: 'hidden', accept: '.txt,.md,.json,.csv,.xml,.html' })
                 ),
-                React.createElement('p', { className: 'text-sm text-gray-600' }, 'Enter your glossary. The translator will refer to this text to ensure specific words, names, or phrases are handled accurately.')
+                React.createElement('p', { className: 'text-sm text-gray-600 dark:text-gray-400' }, 'Enter terms to ensure they are translated correctly or kept in their original form.')
               ),
 
-              React.createElement('div', { className: 'space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50' },
-                React.createElement('h3', { className: 'text-xl font-bold text-gray-800' }, 'Manage Saved Glossaries'),
-                React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4 items-stretch' }, // Added flex-col and sm:flex-row
+              React.createElement('div', { className: 'space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50' },
+                React.createElement('h3', { className: 'text-xl font-bold text-gray-800 dark:text-gray-200' }, 'Manage Glossaries'),
+                React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4' },
                   React.createElement('input', {
                     type: 'text',
-                    className: 'w-full sm:flex-grow p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500', // w-full for mobile
-                    placeholder: 'Name for current glossary...',
+                    className: 'flex-grow p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50',
+                    placeholder: 'New glossary name...',
                     value: newGlossaryName,
                     onChange: (e) => setNewGlossaryName(e.target.value),
                     disabled: isEbookTranslating
                   }),
-                  React.createElement('button', {
-                    onClick: handleSaveGlossary,
-                    className: 'w-full sm:w-auto px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-all duration-200 hover:scale-105', // w-full for mobile // Added shadow, rounded-lg, transition
-                    disabled: isEbookTranslating
-                  }, 'Save Current Glossary')
+                  React.createElement('button', { onClick: handleSaveGlossary, className: 'px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-all duration-200 disabled:opacity-50', disabled: isEbookTranslating }, 'Save')
                 ),
-                React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4 items-stretch' },
-                  React.createElement('button', {
-                    onClick: handleSetDefaultGlossary,
-                    className: 'w-full sm:w-auto px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105',
-                    disabled: !activeGlossaryId || isEbookTranslating
-                  }, 'Set Current as Default'),
-                  React.createElement('button', {
-                    onClick: handleClearDefaultGlossary,
-                    className: 'w-full sm:w-auto px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg shadow-md hover:bg-orange-600 transition-all duration-200 hover:scale-105',
-                    disabled: !defaultGlossaryName || isEbookTranslating
-                  }, 'Clear Default Setting')
-                ),
-                savedGlossaries.length > 0 && React.createElement('div', {className: 'max-h-40 overflow-y-auto pr-2'}, // Added max-height and overflow for scroll
-                  React.createElement('h4', { className: 'text-lg font-semibold text-gray-700 mb-2' }, 'Your Saved Glossaries:'),
+                 React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2 mb-4' },
+                  React.createElement('button', { onClick: handleSetDefaultGlossary, className: 'px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 disabled:opacity-50', disabled: !activeGlossaryId || isEbookTranslating }, 'Set Default'),
+                  React.createElement('button', { onClick: handleClearDefaultGlossary, className: 'px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg shadow-md hover:bg-orange-600 transition-all duration-200 disabled:opacity-50', disabled: !defaultGlossaryName || isEbookTranslating }, 'Clear Default')
+                 ),
+                savedGlossaries.length > 0 && React.createElement('div', {className: 'max-h-40 overflow-y-auto pr-2 -mr-2'},
                   React.createElement('ul', { className: 'space-y-2' },
-                    // Sort savedGlossaries to put the active one first
-                    [...savedGlossaries].sort((a, b) => {
-                      if (a.name === activeGlossaryId) return -1;
-                      if (b.name === activeGlossaryId) return 1;
-                      return 0;
-                    }).map((glossary, index) =>
-                      React.createElement('li', { key: index, className: 'flex flex-wrap items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm' }, // Added flex-wrap // Added shadow, rounded-lg
-                        React.createElement('span', { className: `font-medium ${activeGlossaryId === glossary.name ? 'text-indigo-700' : 'text-gray-800'} mb-2 sm:mb-0` }, glossary.name,
-                          defaultGlossaryName === glossary.name && React.createElement('span', { className: 'text-xs text-indigo-500 ml-2' }, '(Default)')
-                        ), // Added margin for spacing
-                        React.createElement('div', { className: 'flex flex-col w-full sm:w-auto sm:flex-row gap-2' }, // Added w-full here to stretch container, and sm:w-auto to revert on larger screens
-                          React.createElement('button', {
-                            onClick: () => handleLoadGlossary(glossary),
-                            className: 'px-3 py-1 text-sm bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 w-full', // Added w-full
-                            disabled: isEbookTranslating
-                          }, 'Load'),
-                          activeGlossaryId === glossary.name && React.createElement('button', {
-                            onClick: () => handleUpdateSpecificGlossary(glossary.name),
-                            className: 'px-3 py-1 text-sm bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105 flex items-center justify-center w-full', // Added w-full
-                            disabled: isEbookTranslating
-                          }, React.createElement(Save, { size: 14, className: 'mr-1' }), ' Save Edits'),
-                          React.createElement('button', {
-                            onClick: () => handleDeleteGlossary(glossary.name),
-                            className: 'px-3 py-1 text-sm bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105 w-full', // Added w-full
-                            disabled: isEbookTranslating
-                          }, 'Delete')
+                    [...savedGlossaries].sort((a, b) => a.name.localeCompare(b.name)).map((glossary, index) =>
+                      React.createElement('li', { key: index, className: `flex flex-wrap items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm ${activeGlossaryId === glossary.name ? 'ring-2 ring-indigo-500' : ''}` },
+                        React.createElement('span', { className: `font-medium ${activeGlossaryId === glossary.name ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-800 dark:text-gray-200'} mb-2 sm:mb-0 mr-2` }, glossary.name,
+                          defaultGlossaryName === glossary.name && React.createElement('span', { className: 'text-xs text-indigo-500 dark:text-indigo-400 ml-2' }, '(Default)')
+                        ),
+                        React.createElement('div', { className: 'flex items-center gap-2' },
+                          React.createElement('button', { onClick: () => handleLoadGlossary(glossary), className: 'px-3 py-1 text-sm bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition-colors disabled:opacity-50', disabled: isEbookTranslating }, 'Load'),
+                          activeGlossaryId === glossary.name && React.createElement('button', { onClick: () => handleUpdateSpecificGlossary(glossary.name), className: 'px-3 py-1 text-sm bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition-colors flex items-center disabled:opacity-50', disabled: isEbookTranslating }, React.createElement(Save, { size: 14, className: 'mr-1' }), 'Save'),
+                          React.createElement('button', { onClick: () => handleDeleteGlossary(glossary.name), className: 'px-3 py-1 text-sm bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-colors disabled:opacity-50', disabled: isEbookTranslating }, 'Delete')
                         )
                       )
                     )
@@ -1658,105 +1467,65 @@ ${glossaryContentForPrompt}
               ),
 
               React.createElement('div', { className: 'space-y-4' },
-                React.createElement('label', { htmlFor: 'apiKeyInput', className: 'block text-lg font-semibold text-gray-700 mb-2' }, 'Your Gemini API Key (Required):'),
-                React.createElement('div', { className: 'relative flex items-center' }, // Flex container for input and toggle
-                    React.createElement('input', { // Changed from textarea to input
+                React.createElement('label', { htmlFor: 'apiKeyInput', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, 'Your Gemini API Key:'),
+                React.createElement('div', { className: 'relative flex items-center' },
+                    React.createElement('input', {
                         id: 'apiKeyInput',
-                        type: showApiKey ? 'text' : 'password', // Toggle type based on state
-                        className: 'w-full p-3 pr-10 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base',
-                        placeholder: 'Paste your Gemini API key here...',
+                        type: showApiKey ? 'text' : 'password',
+                        className: 'w-full p-3 pr-10 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base disabled:opacity-50',
+                        placeholder: 'Required for translation...',
                         value: apiKeyInput,
                         onChange: (e) => setApiKeyInput(e.target.value),
                         disabled: isEbookTranslating
                     }),
-                    React.createElement('button', {
-                        type: 'button', // Prevent form submission
-                        onClick: () => setShowApiKey(!showApiKey),
-                        className: 'absolute right-3 p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500',
-                        disabled: isEbookTranslating
-                    },
+                    React.createElement('button', { type: 'button', onClick: () => setShowApiKey(!showApiKey), className: 'absolute right-3 p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50', disabled: isEbookTranslating },
                         showApiKey ? React.createElement(EyeOff, { size: 20 }) : React.createElement(Eye, { size: 20 })
                     )
                 ),
-                React.createElement('div', { className: 'flex flex-col gap-2 mt-2' }, // Changed to flex-col for vertical stacking
-                  React.createElement('button', {
-                    onClick: handleSaveApiKey,
-                    className: 'px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 hover:scale-105', // Added shadow, rounded-lg, transition
-                    disabled: isEbookTranslating
-                  }, 'Save API Key'),
-                  React.createElement('button', {
-                    onClick: handlePasteApiKey, // New paste button for API key
-                    className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
-                    disabled: isEbookTranslating
-                  }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste API Key'),
-                  React.createElement('button', {
-                    onClick: handleCopyApiKey,
-                    className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 hover:scale-105 flex items-center justify-center', // Added shadow, rounded-lg, transition
-                    disabled: isEbookTranslating
-                  }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy API Key'),
-                  React.createElement('button', {
-                    onClick: handleClearApiKey,
-                    className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 hover:scale-105', // Changed bg-yellow-500 to bg-red-500 and hover:bg-yellow-600 to hover:bg-red-600
-                    disabled: isEbookTranslating
-                  }, 'Clear API Key')
+                React.createElement('div', { className: 'grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2' },
+                  React.createElement('button', { onClick: handleSaveApiKey, className: 'p-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-colors flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating }, 'Save'),
+                  React.createElement('button', { onClick: handlePasteApiKey, className: 'p-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-colors flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating }, 'Paste'),
+                  React.createElement('button', { onClick: handleCopyApiKey, className: 'p-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-colors flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating }, 'Copy'),
+                  React.createElement('button', { onClick: handleClearApiKey, className: 'p-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-colors flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating }, 'Clear')
                 ),
-                React.createElement('p', { className: 'text-sm text-gray-600 mt-2' }, apiKeyStatus),
+                React.createElement('p', { className: 'text-sm text-gray-600 dark:text-gray-400 mt-2' }, apiKeyStatus)
               ),
 
-
-              error && React.createElement('div', { className: 'bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-md flex items-center animate-fade-in-down' },
-                React.createElement(XCircle, { className: 'mr-3 cursor-pointer', size: 20, onClick: () => setError('') }), // Dismiss button
-                React.createElement('p', { className: 'font-medium' }, error)
+              error && React.createElement('div', { className: 'bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-md flex items-center justify-between' },
+                React.createElement('p', { className: 'font-medium' }, error),
+                React.createElement(XCircle, { className: 'cursor-pointer', size: 20, onClick: () => setError('') })
               ),
 
-              assembledTranslatedText && React.createElement('div', { className: 'space-y-6' },
+              assembledTranslatedText && React.createElement('div', { className: 'space-y-6 pt-6 border-t border-gray-200 dark:border-gray-700' },
                 React.createElement('div', null,
-                  React.createElement('label', { htmlFor: 'assembledTranslatedText', className: 'block text-lg font-semibold text-gray-700 mb-2' }, `Translated Content (${targetLanguage}):`),
+                  React.createElement('label', { htmlFor: 'assembledTranslatedText', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, `Translated Content (${targetLanguage}):`),
                   React.createElement('textarea', {
                     id: 'assembledTranslatedText',
-                    className: 'w-full p-4 border border-green-300 bg-green-50 rounded-lg shadow-inner focus:outline-none resize-y min-h-[200px] text-base',
+                    className: 'w-full p-4 border border-green-300 dark:border-green-700 bg-green-50 dark:bg-gray-900 rounded-lg shadow-inner focus:outline-none resize-y min-h-[200px] text-base',
                     readOnly: true,
                     value: assembledTranslatedText
                   })
                 ),
-                copySuccess && React.createElement('p', { className: 'text-sm text-green-700 mt-2 text-center' }, copySuccess),
-                React.createElement('div', { className: 'flex flex-col sm:flex-row justify-center gap-4' }, // Still horizontal on sm+ for main download buttons
-                  React.createElement('button', {
-                    onClick: handleCopyToClipboard,
-                    className: 'w-full sm:w-auto px-6 py-3 bg-blue-500 text-white font-bold rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition transform hover:scale-105 flex items-center justify-center text-lg'
-                  }, React.createElement(Copy, { className: 'mr-2', size: 20 }), ' Copy Translation'),
-                  React.createElement('button', {
-                    onClick: handleDownloadEPUB,
-                    className: 'w-full sm:w-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full shadow-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
-                    disabled: downloadingEpub || isEbookTranslating // Disable during download or ebook translation
-                  },
+                copySuccess && React.createElement('p', { className: 'text-sm text-green-700 dark:text-green-400 mt-2 text-center' }, copySuccess),
+                React.createElement('div', { className: 'flex flex-col sm:flex-row justify-center gap-4' },
+                  React.createElement('button', { onClick: handleCopyToClipboard, className: 'w-full sm:w-auto px-6 py-3 bg-blue-500 text-white font-bold rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition transform hover:scale-105 flex items-center justify-center text-lg' }, React.createElement(Copy, { className: 'mr-2', size: 20 }), ' Copy'),
+                  React.createElement('button', { onClick: handleDownloadEPUB, className: 'w-full sm:w-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full shadow-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 transition transform hover:scale-105 flex items-center justify-center text-lg', disabled: downloadingEpub || isEbookTranslating },
                     downloadingEpub ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
-                    downloadingEpub ? 'Generating EPUB...' : 'Download EPUB'
+                    downloadingEpub ? 'Generating...' : 'Download EPUB'
                   ),
-                  React.createElement('button', {
-                    onClick: handleDownloadPDF,
-                    className: 'w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 transition transform hover:scale-105 flex items-center justify-center text-lg',
-                    disabled: downloadingPdf || isEbookTranslating // Disable during download or ebook translation
-                  },
+                  React.createElement('button', { onClick: handleDownloadPDF, className: 'w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 transition transform hover:scale-105 flex items-center justify-center text-lg', disabled: downloadingPdf || isEbookTranslating },
                     downloadingPdf ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
-                    downloadingPdf ? 'Generating PDF...' : 'Download PDF'
+                    downloadingPdf ? 'Generating...' : 'Download PDF'
                   )
                 )
               ),
 
-              // Custom Modal Component
               showModal && React.createElement('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4' },
-                React.createElement('div', { className: 'bg-white rounded-lg shadow-xl p-6 max-w-sm w-full space-y-4' },
-                  React.createElement('p', { className: 'text-lg font-semibold text-gray-800 text-center' }, modalMessage),
+                React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full space-y-4' },
+                  React.createElement('p', { className: 'text-lg font-semibold text-gray-800 dark:text-gray-200 text-center' }, modalMessage),
                   React.createElement('div', { className: 'flex justify-center gap-4 mt-4' },
-                    React.createElement('button', {
-                      onClick: handleModalConfirm,
-                      className: 'px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors'
-                    }, 'Confirm'),
-                    React.createElement('button', {
-                      onClick: handleModalCancel,
-                      className: 'px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors'
-                    }, 'Cancel')
+                    React.createElement('button', { onClick: handleModalConfirm, className: 'px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors' }, 'Confirm'),
+                    React.createElement('button', { onClick: handleModalCancel, className: 'px-6 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors' }, 'Cancel')
                   )
                 )
               )
