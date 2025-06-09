@@ -4,7 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gemini Translator</title>
-    <!-- PWA Manifest -->     <link rel="manifest" href="./manifest.json">     <!-- Apple Touch Icon (for iOS Home Screen) -->     <link rel="apple-touch-icon" href="https://placehold.co/192x192/8b5cf6/ffffff?text=GT" sizes="192x192">     <link rel="apple-touch-icon" href="https://placehold.co/512x512/8b5cf6/ffffff?text=GT" sizes="512x512">     <!-- iOS PWA Meta Tags -->     <meta name="apple-mobile-web-app-capable" content="yes">     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">     <meta name="apple-mobile-web-app-title" content="Gemini Translator">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json">
+    <!-- Apple Touch Icon (for iOS Home Screen) -->
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/8b5cf6/ffffff?text=GT" sizes="192x192">
+    <link rel="apple-touch-icon" href="https://placehold.co/512x512/8b5cf6/ffffff?text=GT" sizes="512x512">
+    <!-- iOS PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Gemini Translator">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -12,6 +20,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ejs/3.1.9/ejs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jepub/dist/jepub.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ejs@3.1.9/ejs.min.js"></script>
+
     <!-- PDF.js library for PDF parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <style>
@@ -61,7 +71,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.2.6'); // CurrentVer - EPUB3 and formatting fixes
+          const [version, setVersion] = useState('2.2.7'); // CurrentVer - Spacing fix, still only one space
 
           const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -715,8 +725,8 @@ ${glossaryContentForPrompt}
                   await new Promise(resolve => setTimeout(resolve, 500)); // Delay between API calls
                 }
                 
-                // *** FIX: Join chunks with double newline to preserve paragraph breaks between chunks ***
-                const translatedChapterContentRaw = translatedChapterChunks.join('\n\n'); 
+                // *** FIX APPLIED HERE: Trim each chunk before joining to ensure correct paragraph spacing. ***
+                const translatedChapterContentRaw = translatedChapterChunks.map(chunk => chunk.trim()).join('\n\n');
 
                 // Normalize paragraph breaks for the translated chapter content
                 const normalizedTranslatedChapter = translatedChapterContentRaw
@@ -1416,7 +1426,7 @@ ${glossaryContentForPrompt}
                 React.createElement('textarea', {
                   id: 'terminology',
                   className: 'w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[100px] disabled:opacity-50',
-                  placeholder: 'e.g.,\nSun God=Apollo\nDemon Wolf Flegrea=Fenrir',
+                  placeholder: 'Paste your glossary here…',
                   value: terminology,
                   onChange: (e) => setTerminology(e.target.value),
                   disabled: isEbookTranslating
@@ -1542,3 +1552,4 @@ ${glossaryContentForPrompt}
     </script>
 </body>
 </html>
+
