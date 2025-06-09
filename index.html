@@ -67,7 +67,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.2.8'); // CurrentVer - Formatting fix for EPUBs
+          const [version, setVersion] = useState('3.0'); // CurrentVer - Advanced EPUB formatting preservation
 
           const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -714,7 +714,7 @@ ${terminology.trim()}
                 });
 
                 allTranslatedPartsForDisplay.push(
-                  `--- Chapter: ${translatedChapterTitle} ---\n\n${normalizedTranslatedChapter}`
+                  `${translatedChapterTitle}\n\n${normalizedTranslatedChapter}`
                 );
               }
               
@@ -785,38 +785,19 @@ ${terminology.trim()}
             setError('');
             console.log('Text swapped.');
           };
-
-          // Helper function to clean extracted text from various file types
+          
           const cleanExtractedText = (text) => {
               console.log('cleanExtractedText called. Original text length:', text.length);
               let cleanedText = text;
 
-              // Basic normalization
-              cleanedText = cleanedText.replace(/\r\n|\r/g, '\n'); 
-              cleanedText = cleanedText.replace(/&nbsp;/g, ' ');
-              cleanedText = cleanedText.replace(/\u00A0/g, ' ');
-              cleanedText = cleanedText.replace(/\u200B/g, ''); 
+              // Normalize line endings
+              cleanedText = cleanedText.replace(/\r\n|\r/g, '\n');
               
-              // Remove common artifacts from file conversions
-              cleanedText = cleanedText.replace(/--- PAGE \d+ ---\n\n?/g, '');
-              cleanedText = cleanedText.replace(/--- Page End ---\n\n?/g, '');
-              cleanedText = cleanedText.replace(/--- Page End ---/g, '');
-              cleanedText = cleanedText.replace(/^\s*"?\d+\s*:\s*.+?\[\s*\d+\s*\]"?\s*\n*/gm, '');
-              cleanedText = cleanedText.replace(/^\s*"?Chapter\s+\d+\s*:\s*.+?\[\s*\d+\s*\]"?\s*\n*/gm, '');
-              cleanedText = cleanedText.replace(/^\s*"?Chapter\s+\d+"?\s*\n*/gm, '');
-              cleanedText = cleanedText.replace(/^\s*(?:Table of Contents|Contents)\s*\n*/gm, '');
-              cleanedText = cleanedText.replace(/^\s*"?Page\s+\d+"?\s*\n*/gm, '');
-              cleanedText = cleanedText.replace(/^"\s*"\s*\n*/gm, ''); 
-              cleanedText = cleanedText.replace(/https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp|svg)(\s*\n+|$)/gi, '');
-              
-              // **FIXED**: The line below was the cause of the formatting issue.
-              // It was replacing all whitespace sequences (including newlines) with a single space.
-              // It has been replaced with a more specific rule for horizontal whitespace.
-              cleanedText = cleanedText.replace(/[ \t]{2,}/g, ' '); 
-              
-              // Clean up spacing around newlines
-              cleanedText = cleanedText.replace(/ +(\n|$)/g, '$1'); // Remove trailing spaces before newlines
-              cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n'); // Normalize paragraph breaks
+              // Replace multiple horizontal spaces with a single space
+              cleanedText = cleanedText.replace(/[ \t]{2,}/g, ' ');
+
+              // Normalize sequences of newlines and whitespace to a double newline (paragraph break)
+              cleanedText = cleanedText.replace(/(\n\s*){2,}/g, '\n\n');
               
               cleanedText = cleanedText.trim();
               console.log('cleanExtractedText finished. Cleaned text length:', cleanedText.length);
@@ -847,41 +828,35 @@ ${terminology.trim()}
 
               try {
                   const fileType = file.type;
-                  let extractedData = { fullText: '', chapters: [] };
+                  let extractedData;
                   console.log('Determining file type:', fileType);
 
                   if (fileType === 'text/plain') {
                       console.log('Processing as plain text file...');
                       const rawText = await readFileAsText(file);
-                      const cleanedText = cleanExtractedText(rawText);
-                      extractedData.fullText = cleanedText;
-                      extractedData.chapters = [{ title: file.name || 'Document', text: cleanedText }];
-                      console.log('Finished readFileAsText & cleaned. Full text length:', extractedData.fullText.length);
+                      extractedData = { chapters: [{ title: file.name || 'Document', text: rawText }] };
                   } else if (fileType === 'application/pdf') {
                       console.log('Processing as PDF file...');
                       const rawText = await readPdfFile(file);
-                      const cleanedText = cleanExtractedText(rawText);
-                      extractedData.fullText = cleanedText;
-                      extractedData.chapters = [{ title: file.name || 'PDF Document', text: cleanedText }];
-                      console.log('Finished readPdfFile & cleaned. Full text length:', extractedData.fullText.length);
+                       extractedData = { chapters: [{ title: file.name || 'PDF Document', text: rawText }] };
                   } else if (fileType === 'application/epub+zip') {
                       console.log('Processing as EPUB file...');
-                      const rawEpubData = await readEpubFile(file);
-                      extractedData.chapters = rawEpubData.chapters.map(chap => ({
-                          title: chap.title,
-                          text: cleanExtractedText(chap.text)
-                      }));
-                      extractedData.fullText = extractedData.chapters.map(chap => chap.text).join('\n\n');
-                      console.log('Finished readEpubFile & cleaned. Full text length:', extractedData.fullText.length, 'Chapters:', extractedData.chapters.length);
+                      extractedData = await readEpubFile(file);
                   } else {
                       console.warn('Unsupported file type detected:', fileType);
                       throw new Error('Unsupported file type. Please upload a .txt, .pdf, or .epub file.');
                   }
+                  
+                  // Clean the text of each chapter
+                  const cleanedChapters = extractedData.chapters.map(chap => ({
+                      ...chap,
+                      text: cleanExtractedText(chap.text)
+                  }));
 
                   setCopySuccess(`Content extracted from ${file.name}! Starting translation...`);
                   setTimeout(() => setCopySuccess(''), 3000);
-                  console.log('Starting translateEbook with', extractedData.chapters.length, 'chapters.');
-                  await translateEbook(extractedData.chapters);
+                  console.log('Starting translateEbook with', cleanedChapters.length, 'chapters.');
+                  await translateEbook(cleanedChapters);
                   console.log('translateEbook process completed.');
 
               }
@@ -918,77 +893,65 @@ ${terminology.trim()}
 
           // Helper function to read a PDF file with improved paragraph detection
           const readPdfFile = async (file) => {
-            console.log('Executing readPdfFile...');
-            if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
-                console.error('PDF.js library not loaded.');
-                throw new Error('PDF.js library not loaded.');
-            }
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                console.log('PDF array buffer loaded. Size:', arrayBuffer.byteLength);
-                const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                console.log('PDF document loaded. Pages:', pdf.numPages);
-                let fullText = '';
-                
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const textContent = await page.getTextContent();
-                    console.log(`Processing PDF page ${i}. Items:`, textContent.items.length);
-                    let lastY = -1;
-                    let lastHeight = -1;
-                    let line = '';
+              console.log('Executing readPdfFile...');
+              if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
+                  throw new Error('PDF.js library not loaded.');
+              }
+              const arrayBuffer = await file.arrayBuffer();
+              const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+              console.log('PDF document loaded. Pages:', pdf.numPages);
+              let fullText = '';
+              
+              for (let i = 1; i <= pdf.numPages; i++) {
+                  const page = await pdf.getPage(i);
+                  const textContent = await page.getTextContent();
+                  if (!textContent.items || textContent.items.length === 0) continue;
 
-                    // Sort items by vertical position, then horizontal
-                    const sortedItems = textContent.items.sort((a, b) => {
-                        if (a.transform[5] > b.transform[5]) return -1;
-                        if (a.transform[5] < b.transform[5]) return 1;
-                        if (a.transform[4] < b.transform[4]) return -1;
-                        if (a.transform[4] > b.transform[4]) return 1;
-                        return 0;
-                    });
-                    
-                    sortedItems.forEach(item => {
-                        const currentY = item.transform[5];
-                        const currentHeight = item.height;
+                  // Sort items by vertical position, then horizontal, to reconstruct reading order
+                  const sortedItems = textContent.items.sort((a, b) => {
+                      if (a.transform[5] < b.transform[5]) return 1;
+                      if (a.transform[5] > b.transform[5]) return -1;
+                      return a.transform[4] - b.transform[4];
+                  });
 
-                        if (lastY !== -1) {
-                            const yDiff = Math.abs(currentY - lastY);
-                            // If new line is on a significantly different Y, it's a new line/paragraph
-                            if (yDiff > currentHeight * 0.5) {
-                                fullText += line.trim() + '\n';
-                                line = '';
-                                // If gap is larger than line height, assume paragraph break
-                                if (yDiff > lastHeight * 1.5) {
-                                    fullText += '\n';
-                                }
-                            }
-                        }
-                        line += item.str + ' ';
-                        lastY = currentY;
-                        lastHeight = currentHeight;
-                    });
-                    fullText += line.trim() + '\n\n'; // Add remaining line and page break
-                }
-                console.log('PDF text extraction complete. Total text length:', fullText.length);
-                return fullText;
-            } catch (err) {
-                console.error('Error reading PDF file:', err);
-                throw new Error(`Error extracting text from PDF: ${err.message}`);
-            }
+                  let lastY = sortedItems[0].transform[5];
+                  let lineText = '';
+
+                  for (const item of sortedItems) {
+                      const currentY = item.transform[5];
+                      
+                      // Check for new line based on vertical position
+                      if (Math.abs(currentY - lastY) > item.height * 0.4) {
+                          fullText += lineText + '\n';
+                           // A larger jump indicates a new paragraph
+                          if (Math.abs(currentY - lastY) > item.height * 1.2) {
+                              fullText += '\n';
+                          }
+                          lineText = '';
+                      }
+                      
+                      lineText += item.str;
+                      if (!item.str.endsWith(' ')) {
+                          lineText += ' ';
+                      }
+                      lastY = currentY;
+                  }
+                  fullText += lineText + '\n\n'; // Add the last line of the page and a paragraph break
+              }
+              console.log('PDF text extraction complete. Total text length:', fullText.length);
+              return fullText;
           };
 
           // Helper function to read an EPUB file (using JSZip) and extract chapters with titles
           const readEpubFile = async (file) => {
               console.log('Executing readEpubFile...');
               if (typeof window.JSZip === 'undefined') {
-                  console.error('JSZip library not loaded.');
                   throw new Error('JSZip library not loaded.');
               }
 
               try {
                   const zip = await window.JSZip.loadAsync(file);
                   const chapterData = [];
-                  let fullTextConcatenated = '';
                   console.log('EPUB zip file loaded. Number of files:', Object.keys(zip.files).length);
 
                   const containerFile = zip.file('META-INF/container.xml');
@@ -1010,12 +973,14 @@ ${terminology.trim()}
 
                   let ncxHref = null;
                   const ncxItem = opfDoc.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
-                  if (ncxItem) ncxHref = ncxItem.getAttribute('href');
+                  if (ncxItem) ncxHref = opfDir + ncxItem.getAttribute('href');
+                  
+                  const navItem = Array.from(opfDoc.querySelectorAll('manifest item')).find(item => item.getAttribute('properties') === 'nav');
+                  const navHref = navItem ? opfDir + navItem.getAttribute('href') : null;
 
                   const navMapTitles = new Map();
-                  if (ncxHref) {
-                      const ncxPath = opfDir + ncxHref;
-                      const ncxFile = zip.file(ncxPath);
+                   if (ncxHref) {
+                      const ncxFile = zip.file(ncxHref);
                       if (ncxFile) {
                           const ncxContent = await ncxFile.async('text');
                           const ncxDoc = new DOMParser().parseFromString(ncxContent, "text/xml");
@@ -1023,48 +988,50 @@ ${terminology.trim()}
                               const navLabel = navPoint.querySelector('navLabel text')?.textContent;
                               const contentSrc = navPoint.querySelector('content')?.getAttribute('src');
                               if (navLabel && contentSrc) {
-                                  navMapTitles.set(contentSrc.split('#')[0], navLabel);
+                                  navMapTitles.set(contentSrc.split('#')[0], navLabel.trim());
                               }
                           });
                       }
-                  } else {
-                      console.warn('NCX manifest item not found. Chapter titles might be missing.');
                   }
 
 
-                  const extractTextFromNode = (node) => {
-                    let text = '';
-                    if (node.nodeType === Node.TEXT_NODE) {
-                        text += node.textContent;
-                    } else if (node.nodeType === Node.ELEMENT_NODE) {
-                        const tagName = node.tagName.toLowerCase();
-                        if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote', 'tr'].includes(tagName)) {
-                           if (text.length > 0 && !text.endsWith('\n\n')) text += '\n\n';
-                        }
-                        
-                        for (const childNode of node.childNodes) {
-                            text += extractTextFromNode(childNode);
-                        }
+                  const extractTextWithFormatting = (node) => {
+                      let text = '';
+                      const blockElements = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote', 'tr', 'table', 'section', 'article'];
 
-                        if (tagName === 'br') {
-                            text += '\n';
-                        } else if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote', 'tr'].includes(tagName)) {
-                            if (!text.endsWith('\n\n')) text += '\n\n';
-                        }
-                    }
-                    return text;
+                      if (node.nodeType === Node.TEXT_NODE) {
+                          text += node.textContent;
+                      } else if (node.nodeType === Node.ELEMENT_NODE) {
+                          const tagName = node.tagName.toLowerCase();
+                          if (tagName === 'br') {
+                              text += '\n';
+                          }
+                          for (const childNode of node.childNodes) {
+                              text += extractTextWithFormatting(childNode);
+                          }
+                          if (blockElements.includes(tagName)) {
+                              text = text.trimEnd() + '\n\n';
+                          }
+                      }
+                      return text;
                   };
 
                   const spine = opfDoc.querySelectorAll('spine itemref');
                   console.log('Processing spine. Number of items:', spine.length);
                   for (const itemref of spine) {
                       const idref = itemref.getAttribute('idref');
-                      const href = opfDoc.querySelector(`manifest item[id="${idref}"]`)?.getAttribute('href');
+                      const manifestItem = opfDoc.querySelector(`manifest item[id="${idref}"]`);
+                      const href = manifestItem?.getAttribute('href');
 
                       if (href) {
-                          const mediaType = opfDoc.querySelector(`manifest item[id="${idref}"]`)?.getAttribute('media-type');
+                          const contentPath = opfDir + href;
+                          if (contentPath === navHref || contentPath === ncxHref || href.toLowerCase().includes('toc.xhtml')) {
+                             console.log(`Skipping TOC/NAV file: ${contentPath}`);
+                             continue;
+                          }
+                          
+                          const mediaType = manifestItem.getAttribute('media-type');
                           if (mediaType && (mediaType === 'application/xhtml+xml' || mediaType === 'text/html')) {
-                              const contentPath = opfDir + href;
                               const contentFile = zip.file(contentPath);
 
                               if (contentFile) {
@@ -1074,24 +1041,20 @@ ${terminology.trim()}
                                       const doc = parser.parseFromString(htmlContent, "text/html");
                                       doc.querySelectorAll('script, style').forEach(el => el.remove());
 
-                                      let chapterText = extractTextFromNode(doc.body).replace(/ \n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+                                      let chapterText = extractTextWithFormatting(doc.body);
                                       
                                       let chapterTitle = navMapTitles.get(href.split('#')[0]);
                                       if (!chapterTitle) {
                                           const firstHeading = doc.querySelector('h1, h2, h3, h4');
-                                          if (firstHeading && firstHeading.textContent.trim()) {
-                                              chapterTitle = firstHeading.textContent.trim();
-                                          } else {
-                                              chapterTitle = `Chapter ${chapterData.length + 1}`;
-                                          }
+                                          chapterTitle = firstHeading?.textContent.trim() || `Chapter ${chapterData.length + 1}`;
+                                      }
+                                      
+                                      if (chapterText.trim()) {
+                                        chapterData.push({ title: chapterTitle, text: chapterText });
                                       }
 
-                                      chapterData.push({ title: chapterTitle, text: chapterText });
-                                      fullTextConcatenated += `\n\n--- Chapter: ${chapterTitle} ---\n\n` + chapterText;
                                   } catch (e) {
                                       console.error(`Error processing content file ${contentPath}:`, e);
-                                      const errorChapterTitle = navMapTitles.get(href.split('#')[0]) || `Chapter ${chapterData.length + 1} (Error)`;
-                                      chapterData.push({ title: errorChapterTitle, text: '' });
                                   }
                               }
                           }
@@ -1102,7 +1065,7 @@ ${terminology.trim()}
                       throw new Error('Could not extract readable text from EPUB file.');
                   }
                   console.log('EPUB parsing complete. Extracted chapters:', chapterData.length);
-                  return { fullText: fullTextConcatenated.trim(), chapters: chapterData };
+                  return { chapters: chapterData };
               } catch (err) {
                 console.error('Error during EPUB file processing in readEpubFile:', err);
                 throw new Error(`Error extracting text from EPUB: ${err.message}`);
@@ -1128,16 +1091,12 @@ ${terminology.trim()}
               const { jsPDF } = window.jspdf;
               const doc = new jsPDF();
               
-              // It's important to embed a font that supports the characters in the target language.
-              // 'Inter' might not support all languages. jsPDF's built-in fonts are limited.
-              // For broader support, a font like Noto Sans would need to be loaded.
-              // This is a complex step, so we'll proceed with standard fonts and add a console warning.
               console.warn("PDF Generation: Using standard fonts. Some characters in the target language may not render correctly unless a fully-featured font is embedded.");
               doc.setFont('Helvetica', 'normal');
               doc.setFontSize(12);
               doc.setTextColor(0, 0, 0);
 
-              const lineHeight = 7; // Adjust line height for better spacing
+              const lineHeight = 7; 
               const paragraphSpacing = 4;
               const margin = 10;
               const maxWidth = doc.internal.pageSize.width - 2 * margin;
@@ -1145,26 +1104,35 @@ ${terminology.trim()}
               let currentY = margin;
               const chapterPageMap = new Map();
 
-              // TOC Generation
-              doc.setFontSize(18);
-              doc.text("Table of Contents", margin, currentY);
-              currentY += lineHeight * 2;
-              doc.setFontSize(12);
-              const tocStartPage = doc.internal.getCurrentPageInfo().pageNumber;
-              const tocYOffset = currentY;
-              let currentTocEntryY = tocYOffset;
+              // First pass for TOC
+              let tempY = margin;
+              translatedChapters.forEach(chapter => {
+                 chapterPageMap.set(chapter.title, 0); // Placeholder
+              });
+              
+              let tocPageCount = 1;
+              let tocY = margin + lineHeight*2;
+              chapterPageMap.forEach((_, title) => {
+                  const titleLines = doc.splitTextToSize(title, maxWidth - 15);
+                  tocY += titleLines.length * lineHeight;
+                   if (tocY > doc.internal.pageSize.height - margin) {
+                      tocPageCount++;
+                      tocY = margin;
+                   }
+              });
 
+              // Content Generation
+              let contentStartPage = tocPageCount + 1;
               doc.addPage();
               currentY = margin;
 
-              // Content Generation
               translatedChapters.forEach((chapter, chapterIndex) => {
                 if (chapterIndex > 0) {
                     doc.addPage();
                     currentY = margin;
                 }
                 const chapterStartPage = doc.internal.getCurrentPageInfo().pageNumber;
-                chapterPageMap.set(chapter.title, chapterStartPage);
+                chapterPageMap.set(chapter.title, chapterStartPage + tocPageCount);
 
                 if (chapter.title.trim()) {
                     doc.setFontSize(16);
@@ -1173,7 +1141,7 @@ ${terminology.trim()}
                     doc.setFontSize(12);
                 }
 
-                const paragraphs = chapter.content.split(/\n\n+/).filter(p => p.trim() !== '');
+                const paragraphs = chapter.content.split(/\n\s*\n/).filter(p => p.trim() !== '');
                 paragraphs.forEach((paragraph) => {
                   const textLines = doc.splitTextToSize(paragraph.trim(), maxWidth);
                   textLines.forEach(line => {
@@ -1189,24 +1157,48 @@ ${terminology.trim()}
               });
 
               // Fill in TOC
-              doc.setPage(tocStartPage);
+              for(let i=0; i<tocPageCount; i++) {
+                 doc.insertPage(1);
+              }
+              
+              doc.setPage(1);
+              currentY = margin;
+              doc.setFontSize(18);
+              doc.text("Table of Contents", margin, currentY);
+              currentY += lineHeight * 2;
               doc.setFontSize(12);
-              currentTocEntryY = tocYOffset;
+              
+              let tocPageIndex = 1;
+
               chapterPageMap.forEach((pageNumber, title) => {
-                if (currentTocEntryY + lineHeight > doc.internal.pageSize.height - margin) {
-                    doc.addPage();
-                    currentTocEntryY = margin;
+                const pageNumberText = `${pageNumber}`;
+                const availableWidth = maxWidth - (doc.getStringUnitWidth(pageNumberText) * doc.getFontSize() / doc.internal.scaleFactor) - 5;
+                const titleLines = doc.splitTextToSize(title, availableWidth);
+                
+                if (currentY + (titleLines.length * lineHeight) > doc.internal.pageSize.height - margin) {
+                    tocPageIndex++;
+                    doc.setPage(tocPageIndex);
+                    currentY = margin;
                     doc.setFontSize(12);
                 }
-                const pageNumberText = `${pageNumber}`;
-                const titleWidth = doc.getStringUnitWidth(title) * doc.getFontSize() / doc.internal.scaleFactor;
-                const pageNumWidth = doc.getStringUnitWidth(pageNumberText) * doc.getFontSize() / doc.internal.scaleFactor;
-                const dotsWidth = maxWidth - titleWidth - pageNumWidth;
-                const dots = '.'.repeat(Math.max(0, Math.floor(dotsWidth / (doc.getStringUnitWidth('.') * doc.getFontSize() / doc.internal.scaleFactor))));
-                
-                doc.text(`${title} ${dots} ${pageNumberText}`, margin, currentTocEntryY, { align: 'left' });
-                currentTocEntryY += lineHeight;
+
+                titleLines.forEach((line, index) => {
+                    if(index === titleLines.length - 1){
+                       const dotsWidth = availableWidth - (doc.getStringUnitWidth(line) * doc.getFontSize() / doc.internal.scaleFactor);
+                       const dots = '.'.repeat(Math.max(0, Math.floor(dotsWidth / (doc.getStringUnitWidth('.') * doc.getFontSize() / doc.internal.scaleFactor))));
+                       doc.text(`${line} ${dots} ${pageNumberText}`, margin, currentY);
+                    } else {
+                       doc.text(line, margin, currentY);
+                    }
+                    currentY += lineHeight;
+                });
               });
+              
+              // Remove the extra blank page at the end of the TOC section
+              if (doc.internal.getCurrentPageInfo().pageNumber > tocPageCount) {
+                 doc.deletePage(doc.internal.getCurrentPageInfo().pageNumber);
+              }
+
 
               doc.save(`translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.pdf`);
               console.log('PDF saved successfully.');
@@ -1236,41 +1228,36 @@ ${terminology.trim()}
                 return;
               }
               const jepub = new jEpub();
-              // Initialize with EPUB 3 specific metadata if possible.
-              // While jEpub is primarily EPUB 2, providing modern metadata is good practice.
               jepub.init({
                 title: `Translated Content (${targetLanguage})`,
                 author: 'Gemini Translator',
                 publisher: 'Gemini Translator App',
                 description: `Translated from source by Gemini Translator to ${targetLanguage}`,
-                lang: targetLanguage.split(/[-_ ]/)[0].toLowerCase(), // e.g., 'en' from 'English'
-                version: '3' // Attempt to flag as EPUB 3
+                lang: targetLanguage.split(/[-_ ]/)[0].toLowerCase(),
+                version: '3'
               });
               console.log('jEpub initialized for EPUB 3.');
 
               translatedChapters.forEach((chapter, index) => {
                 console.log(`Adding chapter "${chapter.title}" to EPUB.`);
-                // Convert plain text paragraphs to HTML paragraphs.
-                const paragraphs = chapter.content.split(/\n\n+/).filter(p => p.trim() !== '');
+                const paragraphs = chapter.content.split(/\n\s*\n/).filter(p => p.trim() !== '');
                 let htmlContent = `<h1>${chapter.title}</h1>\n`;
                 paragraphs.forEach(p => {
-                    // Sanitize text for HTML. Replace < > &
                     const sanitizedParagraph = p.trim()
                         .replace(/&/g, '&amp;')
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;')
-                        .split('\n').join('<br/>'); // Preserve single newlines as line breaks
+                        .replace(/\n/g, '<br/>'); 
                   if (sanitizedParagraph) {
                     htmlContent += `<p>${sanitizedParagraph}</p>\n`;
                   }
                 });
                 
-                // Add chapter with XHTML content
                 jepub.add(chapter.title, htmlContent);
               });
               console.log('All chapters added to jEpub.');
 
-              const epubBlob = await jepub.generate(); // Default is blob
+              const epubBlob = await jepub.generate();
               console.log('EPUB blob generated. Size:', epubBlob.size, 'bytes.');
 
               const url = URL.createObjectURL(epubBlob);
