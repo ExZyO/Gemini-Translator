@@ -4,15 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gemini Translator</title>
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="./manifest.json">
-    <!-- Apple Touch Icon (for iOS Home Screen) -->
-    <link rel="apple-touch-icon" href="https://placehold.co/192x192/8b5cf6/ffffff?text=GT" sizes="192x192">
-    <link rel="apple-touch-icon" href="https://placehold.co/512x512/8b5cf6/ffffff?text=GT" sizes="512x512">
-    <!-- iOS PWA Meta Tags -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Gemini Translator">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/8b5cf6/ffffff?text=GT" sizes="192x192">
+    <link rel="apple-touch-icon" href="https://placehold.co/512x512/8b5cf6/ffffff?text=GT" sizes="512x512">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Gemini Translator">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -20,9 +17,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ejs/3.1.9/ejs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jepub/dist/jepub.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/ejs@3.1.9/ejs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.9/ejs.min.js"></script>
 
-    <!-- PDF.js library for PDF parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <style>
         body {
@@ -71,9 +67,9 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('2.2.7'); // CurrentVer - Spacing fix, still only one space
+          const [version, setVersion] = useState('2.2.8'); // CurrentVer - Formatting fix for EPUBs
 
-          const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
+          const GEMINI_MODEL_NAME = 'gemini-1.5-flash-latest';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
 
           const languages = [
@@ -560,8 +556,7 @@
                 throw new Error('Translation failed: A valid Gemini API key is REQUIRED. Please enter and save your key.');
             }
             finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
-
-            // Updated prompt to be more insistent on preserving formatting
+            
             let basePrompt = `Please translate the following text into ${targetLanguage}. IMPORTANT: Preserve all original paragraph breaks (double newlines) and line breaks (single newlines) exactly as they appear in the original text. The translated text's structure must mirror the original's structure.`;
 
             basePrompt += `
@@ -572,36 +567,17 @@ ${textToTranslate}
 ---
 
 Provide ONLY the ${targetLanguage} translation of the "Original Text to Translate". Do not add any extra commentary, greetings, or explanations.`;
-
-            // Define a conservative maximum prompt character limit (heuristic)
-            const MAX_TOTAL_PROMPT_CHARS = 25000; // Heuristic, not exact token count
-
-            let glossaryContentForPrompt = terminology.trim();
+            
             let promptWithGlossary = basePrompt;
 
-            if (glossaryContentForPrompt) {
-                const fixedPromptLength = basePrompt.length;
-                const availableSpaceForGlossary = MAX_TOTAL_PROMPT_CHARS - fixedPromptLength - 100; // Buffer
-
-                if (availableSpaceForGlossary <= 0) {
-                    glossaryContentForPrompt = '';
-                    setError('Warning: Prompt for translation is too large. Glossary could not be included.');
-                    console.warn('Glossary excluded due to large main text prompt.');
-                } else if (glossaryContentForPrompt.length > availableSpaceForGlossary) {
-                    glossaryContentForPrompt = glossaryContentForPrompt.substring(0, availableSpaceForGlossary) + '\n\n--- GLOSSARY TRUNCATED ---';
-                    setError('Warning: Glossary was too large and has been truncated for this translation.');
-                    console.warn('Glossary truncated for translation.');
-                }
-
-                if (glossaryContentForPrompt) {
-                  promptWithGlossary = `Use the provided Terminology Guide for specific terms.
+            if (terminology.trim()) {
+              promptWithGlossary = `Use the provided Terminology Guide for specific terms.
 ---
 Terminology Guide:
-${glossaryContentForPrompt}
+${terminology.trim()}
 ---
 
 ` + basePrompt;
-                }
             }
 
 
@@ -725,22 +701,21 @@ ${glossaryContentForPrompt}
                   await new Promise(resolve => setTimeout(resolve, 500)); // Delay between API calls
                 }
                 
-                // *** FIX APPLIED HERE: Trim each chunk before joining to ensure correct paragraph spacing. ***
-                const translatedChapterContentRaw = translatedChapterChunks.map(chunk => chunk.trim()).join('\n\n');
-
-                // Normalize paragraph breaks for the translated chapter content
+                const translatedChapterContentRaw = translatedChapterChunks.join('');
+                
                 const normalizedTranslatedChapter = translatedChapterContentRaw
-                    .replace(/\r\n/g, '\n') // Standardize newlines
-                    .replace(/(\n\s*){3,}/g, '\n\n') // Collapse 3+ newlines to 2
-                    .trim();
+                  .replace(/\r\n/g, '\n') // Normalize newlines
+                  .trim(); // Final clean up
 
                 newTranslatedChapters.push({
-                    originalTitle: chapter.title,
-                    title: translatedChapterTitle,
-                    content: normalizedTranslatedChapter
+                  originalTitle: chapter.title,
+                  title: translatedChapterTitle,
+                  content: normalizedTranslatedChapter
                 });
-                
-                allTranslatedPartsForDisplay.push(`--- Chapter: ${translatedChapterTitle} ---\n\n${normalizedTranslatedChapter}`);
+
+                allTranslatedPartsForDisplay.push(
+                  `--- Chapter: ${translatedChapterTitle} ---\n\n${normalizedTranslatedChapter}`
+                );
               }
               
               setTranslatedChapters(newTranslatedChapters);
@@ -780,7 +755,6 @@ ${glossaryContentForPrompt}
               const translated = await translateChunk(inputText);
               const normalizedTranslated = translated
                   .replace(/\r\n/g, '\n')
-                  .replace(/(\n\s*){3,}/g, '\n\n')
                   .trim();
               setAssembledTranslatedText(normalizedTranslated);
               setTranslatedChapters([{ title: 'Translated Document', content: normalizedTranslated }]);
@@ -817,10 +791,13 @@ ${glossaryContentForPrompt}
               console.log('cleanExtractedText called. Original text length:', text.length);
               let cleanedText = text;
 
+              // Basic normalization
               cleanedText = cleanedText.replace(/\r\n|\r/g, '\n'); 
               cleanedText = cleanedText.replace(/&nbsp;/g, ' ');
               cleanedText = cleanedText.replace(/\u00A0/g, ' ');
               cleanedText = cleanedText.replace(/\u200B/g, ''); 
+              
+              // Remove common artifacts from file conversions
               cleanedText = cleanedText.replace(/--- PAGE \d+ ---\n\n?/g, '');
               cleanedText = cleanedText.replace(/--- Page End ---\n\n?/g, '');
               cleanedText = cleanedText.replace(/--- Page End ---/g, '');
@@ -831,10 +808,16 @@ ${glossaryContentForPrompt}
               cleanedText = cleanedText.replace(/^\s*"?Page\s+\d+"?\s*\n*/gm, '');
               cleanedText = cleanedText.replace(/^"\s*"\s*\n*/gm, ''); 
               cleanedText = cleanedText.replace(/https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp|svg)(\s*\n+|$)/gi, '');
-              cleanedText = cleanedText.replace(/\s{2,}/g, ' ');
-              cleanedText = cleanedText.replace(/[ \t]+/g, ' '); 
-              cleanedText = cleanedText.replace(/ +(\n|$)/g, '$1');
-              cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n');
+              
+              // **FIXED**: The line below was the cause of the formatting issue.
+              // It was replacing all whitespace sequences (including newlines) with a single space.
+              // It has been replaced with a more specific rule for horizontal whitespace.
+              cleanedText = cleanedText.replace(/[ \t]{2,}/g, ' '); 
+              
+              // Clean up spacing around newlines
+              cleanedText = cleanedText.replace(/ +(\n|$)/g, '$1'); // Remove trailing spaces before newlines
+              cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n'); // Normalize paragraph breaks
+              
               cleanedText = cleanedText.trim();
               console.log('cleanExtractedText finished. Cleaned text length:', cleanedText.length);
               return cleanedText;
@@ -1552,4 +1535,3 @@ ${glossaryContentForPrompt}
     </script>
 </body>
 </html>
-
