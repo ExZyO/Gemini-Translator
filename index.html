@@ -1281,8 +1281,8 @@ ${terminology.trim()}
 
           console.log('App is rendering...');
 
-          return React.createElement('div', { className: 'min-h-screen bg-gray-100 dark:bg-gray-900 p-4 font-sans text-gray-800 dark:text-gray-200 flex items-center justify-center' },
-            React.createElement('div', { className: 'w-full max-w-4xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 sm:p-8 space-y-8' },
+          return React.createElement('div', { className: 'min-h-screen bg-gray-100 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-200' },
+            React.createElement('div', { className: 'w-full min-h-screen bg-white dark:bg-gray-800 p-4 pt-16 sm:p-6 space-y-8' },
               React.createElement('h1', { className: 'text-4xl font-extrabold text-center text-indigo-600 dark:text-indigo-400 mb-2 tracking-tight' }, 'Gemini Translator'),
               React.createElement('p', { className: 'text-center text-sm text-gray-500 dark:text-gray-400 mb-6' }, `Version: ${version}`),
 
@@ -1297,7 +1297,7 @@ ${terminology.trim()}
                 }, React.createElement(Link, { className: 'inline-block mr-2', size: 20 }), ' URL (Info)')
               ),
 
-              React.createElement('div', { className: 'bg-gray-50 dark:bg-gray-800/50 p-6 rounded-b-xl rounded-r-xl shadow-inner' },
+              React.createElement('div', { className: 'bg-gray-50 dark:bg-gray-800/50 p-6 rounded-xl shadow-inner' },
                 activeTab === 'text' && React.createElement('div', { className: 'space-y-6' },
                   React.createElement('div', null,
                     React.createElement('label', { htmlFor: 'fileUpload', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, 'Upload File (TXT, PDF, EPUB):'),
@@ -1324,36 +1324,34 @@ ${terminology.trim()}
                     React.createElement('label', { htmlFor: 'inputText', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, 'Or Paste Text:'),
                     React.createElement('textarea', {
                       id: 'inputText',
-                      className: 'w-full p-4 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-y min-h-[150px] text-base',
+                      className: 'w-full p-4 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-y min-h-[250px] text-base',
                       placeholder: 'Paste your content here...',
                       value: inputText,
                       onChange: (e) => setInputText(e.target.value),
                       disabled: isEbookTranslating
                     }),
-                     React.createElement('div', { className: 'grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2' }, // Changed to flex-col for vertical stacking
-                      React.createElement('button', {
-                        onClick: handlePasteInputText,
-                        className: 'px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50',
-                        disabled: isEbookTranslating
-                      }, React.createElement(Clipboard, { size: 16, className: 'mr-1' }), ' Paste'),
-                      React.createElement('button', {
-                        onClick: handleCopyInputText,
-                        className: 'px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 flex items-center justify-center disabled:opacity-50',
-                        disabled: isEbookTranslating
-                      }, React.createElement(Copy, { size: 16, className: 'mr-1' }), ' Copy'),
-                       React.createElement('button', {
-                        onClick: handleClearInput,
-                        className: 'px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 disabled:opacity-50 col-span-2 sm:col-span-1',
-                        disabled: isEbookTranslating
-                      }, 'Clear Input')
+                     React.createElement('div', { className: 'flex flex-col gap-2 mt-2' },
+                          React.createElement('button', {
+                            onClick: handlePasteInputText,
+                            className: 'w-full px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50',
+                            disabled: isEbookTranslating
+                          }, React.createElement(Clipboard, { size: 16, className: 'mr-2' }), 'Paste Text'),
+                          React.createElement('button', {
+                            onClick: handleCopyInputText,
+                            className: 'w-full px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 flex items-center justify-center disabled:opacity-50',
+                            disabled: isEbookTranslating
+                          }, React.createElement(Copy, { size: 16, className: 'mr-2' }), 'Copy Text'),
+                           React.createElement('button', {
+                            onClick: handleClearInput,
+                            className: 'w-full px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50',
+                            disabled: isEbookTranslating
+                          }, React.createElement(XCircle, { size: 16, className: 'mr-2' }), 'Clear Input'),
+                           React.createElement('button', {
+                            onClick: handleSwapText,
+                            className: 'w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-lg shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50',
+                            disabled: isEbookTranslating
+                          }, React.createElement(RefreshCcw, { size: 16, className: 'mr-2' }), 'Swap Text')
                     )
-                  ),
-                  React.createElement('div', { className: 'flex flex-col sm:flex-row gap-2' },
-                    React.createElement('button', {
-                      onClick: handleSwapText,
-                      className: 'w-full sm:flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-lg shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50',
-                      disabled: isEbookTranslating
-                    }, React.createElement(RefreshCcw, { size: 16, className: 'mr-1' }), ' Swap Text')
                   ),
                   React.createElement('div', null,
                     React.createElement('label', { htmlFor: 'targetLanguage', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, 'Translate to:'),
@@ -1391,11 +1389,35 @@ ${terminology.trim()}
                 )
               ),
 
+              assembledTranslatedText && React.createElement('div', { className: 'space-y-6 pt-6 border-t border-gray-200 dark:border-gray-700' },
+                React.createElement('div', null,
+                  React.createElement('label', { htmlFor: 'assembledTranslatedText', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, `Translated Content (${targetLanguage}):`),
+                  React.createElement('textarea', {
+                    id: 'assembledTranslatedText',
+                    className: 'w-full p-4 border border-green-300 dark:border-green-700 bg-green-50 dark:bg-gray-900 rounded-lg shadow-inner focus:outline-none resize-y min-h-[200px] text-base',
+                    readOnly: true,
+                    value: assembledTranslatedText
+                  })
+                ),
+                copySuccess && React.createElement('p', { className: 'text-sm text-green-700 dark:text-green-400 mt-2 text-center' }, copySuccess),
+                React.createElement('div', { className: 'flex flex-col sm:flex-row justify-center gap-4' },
+                  React.createElement('button', { onClick: handleCopyToClipboard, className: 'w-full sm:w-auto px-6 py-3 bg-blue-500 text-white font-bold rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition transform hover:scale-105 flex items-center justify-center text-lg' }, React.createElement(Copy, { className: 'mr-2', size: 20 }), ' Copy'),
+                  React.createElement('button', { onClick: handleDownloadEPUB, className: 'w-full sm:w-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full shadow-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 transition transform hover:scale-105 flex items-center justify-center text-lg', disabled: downloadingEpub || isEbookTranslating },
+                    downloadingEpub ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
+                    downloadingEpub ? 'Generating...' : 'Download EPUB'
+                  ),
+                  React.createElement('button', { onClick: handleDownloadPDF, className: 'w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 transition transform hover:scale-105 flex items-center justify-center text-lg', disabled: downloadingPdf || isEbookTranslating },
+                    downloadingPdf ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
+                    downloadingPdf ? 'Generating...' : 'Download PDF'
+                  )
+                )
+              ),
+
               React.createElement('div', { className: 'space-y-4' },
                 React.createElement('label', { htmlFor: 'terminology', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, 'Glossary:'),
                 React.createElement('textarea', {
                   id: 'terminology',
-                  className: 'w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[100px] disabled:opacity-50',
+                  className: 'w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base resize-y min-h-[150px] disabled:opacity-50',
                   placeholder: 'Paste your glossary here…',
                   value: terminology,
                   onChange: (e) => setTerminology(e.target.value),
@@ -1480,30 +1502,6 @@ ${terminology.trim()}
               error && React.createElement('div', { className: 'bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-md flex items-center justify-between' },
                 React.createElement('p', { className: 'font-medium' }, error),
                 React.createElement(XCircle, { className: 'cursor-pointer', size: 20, onClick: () => setError('') })
-              ),
-
-              assembledTranslatedText && React.createElement('div', { className: 'space-y-6 pt-6 border-t border-gray-200 dark:border-gray-700' },
-                React.createElement('div', null,
-                  React.createElement('label', { htmlFor: 'assembledTranslatedText', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, `Translated Content (${targetLanguage}):`),
-                  React.createElement('textarea', {
-                    id: 'assembledTranslatedText',
-                    className: 'w-full p-4 border border-green-300 dark:border-green-700 bg-green-50 dark:bg-gray-900 rounded-lg shadow-inner focus:outline-none resize-y min-h-[200px] text-base',
-                    readOnly: true,
-                    value: assembledTranslatedText
-                  })
-                ),
-                copySuccess && React.createElement('p', { className: 'text-sm text-green-700 dark:text-green-400 mt-2 text-center' }, copySuccess),
-                React.createElement('div', { className: 'flex flex-col sm:flex-row justify-center gap-4' },
-                  React.createElement('button', { onClick: handleCopyToClipboard, className: 'w-full sm:w-auto px-6 py-3 bg-blue-500 text-white font-bold rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition transform hover:scale-105 flex items-center justify-center text-lg' }, React.createElement(Copy, { className: 'mr-2', size: 20 }), ' Copy'),
-                  React.createElement('button', { onClick: handleDownloadEPUB, className: 'w-full sm:w-auto px-6 py-3 bg-teal-500 text-white font-bold rounded-full shadow-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 transition transform hover:scale-105 flex items-center justify-center text-lg', disabled: downloadingEpub || isEbookTranslating },
-                    downloadingEpub ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
-                    downloadingEpub ? 'Generating...' : 'Download EPUB'
-                  ),
-                  React.createElement('button', { onClick: handleDownloadPDF, className: 'w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 transition transform hover:scale-105 flex items-center justify-center text-lg', disabled: downloadingPdf || isEbookTranslating },
-                    downloadingPdf ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 20 }) : React.createElement(Download, { className: 'mr-2', size: 20 }),
-                    downloadingPdf ? 'Generating...' : 'Download PDF'
-                  )
-                )
               ),
 
               showModal && React.createElement('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4' },
