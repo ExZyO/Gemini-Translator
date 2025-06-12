@@ -1218,7 +1218,7 @@
                             ),
                             React.createElement('div', { className: 'flex items-center w-full sm:w-auto justify-center gap-2' },
                                 React.createElement('button', { onClick: () => handleLoadGlossary(glossary), className: 'px-4 py-2 text-base bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 disabled:opacity-50 flex-1', disabled: isEbookTranslating }, 'Load'),
-                                activeGlossaryId === glossary.name && React.createElement('button', { onClick: () => handleUpdateSpecificGlossary(glossary.name), className: 'p-2 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 disabled:opacity-50', disabled: isEbookTranslating }, React.createElement(Save, { size: 20 }), 'Update' ),
+                                activeGlossaryId === glossary.name && React.createElement('button', { onClick: () => handleUpdateSpecificGlossary(glossary.name), className: 'px-4 py-2 text-base bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 disabled:opacity-50 flex-1', disabled: isEbookTranslating }, 'Update'),
                                 React.createElement('button', { onClick: () => handleDeleteGlossary(glossary.name), className: 'px-4 py-2 text-base bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 disabled:opacity-50 flex-1', disabled: isEbookTranslating }, 'Delete')
                             )
                         )
