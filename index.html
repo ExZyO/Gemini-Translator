@@ -68,9 +68,9 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('3.2'); // CurrentVer - Glossary limit removed
+          const [version, setVersion] = useState('3.2.1'); // CurrentVer - Fix translation error handling
 
-          const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
+          const GEMINI_MODEL_NAME = 'gemini-1.5-flash-preview-0514';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
 
           const languages = [
@@ -723,10 +723,10 @@
                         translatedChunks.push(translatedChunk);
                     } catch (chunkError) {
                         console.error(`Error translating chunk ${i + 1}:`, chunkError);
-                        // Re-insert the original, untranslated chunk on failure
-                        translatedChunks.push(chunks[i]);
-                        setError(`Translation failed on chunk ${i + 1}. Please check your input and API key.`);
-                        break; 
+                        // FIXED: Insert an error message instead of the original text
+                        translatedChunks.push(`\n\n[Translation error for this segment: ${chunkError.message}]\n\n`);
+                        setError(`Translation failed on one or more chunks. See output for details.`);
+                        // REMOVED: break; -- to allow translation to continue
                     }
                     processedChunks++;
                     setPastedTextProgress(Math.floor((processedChunks / totalChunks) * 100));
@@ -797,13 +797,13 @@
                 const fileType = file.type;
                 let extractedData;
                 
-                if (fileType === 'text/plain') {
+                if (fileType === 'text/plain' || file.name.endsWith('.txt')) {
                     const rawText = await readFileAsText(file);
                     extractedData = { chapters: [{ title: file.name || 'Document', text: rawText }] };
                 } else if (fileType === 'application/pdf') {
                     const rawText = await readPdfFile(file);
                     extractedData = { chapters: [{ title: file.name || 'PDF Document', text: rawText }] };
-                } else if (fileType === 'application/epub+zip') {
+                } else if (fileType === 'application/epub+zip' || file.name.endsWith('.epub')) {
                     extractedData = await readEpubFile(file);
                 } else {
                     throw new Error('Unsupported file type. Please upload a .txt, .pdf, or .epub file.');
@@ -1316,4 +1316,3 @@
     </script>
 </body>
 </html>
-" select
