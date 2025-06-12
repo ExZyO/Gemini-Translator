@@ -67,7 +67,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('3.2'); // CurrentVer - Glossary limit removed
+          const [version, setVersion] = useState('3.3'); // CurrentVer - Glossary limit removed
 
           const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
@@ -1018,52 +1018,61 @@
           };
 
           const handleDownloadEPUB = async () => {
-            console.log('handleDownloadEPUB called.');
+            console.log('handleDownloadEPUB (EPUB 3.0) called.');
             if (!assembledTranslatedText || translatedChapters.length === 0) {
-                setError('No translated text or chapter data to download as EPUB.');
-                return;
+              setError('No translated text or chapter data to download as EPUB.');
+              return;
             }
             setDownloadingEpub(true);
             setError('');
 
             try {
-                if (typeof jEpub === 'undefined') {
-                    throw new Error('EPUB generation library (jEpub) not loaded.');
-                }
-                const jepub = new jEpub();
-                jepub.init({
-                    title: `Translated Content (${targetLanguage})`,
-                    author: 'Gemini Translator',
-                    publisher: 'Gemini Translator App',
-                    description: `Translated to ${targetLanguage}`,
-                    lang: targetLanguage.split(/[-_ ]/)[0].toLowerCase(),
-                });
+              if (typeof jEpub === 'undefined') {
+                throw new Error('EPUB generation library (jEpub) not loaded.');
+              }
+              const jepub = new jEpub();
+              jepub.init({
+                title: `Translated Content (${targetLanguage})`,
+                author: 'Gemini Translator',
+                publisher: 'Gemini Translator App',
+                description: `Translated to ${targetLanguage}`,
+                lang: targetLanguage.split(/[-_ ]/)[0].toLowerCase(),
+                version: '3.0',
+                uniqueIdentifier: `urn:uuid:${crypto.randomUUID()}`
+              });
 
-                translatedChapters.forEach((chapter) => {
-                    const paragraphs = chapter.content.split(/\n\s*\n/).filter(p => p.trim() !== '');
-                    let htmlContent = `<h1>${chapter.title}</h1>\n` + paragraphs.map(p => {
-                        const sanitizedParagraph = p.trim()
-                            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                            .replace(/\n/g, '<br/>');
-                        return `<p>${sanitizedParagraph}</p>`;
-                    }).join('\n');
-                    jepub.add(chapter.title, htmlContent);
-                });
+              translatedChapters.forEach((chapter) => {
+                const paragraphs = chapter.content.split(/\n\s*\n/).filter(p => p.trim() !== '');
+                const htmlBody = `
+                  <!DOCTYPE html>
+                  <html xmlns="http://www.w3.org/1999/xhtml">
+                    <head>
+                      <meta charset="UTF-8" />
+                      <title>${chapter.title}</title>
+                    </head>
+                    <body>
+                      <h1>${chapter.title}</h1>
+                      ${paragraphs.map(p => `<p>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')}</p>`).join('\n')}
+                    </body>
+                  </html>
+                `;
+                jepub.add(chapter.title, htmlBody);
+              });
 
-                const epubBlob = await jepub.generate();
-                const url = URL.createObjectURL(epubBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.epub`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+              const epubBlob = await jepub.generate();
+              const url = URL.createObjectURL(epubBlob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `translated_content_${targetLanguage.toLowerCase().replace(/\s/g, '-')}.epub`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
             } catch (err) {
-                console.error("EPUB download error:", err);
-                setError(`Failed to generate EPUB: ${err.message}.`);
+              console.error("EPUB 3.0 download error:", err);
+              setError(`Failed to generate EPUB: ${err.message}.`);
             } finally {
-                setDownloadingEpub(false);
+              setDownloadingEpub(false);
             }
           };
 
