@@ -723,7 +723,8 @@
                         translatedChunks.push(translatedChunk);
                     } catch (chunkError) {
                         console.error(`Error translating chunk ${i + 1}:`, chunkError);
-                        translatedChunks.push(`\n\n[Translation error for this segment: ${chunkError.message}]\n\n`);
+                        // Re-insert the original, untranslated chunk on failure
+                        translatedChunks.push(chunks[i]);
                         setError(`Translation failed on chunk ${i + 1}. Please check your input and API key.`);
                         break; 
                     }
@@ -1315,3 +1316,4 @@
     </script>
 </body>
 </html>
+" select
