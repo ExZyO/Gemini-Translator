@@ -41,8 +41,6 @@
           const [terminology, setTerminology] = useState('');
           const [activeTab, setActiveTab] = useState('text');
           const [loading, setLoading] = useState(false); // For translation button for small texts
-          const [isPastedTextTranslating, setIsPastedTextTranslating] = useState(false);
-          const [pastedTextProgress, setPastedTextProgress] = useState(0);
           const [isEbookTranslating, setIsEbookTranslating] = useState(false); // New state for ebook translation
           const [ebookTranslationProgress, setEbookTranslationProgress] = useState(0); // New state for ebook translation progress
           const [error, setError] = useState('');
@@ -70,7 +68,7 @@
 
           // Version state for the app
           const [version, setVersion] = useState('3.3'); // CurrentVer - Glossary limit removed
-            
+
           const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
           const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
 
@@ -324,7 +322,7 @@
             console.error('Error pasting to glossary:', err);
             }
           };
-
+          
           const handlePasteApiKey = async () => {
             console.log('handlePasteApiKey called.');
             try {
@@ -449,7 +447,6 @@
                 return;
             }
             setLoading(true);
-            setIsPastedTextTranslating(true);
             setError('');
             try {
                 const reader = new FileReader();
@@ -460,20 +457,17 @@
                     setCopySuccess(`Glossary loaded from ${file.name}!`);
                     setTimeout(() => setCopySuccess(''), 3000);
                     setLoading(false);
-                    setIsPastedTextTranslating(false);
                     console.log('Glossary file loaded successfully. Content length:', fileContent.length);
                 };
                 reader.onerror = (e) => {
                     setError('Failed to read glossary file: ' + e.target.error);
                     setLoading(false);
-                    setIsPastedTextTranslating(false);
                     console.error('Error reading glossary file:', e.target.error);
                 };
                 reader.readAsText(file);
             } catch (err) {
                 setError('Failed to process glossary file: ' + err.message);
                 setLoading(false);
-                setIsPastedTextTranslating(false);
                 console.error('Error in handleGlossaryFileChange processing:', err);
             } finally {
                 if (glossaryFileInputRef.current) {
@@ -490,7 +484,6 @@
 
             // Calculate the available space for text chunks by subtracting prompt and glossary overhead.
             const promptTemplateOverhead = 800; // A safe buffer for the prompt text, instructions, etc.
-            const promptTemplateOverhead = 800; 
             const glossaryLength = terminology.trim().length;
             let effectiveMaxChunkLength = MAX_PAYLOAD_LENGTH - promptTemplateOverhead - glossaryLength;
 
@@ -500,12 +493,9 @@
                 if (effectiveMaxChunkLength <= 0) {
                     throw new Error('Glossary is too large. Please reduce its size to allow for translation.');
                 }
-            if (effectiveMaxChunkLength <= 0) {
-                console.warn(`Warning: Glossary size (${glossaryLength} characters) is very large and may prevent the text from being translated correctly. The application will still attempt the translation.`);
-                effectiveMaxChunkLength = 1000; // Fallback to a small chunk size to attempt translation
             }
             console.log(`Effective max chunk length after accounting for glossary: ${effectiveMaxChunkLength}`);
-
+            
             const chunks = [];
             let remainingText = text;
 
@@ -537,7 +527,7 @@
                         }
                     }
                 }
-
+                
                 chunks.push(remainingText.substring(0, splitPoint));
                 remainingText = remainingText.substring(splitPoint).trimStart();
             }
@@ -556,9 +546,9 @@
                 throw new Error('Translation failed: A valid Gemini API key is REQUIRED. Please enter and save your key.');
             }
             finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
-
+            
             let basePrompt = `Please translate the following text into ${targetLanguage}. IMPORTANT: Preserve all original paragraph breaks (double newlines) and line breaks (single newlines) exactly as they appear in the original text. The translated text's structure must mirror the original's structure.\n\n${textToTranslate}\n\nProvide ONLY the ${targetLanguage} translation. Do not add any extra commentary, greetings, or explanations.`;
-
+            
             let promptWithGlossary = basePrompt;
             if (terminology.trim()) {
                 promptWithGlossary = `Use the provided Terminology Guide for specific terms.\n---\nTerminology Guide:\n${terminology.trim()}\n---\n\n` + basePrompt;
@@ -630,7 +620,7 @@
 
             const allTranslatedPartsForDisplay = [];
             const newTranslatedChapters = [];
-
+            
             try {
                 let totalChunks = 0;
                 const chapterChunks = chaptersToTranslate.map(chap => {
@@ -680,7 +670,7 @@
                         setEbookTranslationProgress(Math.floor((processedChunks / totalChunks) * 100));
                         await new Promise(resolve => setTimeout(resolve, 500));
                     }
-
+                    
                     const normalizedTranslatedChapter = translatedChapterChunks.join('').replace(/\r\n/g, '\n').trim();
 
                     newTranslatedChapters.push({
@@ -691,7 +681,7 @@
 
                     allTranslatedPartsForDisplay.push(`${translatedChapterTitle}\n\n${normalizedTranslatedChapter}`);
                 }
-
+                
                 setTranslatedChapters(newTranslatedChapters);
                 const finalAssembledText = allTranslatedPartsForDisplay.join('\n\n\n').trim();
                 setAssembledTranslatedText(finalAssembledText);
@@ -711,8 +701,6 @@
           const handleTranslateFromInputText = async () => {
             console.log('handleTranslateFromInputText called.');
             setLoading(true);
-            setIsPastedTextTranslating(true);
-            setPastedTextProgress(0);
             setError('');
             setAssembledTranslatedText('');
             setTranslatedChapters([]);
@@ -720,53 +708,20 @@
             if (!inputText.trim()) {
                 setError('Please paste some text to translate.');
                 setLoading(false);
-                setIsPastedTextTranslating(false);
                 return;
             }
 
             try {
                 const translated = await translateChunk(inputText);
                 const normalizedTranslated = translated.replace(/\r\n/g, '\n').trim();
-                const chunks = splitIntoChunks(inputText);
-                const totalChunks = chunks.length;
-                if (totalChunks === 0) {
-                    setIsPastedTextTranslating(false);
-                    return;
-                }
-
-                let processedChunks = 0;
-                const translatedChunks = [];
-
-                for (let i = 0; i < chunks.length; i++) {
-                    try {
-                        const translatedChunk = await translateChunk(chunks[i]);
-                        translatedChunks.push(translatedChunk);
-                    } catch (chunkError) {
-                        console.error(`Error translating chunk ${i + 1}:`, chunkError);
-                        translatedChunks.push(`\n\n[Translation error for this segment: ${chunkError.message}]\n\n`);
-                        setError(`Translation failed on chunk ${i + 1}. Please check your input and API key.`);
-                        break; 
-                    }
-                    processedChunks++;
-                    setPastedTextProgress(Math.floor((processedChunks / totalChunks) * 100));
-                    if (i < chunks.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                    }
-                }
-                
-                const normalizedTranslated = translatedChunks.join('').replace(/\r\n/g, '\n').trim();
                 setAssembledTranslatedText(normalizedTranslated);
                 setTranslatedChapters([{ title: 'Translated Document', content: normalizedTranslated }]);
-                setTranslatedChapters([{ title: 'Translated Text', content: normalizedTranslated }]);
                 console.log('handleTranslateFromInputText successful.');
-
             } catch (err) {
                 console.error('Error in handleTranslateFromInputText:', err);
                 setError(err.message);
             } finally {
                 setLoading(false);
-                setIsPastedTextTranslating(false);
-                setTimeout(() => setPastedTextProgress(0), 1000); 
             }
           };
 
@@ -787,7 +742,7 @@
             setError('');
             console.log('Text swapped.');
           };
-
+          
           const cleanExtractedText = (text) => {
             let cleanedText = text;
             cleanedText = cleanedText.replace(/\r\n|\r/g, '\n');
@@ -817,7 +772,7 @@
             try {
                 const fileType = file.type;
                 let extractedData;
-
+                
                 if (fileType === 'text/plain') {
                     const rawText = await readFileAsText(file);
                     extractedData = { chapters: [{ title: file.name || 'Document', text: rawText }] };
@@ -829,7 +784,7 @@
                 } else {
                     throw new Error('Unsupported file type. Please upload a .txt, .pdf, or .epub file.');
                 }
-
+                
                 const cleanedChapters = extractedData.chapters.map(chap => ({
                     ...chap,
                     text: cleanExtractedText(chap.text)
@@ -866,7 +821,7 @@
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let fullText = '';
-
+            
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
@@ -908,7 +863,7 @@
             try {
                 const zip = await window.JSZip.loadAsync(file);
                 const chapterData = [];
-
+                
                 const containerFile = zip.file('META-INF/container.xml');
                 if (!containerFile) throw new Error('EPUB error: META-INF/container.xml not found.');
                 const containerContent = await containerFile.async('text');
@@ -922,7 +877,7 @@
                 if (!opfFile) throw new Error(`EPUB error: OPF file not found at ${rootfilePath}`);
                 const opfContent = await opfFile.async('text');
                 const opfDoc = new DOMParser().parseFromString(opfContent, "text/xml");
-
+                
                 const ncxItem = opfDoc.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
                 const ncxHref = ncxItem ? opfDir + ncxItem.getAttribute('href') : null;
                 const navItem = Array.from(opfDoc.querySelectorAll('manifest item')).find(item => item.getAttribute('properties') === 'nav');
@@ -1179,7 +1134,6 @@
                         className: 'w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base disabled:opacity-50',
                         value: targetLanguage, onChange: (e) => setTargetLanguage(e.target.value),
                         disabled: isEbookTranslating
-                        disabled: isEbookTranslating || isPastedTextTranslating
                     }, languages.map(lang => React.createElement('option', { key: lang, value: lang }, lang)))
                   ),
                   React.createElement('button', {
@@ -1189,18 +1143,6 @@
                   },
                     loading ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 24 }) : React.createElement(BookText, { className: 'mr-2', size: 24 }),
                     loading ? 'Translating...' : 'Translate Pasted Text'
-                  React.createElement('div', { className: 'mt-4' },
-                    React.createElement('button', {
-                      onClick: handleTranslateFromInputText,
-                      className: 'w-full md:w-auto md:mx-auto px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 transition transform hover:scale-105 flex items-center justify-center text-lg disabled:opacity-50 disabled:cursor-not-allowed',
-                      disabled: isEbookTranslating || isPastedTextTranslating
-                    },
-                      isPastedTextTranslating ? React.createElement(Loader2, { className: 'animate-spin mr-2', size: 24 }) : React.createElement(BookText, { className: 'mr-2', size: 24 }),
-                      isPastedTextTranslating ? `Translating...` : 'Translate Pasted Text'
-                    ),
-                    isPastedTextTranslating && React.createElement('div', { className: 'w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mt-4' },
-                      React.createElement('div', { className: 'bg-indigo-600 h-2.5 rounded-full', style: { width: `${pastedTextProgress}%` } })
-                    )
                   )
                 ),
 
@@ -1250,7 +1192,6 @@
                     React.createElement('button', { onClick: handleCopyTerminology, className: 'p-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating }, React.createElement(Copy, { size: 16, className: 'mr-1 sm:mr-2' }), React.createElement('span', {className: 'hidden sm:inline'}, 'Copy')),
                     React.createElement('button', { onClick: handleClearTerminology, className: 'p-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating }, React.createElement(XCircle, { size: 16, className: 'mr-1 sm:mr-2' }), React.createElement('span', {className: 'hidden sm:inline'}, 'Clear')),
                     React.createElement('button', { onClick: handleGlossaryFileButtonClick, className: 'p-2 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating || loading || uploadingFile }, React.createElement(Upload, { size: 16, className: 'mr-1 sm:mr-2' }), React.createElement('span', {className: 'hidden sm:inline'}, 'Upload')),
-                    React.createElement('button', { onClick: handleGlossaryFileButtonClick, className: 'p-2 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-all duration-200 flex items-center justify-center disabled:opacity-50', disabled: isEbookTranslating || isPastedTextTranslating || uploadingFile }, React.createElement(Upload, { size: 16, className: 'mr-1 sm:mr-2' }), React.createElement('span', {className: 'hidden sm:inline'}, 'Upload')),
                     React.createElement('input', { type: 'file', ref: glossaryFileInputRef, onChange: handleGlossaryFileChange, className: 'hidden', accept: '.txt,.md,.json,.csv,.xml,.html' })
                 ),
                 React.createElement('p', { className: 'text-sm text-gray-600 dark:text-gray-400' }, 'Enter terms to ensure they are translated correctly or kept in their original form.')
@@ -1342,7 +1283,7 @@
             ReactDOM.createRoot(rootElement).render(React.createElement(App));
         } else {
             console.error('Root element not found to render React app.');
-        }More actions
+        }
     </script>
 </body>
 </html>
