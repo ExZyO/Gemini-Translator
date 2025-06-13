@@ -68,10 +68,10 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('3.6.1'); // CurrentVer - Removed glossary limit error
+          const [version, setVersion] = useState('3.7.0'); // CurrentVer - Added model selection
 
-          const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
-          const BASE_GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent`;
+          // State for Gemini model selection
+          const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem('geminiModel') || 'gemini-2.5-flash-preview-05-20');
 
           const languages = [
             'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
@@ -88,6 +88,11 @@
             console.log('App useEffect: Initializing and loading glossaries.');
             const storedGlossaries = JSON.parse(localStorage.getItem('savedGlossaries') || '[]');
             setSavedGlossaries(storedGlossaries);
+            
+            const storedModel = localStorage.getItem('geminiModel');
+            if (storedModel) {
+              setGeminiModel(storedModel);
+            }
 
             const storedDefaultGlossaryName = localStorage.getItem('defaultGlossaryName');
             if (storedDefaultGlossaryName) {
@@ -544,15 +549,16 @@
 
           // Function to translate a single chunk of text
           const translateChunk = async (textToTranslate) => {
-            console.log('translateChunk called. Chunk length:', textToTranslate.length);
+            console.log('translateChunk called. Chunk length:', textToTranslate.length, 'with model', geminiModel);
             const keyToUse = localApiKey;
-            let finalApiUrl = BASE_GEMINI_API_URL;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
+            let finalApiUrl = apiUrl;
 
             if (!keyToUse) {
                 console.error('API Key missing for translation.');
                 throw new Error('Translation failed: A valid Gemini API key is REQUIRED. Please enter and save your key.');
             }
-            finalApiUrl = `${BASE_GEMINI_API_URL}?key=${keyToUse}`;
+            finalApiUrl = `${apiUrl}?key=${keyToUse}`;
             
             let basePrompt = `Please translate the following text into ${targetLanguage}. IMPORTANT: Preserve all original paragraph breaks (double newlines) and line breaks (single newlines) exactly as they appear in the original text. The translated text's structure must mirror the original's structure.\n\n${textToTranslate}\n\nProvide ONLY the ${targetLanguage} translation. Do not add any extra commentary, greetings, or explanations.`;
             
@@ -1267,6 +1273,27 @@
                     )
                   )
                 )
+              ),
+
+              React.createElement('div', { className: 'space-y-4' },
+                React.createElement('label', { htmlFor: 'geminiModel', className: 'block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2' }, 'Gemini Model:'),
+                React.createElement('select', {
+                  id: 'geminiModel',
+                  className: 'w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 text-base disabled:opacity-50',
+                  value: geminiModel,
+                  onChange: (e) => {
+                    const newModel = e.target.value;
+                    setGeminiModel(newModel);
+                    localStorage.setItem('geminiModel', newModel);
+                    setCopySuccess(`Model switched to ${newModel === 'gemini-2.5-flash-preview-05-20' ? 'Gemini 2.5 Flash' : 'Gemini 2.0 Flash'}`);
+                    setTimeout(() => setCopySuccess(''), 3000);
+                  },
+                  disabled: isEbookTranslating || isTextTranslating
+                },
+                  React.createElement('option', { value: 'gemini-2.5-flash-preview-05-20' }, 'Gemini 2.5 Flash (Preview)'),
+                  React.createElement('option', { value: 'gemini-2.0-flash' }, 'Gemini 2.0 Flash')
+                ),
+                React.createElement('p', { className: 'text-sm text-gray-600 dark:text-gray-400 mt-2' }, 'Select the Gemini model for translations. Newer models might offer better quality.')
               ),
 
               React.createElement('div', { className: 'space-y-4' },
