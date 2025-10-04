@@ -68,7 +68,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('3.7.1'); // CurrentVer - Added model selection
+          const [version, setVersion] = useState('3.7.2'); // CurrentVer - Added model selection
 
           // State for Gemini model selection
           const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem('geminiModel') || 'gemini-2.5-flash');
@@ -1290,7 +1290,7 @@
                   },
                   disabled: isEbookTranslating || isTextTranslating
                 },
-                  React.createElement('option', { value: 'gemini-2.5-flash-preview-05-20' }, 'Gemini 2.5 Flash (Preview)'),
+                  React.createElement('option', { value: 'gemini-2.5' }, 'Gemini 2.5 Flash'),
                   React.createElement('option', { value: 'gemini-2.0-flash' }, 'Gemini 2.0 Flash')
                 ),
                 React.createElement('p', { className: 'text-sm text-gray-600 dark:text-gray-400 mt-2' }, 'Select the Gemini model for translations. Newer models might offer better quality.')
