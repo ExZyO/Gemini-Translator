@@ -15,9 +15,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ejs/3.1.10/ejs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ejs/3.1.9/ejs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jepub/dist/jepub.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.9/ejs.min.js"></script>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -28,10 +30,10 @@
     <div id="root"></div>
 
     <script type="module">
-        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.3.1';
-        import ReactDOM from 'https://esm.sh/react-dom@18.3.1/client';
+        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
+        import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
         // Importing Eye and EyeOff icons for the password toggle
-        import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload } from 'https://esm.sh/lucide-react@0.446.0';
+        import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload } from 'https://esm.sh/lucide-react@0.372.0';
 
         function App() {
           const [inputText, setInputText] = useState('');
@@ -105,6 +107,14 @@
                     localStorage.removeItem('defaultGlossaryName');
                     setDefaultGlossaryName(null);
                 }
+            }
+
+            // Set the worker source for PDF.js
+            if (typeof window.pdfjsLib !== 'undefined') {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+                console.log('PDF.js worker source set.');
+            } else {
+                console.warn('PDF.js library not detected during initialization.');
             }
           }, []);
 
@@ -472,7 +482,7 @@
             }
           };
 
-          const MAX_PAYLOAD_LENGTH = 50000; // Increased for better efficiency, as Gemini supports larger contexts
+          const MAX_PAYLOAD_LENGTH = 15000; // The total characters for the API payload, including the prompt and glossary.
 
           // Helper function to split text into chunks, now aware of the glossary size.
           const splitIntoChunks = (text) => {
@@ -659,17 +669,20 @@
 
                     console.log(`Translating chapter content (${i + 1}/${chaptersToTranslate.length}): "${chapter.title}"`);
                     const chunks = chapterChunks[i];
-                    const translatedChapterChunks = await Promise.all(chunks.map(async (chunk, j) => {
+                    const translatedChapterChunks = [];
+
+                    for (let j = 0; j < chunks.length; j++) {
                         try {
-                            const translatedChunk = await translateChunk(chunk);
-                            processedChunks++;
-                            setEbookTranslationProgress(Math.floor((processedChunks / totalChunks) * 100));
-                            return translatedChunk;
+                            const translatedChunk = await translateChunk(chunks[j]);
+                            translatedChapterChunks.push(translatedChunk);
                         } catch (chunkError) {
                             console.error(`Error translating chunk ${j + 1} of chapter "${chapter.title}":`, chunkError);
-                            return `\n\n[Translation error for this segment: ${chunkError.message}]\n\n`;
+                            translatedChapterChunks.push(`\n\n[Translation error for this segment: ${chunkError.message}]\n\n`);
                         }
-                    }));
+                        processedChunks++;
+                        setEbookTranslationProgress(Math.floor((processedChunks / totalChunks) * 100));
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
                     
                     const normalizedTranslatedChapter = translatedChapterChunks.join('').replace(/\r\n/g, '\n').trim();
 
@@ -715,19 +728,22 @@
               try {
                   const chunks = splitIntoChunks(inputText);
                   const totalChunks = chunks.length;
-                  let processedChunks = 0;
+                  const translatedChunks = [];
 
-                  const translatedChunks = await Promise.all(chunks.map(async (chunk, i) => {
+                  for (let i = 0; i < totalChunks; i++) {
+                      const chunk = chunks[i];
                       try {
                           const translatedChunk = await translateChunk(chunk);
-                          processedChunks++;
-                          setTextTranslationProgress(Math.floor((processedChunks / totalChunks) * 100));
-                          return translatedChunk;
+                          translatedChunks.push(translatedChunk);
                       } catch (chunkError) {
                           console.error(`Error translating chunk ${i + 1}:`, chunkError);
-                          return `\n\n[Translation error for this segment: ${chunkError.message}]\n\n`;
+                          translatedChunks.push(`\n\n[Translation error for this segment: ${chunkError.message}]\n\n`);
                       }
-                  }));
+                      setTextTranslationProgress(Math.floor(((i + 1) / totalChunks) * 100));
+                      if (totalChunks > 1) {
+                        await new Promise(resolve => setTimeout(resolve, 200)); // Short delay between chunks
+                      }
+                  }
                   
                   const normalizedTranslated = translatedChunks.join('').replace(/\r\n/g, '\n').trim();
                   setAssembledTranslatedText(normalizedTranslated);
@@ -833,14 +849,11 @@
           };
 
           const readPdfFile = async (file) => {
-            const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs');
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs';
-
-            if (typeof pdfjsLib.getDocument === 'undefined') {
-                throw new Error('PDF.js library not loaded properly.');
+            if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
+                throw new Error('PDF.js library not loaded.');
             }
             const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let fullText = '';
             
             for (let i = 1; i <= pdf.numPages; i++) {
@@ -1272,12 +1285,12 @@
                     const newModel = e.target.value;
                     setGeminiModel(newModel);
                     localStorage.setItem('geminiModel', newModel);
-                    setCopySuccess(`Model switched to ${newModel === 'gemini-2.5-flash' ? 'Gemini 2.5 Flash' : 'Gemini 2.0 Flash'}`);
+                    setCopySuccess(`Model switched to ${newModel === 'gemini-2.5-flash-preview-05-20' ? 'Gemini 2.5 Flash' : 'Gemini 2.0 Flash'}`);
                     setTimeout(() => setCopySuccess(''), 3000);
                   },
                   disabled: isEbookTranslating || isTextTranslating
                 },
-                  React.createElement('option', { value: 'gemini-2.5-flash' }, 'Gemini 2.5 Flash'),
+                  React.createElement('option', { value: 'gemini-2.5' }, 'Gemini 2.5 Flash'),
                   React.createElement('option', { value: 'gemini-2.0-flash' }, 'Gemini 2.0 Flash')
                 ),
                 React.createElement('p', { className: 'text-sm text-gray-600 dark:text-gray-400 mt-2' }, 'Select the Gemini model for translations. Newer models might offer better quality.')
