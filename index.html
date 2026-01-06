@@ -18,7 +18,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ejs/3.1.10/ejs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jepub/dist/jepub.min.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -67,7 +66,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('3.8.1'); // CurrentVer - Added model selection
+          const [version, setVersion] = useState('3.7.2'); // CurrentVer - Added model selection
 
           // State for Gemini model selection
           const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem('geminiModel') || 'gemini-2.5-flash');
@@ -106,14 +105,6 @@
                     localStorage.removeItem('defaultGlossaryName');
                     setDefaultGlossaryName(null);
                 }
-            }
-
-            // Set the worker source for PDF.js
-            if (typeof window.pdfjsLib !== 'undefined') {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.js';
-                console.log('PDF.js worker source set.');
-            } else {
-                console.warn('PDF.js library not detected during initialization.');
             }
           }, []);
 
@@ -842,11 +833,14 @@
           };
 
           const readPdfFile = async (file) => {
-            if (typeof window.pdfjsLib === 'undefined' || typeof window.pdfjsLib.getDocument === 'undefined') {
-                throw new Error('PDF.js library not loaded.');
+            const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.mjs');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.mjs';
+
+            if (typeof pdfjsLib.getDocument === 'undefined') {
+                throw new Error('PDF.js library not loaded properly.');
             }
             const arrayBuffer = await file.arrayBuffer();
-            const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let fullText = '';
             
             for (let i = 1; i <= pdf.numPages; i++) {
@@ -1278,7 +1272,7 @@
                     const newModel = e.target.value;
                     setGeminiModel(newModel);
                     localStorage.setItem('geminiModel', newModel);
-                    setCopySuccess(`Model switched to ${newModel === 'gemini-2.5-flash-preview-05-20' ? 'Gemini 2.5 Flash' : 'Gemini 2.0 Flash'}`);
+                    setCopySuccess(`Model switched to ${newModel === 'gemini-2.5-flash' ? 'Gemini 2.5 Flash' : 'Gemini 2.0 Flash'}`);
                     setTimeout(() => setCopySuccess(''), 3000);
                   },
                   disabled: isEbookTranslating || isTextTranslating
