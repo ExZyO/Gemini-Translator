@@ -13,12 +13,13 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.0.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.3/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ejs/3.1.10/ejs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jepub/dist/jepub.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jepub@2.5.0/dist/jepub.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.10/ejs.min.js"></script>
 
-    <script src="https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -29,8 +30,8 @@
     <div id="root"></div>
 
     <script type="module">
-        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
-        import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
+        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@19.2.3';
+        import ReactDOM from 'https://esm.sh/react-dom@19.2.3/client';
         // Importing Eye and EyeOff icons for the password toggle
         import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload } from 'https://esm.sh/lucide-react@0.562.0';
 
@@ -67,7 +68,7 @@
           const [modalCallback, setModalCallback] = useState(null);
 
           // Version state for the app
-          const [version, setVersion] = useState('3.7.5'); // CurrentVer - Added model selection
+          const [version, setVersion] = useState('3.7.3'); // CurrentVer - Added model selection
 
           // State for Gemini model selection
           const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem('geminiModel') || 'gemini-3-pro-preview');
@@ -110,7 +111,7 @@
 
             // Set the worker source for PDF.js
             if (typeof window.pdfjsLib !== 'undefined') {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.js';
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.worker.min.js';
                 console.log('PDF.js worker source set.');
             } else {
                 console.warn('PDF.js library not detected during initialization.');
@@ -350,13 +351,14 @@
                 return;
             }
             try {
-                navigator.clipboard.writeText(apiKeyInput).then(() => {
-                    setCopySuccess('API key copied to clipboard!');
-                    console.log('API key copied.');
-                }).catch(err => {
-                    console.error('Failed to copy API key: ', err);
-                    setCopySuccess('Failed to copy API key. Please try again manually.');
-                });
+                const textarea = document.createElement('textarea');
+                textarea.value = apiKeyInput;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                setCopySuccess('API key copied to clipboard!');
+                console.log('API key copied.');
             } catch (err) {
                 console.error('Failed to copy API key: ', err);
                 setCopySuccess('Failed to copy API key. Please try again manually.');
@@ -371,13 +373,14 @@
                 return;
             }
             try {
-                navigator.clipboard.writeText(terminology).then(() => {
-                    setCopySuccess('Glossary text copied to clipboard!');
-                    console.log('Glossary text copied.');
-                }).catch(err => {
-                    console.error('Failed to copy glossary text: ', err);
-                    setCopySuccess('Failed to copy glossary text. Please try again manually.');
-                });
+                const textarea = document.createElement('textarea');
+                textarea.value = terminology;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                setCopySuccess('Glossary text copied to clipboard!');
+                console.log('Glossary text copied.');
             } catch (err) {
                 console.error('Failed to copy glossary text: ', err);
                 setCopySuccess('Failed to copy glossary text. Please try again manually.');
@@ -392,13 +395,14 @@
                 return;
             }
             try {
-                navigator.clipboard.writeText(inputText).then(() => {
-                    setCopySuccess('Input text copied to clipboard!');
-                    console.log('Input text copied.');
-                }).catch(err => {
-                    console.error('Failed to copy input text: ', err);
-                    setCopySuccess('Failed to copy input text. Please try again manually.');
-                });
+                const textarea = document.createElement('textarea');
+                textarea.value = inputText;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                setCopySuccess('Input text copied to clipboard!');
+                console.log('Input text copied.');
             } catch (err) {
                 console.error('Failed to copy input text: ', err);
                 setCopySuccess('Failed to copy input text. Please try again manually.');
@@ -413,13 +417,14 @@
                 return;
             }
             try {
-                navigator.clipboard.writeText(assembledTranslatedText).then(() => {
-                    setCopySuccess('Translated text copied to clipboard!');
-                    console.log('Translated text copied.');
-                }).catch(err => {
-                    console.error('Failed to copy translated text: ', err);
-                    setCopySuccess('Failed to copy text. Please try again manually.');
-                });
+                const textarea = document.createElement('textarea');
+                textarea.value = assembledTranslatedText;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                setCopySuccess('Translated text copied to clipboard!');
+                console.log('Translated text copied.');
             } catch (err) {
                 console.error('Failed to copy translated text: ', err);
                 setCopySuccess('Failed to copy text. Please try again manually.');
@@ -489,10 +494,13 @@
             let effectiveMaxChunkLength = MAX_PAYLOAD_LENGTH - promptTemplateOverhead - glossaryLength;
 
             // If the glossary is massive, it might leave very little room for the actual text.
+            // A negative or very small effectiveMaxChunkLength will cause issues.
+            // We'll set a minimum chunk size to prevent errors, but won't throw an error here.
             if (effectiveMaxChunkLength <= 0) {
                 console.warn("Glossary is very large, chunking might be ineffective.");
-                setError('Glossary too large; reduce size to allow for text translation.');
-                return [];
+                // We can set a small positive value to avoid errors in the loop,
+                // though the API will likely reject the request if the payload is too big.
+                effectiveMaxChunkLength = 10; // Allow it to proceed, API will handle oversized payload.
             }
             
             const chunks = [];
@@ -540,7 +548,7 @@
           };
 
           // Function to translate a single chunk of text
-          const translateChunk = async (textToTranslate, retryCount = 0) => {
+          const translateChunk = async (textToTranslate) => {
             console.log('translateChunk called. Chunk length:', textToTranslate.length, 'with model', geminiModel);
             const keyToUse = localApiKey;
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
@@ -550,9 +558,9 @@
                 console.error('API Key missing for translation.');
                 throw new Error('Translation failed: A valid Gemini API key is REQUIRED. Please enter and save your key.');
             }
-            finalApiUrl = `\( {apiUrl}?key= \){keyToUse}`;
+            finalApiUrl = `${apiUrl}?key=${keyToUse}`;
             
-            let basePrompt = `Please translate the following text into \( {targetLanguage}. IMPORTANT: Preserve all original paragraph breaks (double newlines) and line breaks (single newlines) exactly as they appear in the original text. The translated text's structure must mirror the original's structure.\n\n \){textToTranslate}\n\nProvide ONLY the ${targetLanguage} translation. Do not add any extra commentary, greetings, or explanations.`;
+            let basePrompt = `Please translate the following text into ${targetLanguage}. IMPORTANT: Preserve all original paragraph breaks (double newlines) and line breaks (single newlines) exactly as they appear in the original text. The translated text's structure must mirror the original's structure.\n\n${textToTranslate}\n\nProvide ONLY the ${targetLanguage} translation. Do not add any extra commentary, greetings, or explanations.`;
             
             let promptWithGlossary = basePrompt;
             if (terminology.trim()) {
@@ -581,10 +589,6 @@
                         errorDetails += `, could not read error body: ${e.message}`;
                     }
                     console.error(`API response error: ${errorDetails}`);
-                    if (response.status === 429 && retryCount < 3) {
-                        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
-                        return translateChunk(textToTranslate, retryCount + 1);
-                    }
                     throw new Error(`API response error: ${errorDetails}`);
                 }
 
@@ -651,7 +655,7 @@
                     let translatedChapterTitle = chapter.title;
 
                     if (chapter.title.trim()) {
-                        console.log(`Translating chapter title (\( {i + 1}/ \){chaptersToTranslate.length}): "${chapter.title}"`);
+                        console.log(`Translating chapter title (${i + 1}/${chaptersToTranslate.length}): "${chapter.title}"`);
                         try {
                             translatedChapterTitle = await translateChunk(chapter.title);
                             processedChunks++;
@@ -663,7 +667,7 @@
                         }
                     }
 
-                    console.log(`Translating chapter content (\( {i + 1}/ \){chaptersToTranslate.length}): "${chapter.title}"`);
+                    console.log(`Translating chapter content (${i + 1}/${chaptersToTranslate.length}): "${chapter.title}"`);
                     const chunks = chapterChunks[i];
                     const translatedChapterChunks = [];
 
@@ -672,7 +676,7 @@
                             const translatedChunk = await translateChunk(chunks[j]);
                             translatedChapterChunks.push(translatedChunk);
                         } catch (chunkError) {
-                            console.error(`Error translating chunk \( {j + 1} of chapter " \){chapter.title}":`, chunkError);
+                            console.error(`Error translating chunk ${j + 1} of chapter "${chapter.title}":`, chunkError);
                             translatedChapterChunks.push(`\n\n[Translation error for this segment: ${chunkError.message}]\n\n`);
                         }
                         processedChunks++;
@@ -688,7 +692,7 @@
                         content: normalizedTranslatedChapter
                     });
 
-                    allTranslatedPartsForDisplay.push(`\( {translatedChapterTitle}\n\n \){normalizedTranslatedChapter}`);
+                    allTranslatedPartsForDisplay.push(`${translatedChapterTitle}\n\n${normalizedTranslatedChapter}`);
                 }
                 
                 setTranslatedChapters(newTranslatedChapters);
@@ -723,10 +727,6 @@
 
               try {
                   const chunks = splitIntoChunks(inputText);
-                  if (chunks.length === 0) {
-                      setIsTextTranslating(false);
-                      return;
-                  }
                   const totalChunks = chunks.length;
                   const translatedChunks = [];
 
@@ -1064,12 +1064,6 @@
               if (typeof jEpub === 'undefined') {
                 throw new Error('EPUB generation library (jEpub) not loaded.');
               }
-              if (!crypto.randomUUID) {
-                crypto.randomUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-                  const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                  return v.toString(16);
-                });
-              }
               const jepub = new jEpub();
               jepub.init({
                 title: `Translated Content (${targetLanguage})`,
@@ -1092,7 +1086,7 @@
                     </head>
                     <body>
                       <h1>${chapter.title}</h1>
-                      \( {paragraphs.map(p => `<p> \){p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')}</p>`).join('\n')}
+                      ${paragraphs.map(p => `<p>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')}</p>`).join('\n')}
                     </body>
                   </html>
                 `;
@@ -1291,14 +1285,14 @@
                     const newModel = e.target.value;
                     setGeminiModel(newModel);
                     localStorage.setItem('geminiModel', newModel);
-                    setCopySuccess(`Model switched to ${newModel}`);
+                    setCopySuccess(`Model switched to ${newModel === 'gemini-2.5-flash-preview-05-20' ? 'Gemini 2.5 Flash' : 'Gemini 2.0 Flash'}`);
                     setTimeout(() => setCopySuccess(''), 3000);
                   },
                   disabled: isEbookTranslating || isTextTranslating
                 },
                   React.createElement('option', { value: 'gemini-3-pro-preview' }, 'Gemini 3 Pro Preview'),
                   React.createElement('option', { value: 'gemini-3-flash' }, 'Gemini 3 Flash'),
-                  React.createElement('option', { value: 'gemini-2.5-pro' }, 'Gemini 2.5 Pro'),
+                  React.createElement('option', { value: 'gemini-2.5' }, 'Gemini 2.5 Flash'),
                   React.createElement('option', { value: 'gemini-2.0-flash' }, 'Gemini 2.0 Flash')
                 ),
                 React.createElement('p', { className: 'text-sm text-gray-600 dark:text-gray-400 mt-2' }, 'Select the Gemini model for translations. Newer models might offer better quality.')
