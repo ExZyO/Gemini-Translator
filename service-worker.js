@@ -1,53 +1,70 @@
-const CACHE_NAME = 'gemini-translator-cache-v1';
+const CACHE_NAME = 'gemini-translator-cache-v2';
 const urlsToCache = [
-  './', // Caches the index.html
+  './',
   './index.html',
-  './manifest.json',
-  './jszip.min.js',
-  './ejs.min.js',
-  './jepub.min.js',
-  'https://cdn.tailwindcss.com',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://esm.sh/react@18.2.0',
-  'https://esm.sh/react-dom@18.2.0/client',
-  'https://esm.sh/lucide-react@0.372.0'
+  './manifest.json'
 ];
 
+// Install: cache core files only (not CDN resources - they change too often)
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('Opened cache v2');
+      return cache.addAll(urlsToCache);
+    })
   );
+  self.skipWaiting();
 });
 
+// Fetch: stale-while-revalidate for CDN resources, cache-first for local
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
+  const url = new URL(event.request.url);
+  
+  // Skip caching for API calls
+  if (url.hostname.includes('generativelanguage.googleapis.com') ||
+      url.hostname.includes('api-free.deepl.com') ||
+      url.hostname.includes('api.deepl.com') ||
+      url.hostname.includes('libretranslate.com')) {
+    return;
+  }
+
+  // Stale-while-revalidate for CDN resources
+  if (url.origin !== location.origin) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        const fetchPromise = fetch(event.request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
           return response;
-        }
-        return fetch(event.request);
+        }).catch(() => cached);
+        return cached || fetchPromise;
       })
+    );
+    return;
+  }
+
+  // Cache-first for local resources
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      return response || fetch(event.request);
+    })
   );
 });
 
+// Activate: clean up old caches
 self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
+          if (cacheName !== CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
       );
     })
   );
+  self.clients.claim();
 });
