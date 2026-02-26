@@ -559,11 +559,45 @@
 
         try {
           let totalChunks = 0;
-          const chapterChunks = chapters.map(c => { const ch = splitChunks(c.text, terminology.length); totalChunks += ch.length; if (c.title.trim()) totalChunks++; return ch });
+          
+          // If it's a raw EPUB, we need to extract DOM text nodes instead of just splitting plaintext
+          const chapterData = chapters.map(c => {
+            if (isEpub && c.doc) {
+              const textNodes = extractTextNodes(c.doc.body);
+              // We bundle text nodes together into manageable chunks to save API calls
+              let chunks = [];
+              let currentChunkText = '';
+              let currentChunkNodes = [];
+              
+              for (const node of textNodes) {
+                const text = node.nodeValue;
+                if (currentChunkText.length + text.length > 1000) { // arbitrary bundle size
+                  if (currentChunkText) chunks.push({ text: currentChunkText.trim(), nodes: currentChunkNodes });
+                  currentChunkText = text + '\n\n';
+                  currentChunkNodes = [node];
+                } else {
+                  currentChunkText += text + '\n\n';
+                  currentChunkNodes.push(node);
+                }
+              }
+              if (currentChunkText) chunks.push({ text: currentChunkText.trim(), nodes: currentChunkNodes });
+              
+              totalChunks += chunks.length; 
+              if (c.title.trim()) totalChunks++; 
+              return { title: c.title, chunks, doc: c.doc, zipPath: c.zipPath };
+              
+            } else {
+              // Standard plaintext chunking
+              const ch = splitChunks(c.text, terminology.length); 
+              totalChunks += ch.length; 
+              if (c.title.trim()) totalChunks++; 
+              return { title: c.title, chunks: ch.map(text => ({ text })) };
+            }
+          });
 
-          for (let i = startChapterIdx; i < chapters.length; i++) {
-            const ch = chapters[i]; let title = ch.title;
-            const chunks = chapterChunks[i];
+          for (let i = startChapterIdx; i < chapterData.length; i++) {
+            const ch = chapterData[i]; let title = ch.title;
+            const chunks = ch.chunks;
 
             // Translate title if starting fresh on this chapter
             if (i === startChapterIdx && startChunkIdx === 0 && title.trim()) {
@@ -594,8 +628,23 @@
               for (let j = ckStart; j < chunks.length; j++) {
                 setProgressLabel(`Chapter ${i + 1}/${chapters.length}: chunk ${j + 1}/${chunks.length} (with context)...`);
                 try {
-                  const translated = await translateChunk(chunks[j], { ...opts, context: ctx });
-                  parts.push(translated.text || translated);
+                  const translated = await translateChunk(chunks[j].text, { ...opts, context: ctx });
+                  const translatedText = translated.text || translated;
+                  parts.push(translatedText);
+                  
+                  if (isEpub && chunks[j].nodes) {
+                      // Attempt to map back translated bundled lines to their individual nodes.
+                      // Fallback: jam all translated text into the first node and clear the rest
+                      const lines = translatedText.split('\n\n').filter(l => l.trim() !== '');
+                      const nodes = chunks[j].nodes;
+                      if (lines.length === nodes.length) {
+                          for(let n=0; n<nodes.length; n++) nodes[n].nodeValue = lines[n];
+                      } else {
+                          if(nodes[0]) nodes[0].nodeValue = translatedText;
+                          for(let n=1; n<nodes.length; n++) nodes[n].nodeValue = '';
+                      }
+                  }
+                  
                   ctx = translated.newContext || ctx;
                 } catch (e) { parts.push(`\n\n[Error: ${e.message}]\n\n`) }
                 done++; setProgress(Math.floor((done / totalChunks) * 100));
@@ -603,7 +652,16 @@
                 // Save progress aggressively during context-aware mode
                 const contentSoFar = parts.join('').replace(/\r\n/g, '\n').trim();
                 const tempNewChapters = [...newChapters];
-                tempNewChapters[i] = { originalTitle: ch.title, title, content: contentSoFar };
+                
+                let docHtml = null;
+                if (isEpub && ch.doc) {
+                    if (title && ch.doc.querySelector('title')) ch.doc.querySelector('title').textContent = title;
+                    docHtml = ch.doc.documentElement.outerHTML;
+                    // Update the original Zip with the new translated HTML mid-flight so it can be exported partially!
+                    if (originalZip && ch.zipPath) originalZip.file(ch.zipPath, docHtml);
+                }
+                
+                tempNewChapters[i] = { originalTitle: chapters[i].title, title, content: contentSoFar, zipPath: ch.zipPath, docHtml };
                 const tempAllParts = [...allParts];
                 tempAllParts[i] = `${title}\n\n${contentSoFar}`;
 
@@ -612,7 +670,15 @@
                 saveState(ctx, done, i, j + 1, tempAllParts, tempNewChapters);
               }
               const content = parts.join('').replace(/\r\n/g, '\n').trim();
-              newChapters[i] = { originalTitle: ch.title, title, content };
+              
+              let docHtml = null;
+              if (isEpub && ch.doc) {
+                  if (title && ch.doc.querySelector('title')) ch.doc.querySelector('title').textContent = title;
+                  docHtml = ch.doc.documentElement.outerHTML;
+                  if (originalZip && ch.zipPath) originalZip.file(ch.zipPath, docHtml);
+              }
+              
+              newChapters[i] = { originalTitle: chapters[i].title, title, content, zipPath: ch.zipPath, docHtml };
               allParts[i] = `${title}\n\n${content}`;
               setTranslatedChapters([...newChapters]);
             } else {
@@ -621,22 +687,57 @@
               const remainingChunks = chunks.slice(ckStart);
               setProgressLabel(`Chapter ${i + 1}/${chapters.length}: translating ${remainingChunks.length} chunk(s) in parallel...`);
 
-              const results = await batchParallel(remainingChunks, async (chunk, idx) => {
-                const translated = await translateChunk(chunk, opts);
+              const results = await batchParallel(remainingChunks, async (chunkData, idx) => {
+                const chunkText = chunkData.text;
+                const translated = await translateChunk(chunkText, opts);
                 done++; setProgress(Math.floor((done / totalChunks) * 100));
                 setProgressLabel(`Chapter ${i + 1}/${chapters.length}: ${done}/${totalChunks} done`);
-                return translated;
+                return { translated, nodes: chunkData.nodes };
               }, concurrency);
 
-              const newParts = results.map(r => typeof r === 'string' ? r : (r?.text ? r.text : (r?.error ? `\n\n[Error: ${r.error}]\n\n` : '')));
+              const newParts = [];
+              for(const r of results) {
+                  let txt = '';
+                  if (r.translated?.error) {
+                      txt = `\n\n[Error: ${r.translated.error}]\n\n`;
+                  } else {
+                      txt = typeof r.translated === 'string' ? r.translated : (r.translated?.text || '');
+                  }
+                  newParts.push(txt);
+                  
+                  if (isEpub && r.nodes) {
+                      // Attempt injection
+                      const lines = txt.split('\n\n').filter(l => l.trim() !== '');
+                      const nodes = r.nodes;
+                      if (lines.length === nodes.length) {
+                          for(let n=0; n<nodes.length; n++) nodes[n].nodeValue = lines[n];
+                      } else {
+                          if(nodes[0]) nodes[0].nodeValue = txt;
+                          for(let n=1; n<nodes.length; n++) nodes[n].nodeValue = '';
+                      }
+                  }
+              }
+
               const existingParts = (resume && i === startChapterIdx && newChapters[i]?.content) ? newChapters[i].content : '';
               const content = (existingParts ? existingParts + '\n\n' : '') + newParts.join('').replace(/\r\n/g, '\n').trim();
 
-              newChapters[i] = { originalTitle: ch.title, title, content };
+              let docHtml = null;
+              if (isEpub && ch.doc) {
+                  if (title && ch.doc.querySelector('title')) ch.doc.querySelector('title').textContent = title;
+                  docHtml = ch.doc.documentElement.outerHTML;
+                  if (originalZip && ch.zipPath) originalZip.file(ch.zipPath, docHtml);
+              }
+
+              newChapters[i] = { originalTitle: chapters[i].title, title, content, zipPath: ch.zipPath, docHtml };
               allParts[i] = `${title}\n\n${content}`;
               setTranslatedChapters([...newChapters]); // Allow downloading partial epub
               saveState(ctx, done, i + 1, 0, allParts, newChapters); // save at end of chapter instead of per chunk here
             }
+          }
+          
+          if (isEpub && originalZip) {
+              // Save a reference to the fully mutated JSZip object into the app state!
+              window.currentTranslatedZip = originalZip;
           }
           setTranslatedChapters(newChapters); const final = allParts.join('\n\n\n').trim(); setAssembledText(final);
           addToHistory(srcLang, tgtLang, provider, '[File upload]', final.substring(0, 2000));
@@ -681,13 +782,16 @@
         const navH = navI ? od + navI.getAttribute('href') : null;
         const titles = new Map();
         if (ncxH) { const nf = zip.file(ncxH); if (nf) { const nc = await nf.async('text'); const nd = new DOMParser().parseFromString(nc, 'text/xml'); nd.querySelectorAll('navPoint').forEach(np => { const l = np.querySelector('navLabel text')?.textContent; const s = np.querySelector('content')?.getAttribute('src'); if (l && s) titles.set(s.split('#')[0], l.trim()) }) } }
+        
+        // Only extract raw text for the history preview. We keep `doc` and `zipPath` for True EPUB translation.
         const extractText = n => { let t = ''; const blocks = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote', 'tr', 'section', 'article']; if (n.nodeType === 3) t += n.textContent; else if (n.nodeType === 1) { if (n.tagName.toLowerCase() === 'br') t += '\n'; for (const c of n.childNodes) t += extractText(c); if (blocks.includes(n.tagName.toLowerCase())) t = t.trimEnd() + '\n\n' } return t };
+        
         for (const ir of opf.querySelectorAll('spine itemref')) {
           const id = ir.getAttribute('idref'); const mi = opf.querySelector(`manifest item[id="${id}"]`); const href = mi?.getAttribute('href'); if (!href) continue;
           const cp = od + href; if (cp === navH || cp === ncxH || href.toLowerCase().includes('toc.xhtml')) continue;
-          const mt = mi.getAttribute('media-type'); if (mt && (mt === 'application/xhtml+xml' || mt === 'text/html')) { const file = zip.file(cp); if (file) { try { const html = await file.async('text'); const doc = new DOMParser().parseFromString(html, 'text/html'); doc.querySelectorAll('script,style').forEach(e => e.remove()); let txt = extractText(doc.body); let title = titles.get(href.split('#')[0]) || doc.querySelector('h1,h2,h3,h4')?.textContent.trim() || `Chapter ${chapters.length + 1}`; if (txt.trim()) chapters.push({ title, text: txt }) } catch (e) { } } }
+          const mt = mi.getAttribute('media-type'); if (mt && (mt === 'application/xhtml+xml' || mt === 'text/html')) { const file = zip.file(cp); if (file) { try { const html = await file.async('text'); const doc = new DOMParser().parseFromString(html, 'text/html'); let txt = extractText(doc.body); let title = titles.get(href.split('#')[0]) || doc.querySelector('h1,h2,h3,h4')?.textContent.trim() || `Chapter ${chapters.length + 1}`; if (txt.trim()) chapters.push({ title, text: txt, doc, zipPath: cp }) } catch (e) { } } }
         }
-        if (!chapters.length) throw new Error('No readable text in EPUB.'); return { chapters };
+        if (!chapters.length) throw new Error('No readable text in EPUB.'); return { chapters, isEpub: true, originalZip: zip };
       };
 
       const processFile = async f => {
@@ -700,7 +804,15 @@
           else if (f.type === 'application/pdf') data = { chapters: [{ title: f.name, text: await readPdf(f) }] };
           else if (f.type === 'application/epub+zip') data = await readEpub(f);
           else throw new Error('Unsupported file type. Use .txt, .pdf, or .epub');
-          const cleaned = data.chapters.map(c => ({ ...c, text: cleanText(c.text) }));
+          
+          const isEpub = data.isEpub;
+          // Keep reference to exact original EPUB JSZip object so we can overwrite files inside it and export later
+          const originalZip = data.originalZip || null; 
+          
+          const cleaned = data.chapters.map(c => ({ 
+            ...c, 
+            text: isEpub ? c.text : cleanText(c.text) // Don't strip lines on raw EPUB DOM text
+          }));
 
           const saved = localStorage.getItem(hashId);
           if (saved) {
@@ -708,7 +820,7 @@
             if (willResume) {
               setActiveSession(JSON.parse(saved));
               toast(`Resuming translation for ${f.name}...`, 'info');
-              await handleTranslateEbook(cleaned, true);
+              await handleTranslateEbook(cleaned, true, isEpub, originalZip);
               return;
             } else {
               localStorage.removeItem(hashId);
@@ -716,7 +828,7 @@
           }
 
           toast(`Extracted from ${f.name}. Translating...`, 'info');
-          await handleTranslateEbook(cleaned, false);
+          await handleTranslateEbook(cleaned, false, isEpub, originalZip);
         } catch (e) { setError(e.message); toast(e.message, 'error') }
         finally { setUploadingFile(false); if (fileInputRef.current) fileInputRef.current.value = '' }
       };
