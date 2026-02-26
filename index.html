@@ -88,10 +88,13 @@
 
 <body>
   <div id="root"></div>
+  <script src="splitter.js"></script>
+  <script src="merger.js"></script>
   <script type="module">
     import React, { useState, useEffect, useRef, useCallback } from 'https://esm.sh/react@18.2.0';
     import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
     import { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload, Sun, Moon, Columns2, Rows2, History, ChevronDown, ChevronUp, Zap, X, CheckCircle2, AlertCircle, Info, Search, Trash2, RotateCcw, Square, FileDown, Settings, Globe } from 'https://esm.sh/lucide-react@0.372.0';
+    import { splitHtml, mergeHtml, modalHtml } from './epub_studio_ui.js';
     const h = React.createElement;
 
     // ═══════════════════════════════════════
@@ -385,6 +388,17 @@
       const toast = (msg, type = 'success') => { const id = genId(); setToasts(p => [...p, { id, msg, type }]); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500) };
 
       // --- Effects ---
+      useEffect(() => {
+        if (activeTab === 'split' && window.initSplitter) {
+          window.initSplitter();
+          window.initSplitter = null; // Prevent running twice
+        }
+        if (activeTab === 'merge' && window.initMerger) {
+          window.initMerger();
+          window.initMerger = null;
+        }
+      }, [activeTab]);
+
       useEffect(() => { document.documentElement.classList.toggle('dark', darkMode); localStorage.setItem('darkMode', String(darkMode)) }, [darkMode]);
       useEffect(() => { localStorage.setItem('enableStreaming', String(enableStreaming)) }, [enableStreaming]);
       useEffect(() => { localStorage.setItem('translationProvider', provider) }, [provider]);
@@ -780,9 +794,9 @@
         h('main', { className: 'max-w-5xl mx-auto px-4 py-6 space-y-6' },
 
           // TABS
-          h('div', { className: 'flex border-b border-gray-200 dark:border-gray-700 gap-1' },
-            [['text', 'Text & File', Clipboard], ['history', 'History', History], ['url', 'URL (Info)', Link]].map(([key, label, Icon]) =>
-              h('button', { key, onClick: () => setActiveTab(key), className: `py-2.5 px-4 text-sm font-semibold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === key ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}` }, ic(Icon, 18), label)
+          h('div', { className: 'flex border-b border-gray-200 dark:border-gray-700 gap-1 overflow-x-auto custom-scrollbar' },
+            [['text', 'Text & File', Clipboard], ['split', 'Split EPUB', Columns2], ['merge', 'Merge EPUB', Rows2], ['history', 'History', History]].map(([key, label, Icon]) =>
+              h('button', { key, onClick: () => setActiveTab(key), className: `py-2.5 px-4 text-sm font-semibold rounded-t-lg transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === key ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}` }, ic(Icon, 18), label)
             )
           ),
 
@@ -1042,11 +1056,11 @@
             ))
         ),
 
-        // TAB: URL INFO
-        activeTab === 'url' && h('div', { className: 'p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800' },
-          h('h2', { className: 'text-xl font-bold mb-3' }, 'URL Content Information'),
-          h('p', { className: 'text-gray-600 dark:text-gray-400 leading-relaxed' }, h('strong', null, 'Note:'), ' This app runs in your browser and cannot fetch content from URLs directly.', h('br'), h('br'), h('strong', null, 'Workaround:'), ' Copy text from the website and paste it into the Text & File tab.')
-        ),
+        // TAB: SPLIT EPUB
+        activeTab === 'split' && h('div', { dangerouslySetInnerHTML: { __html: splitHtml } }),
+
+        // TAB: MERGE EPUB
+        activeTab === 'merge' && h('div', { dangerouslySetInnerHTML: { __html: mergeHtml } }),
 
         // Error display
         error && h('div', { className: 'flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-r-lg', 'role': 'alert' },
@@ -1072,6 +1086,9 @@
             )
           )
         ),
+
+        // EPUB STUDIO PREVIEW MODAL
+        h('div', { dangerouslySetInnerHTML: { __html: modalHtml } }),
 
         // FOOTER
         h('footer', { className: 'text-center text-xs text-gray-400 py-4' }, 'Gemini Translator v', VERSION, ' · Powered by Gemini, DeepL & LibreTranslate')
