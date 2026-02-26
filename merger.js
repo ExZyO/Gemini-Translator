@@ -1,3 +1,4 @@
+﻿window.initMerger = function() {
 let mergeFiles = [];
 let customCoverFile = null;
 
@@ -68,7 +69,7 @@ function handleMergeFiles(files) {
     const existingNames = new Set(mergeFiles.map(f => f.name));
     const dupes = validFiles.filter(f => existingNames.has(f.name));
     if (dupes.length > 0) {
-        showToast(`⚠️ Duplicate${dupes.length > 1 ? 's' : ''} detected: ${dupes.map(f => f.name).join(', ')}`, 'warn');
+        showToast(`âš ï¸ Duplicate${dupes.length > 1 ? 's' : ''} detected: ${dupes.map(f => f.name).join(', ')}`, 'warn');
     }
 
     mergeFiles = mergeFiles.concat(validFiles);
@@ -137,9 +138,9 @@ function renderMergeList() {
                 </div>
             </div>
             <div class="flex items-center gap-1 shrink-0">
-                <button type="button" class="btn-up w-8 h-8 flex items-center justify-center text-slate-400 hover:text-fuchsia-500 bg-slate-100 dark:bg-slate-800 rounded disabled:opacity-30" ${idx === 0 ? 'disabled' : ''}>↑</button>
-                <button type="button" class="btn-down w-8 h-8 flex items-center justify-center text-slate-400 hover:text-fuchsia-500 bg-slate-100 dark:bg-slate-800 rounded disabled:opacity-30" ${idx === mergeFiles.length - 1 ? 'disabled' : ''}>↓</button>
-                <button type="button" class="btn-remove w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded font-bold">✕</button>
+                <button type="button" class="btn-up w-8 h-8 flex items-center justify-center text-slate-400 hover:text-fuchsia-500 bg-slate-100 dark:bg-slate-800 rounded disabled:opacity-30" ${idx === 0 ? 'disabled' : ''}>â†‘</button>
+                <button type="button" class="btn-down w-8 h-8 flex items-center justify-center text-slate-400 hover:text-fuchsia-500 bg-slate-100 dark:bg-slate-800 rounded disabled:opacity-30" ${idx === mergeFiles.length - 1 ? 'disabled' : ''}>â†“</button>
+                <button type="button" class="btn-remove w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded font-bold">âœ•</button>
             </div>
         `;
 
@@ -551,3 +552,6 @@ btnExecuteMerge.addEventListener('click', async () => {
         if (pBar) pBar.style.width = '0%';
     }
 });
+
+};
+
