@@ -1,4 +1,4 @@
-﻿export const splitTabHtml = `<div id="epub-split-tab"
+export const splitHtml = `<div id="epub-split-tab"
             class="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-300">
 
             <input type="file" id="epub-input" accept=".epub" class="hidden" />
@@ -273,7 +273,7 @@
         </div>
 
         `;
-export const mergeTabHtml = `<div id="epub-merge-tab"
+export const mergeHtml = `<div id="epub-merge-tab"
             class="hidden bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-300">
             <div class="p-8 sm:p-12">
                 <div class="max-w-3xl mx-auto">
