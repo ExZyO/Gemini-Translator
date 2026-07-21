@@ -331,6 +331,7 @@
       const [progress, setProgress] = useState(0);
       const [progressLabel, setProgressLabel] = useState('');
       const [translatedChapters, setTranslatedChapters] = useState([]);
+      const [chapters, setChapters] = useState([]);
 
       // --- Provider State ---
       const [provider, setProvider] = useState(() => localStorage.getItem('translationProvider') || 'gemini');
@@ -811,7 +812,7 @@
       };
 
       const processFile = async f => {
-        setUploadingFile(true); setError(''); setInputText(''); setAssembledText(''); setTranslatedChapters([]);
+        setUploadingFile(true); setError(''); setInputText(''); setAssembledText(''); setTranslatedChapters([]); setChapters([]);
         const hashId = generateJobId(f.name + f.size, true);
         setCurrentFileHash(hashId);
         try {
@@ -829,6 +830,7 @@
             ...c,
             text: isEpub ? c.text : cleanText(c.text) // Don't strip lines on raw EPUB DOM text
           }));
+          setChapters(cleaned);
 
           const saved = localStorage.getItem(hashId);
           if (saved) {
@@ -1002,7 +1004,7 @@
                 h('div', { className: 'flex flex-wrap gap-2 mt-2' },
                   btn({ onClick: async () => { try { const t = await navigator.clipboard.readText(); setInputText(p => p + t); toast('Pasted!') } catch (e) { setError(e.message) } }, disabled, className: 'px-3 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors inline-flex items-center gap-1.5', 'aria-label': 'Paste text from clipboard' }, ic(Clipboard, 15), 'Paste'),
                   btn({ onClick: () => { if (inputText) copyText(inputText).then(() => toast('Copied!')) }, disabled, className: 'px-3 py-1.5 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors inline-flex items-center gap-1.5', 'aria-label': 'Copy input text' }, ic(Copy, 15), 'Copy'),
-                  btn({ onClick: () => { setInputText(''); setAssembledText(''); setTranslatedChapters([]); setError('') }, disabled, className: 'px-3 py-1.5 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors inline-flex items-center gap-1.5', 'aria-label': 'Clear input' }, ic(XCircle, 15), 'Clear'),
+                  btn({ onClick: () => { setInputText(''); setAssembledText(''); setTranslatedChapters([]); setChapters([]); setError('') }, disabled, className: 'px-3 py-1.5 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors inline-flex items-center gap-1.5', 'aria-label': 'Clear input' }, ic(XCircle, 15), 'Clear'),
                   btn({ onClick: () => { const t = inputText; setInputText(assembledText); setAssembledText(t) }, disabled, className: 'px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors inline-flex items-center gap-1.5', 'aria-label': 'Swap input and output text' }, ic(RefreshCcw, 15), 'Swap'),
                   btn({ onClick: () => setSideBySide(!sideBySide), className: 'px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-sm font-medium rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors inline-flex items-center gap-1.5 ml-auto', 'aria-label': 'Toggle side by side view' }, ic(sideBySide ? Rows2 : Columns2, 15), sideBySide ? 'Stack' : 'Split')
                 )
