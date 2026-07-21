@@ -265,29 +265,32 @@ btnExecuteMerge.addEventListener('click', async () => {
                 if (masterNavMap) {
                     const originalNavPoints = Array.from(masterNavMap.children).filter(el => el.tagName === 'navPoint');
 
-                    const masterPoint = masterNcxDoc.createElement("navPoint");
-                    masterPoint.setAttribute("id", "master_book_1");
-                    masterPoint.setAttribute("playOrder", "1");
+                    const labelStr = mergeFiles[0].customLabel.trim();
+                    if (labelStr !== '') {
+                        const masterPoint = masterNcxDoc.createElement("navPoint");
+                        masterPoint.setAttribute("id", "master_book_1");
+                        masterPoint.setAttribute("playOrder", "1");
 
-                    const navLabel = masterNcxDoc.createElement("navLabel");
-                    const textNode = masterNcxDoc.createElement("text");
-                    textNode.textContent = mergeFiles[0].customLabel || `Book 1`;
-                    navLabel.appendChild(textNode);
-                    masterPoint.appendChild(navLabel);
+                        const navLabel = masterNcxDoc.createElement("navLabel");
+                        const textNode = masterNcxDoc.createElement("text");
+                        textNode.textContent = labelStr;
+                        navLabel.appendChild(textNode);
+                        masterPoint.appendChild(navLabel);
 
-                    // Attach to the first valid content src we can find to act as the parent link
-                    if (originalNavPoints.length > 0) {
-                        const firstContent = originalNavPoints[0].querySelector("content");
-                        if (firstContent) {
-                            const masterContent = masterNcxDoc.createElement("content");
-                            masterContent.setAttribute("src", firstContent.getAttribute("src"));
-                            masterPoint.appendChild(masterContent);
+                        // Attach to the first valid content src we can find to act as the parent link
+                        if (originalNavPoints.length > 0) {
+                            const firstContent = originalNavPoints[0].querySelector("content");
+                            if (firstContent) {
+                                const masterContent = masterNcxDoc.createElement("content");
+                                masterContent.setAttribute("src", firstContent.getAttribute("src"));
+                                masterPoint.appendChild(masterContent);
+                            }
                         }
-                    }
 
-                    // Move original points inside the master point
-                    originalNavPoints.forEach(np => masterPoint.appendChild(np));
-                    masterNavMap.appendChild(masterPoint);
+                        // Move original points inside the master point
+                        originalNavPoints.forEach(np => masterPoint.appendChild(np));
+                        masterNavMap.appendChild(masterPoint);
+                    }
                 }
             }
         }
@@ -307,34 +310,37 @@ btnExecuteMerge.addEventListener('click', async () => {
                     if (masterNavList) {
                         const originalLis = Array.from(masterNavList.children).filter(el => el.tagName.toLowerCase() === 'li');
 
-                        const masterLi = masterNavDoc.createElement("li");
-                        const masterSpan = masterNavDoc.createElement("span");
-                        masterSpan.textContent = mergeFiles[0].customLabel || `Book 1`;
+                        const labelStr = mergeFiles[0].customLabel.trim();
+                        if (labelStr !== '') {
+                            const masterLi = masterNavDoc.createElement("li");
+                            const masterSpan = masterNavDoc.createElement("span");
+                            masterSpan.textContent = labelStr;
 
-                        const subOl = masterNavDoc.createElement("ol");
+                            const subOl = masterNavDoc.createElement("ol");
 
-                        // If there's an anchor, we could theoretically link the span, but a span is safer for pure headers
-                        if (originalLis.length > 0) {
-                            const firstA = originalLis[0].querySelector('a');
-                            if (firstA) {
-                                const masterA = masterNavDoc.createElement("a");
-                                masterA.setAttribute("href", firstA.getAttribute("href"));
-                                masterA.textContent = masterSpan.textContent;
-                                masterLi.appendChild(masterA);
+                            // If there's an anchor, we could theoretically link the span, but a span is safer for pure headers
+                            if (originalLis.length > 0) {
+                                const firstA = originalLis[0].querySelector('a');
+                                if (firstA) {
+                                    const masterA = masterNavDoc.createElement("a");
+                                    masterA.setAttribute("href", firstA.getAttribute("href"));
+                                    masterA.textContent = masterSpan.textContent;
+                                    masterLi.appendChild(masterA);
+                                } else {
+                                    masterLi.appendChild(masterSpan);
+                                }
                             } else {
                                 masterLi.appendChild(masterSpan);
                             }
-                        } else {
-                            masterLi.appendChild(masterSpan);
+
+                            // Move original LIs into the subOl
+                            originalLis.forEach(li => subOl.appendChild(li));
+                            masterLi.appendChild(subOl);
+
+                            // Clear and append
+                            masterNavList.innerHTML = '';
+                            masterNavList.appendChild(masterLi);
                         }
-
-                        // Move original LIs into the subOl
-                        originalLis.forEach(li => subOl.appendChild(li));
-                        masterLi.appendChild(subOl);
-
-                        // Clear and append
-                        masterNavList.innerHTML = '';
-                        masterNavList.appendChild(masterLi);
                     }
                 }
             }
@@ -429,16 +435,21 @@ btnExecuteMerge.addEventListener('click', async () => {
                     if (subZip.file(snPath)) {
                         const snd = parser.parseFromString(await subZip.file(snPath).async("text"), "application/xml");
 
-                        // Create master wrapper for the appended book
-                        const masterPoint = masterNcxDoc.createElement("navPoint");
-                        masterPoint.setAttribute("id", `master_book_${i + 1}`);
-                        masterPoint.setAttribute("playOrder", `${i + 1}`); // Basic ordering
+                        const labelStr = mergeFiles[i].customLabel.trim();
+                        let masterPoint = null;
+                        
+                        if (labelStr !== '') {
+                            // Create master wrapper for the appended book
+                            masterPoint = masterNcxDoc.createElement("navPoint");
+                            masterPoint.setAttribute("id", `master_book_${i + 1}`);
+                            masterPoint.setAttribute("playOrder", `${i + 1}`); // Basic ordering
 
-                        const navLabel = masterNcxDoc.createElement("navLabel");
-                        const textNode = masterNcxDoc.createElement("text");
-                        textNode.textContent = mergeFiles[i].customLabel || `Book ${i + 1}`;
-                        navLabel.appendChild(textNode);
-                        masterPoint.appendChild(navLabel);
+                            const navLabel = masterNcxDoc.createElement("navLabel");
+                            const textNode = masterNcxDoc.createElement("text");
+                            textNode.textContent = labelStr;
+                            navLabel.appendChild(textNode);
+                            masterPoint.appendChild(navLabel);
+                        }
 
                         let firstContentFound = false;
 
@@ -453,7 +464,7 @@ btnExecuteMerge.addEventListener('click', async () => {
                                     c.setAttribute("src", finalSrc);
 
                                     // Use the first valid child as the URL for the parent block
-                                    if (!firstContentFound) {
+                                    if (masterPoint && !firstContentFound) {
                                         const masterContent = masterNcxDoc.createElement("content");
                                         masterContent.setAttribute("src", finalSrc);
                                         masterPoint.appendChild(masterContent);
@@ -461,10 +472,15 @@ btnExecuteMerge.addEventListener('click', async () => {
                                     }
                                 }
                             });
-                            masterPoint.appendChild(cl);
+                            
+                            if (masterPoint) {
+                                masterPoint.appendChild(cl);
+                            } else {
+                                masterNavMap.appendChild(cl);
+                            }
                         });
 
-                        masterNavMap.appendChild(masterPoint);
+                        if (masterPoint) masterNavMap.appendChild(masterPoint);
                     }
                 }
             }
