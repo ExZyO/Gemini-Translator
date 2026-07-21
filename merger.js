@@ -1,4 +1,4 @@
-﻿window.initMerger = function() {
+window.initMerger = function() {
 let mergeFiles = [];
 let customCoverFile = null;
 
@@ -202,18 +202,12 @@ btnExecuteMerge.addEventListener('click', async () => {
     btnExecuteMerge.disabled = true;
 
     try {
-        const newZip = new JSZip();
-        newZip.file("mimetype", "application/epub+zip", { compression: "STORE" });
-
         const parser = new DOMParser();
 
         updateParsingProgress(1, mergeFiles.length);
 
         const masterZip = await new JSZip().loadAsync(mergeFiles[0]);
-        for (let path in masterZip.files) {
-            if (path === "mimetype" || masterZip.files[path].dir) continue;
-            newZip.file(path, await masterZip.files[path].async("blob"));
-        }
+        const newZip = masterZip;
 
         const containerXml = await masterZip.file("META-INF/container.xml").async("text");
         const masterOpfPath = parser.parseFromString(containerXml, "text/xml").querySelector("rootfile").getAttribute("full-path");
@@ -372,7 +366,9 @@ btnExecuteMerge.addEventListener('click', async () => {
             const idMap = {};
             const hrefMap = {};
 
+            let countMap = 0;
             for (let j = 0; j < subManifest.length; j++) {
+                if (++countMap % 100 === 0) await new Promise(r => setTimeout(r, 0));
                 const it = subManifest[j];
                 const oldId = it.getAttribute("id");
                 const oldHref = it.getAttribute("href");
@@ -382,7 +378,9 @@ btnExecuteMerge.addEventListener('click', async () => {
                 hrefMap[oldHref] = newHref;
             }
 
+            let countFiles = 0;
             for (let j = 0; j < subManifest.length; j++) {
+                if (++countFiles % 20 === 0) await new Promise(r => setTimeout(r, 0));
                 const it = subManifest[j];
                 const oldHref = it.getAttribute("href");
                 const mime = it.getAttribute("media-type") || "";
