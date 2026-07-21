@@ -483,51 +483,65 @@ btnExecuteMerge.addEventListener('click', async () => {
         if (pBar) pBar.style.width = '0%';
 
         let b;
-        if (window.location.protocol === 'file:') {
-            console.log("Local file execution detected. Falling back to main-thread zip generation.");
-            b = await newZip.generateAsync(
-                { type: "blob", compression: compressionLevel, mimeType: "application/epub+zip" },
-                function updateCallback(metadata) {
+        
+        // Universal Web Worker using Blob URL to bypass local file restrictions
+        const serializedFiles = {};
+        let countSerial = 0;
+        for (let path in newZip.files) {
+            if (path === "mimetype" || newZip.files[path].dir) continue;
+            serializedFiles[path] = await newZip.files[path].async("blob");
+            if (++countSerial % 50 === 0) await new Promise(r => setTimeout(r, 2));
+        }
+
+        const workerCode = `
+            importScripts('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+            self.onmessage = async function(e) {
+                try {
+                    const { filesConfig, compression } = e.data;
+                    const zip = new JSZip();
+                    zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+                    for (let path in filesConfig) {
+                        zip.file(path, filesConfig[path]);
+                    }
+                    const blob = await zip.generateAsync({ type: "blob", compression: compression, mimeType: "application/epub+zip" }, function updateCallback(metadata) {
+                        self.postMessage({ type: 'progress', percent: metadata.percent });
+                    });
+                    self.postMessage({ type: 'success', blob: blob });
+                } catch (err) {
+                    self.postMessage({ type: 'error', error: err.message });
+                }
+            };
+        `;
+        const blobURL = URL.createObjectURL(new Blob([workerCode], { type: 'application/javascript' }));
+        const worker = new Worker(blobURL);
+        worker.postMessage({ filesConfig: serializedFiles, compression: compressionLevel });
+
+        b = await new Promise((resolve, reject) => {
+            worker.onmessage = (e) => {
+                const data = e.data;
+                if (data.type === 'progress') {
                     const pWrapper = document.getElementById('merge-progress-wrapper');
                     const pBar = document.getElementById('merge-progress-bar');
                     const pPercent = document.getElementById('merge-progress-percent');
                     if (pWrapper) pWrapper.classList.remove('hidden');
-                    if (pBar) pBar.style.width = metadata.percent.toFixed(0) + '%';
-                    if (pPercent) pPercent.textContent = metadata.percent.toFixed(0) + '%';
+                    if (pBar) pBar.style.width = data.percent.toFixed(0) + '%';
+                    if (pPercent) pPercent.textContent = data.percent.toFixed(0) + '%';
+                } else if (data.type === 'success') {
+                    resolve(data.blob);
+                    worker.terminate();
+                    URL.revokeObjectURL(blobURL);
+                } else if (data.type === 'error') {
+                    reject(new Error(data.error));
+                    worker.terminate();
+                    URL.revokeObjectURL(blobURL);
                 }
-            );
-        } else {
-            // Pass to Web Worker for heavy lifting
-            const serializedFiles = {};
-            for (let path in newZip.files) {
-                if (path === "mimetype" || newZip.files[path].dir) continue;
-                serializedFiles[path] = await newZip.files[path].async("blob");
-            }
-
-            const worker = new Worker('zip-worker.js');
-            worker.postMessage({ id: 'merge', filesConfig: serializedFiles, compression: compressionLevel });
-
-            b = await new Promise((resolve, reject) => {
-                worker.onmessage = (e) => {
-                    const data = e.data;
-                    if (data.type === 'progress') {
-                        const pWrapper = document.getElementById('merge-progress-wrapper');
-                        const pBar = document.getElementById('merge-progress-bar');
-                        const pPercent = document.getElementById('merge-progress-percent');
-
-                        if (pWrapper) pWrapper.classList.remove('hidden');
-                        if (pBar) pBar.style.width = data.percent.toFixed(0) + '%';
-                        if (pPercent) pPercent.textContent = data.percent.toFixed(0) + '%';
-                    } else if (data.type === 'success') {
-                        resolve(data.blob);
-                        worker.terminate();
-                    } else if (data.type === 'error') {
-                        reject(new Error(data.error));
-                        worker.terminate();
-                    }
-                };
-            });
-        }
+            };
+            worker.onerror = (e) => {
+                reject(new Error(e.message || "Worker crashed"));
+                worker.terminate();
+                URL.revokeObjectURL(blobURL);
+            };
+        });
 
         const a = document.createElement("a");
         a.href = URL.createObjectURL(b);
