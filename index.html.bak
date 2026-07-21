@@ -908,8 +908,7 @@
       // ═══════════════════════════════════════
       const secHeader = (title, icon, isOpen, toggle) => h('button', { onClick: toggle, className: 'flex items-center justify-between w-full text-left text-xl font-bold text-gray-800 dark:text-gray-200 mb-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors', 'aria-expanded': isOpen }, h('span', { className: 'flex items-center gap-2' }, ic(icon, 22), title), ic(isOpen ? ChevronUp : ChevronDown, 20));
 
-      return h(React.Fragment, null,
-        h('div', { className: 'min-h-screen bg-gray-50 dark:bg-gray-950 font-sans text-gray-800 dark:text-gray-200 transition-colors' },
+      return h('div', { className: 'min-h-screen bg-gray-50 dark:bg-gray-950 font-sans text-gray-800 dark:text-gray-200 transition-colors' },
         // HEADER
         h('header', { className: 'sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3' },
           h('div', { className: 'max-w-5xl mx-auto flex items-center justify-between' },
@@ -1223,7 +1222,6 @@
 
         // FOOTER
         h('footer', { className: 'text-center text-xs text-gray-400 py-4' }, 'Gemini Translator v', VERSION, ' · Powered by Gemini, DeepL & LibreTranslate')
-      )
     }
 
     const root = document.getElementById('root');
