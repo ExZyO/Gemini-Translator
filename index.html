@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.1.2';
+    const VERSION = '5.1.3';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -739,7 +739,7 @@
         if (/^(?:#+\s*)?(?:[I|V|X]+\.|\d+\.)?\s*(?:SYSTEM TRANSLATION RULES|STYLE GUIDELINES|SYSTEM RULES|TRANSLATION RULES|GENERAL RULES|PROMPT RULES)/i.test(trimmed)) {
           isGlobalSection = true;
           flushCurrentBlock();
-        } else if (/^(?:#+\s*)?(?:[I|V|X]+\.|\d+\.)?\s*(?:CORE TERMINOLOGY|VOCABULARY|CHARACTER DIRECTORY|CHARACTERS|SEFIROT|PATHWAYS|HONORIFIC NAMES|SEALED ARTIFACTS|MYTHICAL CREATURE|ORGANIZATIONS|OUTER DEITIES)/i.test(trimmed)) {
+        } else if (/^(?:#+\s*)?(?:[I|V|X]+\.|\d+\.)?\s*(?:CORE TERMINOLOGY|VOCABULARY|CHARACTER DIRECTORY|CHARACTERS|COSMOLOGY|SEFIROT|EPOCHS|BEYONDER LAWS|LAWS|PATHWAYS|HONORIFIC NAMES|SEALED ARTIFACTS|MYTHICAL CREATURE|ORGANIZATIONS|OUTER DEITIES)/i.test(trimmed)) {
           isGlobalSection = false;
           flushCurrentBlock();
         }
@@ -751,7 +751,7 @@
 
         // Child/sub-lines (indented lines, honorific bullet quotes, multi-line definitions)
         const isChildLine = /^(\s{2,}|\t|\*|\+|\s*[-•]\s*["']|\s*["'])/.test(line) &&
-          !/^[-*•]?\s*[\u4e00-\u9fa5]{1,10}\s*(?:->|:|=)/.test(trimmed) &&
+          !/^[-*•]?\s*[\u4e00-\u9fa5]{1,10}\s*(?:->|:|=|\()/.test(trimmed) &&
           !/^[A-Z][a-zA-Z0-9\s'.-]{2,30}\s*-\s+[A-Za-z]/.test(trimmed);
 
         if (isChildLine && currentBlock) {
@@ -772,7 +772,26 @@
           const cjkMatches = trimmed.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]{1,}/g);
           if (cjkMatches) currentBlock.searchKeys.push(...cjkMatches);
 
-          // 2. Key-value mapping left-side & right-side aliases (e.g. "克莱恩·莫雷蒂 -> Klein Moretti", "A先生 -> Mr. A")
+          // 2. Parenthetical mappings (e.g. "- 扮演法 (Acting Method)", "- 卢卡·布鲁斯特 (Lucca Brewster)")
+          const parenMatch = trimmed.match(/^[-*•#\d.\s]*([^(]+?)\s*\(([^)]+)\)/);
+          if (parenMatch) {
+            const left = parenMatch[1].replace(/^[-*•#\d.\s]+/, '').trim();
+            const right = parenMatch[2].trim();
+            if (left) {
+              left.split(/[/|,]/).forEach(k => {
+                const c = k.trim();
+                if (c) currentBlock.searchKeys.push(c);
+              });
+            }
+            if (right) {
+              right.split(/[/|,]/).forEach(k => {
+                const c = k.trim();
+                if (c) currentBlock.searchKeys.push(c);
+              });
+            }
+          }
+
+          // 3. Key-value mapping left-side & right-side aliases (e.g. "克莱恩·莫雷蒂 -> Klein Moretti", "A先生 -> Mr. A")
           if (trimmed.includes('->') || trimmed.includes('=') || (trimmed.includes(':') && !trimmed.startsWith('http'))) {
             const parts = trimmed.split(/->|=|:(?!\/\/)/);
             if (parts.length >= 2) {
@@ -797,7 +816,7 @@
             }
           }
 
-          // 3. Character Directory entries (e.g. "- Alger Wilson - Tyrant / Hanged Man")
+          // 4. Character Directory entries (e.g. "- Alger Wilson - Tyrant / Hanged Man")
           const charDirMatch = trimmed.match(/^[-*•]?\s*([A-Za-z\s'.-]+)\s*-\s*(.+)$/);
           if (charDirMatch) {
             const name = charDirMatch[1].trim();
@@ -806,18 +825,27 @@
             }
           }
 
-          // 4. Sealed Artifact Numbers (e.g. 0-08, 1-42, 2-166, 0-01)
+          // 5. Standalone English named items / bullet items (e.g. "- Quill of Alzuhod", "- Sefirah Castle")
+          const standaloneItem = trimmed.match(/^[-*•]?\s*([A-Za-z0-9\s'.-]{3,50})$/);
+          if (standaloneItem) {
+            const item = standaloneItem[1].trim();
+            if (item && !/^(Sequence|Grade|Pathway|Authorities|Counters|Formula|Epoch|Pillars?)$/i.test(item)) {
+              currentBlock.searchKeys.push(item);
+            }
+          }
+
+          // 6. Sealed Artifact Numbers (e.g. 0-08, 1-42, 2-166, 0-01)
           const artMatches = trimmed.match(/\b\d+-\d+\b/g);
           if (artMatches) currentBlock.searchKeys.push(...artMatches);
 
-          // 5. Sequence Names (e.g. "Sequence 9: Seer", "Sequence 4: Bizarro Sorcerer")
+          // 7. Sequence Names (e.g. "Sequence 9: Seer", "Sequence 4: Bizarro Sorcerer")
           const seqMatch = trimmed.match(/Sequence\s+\d+:\s*([A-Za-z\s()'-]+)/i);
           if (seqMatch) {
             const seqName = seqMatch[1].replace(/\(.*\)/, '').trim();
             if (seqName && seqName.length >= 2) currentBlock.searchKeys.push(seqName);
           }
 
-          // 6. Honorific / Deity headers (e.g. "- The Fool:", "- Evernight Goddess:")
+          // 8. Honorific / Deity headers (e.g. "- The Fool:", "- Evernight Goddess:")
           const deityMatch = trimmed.match(/^[-*•]?\s*([A-Za-z\s'.-]+):$/);
           if (deityMatch) {
             const dName = deityMatch[1].trim();

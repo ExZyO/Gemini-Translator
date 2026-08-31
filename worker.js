@@ -50,7 +50,7 @@ self.onmessage = async function(e) {
         if (/^(?:#+\s*)?(?:[I|V|X]+\.|\d+\.)?\s*(?:SYSTEM TRANSLATION RULES|STYLE GUIDELINES|SYSTEM RULES|TRANSLATION RULES|GENERAL RULES|PROMPT RULES)/i.test(trimmed)) {
           isGlobalSection = true;
           flushCurrentBlock();
-        } else if (/^(?:#+\s*)?(?:[I|V|X]+\.|\d+\.)?\s*(?:CORE TERMINOLOGY|VOCABULARY|CHARACTER DIRECTORY|CHARACTERS|SEFIROT|PATHWAYS|HONORIFIC NAMES|SEALED ARTIFACTS|MYTHICAL CREATURE|ORGANIZATIONS|OUTER DEITIES)/i.test(trimmed)) {
+        } else if (/^(?:#+\s*)?(?:[I|V|X]+\.|\d+\.)?\s*(?:CORE TERMINOLOGY|VOCABULARY|CHARACTER DIRECTORY|CHARACTERS|COSMOLOGY|SEFIROT|EPOCHS|BEYONDER LAWS|LAWS|PATHWAYS|HONORIFIC NAMES|SEALED ARTIFACTS|MYTHICAL CREATURE|ORGANIZATIONS|OUTER DEITIES)/i.test(trimmed)) {
           isGlobalSection = false;
           flushCurrentBlock();
         }
@@ -61,7 +61,7 @@ self.onmessage = async function(e) {
         }
 
         const isChildLine = /^(\s{2,}|\t|\*|\+|\s*[-•]\s*["']|\s*["'])/.test(line) &&
-          !/^[-*•]?\s*[\u4e00-\u9fa5]{1,10}\s*(?:->|:|=)/.test(trimmed) &&
+          !/^[-*•]?\s*[\u4e00-\u9fa5]{1,10}\s*(?:->|:|=|\()/.test(trimmed) &&
           !/^[A-Z][a-zA-Z0-9\s'.-]{2,30}\s*-\s+[A-Za-z]/.test(trimmed);
 
         if (isChildLine && currentBlock) {
@@ -75,6 +75,25 @@ self.onmessage = async function(e) {
           currentBlock = { lines: [line], searchKeys: [] };
           const cjkMatches = trimmed.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]{1,}/g);
           if (cjkMatches) currentBlock.searchKeys.push(...cjkMatches);
+
+          // Parenthetical mappings (e.g. "- 扮演法 (Acting Method)")
+          const parenMatch = trimmed.match(/^[-*•#\d.\s]*([^(]+?)\s*\(([^)]+)\)/);
+          if (parenMatch) {
+            const left = parenMatch[1].replace(/^[-*•#\d.\s]+/, '').trim();
+            const right = parenMatch[2].trim();
+            if (left) {
+              left.split(/[/|,]/).forEach(k => {
+                const c = k.trim();
+                if (c) currentBlock.searchKeys.push(c);
+              });
+            }
+            if (right) {
+              right.split(/[/|,]/).forEach(k => {
+                const c = k.trim();
+                if (c) currentBlock.searchKeys.push(c);
+              });
+            }
+          }
 
           if (trimmed.includes('->') || trimmed.includes('=') || (trimmed.includes(':') && !trimmed.startsWith('http'))) {
             const parts = trimmed.split(/->|=|:(?!\/\/)/);
@@ -104,6 +123,13 @@ self.onmessage = async function(e) {
             const name = charDirMatch[1].trim();
             if (name && name.length >= 2 && !/^(Sequence|Grade|Pathway|Authorities|Counters|Formula|Epoch|Pillars?)$/i.test(name)) {
               currentBlock.searchKeys.push(name);
+            }
+          }
+          const standaloneItem = trimmed.match(/^[-*•]?\s*([A-Za-z0-9\s'.-]{3,50})$/);
+          if (standaloneItem) {
+            const item = standaloneItem[1].trim();
+            if (item && !/^(Sequence|Grade|Pathway|Authorities|Counters|Formula|Epoch|Pillars?)$/i.test(item)) {
+              currentBlock.searchKeys.push(item);
             }
           }
           const artMatches = trimmed.match(/\b\d+-\d+\b/g);
