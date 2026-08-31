@@ -13,9 +13,9 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
 - Do NOT use quotation marks around personal names or Tarot Club code names unless present in the raw untranslated text.
   * Correct: Mr. Star, Mr. Sun, Miss Justice, The Fool, Mr. Error, The World, The Hermit
   * Incorrect: "Mr. Star", "Mr. Sun", "Miss Justice", "The Fool", "The World"
-- Do NOT use quotation marks around ordinary words, sequence names, or locations unless explicitly quoted in the original text:
-  * Correct: Black Emperor mausoleum, Sefirah Castle
-  * Incorrect: "Black Emperor" mausoleum, "Sefirah Castle"
+- Do NOT use quotation marks around ordinary words, sequence names, or locations even if the raw Chinese text uses single or double quotes around sequence titles:
+  * Correct: Sequence 5 Pixie, Sequence 4 Bizarro Sorcerer, Black Emperor mausoleum, Sefirah Castle
+  * Incorrect: Sequence 5 'Pixie', Sequence 4 "Bizarro Sorcerer", "Black Emperor" mausoleum, "Sefirah Castle"
 - Mandatory Quotation Exceptions:
   * Divine Pronouns: Whenever referring to a deity or divine existence using 祂, translate as "He", "Him", "She", or "Her" (with quotation marks). Note: Ensure contextually correct pronouns; do not mistakenly use "He"/"Him" when the text refers to second-person "you".
   * Specific Authorities / Concepts: Keep quotes on "Grafted", "Grafting", "Theft", "Fooling", "eternal daytime".
@@ -78,6 +78,140 @@ Essential Vocabulary Words:
 - Titles & Descriptions: Blazing Danitz, King of the North Ulyssan, Nation of Frost, quasi-demigod, tycoon, daze, dazed expression.
 
 III. CHINESE / ENGLISH CHARACTER NAME & ENTITY DIRECTORY
+
+Chinese to English Pathways & Non-Standard Outer Deity Pathways:
+- 潜月之眼 / 潜月之眼途径 -> Sublunary Eye / Sublunary Eye Pathway
+- 高维俯视者 -> High-Dimensional Overseer
+- 宿命之环 / 宿命之环途径 / 宿命途径 -> Circle of Inevitability / Circle of Inevitability Pathway
+- 衰亡之君 / 第二定律途径 -> Monarch of Decay / Second Law Pathway
+- 永恒律令 / 命运女神途径 -> Eternal Edict / Goddess of Fate Pathway
+- 不熄的呓语 / 永恒途径 / 创始者途径 -> Inextinguishable Ravings / Everlasting Pathway
+- 原初饥渴 / 吞尾者途径 -> Primordial Hunger / Tail-Devourer Pathway
+- 超新星主宰 / 冷凝者途径 -> Supernova Dominator / Condenser Pathway
+- 欲望母树 / 异种途径 / 崇高者途径 -> Mother Tree of Desire / Patriarch Pathway
+- 堕落母神 / 原初鸿蒙途径 -> Mother Goddess of Depravity / Chaos Primogenitor Pathway
+- 混沌之子 / 紊乱之雾途径 -> Son of Chaos / Chaos Mist Pathway
+
+22 Standard Chinese Pathways:
+- 愚者途径 / 占卜家途径 -> Fool Pathway
+- 错误途径 / 偷盗者途径 -> Error Pathway
+- 门途径 / 学徒途径 -> Door Pathway
+- 空想家途径 / 观众途径 -> Visionary Pathway
+- 太阳途径 / 歌颂者途径 -> Sun Pathway
+- 暴君途径 / 水手途径 / 风暴途径 -> Tyrant Pathway
+- 白塔途径 / 阅读者途径 -> White Tower Pathway
+- 倒吊人途径 / 秘祈人途径 -> Hanged Man Pathway
+- 黑暗途径 / 不眠者途径 -> Darkness Pathway
+- 死神途径 / 收尸人途径 -> Death Pathway
+- 黄昏巨人途径 / 战士途径 -> Twilight Giant Pathway
+- 魔女途径 / 刺客途径 -> Demoness Pathway
+- 红祭司途径 / 猎人途径 -> Red Priest Pathway
+- 隐者途径 / 窥秘人途径 -> Hermit Pathway
+- 完美者途径 / 通识者途径 -> Paragon Pathway
+- 母亲途径 / 耕种者途径 -> Mother Pathway
+- 月亮途径 / 药师途径 -> Moon Pathway
+- 深渊途径 / 罪犯途径 -> Abyss Pathway
+- 被缚者途径 / 异种途径 / 囚犯途径 -> Chained Pathway
+- 黑皇帝途径 / 律师途径 -> Black Emperor Pathway
+- 审判者途径 / 仲裁人途径 -> Justiciar Pathway
+- 命运之轮途径 / 怪物途径 -> Wheel of Fortune Pathway
+
+Key Chinese Sequence Titles & Abilities:
+- 占卜家 -> Seer
+- 小丑 -> Clown
+- 魔术师 -> Magician
+- 无面人 -> Faceless
+- 秘偶大师 -> Marionettist
+- 诡术秘偶师 -> Bizarro Sorcerer
+- 古代学者 -> Scholar of Yore
+- 奇迹师 -> Miracle Invoker
+- 诡秘侍者 -> Attendant of Mysteries
+- 偷盗者 -> Marauder
+- 诈骗师 -> Swindler
+- 解密学者 -> Cryptologist
+- 盗火人 -> Prometheus
+- 窃梦家 -> Dream Stealer
+- 寄生者 -> Parasite
+- 欺唆狂 -> Mentor of Deceit
+- 命运木马 -> Trojan Horse of Destiny
+- 时之虫 -> Worm of Time
+- 学徒 -> Apprentice
+- 戏法大师 -> Trickmaster
+- 占星人 -> Astrologer
+- 记录官 -> Scribe
+- 旅行家 -> Traveler
+- 秘法师 -> Secrets Sorcerer
+- 漫游者 -> Wanderer
+- 旅法师 -> Planeswalker
+- 星之钥 -> Key of Stars
+- 观众 -> Spectator
+- 读心者 -> Telepathist
+- 心理学医生 -> Psychiatrist
+- 催眠师 -> Hypnotist
+- 梦境行者 -> Dreamwalker
+- 操纵者 -> Manipulator
+- 织梦人 -> Dream Weaver
+- 洞悉者 -> Discerner
+- 作家 -> Author
+- 空想家 -> Visionary
+- 歌颂者 -> Bard
+- 祈光人 -> Light Suppliant
+- 太阳神官 -> Solar High Priest
+- 公证人 -> Notary
+- 光之祭司 -> Priest of Light
+- 无暗者 -> Unshadowed
+- 正义导师 -> Justice Mentor
+- 逐光者 -> Lightseeker
+- 白天使 -> White Angel
+- 水手 -> Sailor
+- 暴怒之民 -> Folk of Rage
+- 航海家 -> Seafarer
+- 风眷者 -> Wind-blessed
+- 海洋歌者 -> Ocean Songster
+- 灾难祭司 -> Cataclysmic Interrer
+- 海王 -> Sea King
+- 天灾 -> Calamity
+- 雷神 -> Thunder God
+- 暴君 -> Tyrant
+- 刺客 -> Assassin
+- 教唆者 -> Instigator
+- 女巫 -> Witch
+- 欢愉魔女 -> Demoness of Pleasure
+- 痛苦魔女 -> Demoness of Affliction
+- 绝望魔女 -> Demoness of Despair
+- 不老魔女 -> Demoness of Unaging
+- 灾难魔女 -> Demoness of Catastrophe
+- 末日魔女 -> Demoness of Apocalypse
+- 猎人 -> Hunter
+- 挑衅者 -> Provoker
+- 纵火家 -> Pyromaniac
+- 阴谋家 -> Conspirer
+- 收割者 -> Reaper
+- 铁血骑士 -> Iron-blooded Knight
+- 战争主教 -> War Bishop
+- 天气术士 -> Weather Warlock
+- 征服者 -> Conqueror
+- 红祭司 -> Red Priest
+- 萨满 -> Shaman
+- 画家 -> Painter
+- 文艺青年 -> Literary Aficionado
+- 小精灵 -> Pixie
+- 访客 -> Visitor
+- 弦乐师 -> String Player
+- 维度阴影 -> Dimensional Shadow
+- 观察者 -> Observer
+- 潜月之眼 -> Sublunary Eye
+- 舞蹈家 -> Dancer
+- 托钵僧侣 -> Alms Monk
+- 契约者 -> Contractee
+- 苦修者 -> Ascetic
+- 命定之徒 / 宿命窃取者 -> Fate Appropriator
+- 环中人 -> Circle Inhabitant
+- 受难者 -> Sufferer
+- 罪人 -> Sinner
+- 救赎天使 -> Angel of Redemption
+- 画中世界 / 画卷世界 -> Painting World
+- 次元穿梭 -> Dimension Shifting
 
 - 创生者 -> Life Giver
 - 克莱恩·莫雷蒂 -> Klein Moretti
