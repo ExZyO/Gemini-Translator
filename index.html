@@ -1995,8 +1995,30 @@ FORMATTING & STRUCTURE RULES:
           exportHistory: JSON.parse(localStorage.getItem('exportHistory') || '[]')
         };
         if (shouldIncludeKeys) {
-          backup.apiKeysByProvider = apiKeysByProvider;
+          const exportKeys = {};
+          ['gemini', 'deepseek', 'openai', 'claude', 'deepl', 'libre'].forEach(prov => {
+            const legacyKey = localStorage.getItem(`${prov}ApiKey`) || (prov === 'gemini' ? (localStorage.getItem('apiKey') || '') : '');
+            const profiles = (apiKeysByProvider && apiKeysByProvider[prov]) ? [...apiKeysByProvider[prov]] : [];
+            if (profiles.length > 0) {
+              exportKeys[prov] = profiles.map(p => {
+                if (!p.key && legacyKey) return { ...p, key: legacyKey };
+                return p;
+              });
+            } else if (legacyKey) {
+              const provNames = { gemini: 'Gemini', deepseek: 'DeepSeek', openai: 'OpenAI', claude: 'Claude', deepl: 'DeepL', libre: 'LibreTranslate' };
+              exportKeys[prov] = [{ id: `${prov}-init`, name: `Primary ${provNames[prov] || prov} Key`, key: legacyKey }];
+            } else {
+              exportKeys[prov] = [];
+            }
+          });
+
+          backup.apiKeysByProvider = exportKeys;
           backup.activeKeyIds = activeKeyIds;
+          backup.geminiApiKey = exportKeys.gemini?.[0]?.key || localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey') || '';
+          backup.deepseekApiKey = exportKeys.deepseek?.[0]?.key || localStorage.getItem('deepseekApiKey') || '';
+          backup.openaiApiKey = exportKeys.openai?.[0]?.key || localStorage.getItem('openaiApiKey') || '';
+          backup.claudeApiKey = exportKeys.claude?.[0]?.key || localStorage.getItem('claudeApiKey') || '';
+          backup.deeplApiKey = exportKeys.deepl?.[0]?.key || localStorage.getItem('deeplApiKey') || '';
           backup.libreUrl = libreUrl;
         }
         const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -2005,7 +2027,7 @@ FORMATTING & STRUCTURE RULES:
         a.download = `gemini_translator_backup_${shouldIncludeKeys ? 'with_keys_' : ''}${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(a.href);
-        toast(shouldIncludeKeys ? 'Full backup (+ API Keys) downloaded!' : 'Full backup downloaded!');
+        toast(shouldIncludeKeys ? 'Full backup (+ API Keys) downloaded!' : 'Full backup (No Keys) downloaded!');
       };
 
       const applyRestoredData = (data) => {
@@ -2024,7 +2046,9 @@ FORMATTING & STRUCTURE RULES:
         }
 
         // 2. Full Backup format
-        let keysRestored = false;
+        let keyCount = 0;
+        let restoredKeys = {};
+
         if (data.savedGlossaries && Array.isArray(data.savedGlossaries)) {
           setSavedGlossaries(data.savedGlossaries);
           localStorage.setItem('savedGlossaries', JSON.stringify(data.savedGlossaries));
@@ -2075,26 +2099,73 @@ FORMATTING & STRUCTURE RULES:
           setContextAware(data.contextAware);
           localStorage.setItem('contextAware', data.contextAware);
         }
+
+        // Restore API Key Profiles
         if (data.apiKeysByProvider && typeof data.apiKeysByProvider === 'object') {
-          setApiKeysByProvider(data.apiKeysByProvider);
-          localStorage.setItem('apiKeysByProvider', JSON.stringify(data.apiKeysByProvider));
-          keysRestored = true;
+          ['gemini', 'deepseek', 'openai', 'claude', 'deepl', 'libre'].forEach(prov => {
+            const list = data.apiKeysByProvider[prov];
+            if (Array.isArray(list) && list.length > 0) {
+              restoredKeys[prov] = list;
+              list.forEach(k => {
+                if (k.key && k.key.trim()) keyCount++;
+              });
+              if (list[0]?.key) {
+                localStorage.setItem(`${prov}ApiKey`, list[0].key);
+                if (prov === 'gemini') localStorage.setItem('apiKey', list[0].key);
+              }
+            }
+          });
         }
+
+        // Support Legacy Single Keys in backup
+        const legacyMappings = {
+          gemini: data.geminiApiKey || data.apiKey || '',
+          deepseek: data.deepseekApiKey || '',
+          openai: data.openaiApiKey || '',
+          claude: data.claudeApiKey || '',
+          deepl: data.deeplApiKey || ''
+        };
+
+        Object.entries(legacyMappings).forEach(([prov, lKey]) => {
+          if (lKey && lKey.trim()) {
+            localStorage.setItem(`${prov}ApiKey`, lKey);
+            if (prov === 'gemini') localStorage.setItem('apiKey', lKey);
+            if (!restoredKeys[prov] || restoredKeys[prov].length === 0) {
+              const provNames = { gemini: 'Gemini', deepseek: 'DeepSeek', openai: 'OpenAI', claude: 'Claude', deepl: 'DeepL', libre: 'LibreTranslate' };
+              restoredKeys[prov] = [{ id: `${prov}-init`, name: `Primary ${provNames[prov] || prov} Key`, key: lKey }];
+              keyCount++;
+            } else if (!restoredKeys[prov][0].key) {
+              restoredKeys[prov][0].key = lKey;
+              keyCount++;
+            }
+          }
+        });
+
+        if (Object.keys(restoredKeys).length > 0) {
+          setApiKeysByProvider(prev => {
+            const updated = { ...prev, ...restoredKeys };
+            localStorage.setItem('apiKeysByProvider', JSON.stringify(updated));
+            return updated;
+          });
+        }
+
         if (data.activeKeyIds && typeof data.activeKeyIds === 'object') {
           setActiveKeyIds(data.activeKeyIds);
           localStorage.setItem('activeKeyIds', JSON.stringify(data.activeKeyIds));
         }
-        if (data.apiKey) {
-          setApiKey(data.apiKey);
-          localStorage.setItem('apiKey', data.apiKey);
-          keysRestored = true;
-        }
+
         if (data.libreUrl) {
           setLibreUrl(data.libreUrl);
           localStorage.setItem('libreUrl', data.libreUrl);
         }
 
-        toast(keysRestored ? 'App data + API key profiles restored!' : 'App data restored successfully!');
+        if (keyCount > 0) {
+          toast(`✅ Restored ${keyCount} API key profile(s), glossaries, and settings!`);
+        } else if (data.includesApiKeys === false || (!data.apiKeysByProvider && !data.geminiApiKey && !data.deepseekApiKey)) {
+          toast('ℹ️ Restored settings & glossaries (Notice: this backup file contained no API keys).', 'info');
+        } else {
+          toast('App data restored successfully!');
+        }
       };
 
       const importFullBackup = async (e) => {
@@ -3616,32 +3687,21 @@ p {
                       })
                     )
                   ),
-                  h('p', { className: 'text-xs text-slate-500 dark:text-slate-400 font-medium' }, 'Save or migrate all your glossaries, key profiles, translation histories, and preferences in one click.'),
-                  
-                  // Checkbox toggle to include API Keys
-                  h('label', { className: 'flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 dark:text-slate-300 py-1' },
-                    h('input', {
-                      type: 'checkbox',
-                      checked: includeApiKeysInBackup,
-                      onChange: e => {
-                        setIncludeApiKeysInBackup(e.target.checked);
-                        localStorage.setItem('includeApiKeysInBackup', e.target.checked);
-                      },
-                      className: 'w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 accent-indigo-600 cursor-pointer'
-                    }),
-                    h('span', null, 'Include API Key Profiles in backup export'),
-                    includeApiKeysInBackup && h('span', { className: 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700' }, 'Keys Included')
-                  ),
+                  h('p', { className: 'text-xs text-slate-500 dark:text-slate-400 font-medium' }, 'Migrate your entire setup (glossaries, translation history, preferences, and API key profiles) between your laptop and phone.'),
 
                   h('div', { className: 'flex flex-wrap gap-2 pt-1' },
                     btn({
-                      onClick: () => exportFullBackup(includeApiKeysInBackup),
-                      className: `px-3.5 sm:px-4 py-2 text-white text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer ${includeApiKeysInBackup ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500'}`
-                    }, ic(Download, 15), includeApiKeysInBackup ? 'Export Backup (+ API Keys)' : 'Export Full Backup (.JSON)'),
+                      onClick: () => exportFullBackup(true),
+                      className: 'px-3.5 sm:px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 hover:shadow-amber-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
+                    }, ic(Key, 14), 'Export Backup (+ API Keys)'),
+                    btn({
+                      onClick: () => exportFullBackup(false),
+                      className: 'px-3.5 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
+                    }, ic(Shield, 14), 'Export (No Keys)'),
                     h('label', {
-                      className: 'px-3.5 sm:px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
+                      className: 'px-3.5 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
                     },
-                      ic(Upload, 15),
+                      ic(Upload, 14),
                       'Restore From File',
                       h('input', {
                         type: 'file',
@@ -3652,8 +3712,8 @@ p {
                     ),
                     btn({
                       onClick: pasteAndRestoreBackup,
-                      className: 'px-3.5 sm:px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
-                    }, ic(Clipboard, 15), 'Paste JSON')
+                      className: 'px-3.5 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
+                    }, ic(Clipboard, 14), 'Paste JSON')
                   )
                 )
               )
