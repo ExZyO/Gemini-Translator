@@ -275,7 +275,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.0.6';
+    const VERSION = '5.0.7';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -348,6 +348,101 @@
       }
       const cost = ((promptTokens / 1000000) * inPerM) + ((outputTokens / 1000000) * outPerM);
       return cost < 0.0001 && cost > 0 ? '$0.0001' : `$${cost.toFixed(4)}`;
+    };
+
+    // ═══════════════════════════════════════
+    // INDEXEDDB ENGINE (High-Capacity Storage)
+    // ═══════════════════════════════════════
+    const DB_NAME = 'GeminiTranslatorDB';
+    const DB_VERSION = 1;
+
+    const openAppDB = () => {
+      return new Promise((resolve) => {
+        if (!window.indexedDB) return resolve(null);
+        try {
+          const req = window.indexedDB.open(DB_NAME, DB_VERSION);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('history')) {
+              db.createObjectStore('history', { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains('glossaries')) {
+              db.createObjectStore('glossaries', { keyPath: 'name' });
+            }
+            if (!db.objectStoreNames.contains('kv')) {
+              db.createObjectStore('kv', { keyPath: 'key' });
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => resolve(null);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    };
+
+    const dbGetAll = async (storeName) => {
+      const db = await openAppDB();
+      if (!db) return null;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(storeName, 'readonly');
+          const store = tx.objectStore(storeName);
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve(null);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    };
+
+    const dbPut = async (storeName, value) => {
+      const db = await openAppDB();
+      if (!db) return false;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(storeName, 'readwrite');
+          const store = tx.objectStore(storeName);
+          const req = store.put(value);
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => resolve(false);
+        } catch (e) {
+          resolve(false);
+        }
+      });
+    };
+
+    const dbDelete = async (storeName, key) => {
+      const db = await openAppDB();
+      if (!db) return false;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(storeName, 'readwrite');
+          const store = tx.objectStore(storeName);
+          const req = store.delete(key);
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => resolve(false);
+        } catch (e) {
+          resolve(false);
+        }
+      });
+    };
+
+    const dbClear = async (storeName) => {
+      const db = await openAppDB();
+      if (!db) return false;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(storeName, 'readwrite');
+          const store = tx.objectStore(storeName);
+          const req = store.clear();
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => resolve(false);
+        } catch (e) {
+          resolve(false);
+        }
+      });
     };
 
     const formatDuration = (ms) => {
@@ -1953,14 +2048,15 @@
       }, [inputText, currentFileHash, provider, contextAware]);
 
       useEffect(() => {
-        const g = JSON.parse(localStorage.getItem('savedGlossaries') || '[]');
-        setSavedGlossaries(g);
-        const h = JSON.parse(localStorage.getItem('translationHistory') || '[]');
-        setHistory(h);
+        const localG = JSON.parse(localStorage.getItem('savedGlossaries') || '[]');
+        setSavedGlossaries(localG);
+        const localH = JSON.parse(localStorage.getItem('translationHistory') || '[]');
+        setHistory(localH);
+        
         const dg = localStorage.getItem('defaultGlossaryName');
         if (dg) {
           setDefaultGlossaryName(dg);
-          const found = g.find(x => x.name === dg);
+          const found = localG.find(x => x.name === dg);
           if (found) {
             setTerminology(found.content || '');
             setCustomInstructions(found.instructions || '');
@@ -1975,6 +2071,33 @@
           const savedInst = localStorage.getItem('customInstructions');
           if (savedInst) setCustomInstructions(savedInst);
         }
+
+        // Async IndexedDB hydration & auto-migration
+        (async () => {
+          try {
+            const dbHist = await dbGetAll('history');
+            if (dbHist && dbHist.length > 0) {
+              const sorted = dbHist.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+              setHistory(sorted);
+            } else if (localH && localH.length > 0) {
+              for (const item of localH) {
+                await dbPut('history', item);
+              }
+            }
+
+            const dbGloss = await dbGetAll('glossaries');
+            if (dbGloss && dbGloss.length > 0) {
+              setSavedGlossaries(dbGloss);
+            } else if (localG && localG.length > 0) {
+              for (const gItem of localG) {
+                await dbPut('glossaries', gItem);
+              }
+            }
+          } catch (e) {
+            console.warn('IndexedDB initial sync note:', e);
+          }
+        })();
+
         if (typeof window.pdfjsLib !== 'undefined') window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
       }, []);
 
@@ -2324,12 +2447,14 @@ FORMATTING & STRUCTURE RULES:
 
         if (data.savedGlossaries && Array.isArray(data.savedGlossaries)) {
           setSavedGlossaries(data.savedGlossaries);
-          localStorage.setItem('savedGlossaries', JSON.stringify(data.savedGlossaries));
+          try { localStorage.setItem('savedGlossaries', JSON.stringify(data.savedGlossaries)); } catch (e) {}
+          data.savedGlossaries.forEach(g => dbPut('glossaries', g));
           glossaryCount = data.savedGlossaries.length;
         }
         if (data.translationHistory && Array.isArray(data.translationHistory)) {
           setHistory(data.translationHistory);
-          localStorage.setItem('translationHistory', JSON.stringify(data.translationHistory));
+          try { localStorage.setItem('translationHistory', JSON.stringify(data.translationHistory.slice(0, 10))); } catch (e) {}
+          data.translationHistory.forEach(h => dbPut('history', h));
         }
         if (data.exportHistory && Array.isArray(data.exportHistory)) {
           localStorage.setItem('exportHistory', JSON.stringify(data.exportHistory));
@@ -2485,8 +2610,8 @@ FORMATTING & STRUCTURE RULES:
       // --- Modal ---
       const confirmAction = (msg, cb) => { setModalMessage(msg); setModalCallback(() => () => { cb(); setShowModal(false) }); setShowModal(true) };
 
-      // --- History ---
-      const addToHistory = (src, tgt, prov, input, output, stats = null) => {
+      // --- History (IndexedDB Unlimited Storage + LocalStorage Fallback) ---
+      const addToHistory = async (src, tgt, prov, input, output, stats = null) => {
         try {
           const entry = {
             id: genId(),
@@ -2500,42 +2625,83 @@ FORMATTING & STRUCTURE RULES:
             fullOutput: output || '',
             stats
           };
-          let updated = [entry, ...history].slice(0, 10);
+          
+          // 1. Unlimited storage in IndexedDB
+          await dbPut('history', entry);
+
+          // 2. React state update
+          setHistory(prev => [entry, ...(prev || [])]);
+
+          // 3. Fallback sync to localStorage
           try {
-            localStorage.setItem('translationHistory', JSON.stringify(updated));
-            setHistory(updated);
-          } catch (storageErr) {
-            // If localStorage quota is tight, keep the newest 3 entries to ensure zero crashes
-            updated = [entry, ...history.slice(0, 3)];
-            try {
-              localStorage.setItem('translationHistory', JSON.stringify(updated));
-              setHistory(updated);
-            } catch (e) {}
-          }
+            const lightList = [entry, ...(history || []).slice(0, 9)].map(h => ({
+              ...h,
+              fullInput: (h.fullInput && h.fullInput.length > 3000) ? (h.fullInput.substring(0, 3000) + '...[Full text in IndexedDB]') : h.fullInput,
+              fullOutput: (h.fullOutput && h.fullOutput.length > 3000) ? (h.fullOutput.substring(0, 3000) + '...[Full text in IndexedDB]') : h.fullOutput
+            }));
+            localStorage.setItem('translationHistory', JSON.stringify(lightList));
+          } catch (e) {}
         } catch (e) {
           console.warn('History storage note:', e);
         }
       };
-      const loadFromHistory = entry => { setInputText(entry.fullInput); setAssembledText(entry.fullOutput); setSrcLang(entry.srcLang || 'Auto-detect'); setTgtLang(entry.tgtLang || 'English'); setActiveTab('text'); toast('Loaded from history') };
-      const clearHistory = () => { confirmAction('Clear all history?', () => { setHistory([]); localStorage.setItem('translationHistory', '[]'); toast('History cleared.', 'info') }) };
-      const deleteHistoryItem = id => { const u = history.filter(h => h.id !== id); setHistory(u); localStorage.setItem('translationHistory', JSON.stringify(u)) };
 
-      const exportHistoryJSON = () => {
-        const historyData = (history && history.length > 0) ? history : (() => {
-          try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
-        })();
+      const loadFromHistory = async entry => {
+        let fullIn = entry.fullInput;
+        let fullOut = entry.fullOutput;
+        if (!fullIn || !fullOut || fullIn.includes('[Full text in IndexedDB]')) {
+          const all = await dbGetAll('history');
+          const found = (all || []).find(x => x.id === entry.id);
+          if (found) {
+            fullIn = found.fullInput || fullIn;
+            fullOut = found.fullOutput || fullOut;
+          }
+        }
+        setInputText(fullIn || '');
+        setAssembledText(fullOut || '');
+        setSrcLang(entry.srcLang || 'Auto-detect');
+        setTgtLang(entry.tgtLang || 'English');
+        setActiveTab('text');
+        toast('Loaded translation from history!');
+      };
+
+      const clearHistory = () => {
+        confirmAction('Clear all translation history?', async () => {
+          await dbClear('history');
+          setHistory([]);
+          localStorage.setItem('translationHistory', '[]');
+          toast('Translation history cleared.', 'info');
+        });
+      };
+
+      const deleteHistoryItem = async (id) => {
+        await dbDelete('history', id);
+        const u = history.filter(h => h.id !== id);
+        setHistory(u);
+        try { localStorage.setItem('translationHistory', JSON.stringify(u.slice(0, 10))); } catch (e) {}
+      };
+
+      const exportHistoryJSON = async () => {
+        let historyData = await dbGetAll('history');
+        if (!historyData || historyData.length === 0) {
+          historyData = (history && history.length > 0) ? history : (() => {
+            try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
+          })();
+        }
 
         if (!historyData || historyData.length === 0) {
           return toast('No translation history to export.', 'warning');
         }
 
+        const sorted = historyData.sort((a, b) => new Date(b.ts) - new Date(a.ts));
         const exportObj = {
           app: 'Gemini EPUB Translator',
           type: 'history_export',
+          storageEngine: 'IndexedDB',
           version: VERSION,
           exportedAt: new Date().toISOString(),
-          totalEntries: historyData.length,
-          history: historyData
+          totalEntries: sorted.length,
+          history: sorted
         };
 
         const jsonStr = JSON.stringify(exportObj, null, 2);
@@ -2549,7 +2715,7 @@ FORMATTING & STRUCTURE RULES:
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast(`Exported ${historyData.length} history entries (JSON)!`, 'success');
+        toast(`Exported ${sorted.length} history records (IndexedDB)!`, 'success');
       };
 
       const exportSingleHistoryItem = (entry) => {
