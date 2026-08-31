@@ -21,18 +21,127 @@ self.onmessage = async function(e) {
       self.postMessage({ id, success: true, results });
     } else if (type === 'FILTER_GLOSSARY') {
       const { glossaryText, targetChunk } = payload;
-      const lines = (glossaryText || '').split(/\r?\n/);
-      const matched = [];
-      const lowerChunk = (targetChunk || '').toLowerCase();
-      for (const line of lines) {
+      if (!glossaryText || !glossaryText.trim() || !targetChunk || !targetChunk.trim()) {
+        self.postMessage({ id, success: true, filteredText: glossaryText || '' });
+        return;
+      }
+      const lines = glossaryText.split(/\r?\n/);
+      const globalRules = [];
+      const blocks = [];
+      let currentBlock = null;
+      let isGlobalSection = false;
+
+      const lowerChunk = targetChunk.toLowerCase();
+      const chunkTokens = new Set(lowerChunk.match(/[a-z0-9_'-]{2,}/g) || []);
+
+      const flushCurrentBlock = () => {
+        if (currentBlock && currentBlock.lines.length > 0) {
+          currentBlock.searchKeys = Array.from(new Set(currentBlock.searchKeys.filter(Boolean)));
+          blocks.push(currentBlock);
+          currentBlock = null;
+        }
+      };
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
-        const term = trimmed.split(/[:=\t->]/)[0].trim().toLowerCase();
-        if (term && term.length >= 2 && lowerChunk.includes(term)) {
-          matched.push(trimmed);
+        if (!trimmed) { flushCurrentBlock(); continue; }
+
+        if (/^(?:#+\s*)?(?:[I|V|X]+\.|\d+\.)?\s*(?:SYSTEM TRANSLATION RULES|STYLE GUIDELINES|SYSTEM RULES|TRANSLATION RULES|GENERAL RULES|PROMPT RULES)/i.test(trimmed)) {
+          isGlobalSection = true;
+          flushCurrentBlock();
+        } else if (/^(?:#+\s*)?(?:[I|V|X]+\.|\d+\.)?\s*(?:CORE TERMINOLOGY|VOCABULARY|CHARACTER DIRECTORY|CHARACTERS|SEFIROT|PATHWAYS|HONORIFIC NAMES|SEALED ARTIFACTS|MYTHICAL CREATURE|ORGANIZATIONS|OUTER DEITIES)/i.test(trimmed)) {
+          isGlobalSection = false;
+          flushCurrentBlock();
+        }
+
+        if (isGlobalSection) {
+          globalRules.push(line);
+          continue;
+        }
+
+        const isChildLine = /^(\s{2,}|\t|\*|\+|\s*[-•]\s*["']|\s*["'])/.test(line) &&
+          !/^[-*•]?\s*[\u4e00-\u9fa5]{1,10}\s*(?:->|:|=)/.test(trimmed) &&
+          !/^[A-Z][a-zA-Z0-9\s'.-]{2,30}\s*-\s+[A-Za-z]/.test(trimmed);
+
+        if (isChildLine && currentBlock) {
+          currentBlock.lines.push(line);
+          const subCjk = trimmed.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]{1,}/g);
+          if (subCjk) currentBlock.searchKeys.push(...subCjk);
+          const subArtifacts = trimmed.match(/\b\d+-\d+\b/g);
+          if (subArtifacts) currentBlock.searchKeys.push(...subArtifacts);
+        } else {
+          flushCurrentBlock();
+          currentBlock = { lines: [line], searchKeys: [] };
+          const cjkMatches = trimmed.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]{1,}/g);
+          if (cjkMatches) currentBlock.searchKeys.push(...cjkMatches);
+
+          if (trimmed.includes('->') || trimmed.includes('=') || (trimmed.includes(':') && !trimmed.startsWith('http'))) {
+            const parts = trimmed.split(/->|=|:(?!\/\/)/);
+            if (parts.length >= 2) {
+              const leftKey = parts[0].replace(/^[-*•#\d.\s]+/, '').trim();
+              if (leftKey && leftKey.length >= 1) {
+                leftKey.split(/[/|,]/).forEach(k => {
+                  const cleaned = k.trim().replace(/\(.*\)/, '').trim();
+                  if (cleaned) currentBlock.searchKeys.push(cleaned);
+                });
+              }
+              const parenMatches = parts[1].match(/\(([^)]+)\)/g);
+              if (parenMatches) {
+                parenMatches.forEach(p => {
+                  const inner = p.replace(/[()]/g, '');
+                  inner.split(/[/|,]/).forEach(alias => {
+                    const cleanAlias = alias.trim();
+                    if (cleanAlias.length >= 2) currentBlock.searchKeys.push(cleanAlias);
+                  });
+                });
+              }
+            }
+          }
+
+          const charDirMatch = trimmed.match(/^[-*•]?\s*([A-Za-z\s'.-]+)\s*-\s*(.+)$/);
+          if (charDirMatch) {
+            const name = charDirMatch[1].trim();
+            if (name && name.length >= 2 && !/^(Sequence|Grade|Pathway|Authorities|Counters|Formula|Epoch|Pillars?)$/i.test(name)) {
+              currentBlock.searchKeys.push(name);
+            }
+          }
+          const artMatches = trimmed.match(/\b\d+-\d+\b/g);
+          if (artMatches) currentBlock.searchKeys.push(...artMatches);
+
+          const seqMatch = trimmed.match(/Sequence\s+\d+:\s*([A-Za-z\s()'-]+)/i);
+          if (seqMatch) {
+            const seqName = seqMatch[1].replace(/\(.*\)/, '').trim();
+            if (seqName && seqName.length >= 2) currentBlock.searchKeys.push(seqName);
+          }
+
+          const deityMatch = trimmed.match(/^[-*•]?\s*([A-Za-z\s'.-]+):$/);
+          if (deityMatch) {
+            const dName = deityMatch[1].trim();
+            if (dName && dName.length >= 2) currentBlock.searchKeys.push(dName);
+          }
         }
       }
-      self.postMessage({ id, success: true, matchedLines: matched });
+      flushCurrentBlock();
+
+      const matchedBlocks = [];
+      for (const block of blocks) {
+        if (!block.searchKeys || block.searchKeys.length === 0) continue;
+        const isMatch = block.searchKeys.some(key => {
+          if (!key) return false;
+          if (/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/.test(key)) return targetChunk.includes(key);
+          const lowerKey = key.toLowerCase();
+          if (lowerKey.length <= 4) return chunkTokens.has(lowerKey) || lowerChunk.includes(lowerKey);
+          return lowerChunk.includes(lowerKey);
+        });
+        if (isMatch) matchedBlocks.push(block.lines.join('\n'));
+      }
+
+      let filteredText = '';
+      if (globalRules.length > 0) filteredText += '=== SYSTEM TRANSLATION RULES & STYLE GUIDELINES ===\n' + globalRules.join('\n').trim() + '\n\n';
+      if (matchedBlocks.length > 0) filteredText += '=== RELEVANT CHAPTER TERMINOLOGY & GLOSSARY ===\n' + matchedBlocks.join('\n\n');
+
+      self.postMessage({ id, success: true, filteredText: filteredText.trim() });
     } else if (type === 'OPTIMIZE_CHUNKS') {
       const { text, maxPayload, promptOverhead } = payload;
       const targetSize = (maxPayload || 4500) - (promptOverhead || 800);
