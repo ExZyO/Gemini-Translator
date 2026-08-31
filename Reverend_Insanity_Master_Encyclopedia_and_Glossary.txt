@@ -7,7 +7,8 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
 - Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical omissions. Output ONLY pure translated chapter text.
 
 - Classical Poetry, Chanted Songs & Mythic Parables: When characters recite classical Chinese poems, sing martial ballads (e.g. Feng Jiu Ge's Destiny/Submission/Separation Song, Fang Yuan's verses), or when narrating excerpts from <<The Legends of Ren Zu>> (人祖传):
-  * Translate poems and songs with lyrical meter, evocative rhythmic cadence, stanza line breaks, and natural poetic elegance rather than flat prose.
+  * Direct Emotional Weight & Punchy Power: Translate poems into evocative, rhythmically resonant English verse prioritizing direct emotional weight, heroic clarity, and poetic meter rather than overly literal obscure nature metaphors (e.g. render "早岁已知世事艰...千磨万击心铸铁...炼蛊炼人还炼天" as "In my youth I knew the hardships of the world... A heart of steel forged from countless setbacks... Refine Gu! Refine Human! Refine Heaven!!").
+  * Exclamatory Battle-Cry Climaxes: Use sharp, punchy imperative and exclamatory phrasing for climactic poem endings rather than weak passive/participle forms.
   * In <<The Legends of Ren Zu>> and mythic parables, preserve strict anaphoric repetition (e.g. repeating "On what basis... / If such... / Then let me...") and word-for-word identical refrains across allegorical birds, beasts, and fishes to maintain the sacred, liturgical fable cadence.
 
 II. COSMOLOGY, THE GU WORLD, FIVE REGIONS & TWO HEAVENS
