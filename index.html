@@ -2,35 +2,19 @@
 <html lang="en">
 
 <head>
-  <script>
-    // Automatic cache purger & Service Worker unregisterer
-    (function() {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-          for (var i = 0; i < regs.length; i++) {
-            regs[i].unregister();
-          }
-        });
-      }
-      if ('caches' in window) {
-        caches.keys().then(function(keys) {
-          keys.forEach(function(k) {
-            caches.delete(k);
-          });
-        });
-      }
-    })();
-  </script>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Gemini Translator</title>
   <meta name="description"
-    content="AI-powered translation with Gemini, DeepL, and LibreTranslate. Supports PDF, EPUB, TXT files with glossary management.">
+    content="AI-powered translation with Gemini, DeepSeek, DeepL, and LibreTranslate. Supports PDF, EPUB, TXT files with glossary management.">
+  <meta name="theme-color" content="#4f46e5">
   <link rel="manifest" href="./manifest.json">
-  <link rel="apple-touch-icon" href="https://placehold.co/192x192/8b5cf6/ffffff?text=GT" sizes="192x192">
+  <link rel="icon" type="image/png" href="./favicon.png">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Gemini Translator">
+  <meta name="apple-mobile-web-app-title" content="Translator">
   <link rel="stylesheet" href="./styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -279,7 +263,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.4.5';
+    const VERSION = '5.4.6';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2054,6 +2038,28 @@
       const [useCustomOpenaiModel, setUseCustomOpenaiModel] = useState(false);
       const [customClaudeModel, setCustomClaudeModel] = useState('');
       const [useCustomClaudeModel, setUseCustomClaudeModel] = useState(false);
+      const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+      useEffect(() => {
+        const handlePrompt = (e) => {
+          e.preventDefault();
+          setDeferredPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handlePrompt);
+        return () => window.removeEventListener('beforeinstallprompt', handlePrompt);
+      }, []);
+
+      const handleInstallPWA = async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        try {
+          const choice = await deferredPrompt.userChoice;
+          if (choice && choice.outcome === 'accepted') {
+            toast('Gemini Translator installed successfully!');
+          }
+        } catch (e) {}
+        setDeferredPrompt(null);
+      };
 
       // --- Multi-Key Profile Management Helpers ---
       const addApiKey = (prov) => {
@@ -4584,7 +4590,14 @@ p {
               h('h1', { className: 'text-xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent' }, 'Gemini Translator'),
               h('span', { className: 'text-[11px] sm:text-xs font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full' }, `v${VERSION}`)
             ),
-            h('button', { onClick: () => setDarkMode(!darkMode), className: 'p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer', 'aria-label': 'Toggle dark mode' }, ic(darkMode ? Sun : Moon, 20))
+            h('div', { className: 'flex items-center gap-2' },
+              deferredPrompt && h('button', {
+                onClick: handleInstallPWA,
+                className: 'px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all animate-pulse cursor-pointer',
+                title: 'Install App on Phone / Desktop'
+              }, ic(Download, 14), h('span', { className: 'hidden sm:inline' }, 'Install App'), h('span', { className: 'sm:hidden' }, 'Install')),
+              h('button', { onClick: () => setDarkMode(!darkMode), className: 'p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer', 'aria-label': 'Toggle dark mode' }, ic(darkMode ? Sun : Moon, 20))
+            )
           )
         ),
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gemini-translator-v5.4.5';
+const CACHE_NAME = 'gemini-translator-v5.4.6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -6,6 +6,10 @@ const ASSETS_TO_CACHE = [
     './worker.js',
     './icons.js',
     './manifest.json',
+    './icon-192.png',
+    './icon-512.png',
+    './apple-touch-icon.png',
+    './favicon.png',
     './splitter.js',
     './merger.js',
     './epub_studio_ui.js',
