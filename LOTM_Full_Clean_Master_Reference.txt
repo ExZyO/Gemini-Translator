@@ -1,0 +1,2556 @@
+LORD OF THE MYSTERIES (LOTM) - MASTER TRANSLATION & GLOSSARY REFERENCE
+
+I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
+
+1. Translation Priority & Formatting
+- Format Preservation: Prioritise maintaining the exact original format and spacing between words, paragraphs, and sentences.
+- Accuracy & Completeness: Translate with as much detail and accuracy as possible into English, cross-referencing sequences, pathways, and character names. Never omit, drop, or forget words or sentences.
+- No Page Breaks: Do NOT output "---Page End ---". Format chapter headings strictly as "Chapter [number]: [Name]" or "Chapter [number] - [Name]".
+- Hyperlinks: Ignore all URL links.
+
+2. Quotation Marks & Naming Conventions
+- Do NOT use quotation marks around personal names or Tarot Club code names unless present in the raw untranslated text:
+  * Correct: Mr. Star, Mr. Sun, Miss Justice, The Fool, Mr. Error, The World, The Hermit
+  * Incorrect: "Mr. Star", "Mr. Sun", "Miss Justice", "The Fool", "The World"
+- Do NOT use quotation marks around ordinary words, sequence names, or locations unless explicitly quoted in the original text:
+  * Correct: Black Emperor mausoleum, Sefirah Castle
+  * Incorrect: "Black Emperor" mausoleum, "Sefirah Castle"
+- Mandatory Quotation Exceptions:
+  * Divine Pronouns: Whenever referring to a deity or divine existence using 祂, translate as "He", "Him", "She", or "Her" (with quotation marks). Ensure contextually correct pronouns; do not mistakenly use "He"/"Him" when the text refers to second-person "you".
+  * Specific Authorities and Concepts: Keep quotes on "Grafted", "Grafting", "Theft", "Fooling", "eternal daytime".
+- Full Names vs. Short Names:
+  * Use full names only when present in the original text.
+  * Example: 克莱恩 -> Klein; 克莱恩·莫雷蒂 -> Klein Moretti.
+- Preposition for Sefirah Castle: Always use "in Sefirah Castle" (a location/space), never "on Sefirah Castle" or "the Sefirah Castle".
+- Capitalization: Do not capitalize terms unless capitalized in standard English novel conventions or indicated in this glossary.
+
+3. Terminology & Phrasing Corrections
+- Convergence: Use "convergence" (not aggregation).
+- Corruption: Use "corruption" (not pollution).
+- Cosmos: Use "cosmos" (not starry sky).
+- Self-Awareness: Use "self-awareness" (not self-cognition).
+- Emperor: Use "Emperor Roselle" (not Great Emperor Roselle).
+- Great Old One: Always use "Great Old One" (not Old One).
+- Church of Evernight: Refer casually as "the Evernight Goddess" (lowercase "the").
+- Church of Earth Mother: Use "Church of the Earth Mother" (not The Earth Church).
+- Chained Pathway: Use "Chained Pathway" (not Variant Pathway).
+- Genie / Magic Wishing Lamp: Translate as "Genie" (also referred to as Magic Wishing Lamp or The Magic Wishing Lamp).
+- Classical Alchemist: Use "Classical Alchemist" (not Ancient Alchemist).
+- The Chaos Sea: Ensure appropriate definite article based on context (the Chaos Sea).
+- Primordial Demoness: Real name is Cheek.
+- Sanguine Sequence Titles (Moon Pathway after Seq 7): Baron (Sequence 6), Viscount (Sequence 5), Earl (Sequence 4), Marquis (Sequence 3), Duke (Sequence 2), Queen (Sequence 1), Sanguine Ancestor Lilith on top of all.
+- Key Character Pathway References:
+  * Cattleya is from The Hermit Pathway (Sequence 4 Mysticologist, Sequence 3 Clairvoyant, Sequence 2 Sage, Sequence 1 Knowledge Emperor).
+  * Audrey Hall is from the Visionary Pathway (can use Placate).
+  * Edwina Edwards is Sequence 4 Prophet (White Tower Pathway).
+- Sacred Emblem of The Fool: Pupil-less Eye and Contorted Lines, representing secrecy and change.
+- Reinette Tinekerr Mythical Creature Form: Appears as tall as a castle, but shrinks to normal size in the real world. Regains a head on "Her" neck after advancing to Sequence 1 Abomination.
+- Universal Titles: Dominator of The Spirit World, Sovereign of The Physical World, Lord of The Astral World.
+- Church of Evernight Title Variations: the Church of Evernight, The Church of the Evernight Goddess, Church of Evernight, Nation of the Evernight.
+
+4. Style & Paragraph Demonstration Examples
+- Example 1 (Tarot Club Narrative Flow):
+  * Incorrect:
+    "Hermit" Cattleya and "Star" Leonard Mitchell also quickly calmed down. The former, relying on her own knowledge and experience, believed that an existence with a status like "The Fool" could not disappear without warning. Even if something went wrong, He would leave a backup plan in advance; the latter glanced subconsciously in the direction of "The World", while thinking about whether to ask the Old Neil after returning later.
+  * Correct:
+    The Hermit Cattleya and The Star Leonard Mitchell also quickly calmed down. The former, relying on her own knowledge and experience, believed that an existence with a status like The Fool could not disappear without warning. Even if something went wrong, "He" would leave a backup plan in advance; the latter glanced subconsciously in the direction of The World, while thinking about whether to ask Old Neil after returning later.
+
+- Example 2 (Divine Existence & Pillar References):
+  * Incorrect:
+    If that "Lord of The Mysteries" completely replaced "The Fool," then "He" could be said to be a complete Pillar-although no one really wanted to see such an outcome, but if such a "Lord of The Mysteries" were on Earth, at least "He" wouldn't be too passive when facing existences like the "Mother Goddess of Depravity" and the "Mother Tree of Desire."
+  * Correct:
+    If that Lord of The Mysteries completely replaced The Fool, then "He" could be said to be a complete Pillar—although no one really wanted to see such an outcome, but if such a Lord of The Mysteries were on Earth, at least "He" wouldn't be too passive when facing existences like the Mother Goddess of Depravity and the Mother Tree of Desire.
+
+- Reusable Classic Phrasing References:
+  * "Free things cost the most!"
+  * "You're crazy." / "you're crazy." / "You're really crazy."
+  * "I won't lose too much, just myself."
+  * "There are always some things that are more important than others."
+  * "The taste of a demoness ain't bad."
+
+II. CORE TERMINOLOGY & VOCABULARY BANK
+
+Fundamental Beyonder Concepts:
+- 诡秘之主 (Guimi zhi Zhu) -> Lord of the Mysteries
+- 唯一性 (Weiyixing) -> Uniqueness
+- 非凡特性 (Feifan Texing) -> Beyonder Characteristic(s)
+- 特性 (Texing) -> Characteristic(s)
+- 序列 (Xulie) -> Sequence (Seq)
+- 途径 (Tujing) -> Pathway
+
+Essential Vocabulary Words:
+- Entities & Concepts: Avatar, marionette, Worm of Spirit, Spirit Worm, placated, Great Old One, Pillar, Pillar of The Universe, mysticism, Danitz, Nighthawk, Honorific Name, characteristics, Beyonder Characteristics, Uniqueness, Apocalypse, Hexes, Queen Mystic, King of Angels, King of Kings of Angels, True God, Arrodes, the Hall of Truth, The Great Smog of Backlund, Flegrea, Admiral of Blood, the magic mirror, Above the Sequences, the River of Eternal Darkness, the Chaos Sea, the Lord of The Mysteries, Lord of The Mysteries, Phoenix Ancestor, Phoenix Ancestor Gregrace, Gregrace, the Primordial One, Forsaken Land of the Gods, Forsaken Land of God, the Giant King's Court, ruins of the battle of the gods, battle of the god's ruin, The Revelation of Evernight, divine revelation, Grounded Angels, Grounded Angel, Parasitizing, Pirate Kings, Pirate King, King of the Five Seas, Queen of Stars, King of Immortality, Queen of Ailment, King of Dusk, King of the Black Throne, Pirate Admiral, Pirate Admirals, copper whistle, Vice Admiral Hurricane, Lanevus, The Fool's Gambit, Blessed, Mythical Creature, Child of God, doll, dolls, spiritual intuition, convergence, corruption, "eternal daytime", theft, "Theft", "Fooling", "Fooling" authority, The Annihilation Demonic Wolf, half-crazy, half-mad, divinity, godhood.
+- Sefirot & Mystical Locations: grayish-white fog, gray fog, the Hall of Truth, River of Eternal Darkness, Chaos Sea, Sefirah Castle, Brood Hive, Tenebrous World, Nation of Disorder, City of Calamity, Key of Light, Knowledge Moor, Spirit World, Astral World, Underworld, Mind World, Mirror World, Abyss, Cosmos, Calderon City, Foggy Town, City of Miracles Livesyd, long bronze table, bronze table, mottled long bronze table, ancient mottled bronze table, bluish-black door.
+- Geographical & Historical Terms: Loen, Loen Kingdom, Intis, Intis Republic, Feysac Empire, Feynapotter Kingdom, Tingen, Tingen City, Lenburg, Masin, Segar, East Balam, West Balam, Highlands Kingdom, Bansy Harbour, Binsy Town, Binsy, Sonia Sea, Forsaken Land of the Gods, Forsaken Land of God, the Giant King's Court, ruins of the battle of the gods, battle of the god's ruin, Berserk Sea, City of Silver, Moon City, Chernobyl, Poto Harbour, Waypoint Island, Hanth Island, Sonia Island, Rosted Archipelago, Bayam, Gargas Archipelago, Fog Sea, Fog Sea Archipelago, Farim, Banamo Island, Primitive Island, Polar Sea, North Sea, Southern Continent, Northern Continent, Western Continent, Tiana Port, Pritz Harbour, the New City of Silver, Midseashire, Belltaine City, Belltaine, Hornacis, Zouteland Street, Iron Cross Street, Besik Street, Champagne Street, Pelican Street, Daffodil Street, Khoy University.
+- Epochs & Historical Eras: Pre-Epoch, 1st Epoch, 2nd Epoch (Dark Epoch), 3rd Epoch (The Cataclysm / The Cataclysm Epoch / Epoch of The Gods), 4th Epoch (Pale Era, The Iron Age, Early Era of Fire, Dual Era, Warring Era, First Solomon Empire, Tudor Empire, Tudor-Trunsoest United Empire, Tudor-Trunsoest Underground Ruins, Balam Empire, War of The Four Emperors), 5th Epoch.
+- Titles & Factions: Queen Mystic, Arrodes, The Great Smog of Backlund, Flegrea, Admiral of Blood, the magic mirror, Phoenix Ancestor Gregrace, Gregrace, the Primordial One, The Revelation of Evernight, divine revelation, King of the Five Seas, Queen of Stars, King of Immortality, Queen of Ailment, King of Dusk, King of the Black Throne, Pirate Admiral, Pirate Admirals, Vice Admiral Hurricane, Siatas, Groselle, Elven Songster Siatas, Mobet Zoroast, Frunziar Edward, Queen of Calamity Cohinem, Elf King Soniathrym, Cohinem, Soniathrym, Dragon of Imagination Ankewelt, Quill of Alzuhood, Adol, Temperance Faction, Indulgence Faction, Machinery Hivemind, Fertility Order, Mandated Punishers, Inquisition, the Eternal Blazing Sun, the True Creator, Megose, True Creator's child, Giant King Aurmir, God of Dawn Badheil, Wind Angel Leodero, Sanguine Ancestor, Earth Mother, God of Craftsmanship, God of Steam and Machinery, Dragon of Betrayal Herabergen, Heraberg, God of Glory Bladel, the Black Emperor Card, the Black Emperor Card of Blasphemy, Miss Messenger, Chained God, Primordial Moon Faction, Angel of Mercury, Angel of Death, Angel of Redemption, Angel of Life, Angel of Retribution, Angel of the Holy Spirit, Angel of Time, Angel of Stars, Mahmosi, Tirie, Abomination Suah, Winner Enuni, Enzo, Biles, Roy, Phil, Pasha, Weber, Dragon of Nightmare, God Almighty, Twilight Sword, The Annihilation Demonic Wolf, Angel of Imagination, Dark Angel, White Angel, Wisdom Angel, Dark Side of The Universe, Devil Monarch Farbauti, Primordial God Almighty, Church of the God of Combat, Church of the Earth Mother, Church of the Lord of Storms, the Tyrant's Church, Church of the God of Knowledge, Church of the Eternal Blazing Sun, Church of Steam, Church of the God of Steam and Machinery, Church of The Fool, Church of Evernight, The Church of the Evernight Goddess, Nation of the Evernight.
+- Titles & Descriptions: Blazing Danitz, King of the North Ulyssan, Nation of Frost, quasi-demigod, tycoon, daze, dazed expression, Jimmy Necker, Trissy, Tracy, Helene.
+
+III. CHINESE / ENGLISH CHARACTER NAME & ENTITY DIRECTORY
+
+- 创生者 -> Life Giver
+- 克莱恩·莫雷蒂 -> Klein Moretti
+- 小克 -> Little Ke
+- 周明瑞 -> Zhou Mingrui
+- 愚者 -> The Fool
+- 愚者先生 -> Mr. Fool
+- 世界 -> The World
+- 夏洛克·莫里亚蒂 -> Sherlock Moriarty
+- 格尔曼·斯帕罗 -> Gehrman Sparrow
+- 道恩·唐泰斯 -> Dwayne Dantes
+- 梅林·赫尔墨斯 -> Merlin Hermes
+- 奥黛丽·霍尔 -> Audrey Hall / Miss Audrey / Miss Justice / Justice Audrey
+- 阿尔杰·威尔逊 -> Alger Wilson / The Hanged Man
+- 戴里克·伯格 -> Derrick Berg / Mr. Sun
+- 佛尔思·沃尔 -> Fors Wall / The Magician
+- 咸鱼 -> Salted Fish
+- 埃姆林·怀特 -> Emlyn White / The Moon
+- 伦纳德·米切尔 -> Leonard Mitchell / The Star / Mr. Star
+- 嘉德丽雅 -> Cattleya / The Hermit / Madame Hermit
+- 休·迪尔查 -> Xio Derecha / Judgment
+- 阿兹克·艾格斯 -> Azik Eggers
+- 老尼尔 -> Old Neil
+- 戴莉·西蒙妮 -> Daly Simone
+- 邓恩·史密斯 -> Dunn Smith
+- 因斯·赞格威尔 -> Ince Zangwill
+- 特莉丝 -> Trissy
+- 老科勒 -> Old Kohler
+- A先生 -> Mr. A
+- 潘娜蒂亚 -> Panatiya
+- 莎伦 -> Sharron
+- 马里奇 -> Maric
+- 乌特拉夫斯基 -> Utravsky
+- 威尔·昂赛汀 -> Will Auceptin / Will Ceres
+- 蕾妮特·缇尼科尔 -> Reinette Tinekerr / Miss Messenger
+- 达尼兹·迪布瓦 -> Danitz Dubois / Blazing Danitz
+- 弗兰克·李 -> Frank Lee
+- 艾德雯娜·爱德华兹 -> Edwina Edwards
+- 安德森·胡德 -> Anderson Hood
+- 弗罗拉·雅各 -> Flora Jacob / Flora Jacobs
+- 海柔尔·马赫特 -> Hazel Macht
+- 帕列斯·索罗亚斯德 -> Pallez Zoroast
+- 安提哥努斯 -> Antigonus
+- 阿蒙 -> Amon / Mr. Error
+- 亚当 -> Adam
+- 格里沙 -> Grisha
+- 远古太阳神 -> Ancient Sun God (City of Silver's Creator / 白造 / 白银城造物主)
+- 萨斯利尔 -> Sasrir / Sarsir
+- 真实造物主 -> True Creator
+- 天尊 -> Celestial Worthy
+- 伯特利·亚伯拉罕 -> Bethel Abraham / Mr. Door
+- 黑夜女神 -> Evernight Goddess / the Evernight Goddess / Evernight
+- 阿曼妮西斯 -> Amanises
+- 罗塞尔·古斯塔夫 -> Roselle Gustav
+- 黄涛 -> Huang Tao
+- 贝尔纳黛·古斯塔夫 -> Bernadette Gustav / Queen Mystic
+- 乌洛琉斯 -> Ouroboros / 5664
+- 梅迪奇 -> Medici
+- 科林·伊利亚特 -> Colin Iliad
+- 洛薇雅·蒂芙尼 -> Lovia Tiffany / Lovia Tifanny
+- 奥尔尼娅 -> Auernia
+- 阿里安娜 -> Arianna
+- 天之母亲 / 隐秘之天使 -> Mother of the Sky / 0-17 / Angel of Concealment
+- 亚利斯塔·图铎 -> Alista Tudor
+- 特伦索斯特 -> Trunsoest
+- 查拉图 -> Zaratul
+- 莉莉丝 -> Lilith / Sanguine Ancestor Lilith
+- 大地母神 -> Earth Mother
+- 欧弥贝拉 -> Omebella
+- 萨林格尔 -> Salinger
+- 死神 -> Death
+- 永恒烈阳 -> Eternal Blazing Sun
+- 奥赛库斯 -> Aucuses
+- 知识与智慧之神 -> God of Knowledge and Wisdom
+- 赫拉伯根 -> Herabergen / Heraberg
+- 蒸汽与机械之神 -> God of Steam and Machinery / 蒸汽 (Steam) / God of Craftsmanship
+- 风暴之主 -> Lord of Storms
+- 列奥德罗 -> Leodero
+- 堕落母神 -> Mother Goddess of Depravity
+- 欲望母树 -> Mother Tree of Desire
+- 原初魔女 (奇克) -> Primordial Demoness / Cheek
+- 源堡 -> Sefirah Castle
+- 灰雾 -> Gray Fog
+- 塔罗会 -> Tarot Club
+- 0-08 / 阿勒苏霍德之笔 -> Quill of Alzuhod
+- 0-01 / 萨林格尔的血旗 -> Salinger's Blood Banner (0-01)
+- 蠕动的饥饿 -> Creeping Hunger
+- 丧钟 -> Death Knell
+- 莱曼诺的魔法书 -> Leymano's Spellbook
+- 海神权杖 -> Sea God Scepter
+- 许愿神灯 / 神灯 -> Magic Wishing Lamp / Genie
+
+IV. COSMOLOGY, SEFIROT, EPOCHS & BEYONDER LAWS
+
+Known Sefirot:
+1. Chaos Sea
+2. Sefirah Castle
+3. Brood Hive
+4. Tenebrous World
+5. Nation of Disorder
+6. City of Calamity
+7. River of Eternal Darkness
+8. Key of Light
+9. Knowledge Moor
+
+Note: The River of Eternal Darkness and City of Calamity symbolize the yet-to-exist hidden 4th Pillar.
+
+Core Beyonder Laws & Principles:
+- Acting Method
+- Beyonder
+- First Blasphemy Slate
+- Divination
+- Tarot Cards
+- Uniquenesses
+- Only Above the Sequence (ATS) or Great Old One (GOO)
+- Law of Beyonder Characteristics Indestructibility
+- Law of Beyonder Characteristics Convergence
+- Law of Similar Sequence Beyonder Characteristics Conservation
+
+Epochs:
+- Pre-Epoch
+- 1st Epoch
+- 2nd Epoch (Dark Epoch)
+- 3rd Epoch (The Cataclysm / The Cataclysm Epoch / Epoch of The Gods)
+- 4th Epoch (Pale Era / The Iron Age / Early Era of Fire / Dual Era / Warring Era / First Solomon Empire / War of The Four Emperors)
+- 5th Epoch
+
+V. ORGANIZATIONS & FACTIONS
+
+Second Epoch:
+- Great White Brotherhood
+
+Third Epoch:
+- Rose Redemption
+
+Fourth Epoch:
+- Twilight Hermit Order
+- Moses Ascetic Order
+- Demoness Sect
+- Mirror People
+- Secret Order
+- Blood Sanctify Sect
+
+Beginning of the Fifth Epoch:
+- Theosophy Order
+- Numinous Episcopate
+- Life School of Thought
+- Rose School of Thought
+
+Newly Founded in the Fifth Epoch:
+- Aurora Order
+- Iron and Blood Cross Order
+- Psychology Alchemists
+- Element Dawn
+- Hermits of Fate
+- Naturism Sect
+- Tarot Club
+- Celestial Research Association
+
+Founded After the World War (Fifth Epoch):
+- Curly-Haired Baboons Research Society
+- April Fool's
+- Sinners
+- Nightstalkers
+- Bliss Society
+- Order of All Extinction
+- Entry Persons
+- Dreamseekers
+- School of God's Descent
+- School of Truth
+- Sick Church
+- School of Deliciousness
+- Fantasy Association
+
+VI. COMPLETE CHARACTER DIRECTORY (A–Z WITH PATHWAYS)
+
+A
+- Aaron Ceres - Human
+- Ace Snake - Tyrant
+- Adam - Visionary
+- Ademisaul - Wheel of Fortune
+- Agalito - Abyss
+- Agrippina - Mother (Sequence 4 or 3)
+- Aguesid Negan - Justiciar
+- Aiflor - Visionary
+- Ait - Twilight Giant
+- Aiur Moria - Human
+- Albus Medici - Red Priest
+- Alexis - Moon
+- Alfred Hall - Justiciar
+- Alger Wilson - Tyrant / Hanged Man
+- Alice Moretti - Human
+- Alicia Tamara - Black Emperor
+- Alista Tudor - Red Priest
+- Alzuhod - Visionary
+- Amandina - Darkness
+- Amon - Error
+- Amyrius Rieveldt - Justiciar
+- Ancient Sun God - Visionary / Hanged Man / Tyrant / Sun / White Tower (God Almighty)
+- Anderson Hood - Red Priest
+- Andy Haydn - Justiciar
+- Angouleme de Francois - Sun
+- Animal Trainer - Human
+- Ankewelt - Visionary
+- Annette Sanson - Eternal Aeon
+- Anthony Reid - Visionary
+- Anthony Stevenson - Darkness
+- Antigonus - Fool
+- Antoine - Twilight Giant
+- Antoine (Secret Order) - Fool
+- Apollo - Sun
+- Argos - Moon
+- Arianna - Darkness
+- Ariehogg - Visionary
+- Artificial Death - Death
+- Associate Professor - Hermit
+- Atur Sanson - Eternal Aeon
+- Audrey Hall - Visionary
+- Auernia - Moon
+- Aulisa - Door
+- Aurmir - Twilight Giant
+- Aurore Lee - Hermit / Eternal Aeon
+- Awatoma Einhorn - Red Priest
+- Ava Lizier - Human
+- Azik Eggers - Death
+
+B
+- Bainar - Tail-Devourer
+- Bakerland Jean Madan - Red Priest
+- Bard - Error
+- Barranca - Chained
+- Barton - Human
+- Basil - Abyss
+- Batna Comte - Human
+- Baynfel - Hanged Man
+- Beatrice Incourt - Patriarch
+- Belize - Justiciar
+- Bella - Paragon
+- Benson Moretti - Black Emperor
+- Berg - White Tower
+- Bernadette Gustav - Hermit
+- Bethel Abraham - Door
+- Biles - Tyrant
+- Bilt Brando - Unknown (Sequence 7 or 6)
+- Bladel - Twilight Giant
+- Bliss Sanson - Eternal Aeon
+- Bornova Gustav - Paragon
+- Botis - Door
+- Bouvard Pont-Pero - Eternal Aeon
+- Bram Andariel - Abyss
+- Bredt - Human
+- Breeder Master - Mother
+- Brignais - White Tower
+- Brood Hive - Mother / Moon
+- Browns Sauron - Demoness
+- Bulatov Ivan - Twilight Giant
+- Burman - Death
+- Beost - Chaos Primogenitor
+
+C
+- Caitlyn Hall - Human
+- Cali - Chained
+- Camus Castiya - Justiciar
+- Capim - Unknown (possibly Justiciar)
+- Carnot - Unknown
+- Cassandra - Orator
+- Castina - Chaos Primogenitor
+- Cathy - Chaos Primogenitor
+- Cattleya - Hermit
+- Celeste - Demoness
+- Celestial Master - Hermit / Paragon
+- Celestial Thearch - Black Emperor / Justiciar
+- Celestial Worthy of Heaven and Earth for Blessings - Fool / Door / Error (Lord of The Mysteries)
+- Celt - Justiciar
+- Celia Bello - Demoness
+- Cesare Francis - Human
+- Chained God - Chained
+- Charlie Collent - Human
+- Charlotte Calvino - Patriarch
+- Chasel Savio - Human
+- Chen Tu - Human
+- Christo - Moon
+- Ciel Gustav - Paragon
+- Cielf June - Paragon
+- Circle of Inevitability - Eternal Aeon (Circle of Inevitability)
+- Clarice - Demoness
+- Class Khizi - Unknown
+- Claude - Paragon (Sequence 4 or 3)
+- Clemence Athana - Visionary
+- Cohinem - Tyrant
+- Colin Iliad - Twilight Giant
+- Condensed Matter - Hermit
+- Connors Viktor - Human
+- Constace Sanson - Eternal Aeon
+- Cosmi Odora - Moon
+- Crestet Cesimir - Darkness
+- Cynthia - Patriarch
+
+D
+- Dabomachie - Twilight Giant
+- Dalberro - Second Law
+- Daly Simone - Death
+- Danitz Dubois - Red Priest
+- Darc Regence - Twilight Giant
+- Darkwill - Moon
+- Davy Raymond - Darkness
+- Daxter Guderian - Visionary
+- Demoness of Blue - Demoness
+- Demoness of Brown - Demoness
+- Demoness of Gold - Demoness
+- Demoness of Green - Demoness
+- Demoness of Orange - Demoness
+- Demoness of Purple - Demoness
+- Demoness of Scarlet - Demoness
+- Demoness of Silver - Demoness
+- Derrick Berg - Sun
+- Devajo Andariel - (Unassigned)
+- Devil Dog - Abyss
+- Diest - Red Priest
+- Dlink Augustus - Justiciar
+- Doll Messenger - Unknown
+- Doragu Gale - Human
+- Dorian Gray Abraham - Door
+- Dunn Smith - Darkness
+
+E
+- Earl Hall - Human
+- Ed Sheeran - Human
+- Edessak Augustus - Human
+- Edefana - Visionary
+- Edmonton - Unknown (Mid Sequence)
+- Edwards - Human
+- Edwina Edwards - White Tower
+- Egor Einhorn - Red Priest
+- Einhorn - Red Priest
+- Elizabeth - Human
+- Elland Kag - Justiciar
+- Elodie - Human
+- Elros Einhorn - Red Priest
+- Emlyn White - Moon
+- Enzo - Wheel of Fortune
+- Eric - Darkness
+- Ernes Boyar - Moon
+- Escalante Oseleka - Visionary
+- Eternal Blazing Sun - Sun
+- Evernight Goddess - Darkness / Death / Twilight Giant (Eternal Darkness)
+
+F
+- Farbauti - Abyss
+- Fernandez Oro - Condenser
+- Flameng - Human
+- Flegrea - Fool
+- Flight Ken - Chained
+- Flora Jacob - Error
+- Floren Sauron - Red Priest
+- Fors Wall - Door
+- Framis Cage - Human
+- Franca Roland - Demoness
+- Frank Lee - Mother
+- Mr. Franky - Human
+- Frunziar Edward - Justiciar
+- Frye - Death
+- Funkel - Human
+
+G
+- Gaard II - Tyrant
+- Gabriel - Human
+- Galis Kevin - Moon
+- Gandalf - Twilight Giant (Sequence 4 or 3)
+- Gardner Martin - Red Priest
+- Gawain - Human
+- George Augustus III - Black Emperor
+- Georgina Augustus - Justiciar
+- Giant - Hanged Man
+- Glacis - Human
+- Glaint - Moon
+- God of Combat - Twilight Giant
+- God of Knowledge and Wisdom - White Tower
+- God of Steam and Machinery - Paragon
+- Goddess of Fate - Eternal Edict
+- Golden Buddha - Wheel of Fortune / Key of Light (Quasi)
+- Gonlun - Twilight Giant
+- Gray - Twilight Giant
+- Gregrace - Death
+- Grimm - Human
+- Groselle - Twilight Giant
+- Grove Augustus - Justiciar
+- Guei - White Tower
+- Guillaume Benet - Eternal Aeon
+- Gusain - Red Priest / Chaos Primogenitor
+
+H
+- Haiter - Death
+- Hamilton - Tyrant
+- Hanass Vincent - Hanged Man
+- Harman - Chaos Primogenitor
+- Harras - Justiciar
+- Harrison - Error
+- Hart - Chaos Primogenitor
+- Hawick - Death
+- Hazel Macht - Error
+- Headmaster - Moon
+- Heath Doyle - Hanged Man
+- Hedsey - Patriarch
+- Hela - Darkness / Death
+- Helene - Red Priest
+- Hendry - Hermit
+- Henry Augustus I - Human
+- Hermes - Visionary
+- Hibbert Hall - Human
+- Hidden Sage - Hermit
+- Higdon - Second Law
+- High-Dimensional Overseer - Sublunary Eye
+- Hilarion - Human
+- Hilbert Alucard - Visionary
+- Hisoka - Abyss / Chained
+- Holle Sassen - Human
+- Holy Monk - Wheel of Fortune / Key of Light
+- Hood Eugen - Visionary
+- Horamick Haydn - Paragon
+- Howl Constantine - Tyrant
+- Hugues Artois - Human
+- Hvin Rambis - Visionary
+- Heloise - Eternal Edict
+
+I
+- I Know Someone - Visionary
+- Ian Wright - Human
+- Iesus - Human
+- Ikanser Bernard - Paragon
+- Ilya - Darkness
+- Imre - Sun (Mid Sequence)
+- Ince Zangwill - Darkness
+- Inextinguishable Ravings - Everlasting
+- Isengard Stanton - White Tower
+- Isotope - Hermit
+- Ive - Patriarch
+- Iveljsta Eggers - Chained
+
+J
+- Jack - Human
+- Jack Walton - Paragon
+- Jacob - Door
+- Jahn Kottman - Tyrant
+- Jasmine - Human
+- Jason - Chained
+- Jason Beria - Abyss
+- Jebus Lata - Chaos Mist
+- Jenna - Demoness
+- Jevington Augustus - Human
+- Jimmy Necker - Human
+- Jodeson - Error
+- Joyce Meyer - Human
+- Juan Oro - Condenser
+- Judith - Demoness
+- Julie - Demoness
+- Julien Bello - Paragon
+- Jurgen Cooper - Human
+- Jorg - Black Emperor
+
+K
+- Kalat - Unknown (mid sequence)
+- Kalvetua - Tyrant
+- Kapusky Reid - Human
+- Kaslana - Justiciar
+- Kaspars Kalinin - Human
+- Katarina Pelle - Demoness
+- Katy - Justiciar
+- Kenley White - Darkness
+- Kircheis - Abyss
+- Kisma - Hanged Man
+- Klarman - Moon
+- Klein Moretti - Fool / Door / Error (Lord of The Mysteries)
+- Kmerolo - Hermit
+- Kolobo - Wheel of Fortune
+- Kotar - Fool
+- Krismona - Demoness
+- Kuthumi - Human
+- Kvastir - Chained
+
+L
+- La Nou Bruch - Moon
+- Lady Moon - Chaos Primogenitor
+- Lanevus - Error
+- Larrion - Twilight Giant
+- Lawrence Nord - Door
+- Leah Bellot - Fool
+- Legere - Twilight Giant
+- Leomaster - Hanged Man
+- Leon - Hermit
+- Leonard Mitchell - Darkness
+- Leticia Dolera - Human
+- Lewis Wien - Door
+- Lez - Tail-Devourer
+- Liaval - Twilight Giant
+- Lilith - Mother
+- Lius - Death
+- Loban - Human
+- Lockhart Siakam - Black Emperor
+- Loki - Fool
+- Lord of Storms - Tyrant
+- Lorotta - Death
+- Louis Gustav - Unknown (Sequence 4 or 3)
+- Louis Lund - Chaos Primogenitor
+- Lovia Tiffany - Hanged Man
+- Luan - Black Emperor
+- Lucca Brewster - White Tower
+- Lucy Brook - Human
+- Ludwell - Death
+- Ludwig Phil - Tail-Devourer
+- Lugano Toscano - Mother
+- Luke Sammer - Human
+- Lumian Lee - Red Priest / Demoness (Calamity of Destruction)
+- Luo Shan - Shaman
+- Lutique - Sun
+
+M
+- Ma'am Greed - Visionary
+- Mad Lady - Door
+- Mahmosi - Chained
+- Maipu Meyer - Patriarch
+- Malevolent Dragon - Red Priest / Demoness (Calamity of Destruction)
+- Margot - Red Priest
+- Marianne - Darkness
+- Maric - Chained
+- Mary Schott - Human
+- Mason - Twilight Giant
+- Mason Dere - Justiciar
+- Master of the Shadow Cottage - Abyss / Chained (Quasi-Father of Devils)
+- Maury Macht - Human
+- Maveti - Chained
+- Maysanchez - Death
+- Medici - Red Priest
+- Megose - Human
+- Melissa Moretti - Paragon
+- Meursault - Red Priest
+- Michel - Human
+- Mike Joseph - Human
+- Millet - Tyrant
+- Millet Carter - Human
+- Mirror Roselle Gustav - Paragon / Hermit
+- Miss Sloth - Visionary
+- Mistral - Moon
+- Mithor King - Black Emperor
+- Mobet Zoroast - Error
+- Mocoxidos - Second Law
+- Monarch of Decay - Second Law
+- Mother Goddess of Depravity - Mother / Moon / Chaos Primogenitor
+- Mother of the Sky - Darkness
+- Mother Tree of Desire - Abyss / Chained / Patriarch
+- Mr. A - Hanged Man
+- Mr. Door - Door
+- Mr. Envy - Visionary
+- Mr. Gluttony - Visionary
+- Mr. Harry - Visionary
+- Mr. Lust - Visionary
+- Murskogan - Twilight Giant
+
+N
+- Nast Solomon - Black Emperor
+- Nibbs Odora - Moon
+- Nim - Darkness
+- Nina - Tyrant
+
+O
+- Ol' Keaton - Human
+- Old Kohler - Human
+- Old Neil - Hermit
+- Olmer - Moon
+- Omebella - Mother
+- Orianna - Human
+- Original Creator - All Pathways
+- Orpheus - Sun
+- Ouroboros - Wheel of Fortune
+- Ozil - Twilight Giant
+
+P
+- Pacheco Dwayne - Black Emperor
+- Palenque Taciblius - Unknown (Sequence 4)
+- Pallas Negan - Justiciar
+- Pallez Zoroast - Error
+- Panatiya - Demoness
+- Parker - Justiciar
+- Parvi - Human
+- Pasha - Red Priest
+- Patrick Bryan - Death
+- Pauli Derlau - Visionary
+- Phil - Error
+- Portland Moment - Paragon
+- Primordial Demoness - Demoness
+- Primordial God Almighty - Visionary / Hanged Man / Tyrant / Sun / White Tower (God Almighty)
+- Primordial Hunger - Tail-Devourer
+
+Q
+- Qilangos - Tyrant
+- Qonas Kilgor - Black Emperor
+
+R
+- Rafter Pound - Black Emperor
+- Ralph - Human
+- Randall Valentinus - Tyrant
+- Ray Bieber - Human
+- Rebach - Human
+- Reinette Tinekerr - Chained
+- Ricciardo - Wheel of Fortune
+- Richardson - Human
+- Roland - Mother
+- Rosago - Fool
+- Roselle Gustav - Black Emperor
+- Roy - Twilight Giant
+- Roy King - Wheel of Fortune
+- Royale Reideen - Darkness
+- Rozanne - Human
+- Rus Bathory - Moon
+
+S
+- Saint Germain - Human
+- Salinger - Death
+- Sasrir - Hanged Man
+- Sauron - Red Priest
+- Sauron-Einhorn-Medici - Red Priest
+- Savigny Solomon - Black Emperor
+- Seeka Tron - Darkness
+- Selena - Darkness
+- Selena Wood - Human
+- Senor - Chained
+- Serapis - Human
+- Shanks - Chained
+- Sharon - Demoness
+- Sharron - Chained
+- Shermane - Demoness
+- Sia Palenque Eggers - Death
+- Siatas - Tyrant
+- Sirius Arapis - Hanged Man
+- Smine - Human
+- Snowman - Sun
+- Soest - Darkness
+- Solomon - Black Emperor
+- Son of Chaos - Black Emperor / Justiciar / Chaos Mist
+- Soniathrym - Tyrant
+- Squall - Abyss
+- Stelyn Sammer - Human
+- Steph - Hanged Man
+- Stephen Hampres - Visionary
+- Steve - Chained
+- Stratford - Justiciar
+- Suah - Chained
+- Suited Clown - Fool
+- Supernova Dominator - Condenser
+- Susie - Visionary
+- Swain - Tyrant
+- Syndras - Human
+
+T
+- Talim Dumont - Human
+- Tamara - Justiciar (Sequence 2 or 1)
+- Tony Twain - Red Priest
+- Tracey - Demoness
+- Tracy - Demoness
+- Trissy - Demoness
+- True Creator - Hanged Man
+- Trunsoest - Justiciar
+- Tutanssess II - Chained
+- Tyre - Chained
+
+U
+- Uddel - Twilight Giant (Mid Sequence, 6 or 5)
+- Ukfa Connerchris - Mother
+- Ukfa - (No pathway provided, likely same as Ukfa Connerchris)
+- Ulika - Death
+- Ulyssan - Unknown
+- Utravsky - Twilight Giant
+
+V
+- Venithan - Human
+- Verdu Garcia - Door
+- Vernal Fnarr - Human
+
+W
+- Waite Chirmont - Twilight Giant
+- Walter - Human
+- Waymandy - Moon
+- Weber - Human
+- Weimer - Human
+- Welch McGovern - Human
+- Wendel - Justiciar
+- Wendy Smyrin - Human
+- Will Auceptin / Ceres - Wheel of Fortune
+- William Augustus I - Justiciar
+- William Augustus VI - Human
+- Windsor Behring - Moon
+
+X
+- Xio Derecha - Justiciar
+
+Z
+- Zaratul - Fool
+- Zaratul Senior - Fool
+- Zatwen - Chained
+- Zoroast - Error
+
+VII. HONORIFIC NAMES & DIVINE TITLES
+
+- Adam:
+  "The Lord that Created Everything, The Omnipotent and Omniscient God, The Lord who Reigns Behind the Curtain of Shadows, The Ruler of the Mind World, The Degenerate Nature of all Living Things."
+  ("His" Honorific Name after fusing with the True Creator.)
+
+- Amon:
+  * King of Angels: "The Clock-Hand that Tampers with Time, The Shadow that Roams across Fate, The Embodiment of Deceit and Trickery."
+  * God: "The Trojan Horse of Fate, The Slug of Time, The Loopholes in Rules, The Manifestation of All Errors."
+  * Current: "The Shadow Wandering through Fate, The Past God of Deceit, The Destined Messiah."
+
+- Ancient Sun God:
+  "The Lord that Created Everything, The Omnipotent and Omniscient, The Source of Everything Great, The Beginning and The End, The God of Gods, Ruler of the vast Astral World."
+
+- Arrodes:
+  "Eyes that watch All Living Beings; The Stigmata from the Primordial Land; The Omniscient One who serves The Fool; The Great Arrodes."
+
+- Awatoma Einhorn:
+  "The Ruler of the Fog of the Battlefield; The Symbol of Weather Flux; The Totem of the Storm and Lightning; The Great Awatoma Einhorn."
+
+- Bernadette Gustav:
+  "The Sacred Spirit that Pursues Knowledge; The Mysterious World's Lighthouse; Eyes that Pry into Fate; The Royalty above the Sea; The Pure and Holy Bernadette Gustav."
+
+- Bethel Abraham:
+  "Great Door of All Doors; Guide of Endless Cosmos; Key to all Mysterious Worlds."
+
+- Celestial Worthy of Heaven and Earth for Blessings:
+  * General: "Lord of Mysteries; King of Space-Time; Beacon of Destiny; Embodiment of Sefirah Castle; Dominator of the Spirit World."
+  * In Western Continent (Daoist):
+    "The Immortal Lord of Heaven and Earth for Blessings;
+    The Sky Lord of Heaven and Earth for Blessings;
+    The Exalted Thearch of Heaven and Earth for Blessings;
+    The Celestial Worthy of Heaven and Earth for Blessings."
+
+- Circle of Inevitability:
+  "The Eternal Cycle; The Predestined Destiny; Embodiment of Cause, Effect, and Process; Symbol of Past, Present, and Future." (Note: During prayers and rituals, the latter two segments may be adapted in various ways).
+
+- Death:
+  "The Essence of Death; Lord of the Dead; Final Home to all Living-beings."
+
+- Earth Mother:
+  "The Source of Life; The Mother of All Things; The Propagation of the Fertile Land; The Symbol of the Crimson Moon and Reproduction; The Destination and the Starting Point of Everything."
+
+- Eternal Blazing Sun:
+  "Eternal Blazing Sun; Inextinguishable Light; Embodiment of Order; God of Contracts; Guardian of Businesses." (Also has the title: "Father of All Life," but it's just something used by "His" Church when proselytizing and is beyond "Him" in mysticism.)
+
+- Evernight Goddess:
+  * Former: "The Evernight Goddess stands higher than the cosmos and more eternal than eternity. The Lady of Crimson, The Mother of Concealment, The Empress of Misfortune and Horror, Mistress of Repose and Silence."
+  * Current: "The Evernight Goddess stands higher than the cosmos and more eternal than eternity. The Mother of Concealment, The Empress of Misfortune and Horror, Mistress of Repose and Silence." (Note: After the 1350 World War, "Lady of Crimson" was removed from "Her" title, since "She" gave up the authority of the moon.)
+
+- Fors Wall:
+  "Cosmic Traveler, Beholden to the King of Yellow and Black, The Sorcerer chronicling the World." ("Her" Honorific Name carries the power to conceal secrets from others.)
+
+- Franca Roland (God of Disease):
+  * Former: "The Ancient One who transcends time, One who remains forever young, Envoy of Disease and Plague, Lady who spreads pain and despair, Protector of humanity's adventurous spirit, The Great God of Disease."
+  * Current: "The Ancient One who transcends time, One who remains forever young, Envoy of Disease and Plague, Lady who spreads pain and despair, Protector of humanity's adventurous spirit, Companion to the Great Malady God."
+
+- Gehrman Sparrow:
+  * First: "The Blessed of the Spirit World and the Sefirah Castle; The Mystery stemming from ancient times; The Witness of an extended history; Protector of Backlund magic and drama performers; The Great Gehrman Sparrow."
+  * Second: "The Blessed of the Spirit World and the Sefirah Castle; The Mystery stemming from ancient times; The Witness of an extended history; Protector of all poor children in Backlund; The Great Gehrman Sparrow."
+  * Current: "The Blessed of the Spirit World and the Sefirah Castle; The Mystery stemming from ancient times; The Witness of an extended history; Angel who redeems mankind; Protector of all impoverished children; The Great Gehrman Sparrow."
+
+- Goddess of Fate:
+  "The Weaver of All Fates; The Symbol of Ultimate Judgement; The Eternal Goddess of the Future."
+
+- God of Combat:
+  "Symbol of Power and Glory, The Great Knight God; Master of War, Patron of Guns; Twilight of All Things."
+
+- God of Knowledge and Wisdom:
+  "Power of Knowledge; Power of Reason; God of Wisdom!"
+
+- God of Steam and Machinery:
+  "Embodiment of Essence; Guardian of Craftsmen; Brilliance of Technology."
+
+- Haiter:
+  "The King from the depths of Hell; An Angel playing the Music of Death; The Ruler above the River Styx."
+
+- High-Dimensional Overseer:
+  "The Lord of Dimensions; The Eye Overlooking the Mortal Realm; The Source of All Illusions; The Creator of the Painting World." (Translation Note: "一切幻想的源头" actually means "The Source of All Fantasies", instead of "The Source of All Illusions" from the official Webnovel English translation.)
+
+- Inextinguishable Ravings:
+  "The Philosophical Essence; The Inextinguishable Ravings; The Symbolism of Life's Spirit; The Eternal Consciousness."
+
+- Kotar:
+  "The Dark Lord that exists alongside History, The Embodiment of Countless Miracles, The God of Wishes."
+
+- Lumian Lee:
+  * God of Plague: "The Lady more ancient than the times; Servant of Calamity; Child of Plague and Disease; Destroyer who walks in Shadows; Guide of all lost lambs in Trier; The Great God of Plague."
+  * First: "The Chariot of Mr. Fool; Proxy of Chaos and War; The Dual-Bodied One Forged by Fire and Frost; Unaging Saint Bearing Destruction; The Great Lumian Lee."
+  * Second: "Beholden to the King of Yellow and Black; Priest of Weather and Plague; The Dual-Bodied One who Spreads War and Chaos."
+  * Third / Current: "Beholden to the King of Yellow and Black; Priest of the Apocalypse and War; The Multi-Faced Conqueror of All. The True Malady God."
+
+- Lord of Storms:
+  "King of the Skies; Emperor of the Seas; Lord of the Calamity; God of the Storms."
+
+- Medici:
+  "The Great God of War; The Symbol of Iron and Blood; The Ruler of Chaos and Strife." (Note: Because "He" had accommodated the Uniqueness of the Red Priest Pathway, "He" could use this three-line Honorific Name that was supposed to be pointing to true gods. After Medici's transformation into an evil spirit, this Honorific Name now points to Sauron-Einhorn-Medici.)
+
+- Monarch of Decay:
+  "The Inevitable Decay of All Things; The Endpoint of the River of Time; The Lord of Rot and Putrescence; The Irreversible Entropy."
+
+- Mother Goddess of Depravity:
+  * Current: "Mother Tree of Desire; Perpetual Blatherer; Heartless God."
+  * Former: "Mother Tree of Desire; Father of Devils; Lord of Deviants; Source of Curses; Perpetual Blatherer; Heartless God." (Translation Note: Even though "失心"'s literal translation is "lost heart", the term's actual meaning is "lost mind," making "God of Lost Mind" a more correct translation for "失心之神".)
+  (Originally one of The Three Pillars, losing the two Beyonder pathways of Moon and Mother and a part of her Sefirah - the Brood Hive - made "Her" not much different from the other Outer Deities. Only "Her" symbol as a pillar remains. Currently "She" can only use a portion of pillar "She" symbolizes, unless "She" has fused with the Brood Hive again.)
+
+- Mother of the Sky:
+  "A Beyonder from ancient times; Ruler of the Nation of the Evernight; Noble Mother of the Sky."
+
+- Primordial God Almighty:
+  "God Almighty; Creator; Maker; The Omnipotent and Omniscient; Lord of the Astral World."
+
+- Primordial Demoness:
+  * Hidden: "The Source of All Catastrophes; The Symbol of Destruction and the Apocalypse; The Demoness who controls Chaos; The Female Body of the Primordial God Almighty; The Original Creator - the Oldest One - in the mirror."
+  * Public (Incomplete Honorific Name): "The Source of All Catastrophes; The Symbol of Destruction and the Apocalypse; The Demoness who controls Chaos." (The last two lines of "Her" Honorific Name are hidden from most existences.)
+
+- Primordial Hunger:
+  "Primordial Hunger; The Symbol of Devouring; An Insatiable Convergence; The Cleanser of All Things."
+
+- Sauron-Einhorn-Medici:
+  "The Great God of War; The Symbol of Iron and Blood; The Ruler of Chaos and Strife." (Note: This was once the Honorific Name of the original Medici who perished. After his remnant spirit fused to form the Evil Spirit, it now points towards Sauron-Einhorn-Medici.)
+
+- Sea God Kalvetua:
+  "Blessed of the sea and spirit world; Guardian of the Rorsted Archipelago; Ruler of the Undersea Creatures; Master of Tsunamis and Storms; The Great Kalvetua."
+
+- Snarner Einhorn:
+  "The Embodiment of Iron and Blood; The Symbol of the Calamity of War; The Priest who controls the Weather; The Great Snarner Einhorn."
+
+- Suah:
+  "Son of the God who should never have been born; A cage for the imprisoning curse; An evil that erodes history."
+
+- Supernova Dominator:
+  "The Ruler of Stars; The Symbolism of Weight and Density; The Controller of Fundamental Forces; The Laws of the Boundless Cosmos."
+
+- The Fool:
+  "The Fool that doesn't belong to this era; The Mysterious Ruler above the Gray Fog; The King of Yellow and Black who wields good luck."
+
+- True Creator:
+  * Original: "The Lord that Created Everything, The Lord who Reigns Behind the Curtain of Shadows, The Degenerate Nature of all Living Things."
+  * Fusing with Adam: "The Lord that Created Everything, The Omnipotent and Omniscient God, The Lord who Reigns Behind the Curtain of Shadows, The Ruler of the Mind World, The Degenerate Nature of all Living Things."
+
+- Uncertain Mist:
+  * Current: "Bridge of Light and Darkness; Interstice Between Black and White; Ever-Uncertain Mist; The Truth that Oversees All Things."
+  * Former: "The Anarchy; Shadow of Order; Bridge of Light and Darkness; Interstice Between Black and White; Ever-Uncertain Mist; The Truth that Oversees All Things."
+
+- Will Auceptin:
+  "The Embodiment of Luck; The Clairvoyant Monster; The Calamity that Spreads Misfortune; The Witnesses of all Fates in Backlund; The Keeper of Chaos and Madness." (Honorific Name at Sequence 3, after some modifications.)
+
+- Calamity of Destruction (Great Old One):
+  "Calamity of Destruction; Origins of Disaster (根源之祸)" (Translation Note: "根源之祸" actually means "Disaster of Origin", instead of "Origins of Disaster" from the official Webnovel English translation.)
+
+VIII. KNOWN MYTHICAL CREATURE FORMS
+
+- Black Emperor: A Curly-Haired Baboon.
+- Chained: A huge Rag Doll chained with thorny vines, bright red bloody eyes, and no human breath.
+- Darkness: An Invisible Fog with Stars / Flowing shadows with eyes hidden behind the curtain of shadows.
+- Death: A white-yellow Feathered Serpent (Kukulkan / Quetzalcoatl); the former form was a black-pale Phoenix. A black fog corporeal Coffin and a golden bird-shaped Accessory -> A dark black Scythe (huge black heavy Sickle) and a golden bird-shaped Accessory.
+- Demoness: A woman with snake hair, known as a Gorgon.
+- Door: A huge human figure composed of a light ball formed by Worms of Cosmos and constructed by layers of Doors.
+- Error: An ancient stone Clock with Worms of Time hands, or a Worm of Time composed of twelve knot patterns. A crystal Monocle -> A pair of black Gloves.
+- Fool: A tentacled spiraling vortex of Worms of Spirit. A translucent Mask marked with the symbol of the Fool Pathway and a translucent dark-colored cloak -> A retracted Mask with a black Windbreaker.
+- Hermit: A Gigantic Flesh formed of Countless Eyeballs.
+- Justiciar: A golden Brass-Book.
+- Moon: Flesh Mountain of Reproductive Organs. A two-handed Crimson Moon.
+- Mother: An arm's length illusory Baby.
+- Red Priest: A Flame / Fire Giant, known as a Fire Jotunn, with dark skin.
+- Sun: Unknown Feathered Creature burning in Golden Flames. A burning, but illusory Sun.
+- Twilight Giant: A one-eyed giant, known as a Cyclops with black and blue skin. A gigantic Twilight Sword.
+- Tyrant: A Sea Creature with Tentacles surrounded by Lightning. Lightning, squalls, and waves, forming a supercilious phantom.
+- Visionary: A Golden-Eyed Dragon with Gray Scales, known as a Mind Dragon.
+- Wheel of Fortune: A scaleless Silver Snake covered with various mysterious patterns and symbols. A palm-sized Die.
+- White Tower: Illusory Bookshelves. In different places of the bookshelves, there are pools of black, liquid shadows hidden. A white tower with numerous brass eyes.
+
+IX. CARDS OF BLASPHEMY, CHARMS, SEALED ARTIFACTS & BEYONDER WEAPONS
+
+Cards of Blasphemy:
+1. The Fool
+2. The Magician
+3. The High Priestess
+4. The Empress
+5. The Emperor
+6. The Hierophant
+7. The Lovers
+8. The Chariot
+9. Strength
+10. The Hermit
+11. Wheel of Fortune
+12. Justice
+13. The Hanged Man
+14. Death
+15. Temperance
+16. The Devil
+17. The Tower
+18. The Star
+19. The Moon
+20. The Sun
+21. Judgment
+22. The World
+
+Charms:
+- Teleportation Charm
+- Aging Charm
+- Deprivation Charm
+- Deceit Charm
+- Parasite Charm
+- Yesterday Once More Charm
+- Deity's Curse
+- Language Comprehension Charm
+- Fate Siphon
+- Ninth Law
+- Shriek Charm
+- Language of Foulness
+- Flaring Sun Charm
+- Requiem Charm
+- Dream Charm
+- Slumber Charm
+
+Sealed Artifacts Directory:
+
+Grade 0 List:
+- Staff of the Stars
+- Box of the Great Old Ones
+- Unknown (See Thorned Crown)
+- Theater With Curtains That Never Draw
+- Groselle's Travels
+- Cheek's Ring
+- Book of Calamity
+- Pale Death
+- Sage Frontlet
+- Gift of the Land
+- Scroll of God
+- Proof of Glory
+- The Last Banquet
+- Angel of Concealment
+- Quill of Alzuhod
+- Magic Wishing Lamp
+- Salinger's Blood Banner - 0-01
+
+Grade 1 List:
+- Devil's Oil Painting
+- General of the Pupil-less Eye
+- Vision of White
+- Fallen Flute
+- Life's Cane
+- Twilight Mask
+- Sword of Silverdawn
+- Concerto of Light and Shadow
+- Unshadowed Crucifix
+- Golden Sundial
+- 1-80
+- Lilith's Ring
+- Sea God Scepter
+- 1-29
+- Berserker's Armor
+- 1-63
+- Saint Selena's Ashes
+- Pure white bone sword
+- Antigonus Family's Notebook
+
+Grade 2 List:
+- Tanago Scarecrow
+- Traveler Robe
+- Lucky Grass
+- Wintry Blade
+- Word of the Sea
+- Gargoyle Glasses
+- Hand of Horror
+- Flower of Blood
+- Boxing Glove
+- Cardi's Ring
+- Thunder God's Roar
+- Scales of Luck
+- Death Knell
+- Judge Button
+- Leymano's Spellbook
+- Tinder
+- Whip of Mind
+- 2-166
+- Shadow Cloak
+- Dream of Eternity
+- Flying Carpet
+- Lie
+- Gold Mask
+- Arrodes
+- Biological Poison Bottle
+- Scarlet Lunar Corona
+- Mental Terror Candle
+- Shapeshifting Hat
+- Sun Brooch
+- 2-081
+- Notary Certificate
+- Blood Vessel Thief
+- Door of Death
+- Inexhaustible Poison
+- Creeping Hunger
+- Antigonus Family Puppet
+
+Grade 3 List:
+- Trunsoest Brass Book
+- Die of Probability
+
+Unknown Grade List:
+- Green Essence
+- Broken Finger
+- Murloc Cufflink
+- Eye of Crystal
+- Master Key
+- Spirit Medium's Mirror
+- Peaceful Hair Strands
+- Mutated Sun Sacred Emblem
+- Misfortune Cloth Puppet
+
+Beyonder Weapons List:
+- Klein's Gold Coins
+- Parasite Bullets
+- Deprivation Bullets
+- Deceit Bullets
+- Aging Bullets
+- Moon Paper Figurine
+- Control Spirit Bullets
+- Harris Rapier
+- Sanguine Anesthesia Gas
+- Holy Sunbird Whip
+- Exorcism Bullets
+- Demon Hunting Bullets
+- Purifying Bullets
+- Whip of Slowness
+- Axe of Hurricane
+- Meat Cleaver
+- Inscribed Steel Sword
+- Traveler Bracelet
+
+X. PILLARS, GREAT OLD ONES & COMPLETE PATHWAY TREES
+
+1. LORD OF THE MYSTERIES (PILLAR)
+
+Pathways: Fool, Error, Door.
+This Great Old One is one of the three Pillars.
+
+Authorities & Symbolisms:
+"He" possesses full authority over the Fool, Error, and Door Pathways and corresponding symbols, which include but are not limited to the following:
+- Fool: Authorities over Fooling, Foolishness, Change, Miracles, Bizarreness.
+- Error: Authorities over Errors, Time, Theft, Deceit, Destiny.
+- Door: Authorities over Doors, Position, Space, Seals, Teleportation.
+- Bizarreness: "He" holds the symbolism of Bizarreness. One of its manifestations is Grafting.
+- Foolishness: "He" holds the symbolism of Foolishness, the ability to turn every rational being into a Fool.
+- Deceit: "He" is the symbol of Deceit and wields the ability to Deceive, mislead, and manipulate everything.
+- Miracles
+- Decryption
+- Theft
+
+Symbolic Counters against other Great Old Ones:
+Symbols of other Great Old Ones can counter some of "His" symbols and powers, which include but are not limited to the following:
+- Mother Goddess of Depravity:
+  * New Life, Death, Desolation mutually counteracts Marionettes.
+  * New Life counters Foolishness. (However, this doesn't mean that "She" cannot be affected by Foolishness and be Deceived if "She" were to face the Lord of Mysteries directly.)
+  * Sovereign of the Physical World counters Grafting, Theft, Seal, Banishment, and Blink.
+  * The Mother Goddess of Depravity can fix mystical connections, spirits, consciousness, etc. in place, thus preventing them from being Grafted and Theft.
+- High-Dimensional Overseer:
+  * Dimensionality and Change, which included space-time, mutually counteracts each other in a one-on-one situation.
+  * As the Lord of Dimensions, "He" could counter abilities such as Parasitism, Marionettes, and Blink.
+  * From higher or lower dimensions, Spirit Body Threads were tangible and real - something that could be touched. Blink only allowed movement on a small scale, while those Parasitized were bound together into one entity. This rendered the unique, ubiquitous nature of the Lord of Mysteries' avatars ineffective. Combat against the High-Dimensional Overseer could only rely on the Lord of Mysteries' true body.
+- Monarch of Decay:
+  * Decay and Certain Death counter Avatars, Blink.
+  * Death of an Avatar equals the death of the main body.
+  * Decay of an Afterimage equals the decay of the main body.
+- Inextinguishable Ravings:
+  * Source of All Ravings counter Avatars, Marionettes, and Blink.
+  * "He" can ignore the interference of Marionettes, Avatars, and Afterimages to directly project "His" voice into Sefirot and Uniquenesses transmitting "His" madness and implanting "His" intent.
+- Primordial Hunger:
+  * Convergence and Devouring counter Avatars, Marionettes, and Blink.
+  * Convergence: "He" could forcibly pull the Lord of Mysteries's true body to "His" side.
+  * Devour: If "He" devoured an Avatar or Marionette, "He" could absorb and erase the corresponding abilities, reducing or even temporarily nullifying their symbolic influence.
+- Father of Devils:
+  * Source of Curses counters Avatars, Marionettes: "He" is capable of cursing Avatars and Marionettes to indirectly curse the true body.
+- Supernova Dominator:
+  * Density, Gravity, and Attraction can influence Space-Time and distort Dimensions.
+  * However, for the Lord of Mysteries, who controlled Change and could turn falsehood into truth and vice versa, mere indirect interference was sufficient to stall "Him" without engaging directly.
+- Circle of Inevitability:
+  * Past, Present, Future, Cycle, and Destiny could theoretically impact Avatars, Marionettes, and Blink.
+  * However, the Circle of Inevitability's symbols were effectively countered by the Lord of Mysteries' other symbols:
+    - King of Space-Time counters Past, Present, Future.
+    - Beacon of Destiny counters Cycle.
+    - Error counters Destiny.
+
+Mythical Creature Form:
+The Mythical Creature Form of the Lord of Mysteries is a glowing bluish-black door seemed to flicker in and out of existence within a massive dark vortex bristling with slick tentacles that every gust of wind, droplet of water, and ray of light in the vortex consisted of Worms of Spirit, Worms of Time, and Worms of Stars. The vortex is covered with a coat the inside of it is an abyss, seemingly infinite, as if it contained an entire universe and a Spirit World connected to every planet.
+
+Formula:
+- Sefirah Castle
+- Uniquenesses of:
+  * The Fool
+  * The Error
+  * The Door
+- 1 Beyonder Characteristic each from:
+  * The Attendant of Mysteries of the Fool Pathway
+  * The Worm of Time of the Error Pathway
+  * The Key of Stars of the Door Pathway
+
+A. The Fool Pathway:
+Sequence 9: Seer
+- Enhanced Memory
+- Spirit Vision
+- Divination Arts & Ritualistic Magic
+- Danger Intuition
+Sequence 8: Clown
+- Physical Enhancement
+- Paper Daggers
+- Spirituality
+- Danger Intuition
+Sequence 7: Magician
+- Damage Transfer
+- Flaming Jump
+- Air Bullet
+- Paper Figurine Substitute
+- Flame Controlling
+- Underwater Breathing
+- Bone Softening
+- Drawing Paper As Weapons
+- Illusion Creation
+- Physical Enhancement
+- Spirituality
+- Spirit Vision
+Sequence 6: Faceless
+- Shapeshifting
+- Flame Controlling
+- Flaming Jump
+- Air Bullets
+- Underwater Breathing
+- Paper Figurine Substitutes
+- Damage Transfer
+- Spirituality
+- Divination
+Sequence 5: Marionettist
+- Spirit Body Threads Manipulation
+- Marionette
+- Air Bullet
+Sequence 4: Bizarro Sorcerer
+- Concealment
+- Damage Transfer
+- Air Cannon
+- Flaming Jump
+- Illusion Creation
+- Shapeshifting
+- Spirit Body Threads Manipulation
+- Bestowal
+- Marionette
+- Marionette Interchange
+- Spirituality
+- Divination
+- Spirit Vision
+- Mythical Creature Form (Worms of Spirit)
+Sequence 3: Scholar of Yore
+- Historical Void Borrowing
+- Historical Projection Summoning
+- Historical Void Hiding
+- Paper Figurine Substitutes
+- Damage Transfer
+- Flaming Jump
+- Air Cannon
+- Shapeshifting
+- Spirit Body Threads Manipulation
+- Marionette Interchange
+- Mythical Creature Form (Worms of Spirit)
+Sequence 2: Miracle Invoker
+- Miracles (Wishes)
+- Resurrection
+- Jamming in Fate
+- Historical Void Summoning
+- Spirituality
+- Spirit Body Threads Manipulation
+- Marionette
+- Mythical Creature Form
+Sequence 1: Attendant of Mysteries
+- Regenerate
+- Change (Reassembly / Tampering / Grafting)
+- Concealment (Realm of Mysteries)
+- Bizarreness
+- Spirit Body Threads Manipulation
+- Resurrection
+- Spirit Body
+Sequence 0: Fool
+- Fooling (History)
+- Fooling (Time)
+- Fooling (Fate)
+- Fooling (Change / Reassembly / Tampering / Grafting)
+- Fooling (Concealment / Realm of Mysteries)
+- Fooling (Mind)
+
+B. The Error Pathway:
+Sequence 9: Marauder
+- Agile Hands
+- Superior Observation
+- Physical Enhancement
+- Theft (Stealing)
+- Combat Proficiency
+Sequence 8: Swindler
+- Mental Disruption
+- Charm
+- Eloquence
+- Thought Misdirection
+- Superior Observation
+- Physical Enhancement
+Sequence 7: Cryptologist
+- Decryption
+- Superior Observation
+Sequence 6: Prometheus
+- Mental Resistance
+- Theft (Stealing)
+- Superior Observation
+- Physical Enhancement
+Sequence 5: Dream Stealer (Dreams Thief)
+- Dream Infusion
+- Theft (Stealing: Disguise / Theft of Heavenly Mysteries, Thought Usurpation)
+- Decryption
+Sequence 4: Parasite
+- Avatars
+- Insect Physiology
+- Decryption
+- Theft (Stealing: Life Theft, Parasitism)
+- Mythical Creature Form (Worms of Time)
+Sequence 3: Mentor of Deceit
+- Deceit
+- Superior Observation
+- Theft (Stealing: Disguise / Theft of Heavenly Mysteries)
+- Avatars
+- Listening to Prayers
+Sequence 2: Trojan Horse of Destiny (Fate Stealer)
+- Loopholes
+- Destiny
+- Theft (Stealing: Fate Siphoning, Parasitism)
+- Deceit
+- Avatars
+- Mythical Creature Form
+Sequence 1: Worm of Time
+- Theft (Stealing: Aging)
+- Time
+- Decryption
+- Avatars
+Sequence 0: Error (Bug)
+- Error (Bug)
+- Deceit
+- Theft (Stealing)
+- Time
+- Space
+- Decryption
+
+C. The Door Pathway:
+Sequence 9: Apprentice
+- Door Opening
+Sequence 8: Trickmaster
+- Spells (Gas Transfer, Flash, Escape Trick, Tumble, Object Manipulation, Electric Shock, Freezing, Loud Noise, Black Curtain, Burning, Fog, Wind)
+Sequence 7: Astrologer
+- Spirituality (Spirit Vision, Ritualistic Magic & Divination Arts, Anti-Divination, Spiritual Intuition)
+- Door Opening (Enhanced)
+Sequence 6: Scribe
+- Record
+Sequence 5: Traveler
+- Traveler's Door (Door of Teleportation, Traveling, Blink)
+- Positioning
+- Invisible Hand
+- Record (Enhanced)
+Sequence 4: Secrets Sorcerer
+- Space Concealment
+- Transfiguration
+- Secret Keeping
+- Exile
+- Record (Qualitative Change)
+- Door Opening (Enhanced)
+- Traveler's Door (Door of Teleportation, Traveling Enhanced, Blink Enhanced)
+- Spirituality (Spiritual Intuition Enhanced)
+- Mythical Creature Form (Worms of Star)
+Sequence 3: Wanderer
+- Wandering
+- Space Tearing
+- Space Integration
+- Space Concealment (Enhanced)
+- Door Opening (Enhanced)
+- Listening to Prayers
+Sequence 2: Planeswalker
+- Symbolization
+- Dimension Sight
+- Teleportation (Mirror World, Underworld, Higher Dimensions, Dreams)
+- Replication (Reenactment Enhanced)
+- Sealing (Enhanced)
+- Spirituality (Enhanced)
+- Mythical Creature Form
+Sequence 1: Key of Stars
+- Space Fragmentation (Gravity Manipulation)
+- Position
+- Seals (Journey / Space-Time Maze)
+- All Beyonder powers reinforced and enhanced
+- Dimension Sight (Enhanced)
+Sequence 0: Door
+- Door
+- Space
+- Seals
+- Conceptualization (Enhanced)
+- Replication (Reenactment Enhanced)
+
+2. GOD ALMIGHTY (PILLAR)
+
+Pathways: Visionary, Sun, Tyrant, White Tower, Hanged Man.
+Full Title: God Almighty; Creator; Maker; The Omnipotent and Omniscient; Lord of the Astral World.
+
+Authorities & Symbolisms (Full Authority over):
+- Sun Pathway: Sun, Purification, Omnipotence, Omniscience
+- White Tower Pathway: Wisdom, Omniscience
+- Hanged Man Pathway: Shadows, Darkness, Corruption, Degeneration, Mutation, Sin, Sacrifice, Maker, Omnipotence
+- Tyrant Pathway: Tyranny, Matter Acceleration, Omnipotence (Sea, Land, Sky)
+- Visionary Pathway: Mind, Envisioning, Creator, Omnipotence (Psyche)
+
+Derived Abilities & Symbols:
+- Lord of The Astral World
+- Chaos Sea
+- The Omnipotent and Omniscient (Relative)
+- Maker
+- Creator (Barrier)
+- Notarization
+- Unshadowed Domain
+
+Formula:
+- Chaos Sea
+- Uniquenesses of: The Visionary, The Sun, The Tyrant, The White Tower, The Hanged Man
+- 1 Beyonder Characteristic each from: The Author, The White Angel, The Thunder God, The Omniscient Eye, The Dark Angel
+
+A. The Visionary Pathway:
+Sequence 9: Spectator
+- Enhanced Mental Attributes
+- Body Language Analysis
+- Enhanced Vision
+Sequence 8: Telepathist
+- Mind Reading
+- Body Language Analysis (Enhanced)
+- Enhanced Vision (Enhanced)
+Sequence 7: Psychiatrist (Psyche Analyst)
+- Frenzy
+- Telepathy
+- Psychological Cue
+- Awe (Dragon's Might, Mass Chaos)
+- Placate (Psychoanalysis)
+- Physical Enhancements
+- Body Language Analysis (Enhanced)
+Sequence 6: Hypnotist
+- Psychological Invisibility
+- Hypnosis (Qualitative Change: Non-Combat Hypnosis, Battle Hypnotism)
+- Physical Enhancement (Enhanced: Dragon Scales)
+Sequence 5: Dreamwalker
+- Alteration
+- Guidance
+- Dream Traversal
+Sequence 4: Manipulator
+- Manipulation
+- Mental Plague
+- Virtual Persona
+- Mind Storm
+- Mind Deprivation (Enhanced)
+- Psychological Invisibility (Enhanced)
+- Mind Dragon Breath (Enhanced)
+- Consciousness Stroll (Enhanced)
+- Physical Enhancement (Greatly Enhanced)
+- Mythical Creature Form (Incomplete Mind Dragon)
+Sequence 3: Dream Weaver
+- Dream Weaving
+- Plague Storm (Enhanced)
+- Enhanced Mental Attributes (Enhanced)
+- Psychological Invisibility (Enhanced)
+- Consciousness Stroll (Enhanced)
+- Hypnosis (Battle Hypnotism Enhanced)
+- Virtual Persona (Enhanced)
+- Mythical Creature Form (Further Developed Incomplete Mind Dragon)
+Sequence 2: Discerner
+- Dream Maze
+- Discernment
+- Dream Weaving (Massively Enhanced)
+- Enhanced Mental Attributes (Enhanced)
+- Mythical Creature Form (Complete Mind Dragon)
+Sequence 1: Author (Fairytale)
+- Mind & Fantasy
+Sequence 0: Visionary
+- Envisioning / Imagination (Psyche: Prophecy, Divine Kingdom)
+- Conceptualization (Enhanced)
+- Replication (Reenactment Enhanced)
+
+B. The Sun Pathway:
+Sequence 9: Bard
+- Enhancement
+Sequence 8: Light Suppliant
+- Limited Spells (Sun Domain: Miniature Suns, Disperse Darkness, Fiery Light Beam, Blinding White Light)
+- Evil Detection
+Sequence 7: Solar High Priest
+- Theurgical Abilities (Sun Domain: Sun Halo, Sun Holy Water, Holy Light Summoning, Cleave of Purification, Fire of Light, Holy Oath)
+- Horror Immunity
+- Physical Enhancements
+Sequence 6: Notary
+- Notarization (Authentication, Amplification, Nullification)
+- Physical Enhancements (Massive Boost)
+Sequence 5: Priest of Light
+- Theurgical Abilities (Enhanced: Light of Holiness, Sword of Light, Purification Halo)
+Sequence 4: Unshadowed
+- Unshadowed Domain
+- Flaring Sun
+- Holy Eye
+- Holy Equipment
+- Purification
+- Unshadowed Spear
+- Notarization (Massively Enhanced)
+- Mythical Creature Form (Incomplete, Feathered Golden Flames)
+Sequence 3: Justice Mentor
+- Justice
+- Unshadowed Domain (Enhanced)
+- Holy Equipment (Enhanced, for allies)
+- Listening to Prayers
+Sequence 2: Lightseeker (Sun Chaser)
+- Sunlight Transformation
+- Spear of Light (Enhanced)
+- Ocean of Light (Enhanced)
+Sequence 1: White Angel
+- Authorities reinforced (no new abilities explicitly listed)
+Sequence 0: Sun
+- Sun Authority
+
+C. The Tyrant (Sailor) Pathway:
+Sequence 9: Sailor (Keeper of the Seas)
+- Phantom Scales (Scale Armor)
+- Aquatic Attributes
+- Night Vision
+- Physical Enhancements
+Sequence 8: Folk of Rage (Guardian of the Storm)
+- Raging Blow
+- Physical Enhancements (Greatly Enhanced)
+Sequence 7: Seafarer (Storm Priest)
+- Navigation
+- Water Manipulation (Water Film, Aqueous Light, Restorative Spells)
+- Enhanced Memory
+- Aquatic Attributes (Enhanced)
+Sequence 6: Wind-blessed
+- Wind Manipulation (Flight, Float, Windblades, Imbued Hands, Wind Binding, Eavesdrop via Wind, Air Cushions)
+- Irascible Temperament
+Sequence 5: Ocean Songster
+- Lightning Strike
+- Siren Song
+- Water Manipulation (Greatly Improved)
+- Wind Manipulation (Moderately Enhanced: Flight Longer)
+- Aquatic Attributes (Full Basic)
+Sequence 4: Cataclysmic Interrer
+- Calamity Creation (Earthquake, Torrential Downpour, Hurricane, Tsunami, Sealing)
+- Roar
+- Lightning Strike (Enhanced)
+- Mythical Creature Form (Incomplete, Sea Creature with Tentacles)
+Sequence 3: Sea King
+- Sea Ruler
+- Lightning Storm
+- Thunderclap
+- Physical Enhancement (Greatly Enhanced)
+- Calamity Creation (Increased Capacity: Hurricane Lightning Storm, Torrential Downpour Spirituality Spread, Tsunamis, Lightning Calamities)
+- Wind Manipulation (Faster than Sound Flight)
+- Aquatic Attributes
+- Navigation (Never Lost)
+- Listening and Responding to Prayers (Far-reaching)
+Sequence 2: Calamity
+- Calamity Authority
+- Mythical Creature Form (Complete, Sea Creature with Silvery Lightning Tentacles)
+Sequence 1: Thunder God
+- Authorities reinforced
+Sequence 0: Tyrant
+- Tyranny (Storms, Seas, Calamities, Lightning, Omnipotent over Seas, Lands, Sky)
+- Matter (Manipulate Speed)
+
+D. The White Tower (Reader) Pathway:
+Sequence 9: Reader
+- Enhanced Mental Attributes
+- Spirituality (Divination Arts & Ritualistic Magic)
+Sequence 8: Student of Ratiocination
+- Enhanced Mental Attributes
+- Spirituality (Divination Arts & Ritualistic Magic)
+Sequence 7: Detective (Knowledge Keeper)
+- Physical Enhancements
+- Combat Proficiency
+- Enhanced Mental Attributes
+- Spirituality
+Sequence 6: Polymath
+- Analysis
+- Imitation
+- Enhanced Mental Attributes
+Sequence 5: Mysticism Magister
+- Spellcasting
+- Analyze
+- Imitation
+Sequence 4: Prophet
+- Prophecy
+- Spellcasting
+- Mythical Creature Form
+Sequence 3: Cognizer
+- Cognize
+- Fulcrum
+- Mythical Creature Form
+Sequence 2: Wisdom Angel
+- Wisdom
+- Mythical Creature Form
+Sequence 1: Omniscient Eye
+- Omniscience
+Sequence 0: White Tower
+- White Tower Authority
+
+E. The Hanged Man (Secrets Suppliant) Pathway:
+Sequence 9: Secrets Suppliant
+- Knowledge (Mysticism)
+- High Spirituality (Ritualistic Magic and Divination Arts)
+Sequence 8: Listener (Whispered)
+- Listen
+- High Spirituality
+Sequence 7: Shadow Ascetic
+- Shadow Summon
+- Shadow Curse
+- Shadow Manipulation
+- Shadow Lurking
+- Shadow Shaping
+Sequence 6: Rose Bishop (Rose Priest)
+- Flesh and Blood Magic (Flesh Creek, Flesh Softening, Flesh Bomb, Flesh and Blood Servants, Flesh and Blood Curse, Body Hiding, Flesh Cloak, Birth Control)
+Sequence 5: Shepherd
+- Grazing
+- Flesh and Blood Magic (Devouring)
+- Commandeering Shadows
+Sequence 4: Black Knight
+- Cull of Spiritual Flesh
+- Black Armor
+- Shadow of Depravation
+- Flesh and Blood Magic (Flesh Rug)
+- Commandeering Shadows
+- Shadow Enclosure
+- Grazing
+- Mythical Creature Form
+Sequence 3: Trinity Templar
+- Trinity Body
+- Cull of the Spirit Flesh
+- Shadow Substitutes
+- Grazing
+- Flesh and Blood Magic (Flesh and Blood Immortality)
+- Mythical Creature Form
+Sequence 2: Profane Presbyter
+- Profane Language
+- Flesh and Blood Magic
+- Shadows
+- Grazing
+- Mythical Creature Form
+Sequence 1: Dark Angel
+- Profane Language
+- Degeneration / Depravity
+- Darkness
+- Shadows (Shadow Ruler)
+- Grazing (Depraved Dependents)
+Sequence 0: Hanged Man
+- Sin-Bearing (Scapegoat)
+- Sacrifice (Hanged Man)
+- Darkness
+- Shadows (Lord of Shadows)
+- Degeneration / Depravity (Degenerate Nature)
+- Corruption (Incarnation of Corruption)
+- Mutations
+
+3. ETERNAL DARKNESS (GREAT OLD ONE)
+
+Pathways: Darkness, Death, Twilight Giant.
+Authorities: Darkness, Death, Twilight Giant, Eternal Darkness, River of Eternal Darkness, Singularity of All, Space-Time-in-One, Passage of Time, Eternal Rest.
+
+A. The Darkness (Sleepless) Pathway:
+Sequence 9: Sleepless
+- Nocturnality
+- High Spirituality (Spirit Vision, Divination Arts & Ritualistic Magic)
+Sequence 8: Midnight Poet
+- Midnight Poem (Tranquilize, Lullaby, Pacify)
+Sequence 7: Nightmare
+- Nightmare State
+- Guidance
+- Dream Pulling
+- Nightmare Limbs
+- High Spirituality
+- Midnight Poem
+Sequence 6: Soul Assurer
+- Soul Soothing
+- Soul Agitating
+- High Spirituality (Ritualistic Magic & Divination Arts)
+Sequence 5: Spirit Warlock
+- Spirit Commandeering
+Sequence 4: Nightwatcher
+- Serene Hair Strands
+- Concealment
+- Curse of Misfortune
+- Mythical Creature Form
+Sequence 3: Horror Bishop
+- Wave of Darkness
+- Terror Aura
+- Darkness Teleportation
+- Midnight Poem
+- Dream Pulling
+- Mythical Creature Form
+Sequence 2: Servant of Concealment
+- Fate Awareness
+- Concealment
+- Serenity Aura
+- Mythical Creature Form
+Sequence 1: Knight of Misfortune
+- Authorities reinforced
+Sequence 0: Darkness
+- Darkness, Horror, Dreams, Concealment
+
+B. The Death (Corpse Collector) Pathway:
+Sequence 9: Corpse Collector
+- Physical Enhancement (Divine Blood)
+- Knowledge (Undead)
+- Spirituality (Spirit Vision)
+Sequence 8: Gravedigger
+- Spirit Communication
+- Eye of Death
+- Physical Enhancement
+- Spirituality (Spirit Vision)
+Sequence 7: Spirit Medium
+- Spirit Manipulation
+- Knowledge (Mysticism)
+- Spirit Communication
+- Spirituality (Danger Intuition)
+Sequence 6: Spirit Guide
+- Necromancy
+- Spirit World Communication
+- Language of the Dead
+Sequence 5: Gatekeeper
+- Door to the Underworld
+- Internal Underworld
+Sequence 4: Undying
+- Underworld Authority (Sealing)
+- Spirit World Traversal
+- Rotting Wind
+- Resurrection
+- Spirit Body
+- Mythical Creature Form
+Sequence 3: Ferryman
+- Death Gaze
+- Physical Enhancement
+- Resurrection
+- Underworld Authority
+- Mythical Creature Form
+Sequence 2: Death Consul
+- Dead Flame
+- Language of the Dead
+- Mythical Creature Form
+Sequence 1: Pale Emperor
+- Death (Withering)
+Sequence 0: Death
+- Death Authority
+
+C. The Twilight Giant (Warrior) Pathway:
+Sequence 9: Warrior (Divine Blood Warrior)
+- Physical Enhancement (Divine Blood)
+- Combat Proficiency (Equipment, Martial Arts)
+- Spirituality (Ritualistic Magic)
+Sequence 8: Pugilist (Gladiator)
+- Supernatural Resistance
+- Combat Proficiency (Gladiatorial)
+Sequence 7: Weapon Master
+- Weapon Mastery
+- Physical Enhancement (Divine Blood)
+- Supernatural Resistance
+- Spirituality (Spirit Vision)
+Sequence 6: Dawn Paladin
+- Giant's Physique (Strength of Giants)
+- Light of Dawn (Sunrise Gleam)
+- Dawn Armor
+- Dawn Weaponry (Sword of Dawn, Hurricane of Light)
+Sequence 5: Guardian
+- Protection
+- Damage Transference
+- Giant's Physique (Strength of Giants)
+- Supernatural Resistance
+- Spirituality
+Sequence 4: Demon Hunter
+- Eye of Demon Hunting
+- Alchemy
+- Mind Concealment
+- Tracking
+- Spirituality (Spiritual Intuition)
+- Mythical Creature Form
+Sequence 3: Silver Knight
+- Blessing
+- Mercury Liquefaction
+- Silver Rapier
+- Light Concealment
+- Sword of Dawn
+- Silver Armor
+- Mythical Creature Form
+Sequence 2: Glory
+- Passage of Time
+- Twilight Sword
+- Cage
+- Sword of Dawn (Hurricane of Light)
+- Mythical Creature Form
+Sequence 1: Hand of God
+- Divine Right Hand
+- Protection
+Sequence 0: Twilight Giant
+- Twilight, Passage of Time, Decay
+
+4. CALAMITY OF DESTRUCTION (GREAT OLD ONE)
+
+Pathways: Demoness, Red Priest.
+Overview: One half of the Fourth Pillar (exchangeable with Eternal Darkness). Combines Red Priest (Masculinity) and Demoness (Femininity), rendering the user a true hermaphrodite. Contains a mixture of the Primordial God Almighty's mental imprint from the First Epoch accommodation of the City of Calamity.
+
+Honorific Name:
+Calamity of Destruction;
+Origins of Disaster (根源之祸)
+(Translation Note: "根源之祸" actually means "Disaster of Origin", instead of "Origins of Disaster" from the official Webnovel English translation.)
+
+Authorities & Symbolisms:
+"They" possess full authority over the Red Priest and Demoness Pathways and corresponding symbolisms:
+- Demoness: Authorities over Apocalypse and Catastrophe. Symbols of Catastrophe and Chaos.
+- Red Priest: Authorities over War and Conquest. Symbols of War and Destruction.
+- The two Pathways represent Disasters of all kinds, both natural and man-made.
+- Abilities & Symbols: Calamities & Disasters, Destruction (Fire of Destruction), Return of All Things to Chaos, Male and Female Body of the Mirror Creator, Essence of War (Strength Gathering), Instigation and Provocation, Ruler of the Mirror World, Mirror Magic and Weather, Petrification, Plague.
+
+Formula:
+- City of Calamity
+- Uniquenesses of:
+  * The Demoness
+  * The Red Priest
+- 1 Beyonder Characteristic each from:
+  * The Apocalypse of the Demoness Pathway
+  * The Conqueror of the Red Priest Pathway
+Known Achievers: Lumian Lee, Salinger (Half), Malevolent Dragon (Will of the Sefirah), Primordial God Almighty (Former, Indestructible Psyche).
+
+A. The Demoness Pathway:
+Sequence 9: Assassin
+- Shadow Concealment
+- Physical Enhancement (Feather Fall, Mighty Blow)
+- Heightened Senses (Night Vision)
+Sequence 8: Instigator
+- Instigation
+- Physical Enhancement (Enhanced)
+Sequence 7: Witch
+- Gender Transition (If male drinks potion, gender changes to female)
+- Charm
+- Black Magic (Black Flames, Frost Spells, Mirror Manipulation, Mirror Substitution, Curse, Staff Substitution, Bloodline Curse, Invisibility)
+- Divination
+- Anti-Divination
+Sequence 6: Pleasure (Demoness of Pleasure)
+- Threads
+- Witch Abilities Enhanced (Charm, Black Magic Frost & Black Fire, Mirror and Staff Substitution Speed, Curse)
+- Assassin and Instigator Abilities Enhanced (Throat Control, Heightened Senses to see Threads)
+Sequence 5: Affliction (Demoness of Affliction)
+- Disease
+- Threads
+- Charm (Active Ability)
+- Black Magic (Mirror World Illusions / Mirror Mazes, Curse Enhancement)
+- Physical Enhancement (Hair Manipulation)
+Sequence 4: Despair (Demoness of Despair)
+- Massively enhanced abilities:
+  * Plague (Flesh Deterioration Plague, Spirituality and Strength Sapping Plague, Rigidity Plague)
+  * Threads (Petrification)
+  * Charm
+  * Black Magic (Mirror Mazes, Mirror Projection, Mirror Location and Traversal, Ice Amulets, Curse Enhancement)
+- Mythical Creature Form (Incomplete Gorgon)
+Sequence 3: Unaging (Demoness of Unaging)
+- Mirror Self (Concealed Resurrection)
+- Petrification
+- Charm
+- Black Magic (Curse Scope and Power, Mirror World Traversal, Power Transmission through Mirror World, Forcibly Pulling into Mirror World, Mirror Surveillance, Mirror Control Range, Mirror Substitution Timing)
+- Plague
+- Threads
+- Mythical Creature Form (More complete Gorgon, Respond to prayers)
+Sequence 2: Catastrophe (Demoness of Catastrophe)
+- Feared Name
+- Authorities over Catastrophe (Natural Disasters; Societal, Mechanical, Authority, and Conceptual Disasters; Curses of Destiny)
+- Plague
+- Mirror Self
+- Mythical Creature Form (Complete Gorgon, Summon poisonous black snakes)
+Sequence 1: Apocalypse (Demoness of Apocalypse)
+- Authority over Apocalypse
+Sequence 0: Demoness (Chaos Demoness, Primordial Demoness)
+- Description: The source of Catastrophes, symbol of the Apocalypse, the Demoness who wields Chaos, ruler of the Mirror World, corresponding to the feminine aspect of the Original Creator.
+- Authorities: Chaos, Charm, Mirrors (Embodiment and Control of Mirror World), Femininity, Dark Magic
+- Strengthened Abilities: Plague
+- Mythical Creature Form (Black python-like tentacles as hair, transformation into beautiful women)
+
+B. The Red Priest (Hunter) Pathway:
+Sequence 9: Hunter
+- Knowledge (Survival, Traps)
+- Physical Enhancement
+- Heightened Senses
+- Spirituality (Ritualistic Magic, Spirit Vision, Danger Intuition)
+Sequence 8: Provoker
+- Provocation
+- Physical Enhancement (Enhanced)
+- Spirituality (Spirit Vision Enhanced)
+Sequence 7: Pyromaniac (Fire Mage)
+- Pyrokinesis (Compression, Fire Armor, Conjure Flames, Area of Effect, Delay Explosions, Fire Enchant, Fire Infusion, Fire Ravens, Wall of Fire, Blazing Spear, Giant Fireball)
+- Fire Resistance
+- Spirituality (Spirit Vision, Danger Intuition)
+Sequence 6: Conspirer
+- Enhanced Mental Attributes
+- Incitement (Instigation)
+- Misdirection, Confusion, Deception (Conspiracy)
+- Flame Transformation
+- Pyrokinesis
+- Information-Gathering
+- Physical Enhancement
+- Spirituality
+Sequence 5: Reaper
+- Weakness Investigation
+- Cull
+- Precision
+- Pyrokinesis
+- Flame Transformation
+- Physical Enhancement
+- Spirituality
+- Enhanced Mental Attributes
+Sequence 4: Iron-blooded Knight
+- Gender Transition (If female drinks potion, gender changes to male)
+- Mind of Steel
+- Weapon Augmentation
+- Chain of Command
+- Galvanization
+- Pyrokinesis
+- Flame Transformation
+- Cull
+- Mythical Creature Form (Incomplete Calamity Giant)
+Sequence 3: War Bishop
+- War Song (War Cry)
+- Fog of War
+- Ritualist of War (Petitioning)
+- Chain of Command (Crowd Control, Strength Gathering, Communication)
+- Pyrokinesis
+- Mythical Creature Form (Respond to prayers)
+Sequence 2: Weather Warlock
+- Charisma
+- Authority over Weather (Weather Manipulation)
+- Information-Gathering
+- Physical Enhancement
+- Spirituality
+- Tracking
+- Pyrokinesis
+- Flame Transformation
+- Weakness Investigation
+- Cull
+- Weapon Augmentation
+- Chain of Command
+- Galvanization
+- Fog of War
+- Ritualist of War (Petitioning)
+- Complete Calamity Giant Mythical Creature Form
+Sequence 1: Conqueror
+- Authority over Conquest
+- Galvanization
+- Chain of Command
+- Pyrokinesis
+Sequence 0: Red Priest
+- Description: Red represents the red of war and Priest can be understood as the ritualist of strength. This combined makes the Red Priest the embodiment of War.
+- Authorities: Destruction, Masculinity, Essence of War (Ritualist of War, Chain of Command, Fog of War), Conquest, Pyrokinesis
+
+5. DEMON OF KNOWLEDGE (GREAT OLD ONE)
+
+Pathways: Hermit, Paragon.
+Full Title: Demon of Knowledge; Arcana of Madness.
+
+Authorities & Symbolisms:
+- Hermit: Authorities over Knowledge, Information, and Numbers. And the Symbol of Knowledge.
+- Paragon: Authorities over Essence, Technology, and Physics. And the Symbol of Progress.
+- Demon of Knowledge
+- Arcana of Madness
+Limitation: Minimal influence on the highest dimension.
+
+Formula:
+- Knowledge Moor
+- Uniquenesses of:
+  * The Hermit
+  * The Paragon
+- 1 Beyonder Characteristic each from:
+  * The Knowledge Emperor of the Hermit Pathway
+  * The Illuminator of the Paragon Pathway
+
+A. The Hermit Pathway:
+Sequence 9: Mystery Pryer
+- Eyes of Mystery Prying
+- Knowledge (Knowledge Pursuit)
+- Spirituality (Magic & Divination Arts, Spirit Vision)
+Sequence 8: Melee Scholar
+- Combat Mastery
+Sequence 7: Warlock
+- Spellcasting (Scene Depiction, Soul Summoning, Invisible Hand, Flames, Wind, Purification, Weeding, Lightning, Plant Snare, Sea Wave)
+- Knowledge (Witchcraft)
+- Eyes of Mystery Prying
+- Spirituality
+Sequence 6: Scrolls Professor
+- Scroll Making (Secret Voice, Freezing, Storm, Numb, Burning, Wind, Healing, Sun)
+Sequence 5: Constellations Master
+- Starry Spellcasting (Star Pillar, Starry Amber, Star Transformation, Star Concealment, Star Bridge)
+- Eyes of Mystery Prying
+- Spellcasting
+Sequence 4: Mysticologist
+- Description: Among all Sequence 4 Beyonders, a Mysticologist is the Sequence that encounters danger the easiest because they often see things they shouldn't see, hear things they shouldn't hear, and know secrets they shouldn't be aware of. Expertise varies depending on Mythical Creature Form blood used.
+- Mystical Re-enactment (The Ugly Duckling, Spear of Longinus, Ball of Yarn, Princess Snow White)
+- Eyes of Mystery Prying
+- Spellcasting
+- Mythical Creature Form (Incomplete "black blob")
+Sequence 3: Clairvoyant
+- Clairvoyance
+- Mystical Re-enactment
+- Mythical Creature Form (Respond to prayers)
+Sequence 2: Sage
+- Authorities over Information (Knowledge Injection)
+- Clairvoyance
+- Mystical Re-enactment
+- Mythical Creature Form (Full "black blob")
+Sequence 1: Knowledge Emperor
+- Authority over Knowledge
+Sequence 0: Hermit
+- Number Symbolism
+- Information (Revival / Information Backup)
+- Knowledge (Knowledge Injection, Eyes of Mystery Prying)
+
+B. The Paragon (Savant) Pathway:
+Sequence 9: Savant
+- Knowledge
+- Recall
+Sequence 8: Archaeologist
+- Physical Enhancements
+- Knowledge
+- Ritualistic Magic
+Sequence 7: Appraiser
+- Appraisal
+Sequence 6: Artisan (Machinery Specialist)
+- Craftsmanship
+- Knowledge
+Sequence 5: Astronomer (Astromancer)
+- Beyonder powers
+Sequence 4: Alchemist
+- Artificial Life Creation
+- Beam of Disintegration
+- Craftsmanship
+Sequence 3: Arcane Scholar (Demon of Arcana)
+- Recall
+- Craftsmanship
+- Appraisal
+- Artificial Life Creation
+Sequence 2: Knowledge Magister (Master)
+- Fog Transformation
+- Physics
+Sequence 1: Illuminator (Civilization Enlightener, Light of Darkness)
+- Technology
+- Fragment of Civilization
+- Revolutionary Innovation
+Sequence 0: Paragon
+- Essence
+- Technology
+
+6. GODDESS OF ORIGIN (GREAT OLD ONE)
+
+Pathways: Mother, Moon.
+
+A. The Mother (Planter) Pathway:
+Sequence 9: Planter
+- Physical Enhancement
+- Farming Proficiency
+- Weather Forecasting
+Sequence 8: Doctor (Healing Pastor)
+- Surgical Mastery
+- Treatments (Evil Ailment Treatment, Disease Treatments, Trauma Treatment)
+- Soul Suture
+- Spirituality
+- Spirit Vision
+Sequence 7: Harvest Priest
+- Seed Catalyzation
+- Plant & Insect Commanding
+- Knowledge
+- Physical Enhancement
+Sequence 6: Biologist
+- Crossbreeding
+Sequence 5: Druid
+- Bear Transformation
+- Underground Slink
+- Poison Hair Incineration
+- Physical Enhancement
+- Crossbreeding
+Sequence 4: Classical Alchemist
+- Mutation
+- Artificial Life Creation
+- Life Aura
+- Creature Commanding
+- Surgical Mastery
+- Treatments
+- Soul Suture
+Sequence 3: Pallbearer
+- Life Draining
+Sequence 2: Desolate Matriarch
+- Desolation
+- Life Aura
+- Crossbreeding
+- Artificial Life Creation
+- Life Draining
+- Farming Proficiency
+- Creature Commanding
+Sequence 1: Naturewalker
+- Pathway enhancement
+Sequence 0: Mother
+- Motherhood
+- Life
+- Earth
+
+B. The Moon (Apothecary) Pathway:
+Sequence 9: Apothecary
+- Physical Enhancement
+- Medicinal Concoction
+- Spirituality
+- Spirit Vision
+Sequence 8: Beast Tamer
+- Taming
+- Intimidation
+- Animal Senses
+- Physical Enhancement
+Sequence 7: Vampire
+- Wings of Darkness
+- Claw of Corrosion
+- Abyss Shackles
+- The Embrace
+- Blood Servant Conversion
+- Physical Enhancement
+Sequence 6: Potions Professor (Baron)
+- Discerning Spiritual Materials
+- Potion & Perfume Crafting
+- Physical Enhancement
+Sequence 5: Scarlet Scholar (Viscount)
+- Lunar Battlefield
+- Moonlight Transformation
+- Flash Teleportation
+- Potion & Perfume Crafting
+- Physical Enhancement
+Sequence 4: Shaman King (Earl)
+- Spirituality Manipulation
+- Moon Strength Drawing Ritual
+- Undead Conversion Ritual
+- Substitution Spells
+- Moon Paper Figurine
+- Gaze of Darkness
+- Bat Swarm Transformation
+- Physical Enhancement
+- Abyss Shackles
+Sequence 3: High Summoner (Marquis)
+- Door of Summoning
+- Bat Wing Isolation
+Sequence 2: Life-Giver (Duke)
+- Creation
+- Physical Enhancement
+- Moonlight Transformation
+- Door of Summoning
+Sequence 1: Beauty Goddess (Queen)
+- Beauty Authority
+Sequence 0: Moon
+- Moon
+- Beauty
+- Reproduction
+- Fertility
+- Proliferation
+
+7. FATHER OF DEVILS (GREAT OLD ONE)
+
+Pathways: Abyss, Chained.
+Authorities: Abyss, Chained, Source of Curses, Desires, Binding.
+
+A. The Abyss (Criminal) Pathway:
+Sequence 9: Criminal
+- Criminal Proficiency
+- Physical Enhancement
+Sequence 8: Unwinged Angel (Coldblooded)
+- Demonic Attribute
+- Physical Enhancements
+Sequence 7: Serial Killer
+- Knowledge (Devil Worship)
+- Enhanced Mental Attributes
+Sequence 6: Devil
+- Devil Bloodline
+- Shadow-Shifter
+- Danger Premonition
+- Slow
+- Death
+- Corruption
+- Poisonous Flame Control
+- Sulfur Fireball
+- Lethal Poison Stream
+- Volcanic Eruption
+- Sword of Lava
+- Flame Prison
+- Demonization
+Sequence 5: Desire Apostle
+- Desire Mastery
+- Avatar of Desire
+Sequence 4: Demon
+- Mind Fog
+- Desire Mastery
+- Enhanced Mental Attributes
+- Danger Premonition
+- Physical Enhancement
+- Spell-like abilities
+- Demonization
+Sequence 3: Blatherer
+- Blathering
+Sequence 2: Bloody Archduke
+- Blood & Body Fluids
+- Fear
+- Desire Mastery
+- Seed of Malice
+Sequence 1: Filthy Monarch
+- Filth / Corruption
+- Corrosion
+- Pollution
+Sequence 0: Abyss
+- Degeneration / Depravity
+- Curses
+- Anomalies
+- Desire Mastery
+
+B. The Chained (Prisoner) Pathway:
+Sequence 9: Prisoner
+- Knowledge (Criminal)
+- Physical Enhancement
+- Binding
+Sequence 8: Lunatic
+- Berserk
+- Binding (Enhanced)
+- Curse: Lunatic's Curse
+Sequence 7: Werewolf
+- Werewolf Transformation
+- Werewolf Infection
+- Darkness Encroachment
+- Physical Enhancement (Enhanced)
+- Curse: Werewolf's Curse
+Sequence 6: Zombie
+- Zombie Transformation
+- Zombie Strength
+- Ice Control (Contact-Freeze, Ice Stun, Ice Wall Formation, Ice Slipping Area)
+- Aura of Decay
+- Wither Explosion
+- Rotting Fist Aura
+- Rotting Sludge Creation
+- Zombie Manipulation
+- Curse: Zombie's Curse
+Sequence 5: Wraith
+- Wraith Transformation
+- Invisibility
+- Wraith Shriek
+- Possession
+- Mirror Blink
+- Zombie Transformation & Zombie Manipulation (Enhanced)
+- Ice Control (Enhanced)
+- Curse: Wraith's Curse
+Sequence 4: Puppet
+- Source of Curses
+- Poltergeist
+- Evil Spirit Transformation
+- Spirituality
+- Spiritual Intuition
+- Mythical Creature Form (Incomplete Mythical Creature Form)
+Sequence 3: Disciple of Silence (Cursed Artifact)
+- Transfiguration Curse
+- Source of Curses (Enhanced)
+- Mythical Creature Form (Respond to prayers)
+Sequence 2: Ancient Bane
+- Spirit Inhaling
+- Resurrection
+- Source of Curses (Enhanced)
+- Transfiguration Curse (Enhanced)
+- Mythical Creature Form (Complete Mythical Creature)
+Sequence 1: Abomination
+- Abomination Transformation
+- Binding Authority
+- Source of Curses (Enhanced)
+- Mythical Creature Form (Grotesque tree-like shape)
+Sequence 0: Chained
+- Binding Authority
+
+8. THE ANARCHY (GREAT OLD ONE)
+
+Pathways: Black Emperor, Justiciar.
+
+Authorities & Symbolisms:
+- Black Emperor: Disorder, Entropy, Distortion, Shadow of Order
+- Justiciar: Balance, Law, Order
+- Order
+- Shadow of Order
+Limitation: Minimal influence on highest dimension.
+
+Formula:
+- Nation of Disorder
+- Uniquenesses of:
+  * The Black Emperor
+  * The Justiciar
+- 1 Beyonder Characteristic each from:
+  * The Prince of Abolition
+  * The Hand of Order
+
+A. The Black Emperor (Lawyer) Pathway:
+Sequence 9: Lawyer
+- Eloquence
+- Law Proficiency
+Sequence 8: Barbarian
+- Physical Enhancement
+- Mental Resistance
+Sequence 7: Briber
+- Bribery (Bribe-Weaken, Bribe-Arrogance, Bribe-Charm, Bribe-Connection)
+Sequence 6: Baron of Corruption (Corruption)
+- Distortion
+- Corrosion
+- Weakness Detection
+Sequence 5: Mentor of Disorder (Disorder)
+- Disorder
+- Majesty
+- Distortion (Enhanced)
+Sequence 4: Earl of the Fallen (Fallen, Depravity)
+- Exploit
+- Bestowment
+- Magnify
+- Disorder / Bribe / Distortion (Enhanced)
+- Mythical Creature Form (Incomplete Curly-Haired Baboon)
+Sequence 3: Frenzied Mage (Frenzy)
+- Gigantification
+- Mythical Creature Form (Respond to prayers)
+Sequence 2: Duke of Entropy (Entropy)
+- Distortion & Exploit (Enhanced)
+- Mythical Creature Form (Complete Curly-Haired Baboon)
+Sequence 1: Prince of Abolition (Abolition)
+- Distortion (Enhanced)
+Sequence 0: Black Emperor
+- Distortion Authority
+- Resurrection
+- Last Rebirth
+
+B. The Justiciar (Arbiter) Pathway:
+Sequence 9: Arbiter
+- Authority
+- Physical Enhancement
+Sequence 8: Sheriff
+- Area of Jurisdiction (Territory)
+- Recognition
+- Supernatural Intuition
+- Tracking
+Sequence 7: Interrogator
+- Whip of Pain
+- Psychic Piercing
+- Brand of Restraint
+- Psychic Lashing
+- Enhanced Mental Attributes
+- Combat Proficiency
+- Physical Enhancement (Enhanced)
+Sequence 6: Judge
+- Verdict
+- Confinement
+- Imprison
+- Release
+- Death
+- Exile
+- Flog
+- Prohibition
+- Authority (Enhanced)
+- Area of Jurisdiction / Territory (Enhanced)
+Sequence 5: Disciplinary Paladin
+- Punishment
+- Physical Enhancements
+- Enhanced Mental Attributes
+- Authority
+Sequence 4: Imperative Mage
+- Deprivation
+- Power of Laws
+- Teleportation
+- Supernatural Intuition
+- Verdict
+- Weaken Mysticism, Enhance Reality
+- Exile
+- Execution
+- Confinement
+- Eternal peace for the dead
+- Restriction
+- Mythical Creature Form (Incomplete giant Brass Pillar)
+Sequence 3: Chaos Hunter
+- Deprivation (Enhanced)
+- Mythical Creature Form (Respond to prayers)
+Sequence 2: Balancer
+- Balance Authority
+- Mythical Creature Form (Complete Brass Pillar)
+Sequence 1: Hand of Order
+- Authority reinforced
+Sequence 0: Justiciar
+- Law Authority
+
+XI. OUTER DEITIES & NON-STANDARD PATHWAYS
+
+Overview: Outer Deities are powerful cosmic entities that have attempted to invade Earth. Among them are the Mother Goddess of Depravity, the Mother Tree of Desire, the Son of Chaos, the Primordial Hunger, the Supernova Dominator, and the Inextinguishable Ravings.
+
+1. Circle of Inevitability (Eternal Aeon Pathway):
+- Authorities & Symbolisms:
+  * Eternal Aeon: Cause, Process, Effect, Past, Present, Future, Cycle, Loop, Substitution, Inevitability, Destiny
+  * Future & Destined
+  * Past
+  * Eternal Aeon
+  * Substitution
+- Counters:
+  * Lord of Mysteries: King of Space-Time, Beacon of Destiny, Error
+  * Eternal Darkness: Space-Time-in-One
+  * Calamity of Destruction: Return of All Things to Chaos
+- Sequence Progression:
+  * Sequence 9: Dancer - Knowledge (Mysticism), Summoning Dance, Enigmatic Dance, Spirituality, Wall of Spirituality, Physical Enhancement
+  * Sequence 8: Alms Monk - Endurance, Luck Intuition, Knowledge (Ritualistic Spells: Prophecy Spell, Luck Enhancement Spell, Animal Creation Spell, Substitution Spell, Exorcism Spell), Knowledge (Mysticism Enhanced)
+  * Sequence 7: Contractee - Contracts, Endurance, Luck Intuition, Knowledge (Mysticism), Summoning Dance, Physical Enhancement, Spirituality
+  * Sequence 6: Ascetic - Compression (Mental, Strength, Ritualistic), Simplified Animal Creation & Exorcism Spells, Spirituality, Endurance, Contracts, Luck Enhancement Spell
+  * Sequence 5: Fate Appropriator - Fate Observation, Fate Appropriation, Fate Exchange, Compelling Fate, Magnified Fate, Fate Rituals, Spirituality, Physical Enhancements, Contracts, Endurance, Ritualistic Spells, Animal Creation Spell
+  * Sequence 4: Circle Inhabitant - Circle Inhabitant, Fate Observation, Fate Appropriation, Fate Exchange
+  * Sequence 3: Sufferer - Reenactment, Present State, Endurance, Circle Inhabitant, Contracts
+  * Sequence 2: Sinner - Past & Cause Authority; Weakness: Depraved Nature; Mythical Creature Form (Two-headed, Two-bodied, Four-Armed being)
+  * Sequence 1: Angel of Redemption - Future, Effect, & Destiny Authority; Mythical Creature Form (Three-headed, Three-bodied, Six-Armed Giant)
+  * Sequence 0: Eternal Aeon - Cycle & Inevitability, Past & Cause, Inevitability
+
+2. Mother Goddess of Depravity (Chaos Primogenitor Pathway):
+- Aliases: Primordial Moon, Great Mother, Sovereign of the Physical World, Mother of All Things. First child of the Original Creator and ruler of all feminine power in the Cosmos. Originally owned Mother and Moon Pathways; currently possesses Chaos Primogenitor Pathway.
+- Authorities & Symbolism:
+  * Chaos Primogenitor Pathway: Full authority over Reproduction, Propagation, Reality, and Nurturing the nascent Original Creator of the next Universe (combining Original Sin, Evil, and Corruption with Reality and Procreation).
+  * Mother Pathway (partial): Authorities over Life, Desolation, and Birth, symbolizing Motherhood.
+  * Moon Pathway (partial): Authorities over Beauty, Creation, and Spirituality, symbolizing the Moon / Crimson Moon.
+  * Sovereign of the Physical World: One of the three Pillars supporting the universe. "Her" soul and body are indestructible.
+  * Origin of Evil: Innately possesses the Pathway of Evil and Corruption, including the Exploitation of Life.
+  * Dominator of Reality: Full control over the Physical World, making "Her" almost impossible to displace, seal, or banish. "She" can "fix" mystical connections, spirits, and consciousness in place, disrupting interference.
+  * New Life: Can give "New Life" to all things, including souls, consciousness, spirits, intellect, and Beyonder powers; immense healing properties.
+  * Chaos Primogenitor: A unique symbol pointing to the Original Creator, whom "She" nurtures as the "Original Sin" of the next universe.
+  * Beauty and Spirituality: Symbolizes beauty, radiating maternal brilliance that causes enemies to hesitate.
+  * Death and Desolation: Can influence entities to wither, collapsing into death.
+- Appearance:
+  * Primordial Moon: Appears as a crimson sea flowing on the Moon's surface, digesting it.
+  * True Form: Composed of countless haphazardly piled birthing organs, with swirling smoke and crimson moonlight forming an accretion-disk-like extension as clothing. Has a flawless human woman's head with long brown hair and crimson eyes, embodying beauty and maternal brilliance.
+- History:
+  * Created by the Original Creator; highly affected by the Law of Convergence, attracting parts of "Her" Sefirah and characteristics to Earth.
+  * Source of all Mother Goddess-type deities on Earth in the Pre-Epoch. Worshipped by Life School of Thought and Rose School of Thought.
+  * Corrupted Roselle Gustav. Traded Roselle's corruption for the Shadow of the Beauty Goddess during Project Vortex.
+  * Cooperated with Mother Tree of Desire in "The Fool's Dream" to store Klein's traumas and grant "New Life" to Panatiya's corpse. Later betrayed the Celestial Worthy by siding with the Primordial God Almighty.
+  * Descended onto Earth during "The Day of Many Disasters" and captured the Brood Hive.
+  * Dealt a critical blow by Lumian Lee during "The Apocalypse"; saved Goddess of Fate from being sealed by Klein. Truced with Klein and left solar system, contract-bound to assist Primordial God Almighty's revival.
+
+3. Mother Tree of Desire (Patriarch Pathway):
+- Aliases: Father of Devils (former), Perpetual Blatherer, Heartless God. Second child of the Original Creator. Originally owned Abyss and Chained Pathways; currently possesses Patriarch Pathway.
+- Authorities & Symbolism:
+  * Patriarch Pathway (full): Authorities over Love, Envy, Reason, and Sentient Beings, symbolizing Desires (mix of "Desires (Reasons)" and "Blathering").
+  * Abyss Pathway (partial): Authorities over Blood, Filth, and Corruption.
+  * Chained Pathway (partial): Authorities over Curses and Binding.
+  * Father of Devils (former): Holds corruptive influence over "Her" former pathways.
+  * Perpetual Blatherer: Initiator of Reason and endless Desires; can awaken survival instincts and locate targets via desire.
+  * Reason: "Her" existence blesses all Sentient Beings with Rationality.
+- Appearance:
+  * True Form: A humanoid giant tree covered in chaotic scales, adorned with enticing crystalline fruits, glistening alluring flowers, various metallic emblems, black hearts, bare tumors, and coins. Dual heads: lower male head exuding bizarre desires; upper female head of extraordinary beauty with green hair.
+- History:
+  * Created by Original Creator; attracted by Law of Convergence.
+  * Corrupted the Chained God in the Fifth Epoch, turning Rose School of Thought into an evil organization.
+  * Conflict with Primordial Moon within Rose School of Thought.
+  * Traded Shadow of Beauty Goddess for Roselle's corruption in Project Vortex. Exerted influence in Klein's dream running Mushoku Hospital alongside Mother Goddess of Depravity.
+  * Attempted to grow Tree of Shadow on "The Day of Many Disasters". Severely wounded by Master of the Shadow Cottage and Farbauti during "The Apocalypse"; escaped into Astral World with Tenebrous World's help.
+
+4. Son of Chaos (Chaos Mist Pathway):
+- Aliases: Genie, Uncertain Mist. Third child of the Original Creator. Originally owned Nation of Disorder (Black Emperor and Justiciar Pathways); currently possesses Chaos Mist Pathway.
+- Authorities & Symbolism:
+  * Chaos Mist Pathway (full): Authorities over Blasphemy, Truth, and Chaos.
+  * Contracts: Can make Contracts that even Great Old Ones must honor.
+- Appearance:
+  * As the Genie: A blurred and distorted pale golden figure formed from viscous light.
+  * As the Uncertain Mist: Occupies a massive planet shrouded in layers of ever-changing white mist.
+- History:
+  * Consciousness sealed in the Magic Wishing Lamp by the Celestial Worthy of Heaven and Earth for Blessings in the First Epoch.
+  * Remaining parts formed the Uncertain Mist (worshipped by School of Truth).
+  * Injured during Project Vortex, dormant until "The Apocalypse".
+
+5. Primordial Hunger (Tail-Devourer Pathway):
+- Authorities & Symbolism:
+  * Tail-Devourer Pathway (full): Authorities over Devouring, Convergence, and Hunger. Symbolizes Devouring and Convergence.
+  * Convergence: Instinctively pulls others' true bodies to "His" side; can influence Fate.
+  * Devour: Can Devour everything (black holes, avatars, marionettes, mental ravings). Governs Digestion, Utilization, and Erasure.
+  * Counters: Countered by Calamity of Destruction's "Return of All Things to Chaos" and God Almighty's "Creator".
+- Appearance & Personality:
+  * True Form: A dark vortex revealing bared white teeth and chaotic liquid encompassing all colors; elongated consumed shadows.
+  * Personality: Most primitive and vulnerable Outer Deity, driven by desires of Convergence with basic self-preservation.
+- History:
+  * Sought to consume City of Calamity and ingest Chaos Sea. Subordinate Angel Ludwig Phil captured and sealed by Church of Knowledge.
+  * Held off by Adam and struck by Lumian Lee during "The Apocalypse". (Devouring Chaos Primogenitor would trigger aggressive Convergence awakening the Original Creator.)
+
+6. Supernova Dominator (Condenser Pathway):
+- Authorities & Symbolism:
+  * Condenser Pathway (full): Authorities over Fusion, Cosmic Laws, and Fundamental Forces. Symbols of Density, Weight, Gravity, and Attraction.
+  * Ruler of Stars: Controls and summons Stars, creating Supernovae and Black Holes (controls millions of stars).
+  * Great Attractor: Controls the Great Attractor, influencing galactic motion.
+  * Symbolism of Weight and Density: Gravitational pull distorts space-time and dimensions, affecting both physical and intangible matter like Fate and Spirit Bodies.
+  * Controller of Fundamental Forces: Controls Fundamental Forces of reality; manipulates particles to trigger nuclear fusion and create matter; emits blinding light.
+  * Supernova & Black Hole: Creates Supernovae and massive Black Holes.
+  * White Hole: Reverses Black Hole collapse into devastating explosion powerful enough to obliterate other Great Old Ones.
+- Appearance & Personality:
+  * True Form: A star cluster composed of myriad explosive suns exceeding the size of a solar system.
+  * Personality: Wants to embody Civilization, but driven by periodic bouts of madness.
+- History:
+  * Served as Earth's "Sun" during much of the Second Epoch following Primordial God Almighty's death.
+  * Sent spaceship with embryonic black hole in Fourth Epoch (thwarted by Mr. Door and Amon).
+  * First Outer Deity to affect Earth during "The Apocalypse", fracturing the planet. Sealed by Klein into an Abomination characteristic; later affected by "Foolishness" and "Virtual Persona" into believing "He" is an ally of Earth.
+
+7. Inextinguishable Ravings (Everlasting Pathway):
+- Authorities & Symbolism:
+  * Everlasting Pathway (full): Authorities and Symbols of Consciousness and Spirit.
+  * Inextinguishable Ravings: Awaken residual spiritual imprint of the Original Creator across all Sefirot, Uniquenesses, and Characteristics. Projects voice directly into Sefirot.
+  * Consciousness & Spirit: Injuring "Him" causes chaotic consciousness and disoriented spirits.
+  * Symbol of Life's Spirit: Awakens and corrupts lingering spirits within aggregates.
+  * Eternal Consciousness: Intwined with consciousness and spirits, rendering "Him" immortal.
+  * Philosophical Essence: Transmits the First Philosophy, causing severe mental and physical anguish in listeners.
+  * Counters: Countered by "Darkness" (Eternal Darkness slumber) and "Devouring" (Primordial Hunger).
+- Appearance:
+  * Intangible; attaches "Himself" to objects causing distinct colors and appearances.
+- Sequence Progression:
+  * Sequence 9: Initiator - Initiation (Midoro's Worship)
+  * Sequence 8: Commentator - Commentary
+  * Sequence 7: Orator - Oratory
+  * Sequence 6: Singer - Singing
+  * Sequence 5: Secret Transmitter - Transmit
+  * Sequence 4: Philosopher - Philosophy (Materialism, Subjective Idealism)
+  * Sequence 3: Messenger of God - Envoy
+  * Sequence 2: Great Old One Attendant - Consciousness & Spirit
+  * Sequence 1: Voice of the Heart - Mind (Consciousness / Voice)
+  * Sequence 0: Everlasting - Consciousness & Spirit, Spirit, Consciousness, Everlasting
+
+8. The Monarch of Decay (Second Law Pathway):
+- Authorities: Second Law (Entropy, Disease, Decay), Certain Death, Endpoint of the River of Time.
+- Sequence Progression:
+  * Sequence 9: Patient (Rotting Patient) - Disease Constitution
+  * Sequence 8: Secretary (Bureaucratic Representative) - Bureaucracy
+  * Sequence 7: Vermin (Corruptor) - Corruption
+  * Sequence 6: Disease Envoy - Disease Bestowal
+  * Sequence 5: Child of Decay - Pathogen Embodiment
+  * Sequence 4: Doomed One - Avatar of Pathogen, Certain Death, Sure Hit
+  * Sequence 3: Left Hand of Decay - Left Hand of Decay, Certain Death
+  * Sequence 2: Time Giant - Time
+  * Sequence 1: God of Decay - Senescence (Aging)
+  * Sequence 0: Second Law (Second Law of Thermodynamics, Ragnarok) - Entropy, Disease, Decay
+
+9. The High-Dimensional Overseer (Sublunary Eye Pathway):
+- Authorities: Sublunary Eye, Dimensionality (Lord of Dimensions), Truth, Creator of the Painting World.
+- Sequence Progression:
+  * Sequence 9: Shaman - Territory Creation, Spirit Body Connection
+  * Sequence 8: Reporter - True Sight, Enhanced Speed
+  * Sequence 7: Painter - Painting, Painting Disguise, Spiritual Intuition
+  * Sequence 6: Literary Aficionado - Fantasy Materialization
+  * Sequence 5: Pixie - Dimension Shifting, Flight, Painting (Painting World)
+  * Sequence 4: Visitor (Dimensional Traveler) - Dimensional Visitor (Hostel)
+  * Sequence 3: String Player (Performer, Musician) - String Manipulation
+  * Sequence 2: Dimensional Shadow - Dimensions, Painting
+  * Sequence 1: Observer - Observation, True Sight, Dimensions, Fantasy
+  * Sequence 0: Sublunary Eye - Truth
+
+10. The Goddess of Fate (Eternal Edict Pathway):
+- Authorities: Eternal Edict, Weaver of All Fates, Final Judgement, Eternal Life, Fate.
+- Sequence Progression:
+  * Sequence 9: Dreamless - Dreamless, Fate Sense
+  * Sequence 8: Musician - Fate Symphony
+  * Sequence 7: Fate Pryer - Fate Prying, Spirituality
+  * Sequence 6: Mute - Words of Fate
+  * Sequence 5: Deceased - False Death
+  * Sequence 4: Fatebender - Fate Manipulation
+  * Sequence 3: Fate's Attendant - Fate Weaving, Fate Prying
+  * Sequence 2: Web Weaver (Eyeless One) - Weaving
+  * Sequence 1: Blade of Fate - Judgement
+  * Sequence 0: Eternal Edict - Fate Authority
