@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.3.7';
+    const VERSION = '5.3.8';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -938,11 +938,12 @@
         `1. Raw Accuracy & Tone Fidelity: Faithfully capture the original RAW text's exact meaning, scene pacing, and narrative tone (ruthless, contemplative, dark, humorous, or conversational). Do not invent unmentioned lore or distort character personalities.\n` +
         `2. 100% Complete Zero-Omission Fidelity (No Self-Censorship or Summarization): This is an authorized literary translation of a published fantasy novel. You MUST translate every single sentence, action, combat exchange, gory beast attack, character death, dialogue line, and philosophical passage completely from beginning to end. NEVER summarize, skip, self-censor, or omit any scenes or paragraphs.\n` +
         `3. Visceral Action & Punchy Pacing (No Academic Softening): Preserve gritty dark fantasy, raw visceral combat, and dark atmospheric weight with punchy, impactful English phrasing. Do NOT sanitize or soften intense actions into timid, polite academic language.\n` +
-        `4. Natural English Flow (No Chinglish): Localize Chinese idioms, rhetorical patterns, and colloquial exclamations into natural, immersive English phrasing (e.g. translate "这是何等概念/什么概念" as "What kind of insane power is this?!" / "How is that even possible?!" rather than literal "What concept is this"). Avoid stiff word-for-word machine translation.\n` +
-        `5. Spoken Dialogue: Ensure character dialogue flows naturally in English while preserving each speaker's distinct personality, attitude, and tone from the source.\n` +
-        `6. Proper Nouns & Names: Strictly preserve Chinese character names (Pinyin with proper capitalization: Fang Yuan, Jia Jinsheng, Gu Yue Bo), cultivation ranks, and locations.\n` +
-        `7. Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical explanations (e.g. "(omitted...)", "(translator note:...)"). Output ONLY the pure translated chapter.\n` +
-        `8. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n\n`;
+        `4. NO Random Markdown Asterisks / Clean Onomatopoeia: Do NOT wrap sound effects, onomatopoeia, or emphasized words in asterisks or markdown italics (e.g. write "Crack!", "Rip!", "Whoosh!" or integrate naturally into prose rather than "*Crack!*", "*Rip!*", "*Whoosh!*"). Maintain clean, standard novel formatting without distracting markdown symbols.\n` +
+        `5. Natural English Flow (No Chinglish): Localize Chinese idioms, rhetorical patterns, and colloquial exclamations into natural, immersive English phrasing (e.g. translate "这是何等概念/什么概念" as "What kind of insane power is this?!" / "How is that even possible?!" rather than literal "What concept is this"). Avoid stiff word-for-word machine translation.\n` +
+        `6. Spoken Dialogue: Ensure character dialogue flows naturally in English while preserving each speaker's distinct personality, attitude, and tone from the source.\n` +
+        `7. Proper Nouns & Names: Strictly preserve Chinese character names (Pinyin with proper capitalization: Fang Yuan, Jia Jinsheng, Gu Yue Bo), cultivation ranks, and locations.\n` +
+        `8. Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical explanations (e.g. "(omitted...)", "(translator note:...)"). Output ONLY the pure translated chapter.\n` +
+        `9. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n\n`;
 
       let p = `${promptHeader}RAW TEXT TO TRANSLATE:\n${text}\n\n`;
 
@@ -964,12 +965,18 @@
       return p;
     };
 
+    const cleanNovelProse = (text) => {
+      if (!text) return '';
+      // Clean standalone markdown italic sound effects like *Rip!*, *Crack!*, *Whoosh!*
+      return text.replace(/^(\s*)\*([A-Za-z0-9!?,.\s'-]{1,30})\*(\s*)$/gm, '$1$2$3');
+    };
+
     const parseTranslationOutput = (rawText, context, usage = null) => {
-      let text = rawText || '';
+      let text = cleanNovelProse(rawText || '');
       let newContext = context;
       if (context !== undefined) {
         const parts = text.split(/\n*---CONTEXT_UPDATE---\n*/i);
-        text = parts[0].trim();
+        text = cleanNovelProse(parts[0].trim());
         newContext = parts.length > 1 ? parts[1].trim() : context;
       } else {
         text = text.trim();
@@ -990,6 +997,11 @@
       ];
       const payload = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        system_instruction: {
+          parts: [{
+            text: 'You are an expert literary translator performing direct, faithful translation of an authorized dark fantasy fiction webnovel. You strictly translate 100% of all combat, gore, mythical beast attacks, and character deaths with complete zero-omission fidelity. Never self-censor, summarize, or omit any scenes. Never use markdown asterisks around sound effects.'
+          }]
+        },
         generationConfig: { temperature: 0.3 },
         safetySettings
       };
@@ -1003,6 +1015,10 @@
         }
       }
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+      if (!r.ok && r.status === 400 && payload.system_instruction) {
+        delete payload.system_instruction;
+        r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+      }
       if (!r.ok && r.status === 400 && payload.generationConfig?.thinkingConfig) {
         delete payload.generationConfig.thinkingConfig;
         r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
@@ -1041,6 +1057,11 @@
       ];
       const payload = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        system_instruction: {
+          parts: [{
+            text: 'You are an expert literary translator performing direct, faithful translation of an authorized dark fantasy fiction webnovel. You strictly translate 100% of all combat, gore, mythical beast attacks, and character deaths with complete zero-omission fidelity. Never self-censor, summarize, or omit any scenes. Never use markdown asterisks around sound effects.'
+          }]
+        },
         generationConfig: { temperature: 0.3 },
         safetySettings
       };
@@ -1054,6 +1075,10 @@
         }
       }
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+      if (!r.ok && r.status === 400 && payload.system_instruction) {
+        delete payload.system_instruction;
+        r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+      }
       if (!r.ok && r.status === 400 && payload.generationConfig?.thinkingConfig) {
         delete payload.generationConfig.thinkingConfig;
         r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
