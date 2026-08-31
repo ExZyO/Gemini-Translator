@@ -276,7 +276,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.0.1';
+    const VERSION = '5.0.2';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1735,6 +1735,98 @@
       const [downloadingDocx, setDownloadingDocx] = useState(false);
       const [isOptimizingGlossary, setIsOptimizingGlossary] = useState(false);
       const [isDragOver, setIsDragOver] = useState(false);
+
+      // --- Resizable Text Boxes Height State (Touch & Desktop) ---
+      const [inputBoxHeight, setInputBoxHeight] = useState(() => parseInt(localStorage.getItem('inputBoxHeight'), 10) || 220);
+      const [outputBoxHeight, setOutputBoxHeight] = useState(() => parseInt(localStorage.getItem('outputBoxHeight'), 10) || 250);
+      const [instructionsBoxHeight, setInstructionsBoxHeight] = useState(() => parseInt(localStorage.getItem('instructionsBoxHeight'), 10) || 80);
+      const [glossaryBoxHeight, setGlossaryBoxHeight] = useState(() => parseInt(localStorage.getItem('glossaryBoxHeight'), 10) || 140);
+
+      const handleTouchResizeStart = (e, boxType) => {
+        const touch = e.touches && e.touches[0];
+        if (!touch) return;
+        const startY = touch.clientY;
+        const initialHeights = {
+          input: inputBoxHeight,
+          output: outputBoxHeight,
+          instructions: instructionsBoxHeight,
+          glossary: glossaryBoxHeight
+        };
+        const minHeights = { input: 140, output: 140, instructions: 60, glossary: 80 };
+        const maxHeights = { input: 1200, output: 1200, instructions: 800, glossary: 1000 };
+        const startH = initialHeights[boxType] || 200;
+        let lastH = startH;
+
+        const onTouchMove = (moveEvt) => {
+          const curTouch = moveEvt.touches && moveEvt.touches[0];
+          if (!curTouch) return;
+          const delta = curTouch.clientY - startY;
+          const newH = Math.max(minHeights[boxType] || 80, Math.min(maxHeights[boxType] || 1000, Math.round(startH + delta)));
+          lastH = newH;
+          if (boxType === 'input') setInputBoxHeight(newH);
+          else if (boxType === 'output') setOutputBoxHeight(newH);
+          else if (boxType === 'instructions') setInstructionsBoxHeight(newH);
+          else if (boxType === 'glossary') setGlossaryBoxHeight(newH);
+        };
+
+        const onTouchEnd = () => {
+          window.removeEventListener('touchmove', onTouchMove);
+          window.removeEventListener('touchend', onTouchEnd);
+          localStorage.setItem(`${boxType}BoxHeight`, lastH);
+        };
+
+        window.addEventListener('touchmove', onTouchMove, { passive: true });
+        window.addEventListener('touchend', onTouchEnd, { passive: true });
+      };
+
+      const toggleBoxExpand = (boxType) => {
+        const defaults = { input: 220, output: 250, instructions: 80, glossary: 140 };
+        const expanded = { input: 560, output: 560, instructions: 280, glossary: 480 };
+        const curHeights = {
+          input: inputBoxHeight,
+          output: outputBoxHeight,
+          instructions: instructionsBoxHeight,
+          glossary: glossaryBoxHeight
+        };
+        const cur = curHeights[boxType] || defaults[boxType];
+        const target = (cur >= expanded[boxType] - 50) ? defaults[boxType] : expanded[boxType];
+        
+        if (boxType === 'input') setInputBoxHeight(target);
+        else if (boxType === 'output') setOutputBoxHeight(target);
+        else if (boxType === 'instructions') setInstructionsBoxHeight(target);
+        else if (boxType === 'glossary') setGlossaryBoxHeight(target);
+        localStorage.setItem(`${boxType}BoxHeight`, target);
+      };
+
+      const renderBoxResizeBar = (boxType) => {
+        const expanded = { input: 560, output: 560, instructions: 280, glossary: 480 };
+        const curHeights = {
+          input: inputBoxHeight,
+          output: outputBoxHeight,
+          instructions: instructionsBoxHeight,
+          glossary: glossaryBoxHeight
+        };
+        const isExp = (curHeights[boxType] || 0) >= (expanded[boxType] - 50);
+
+        return h('div', { className: 'flex items-center justify-between pt-1.5 pb-0.5 select-none' },
+          h('div', {
+            onTouchStart: (e) => handleTouchResizeStart(e, boxType),
+            className: 'flex-1 py-1 flex items-center justify-center cursor-row-resize touch-none group transition-all',
+            title: 'Drag up or down to resize on touch or desktop'
+          },
+            h('div', { className: 'w-16 h-1 bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 group-active:bg-indigo-600 rounded-full transition-colors' })
+          ),
+          h('button', {
+            type: 'button',
+            onClick: () => toggleBoxExpand(boxType),
+            className: 'px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-md transition-all flex items-center gap-1 cursor-pointer shrink-0 ml-2',
+            title: isExp ? 'Collapse box height' : 'Expand box height'
+          },
+            ic(isExp ? Minimize2 : Maximize2, 11),
+            isExp ? 'Compact' : 'Expand'
+          )
+        );
+      };
 
       // --- Refs ---
       const fileInputRef = useRef(null);
@@ -3464,10 +3556,31 @@ p {
               h('div', { className: 'p-3.5 sm:p-4 bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between space-y-3 max-w-full overflow-hidden' },
                 h('div', null,
                   h('div', { className: 'flex items-center justify-between mb-2' },
-                    h('label', { className: 'text-sm font-bold text-slate-800 dark:text-slate-200' }, 'Input Text'),
+                    h('div', { className: 'flex items-center gap-2' },
+                      h('label', { className: 'text-sm font-bold text-slate-800 dark:text-slate-200' }, 'Input Text'),
+                      h('button', {
+                        type: 'button',
+                        onClick: () => toggleBoxExpand('input'),
+                        className: 'px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-md transition-all flex items-center gap-1 cursor-pointer',
+                        title: (inputBoxHeight >= 510) ? 'Collapse box' : 'Expand box'
+                      },
+                        ic((inputBoxHeight >= 510) ? Minimize2 : Maximize2, 11),
+                        (inputBoxHeight >= 510) ? 'Compact' : 'Expand'
+                      )
+                    ),
                     h('span', { className: 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' }, `${wordCount(inputText)} words · ${charCount(inputText)} chars`)
                   ),
-                  h('textarea', { value: inputText, onChange: e => setInputText(e.target.value), onKeyDown: (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (!isTranslating && inputText.trim()) handleTranslateText(); } }, disabled, placeholder: 'Paste your novel text or chapter here (Ctrl+Enter to translate)...', className: 'w-full p-3 sm:p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl shadow-inner focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 resize-y text-sm leading-relaxed transition-all font-normal', style: { minHeight: '220px' }, 'aria-label': 'Input text for translation' })
+                  h('textarea', {
+                    value: inputText,
+                    onChange: e => setInputText(e.target.value),
+                    onKeyDown: (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (!isTranslating && inputText.trim()) handleTranslateText(); } },
+                    disabled,
+                    placeholder: 'Paste your novel text or chapter here (Ctrl+Enter to translate)...',
+                    className: 'w-full p-3 sm:p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl shadow-inner focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 resize-y text-sm leading-relaxed transition-all font-normal',
+                    style: { height: `${inputBoxHeight}px`, minHeight: '140px' },
+                    'aria-label': 'Input text for translation'
+                  }),
+                  renderBoxResizeBar('input')
                 ),
                 h('div', { className: 'flex flex-wrap gap-1.5 sm:gap-2 pt-1 items-center' },
                   btn({ onClick: async () => { try { const t = await navigator.clipboard.readText(); setInputText(p => p + t); toast('Pasted!') } catch (e) { setError(e.message) } }, disabled, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Paste text from clipboard' }, ic(Clipboard, 14), 'Paste'),
@@ -3487,6 +3600,15 @@ p {
                     h('div', { className: 'flex flex-wrap items-center justify-between gap-2 mb-2' },
                       h('div', { className: 'flex flex-wrap items-center gap-2' },
                         h('label', { className: 'text-sm font-bold text-emerald-700 dark:text-emerald-400' }, `Translated (${tgtLang})`),
+                        h('button', {
+                          type: 'button',
+                          onClick: () => toggleBoxExpand('output'),
+                          className: 'px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 rounded-md transition-all flex items-center gap-1 cursor-pointer',
+                          title: (outputBoxHeight >= 510) ? 'Collapse box' : 'Expand box'
+                        },
+                          ic((outputBoxHeight >= 510) ? Minimize2 : Maximize2, 11),
+                          (outputBoxHeight >= 510) ? 'Compact' : 'Expand'
+                        ),
                         lastUsageStats && h('div', { className: 'inline-flex items-center gap-2' },
                           h('span', { className: 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/50 shadow-2xs' },
                             ic(Sparkles, 13),
@@ -3530,7 +3652,14 @@ p {
                         h('span', { className: 'text-slate-400 text-[11px] font-normal ml-0.5' }, `(${lastUsageStats.model})`)
                       )
                     ),
-                    h('textarea', { value: currentDisplayOutput, onChange: e => setAssembledText(e.target.value), className: 'w-full p-3.5 border border-emerald-300/80 dark:border-emerald-900/70 bg-emerald-50/20 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl shadow-inner focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-y text-sm leading-relaxed transition-all font-normal', style: { minHeight: '250px' }, 'aria-label': 'Translated output text' })
+                    h('textarea', {
+                      value: currentDisplayOutput,
+                      onChange: e => setAssembledText(e.target.value),
+                      className: 'w-full p-3.5 border border-emerald-300/80 dark:border-emerald-900/70 bg-emerald-50/20 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl shadow-inner focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-y text-sm leading-relaxed transition-all font-normal',
+                      style: { height: `${outputBoxHeight}px`, minHeight: '140px' },
+                      'aria-label': 'Translated output text'
+                    }),
+                    renderBoxResizeBar('output')
                   ),
                   h('div', { className: 'flex flex-wrap gap-2 pt-1 items-center justify-between' },
                     h('div', { className: 'flex flex-wrap items-center gap-1.5 sm:gap-2' },
@@ -3587,8 +3716,17 @@ p {
             // Custom Instructions
             h('div', { className: 'p-4 sm:p-5 bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-2 max-w-full overflow-hidden' },
               h('div', { className: 'flex items-center justify-between mb-1' },
-                h('div', { className: 'flex items-center gap-1.5' },
+                h('div', { className: 'flex items-center gap-2' },
                   h('label', { className: 'text-sm font-bold text-slate-800 dark:text-slate-200' }, 'Custom Translation Instructions'),
+                  h('button', {
+                    type: 'button',
+                    onClick: () => toggleBoxExpand('instructions'),
+                    className: 'px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-md transition-all flex items-center gap-1 cursor-pointer',
+                    title: (instructionsBoxHeight >= 230) ? 'Collapse box' : 'Expand box'
+                  },
+                    ic((instructionsBoxHeight >= 230) ? Minimize2 : Maximize2, 11),
+                    (instructionsBoxHeight >= 230) ? 'Compact' : 'Expand'
+                  ),
                   h(InfoTooltip, {
                     title: 'Custom Translation Instructions',
                     text: 'Special guidelines added to every translation prompt. Use this to control prose tone (e.g. formal, poetic, witty), point of view (1st/3rd person), British vs American spelling, or sentence structure.',
@@ -3609,8 +3747,9 @@ p {
                 disabled,
                 placeholder: 'e.g., "Use formal tone", "Keep character names in original language", "Output in British English"',
                 className: 'w-full p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl text-sm resize-y focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all font-normal leading-relaxed',
-                rows: 2
+                style: { height: `${instructionsBoxHeight}px`, minHeight: '60px' }
               }),
+              renderBoxResizeBar('instructions'),
               h('p', { className: 'text-xs text-slate-400 font-medium' }, 'These instructions are added to every translation prompt alongside the glossary.')
             ),
 
@@ -3618,8 +3757,17 @@ p {
             h('div', { className: 'bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden max-w-full' },
               h('div', { className: 'p-5 space-y-3' },
                 h('div', { className: 'flex flex-wrap items-center justify-between gap-2 mb-1' },
-                  h('div', { className: 'flex items-center gap-1.5' },
+                  h('div', { className: 'flex items-center gap-2' },
                     h('label', { className: 'text-sm font-bold text-slate-800 dark:text-slate-200' }, 'Glossary & Terminology'),
+                    h('button', {
+                      type: 'button',
+                      onClick: () => toggleBoxExpand('glossary'),
+                      className: 'px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-md transition-all flex items-center gap-1 cursor-pointer',
+                      title: (glossaryBoxHeight >= 430) ? 'Collapse box' : 'Expand box'
+                    },
+                      ic((glossaryBoxHeight >= 430) ? Minimize2 : Maximize2, 11),
+                      (glossaryBoxHeight >= 430) ? 'Compact' : 'Expand'
+                    ),
                     terminology.trim() && h('span', { className: 'text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' }, `${wordCount(terminology).toLocaleString()} words · ${(charCount(terminology) / 1024).toFixed(1)} KB`),
                     h(InfoTooltip, {
                       title: 'Glossary & Terminology Guide',
@@ -3649,8 +3797,9 @@ p {
                   disabled,
                   placeholder: 'Enter terms to ensure accurate translation (e.g. "Dantian -> Dantian" or "MC Name: Lin Fan")...',
                   className: 'w-full p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl text-sm resize-y focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all font-normal leading-relaxed',
-                  rows: 4
+                  style: { height: `${glossaryBoxHeight}px`, minHeight: '90px' }
                 }),
+                renderBoxResizeBar('glossary'),
                 h('div', { className: 'flex flex-wrap items-center justify-between gap-2 pt-1' },
                   h('div', { className: 'flex flex-wrap items-center gap-2' },
                     btn({ onClick: handleAiOptimizeGlossary, disabled: !terminology.trim() || isOptimizingGlossary || disabled, className: 'px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50', title: 'Automatically organize, clean, and structure raw glossary text with AI' }, isOptimizingGlossary ? ic(Loader2, 14) : ic(Sparkles, 14), isOptimizingGlossary ? 'Optimizing...' : 'AI Clean & Structure'),
