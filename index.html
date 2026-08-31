@@ -1537,6 +1537,7 @@
       const [showKeys, setShowKeys] = useState({});
 
       const [libreUrl, setLibreUrl] = useState(() => localStorage.getItem('libreUrl') || 'https://libretranslate.com');
+      const [includeApiKeysInBackup, setIncludeApiKeysInBackup] = useState(() => localStorage.getItem('includeApiKeysInBackup') === 'true');
       const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem('geminiModel') || 'gemini-3.7-flash');
       const [deepseekModel, setDeepseekModel] = useState(() => localStorage.getItem('deepseekModel') || 'deepseek-chat');
       const [openaiModel, setOpenaiModel] = useState(() => localStorage.getItem('openaiModel') || 'gpt-4o-mini');
@@ -1973,10 +1974,12 @@ FORMATTING & STRUCTURE RULES:
       };
 
       // --- Full App Backup & Restore ---
-      const exportFullBackup = () => {
+      const exportFullBackup = (forceIncludeKeys = null) => {
+        const shouldIncludeKeys = forceIncludeKeys !== null ? forceIncludeKeys : includeApiKeysInBackup;
         const backup = {
           version: VERSION,
           timestamp: new Date().toISOString(),
+          includesApiKeys: shouldIncludeKeys,
           savedGlossaries,
           translationHistory: history,
           customInstructions,
@@ -1984,18 +1987,25 @@ FORMATTING & STRUCTURE RULES:
           smartGlossary,
           geminiModel,
           deepseekModel,
+          openaiModel,
+          claudeModel,
           provider,
           concurrency,
           contextAware,
           exportHistory: JSON.parse(localStorage.getItem('exportHistory') || '[]')
         };
+        if (shouldIncludeKeys) {
+          backup.apiKeysByProvider = apiKeysByProvider;
+          backup.activeKeyIds = activeKeyIds;
+          backup.libreUrl = libreUrl;
+        }
         const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `gemini_translator_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `gemini_translator_backup_${shouldIncludeKeys ? 'with_keys_' : ''}${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(a.href);
-        toast('Full app backup downloaded!');
+        toast(shouldIncludeKeys ? 'Full backup (+ API Keys) downloaded!' : 'Full backup downloaded!');
       };
 
       const importFullBackup = async (e) => {
@@ -2024,7 +2034,21 @@ FORMATTING & STRUCTURE RULES:
           if (data.provider) { setProvider(data.provider); localStorage.setItem('translationProvider', data.provider); }
           if (data.geminiModel) { setGeminiModel(data.geminiModel); localStorage.setItem('geminiModel', data.geminiModel); }
           if (data.deepseekModel) { setDeepseekModel(data.deepseekModel); localStorage.setItem('deepseekModel', data.deepseekModel); }
-          toast('Full app data restored successfully!');
+          if (data.openaiModel) { setOpenaiModel(data.openaiModel); localStorage.setItem('openaiModel', data.openaiModel); }
+          if (data.claudeModel) { setClaudeModel(data.claudeModel); localStorage.setItem('claudeModel', data.claudeModel); }
+          if (data.apiKeysByProvider && typeof data.apiKeysByProvider === 'object') {
+            setApiKeysByProvider(data.apiKeysByProvider);
+            localStorage.setItem('apiKeysByProvider', JSON.stringify(data.apiKeysByProvider));
+          }
+          if (data.activeKeyIds && typeof data.activeKeyIds === 'object') {
+            setActiveKeyIds(data.activeKeyIds);
+            localStorage.setItem('activeKeyIds', JSON.stringify(data.activeKeyIds));
+          }
+          if (data.libreUrl) {
+            setLibreUrl(data.libreUrl);
+            localStorage.setItem('libreUrl', data.libreUrl);
+          }
+          toast(data.apiKeysByProvider ? 'Full app data + API keys restored!' : 'Full app data restored successfully!');
         } catch (err) {
           setError('Failed to restore backup: ' + err.message);
         }
@@ -3485,12 +3509,43 @@ p {
                 ),
 
                 // Backup & Restore Card
-                h('div', { className: 'pt-4 border-t border-slate-200 dark:border-slate-800' },
-                  h('label', { className: 'block text-sm font-bold text-slate-800 dark:text-slate-200 mb-1.5' }, 'Backup & Restore All Data'),
-                  h('p', { className: 'text-xs text-slate-500 dark:text-slate-400 mb-3 font-medium' }, 'Save or migrate all your glossaries, key profiles, translation histories, and preferences in one click.'),
-                  h('div', { className: 'flex flex-wrap gap-2' },
-                    btn({ onClick: exportFullBackup, className: 'px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer' }, ic(Download, 15), 'Export Full Backup (.JSON)'),
-                    btn({ onClick: () => backupFileInputRef.current?.click(), className: 'px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer' }, ic(Upload, 15), 'Restore From Backup'),
+                h('div', { className: 'pt-4 border-t border-slate-200 dark:border-slate-800 space-y-3' },
+                  h('div', { className: 'flex items-center justify-between' },
+                    h('div', { className: 'flex items-center gap-2' },
+                      h('label', { className: 'text-sm font-bold text-slate-800 dark:text-slate-200' }, 'Backup & Restore All Data'),
+                      h(InfoTooltip, {
+                        title: 'Full Application Backup & Migration',
+                        text: 'Export all your glossaries, translation histories, and settings to a JSON file. You can migrate everything to another phone, laptop, or browser seamlessly.',
+                        tip: 'Enable "Include API Keys" if you want to migrate your saved API key profiles without re-entering them.'
+                      })
+                    )
+                  ),
+                  h('p', { className: 'text-xs text-slate-500 dark:text-slate-400 font-medium' }, 'Save or migrate all your glossaries, key profiles, translation histories, and preferences in one click.'),
+                  
+                  // Checkbox toggle to include API Keys
+                  h('label', { className: 'flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 dark:text-slate-300 py-1' },
+                    h('input', {
+                      type: 'checkbox',
+                      checked: includeApiKeysInBackup,
+                      onChange: e => {
+                        setIncludeApiKeysInBackup(e.target.checked);
+                        localStorage.setItem('includeApiKeysInBackup', e.target.checked);
+                      },
+                      className: 'w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 accent-indigo-600 cursor-pointer'
+                    }),
+                    h('span', null, 'Include API Key Profiles in backup export'),
+                    includeApiKeysInBackup && h('span', { className: 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700' }, 'Keys Included')
+                  ),
+
+                  h('div', { className: 'flex flex-wrap gap-2 pt-1' },
+                    btn({
+                      onClick: () => exportFullBackup(includeApiKeysInBackup),
+                      className: `px-3.5 sm:px-4 py-2 text-white text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer ${includeApiKeysInBackup ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500'}`
+                    }, ic(Download, 15), includeApiKeysInBackup ? 'Export Backup (+ API Keys)' : 'Export Full Backup (.JSON)'),
+                    btn({
+                      onClick: () => backupFileInputRef.current?.click(),
+                      className: 'px-3.5 sm:px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
+                    }, ic(Upload, 15), 'Restore From Backup'),
                     h('input', { type: 'file', ref: backupFileInputRef, onChange: importFullBackup, className: 'hidden', accept: '.json' })
                   )
                 )
