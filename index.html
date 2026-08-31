@@ -263,7 +263,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.4.7';
+    const VERSION = '5.4.8';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3175,7 +3175,6 @@ VIII. UNITS OF MEASUREMENT & ANCIENT TIME
 - 一盏茶 (Yīzhǎnchá) -> Time to drink a cup of tea (approx. 10–15 minutes)
 - 一个时辰 (Yīgè Shíchén) -> Two hours (one ancient Chinese hour)
 `,
-          lightnovel: `Senpai -> Senpai\nSensei -> Sensei\nMagic Circle -> Magic Circle\nGuild Master -> Guild Master\nStatus Window -> Status Screen\nAdventurer -> Adventurer\nDemon King -> Demon King\nHero -> Hero\nBeastman -> Beastfolk`,
           lotm: `I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES\n- Divine Pronouns: Whenever referring to a deity or divine existence using 祂, translate as "He", "Him", "She", or "Her" (with quotation marks).\n- Quotation Marks: Do NOT use quotation marks around personal names or Tarot Club code names unless present in raw text (e.g. The Fool, The World, Miss Justice, Mr. Star).\n- Sefirah Castle: Always use "in Sefirah Castle", never "on Sefirah Castle".\n- Strict Fidelity: Do NOT extrapolate lore or unmentioned explanations into prose.\n\nII. CORE TERMINOLOGY\n- 诡秘之主 -> Lord of the Mysteries\n- 唯一性 -> Uniqueness\n- 非凡特性 -> Beyonder Characteristic(s)\n- 序列 -> Sequence\n- 途径 -> Pathway\n- 源堡 -> Sefirah Castle\n- 灰雾 -> Gray Fog\n- 克莱恩·莫雷蒂 -> Klein Moretti\n- 克莱恩 -> Klein\n- 愚者 -> The Fool\n- 愚者先生 -> Mr. Fool\n- 世界 -> The World\n- 格尔曼·斯帕罗 -> Gehrman Sparrow\n- 阿蒙 -> Amon / Mr. Error\n- 亚当 -> Adam\n- 真实造物主 -> True Creator\n- 远古太阳神 -> Ancient Sun God\n- 黑夜女神 -> Evernight Goddess / the Evernight Goddess\n- 塔罗会 -> Tarot Club\n- 0-08 -> Quill of Alzuhod`,
           literary: `[Tone: Formal, literary, and evocative prose. Maintain rich vocabulary and preserve historical/classical atmosphere. Use British English spelling if appropriate.]`,
           dialogue: `[Tone: Punchy, modern dialogue. Keep character banter natural and idiomatic. Avoid overly stiff or formal phrasing in spoken lines.]`
@@ -5097,14 +5096,13 @@ p {
                       'Presets:',
                       h(InfoTooltip, {
                         title: 'Genre Presets',
-                        text: 'Instantly append essential terms for popular genres: Xianxia (Cultivation, Qi, Dantian) or Light Novels (Senpai, Magic Circle, Status Screen).',
+                        text: 'Instantly append essential terms for popular genres: Reverend Insanity, Lord of the Mysteries (LOTM), or Universal Xianxia (Cultivation, Qi, Dantian).',
                         tip: 'Clicking a preset will safely append terms without overwriting your existing glossary.'
                       })
                     ),
                     btn({ onClick: () => applyGlossaryPreset('ri'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 hover:scale-105 active:scale-95 transition-all' }, 'Reverend Insanity'),
                     btn({ onClick: () => applyGlossaryPreset('lotm'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border border-violet-200/80 dark:border-violet-800/60 hover:bg-violet-100 dark:hover:bg-violet-900/60 hover:scale-105 active:scale-95 transition-all' }, 'LOTM'),
                     btn({ onClick: () => applyGlossaryPreset('xianxia'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 hover:scale-105 active:scale-95 transition-all' }, 'Xianxia'),
-                    btn({ onClick: () => applyGlossaryPreset('lightnovel'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-pink-50 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 border border-pink-200/80 dark:border-pink-800/60 hover:bg-pink-100 dark:hover:bg-pink-900/60 hover:scale-105 active:scale-95 transition-all' }, 'Light Novel'),
                     terminology.trim() && btn({ onClick: () => confirmAction('Clear glossary text?', () => { setTerminology(''); setActiveGlossaryId(null); localStorage.removeItem('terminology'); toast('Glossary cleared.'); }), disabled, className: 'px-2 py-1 rounded-lg font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:scale-105 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-1', title: 'Clear glossary' }, ic(XCircle, 12), 'Clear')
                   )
                 ),
