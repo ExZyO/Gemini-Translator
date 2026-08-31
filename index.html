@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.1.9';
+    const VERSION = '5.2.0';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -290,15 +290,14 @@
     const DEEPL_LANG_MAP = { 'English': 'EN', 'Spanish': 'ES', 'French': 'FR', 'German': 'DE', 'Italian': 'IT', 'Portuguese': 'PT', 'Chinese (Simplified)': 'ZH', 'Chinese (Traditional)': 'ZH', 'Japanese': 'JA', 'Korean': 'KO', 'Russian': 'RU', 'Arabic': 'AR', 'Hindi': 'HI', 'Vietnamese': 'VI', 'Turkish': 'TR', 'Polish': 'PL', 'Dutch': 'NL', 'Swedish': 'SV', 'Norwegian': 'NB', 'Danish': 'DA', 'Finnish': 'FI', 'Greek': 'EL', 'Hebrew': 'HE', 'Indonesian': 'ID', 'Romanian': 'RO', 'Hungarian': 'HU', 'Czech': 'CS', 'Slovak': 'SK', 'Bulgarian': 'BG', 'Serbian': 'SR', 'Croatian': 'HR', 'Ukrainian': 'UK', 'Lithuanian': 'LT', 'Latvian': 'LV', 'Estonian': 'ET', 'Slovenian': 'SL' };
     const LIBRE_LANG_MAP = { 'English': 'en', 'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Italian': 'it', 'Portuguese': 'pt', 'Chinese (Simplified)': 'zh', 'Chinese (Traditional)': 'zt', 'Japanese': 'ja', 'Korean': 'ko', 'Russian': 'ru', 'Arabic': 'ar', 'Hindi': 'hi', 'Vietnamese': 'vi', 'Turkish': 'tr', 'Polish': 'pl', 'Dutch': 'nl', 'Swedish': 'sv', 'Norwegian': 'nb', 'Danish': 'da', 'Finnish': 'fi', 'Greek': 'el', 'Hebrew': 'he', 'Indonesian': 'id', 'Filipino': 'tl', 'Romanian': 'ro', 'Hungarian': 'hu', 'Czech': 'cs', 'Slovak': 'sk', 'Bulgarian': 'bg', 'Serbian': 'sr', 'Croatian': 'hr', 'Ukrainian': 'uk' };
     const DEFAULT_GEMINI_MODELS = [
-      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended Free Tier)' },
+      { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Official 2026 Recommended)' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Highest Free Quota & Ultra Fast)' },
       { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Fast & Stable)' },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Highest Free Quota)' },
-      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Deep Literary Quality)' },
-      { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash' },
+      { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash (Hybrid Reasoning)' },
       { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash' },
       { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite' },
       { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro' },
-      { id: 'gemini-3-flash', name: 'Gemini 3 Flash' }
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Deep Literary Quality)' }
     ];
 
     const DEFAULT_DEEPSEEK_MODELS = [
@@ -939,6 +938,11 @@
         delete payload.generationConfig.thinkingConfig;
         r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       }
+      if (!r.ok && r.status === 404 && model !== 'gemini-3.6-flash' && model !== 'gemini-1.5-flash') {
+        console.warn(`Model ${model} is unavailable (404). Auto-falling back to gemini-3.6-flash...`);
+        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+        r = await fetchRetry(fallbackUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+      }
       if (!r || !r.ok) { const b = await r?.text().catch(() => '') || ''; throw new Error(`Gemini API error ${r?.status || 'network'}: ${b.substring(0, 200)}`); }
       const j = await r.json();
       const candidateParts = j?.candidates?.[0]?.content?.parts || [];
@@ -976,6 +980,11 @@
       if (!r.ok && r.status === 400 && payload.generationConfig?.thinkingConfig) {
         delete payload.generationConfig.thinkingConfig;
         r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+      }
+      if (!r.ok && r.status === 404 && model !== 'gemini-3.6-flash' && model !== 'gemini-1.5-flash') {
+        console.warn(`Model ${model} is unavailable (404). Auto-falling back to gemini-3.6-flash...`);
+        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+        r = await fetchRetry(fallbackUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       }
       if (!r || !r.ok) { const b = await r?.text().catch(() => '') || ''; throw new Error(`Gemini stream error ${r?.status || 'network'}: ${b.substring(0, 200)}`); }
       const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
