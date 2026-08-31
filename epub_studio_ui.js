@@ -1,6 +1,6 @@
 (function() {
 const splitHtml = `<div id="epub-split-tab"
-            class="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
+            class="bg-white/95 dark:bg-slate-900/90 sm:backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
 
             <input type="file" id="epub-input" accept=".epub,application/epub+zip,application/zip,application/octet-stream,*/*" class="hidden" />
             <div id="upload-section"
@@ -85,7 +85,7 @@ const splitHtml = `<div id="epub-split-tab"
 
                         <div class="space-y-6">
                             <div
-                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm backdrop-blur-md">
+                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm sm:backdrop-blur-md">
                                 <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-4">1. Extract Range</h3>
                                 <div class="flex flex-col sm:flex-row items-center gap-3 mb-4">
                                     <div class="w-full">
@@ -107,7 +107,7 @@ const splitHtml = `<div id="epub-split-tab"
                             </div>
 
                             <div
-                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm backdrop-blur-md">
+                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm sm:backdrop-blur-md">
                                 <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-4">2. Split into Parts</h3>
 
                                 <div class="flex gap-4 mb-4">
@@ -207,7 +207,7 @@ const splitHtml = `<div id="epub-split-tab"
                             </div>
 
                             <div
-                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm backdrop-blur-md flex-1 flex flex-col min-h-[400px]">
+                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm sm:backdrop-blur-md flex-1 flex flex-col min-h-[400px]">
                                 <div class="flex items-center justify-between mb-4">
                                     <div>
                                         <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">Chapter Selection</h3>
@@ -266,7 +266,7 @@ const splitHtml = `<div id="epub-split-tab"
 
         `;
 const mergeHtml = `<div id="epub-merge-tab"
-              class="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
+              class="bg-white/95 dark:bg-slate-900/90 sm:backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
             <div class="p-8 sm:p-12">
                 <div class="max-w-3xl mx-auto">
                     <div class="text-center mb-8">

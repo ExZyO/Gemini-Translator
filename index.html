@@ -1058,27 +1058,24 @@
 
     const groupModelsByCompany = (models) => {
       const groups = {
-        '── GEMINI 3 SERIES (FLAGSHIP) ──': [],
-        '── GEMMA SERIES (OPEN WEIGHTS) ──': [],
-        '── NANO & EDGE MODELS ──': [],
-        '── PRODUCTION ALIASES ──': [],
-        '── OTHER GEMINI MODELS ──': []
+        '⭐ RECOMMENDED FREE TIER': [],
+        '👑 FLAGSHIP & DEEP REASONING': [],
+        '⚡ ULTRA FAST & LITE': [],
+        '🧪 OTHER & OPEN WEIGHTS': []
       };
 
       for (const m of models) {
         const id = (m.id || '').toLowerCase();
         const name = (m.name || '').toLowerCase();
 
-        if (id.startsWith('gemma') || name.startsWith('gemma')) {
-          groups['── GEMMA SERIES (OPEN WEIGHTS) ──'].push(m);
-        } else if (id.includes('nano') || id.includes('banana') || name.includes('nano') || name.includes('banana')) {
-          groups['── NANO & EDGE MODELS ──'].push(m);
-        } else if (id.includes('latest') || id === 'gemini-flash' || id === 'gemini-pro') {
-          groups['── PRODUCTION ALIASES ──'].push(m);
-        } else if (id.startsWith('gemini-3') || id.startsWith('gemini-omni') || name.includes('gemini 3') || name.includes('omni')) {
-          groups['── GEMINI 3 SERIES (FLAGSHIP) ──'].push(m);
+        if (id === 'gemini-2.5-flash' || id === 'gemini-2.0-flash' || id === 'gemini-1.5-flash' || name.includes('recommended free tier') || name.includes('fast & stable') || name.includes('highest free quota')) {
+          groups['⭐ RECOMMENDED FREE TIER'].push(m);
+        } else if (id.includes('pro') || id.startsWith('gemini-3.7') || (id.startsWith('gemini-3.5-flash') && !id.includes('lite')) || name.includes('flagship') || name.includes('literary')) {
+          groups['👑 FLAGSHIP & DEEP REASONING'].push(m);
+        } else if (id.includes('lite') || id.includes('8b') || id.includes('nano') || name.includes('lite') || name.includes('lowest cost') || name.includes('high speed')) {
+          groups['⚡ ULTRA FAST & LITE'].push(m);
         } else {
-          groups['── OTHER GEMINI MODELS ──'].push(m);
+          groups['🧪 OTHER & OPEN WEIGHTS'].push(m);
         }
       }
 
@@ -1097,29 +1094,25 @@
           !m.name.includes('tts') &&
           !m.name.includes('audio') &&
           !m.name.includes('bison') &&
-          !m.name.includes('gecko') &&
-          !m.name.includes('gemini-1.') &&
-          !m.name.includes('gemini-1.5') &&
-          !m.name.includes('gemini-2.') &&
-          !m.name.includes('gemini-2.0') &&
-          !m.name.includes('gemini-2.5'))
+          !m.name.includes('gecko'))
         .map(m => {
           const id = m.name.replace('models/', '');
           return { id, name: formatModelName(id, m.displayName) };
         });
 
-      // Sort Gemini 3 models in order of capability & release
+      // Sort models logically: Recommended -> Flagship -> Lite
       valid.sort((a, b) => {
         const getRank = id => {
-          if (id.startsWith('gemini-3.7-flash')) return -30;
-          if (id.startsWith('gemini-3.6-flash')) return -29;
-          if (id.startsWith('gemini-3.5-flash-lite')) return -28;
-          if (id.startsWith('gemini-3.5-flash')) return -27;
-          if (id.startsWith('gemini-3.1-flash-lite')) return -26;
-          if (id.startsWith('gemini-3.1-pro')) return -25;
-          if (id.startsWith('gemini-3-flash')) return -24;
-          if (id.startsWith('gemini-3.5-live-translate')) return -23;
-          if (id.startsWith('gemini-omni-flash')) return -22;
+          if (id === 'gemini-2.5-flash') return -40;
+          if (id === 'gemini-2.0-flash') return -39;
+          if (id === 'gemini-1.5-flash') return -38;
+          if (id === 'gemini-2.5-pro') return -37;
+          if (id.startsWith('gemini-3.7-flash')) return -36;
+          if (id.startsWith('gemini-3.5-flash-lite')) return -35;
+          if (id.startsWith('gemini-3.5-flash')) return -34;
+          if (id.startsWith('gemini-1.5-flash-8b')) return -33;
+          if (id.startsWith('gemini-3.1-pro')) return -32;
+          if (id.startsWith('gemini-3-flash')) return -31;
           return 0;
         };
         return getRank(a.id) - getRank(b.id);
@@ -1128,17 +1121,24 @@
     };
 
     // ═══════════════════════════════════════
-    // INFO TOOLTIP
+    // INFO TOOLTIP (Responsive & Touch-Friendly)
     // ═══════════════════════════════════════
     const InfoTooltip = ({ title, text, tip }) => {
       const [show, setShow] = useState(false);
+      const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 640 : false);
       const [placement, setPlacement] = useState('top');
       const btnRef = useRef(null);
+
+      useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 640);
+        window.addEventListener('resize', handleResize, { passive: true });
+        return () => window.removeEventListener('resize', handleResize);
+      }, []);
 
       const checkPlacement = () => {
         if (btnRef.current) {
           const rect = btnRef.current.getBoundingClientRect();
-          if (rect.top < 220) {
+          if (rect.top < 240) {
             setPlacement('bottom');
           } else {
             setPlacement('top');
@@ -1153,34 +1153,62 @@
 
       const isBottom = placement === 'bottom';
 
-      return h('span', { className: 'relative inline-flex items-center ml-1 z-30' },
+      return h('span', { className: 'relative inline-flex items-center ml-1' },
         h('button', {
           ref: btnRef,
           type: 'button',
-          onClick: (e) => { e.preventDefault(); e.stopPropagation(); checkPlacement(); setShow(!show); },
-          onMouseEnter: handleOpen,
-          onMouseLeave: () => setShow(false),
-          onFocus: handleOpen,
-          onBlur: () => setShow(false),
-          className: 'text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-0.5 rounded-full transition-colors cursor-pointer inline-flex items-center justify-center focus:outline-none',
+          onClick: (e) => { e.preventDefault(); e.stopPropagation(); checkPlacement(); setShow(p => !p); },
+          onMouseEnter: () => { if (!isMobile) handleOpen(); },
+          onMouseLeave: () => { if (!isMobile) setShow(false); },
+          className: 'text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 rounded-full hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-w-[24px] min-h-[24px]',
           'aria-label': `${title} information`
         }, ic(Info, 14)),
-        show && h('div', {
-          className: `absolute ${isBottom ? 'top-full mt-2.5' : 'bottom-full mb-2.5'} left-1/2 -translate-x-1/2 w-72 max-w-[calc(100vw-32px)] p-3 bg-gray-900/98 dark:bg-gray-800/98 text-white text-xs rounded-xl shadow-2xl backdrop-blur-md border border-gray-700 z-[70] transition-all animate-tooltip pointer-events-none`
+
+        // Mobile Centered Modal Popover with Backdrop
+        show && isMobile && h('div', {
+          className: 'fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-fade-in',
+          onClick: (e) => { e.stopPropagation(); setShow(false); }
         },
-          h('div', { className: 'font-bold text-indigo-300 dark:text-indigo-400 mb-1 flex items-center gap-1.5' },
+          h('div', {
+            className: 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-sm max-h-[85vh] overflow-y-auto space-y-3 relative',
+            onClick: (e) => e.stopPropagation()
+          },
+            h('div', { className: 'flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5' },
+              h('div', { className: 'font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2 text-sm' },
+                ic(Info, 16),
+                title
+              ),
+              h('button', {
+                type: 'button',
+                onClick: () => setShow(false),
+                className: 'p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer',
+                'aria-label': 'Close info'
+              }, ic(X, 16))
+            ),
+            h('p', { className: 'text-slate-600 dark:text-slate-300 text-xs leading-relaxed' }, text),
+            tip && h('div', { className: 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 p-2.5 rounded-xl text-[11px] text-indigo-800 dark:text-indigo-300' },
+              h('strong', { className: 'font-semibold text-indigo-900 dark:text-indigo-200' }, 'Tip: '), tip
+            ),
+            h('button', {
+              type: 'button',
+              onClick: () => setShow(false),
+              className: 'w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer'
+            }, 'Got it')
+          )
+        ),
+
+        // Desktop Sleek Popover
+        show && !isMobile && h('div', {
+          className: `absolute ${isBottom ? 'top-full mt-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 w-80 max-w-[calc(100vw-32px)] p-3.5 bg-slate-900 dark:bg-slate-900 text-white text-xs rounded-xl shadow-2xl border border-slate-700 z-50 transition-all pointer-events-none`
+        },
+          h('div', { className: 'font-bold text-indigo-300 mb-1 flex items-center gap-1.5' },
             ic(Info, 13),
             title
           ),
-          h('p', { className: 'text-gray-200 dark:text-gray-300 leading-relaxed mb-1.5' }, text),
-          tip && h('p', { className: 'text-gray-400 border-t border-gray-700 dark:border-gray-700 pt-1.5 text-[11px]' },
-            h('strong', { className: 'text-indigo-300 dark:text-indigo-400' }, 'Tip: '), tip
-          ),
-          h('div', {
-            className: isBottom
-              ? 'absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-gray-900 dark:border-b-gray-800'
-              : 'absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900 dark:border-t-gray-800'
-          })
+          h('p', { className: 'text-slate-200 leading-relaxed mb-1.5' }, text),
+          tip && h('p', { className: 'text-slate-400 border-t border-slate-700 pt-1.5 text-[11px]' },
+            h('strong', { className: 'text-indigo-300' }, 'Tip: '), tip
+          )
         )
       );
     };
@@ -2854,33 +2882,33 @@ p {
       const secHeader = (title, icon, isOpen, toggle) => h('button', { onClick: toggle, className: 'flex items-center justify-between w-full text-left text-xl font-bold text-gray-800 dark:text-gray-200 mb-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors', 'aria-expanded': isOpen }, h('span', { className: 'flex items-center gap-2' }, ic(icon, 22), title), ic(isOpen ? ChevronUp : ChevronDown, 20));
 
       return h(React.Fragment, null,
-        h('div', { className: 'min-h-screen bg-gray-50 dark:bg-gray-950 font-sans text-gray-800 dark:text-gray-200 transition-colors' },
+        h('div', { className: 'min-h-screen bg-gray-50 dark:bg-gray-950 font-sans text-gray-800 dark:text-gray-200 transition-colors overflow-x-hidden w-full max-w-full' },
         // HEADER
-        h('header', { className: 'sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3' },
+        h('header', { className: 'sticky top-0 z-40 bg-white/95 dark:bg-gray-900/95 sm:backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 w-full' },
           h('div', { className: 'max-w-5xl mx-auto flex items-center justify-between' },
-            h('div', { className: 'flex items-center gap-3' },
-              h('h1', { className: 'text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent' }, 'Gemini Translator'),
-              h('span', { className: 'text-xs font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full' }, `v${VERSION}`)
+            h('div', { className: 'flex items-center gap-2.5 sm:gap-3' },
+              h('h1', { className: 'text-xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent' }, 'Gemini Translator'),
+              h('span', { className: 'text-[11px] sm:text-xs font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full' }, `v${VERSION}`)
             ),
-            h('button', { onClick: () => setDarkMode(!darkMode), className: 'p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors', 'aria-label': 'Toggle dark mode' }, ic(darkMode ? Sun : Moon, 22))
+            h('button', { onClick: () => setDarkMode(!darkMode), className: 'p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer', 'aria-label': 'Toggle dark mode' }, ic(darkMode ? Sun : Moon, 20))
           )
         ),
 
         // MAIN
-        h('main', { className: 'max-w-5xl mx-auto px-4 py-6 space-y-6' },
+        h('main', { className: 'w-full max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6 overflow-hidden' },
 
           // TABS
-          h('div', { className: 'flex border-b border-gray-200 dark:border-gray-700 gap-1 overflow-x-auto custom-scrollbar' },
+          h('div', { className: 'flex border-b border-gray-200 dark:border-gray-700 gap-1 overflow-x-auto custom-scrollbar pb-0.5 -mx-3 px-3 sm:mx-0 sm:px-0' },
             [['text', 'Text & File', Clipboard], ['studio', 'EPUB Studio', Layers], ['history', 'History', History]].map(([key, label, Icon]) =>
-              h('button', { key, onClick: () => setActiveTab(key), className: `py-2.5 px-4 text-sm font-semibold rounded-t-lg transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === key ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}` }, ic(Icon, 18), label)
+              h('button', { key, onClick: () => setActiveTab(key), className: `py-2 px-3.5 sm:py-2.5 sm:px-4 text-xs sm:text-sm font-semibold rounded-t-lg transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer ${activeTab === key ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}` }, ic(Icon, 16), label)
             )
           ),
 
           // TAB: TEXT & FILE
-          activeTab === 'text' && h('div', { className: 'space-y-6' },
+          activeTab === 'text' && h('div', { className: 'space-y-5 sm:space-y-6' },
 
             // Provider + Model Config
-            h('div', { className: 'p-5 bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-4' },
+            h('div', { className: 'p-4 sm:p-5 bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-4 max-w-full overflow-hidden' },
               h('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-4' },
                 h('div', null,
                   h('div', { className: 'flex items-center gap-1.5 mb-1.5' },
@@ -3032,7 +3060,7 @@ p {
             ),
 
             // Language selectors with search, manual custom input, and quick swap button
-            h('div', { className: 'p-4 bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm' },
+            h('div', { className: 'p-3.5 sm:p-4 bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-full overflow-hidden' },
               h('div', { className: 'flex flex-col sm:flex-row items-center gap-3' },
                 h(LanguageSelector, {
                   label: 'Source Language',
@@ -3089,20 +3117,20 @@ p {
             // Input/Output areas
             h('div', { className: sideBySide ? 'grid grid-cols-1 md:grid-cols-2 gap-5' : 'space-y-5' },
               // Input
-              h('div', { className: 'p-4 bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between space-y-3' },
+              h('div', { className: 'p-3.5 sm:p-4 bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between space-y-3 max-w-full overflow-hidden' },
                 h('div', null,
                   h('div', { className: 'flex items-center justify-between mb-2' },
                     h('label', { className: 'text-sm font-bold text-slate-800 dark:text-slate-200' }, 'Input Text'),
                     h('span', { className: 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' }, `${wordCount(inputText)} words · ${charCount(inputText)} chars`)
                   ),
-                  h('textarea', { value: inputText, onChange: e => setInputText(e.target.value), onKeyDown: (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (!isTranslating && inputText.trim()) handleTranslateText(); } }, disabled, placeholder: 'Paste your novel text or chapter here (Ctrl+Enter to translate)...', className: 'w-full p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl shadow-inner focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 resize-y text-sm leading-relaxed transition-all font-normal', style: { minHeight: '250px' }, 'aria-label': 'Input text for translation' })
+                  h('textarea', { value: inputText, onChange: e => setInputText(e.target.value), onKeyDown: (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (!isTranslating && inputText.trim()) handleTranslateText(); } }, disabled, placeholder: 'Paste your novel text or chapter here (Ctrl+Enter to translate)...', className: 'w-full p-3 sm:p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl shadow-inner focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 resize-y text-sm leading-relaxed transition-all font-normal', style: { minHeight: '220px' }, 'aria-label': 'Input text for translation' })
                 ),
-                h('div', { className: 'flex flex-wrap gap-2 pt-1' },
-                  btn({ onClick: async () => { try { const t = await navigator.clipboard.readText(); setInputText(p => p + t); toast('Pasted!') } catch (e) { setError(e.message) } }, disabled, className: 'px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Paste text from clipboard' }, ic(Clipboard, 14), 'Paste'),
-                  btn({ onClick: () => { if (inputText) copyText(inputText).then(() => toast('Copied!')) }, disabled, className: 'px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Copy input text' }, ic(Copy, 14), 'Copy'),
-                  btn({ onClick: () => { setInputText(''); setAssembledText(''); setTranslatedChapters([]); setChapters([]); setError('') }, disabled, className: 'px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Clear input' }, ic(XCircle, 14), 'Clear'),
-                  btn({ onClick: () => { const t = inputText; setInputText(assembledText); setAssembledText(t) }, disabled, className: 'px-3 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-semibold rounded-lg transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Swap input and output text' }, ic(RefreshCcw, 14), 'Swap'),
-                  btn({ onClick: () => setSideBySide(!sideBySide), className: 'px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-xs font-semibold rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all inline-flex items-center gap-1.5 ml-auto cursor-pointer', 'aria-label': 'Toggle side by side view' }, ic(sideBySide ? Rows2 : Columns2, 14), sideBySide ? 'Stack' : 'Split')
+                h('div', { className: 'flex flex-wrap gap-1.5 sm:gap-2 pt-1 items-center' },
+                  btn({ onClick: async () => { try { const t = await navigator.clipboard.readText(); setInputText(p => p + t); toast('Pasted!') } catch (e) { setError(e.message) } }, disabled, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Paste text from clipboard' }, ic(Clipboard, 14), 'Paste'),
+                  btn({ onClick: () => { if (inputText) copyText(inputText).then(() => toast('Copied!')) }, disabled, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Copy input text' }, ic(Copy, 14), 'Copy'),
+                  btn({ onClick: () => { setInputText(''); setAssembledText(''); setTranslatedChapters([]); setChapters([]); setError('') }, disabled, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Clear input' }, ic(XCircle, 14), 'Clear'),
+                  btn({ onClick: () => { const t = inputText; setInputText(assembledText); setAssembledText(t) }, disabled, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-semibold rounded-lg transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Swap input and output text' }, ic(RefreshCcw, 14), 'Swap'),
+                  btn({ onClick: () => setSideBySide(!sideBySide), className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-xs font-semibold rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all inline-flex items-center gap-1.5 ml-auto cursor-pointer', 'aria-label': 'Toggle side by side view' }, ic(sideBySide ? Rows2 : Columns2, 14), sideBySide ? 'Stack' : 'Split')
                 )
               ),
 
@@ -3110,7 +3138,7 @@ p {
               (() => {
                 const currentDisplayOutput = assembledText || (translatedChapters || []).map(c => `${c.title}\n\n${c.content}`).join('\n\n\n').trim();
                 if (!currentDisplayOutput) return null;
-                return h('div', { className: 'p-4 bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between space-y-3' },
+                return h('div', { className: 'p-3.5 sm:p-4 bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between space-y-3 max-w-full overflow-hidden' },
                   h('div', null,
                     h('div', { className: 'flex flex-wrap items-center justify-between gap-2 mb-2' },
                       h('div', { className: 'flex flex-wrap items-center gap-2' },
@@ -3161,14 +3189,14 @@ p {
                     h('textarea', { value: currentDisplayOutput, onChange: e => setAssembledText(e.target.value), className: 'w-full p-3.5 border border-emerald-300/80 dark:border-emerald-900/70 bg-emerald-50/20 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl shadow-inner focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-y text-sm leading-relaxed transition-all font-normal', style: { minHeight: '250px' }, 'aria-label': 'Translated output text' })
                   ),
                   h('div', { className: 'flex flex-wrap gap-2 pt-1 items-center justify-between' },
-                    h('div', { className: 'flex flex-wrap items-center gap-2' },
-                      btn({ onClick: () => { if (currentDisplayOutput) copyText(currentDisplayOutput).then(() => toast('Copied!')) }, className: 'px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Copy translation', title: 'Ctrl+Shift+C' }, ic(Copy, 14), 'Copy'),
-                      btn({ onClick: () => { setReaderOpen(true); setReaderChapterIdx(0); }, className: 'px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer' }, ic(BookText, 14), 'Reader View'),
-                      btn({ onClick: handleDownloadEPUB, disabled: downloadingEpub, className: 'px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold rounded-lg shadow-sm shadow-teal-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer' }, downloadingEpub ? ic(Loader2, 14) : ic(Download, 14), 'EPUB'),
-                      btn({ onClick: handleDownloadPDF, disabled: downloadingPdf, className: 'px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg shadow-sm shadow-rose-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer' }, downloadingPdf ? ic(Loader2, 14) : ic(Download, 14), 'PDF'),
-                      btn({ onClick: handleDownloadDOCX, disabled: downloadingDocx, className: 'px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm shadow-blue-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer' }, downloadingDocx ? ic(Loader2, 15) : ic(FileDown, 14), 'DOCX')
+                    h('div', { className: 'flex flex-wrap items-center gap-1.5 sm:gap-2' },
+                      btn({ onClick: () => { if (currentDisplayOutput) copyText(currentDisplayOutput).then(() => toast('Copied!')) }, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Copy translation', title: 'Ctrl+Shift+C' }, ic(Copy, 14), 'Copy'),
+                      btn({ onClick: () => { setReaderOpen(true); setReaderChapterIdx(0); }, className: 'px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer' }, ic(BookText, 14), 'Reader View'),
+                      btn({ onClick: handleDownloadEPUB, disabled: downloadingEpub, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold rounded-lg shadow-sm shadow-teal-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer' }, downloadingEpub ? ic(Loader2, 14) : ic(Download, 14), 'EPUB'),
+                      btn({ onClick: handleDownloadPDF, disabled: downloadingPdf, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg shadow-sm shadow-rose-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer' }, downloadingPdf ? ic(Loader2, 14) : ic(Download, 14), 'PDF'),
+                      btn({ onClick: handleDownloadDOCX, disabled: downloadingDocx, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm shadow-blue-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer' }, downloadingDocx ? ic(Loader2, 15) : ic(FileDown, 14), 'DOCX')
                     ),
-                    btn({ onClick: () => setActiveTab('split'), className: 'text-xs text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 font-bold cursor-pointer' }, ic(BookText, 14), 'Open EPUB Studio →')
+                    btn({ onClick: () => setActiveTab('split'), className: 'text-xs text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 font-bold cursor-pointer py-1' }, ic(BookText, 14), 'Open EPUB Studio →')
                   )
                 );
               })()
@@ -3213,7 +3241,7 @@ p {
             ),
 
             // Custom Instructions
-            h('div', { className: 'p-5 bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-2' },
+            h('div', { className: 'p-4 sm:p-5 bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-2 max-w-full overflow-hidden' },
               h('div', { className: 'flex items-center justify-between mb-1' },
                 h('div', { className: 'flex items-center gap-1.5' },
                   h('label', { className: 'text-sm font-bold text-slate-800 dark:text-slate-200' }, 'Custom Translation Instructions'),
@@ -3224,8 +3252,8 @@ p {
                   })
                 ),
                 h('div', { className: 'flex gap-1.5 text-xs' },
-                  btn({ onClick: () => applyGlossaryPreset('literary'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 hover:scale-105 active:scale-95 transition-all' }, 'Literary'),
-                  btn({ onClick: () => applyGlossaryPreset('dialogue'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 hover:scale-105 active:scale-95 transition-all' }, 'Dialogue')
+                  btn({ onClick: () => applyGlossaryPreset('literary'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 hover:scale-105 active:scale-95 transition-all cursor-pointer' }, 'Literary'),
+                  btn({ onClick: () => applyGlossaryPreset('dialogue'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 hover:scale-105 active:scale-95 transition-all cursor-pointer' }, 'Dialogue')
                 )
               ),
               h('textarea', { value: customInstructions, onChange: e => setCustomInstructions(e.target.value), disabled, placeholder: 'e.g., "Use formal tone", "Keep character names in original language", "Output in British English"', className: 'w-full p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl text-sm resize-y focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all font-normal leading-relaxed', rows: 2 }),
@@ -3233,7 +3261,7 @@ p {
             ),
 
             // Glossary
-            h('div', { className: 'bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden' },
+            h('div', { className: 'bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden max-w-full' },
               h('div', { className: 'p-5 space-y-3' },
                 h('div', { className: 'flex flex-wrap items-center justify-between gap-2 mb-1' },
                   h('div', { className: 'flex items-center gap-1.5' },
@@ -3347,10 +3375,10 @@ p {
             ),
 
           // API Keys / Settings
-          h('div', { className: 'bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden' },
+          h('div', { className: 'bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden max-w-full' },
             secHeader('Settings & API Keys', Settings, showSettings, () => setShowSettings(!showSettings)),
             h('div', { className: `collapsible ${showSettings ? 'open' : ''}` },
-              h('div', { className: 'p-5 space-y-5' },
+              h('div', { className: 'p-4 sm:p-5 space-y-5 max-w-full' },
 
                 // Provider Switcher Tabs inside Settings
                 h('div', { className: 'flex flex-wrap gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700/80' },
@@ -3365,7 +3393,7 @@ p {
                 ),
 
                 // Active Provider Key Profile Manager Card
-                h('div', { className: 'p-4 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 rounded-2xl shadow-2xs' },
+                h('div', { className: 'p-3.5 sm:p-4 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 rounded-2xl shadow-2xs max-w-full overflow-hidden' },
                   h('div', { className: 'flex flex-wrap items-center justify-between gap-2 mb-4' },
                     h('div', { className: 'flex items-center gap-2' },
                       ic(Zap, 16),
@@ -3406,9 +3434,9 @@ p {
                               value: k.name || '',
                               onChange: e => updateApiKey(provider, k.id, 'name', e.target.value),
                               placeholder: 'Profile name (e.g. Primary, Work, Backup)...',
-                              className: 'text-xs font-bold text-slate-800 dark:text-slate-200 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-indigo-500 focus:outline-none px-1 py-0.5'
+                              className: 'text-xs font-bold text-slate-800 dark:text-slate-200 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-indigo-500 focus:outline-none px-1 py-0.5 min-w-0 flex-1'
                             }),
-                            h('div', { className: 'flex items-center gap-1.5' },
+                            h('div', { className: 'flex items-center gap-1.5 shrink-0' },
                               isActive ?
                                 h('span', { className: 'px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold rounded-full border border-emerald-300 dark:border-emerald-700 flex items-center gap-1' }, ic(Check, 10), 'Active Key') :
                                 btn({
@@ -3514,8 +3542,8 @@ p {
         ),
 
         // TAB: EPUB STUDIO (SPLIT & MERGE)
-        activeTab === 'studio' && h('div', { className: 'space-y-6' },
-          h('div', { className: 'p-6 bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm' },
+        activeTab === 'studio' && h('div', { className: 'space-y-6 max-w-full overflow-hidden' },
+          h('div', { className: 'p-4 sm:p-6 bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-full overflow-hidden' },
             h('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-slate-200/80 dark:border-slate-800/80' },
               h('div', null,
                 h('h2', { className: 'text-xl sm:text-2xl font-black bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 bg-clip-text text-transparent flex items-center gap-2.5' },
