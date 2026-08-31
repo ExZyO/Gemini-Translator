@@ -1503,8 +1503,8 @@
       // --- Core State ---
       const [inputText, setInputText] = useState('');
       const [assembledText, setAssembledText] = useState('');
-      const [terminology, setTerminology] = useState('');
-      const [customInstructions, setCustomInstructions] = useState('');
+      const [terminology, setTerminology] = useState(() => localStorage.getItem('terminology') || '');
+      const [customInstructions, setCustomInstructions] = useState(() => localStorage.getItem('customInstructions') || '');
       const [smartGlossary, setSmartGlossary] = useState(() => localStorage.getItem('smartGlossary') !== 'false');
       const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'text');
       const [studioSubTab, setStudioSubTab] = useState(() => localStorage.getItem('studioSubTab') || 'split');
@@ -1697,7 +1697,9 @@
       const [tgtLang, setTgtLang] = useState('English');
 
       // --- Glossary State ---
-      const [savedGlossaries, setSavedGlossaries] = useState([]);
+      const [savedGlossaries, setSavedGlossaries] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('savedGlossaries') || '[]'); } catch (e) { return []; }
+      });
       const [newGlossaryName, setNewGlossaryName] = useState('');
       const [activeGlossaryId, setActiveGlossaryId] = useState(null);
       const [defaultGlossaryName, setDefaultGlossaryName] = useState(() => localStorage.getItem('defaultGlossaryName') || null);
@@ -1805,10 +1807,28 @@
       }, [inputText, currentFileHash, provider, contextAware]);
 
       useEffect(() => {
-        const g = JSON.parse(localStorage.getItem('savedGlossaries') || '[]'); setSavedGlossaries(g);
-        const h = JSON.parse(localStorage.getItem('translationHistory') || '[]'); setHistory(h);
+        const g = JSON.parse(localStorage.getItem('savedGlossaries') || '[]');
+        setSavedGlossaries(g);
+        const h = JSON.parse(localStorage.getItem('translationHistory') || '[]');
+        setHistory(h);
         const dg = localStorage.getItem('defaultGlossaryName');
-        if (dg) { setDefaultGlossaryName(dg); const found = g.find(x => x.name === dg); if (found) { setTerminology(found.content); setActiveGlossaryId(found.name) } else { localStorage.removeItem('defaultGlossaryName'); setDefaultGlossaryName(null) } }
+        if (dg) {
+          setDefaultGlossaryName(dg);
+          const found = g.find(x => x.name === dg);
+          if (found) {
+            setTerminology(found.content || '');
+            setCustomInstructions(found.instructions || '');
+            setActiveGlossaryId(found.name);
+          } else {
+            localStorage.removeItem('defaultGlossaryName');
+            setDefaultGlossaryName(null);
+          }
+        } else {
+          const savedTerm = localStorage.getItem('terminology');
+          if (savedTerm) setTerminology(savedTerm);
+          const savedInst = localStorage.getItem('customInstructions');
+          if (savedInst) setCustomInstructions(savedInst);
+        }
         if (typeof window.pdfjsLib !== 'undefined') window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
       }, []);
 
@@ -1853,15 +1873,76 @@
       const saveLibreUrl = () => { localStorage.setItem('libreUrl', libreUrl); toast('LibreTranslate URL saved!') };
 
       // --- Profile/Glossary Handlers ---
-      const handleSaveGlossary = () => { if (!newGlossaryName.trim()) return setError('Enter a profile name.'); if (!terminology.trim() && !customInstructions.trim()) return setError('Profile content is empty.'); const existing = savedGlossaries.findIndex(g => g.name === newGlossaryName.trim()); if (existing > -1) { confirmAction(`Overwrite "${newGlossaryName.trim()}"?`, () => { const u = [...savedGlossaries]; u[existing] = { name: newGlossaryName.trim(), content: terminology, instructions: customInstructions }; setSavedGlossaries(u); localStorage.setItem('savedGlossaries', JSON.stringify(u)); setNewGlossaryName(''); setActiveGlossaryId(newGlossaryName.trim()); toast('Profile updated!') }) } else { const u = [...savedGlossaries, { name: newGlossaryName.trim(), content: terminology, instructions: customInstructions }]; setSavedGlossaries(u); localStorage.setItem('savedGlossaries', JSON.stringify(u)); setNewGlossaryName(''); setActiveGlossaryId(newGlossaryName.trim()); setError(''); toast('Profile saved!') } };
-      const handleLoadGlossary = g => { setTerminology(g.content || ''); setCustomInstructions(g.instructions || ''); setActiveGlossaryId(g.name); toast(`Loaded "${g.name}"`) };
-      const handleDeleteGlossary = n => { confirmAction(`Delete "${n}"?`, () => { const u = savedGlossaries.filter(g => g.name !== n); setSavedGlossaries(u); localStorage.setItem('savedGlossaries', JSON.stringify(u)); if (activeGlossaryId === n) { setTerminology(''); setCustomInstructions(''); setActiveGlossaryId(null) } if (defaultGlossaryName === n) { localStorage.removeItem('defaultGlossaryName'); setDefaultGlossaryName(null) } toast('Profile deleted.', 'info') }) };
-      const handleUpdateGlossary = n => { const i = savedGlossaries.findIndex(g => g.name === n); if (i > -1) { const u = [...savedGlossaries]; u[i] = { name: n, content: terminology, instructions: customInstructions }; setSavedGlossaries(u); localStorage.setItem('savedGlossaries', JSON.stringify(u)); toast(`"${n}" updated!`) } };
+      const handleSaveGlossary = () => {
+        const name = (newGlossaryName || '').trim();
+        if (!name) return setError('Enter a profile name.');
+        if (!terminology.trim() && !customInstructions.trim()) return setError('Profile content is empty.');
+        const existing = savedGlossaries.findIndex(g => g.name === name);
+        const updatedEntry = { name, content: terminology, instructions: customInstructions };
+        let u;
+        if (existing > -1) {
+          u = [...savedGlossaries];
+          u[existing] = updatedEntry;
+        } else {
+          u = [...savedGlossaries, updatedEntry];
+        }
+        setSavedGlossaries(u);
+        localStorage.setItem('savedGlossaries', JSON.stringify(u));
+        localStorage.setItem('terminology', terminology);
+        localStorage.setItem('customInstructions', customInstructions);
+        setNewGlossaryName('');
+        setActiveGlossaryId(name);
+        setError('');
+        toast(`Profile "${name}" saved!`);
+      };
+
+      const handleLoadGlossary = g => {
+        setTerminology(g.content || '');
+        setCustomInstructions(g.instructions || '');
+        setActiveGlossaryId(g.name);
+        localStorage.setItem('terminology', g.content || '');
+        localStorage.setItem('customInstructions', g.instructions || '');
+        toast(`Loaded "${g.name}"`);
+      };
+
+      const handleDeleteGlossary = n => {
+        confirmAction(`Delete "${n}"?`, () => {
+          const u = savedGlossaries.filter(g => g.name !== n);
+          setSavedGlossaries(u);
+          localStorage.setItem('savedGlossaries', JSON.stringify(u));
+          if (activeGlossaryId === n) {
+            setTerminology('');
+            setCustomInstructions('');
+            setActiveGlossaryId(null);
+            localStorage.removeItem('terminology');
+            localStorage.removeItem('customInstructions');
+          }
+          if (defaultGlossaryName === n) {
+            localStorage.removeItem('defaultGlossaryName');
+            setDefaultGlossaryName(null);
+          }
+          toast('Profile deleted.', 'info');
+        });
+      };
+
+      const handleUpdateGlossary = n => {
+        const i = savedGlossaries.findIndex(g => g.name === n);
+        if (i > -1) {
+          const u = [...savedGlossaries];
+          u[i] = { name: n, content: terminology, instructions: customInstructions };
+          setSavedGlossaries(u);
+          localStorage.setItem('savedGlossaries', JSON.stringify(u));
+          localStorage.setItem('terminology', terminology);
+          localStorage.setItem('customInstructions', customInstructions);
+          toast(`"${n}" updated!`);
+        }
+      };
+
       const setDefaultGloss = () => { if (!activeGlossaryId) return setError('Load a profile first.'); localStorage.setItem('defaultGlossaryName', activeGlossaryId); setDefaultGlossaryName(activeGlossaryId); toast(`"${activeGlossaryId}" set as default!`) };
       const clearDefaultGloss = () => { confirmAction('Clear default profile?', () => { localStorage.removeItem('defaultGlossaryName'); setDefaultGlossaryName(null); toast('Default cleared.', 'info') }) };
       const exportGlossaries = () => { const blob = new Blob([JSON.stringify(savedGlossaries, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'glossaries_backup.json'; a.click(); URL.revokeObjectURL(a.href); toast('Glossaries exported!') };
       const importGlossaries = async e => { const f = e.target.files[0]; if (!f) return; try { const txt = await f.text(); const data = JSON.parse(txt); if (!Array.isArray(data)) throw new Error('Invalid format'); const merged = [...savedGlossaries]; data.forEach(g => { if (g.name && g.content && !merged.find(x => x.name === g.name)) merged.push(g) }); setSavedGlossaries(merged); localStorage.setItem('savedGlossaries', JSON.stringify(merged)); toast(`Imported ${data.length} glossaries!`) } catch (err) { setError('Invalid glossary file: ' + err.message) } e.target.value = '' };
-      const handleGlossaryFile = async e => { const f = e.target.files[0]; if (!f) return; try { const txt = await f.text(); setTerminology(txt); setNewGlossaryName(f.name.replace(/\.[^.]+$/, '')); toast(`Glossary loaded from ${f.name}`) } catch (err) { setError('Failed to read file: ' + err.message) } e.target.value = '' };
+      const handleGlossaryFile = async e => { const f = e.target.files[0]; if (!f) return; try { const txt = await f.text(); setTerminology(txt); localStorage.setItem('terminology', txt); setNewGlossaryName(f.name.replace(/\.[^.]+$/, '')); toast(`Glossary loaded from ${f.name}`) } catch (err) { setError('Failed to read file: ' + err.message) } e.target.value = '' };
 
       const applyGlossaryPreset = (type) => {
         const presets = {
@@ -2001,15 +2082,30 @@ FORMATTING & STRUCTURE RULES:
       // --- Full App Backup & Restore ---
       const exportFullBackup = (forceIncludeKeys = null) => {
         const shouldIncludeKeys = forceIncludeKeys !== null ? forceIncludeKeys : includeApiKeysInBackup;
+        const currentSavedGlossaries = (savedGlossaries && savedGlossaries.length > 0)
+          ? savedGlossaries
+          : (() => {
+              try { return JSON.parse(localStorage.getItem('savedGlossaries') || '[]'); } catch (e) { return []; }
+            })();
+        const currentTerminology = (terminology && terminology.trim())
+          ? terminology
+          : (localStorage.getItem('terminology') || '');
+        const currentInstructions = (customInstructions && customInstructions.trim())
+          ? customInstructions
+          : (localStorage.getItem('customInstructions') || '');
+
         const backup = {
           version: VERSION,
           timestamp: new Date().toISOString(),
           includesApiKeys: shouldIncludeKeys,
-          savedGlossaries,
-          translationHistory: history,
-          customInstructions,
-          terminology,
+          savedGlossaries: currentSavedGlossaries,
+          translationHistory: (history && history.length > 0) ? history : (() => {
+            try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
+          })(),
+          customInstructions: currentInstructions,
+          terminology: currentTerminology,
           smartGlossary,
+          defaultGlossaryName: defaultGlossaryName || localStorage.getItem('defaultGlossaryName') || null,
           geminiModel,
           deepseekModel,
           openaiModel,
@@ -2066,17 +2162,24 @@ FORMATTING & STRUCTURE RULES:
           });
           setSavedGlossaries(merged);
           localStorage.setItem('savedGlossaries', JSON.stringify(merged));
+          if (merged.length > 0 && !terminology) {
+            setTerminology(merged[0].content || '');
+            localStorage.setItem('terminology', merged[0].content || '');
+            setActiveGlossaryId(merged[0].name);
+          }
           toast(`Imported ${data.length} glossaries!`);
           return;
         }
 
         // 2. Full Backup format
         let keyCount = 0;
+        let glossaryCount = 0;
         let restoredKeys = {};
 
         if (data.savedGlossaries && Array.isArray(data.savedGlossaries)) {
           setSavedGlossaries(data.savedGlossaries);
           localStorage.setItem('savedGlossaries', JSON.stringify(data.savedGlossaries));
+          glossaryCount = data.savedGlossaries.length;
         }
         if (data.translationHistory && Array.isArray(data.translationHistory)) {
           setHistory(data.translationHistory);
@@ -2085,13 +2188,24 @@ FORMATTING & STRUCTURE RULES:
         if (data.exportHistory && Array.isArray(data.exportHistory)) {
           localStorage.setItem('exportHistory', JSON.stringify(data.exportHistory));
         }
-        if (data.customInstructions !== undefined) {
-          setCustomInstructions(data.customInstructions);
-          localStorage.setItem('customInstructions', data.customInstructions);
-        }
-        if (data.terminology !== undefined) {
+        if (data.terminology !== undefined && data.terminology !== null) {
           setTerminology(data.terminology);
           localStorage.setItem('terminology', data.terminology);
+        } else if (data.savedGlossaries && data.savedGlossaries.length > 0) {
+          setTerminology(data.savedGlossaries[0].content || '');
+          localStorage.setItem('terminology', data.savedGlossaries[0].content || '');
+          setActiveGlossaryId(data.savedGlossaries[0].name);
+        }
+        if (data.customInstructions !== undefined && data.customInstructions !== null) {
+          setCustomInstructions(data.customInstructions);
+          localStorage.setItem('customInstructions', data.customInstructions);
+        } else if (data.savedGlossaries && data.savedGlossaries.length > 0 && data.savedGlossaries[0].instructions) {
+          setCustomInstructions(data.savedGlossaries[0].instructions);
+          localStorage.setItem('customInstructions', data.savedGlossaries[0].instructions);
+        }
+        if (data.defaultGlossaryName) {
+          setDefaultGlossaryName(data.defaultGlossaryName);
+          localStorage.setItem('defaultGlossaryName', data.defaultGlossaryName);
         }
         if (data.smartGlossary !== undefined) {
           setSmartGlossary(data.smartGlossary);
@@ -2184,13 +2298,12 @@ FORMATTING & STRUCTURE RULES:
           localStorage.setItem('libreUrl', data.libreUrl);
         }
 
-        if (keyCount > 0) {
-          toast(`✅ Restored ${keyCount} API key profile(s), glossaries, and settings!`);
-        } else if (data.includesApiKeys === false || (!data.apiKeysByProvider && !data.geminiApiKey && !data.deepseekApiKey)) {
-          toast('ℹ️ Restored settings & glossaries (Notice: this backup file contained no API keys).', 'info');
-        } else {
-          toast('App data restored successfully!');
-        }
+        const parts = [];
+        if (keyCount > 0) parts.push(`${keyCount} API key(s)`);
+        if (glossaryCount > 0) parts.push(`${glossaryCount} glossary profile(s)`);
+        else if (data.terminology && data.terminology.trim()) parts.push('active glossary');
+        parts.push('settings');
+        toast(`✅ Restored ${parts.join(', ')} successfully!`);
       };
 
       const importFullBackup = async (e) => {
@@ -3487,7 +3600,17 @@ p {
                   btn({ onClick: () => applyGlossaryPreset('dialogue'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 hover:scale-105 active:scale-95 transition-all cursor-pointer' }, 'Dialogue')
                 )
               ),
-              h('textarea', { value: customInstructions, onChange: e => setCustomInstructions(e.target.value), disabled, placeholder: 'e.g., "Use formal tone", "Keep character names in original language", "Output in British English"', className: 'w-full p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl text-sm resize-y focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all font-normal leading-relaxed', rows: 2 }),
+              h('textarea', {
+                value: customInstructions,
+                onChange: e => {
+                  setCustomInstructions(e.target.value);
+                  localStorage.setItem('customInstructions', e.target.value);
+                },
+                disabled,
+                placeholder: 'e.g., "Use formal tone", "Keep character names in original language", "Output in British English"',
+                className: 'w-full p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl text-sm resize-y focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all font-normal leading-relaxed',
+                rows: 2
+              }),
               h('p', { className: 'text-xs text-slate-400 font-medium' }, 'These instructions are added to every translation prompt alongside the glossary.')
             ),
 
@@ -3517,7 +3640,17 @@ p {
                     btn({ onClick: () => applyGlossaryPreset('lightnovel'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-pink-50 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 border border-pink-200/80 dark:border-pink-800/60 hover:bg-pink-100 dark:hover:bg-pink-900/60 hover:scale-105 active:scale-95 transition-all' }, 'Light Novel')
                   )
                 ),
-                h('textarea', { value: terminology, onChange: e => setTerminology(e.target.value), disabled, placeholder: 'Enter terms to ensure accurate translation (e.g. "Dantian -> Dantian" or "MC Name: Lin Fan")...', className: 'w-full p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl text-sm resize-y focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all font-normal leading-relaxed', rows: 4 }),
+                h('textarea', {
+                  value: terminology,
+                  onChange: e => {
+                    setTerminology(e.target.value);
+                    localStorage.setItem('terminology', e.target.value);
+                  },
+                  disabled,
+                  placeholder: 'Enter terms to ensure accurate translation (e.g. "Dantian -> Dantian" or "MC Name: Lin Fan")...',
+                  className: 'w-full p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl text-sm resize-y focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all font-normal leading-relaxed',
+                  rows: 4
+                }),
                 h('div', { className: 'flex flex-wrap items-center justify-between gap-2 pt-1' },
                   h('div', { className: 'flex flex-wrap items-center gap-2' },
                     btn({ onClick: handleAiOptimizeGlossary, disabled: !terminology.trim() || isOptimizingGlossary || disabled, className: 'px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50', title: 'Automatically organize, clean, and structure raw glossary text with AI' }, isOptimizingGlossary ? ic(Loader2, 14) : ic(Sparkles, 14), isOptimizingGlossary ? 'Optimizing...' : 'AI Clean & Structure'),
