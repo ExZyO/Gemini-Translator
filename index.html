@@ -276,7 +276,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.0.4';
+    const VERSION = '5.0.5';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2521,6 +2521,53 @@ FORMATTING & STRUCTURE RULES:
       const clearHistory = () => { confirmAction('Clear all history?', () => { setHistory([]); localStorage.setItem('translationHistory', '[]'); toast('History cleared.', 'info') }) };
       const deleteHistoryItem = id => { const u = history.filter(h => h.id !== id); setHistory(u); localStorage.setItem('translationHistory', JSON.stringify(u)) };
 
+      const exportHistoryJSON = () => {
+        const historyData = (history && history.length > 0) ? history : (() => {
+          try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
+        })();
+
+        if (!historyData || historyData.length === 0) {
+          return toast('No translation history to export.', 'warning');
+        }
+
+        const exportObj = {
+          app: 'Gemini EPUB Translator',
+          type: 'history_export',
+          version: VERSION,
+          exportedAt: new Date().toISOString(),
+          totalEntries: historyData.length,
+          history: historyData
+        };
+
+        const jsonStr = JSON.stringify(exportObj, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const d = new Date().toISOString().slice(0, 10);
+        a.download = `gemini_translation_history_${d}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast(`Exported ${historyData.length} history entries (JSON)!`, 'success');
+      };
+
+      const exportSingleHistoryItem = (entry) => {
+        const title = `${(entry.tgtLang ? `${entry.srcLang || 'Auto'} to ${entry.tgtLang}` : 'Translation')}_${new Date(entry.ts).toISOString().slice(0, 10)}`;
+        const content = `====================================================\nGEMINI TRANSLATION HISTORY ENTRY\nProvider: ${entry.provider || 'AI'}\nLanguage: ${entry.srcLang || 'Auto'} -> ${entry.tgtLang}\nDate: ${new Date(entry.ts).toLocaleString()}\nTokens: ${entry.stats?.totalTokens?.toLocaleString() || 'N/A'}\nCost: ${entry.stats?.cost || 'N/A'}\n====================================================\n\n[INPUT TEXT]:\n${entry.fullInput || entry.inputPreview || ''}\n\n====================================================\n[TRANSLATED OUTPUT]:\n${entry.fullOutput || entry.outputPreview || ''}\n`;
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${title.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('History entry exported as .txt file!', 'success');
+      };
+
       // --- Translation ---
       const getTranslateOpts = (signal) => ({
         apiKey: provider === 'deepseek' ? deepseekKey : geminiKey,
@@ -4053,8 +4100,21 @@ p {
         // TAB: HISTORY
         activeTab === 'history' && h('div', { className: 'space-y-4' },
           h('div', { className: 'flex flex-wrap items-center justify-between gap-3' },
-            h('h2', { className: 'text-xl font-bold' }, 'Translation History'),
-            history.length > 0 && btn({ onClick: clearHistory, className: 'px-3 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-lg hover:bg-red-600 inline-flex items-center gap-1 cursor-pointer' }, ic(Trash2, 14), 'Clear All')
+            h('div', { className: 'flex items-center gap-2' },
+              h('h2', { className: 'text-xl font-bold text-slate-800 dark:text-slate-200' }, 'Translation History'),
+              history.length > 0 && h('span', { className: 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60' }, `${history.length} items`)
+            ),
+            h('div', { className: 'flex flex-wrap items-center gap-2' },
+              history.length > 0 && btn({
+                onClick: exportHistoryJSON,
+                className: 'px-3.5 py-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer',
+                title: 'Export full history as a downloadable JSON file'
+              }, ic(Download, 14), 'Export History (JSON)'),
+              history.length > 0 && btn({
+                onClick: clearHistory,
+                className: 'px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1 cursor-pointer'
+              }, ic(Trash2, 14), 'Clear All')
+            )
           ),
           history.length > 0 && h('div', { className: 'relative' },
             h('input', {
@@ -4095,9 +4155,11 @@ p {
                       h('span', null, '·'),
                       h('span', null, new Date(entry.ts).toLocaleString())
                     ),
-                    h('div', { className: 'flex gap-1' },
-                      btn({ onClick: () => loadFromHistory(entry), className: 'px-2.5 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer' }, 'Load'),
-                      btn({ onClick: () => deleteHistoryItem(entry.id), className: 'px-2.5 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer' }, 'Del')
+                    h('div', { className: 'flex flex-wrap items-center gap-1.5' },
+                      btn({ onClick: () => loadFromHistory(entry), className: 'px-2.5 py-1 text-xs bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-500 transition-all cursor-pointer inline-flex items-center gap-1' }, ic(Upload, 12), 'Load'),
+                      btn({ onClick: () => { if (entry.fullOutput || entry.outputPreview) copyText(entry.fullOutput || entry.outputPreview).then(() => toast('Copied translation!')); }, className: 'px-2.5 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 font-semibold rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer inline-flex items-center gap-1', title: 'Copy translation output' }, ic(Copy, 12), 'Copy'),
+                      btn({ onClick: () => exportSingleHistoryItem(entry), className: 'px-2.5 py-1 text-xs bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60 font-semibold rounded-md hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all cursor-pointer inline-flex items-center gap-1', title: 'Export this translation as .txt file' }, ic(Download, 12), 'TXT'),
+                      btn({ onClick: () => deleteHistoryItem(entry.id), className: 'px-2.5 py-1 text-xs bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 rounded-md hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-all cursor-pointer' }, 'Del')
                     )
                   ),
                   h('p', { className: 'text-sm text-gray-600 dark:text-gray-400 line-clamp-2' }, entry.outputPreview || entry.inputPreview)
