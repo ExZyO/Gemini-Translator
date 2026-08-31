@@ -279,8 +279,8 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.3.6';
-    const MAX_PAYLOAD = 4500;
+    const VERSION = '5.3.7';
+    const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
     const DEFAULT_CONCURRENCY = 3;
@@ -666,34 +666,54 @@
     const splitChunks = (text, glossaryLen = 0, smartGlossary = true) => {
       const effectiveGlossaryLen = smartGlossary ? Math.min(glossaryLen, 1200) : glossaryLen;
       let max = MAX_PAYLOAD - PROMPT_OVERHEAD - effectiveGlossaryLen;
-      if (max <= 0) max = 500;
+      if (max <= 0) max = 1500;
       const chunks = []; let rem = text;
       while (rem.length > 0) {
         if (rem.length <= max) { chunks.push(rem); break; }
         let sp = max;
+        // Priority 1: Paragraph break (\n\n)
         let idx = rem.lastIndexOf('\n\n', max);
-        if (idx !== -1 && idx > max * 0.6) {
+        if (idx !== -1 && idx >= max * 0.4) {
           sp = idx + 2;
         } else {
+          // Priority 2: Single newline (\n)
           idx = rem.lastIndexOf('\n', max);
-          if (idx !== -1 && idx > max * 0.6) {
+          if (idx !== -1 && idx >= max * 0.4) {
             sp = idx + 1;
           } else {
+            // Priority 3: Sentence terminators
             const punctIndices = [
               rem.lastIndexOf('。\n', max),
               rem.lastIndexOf('。', max),
+              rem.lastIndexOf('！\n', max),
               rem.lastIndexOf('！', max),
+              rem.lastIndexOf('？\n', max),
               rem.lastIndexOf('？', max),
+              rem.lastIndexOf('”\n', max),
               rem.lastIndexOf('”', max),
+              rem.lastIndexOf('…\n', max),
               rem.lastIndexOf('…', max),
               rem.lastIndexOf('.\n', max),
               rem.lastIndexOf('.', max),
+              rem.lastIndexOf('!\n', max),
               rem.lastIndexOf('!', max),
+              rem.lastIndexOf('?\n', max),
               rem.lastIndexOf('?', max)
-            ].filter(i => i > max * 0.5);
+            ].filter(i => i >= max * 0.3);
             
             if (punctIndices.length > 0) {
               sp = Math.max(...punctIndices) + 1;
+            } else {
+              // Priority 4: Fallback to any newline or period in the first half rather than cutting mid-sentence
+              const anyPunct = [
+                rem.lastIndexOf('\n\n', max),
+                rem.lastIndexOf('\n', max),
+                rem.lastIndexOf('。', max),
+                rem.lastIndexOf('.', max)
+              ].filter(i => i > 0);
+              if (anyPunct.length > 0) {
+                sp = Math.max(...anyPunct) + 1;
+              }
             }
           }
         }
@@ -913,11 +933,11 @@
       const srcDisplay = srcLang && srcLang !== 'Auto-detect' ? srcLang : 'Chinese';
       const tgtDisplay = tgtLang || 'English';
 
-      let promptHeader = `You are a master literary localization editor translating ${srcDisplay} into publication-quality ${tgtDisplay}.\n\n` +
+      let promptHeader = `You are a master literary localization editor translating an authorized Xianxia dark fantasy webnovel from ${srcDisplay} into publication-quality ${tgtDisplay}.\n\n` +
         `TRANSLATION GUIDELINES:\n` +
-        `1. Raw Accuracy & Tone Fidelity: Faithfully capture the original RAW text's exact meaning, scene pacing, and narrative tone (humorous, contemplative, tense, or conversational). Do not add unmentioned lore or distort the author's original intent.\n` +
-        `2. Complete Sentence-by-Sentence Integrity (No Omissions/Truncations): NEVER summarize, skip, bridge, or omit any paragraphs, actions, dialogue lines, gory scenes, or combat sequences. Translate 100% of the text fully and completely.\n` +
-        `3. Visceral Action & Punchy Pacing (No Academic Softening): Preserve gritty dark fantasy, raw visceral combat, and dark scenes with punchy, impactful English phrasing. Do NOT sanitize or soften intense actions into timid, polite academic language.\n` +
+        `1. Raw Accuracy & Tone Fidelity: Faithfully capture the original RAW text's exact meaning, scene pacing, and narrative tone (ruthless, contemplative, dark, humorous, or conversational). Do not invent unmentioned lore or distort character personalities.\n` +
+        `2. 100% Complete Zero-Omission Fidelity (No Self-Censorship or Summarization): This is an authorized literary translation of a published fantasy novel. You MUST translate every single sentence, action, combat exchange, gory beast attack, character death, dialogue line, and philosophical passage completely from beginning to end. NEVER summarize, skip, self-censor, or omit any scenes or paragraphs.\n` +
+        `3. Visceral Action & Punchy Pacing (No Academic Softening): Preserve gritty dark fantasy, raw visceral combat, and dark atmospheric weight with punchy, impactful English phrasing. Do NOT sanitize or soften intense actions into timid, polite academic language.\n` +
         `4. Natural English Flow (No Chinglish): Localize Chinese idioms, rhetorical patterns, and colloquial exclamations into natural, immersive English phrasing (e.g. translate "这是何等概念/什么概念" as "What kind of insane power is this?!" / "How is that even possible?!" rather than literal "What concept is this"). Avoid stiff word-for-word machine translation.\n` +
         `5. Spoken Dialogue: Ensure character dialogue flows naturally in English while preserving each speaker's distinct personality, attitude, and tone from the source.\n` +
         `6. Proper Nouns & Names: Strictly preserve Chinese character names (Pinyin with proper capitalization: Fang Yuan, Jia Jinsheng, Gu Yue Bo), cultivation ranks, and locations.\n` +
@@ -3723,7 +3743,18 @@ FORMATTING & STRUCTURE RULES:
               setProgressLabel(`Streaming chunk ${i + 1}/${chunks.length}${useContext ? ' (with context)' : ''}...`);
               let chunkResult = '';
               const streamFn = provider === 'deepseek' ? streamDeepSeek : streamGemini;
-              const streamRes = await streamFn(chunks[i], { ...opts, context: useContext ? ctx : undefined, onChunk: t => { chunkResult += t; result += t; setAssembledText(result) } });
+              const streamRes = await streamFn(chunks[i], {
+                ...opts,
+                context: useContext ? ctx : undefined,
+                onChunk: t => {
+                  if (chunkResult === '' && result !== '' && !result.endsWith('\n')) {
+                    result += '\n\n';
+                  }
+                  chunkResult += t;
+                  result += t;
+                  setAssembledText(result);
+                }
+              });
               if (useContext) { ctx = streamRes.newContext || ctx; }
               if (streamRes?.usage) {
                 totalPromptTokens += streamRes.usage.promptTokens || 0;
