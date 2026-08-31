@@ -2008,51 +2008,123 @@ FORMATTING & STRUCTURE RULES:
         toast(shouldIncludeKeys ? 'Full backup (+ API Keys) downloaded!' : 'Full backup downloaded!');
       };
 
+      const applyRestoredData = (data) => {
+        if (!data || typeof data !== 'object') throw new Error('Invalid backup data format.');
+        
+        // 1. Array format (Glossary export)
+        if (Array.isArray(data)) {
+          const merged = [...savedGlossaries];
+          data.forEach(g => {
+            if (g.name && g.content && !merged.find(x => x.name === g.name)) merged.push(g);
+          });
+          setSavedGlossaries(merged);
+          localStorage.setItem('savedGlossaries', JSON.stringify(merged));
+          toast(`Imported ${data.length} glossaries!`);
+          return;
+        }
+
+        // 2. Full Backup format
+        let keysRestored = false;
+        if (data.savedGlossaries && Array.isArray(data.savedGlossaries)) {
+          setSavedGlossaries(data.savedGlossaries);
+          localStorage.setItem('savedGlossaries', JSON.stringify(data.savedGlossaries));
+        }
+        if (data.translationHistory && Array.isArray(data.translationHistory)) {
+          setHistory(data.translationHistory);
+          localStorage.setItem('translationHistory', JSON.stringify(data.translationHistory));
+        }
+        if (data.exportHistory && Array.isArray(data.exportHistory)) {
+          localStorage.setItem('exportHistory', JSON.stringify(data.exportHistory));
+        }
+        if (data.customInstructions !== undefined) {
+          setCustomInstructions(data.customInstructions);
+          localStorage.setItem('customInstructions', data.customInstructions);
+        }
+        if (data.terminology !== undefined) {
+          setTerminology(data.terminology);
+          localStorage.setItem('terminology', data.terminology);
+        }
+        if (data.smartGlossary !== undefined) {
+          setSmartGlossary(data.smartGlossary);
+          localStorage.setItem('smartGlossary', data.smartGlossary);
+        }
+        if (data.provider) {
+          setProvider(data.provider);
+          localStorage.setItem('translationProvider', data.provider);
+        }
+        if (data.geminiModel) {
+          setGeminiModel(data.geminiModel);
+          localStorage.setItem('geminiModel', data.geminiModel);
+        }
+        if (data.deepseekModel) {
+          setDeepseekModel(data.deepseekModel);
+          localStorage.setItem('deepseekModel', data.deepseekModel);
+        }
+        if (data.openaiModel) {
+          setOpenaiModel(data.openaiModel);
+          localStorage.setItem('openaiModel', data.openaiModel);
+        }
+        if (data.claudeModel) {
+          setClaudeModel(data.claudeModel);
+          localStorage.setItem('claudeModel', data.claudeModel);
+        }
+        if (data.concurrency) {
+          setConcurrency(data.concurrency);
+        }
+        if (data.contextAware !== undefined) {
+          setContextAware(data.contextAware);
+          localStorage.setItem('contextAware', data.contextAware);
+        }
+        if (data.apiKeysByProvider && typeof data.apiKeysByProvider === 'object') {
+          setApiKeysByProvider(data.apiKeysByProvider);
+          localStorage.setItem('apiKeysByProvider', JSON.stringify(data.apiKeysByProvider));
+          keysRestored = true;
+        }
+        if (data.activeKeyIds && typeof data.activeKeyIds === 'object') {
+          setActiveKeyIds(data.activeKeyIds);
+          localStorage.setItem('activeKeyIds', JSON.stringify(data.activeKeyIds));
+        }
+        if (data.apiKey) {
+          setApiKey(data.apiKey);
+          localStorage.setItem('apiKey', data.apiKey);
+          keysRestored = true;
+        }
+        if (data.libreUrl) {
+          setLibreUrl(data.libreUrl);
+          localStorage.setItem('libreUrl', data.libreUrl);
+        }
+
+        toast(keysRestored ? 'App data + API key profiles restored!' : 'App data restored successfully!');
+      };
+
       const importFullBackup = async (e) => {
-        const f = e.target.files[0];
+        const f = e.target?.files?.[0];
         if (!f) return;
         try {
           const txt = await f.text();
           const data = JSON.parse(txt);
-          if (data.savedGlossaries && Array.isArray(data.savedGlossaries)) {
-            setSavedGlossaries(data.savedGlossaries);
-            localStorage.setItem('savedGlossaries', JSON.stringify(data.savedGlossaries));
-          }
-          if (data.translationHistory && Array.isArray(data.translationHistory)) {
-            setHistory(data.translationHistory);
-            localStorage.setItem('translationHistory', JSON.stringify(data.translationHistory));
-          }
-          if (data.exportHistory && Array.isArray(data.exportHistory)) {
-            localStorage.setItem('exportHistory', JSON.stringify(data.exportHistory));
-          }
-          if (data.customInstructions) setCustomInstructions(data.customInstructions);
-          if (data.terminology) setTerminology(data.terminology);
-          if (data.smartGlossary !== undefined) {
-            setSmartGlossary(data.smartGlossary);
-            localStorage.setItem('smartGlossary', data.smartGlossary);
-          }
-          if (data.provider) { setProvider(data.provider); localStorage.setItem('translationProvider', data.provider); }
-          if (data.geminiModel) { setGeminiModel(data.geminiModel); localStorage.setItem('geminiModel', data.geminiModel); }
-          if (data.deepseekModel) { setDeepseekModel(data.deepseekModel); localStorage.setItem('deepseekModel', data.deepseekModel); }
-          if (data.openaiModel) { setOpenaiModel(data.openaiModel); localStorage.setItem('openaiModel', data.openaiModel); }
-          if (data.claudeModel) { setClaudeModel(data.claudeModel); localStorage.setItem('claudeModel', data.claudeModel); }
-          if (data.apiKeysByProvider && typeof data.apiKeysByProvider === 'object') {
-            setApiKeysByProvider(data.apiKeysByProvider);
-            localStorage.setItem('apiKeysByProvider', JSON.stringify(data.apiKeysByProvider));
-          }
-          if (data.activeKeyIds && typeof data.activeKeyIds === 'object') {
-            setActiveKeyIds(data.activeKeyIds);
-            localStorage.setItem('activeKeyIds', JSON.stringify(data.activeKeyIds));
-          }
-          if (data.libreUrl) {
-            setLibreUrl(data.libreUrl);
-            localStorage.setItem('libreUrl', data.libreUrl);
-          }
-          toast(data.apiKeysByProvider ? 'Full app data + API keys restored!' : 'Full app data restored successfully!');
+          applyRestoredData(data);
         } catch (err) {
           setError('Failed to restore backup: ' + err.message);
+          toast('Failed to restore backup: ' + err.message, 'error');
         }
-        e.target.value = '';
+        if (e.target) e.target.value = '';
+      };
+
+      const pasteAndRestoreBackup = async () => {
+        try {
+          let text = '';
+          if (navigator.clipboard?.readText) {
+            try { text = await navigator.clipboard.readText(); } catch (e) {}
+          }
+          const input = prompt('Paste your backup JSON content below:', text);
+          if (!input || !input.trim()) return;
+          const data = JSON.parse(input.trim());
+          applyRestoredData(data);
+        } catch (err) {
+          setError('Failed to parse backup JSON: ' + err.message);
+          toast('Failed to parse backup JSON: ' + err.message, 'error');
+        }
       };
 
       // --- Modal ---
@@ -2499,16 +2571,31 @@ FORMATTING & STRUCTURE RULES:
         setCurrentFileHash(hashId);
         try {
           const fname = (f.name || '').toLowerCase();
-          if (f.type === 'text/plain' || fname.endsWith('.txt')) {
+          let data;
+          if (fname.endsWith('.json') || f.type === 'application/json') {
+            setUploadingFile(false);
+            return importFullBackup({ target: { files: [f] } });
+          } else if (f.type === 'text/plain' || fname.endsWith('.txt')) {
             const rawText = await readFileAsText(f);
             data = { chapters: [{ title: f.name.replace(/\.txt$/i, ''), text: rawText }] };
             setInputText(rawText);
           } else if (f.type === 'application/pdf' || fname.endsWith('.pdf')) {
             data = { chapters: [{ title: f.name.replace(/\.pdf$/i, ''), text: await readPdf(f) }] };
-          } else if (f.type === 'application/epub+zip' || fname.endsWith('.epub')) {
+          } else if (f.type === 'application/epub+zip' || fname.endsWith('.epub') || fname.endsWith('.zip')) {
             data = await readEpub(f);
           } else {
-            throw new Error('Unsupported file type. Use .txt, .pdf, or .epub');
+            // Fallback: try reading as text
+            try {
+              const rawText = await readFileAsText(f);
+              if (rawText && rawText.trim()) {
+                data = { chapters: [{ title: f.name || 'Imported Document', text: rawText }] };
+                setInputText(rawText);
+              } else {
+                throw new Error('Unsupported file type. Please use .txt, .pdf, .epub, or .json backup.');
+              }
+            } catch (err) {
+              throw new Error('Unsupported file type. Please use .txt, .pdf, .epub, or .json backup.');
+            }
           }
 
           const isEpub = data.isEpub || false;
@@ -3137,11 +3224,20 @@ p {
             h('div', { onDragOver, onDragLeave, onDrop, className: `p-6 bg-gradient-to-b from-slate-50/50 via-white to-slate-50/50 dark:from-slate-900/30 dark:via-slate-900/70 dark:to-slate-900/30 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500/70 dark:hover:border-indigo-500/70 transition-all text-center ${isDragOver ? 'drop-zone-active scale-[1.01]' : ''}` },
               h('div', { className: 'text-center' },
                 h('p', { className: 'text-sm font-medium text-slate-500 dark:text-slate-400' }, 'Drag & drop your novel or ebook file here, or'),
-                btn({ onClick: () => fileInputRef.current?.click(), disabled, className: 'mt-2.5 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-2 text-sm cursor-pointer disabled:opacity-50' },
+                h('label', {
+                  className: `mt-2.5 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-2 text-sm cursor-pointer ${disabled ? 'opacity-50 pointer-events-none' : ''}`
+                },
                   (uploadingFile || isTranslating) ? ic(Loader2, 18) : ic(Upload, 18),
-                  uploadingFile ? 'Processing...' : (isTranslating ? `Translating (${progress}%)` : 'Choose File (TXT, PDF, EPUB)')
-                ),
-                h('input', { type: 'file', ref: fileInputRef, onChange: e => { const f = e.target.files[0]; if (f) processFile(f) }, accept: '.txt,.pdf,.epub,application/epub+zip', className: 'hidden', disabled })
+                  uploadingFile ? 'Processing...' : (isTranslating ? `Translating (${progress}%)` : 'Choose File (TXT, PDF, EPUB)'),
+                  h('input', {
+                    type: 'file',
+                    ref: fileInputRef,
+                    onChange: e => { const f = e.target.files[0]; if (f) processFile(f); e.target.value = ''; },
+                    accept: '.txt,.pdf,.epub,text/plain,application/pdf,application/epub+zip,application/zip,application/octet-stream,*/*',
+                    className: 'hidden',
+                    disabled
+                  })
+                )
               ),
               isTranslating && h('div', { className: 'mt-4 max-w-md mx-auto' },
                 h('div', { className: 'flex items-center justify-between text-xs font-semibold text-slate-500 mb-1.5' }, h('span', null, progressLabel), h('span', null, `${progress}%`)),
@@ -3542,11 +3638,22 @@ p {
                       onClick: () => exportFullBackup(includeApiKeysInBackup),
                       className: `px-3.5 sm:px-4 py-2 text-white text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer ${includeApiKeysInBackup ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500'}`
                     }, ic(Download, 15), includeApiKeysInBackup ? 'Export Backup (+ API Keys)' : 'Export Full Backup (.JSON)'),
-                    btn({
-                      onClick: () => backupFileInputRef.current?.click(),
+                    h('label', {
                       className: 'px-3.5 sm:px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
-                    }, ic(Upload, 15), 'Restore From Backup'),
-                    h('input', { type: 'file', ref: backupFileInputRef, onChange: importFullBackup, className: 'hidden', accept: '.json' })
+                    },
+                      ic(Upload, 15),
+                      'Restore From File',
+                      h('input', {
+                        type: 'file',
+                        onChange: importFullBackup,
+                        className: 'hidden',
+                        accept: '.json,application/json,text/plain,text/json,application/octet-stream,*/*'
+                      })
+                    ),
+                    btn({
+                      onClick: pasteAndRestoreBackup,
+                      className: 'px-3.5 sm:px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
+                    }, ic(Clipboard, 15), 'Paste JSON')
                   )
                 )
               )
