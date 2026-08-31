@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.3.0';
+    const VERSION = '5.3.1';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -895,7 +895,7 @@
       let promptHeader = `You are a master literary localization editor translating ${srcDisplay} into publication-quality ${tgtDisplay}.\n\n` +
         `TRANSLATION GUIDELINES:\n` +
         `1. Raw Accuracy & Tone Fidelity: Faithfully capture the original RAW text's exact meaning, scene pacing, and narrative tone (humorous, contemplative, tense, or conversational). Do not add unmentioned lore or distort the author's original intent.\n` +
-        `2. Natural English Flow (No Chinglish): Localize Chinese idioms, rhetorical patterns, and expressions into natural, immersive English phrasing. Avoid stiff word-for-word machine translation.\n` +
+        `2. Natural English Flow (No Chinglish): Localize Chinese idioms, rhetorical patterns, and colloquial exclamations into natural, immersive English phrasing (e.g. translate "这是何等概念/什么概念" as "What kind of insane power is this?!" / "How is that even possible?!" rather than literal "What concept is this"). Avoid stiff word-for-word machine translation.\n` +
         `3. Spoken Dialogue: Ensure character dialogue flows naturally in English while preserving each speaker's distinct personality, attitude, and tone from the source.\n` +
         `4. Proper Nouns & Names: Strictly preserve Chinese character names (Pinyin with proper capitalization: Fang Yuan, Jia Jinsheng, Gu Yue Bo), cultivation ranks, and locations.\n` +
         `5. Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical explanations (e.g. "(omitted...)", "(translator note:...)"). Output ONLY the pure translated chapter.\n` +
