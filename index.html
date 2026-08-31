@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.2.3';
+    const VERSION = '5.2.4';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3054,8 +3054,11 @@ FORMATTING & STRUCTURE RULES:
             setProgressLabel(`Translating ${chunks.length - startIndex} remaining chunk(s) with ${Math.min(concurrency, chunks.length - startIndex)} parallel...`);
             let completed = startIndex;
             const remainingChunks = chunks.slice(startIndex);
+            const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
             const results = await batchParallel(remainingChunks, async (chunk, idx) => {
-              const translated = await translateWithRotation(chunk, opts);
+              const workerKey = availableKeys.length > 0 ? availableKeys[idx % availableKeys.length].key : opts.apiKey;
+              const workerOpts = { ...opts, apiKey: workerKey };
+              const translated = await translateWithRotation(chunk, workerOpts);
               completed++; setProgress(Math.floor((completed / chunks.length) * 100));
               setProgressLabel(`Completed ${completed}/${chunks.length} chunks`);
               saveState(result + (result ? '\n' : '') + '[Partial Parallel Completion]', '', completed);
@@ -3181,7 +3184,11 @@ FORMATTING & STRUCTURE RULES:
           setProgress(Math.floor((done / totalChunks) * 100));
           setProgressLabel(`Resuming ${chapterItems.length} remaining chapter(s) with ${Math.min(concurrency, chapterItems.length)} parallel worker(s)${useContext ? ' (intra-chapter context)' : ''}...`);
 
-          await batchParallel(chapterItems, async ({ ch, idx: i }) => {
+          const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
+
+          await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx) => {
+            const workerKey = availableKeys.length > 0 ? availableKeys[itemIdx % availableKeys.length].key : opts.apiKey;
+            const workerOpts = { ...opts, apiKey: workerKey };
             let title = ch.title;
             const chunks = ch.chunks;
             let chapterCtx = '';
@@ -3190,7 +3197,7 @@ FORMATTING & STRUCTURE RULES:
             if (title.trim()) {
               if (!(resume && newChapters[i]?.title)) {
                 try {
-                  const tRes = await translateWithRotation(title, { ...opts, context: useContext ? chapterCtx : undefined });
+                  const tRes = await translateWithRotation(title, { ...workerOpts, context: useContext ? chapterCtx : undefined });
                   title = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
                   if (tRes?.usage) {
                     totalPromptTokens += tRes.usage.promptTokens || 0;
@@ -3210,7 +3217,7 @@ FORMATTING & STRUCTURE RULES:
               setProgressLabel(`Chapter ${i + 1}/${chapters.length}: chunk ${j + 1}/${chunks.length}${useContext ? ' (intra-context)' : ''}...`);
               let translatedText = '';
               try {
-                const translated = await translateWithRotation(chunks[j].text, { ...opts, context: useContext ? chapterCtx : undefined });
+                const translated = await translateWithRotation(chunks[j].text, { ...workerOpts, context: useContext ? chapterCtx : undefined });
                 translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
                 if (useContext) {
                   chapterCtx = translated?.newContext || chapterCtx;
