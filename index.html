@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.2.8';
+    const VERSION = '5.2.9';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1804,7 +1804,7 @@
       // --- Core State ---
       const [inputText, setInputText] = useState('');
       const [assembledText, setAssembledText] = useState('');
-      const [terminology, setTerminology] = useState('');
+      const [terminology, setTerminology] = useState(() => localStorage.getItem('terminology') || '');
       const [customInstructions, setCustomInstructions] = useState(() => localStorage.getItem('customInstructions') || '');
       const [smartGlossary, setSmartGlossary] = useState(() => localStorage.getItem('smartGlossary') !== 'false');
       const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'text');
@@ -2425,10 +2425,18 @@
         const selected = presets[type];
         if (selected) {
           if (type === 'literary' || type === 'dialogue') {
-            setCustomInstructions(p => p ? `${p}\n${selected}` : selected);
+            setCustomInstructions(p => {
+              const next = p ? `${p}\n${selected}` : selected;
+              localStorage.setItem('customInstructions', next);
+              return next;
+            });
             toast(`Added ${type} instructions!`);
           } else {
-            setTerminology(p => p ? `${p}\n\n${selected}` : selected);
+            setTerminology(p => {
+              const next = p ? `${p}\n\n${selected}` : selected;
+              localStorage.setItem('terminology', next);
+              return next;
+            });
             toast(`Added ${type} terminology!`);
           }
         }
@@ -2438,6 +2446,7 @@
         if (!terminology.trim()) return setError('Glossary is empty.');
         const formatted = formatGlossaryString(terminology);
         setTerminology(formatted);
+        localStorage.setItem('terminology', formatted);
         toast('Glossary formatted cleanly!');
       };
 
@@ -4325,7 +4334,7 @@ p {
                 h('div', { className: 'flex flex-wrap items-center justify-between gap-2 pt-1' },
                   h('div', { className: 'flex flex-wrap items-center gap-2' },
                     btn({ onClick: handleAiOptimizeGlossary, disabled: !terminology.trim() || isOptimizingGlossary || disabled, className: 'px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50', title: 'Automatically organize, clean, and structure raw glossary text with AI' }, isOptimizingGlossary ? ic(Loader2, 14) : ic(Sparkles, 14), isOptimizingGlossary ? 'Optimizing...' : 'AI Clean & Structure'),
-                    btn({ onClick: async () => { try { const t = await navigator.clipboard.readText(); setTerminology(p => p + t); toast('Pasted!') } catch (e) { } }, disabled, className: 'px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1 cursor-pointer' }, ic(Clipboard, 14), 'Paste'),
+                    btn({ onClick: async () => { try { const t = await navigator.clipboard.readText(); setTerminology(p => { const next = p + t; localStorage.setItem('terminology', next); return next; }); toast('Pasted!') } catch (e) { } }, disabled, className: 'px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1 cursor-pointer' }, ic(Clipboard, 14), 'Paste'),
                     btn({ onClick: () => { if (terminology) copyText(terminology).then(() => toast('Glossary copied!')) }, disabled, className: 'px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1 cursor-pointer' }, ic(Copy, 14), 'Copy'),
                     btn({ onClick: formatGlossaryContent, disabled: !terminology.trim() || disabled, className: 'px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1 cursor-pointer' }, ic(RefreshCcw, 14), 'Format'),
                     btn({ onClick: () => confirmAction('Clear glossary text?', () => { setTerminology(''); setActiveGlossaryId(null); localStorage.removeItem('terminology'); localStorage.removeItem('defaultGlossaryName'); toast('Glossary cleared.'); }), disabled, className: 'px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1 cursor-pointer' }, ic(XCircle, 14), 'Clear'),
