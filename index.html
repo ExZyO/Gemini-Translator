@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.4.1';
+    const VERSION = '5.4.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -945,7 +945,10 @@
         `8. Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical explanations (e.g. "(omitted...)", "(translator note:...)"). Output ONLY the pure translated chapter.\n` +
         `9. Dignified Literary Translation of Classical Metaphors: In Chinese literature, descriptions of characters (e.g. "莲藕般双腿", "少女娇躯", "嫩肉") are poetic classical tropes. In combat, injury, or dark fantasy scenes, localize these into serious, dignified, non-suggestive English prose (e.g. "her pale, slender legs", "her fragile body", "her flesh") to maintain solemn, high-register dark fantasy without tripping automated filters.\n` +
         `10. Dignified Translation for Demonic Rituals & Sacrificial Preparations: When translating demonic cultivation rituals, blood sacrifices, or Gu refining preparations (such as removing a sacrifice's outer robes/garments, binding victims to boulders, or beast feeding), translate the action with solemn, serious, and matter-of-fact narrative English (e.g. "he stripped away her robes to prepare the sacrifice", "severing her outer garments"). Strictly avoid lurid, gratuitous, or sexually suggestive phrasing that could trigger automated content filters, ensuring clean literary prose while preserving 100% of the narrative actions, dialogue, and plot progression.\n` +
-        `11. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n\n`;
+        `11. Classical Poetry, Chanted Songs & Mythic Parables: When characters recite classical Chinese poems, sing martial ballads (e.g. Feng Jiu Ge's songs, Fang Yuan's verses), or when narrating excerpts from <<The Legends of Ren Zu>> (人祖传):\n` +
+        `    - Translate poems and songs with lyrical meter, evocative rhythmic cadence, stanza line breaks, and natural poetic elegance rather than flat prose.\n` +
+        `    - In <<The Legends of Ren Zu>> and mythic parables, preserve strict anaphoric repetition (e.g. repeating "On what basis... / If such... / Then let me...") and word-for-word identical refrains across allegorical birds, beasts, and fishes to maintain the sacred, liturgical fable cadence.\n` +
+        `12. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n\n`;
 
       let p = `${promptHeader}RAW TEXT TO TRANSLATE:\n${text}\n\n`;
 
@@ -2606,6 +2609,10 @@
 - Chinese Idioms: Translate idioms according to their actual literary meaning in context (e.g. 鸡犬不留 -> "leaving none alive, not even the chickens and dogs"; 人生地不熟 -> "a stranger in an unfamiliar place"). Avoid robotic word-for-word machine translation.
 - Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical omissions. Output ONLY pure translated chapter text.
 
+- Classical Poetry, Chanted Songs & Mythic Parables: When characters recite classical Chinese poems, sing martial ballads (e.g. Feng Jiu Ge's Destiny/Submission/Separation Song, Fang Yuan's verses), or when narrating excerpts from <<The Legends of Ren Zu>> (人祖传):
+  * Translate poems and songs with lyrical meter, evocative rhythmic cadence, stanza line breaks, and natural poetic elegance rather than flat prose.
+  * In <<The Legends of Ren Zu>> and mythic parables, preserve strict anaphoric repetition (e.g. repeating "On what basis... / If such... / Then let me...") and word-for-word identical refrains across allegorical birds, beasts, and fishes to maintain the sacred, liturgical fable cadence.
+
 II. COSMOLOGY, THE GU WORLD, FIVE REGIONS & TWO HEAVENS
 - 蛊界 -> Gu World
 - 五域 -> Five Regions
@@ -2950,6 +2957,10 @@ X. DAOIST PHILOSOPHY, BUDDHIST CONCEPTS & TIME UNITS
 - Pinyin Capitalization: Strictly maintain proper Pinyin capitalization for Chinese names (Fang Yuan, Gu Yue Fang Yuan, Bai Ning Bing, Feng Jiu Ge, Hei Lou Lan, Duke Long, Star Constellation).
 - Chinese Idioms: Translate idioms according to their actual literary meaning in context (e.g. 鸡犬不留 -> "leaving none alive, not even the chickens and dogs"; 人生地不熟 -> "a stranger in an unfamiliar place"). Avoid robotic word-for-word machine translation.
 - Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical omissions. Output ONLY pure translated chapter text.
+
+- Classical Poetry, Chanted Songs & Mythic Parables: When characters recite classical Chinese poems, sing martial ballads (e.g. Feng Jiu Ge's Destiny/Submission/Separation Song, Fang Yuan's verses), or when narrating excerpts from <<The Legends of Ren Zu>> (人祖传):
+  * Translate poems and songs with lyrical meter, evocative rhythmic cadence, stanza line breaks, and natural poetic elegance rather than flat prose.
+  * In <<The Legends of Ren Zu>> and mythic parables, preserve strict anaphoric repetition (e.g. repeating "On what basis... / If such... / Then let me...") and word-for-word identical refrains across allegorical birds, beasts, and fishes to maintain the sacred, liturgical fable cadence.
 
 II. COSMOLOGY, THE GU WORLD, FIVE REGIONS & TWO HEAVENS
 - 蛊界 -> Gu World

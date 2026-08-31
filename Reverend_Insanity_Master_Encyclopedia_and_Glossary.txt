@@ -6,6 +6,10 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
 - Chinese Idioms: Translate idioms according to their actual literary meaning in context (e.g. 鸡犬不留 -> "leaving none alive, not even the chickens and dogs"; 人生地不熟 -> "a stranger in an unfamiliar place"). Avoid robotic word-for-word machine translation.
 - Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical omissions. Output ONLY pure translated chapter text.
 
+- Classical Poetry, Chanted Songs & Mythic Parables: When characters recite classical Chinese poems, sing martial ballads (e.g. Feng Jiu Ge's Destiny/Submission/Separation Song, Fang Yuan's verses), or when narrating excerpts from <<The Legends of Ren Zu>> (人祖传):
+  * Translate poems and songs with lyrical meter, evocative rhythmic cadence, stanza line breaks, and natural poetic elegance rather than flat prose.
+  * In <<The Legends of Ren Zu>> and mythic parables, preserve strict anaphoric repetition (e.g. repeating "On what basis... / If such... / Then let me...") and word-for-word identical refrains across allegorical birds, beasts, and fishes to maintain the sacred, liturgical fable cadence.
+
 II. COSMOLOGY, THE GU WORLD, FIVE REGIONS & TWO HEAVENS
 - 蛊界 -> Gu World
 - 五域 -> Five Regions
