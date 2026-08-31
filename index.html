@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.3.1';
+    const VERSION = '5.3.2';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -669,16 +669,37 @@
       if (max <= 0) max = 500;
       const chunks = []; let rem = text;
       while (rem.length > 0) {
-        if (rem.length <= max) { chunks.push(rem); break }
+        if (rem.length <= max) { chunks.push(rem); break; }
         let sp = max;
         let idx = rem.lastIndexOf('\n\n', max);
-        if (idx !== -1 && idx > max * 0.7) sp = idx + 2;
-        else {
-          idx = rem.lastIndexOf('\n', max); if (idx !== -1 && idx > max * 0.7) sp = idx + 1;
-          else { idx = Math.max(rem.lastIndexOf('.', max), rem.lastIndexOf('?', max), rem.lastIndexOf('!', max)); if (idx !== -1 && idx > max * 0.7) sp = idx + 1 }
+        if (idx !== -1 && idx > max * 0.6) {
+          sp = idx + 2;
+        } else {
+          idx = rem.lastIndexOf('\n', max);
+          if (idx !== -1 && idx > max * 0.6) {
+            sp = idx + 1;
+          } else {
+            const punctIndices = [
+              rem.lastIndexOf('。\n', max),
+              rem.lastIndexOf('。', max),
+              rem.lastIndexOf('！', max),
+              rem.lastIndexOf('？', max),
+              rem.lastIndexOf('”', max),
+              rem.lastIndexOf('…', max),
+              rem.lastIndexOf('.\n', max),
+              rem.lastIndexOf('.', max),
+              rem.lastIndexOf('!', max),
+              rem.lastIndexOf('?', max)
+            ].filter(i => i > max * 0.5);
+            
+            if (punctIndices.length > 0) {
+              sp = Math.max(...punctIndices) + 1;
+            }
+          }
         }
         if (sp <= 0) sp = max;
-        chunks.push(rem.substring(0, sp)); rem = rem.substring(sp).trimStart();
+        chunks.push(rem.substring(0, sp));
+        rem = rem.substring(sp);
       }
       return chunks;
     };
@@ -895,11 +916,13 @@
       let promptHeader = `You are a master literary localization editor translating ${srcDisplay} into publication-quality ${tgtDisplay}.\n\n` +
         `TRANSLATION GUIDELINES:\n` +
         `1. Raw Accuracy & Tone Fidelity: Faithfully capture the original RAW text's exact meaning, scene pacing, and narrative tone (humorous, contemplative, tense, or conversational). Do not add unmentioned lore or distort the author's original intent.\n` +
-        `2. Natural English Flow (No Chinglish): Localize Chinese idioms, rhetorical patterns, and colloquial exclamations into natural, immersive English phrasing (e.g. translate "这是何等概念/什么概念" as "What kind of insane power is this?!" / "How is that even possible?!" rather than literal "What concept is this"). Avoid stiff word-for-word machine translation.\n` +
-        `3. Spoken Dialogue: Ensure character dialogue flows naturally in English while preserving each speaker's distinct personality, attitude, and tone from the source.\n` +
-        `4. Proper Nouns & Names: Strictly preserve Chinese character names (Pinyin with proper capitalization: Fang Yuan, Jia Jinsheng, Gu Yue Bo), cultivation ranks, and locations.\n` +
-        `5. Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical explanations (e.g. "(omitted...)", "(translator note:...)"). Output ONLY the pure translated chapter.\n` +
-        `6. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n\n`;
+        `2. Complete Sentence-by-Sentence Integrity (No Omissions/Truncations): NEVER summarize, skip, bridge, or omit any paragraphs, actions, dialogue lines, gory scenes, or combat sequences. Translate 100% of the text fully and completely.\n` +
+        `3. Visceral Action & Punchy Pacing (No Academic Softening): Preserve gritty dark fantasy, raw visceral combat, and dark scenes with punchy, impactful English phrasing. Do NOT sanitize or soften intense actions into timid, polite academic language.\n` +
+        `4. Natural English Flow (No Chinglish): Localize Chinese idioms, rhetorical patterns, and colloquial exclamations into natural, immersive English phrasing (e.g. translate "这是何等概念/什么概念" as "What kind of insane power is this?!" / "How is that even possible?!" rather than literal "What concept is this"). Avoid stiff word-for-word machine translation.\n` +
+        `5. Spoken Dialogue: Ensure character dialogue flows naturally in English while preserving each speaker's distinct personality, attitude, and tone from the source.\n` +
+        `6. Proper Nouns & Names: Strictly preserve Chinese character names (Pinyin with proper capitalization: Fang Yuan, Jia Jinsheng, Gu Yue Bo), cultivation ranks, and locations.\n` +
+        `7. Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical explanations (e.g. "(omitted...)", "(translator note:...)"). Output ONLY the pure translated chapter.\n` +
+        `8. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n\n`;
 
       let p = `${promptHeader}RAW TEXT TO TRANSLATE:\n${text}\n\n`;
 
@@ -938,9 +961,17 @@
       if (!apiKey) throw new Error('Gemini API key required.');
       const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const safetySettings = [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+      ];
       const payload = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3 }
+        generationConfig: { temperature: 0.3 },
+        safetySettings
       };
       if (enableThinking) {
         if (model.includes('3.') || model.includes('2.5') || model.includes('thinking')) {
@@ -981,9 +1012,17 @@
       if (!apiKey) throw new Error('Gemini API key required.');
       const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
+      const safetySettings = [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+      ];
       const payload = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3 }
+        generationConfig: { temperature: 0.3 },
+        safetySettings
       };
       if (enableThinking) {
         if (model.includes('3.') || model.includes('2.5') || model.includes('thinking')) {
