@@ -3,7 +3,7 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
 - Spoken Dialogue Cadence: Ensure character dialogue flows naturally in English while preserving each speaker's attitude, arrogance, formality, or humility.
 - Chinese Idioms: Translate idioms according to their actual literary meaning in context (e.g. 鸡犬不留 -> "leaving none alive, not even the chickens and dogs"; 人生地不熟 -> "a stranger in an unfamiliar place"). Avoid robotic word-for-word machine translation.
 - Pinyin Capitalization: Strictly maintain proper Pinyin capitalization for Chinese names (e.g., Fang Yuan, Gu Yue Fang Yuan, Jia Jinsheng, Bai Ning Bing).
-- Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical omissions (e.g., "(omitted...)", "(translator note:...)"). Output ONLY the pure translated chapter.
+- Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical omissions. Output ONLY the pure translated chapter.
 
 II. COSMOLOGY, CULTIVATION & CORE TERMINOLOGY
 - 气 (Qi) -> Qi
@@ -15,6 +15,9 @@ II. COSMOLOGY, CULTIVATION & CORE TERMINOLOGY
 - 空窍 / 窍 (Kōngqiào) -> Aperture
 - 识海 (Shíhǎi) -> Sea of Consciousness
 - 神识 (Shénshí) -> Divine Sense / Spiritual Sense
+- 三宝 (Sānbǎo) -> Three Treasures (Essence, Qi, Spirit / 精, 气, 神)
+- 精 (Jīng) -> Essence / Lifeblood
+- 神 (Shén) -> Spirit / Mind / Consciousness
 - 道 (Dào) -> Dao / The Way
 - 道心 (Dàoxīn) -> Dao Heart
 - 天道 (Tiāndào) -> Heavenly Dao
@@ -27,6 +30,11 @@ II. COSMOLOGY, CULTIVATION & CORE TERMINOLOGY
 - 因果 (Yīnguǒ) -> Karma / Cause and Effect
 - 执念 (Zhíniàn) -> Obsession / Lingering Attachment
 - 气海 (Qìhǎi) -> Sea of Qi
+- 周天 (Zhōutiān) -> Heavenly Circuit / Cosmic Orbit
+- 小周天 (Xiǎo Zhōutiān) -> Small Heavenly Circuit / Microcosmic Orbit
+- 大周天 (Dà Zhōutiān) -> Great Heavenly Circuit / Macrocosmic Orbit
+- 太极 (Tàijí) -> Taiji / Supreme Ultimate
+- 无极 (Wújí) -> Wuji / Primordial Boundlessness
 
 III. CULTIVATION REALMS, RANKS & APTITUDE
 - 炼气 (Liànqì) -> Qi Condensation / Qi Refining
@@ -74,13 +82,16 @@ IV. MARTIAL WORLD, FACTIONS & TITLES OF ADDRESS
 - 前辈 (Qiánbèi) -> Senior
 - 晚辈 (Wǎnbèi) -> Junior
 - 少主 / 少爷 (Shàozhǔ / Shàoye) -> Young Master
+- 公子 (Gōngzǐ) -> Young Master / Noble Scion
 - 仙子 (Xiānzǐ) -> Fairy / Celestial Maiden
+- 龟息功 / 龟息大法 (Guīxīgōng) -> Turtle Breathing Art / Turtle Breath Technique
 
 V. ITEMS, ALCHEMY, GU WORMS & TREASURES
 - 灵石 (Língshí) -> Spirit Stones
 - 元石 (Yuánshí) -> Primeval Stones
 - 储物戒 / 空间戒指 (Chǔwùjiè) -> Storage Ring / Spatial Ring
 - 储物袋 (Chǔwùdài) -> Storage Bag
+- 须弥戒 (Xūmíjiè) -> Sumeru Ring
 - 丹药 (Dānyào) -> Medicinal Pills / Elixirs
 - 药鼎 / 炼丹炉 (Yàodǐng / Dānlú) -> Alchemy Cauldron / Pill Furnace
 - 法宝 / 灵宝 (Fǎbǎo / Língbǎo) -> Magic Treasure / Spiritual Treasure
@@ -89,6 +100,10 @@ V. ITEMS, ALCHEMY, GU WORMS & TREASURES
 - 阵眼 (Zhènyǎn) -> Eye of the Array / Formation Core
 - 符箓 (Fúlù) -> Talisman
 - 傀儡 (Kuǐlěi) -> Puppet
+- 石碑 / 碑 (Shíbēi / Bēi) -> Stone Tablet / Stele
+- 金刚 (Jīngāng) -> Vajra / Diamond Indestructible
+- 金刚杵 (Jīngāngchǔ) -> Vajra Pestle / Vajra Scepter
+- 剑胎 / 剑胚 (Jiàntāi) -> Sword Embryo / Sword Billet
 - 蛊 / 蛊虫 (Gǔ / Gǔchóng) -> Gu / Gu worm
 - 蛊师 (Gǔshī) -> Gu Master
 - 蛊仙 (Gǔxiān) -> Gu Immortal
@@ -101,7 +116,16 @@ V. ITEMS, ALCHEMY, GU WORMS & TREASURES
 - 灵兽 / 妖兽 (Língshòu / Yāoshòu) -> Spirit Beast / Demonic Beast
 - 内丹 / 妖丹 (Nèidān / Yāodān) -> Inner Core / Beast Core
 
-VI. UNITS OF MEASUREMENT & TIME
+VI. FOUR DIVINE BEASTS & SYMBOLISM
+- 青龙 (Qīnglóng) -> Azure Dragon
+- 白虎 (Báihǔ) -> White Tiger
+- 朱雀 (Zhūquè) -> Vermilion Bird
+- 玄武 (Xuánwǔ) -> Black Tortoise
+- 二十八宿 (Èrshíbā Xiù) -> Twenty-Eight Mansions / 28 Lunar Mansions
+- 丹凤眼 (Dānfèngyǎn) -> Phoenix Eyes (alluring/sharp eyes)
+- 三角眼 (Sānjiǎoyǎn) -> Triangular Eyes (shifty/sinister eyes)
+
+VII. UNITS OF MEASUREMENT & TIME
 - 里 (Lǐ) -> Li (half a kilometer / approx. 500 meters)
 - 丈 (Zhàng) -> Zhang (approx. 3.3 meters)
 - 尺 (Chǐ) -> Chi (approx. 1/3 of a meter)
