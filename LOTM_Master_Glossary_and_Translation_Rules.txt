@@ -5,7 +5,6 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
 1. Translation Priority & Formatting:
 - Format Preservation: Maintain the exact original formatting, line breaks, paragraph spacing, and word spacing.
 - Accuracy & Completeness: Translate with maximum detail and fidelity into English. Never omit, drop, or forget words or sentences.
-- Strict Fidelity & Zero Extrapolation: Translate ONLY what is present in the raw source text. Use the glossary rules and lore descriptions strictly for terminology disambiguation and correct term selection. Do NOT invent, extrapolate, or add background explanations, abilities, or lore into the English prose that were not stated in the original Chinese text.
 - No Page Breaks: Do NOT output "---Page End ---". Format chapter headings strictly as "Chapter [number]: [Name]" or "Chapter [number] - [Name]".
 - Hyperlinks: Ignore all URL links.
 
@@ -13,11 +12,11 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
 - Do NOT use quotation marks around personal names or Tarot Club code names unless present in the raw untranslated text.
   * Correct: Mr. Star, Mr. Sun, Miss Justice, The Fool, Mr. Error, The World, The Hermit
   * Incorrect: "Mr. Star", "Mr. Sun", "Miss Justice", "The Fool", "The World"
-- Do NOT use quotation marks around ordinary words, sequence names, or locations even if the raw Chinese text uses single or double quotes around sequence titles:
-  * Correct: Sequence 5 Pixie, Sequence 4 Bizarro Sorcerer, Black Emperor mausoleum, Sefirah Castle
-  * Incorrect: Sequence 5 'Pixie', Sequence 4 "Bizarro Sorcerer", "Black Emperor" mausoleum, "Sefirah Castle"
+- Do NOT use quotation marks around ordinary words, sequence names, or locations unless explicitly quoted in the original text:
+  * Correct: Black Emperor mausoleum, Sefirah Castle
+  * Incorrect: "Black Emperor" mausoleum, "Sefirah Castle"
 - Mandatory Quotation Exceptions:
-  * Divine Pronouns: Whenever referring to a deity or divine existence using 祂 (or possessives 祂的), translate strictly with quotation marks as "He", "Him", "His", "She", "Her", or "Hers" (e.g. on "His" left hand, opened "His" eyes). Note: Ensure contextually correct pronouns; do not mistakenly use "He"/"Him" when the text refers to second-person "you".
+  * Divine Pronouns: Whenever referring to a deity or divine existence using 祂, translate as "He", "Him", "She", or "Her" (with quotation marks). Note: Ensure contextually correct pronouns; do not mistakenly use "He"/"Him" when the text refers to second-person "you".
   * Specific Authorities / Concepts: Keep quotes on "Grafted", "Grafting", "Theft", "Fooling", "eternal daytime".
 - Full Names vs. Short Names:
   * Use full names only when present in the original text.
@@ -38,10 +37,6 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
 - Genie / Magic Wishing Lamp: Translate as "Genie" (also referred to as Magic Wishing Lamp / The Magic Wishing Lamp).
 - Classical Alchemist: Use "Classical Alchemist" (not Ancient Alchemist).
 - The Chaos Sea: Ensure appropriate definite article based on context (the Chaos Sea).
-- Abbreviations & Creator Titles:
-  * 白造 (Bái Zào) -> Translate as "City of Silver's Creator" (short for 白银城造物主 / Ancient Sun God), NEVER as "White Creator" or "the White Creator".
-  * 真造 (Zhēn Zào) -> Translate as "True Creator" (short for 真实造物主).
-  * 原造 (Yuán Zào) -> Translate as "Original Creator" (short for 原初造物主).
 
 4. Style & Paragraph Demonstration Examples:
 - Example 1 (Tarot Club Narrative Flow):
@@ -82,140 +77,6 @@ Essential Vocabulary Words:
 - Titles & Descriptions: Blazing Danitz, King of the North Ulyssan, Nation of Frost, quasi-demigod, tycoon, daze, dazed expression.
 
 III. CHINESE / ENGLISH CHARACTER NAME & ENTITY DIRECTORY
-
-Chinese to English Pathways & Non-Standard Outer Deity Pathways:
-- 潜月之眼 / 潜月之眼途径 -> Sublunary Eye / Sublunary Eye Pathway
-- 高维俯视者 -> High-Dimensional Overseer
-- 宿命之环 / 宿命之环途径 / 宿命途径 -> Circle of Inevitability / Circle of Inevitability Pathway
-- 衰亡之君 / 第二定律途径 -> Monarch of Decay / Second Law Pathway
-- 永恒律令 / 命运女神途径 -> Eternal Edict / Goddess of Fate Pathway
-- 不熄的呓语 / 永恒途径 / 创始者途径 -> Inextinguishable Ravings / Everlasting Pathway
-- 原初饥渴 / 吞尾者途径 -> Primordial Hunger / Tail-Devourer Pathway
-- 超新星主宰 / 冷凝者途径 -> Supernova Dominator / Condenser Pathway
-- 欲望母树 / 异种途径 / 崇高者途径 -> Mother Tree of Desire / Patriarch Pathway
-- 堕落母神 / 原初鸿蒙途径 -> Mother Goddess of Depravity / Chaos Primogenitor Pathway
-- 混沌之子 / 紊乱之雾途径 -> Son of Chaos / Chaos Mist Pathway
-
-22 Standard Chinese Pathways:
-- 愚者途径 / 占卜家途径 -> Fool Pathway
-- 错误途径 / 偷盗者途径 -> Error Pathway
-- 门途径 / 学徒途径 -> Door Pathway
-- 空想家途径 / 观众途径 -> Visionary Pathway
-- 太阳途径 / 歌颂者途径 -> Sun Pathway
-- 暴君途径 / 水手途径 / 风暴途径 -> Tyrant Pathway
-- 白塔途径 / 阅读者途径 -> White Tower Pathway
-- 倒吊人途径 / 秘祈人途径 -> Hanged Man Pathway
-- 黑暗途径 / 不眠者途径 -> Darkness Pathway
-- 死神途径 / 收尸人途径 -> Death Pathway
-- 黄昏巨人途径 / 战士途径 -> Twilight Giant Pathway
-- 魔女途径 / 刺客途径 -> Demoness Pathway
-- 红祭司途径 / 猎人途径 -> Red Priest Pathway
-- 隐者途径 / 窥秘人途径 -> Hermit Pathway
-- 完美者途径 / 通识者途径 -> Paragon Pathway
-- 母亲途径 / 耕种者途径 -> Mother Pathway
-- 月亮途径 / 药师途径 -> Moon Pathway
-- 深渊途径 / 罪犯途径 -> Abyss Pathway
-- 被缚者途径 / 异种途径 / 囚犯途径 -> Chained Pathway
-- 黑皇帝途径 / 律师途径 -> Black Emperor Pathway
-- 审判者途径 / 仲裁人途径 -> Justiciar Pathway
-- 命运之轮途径 / 怪物途径 -> Wheel of Fortune Pathway
-
-Key Chinese Sequence Titles & Abilities:
-- 占卜家 -> Seer
-- 小丑 -> Clown
-- 魔术师 -> Magician
-- 无面人 -> Faceless
-- 秘偶大师 -> Marionettist
-- 诡术秘偶师 -> Bizarro Sorcerer
-- 古代学者 -> Scholar of Yore
-- 奇迹师 -> Miracle Invoker
-- 诡秘侍者 -> Attendant of Mysteries
-- 偷盗者 -> Marauder
-- 诈骗师 -> Swindler
-- 解密学者 -> Cryptologist
-- 盗火人 -> Prometheus
-- 窃梦家 -> Dream Stealer
-- 寄生者 -> Parasite
-- 欺唆狂 -> Mentor of Deceit
-- 命运木马 -> Trojan Horse of Destiny
-- 时之虫 -> Worm of Time
-- 学徒 -> Apprentice
-- 戏法大师 -> Trickmaster
-- 占星人 -> Astrologer
-- 记录官 -> Scribe
-- 旅行家 -> Traveler
-- 秘法师 -> Secrets Sorcerer
-- 漫游者 -> Wanderer
-- 旅法师 -> Planeswalker
-- 星之钥 -> Key of Stars
-- 观众 -> Spectator
-- 读心者 -> Telepathist
-- 心理学医生 -> Psychiatrist
-- 催眠师 -> Hypnotist
-- 梦境行者 -> Dreamwalker
-- 操纵者 -> Manipulator
-- 织梦人 -> Dream Weaver
-- 洞悉者 -> Discerner
-- 作家 -> Author
-- 空想家 -> Visionary
-- 歌颂者 -> Bard
-- 祈光人 -> Light Suppliant
-- 太阳神官 -> Solar High Priest
-- 公证人 -> Notary
-- 光之祭司 -> Priest of Light
-- 无暗者 -> Unshadowed
-- 正义导师 -> Justice Mentor
-- 逐光者 -> Lightseeker
-- 白天使 -> White Angel
-- 水手 -> Sailor
-- 暴怒之民 -> Folk of Rage
-- 航海家 -> Seafarer
-- 风眷者 -> Wind-blessed
-- 海洋歌者 -> Ocean Songster
-- 灾难祭司 -> Cataclysmic Interrer
-- 海王 -> Sea King
-- 天灾 -> Calamity
-- 雷神 -> Thunder God
-- 暴君 -> Tyrant
-- 刺客 -> Assassin
-- 教唆者 -> Instigator
-- 女巫 -> Witch
-- 欢愉魔女 -> Demoness of Pleasure
-- 痛苦魔女 -> Demoness of Affliction
-- 绝望魔女 -> Demoness of Despair
-- 不老魔女 -> Demoness of Unaging
-- 灾难魔女 -> Demoness of Catastrophe
-- 末日魔女 -> Demoness of Apocalypse
-- 猎人 -> Hunter
-- 挑衅者 -> Provoker
-- 纵火家 -> Pyromaniac
-- 阴谋家 -> Conspirer
-- 收割者 -> Reaper
-- 铁血骑士 -> Iron-blooded Knight
-- 战争主教 -> War Bishop
-- 天气术士 -> Weather Warlock
-- 征服者 -> Conqueror
-- 红祭司 -> Red Priest
-- 萨满 -> Shaman
-- 画家 -> Painter
-- 文艺青年 -> Literary Aficionado
-- 小精灵 -> Pixie
-- 访客 -> Visitor
-- 弦乐师 -> String Player
-- 维度阴影 -> Dimensional Shadow
-- 观察者 -> Observer
-- 潜月之眼 -> Sublunary Eye
-- 舞蹈家 -> Dancer
-- 托钵僧侣 -> Alms Monk
-- 契约者 -> Contractee
-- 苦修者 -> Ascetic
-- 命定之徒 / 宿命窃取者 -> Fate Appropriator
-- 环中人 -> Circle Inhabitant
-- 受难者 -> Sufferer
-- 罪人 -> Sinner
-- 救赎天使 -> Angel of Redemption
-- 画中世界 / 画卷世界 -> Painting World
-- 次元穿梭 -> Dimension Shifting
 
 - 创生者 -> Life Giver
 - 克莱恩·莫雷蒂 -> Klein Moretti
@@ -263,9 +124,6 @@ Key Chinese Sequence Titles & Abilities:
 - 亚当 -> Adam
 - 格里沙 -> Grisha
 - 远古太阳神 -> Ancient Sun God (City of Silver's Creator / 白造 / 白银城造物主)
-- 白造 / 白银城造物主 -> City of Silver's Creator / Ancient Sun God
-- 真造 / 真实造物主 -> True Creator
-- 原造 / 原初造物主 -> Original Creator
 - 萨斯利尔 -> Sasrir / Sarsir
 - 真实造物主 -> True Creator
 - 天尊 -> Celestial Worthy
@@ -300,133 +158,86 @@ Key Chinese Sequence Titles & Abilities:
 - 堕落母神 -> Mother Goddess of Depravity
 - 欲望母树 -> Mother Tree of Desire
 - 原初魔女 (奇克) -> Primordial Demoness / Cheek
-- 源堡 -> Sefirah Castle
-- 灰雾 -> Gray Fog
-- 塔罗会 -> Tarot Club
-- 0-08 / 阿勒苏霍德之笔 -> Quill of Alzuhod
-- 0-01 / 萨林格尔的血旗 -> Salinger's Blood Banner (0-01)
-- 蠕动的饥饿 -> Creeping Hunger
-- 丧钟 -> Death Knell
-- 莱曼诺的魔法书 -> Leymano's Spellbook
-- 海神权杖 -> Sea God Scepter
-- 许愿神灯 / 神灯 -> Magic Wishing Lamp / Genie
-
-Key Additional Notable Characters & Officials:
-- 卢卡·布鲁斯特 -> Lucca Brewster
-- 伦纳德·米切尔 -> Leonard Mitchell
-- 戴莉·西蒙妮 -> Daly Simone
-- 邓恩·史密斯 -> Dunn Smith
-- 因斯·赞格威尔 -> Ince Zangwill
-- 老科勒 -> Old Kohler
-- 达尼兹·迪布瓦 -> Danitz Dubois
-- 艾德雯娜·爱德华兹 -> Edwina Edwards
-- 安德森·胡德 -> Anderson Hood
-- 帕列斯·索罗亚斯德 -> Pallez Zoroast
-- 科林·伊利亚特 -> Colin Iliad
-- 洛薇雅·蒂芙尼 -> Lovia Tiffany
-- 阿里安娜 -> Arianna
-- 莎伦 -> Sharron
-- 马里奇 -> Maric
-- 乌特拉夫斯基 -> Utravsky
-- 威尔·昂赛汀 -> Will Auceptin / Will Ceres
-- 蕾妮特·缇尼科尔 -> Reinette Tinekerr
-- 弗兰克·李 -> Frank Lee
-- 贝尔纳黛·古斯塔夫 -> Bernadette Gustav
-- 罗塞尔·古斯塔夫 -> Roselle Gustav
-- 阿曼妮西斯 -> Amanises
-- 萨斯利尔 -> Sasrir
-- 亚利斯塔·图铎 -> Alista Tudor
-- 特伦索斯特 -> Trunsoest
-- 查拉图 -> Zaratul
-- 莉莉丝 -> Lilith
-- 欧弥贝拉 -> Omebella
-- 萨林格尔 -> Salinger
-- 奥赛库斯 -> Aucuses
-- 赫拉伯根 -> Herabergen
-- 列奥德罗 -> Leodero
 
 IV. COSMOLOGY, SEFIROT, EPOCHS & BEYONDER LAWS
 
-Known Sefirot (源质):
-1. 混沌海 (Chaos Sea)
-2. 源堡 (Sefirah Castle)
-3. 母巢 (Brood Hive)
-4. 暗影世界 (Tenebrous World)
-5. 秩序阴影 / 混乱之国 (Nation of Disorder)
-6. 灾祸之城 (City of Calamity)
-7. 永暗之河 (River of Eternal Darkness)
-8. 光之钥 (Key of Light)
-9. 知识荒野 (Knowledge Moor)
+Known Sefirot:
+1. Chaos Sea
+2. Sefirah Castle
+3. Brood Hive
+4. Tenebrous World
+5. Nation of Disorder
+6. City of Calamity
+7. River of Eternal Darkness
+8. Key of Light
+9. Knowledge Moor
 
 Note: The River of Eternal Darkness and City of Calamity symbolize the yet-to-exist hidden 4th Pillar.
 
-Core Beyonder Laws & Principles (非凡法则与定律):
-- 扮演法 (Acting Method)
-- 占卜 (Divination)
-- 塔罗牌 (Tarot Cards)
-- 唯一性 (Uniquenesses)
-- 序列之上 / 旧日 (Only Above the Sequence [ATS] or Great Old One [GOO])
-- 非凡特性不灭定律 (Law of Beyonder Characteristics Indestructibility)
-- 非凡特性聚合定律 (Law of Beyonder Characteristics Convergence)
-- 相邻途径非凡特性守恒定律 (Law of Similar Sequence Beyonder Characteristics Conservation)
+Core Beyonder Laws & Principles:
+- Acting Method
+- Divination
+- Tarot Cards
+- Uniquenesses
+- Only Above the Sequence (ATS) or Great Old One (GOO)
+- Law of Beyonder Characteristics Indestructibility
+- Law of Beyonder Characteristics Convergence
+- Law of Similar Sequence Beyonder Characteristics Conservation
 
-Epochs (历史纪元):
-- 前纪元 (Pre-Epoch)
-- 第一纪元 (1st Epoch)
-- 第二纪 / 黑暗纪元 (2nd Epoch / Dark Epoch)
-- 第三纪 / 大灾变 / 神战纪元 (3rd Epoch / The Cataclysm / Epoch of The Gods)
-- 第四纪 / 苍白时代 / 铁与血的纪元 / 四皇之战 (4th Epoch / Pale Era / The Iron Age / War of The Four Emperors)
-- 第五纪 (5th Epoch)
+Epochs:
+- Pre-Epoch
+- 1st Epoch
+- 2nd Epoch (Dark Epoch)
+- 3rd Epoch (The Cataclysm Epoch / Epoch of The Gods)
+- 4th Epoch (The Iron Age / Early Era of Fire / Dual Era / Warring Era / War of The Four Emperors)
+- 5th Epoch
 
-V. ORGANIZATIONS & FACTIONS (组织与势力)
+V. ORGANIZATIONS & FACTIONS
 
 Second Epoch:
-- 大白同修会 (Great White Brotherhood)
+- Great White Brotherhood
 
 Third Epoch:
-- 救赎蔷薇 (Rose Redemption)
+- Rose Redemption
 
 Fourth Epoch:
-- 黄昏隐士会 (Twilight Hermit Order)
-- 摩斯苦修会 (Moses Ascetic Order)
-- 魔女教派 (Demoness Sect)
-- 镜中人 (Mirror People)
-- 密修会 (Secret Order)
-- 血之圣洁教派 (Blood Sanctify Sect)
+- Twilight Hermit Order
+- Moses Ascetic Order
+- Demoness Sect
+- Mirror People
+- Secret Order
+- Blood Sanctify Sect
 
 Beginning of the Fifth Epoch:
-- 通识学者同盟 (Theosophy Order)
-- 灵教团 (Numinous Episcopate)
-- 生命学派 (Life School of Thought)
-- 玫瑰学派 (Rose School of Thought)
+- Theosophy Order
+- Numinous Episcopate
+- Life School of Thought
+- Rose School of Thought
 
 Newly Founded in the Fifth Epoch:
-- 极光会 (Aurora Order)
-- 铁血十字会 (Iron and Blood Cross Order)
-- 心理炼金会 (Psychology Alchemists)
-- 要素黎明 (Element Dawn)
-- 命运隐士会 (Hermits of Fate)
-- 自然赞美者教派 (Naturism Sect)
-- 塔罗会 (Tarot Club)
-- 天尊研究会 (Celestial Research Association)
-- 值夜者 (Nighthawks)
-- 代罚者 (Mandated Punishers)
-- 机械之心 (Machinery Hivemind)
+- Aurora Order
+- Iron and Blood Cross Order
+- Psychology Alchemists
+- Element Dawn
+- Hermits of Fate
+- Naturism Sect
+- Tarot Club
+- Celestial Research Association
 
 Founded After the World War (Fifth Epoch):
-- 卷毛狒狒研究会 (Curly-Haired Baboons Research Society)
-- 愚人节 (April Fool's)
-- 罪人堂 (Sinners)
-- 暗夜潜行者 (Nightstalkers)
-- 极乐会 (Bliss Society)
-- 绝灭会 (Order of All Extinction)
-- 入画者 (Entry Persons)
-- 寻梦人 (Dreamseekers)
-- 神降学派 (School of God's Descent)
-- 真理学派 (School of Truth)
-- 患病教会 (Sick Church)
-- 美味学派 (School of Deliciousness)
-- 幻想学会 (Fantasy Association)
+- Curly-Haired Baboons Research Society
+- April Fool's
+- Sinners
+- Nightstalkers
+- Bliss Society
+- Order of All Extinction
+- Entry Persons
+- Dreamseekers
+- School of God's Descent
+- School of Truth
+- Sick Church
+- School of Deliciousness
+- Fantasy Association
 
 VI. COMPLETE CHARACTER DIRECTORY (A–Z WITH PATHWAYS)
 
@@ -957,11 +768,11 @@ Z
 
 VII. HONORIFIC NAMES & DIVINE TITLES
 
-- 亚当 (Adam):
+- Adam:
   * After fusing with the True Creator:
     "The Lord that Created Everything, The Omnipotent and Omniscient God, The Lord who Reigns Behind the Curtain of Shadows, The Ruler of the Mind World, The Degenerate Nature of all Living Things."
 
-- 阿蒙 (Amon):
+- Amon:
   * King of Angels:
     "The Clock-Hand that Tampers with Time, The Shadow that Roams across Fate, The Embodiment of Deceit and Trickery."
   * God:
@@ -969,22 +780,22 @@ VII. HONORIFIC NAMES & DIVINE TITLES
   * Current:
     "The Shadow Wandering through Fate, The Past God of Deceit, The Destined Messiah."
 
-- 远古太阳神 (Ancient Sun God):
+- Ancient Sun God:
   "The Lord that Created Everything, The Omnipotent and Omniscient, The Source of Everything Great, The Beginning and The End, The God of Gods, Ruler of the vast Astral World."
 
-- 阿罗德斯 (Arrodes):
+- Arrodes:
   "Eyes that watch All Living Beings; The Stigmata from the Primordial Land; The Omniscient One who serves The Fool; The Great Arrodes."
 
-- 阿瓦托玛·艾因霍恩 (Awatoma Einhorn):
+- Awatoma Einhorn:
   "The Ruler of the Fog of the Battlefield; The Symbol of Weather Flux; The Totem of the Storm and Lightning; The Great Awatoma Einhorn."
 
-- 贝尔纳黛·古斯塔夫 (Bernadette Gustav):
+- Bernadette Gustav:
   "The Sacred Spirit that Pursues Knowledge; The Mysterious World's Lighthouse; Eyes that Pry into Fate; The Royalty above the Sea; The Pure and Holy Bernadette Gustav."
 
-- 伯特利·亚伯拉罕 / 门先生 (Bethel Abraham / Mr. Door):
+- Bethel Abraham:
   "Great Door of All Doors; Guide of Endless Cosmos; Key to all Mysterious Worlds."
 
-- 诡秘之主 / 福生玄黄天尊 (Celestial Worthy of Heaven and Earth for Blessings):
+- Celestial Worthy of Heaven and Earth for Blessings:
   * General:
     "Lord of Mysteries; King of Space-Time; Beacon of Destiny; Embodiment of Sefirah Castle; Dominator of the Spirit World."
   * Western Continent (Daoist Honorific Name):
@@ -993,34 +804,34 @@ VII. HONORIFIC NAMES & DIVINE TITLES
     The Exalted Thearch of Heaven and Earth for Blessings;
     The Celestial Worthy of Heaven and Earth for Blessings."
 
-- 宿命之环 (Circle of Inevitability):
+- Circle of Inevitability:
   "The Eternal Cycle; The Predestined Destiny; Embodiment of Cause, Effect, and Process; Symbol of Past, Present, and Future." (Note: During prayers and rituals, the latter two segments may be adapted in various ways).
 
-- 死神 (Death):
+- Death:
   "The Essence of Death; Lord of the Dead; Final Home to all Living-beings."
 
-- 大地母神 (Earth Mother):
+- Earth Mother:
   "The Source of Life; The Mother of All Things; The Propagation of the Fertile Land; The Symbol of the Crimson Moon and Reproduction; The Destination and the Starting Point of Everything."
 
-- 永恒烈阳 (Eternal Blazing Sun):
+- Eternal Blazing Sun:
   "Eternal Blazing Sun; Inextinguishable Light; Embodiment of Order; God of Contracts; Guardian of Businesses." (Also has the proselytizing title "Father of All Life", though beyond "His" mystical domain).
 
-- 黑夜女神 (Evernight Goddess):
+- Evernight Goddess:
   * Former:
     "The Evernight Goddess stands higher than the cosmos and more eternal than eternity. The Lady of Crimson, The Mother of Concealment, The Empress of Misfortune and Horror, Mistress of Repose and Silence."
   * Current (Post-1350 World War, relinquished Moon authority):
     "The Evernight Goddess stands higher than the cosmos and more eternal than eternity. The Mother of Concealment, The Empress of Misfortune and Horror, Mistress of Repose and Silence."
 
-- 佛尔思·沃尔 (Fors Wall):
+- Fors Wall:
   "Cosmic Traveler, Beholden to the King of Yellow and Black, The Sorcerer chronicling the World." (Carries the power to conceal secrets).
 
-- 芙兰卡·罗兰 (Franca Roland / God of Disease):
+- Franca Roland (God of Disease):
   * Former:
     "The Ancient One who transcends time, One who remains forever young, Envoy of Disease and Plague, Lady who spreads pain and despair, Protector of humanity's adventurous spirit, The Great God of Disease."
   * Current:
     "The Ancient One who transcends time, One who remains forever young, Envoy of Disease and Plague, Lady who spreads pain and despair, Protector of humanity's adventurous spirit, Companion to the Great Malady God."
 
-- 格尔曼·斯帕罗 (Gehrman Sparrow):
+- Gehrman Sparrow:
   * First:
     "The Blessed of the Spirit World and the Sefirah Castle; The Mystery stemming from ancient times; The Witness of an extended history; Protector of Backlund magic and drama performers; The Great Gehrman Sparrow."
   * Second:
@@ -1028,31 +839,31 @@ VII. HONORIFIC NAMES & DIVINE TITLES
   * Current:
     "The Blessed of the Spirit World and the Sefirah Castle; The Mystery stemming from ancient times; The Witness of an extended history; Angel who redeems mankind; Protector of all impoverished children; The Great Gehrman Sparrow."
 
-- 命运女神 (Goddess of Fate):
+- Goddess of Fate:
   "The Weaver of All Fates; The Symbol of Ultimate Judgement; The Eternal Goddess of the Future."
 
-- 战神 (God of Combat):
+- God of Combat:
   "Symbol of Power and Glory, The Great Knight God; Master of War, Patron of Guns; Twilight of All Things."
 
-- 知识与智慧之神 (God of Knowledge and Wisdom):
+- God of Knowledge and Wisdom:
   "Power of Knowledge; Power of Reason; God of Wisdom!"
 
-- 蒸汽与机械之神 (God of Steam and Machinery):
+- God of Steam and Machinery:
   "Embodiment of Essence; Guardian of Craftsmen; Brilliance of Technology."
 
-- 海特 (Haiter):
+- Haiter:
   "The King from the depths of Hell; An Angel playing the Music of Death; The Ruler above the River Styx."
 
-- 高维俯视者 (High-Dimensional Overseer):
+- High-Dimensional Overseer:
   "The Lord of Dimensions; The Eye Overlooking the Mortal Realm; The Source of All Illusions; The Creator of the Painting World." (Translation Note: "一切幻想的源头" means "The Source of All Fantasies").
 
-- 不熄的呓语 (Inextinguishable Ravings):
+- Inextinguishable Ravings:
   "The Philosophical Essence; The Inextinguishable Ravings; The Symbolism of Life's Spirit; The Eternal Consciousness."
 
-- 寇塔 (Kotar):
+- Kotar:
   "The Dark Lord that exists alongside History, The Embodiment of Countless Miracles, The God of Wishes."
 
-- 卢米安·李 (Lumian Lee):
+- Lumian Lee:
   * God of Plague:
     "The Lady more ancient than the times; Servant of Calamity; Child of Plague and Disease; Destroyer who walks in Shadows; Guide of all lost lambs in Trier; The Great God of Plague."
   * First:
@@ -1062,76 +873,67 @@ VII. HONORIFIC NAMES & DIVINE TITLES
   * Third / Current:
     "Beholden to the King of Yellow and Black; Priest of the Apocalypse and War; The Multi-Faced Conqueror of All. The True Malady God."
 
-- 风暴之主 (Lord of Storms):
+- Lord of Storms:
   "King of the Skies; Emperor of the Seas; Lord of the Calamity; God of the Storms."
 
-- 梅迪奇 (Medici / Sauron-Einhorn-Medici):
+- Medici / Sauron-Einhorn-Medici:
   "The Great God of War; The Symbol of Iron and Blood; The Ruler of Chaos and Strife." (Originally pointed to Medici; after becoming an Evil Spirit, points to Sauron-Einhorn-Medici).
 
-- 衰亡之君 (Monarch of Decay):
+- Monarch of Decay:
   "The Inevitable Decay of All Things; The Endpoint of the River of Time; The Lord of Rot and Putrescence; The Irreversible Entropy."
 
-- 堕落母神 (Mother Goddess of Depravity):
+- Mother Goddess of Depravity:
   * Current:
     "Mother Tree of Desire; Perpetual Blatherer; Heartless God."
   * Former:
     "Mother Tree of Desire; Father of Devils; Lord of Deviants; Source of Curses; Perpetual Blatherer; Heartless God." (Translation Note: "失心之神" literally translates to "lost heart", but contextually means "God of Lost Mind").
 
-- 天之母亲 (Mother of the Sky):
+- Mother of the Sky:
   "A Beyonder from ancient times; Ruler of the Nation of the Evernight; Noble Mother of the Sky."
 
-- 原初上帝 (Primordial God Almighty):
+- Primordial God Almighty:
   "God Almighty; Creator; Maker; The Omnipotent and Omniscient; Lord of the Astral World."
 
-- 原初魔女 (Primordial Demoness):
+- Primordial Demoness:
   * Hidden:
     "The Source of All Catastrophes; The Symbol of Destruction and the Apocalypse; The Demoness who controls Chaos; The Female Body of the Primordial God Almighty; The Original Creator - the Oldest One - in the mirror."
   * Public (Incomplete):
     "The Source of All Catastrophes; The Symbol of Destruction and the Apocalypse; The Demoness who controls Chaos."
 
-- 原初饥渴 (Primordial Hunger):
+- Primordial Hunger:
   "Primordial Hunger; The Symbol of Devouring; An Insatiable Convergence; The Cleanser of All Things."
 
-- 海神卡维图瓦 (Sea God Kalvetua):
+- Sea God Kalvetua:
   "Blessed of the sea and spirit world; Guardian of the Rorsted Archipelago; Ruler of the Undersea Creatures; Master of Tsunamis and Storms; The Great Kalvetua."
 
-- 斯纳尔·艾因霍恩 (Snarner Einhorn):
+- Snarner Einhorn:
   "The Embodiment of Iron and Blood; The Symbol of the Calamity of War; The Priest who controls the Weather; The Great Snarner Einhorn."
 
-- 宿命之神 / 斯厄阿 (Suah):
+- Suah:
   "Son of the God who should never have been born; A cage for the imprisoning curse; An evil that erodes history."
 
-- 超新星主宰 (Supernova Dominator):
+- Supernova Dominator:
   "The Ruler of Stars; The Symbolism of Weight and Density; The Controller of Fundamental Forces; The Laws of the Boundless Cosmos."
 
-- 愚者 (The Fool):
+- The Fool:
   "The Fool that doesn't belong to this era; The Mysterious Ruler above the Gray Fog; The King of Yellow and Black who wields good luck."
 
-- 真实造物主 (True Creator):
+- True Creator:
   * Original:
     "The Lord that Created Everything, The Lord who Reigns Behind the Curtain of Shadows, The Degenerate Nature of all Living Things."
   * Fusing with Adam:
     "The Lord that Created Everything, The Omnipotent and Omniscient God, The Lord who Reigns Behind the Curtain of Shadows, The Ruler of the Mind World, The Degenerate Nature of all Living Things."
 
-- 诡秘之主 / 天尊 (Celestial Worthy of Heaven and Earth for Blessings):
-  * General:
-    "Lord of Mysteries; King of Space-Time; Beacon of Destiny; Embodiment of Sefirah Castle; Dominator of the Spirit World."
-  * Western Continent (Daoist Honorific Name):
-    "The Immortal Lord of Heaven and Earth for Blessings;
-    The Sky Lord of Heaven and Earth for Blessings;
-    The Exalted Thearch of Heaven and Earth for Blessings;
-    The Celestial Worthy of Heaven and Earth for Blessings."
-
-- 不定之雾 / 混沌之子 (Uncertain Mist / Son of Chaos):
+- Uncertain Mist:
   * Current:
     "Bridge of Light and Darkness; Interstice Between Black and White; Ever-Uncertain Mist; The Truth that Oversees All Things."
   * Former:
     "The Anarchy; Shadow of Order; Bridge of Light and Darkness; Interstice Between Black and White; Ever-Uncertain Mist; The Truth that Oversees All Things."
 
-- 威尔·昂赛汀 (Will Auceptin / Sequence 3):
+- Will Auceptin (Sequence 3):
   "The Embodiment of Luck; The Clairvoyant Monster; The Calamity that Spreads Misfortune; The Witnesses of all Fates in Backlund; The Keeper of Chaos and Madness."
 
-- 毁灭天灾 / 根源之祸 (Calamity of Destruction):
+- Calamity of Destruction (Great Old One):
   "Calamity of Destruction; Origins of Disaster (根源之祸)" (Translation Note: "根源之祸" means "Disaster of Origin").
 
 VIII. KNOWN MYTHICAL CREATURE FORMS
@@ -2603,7 +2405,7 @@ XI. OUTER DEITIES & NON-STANDARD PATHWAYS
   * Sequence 9: Initiator - Initiation (Midoro's Worship)
   * Sequence 8: Commentator - Commentary
   * Sequence 7: Orator - Oratory
-  * Sequence 6: Singer - Singer
+  * Sequence 6: Singer - Singing
   * Sequence 5: Secret Transmitter - Transmit
   * Sequence 4: Philosopher - Philosophy (Materialism, Subjective Idealism)
   * Sequence 3: Messenger of God - Envoy
