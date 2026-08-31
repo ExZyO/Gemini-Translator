@@ -276,7 +276,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.0.2';
+    const VERSION = '5.0.3';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1736,6 +1736,17 @@
       const [isOptimizingGlossary, setIsOptimizingGlossary] = useState(false);
       const [isDragOver, setIsDragOver] = useState(false);
 
+      // --- Refs for Text Areas & Files ---
+      const inputRef = useRef(null);
+      const outputRef = useRef(null);
+      const instructionsRef = useRef(null);
+      const glossaryRef = useRef(null);
+      const fileInputRef = useRef(null);
+      const glossaryFileRef = useRef(null);
+      const backupFileInputRef = useRef(null);
+      const abortRef = useRef(null);
+      const [fullscreenBox, setFullscreenBox] = useState(null); // 'input' | 'output' | 'instructions' | 'glossary' | null
+
       // --- Resizable Text Boxes Height State (Touch & Desktop) ---
       const [inputBoxHeight, setInputBoxHeight] = useState(() => parseInt(localStorage.getItem('inputBoxHeight'), 10) || 220);
       const [outputBoxHeight, setOutputBoxHeight] = useState(() => parseInt(localStorage.getItem('outputBoxHeight'), 10) || 250);
@@ -1752,16 +1763,17 @@
           instructions: instructionsBoxHeight,
           glossary: glossaryBoxHeight
         };
-        const minHeights = { input: 140, output: 140, instructions: 60, glossary: 80 };
-        const maxHeights = { input: 1200, output: 1200, instructions: 800, glossary: 1000 };
+        const minHeights = { input: 120, output: 120, instructions: 50, glossary: 80 };
+        const maxHeights = { input: 3500, output: 3500, instructions: 1200, glossary: 2500 };
         const startH = initialHeights[boxType] || 200;
         let lastH = startH;
 
         const onTouchMove = (moveEvt) => {
           const curTouch = moveEvt.touches && moveEvt.touches[0];
           if (!curTouch) return;
-          const delta = curTouch.clientY - startY;
-          const newH = Math.max(minHeights[boxType] || 80, Math.min(maxHeights[boxType] || 1000, Math.round(startH + delta)));
+          // 1.85x touch acceleration multiplier so 1 effortless thumb swipe covers the whole screen
+          const delta = (curTouch.clientY - startY) * 1.85;
+          const newH = Math.max(minHeights[boxType] || 80, Math.min(maxHeights[boxType] || 2500, Math.round(startH + delta)));
           lastH = newH;
           if (boxType === 'input') setInputBoxHeight(newH);
           else if (boxType === 'output') setOutputBoxHeight(newH);
@@ -1779,9 +1791,41 @@
         window.addEventListener('touchend', onTouchEnd, { passive: true });
       };
 
+      const setBoxPreset = (boxType, preset) => {
+        const refs = {
+          input: inputRef,
+          output: outputRef,
+          instructions: instructionsRef,
+          glossary: glossaryRef
+        };
+        const defaults = { input: 220, output: 250, instructions: 80, glossary: 140 };
+        const mediums = { input: 480, output: 480, instructions: 200, glossary: 320 };
+        const talls = { input: 820, output: 820, instructions: 380, glossary: 600 };
+
+        let targetH = defaults[boxType];
+        if (preset === 'S') targetH = defaults[boxType];
+        else if (preset === 'M') targetH = mediums[boxType];
+        else if (preset === 'L') targetH = talls[boxType];
+        else if (preset === 'auto') {
+          const el = refs[boxType]?.current;
+          if (el) {
+            targetH = Math.max(defaults[boxType], Math.min(4000, el.scrollHeight + 25));
+          } else {
+            targetH = talls[boxType];
+          }
+        }
+
+        if (boxType === 'input') setInputBoxHeight(targetH);
+        else if (boxType === 'output') setOutputBoxHeight(targetH);
+        else if (boxType === 'instructions') setInstructionsBoxHeight(targetH);
+        else if (boxType === 'glossary') setGlossaryBoxHeight(targetH);
+        localStorage.setItem(`${boxType}BoxHeight`, targetH);
+        toast(`Set to ${preset === 'auto' ? 'Auto-Fit Content' : preset === 'S' ? 'Compact (S)' : preset === 'M' ? 'Medium (M)' : 'Tall (L)'}!`, 'info');
+      };
+
       const toggleBoxExpand = (boxType) => {
         const defaults = { input: 220, output: 250, instructions: 80, glossary: 140 };
-        const expanded = { input: 560, output: 560, instructions: 280, glossary: 480 };
+        const expanded = { input: 750, output: 750, instructions: 350, glossary: 550 };
         const curHeights = {
           input: inputBoxHeight,
           output: outputBoxHeight,
@@ -1789,7 +1833,7 @@
           glossary: glossaryBoxHeight
         };
         const cur = curHeights[boxType] || defaults[boxType];
-        const target = (cur >= expanded[boxType] - 50) ? defaults[boxType] : expanded[boxType];
+        const target = (cur >= expanded[boxType] - 60) ? defaults[boxType] : expanded[boxType];
         
         if (boxType === 'input') setInputBoxHeight(target);
         else if (boxType === 'output') setOutputBoxHeight(target);
@@ -1799,40 +1843,68 @@
       };
 
       const renderBoxResizeBar = (boxType) => {
-        const expanded = { input: 560, output: 560, instructions: 280, glossary: 480 };
+        const defaults = { input: 220, output: 250, instructions: 80, glossary: 140 };
+        const mediums = { input: 480, output: 480, instructions: 200, glossary: 320 };
+        const talls = { input: 820, output: 820, instructions: 380, glossary: 600 };
         const curHeights = {
           input: inputBoxHeight,
           output: outputBoxHeight,
           instructions: instructionsBoxHeight,
           glossary: glossaryBoxHeight
         };
-        const isExp = (curHeights[boxType] || 0) >= (expanded[boxType] - 50);
+        const cur = curHeights[boxType] || defaults[boxType];
 
-        return h('div', { className: 'flex items-center justify-between pt-1.5 pb-0.5 select-none' },
+        return h('div', { className: 'flex flex-wrap items-center justify-between gap-1.5 pt-2 pb-0.5 border-t border-slate-100 dark:border-slate-800/80 select-none' },
+          // Touch drag bar with double-tap
           h('div', {
             onTouchStart: (e) => handleTouchResizeStart(e, boxType),
-            className: 'flex-1 py-1 flex items-center justify-center cursor-row-resize touch-none group transition-all',
-            title: 'Drag up or down to resize on touch or desktop'
+            onDoubleClick: () => toggleBoxExpand(boxType),
+            className: 'flex-1 min-w-[70px] py-1.5 flex items-center justify-center cursor-row-resize touch-none group transition-all',
+            title: 'Slide finger to smoothly resize (double-tap to toggle)'
           },
-            h('div', { className: 'w-16 h-1 bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 group-active:bg-indigo-600 rounded-full transition-colors' })
+            h('div', { className: 'w-16 h-1.5 bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 group-active:bg-indigo-600 rounded-full transition-colors' })
           ),
-          h('button', {
-            type: 'button',
-            onClick: () => toggleBoxExpand(boxType),
-            className: 'px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-md transition-all flex items-center gap-1 cursor-pointer shrink-0 ml-2',
-            title: isExp ? 'Collapse box height' : 'Expand box height'
-          },
-            ic(isExp ? Minimize2 : Maximize2, 11),
-            isExp ? 'Compact' : 'Expand'
+          // Instant 1-Tap Size Presets
+          h('div', { className: 'flex flex-wrap items-center gap-1 shrink-0' },
+            h('button', {
+              type: 'button',
+              onClick: () => setBoxPreset(boxType, 'S'),
+              className: `px-2 py-0.5 text-[11px] font-bold rounded-md transition-all cursor-pointer ${Math.abs(cur - defaults[boxType]) < 30 ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`,
+              title: 'Compact Size'
+            }, 'S'),
+            h('button', {
+              type: 'button',
+              onClick: () => setBoxPreset(boxType, 'M'),
+              className: `px-2 py-0.5 text-[11px] font-bold rounded-md transition-all cursor-pointer ${Math.abs(cur - mediums[boxType]) < 30 ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`,
+              title: 'Medium Size'
+            }, 'M'),
+            h('button', {
+              type: 'button',
+              onClick: () => setBoxPreset(boxType, 'L'),
+              className: `px-2 py-0.5 text-[11px] font-bold rounded-md transition-all cursor-pointer ${Math.abs(cur - talls[boxType]) < 30 ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`,
+              title: 'Tall Size'
+            }, 'L'),
+            h('button', {
+              type: 'button',
+              onClick: () => setBoxPreset(boxType, 'auto'),
+              className: 'px-2 py-0.5 text-[11px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-md transition-all flex items-center gap-0.5 cursor-pointer',
+              title: 'Auto-fit height to reveal all text with zero scrolling'
+            },
+              ic(Sparkles, 10),
+              'Fit All'
+            ),
+            h('button', {
+              type: 'button',
+              onClick: () => setFullscreenBox(fullscreenBox === boxType ? null : boxType),
+              className: 'px-2 py-0.5 text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-md transition-all flex items-center gap-1 cursor-pointer',
+              title: 'Open full-screen focus editor'
+            },
+              ic(Maximize2, 10),
+              'Focus'
+            )
           )
         );
       };
-
-      // --- Refs ---
-      const fileInputRef = useRef(null);
-      const glossaryFileRef = useRef(null);
-      const backupFileInputRef = useRef(null);
-      const abortRef = useRef(null);
 
       // --- Toast Helper (Debounced & Max 3 visible) ---
       const toast = (msg, type = 'success') => {
@@ -3571,6 +3643,7 @@ p {
                     h('span', { className: 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' }, `${wordCount(inputText)} words · ${charCount(inputText)} chars`)
                   ),
                   h('textarea', {
+                    ref: inputRef,
                     value: inputText,
                     onChange: e => setInputText(e.target.value),
                     onKeyDown: (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (!isTranslating && inputText.trim()) handleTranslateText(); } },
@@ -3653,6 +3726,7 @@ p {
                       )
                     ),
                     h('textarea', {
+                      ref: outputRef,
                       value: currentDisplayOutput,
                       onChange: e => setAssembledText(e.target.value),
                       className: 'w-full p-3.5 border border-emerald-300/80 dark:border-emerald-900/70 bg-emerald-50/20 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl shadow-inner focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-y text-sm leading-relaxed transition-all font-normal',
@@ -3739,6 +3813,7 @@ p {
                 )
               ),
               h('textarea', {
+                ref: instructionsRef,
                 value: customInstructions,
                 onChange: e => {
                   setCustomInstructions(e.target.value);
@@ -3789,6 +3864,7 @@ p {
                   )
                 ),
                 h('textarea', {
+                  ref: glossaryRef,
                   value: terminology,
                   onChange: e => {
                     setTerminology(e.target.value);
@@ -4144,6 +4220,47 @@ p {
             )
           )
         ),
+
+        // FULLSCREEN FOCUS EDITOR MODAL
+        fullscreenBox && (() => {
+          const titles = {
+            input: 'Input Text (Full Screen Focus)',
+            output: `Translated Output (${tgtLang})`,
+            instructions: 'Custom Translation Instructions',
+            glossary: 'Glossary & Terminology'
+          };
+          const val = fullscreenBox === 'input' ? inputText :
+                      fullscreenBox === 'output' ? (assembledText || (translatedChapters || []).map(c => `${c.title}\n\n${c.content}`).join('\n\n\n').trim()) :
+                      fullscreenBox === 'instructions' ? customInstructions : terminology;
+          const onChange = fullscreenBox === 'input' ? (e => setInputText(e.target.value)) :
+                           fullscreenBox === 'output' ? (e => setAssembledText(e.target.value)) :
+                           fullscreenBox === 'instructions' ? (e => { setCustomInstructions(e.target.value); localStorage.setItem('customInstructions', e.target.value); }) :
+                           (e => { setTerminology(e.target.value); localStorage.setItem('terminology', e.target.value); });
+
+          return h('div', { className: 'fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-3 sm:p-6 animate-fade-in', role: 'dialog', 'aria-modal': 'true' },
+            h('div', { className: 'flex items-center justify-between pb-3 border-b border-slate-800 text-white shrink-0' },
+              h('div', { className: 'flex items-center gap-2' },
+                ic(Maximize2, 18, 'text-indigo-400'),
+                h('span', { className: 'font-bold text-sm sm:text-lg text-slate-100' }, titles[fullscreenBox] || 'Full Screen Focus'),
+                h('span', { className: 'text-[11px] text-slate-400 px-2 py-0.5 rounded-full bg-slate-800' }, `${wordCount(val)} words · ${charCount(val)} chars`)
+              ),
+              h('div', { className: 'flex items-center gap-2' },
+                btn({ onClick: () => { if (val) copyText(val).then(() => toast('Copied!')); }, className: 'px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition-all flex items-center gap-1 cursor-pointer' }, ic(Copy, 14), 'Copy'),
+                btn({ onClick: () => setFullscreenBox(null), className: 'px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-md' }, ic(Check, 14), 'Done')
+              )
+            ),
+            h('textarea', {
+              value: val,
+              onChange,
+              placeholder: 'Type or edit full screen...',
+              className: 'flex-1 w-full my-3 p-4 bg-slate-900 text-slate-100 border border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none font-normal text-base leading-relaxed overflow-y-auto'
+            }),
+            h('div', { className: 'flex items-center justify-between text-xs text-slate-400 pt-1 shrink-0' },
+              h('span', null, 'Tip: All changes are saved automatically in real time.'),
+              btn({ onClick: () => setFullscreenBox(null), className: 'text-indigo-400 hover:underline font-semibold cursor-pointer' }, 'Exit Focus View ✕')
+            )
+          );
+        })(),
 
         // READER VIEW MODAL
         h(ReaderModal, {
