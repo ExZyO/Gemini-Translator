@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.2.2';
+    const VERSION = '5.2.3';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2308,7 +2308,7 @@
         const handler = e => {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
             e.preventDefault();
-            if (!isTranslating) handleTranslateText();
+            if (!isTranslating) handleStartTranslation();
           }
           if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
             e.preventDefault();
@@ -3158,9 +3158,28 @@ FORMATTING & STRUCTURE RULES:
             return { title: c.title, chunks: ch.map(text => ({ text })), doc: c.doc, zipPath: c.zipPath };
           });
 
-          const chapterItems = chapterData.map((ch, idx) => ({ ch, idx })).filter(({ idx }) => idx >= startChapterIdx);
+          let done = 0;
+          if (resume && newChapters.length > 0) {
+            newChapters.forEach((nc, idx) => {
+              if (nc && nc.content) {
+                done += (chapterData[idx]?.chunks?.length || 1) + (chapterData[idx]?.title?.trim() ? 1 : 0);
+              }
+            });
+          }
 
-          setProgressLabel(`Translating ${chapterItems.length} chapter(s) with ${Math.min(concurrency, chapterItems.length)} parallel worker(s)${useContext ? ' (intra-chapter context)' : ''}...`);
+          const chapterItems = chapterData.map((ch, idx) => ({ ch, idx })).filter(({ idx }) => {
+            if (!resume) return true;
+            return !newChapters[idx] || !newChapters[idx].content;
+          });
+
+          if (chapterItems.length === 0) {
+            toast('All chapters are already translated!', 'success');
+            setIsTranslating(false);
+            return;
+          }
+
+          setProgress(Math.floor((done / totalChunks) * 100));
+          setProgressLabel(`Resuming ${chapterItems.length} remaining chapter(s) with ${Math.min(concurrency, chapterItems.length)} parallel worker(s)${useContext ? ' (intra-chapter context)' : ''}...`);
 
           await batchParallel(chapterItems, async ({ ch, idx: i }) => {
             let title = ch.title;
@@ -3283,6 +3302,14 @@ FORMATTING & STRUCTURE RULES:
           setTranslatedChapters(resume && activeSession ? activeSession.newChapters : []);
         }
         finally { setIsTranslating(false); setProgress(0); setProgressLabel(''); abortRef.current = null }
+      };
+
+      const handleStartTranslation = async (resume = false) => {
+        if (chapters && chapters.length > 0) {
+          await handleTranslateEbook(chapters, resume, currentIsEpub, currentOriginalZip);
+        } else {
+          await handleTranslateText(resume);
+        }
       };
 
       const cancelTranslation = () => {
@@ -4053,7 +4080,7 @@ p {
                     ref: inputRef,
                     value: inputText,
                     onChange: e => setInputText(e.target.value),
-                    onKeyDown: (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (!isTranslating && inputText.trim()) handleTranslateText(); } },
+                    onKeyDown: (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (!isTranslating) handleStartTranslation(); } },
                     disabled,
                     placeholder: 'Paste your novel text or chapter here (Ctrl+Enter to translate)...',
                     className: 'w-full p-3 sm:p-3.5 border border-slate-300/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-xl shadow-inner focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 resize-y text-sm leading-relaxed transition-all font-normal',
@@ -4154,11 +4181,11 @@ p {
                 (provider === 'gemini' || provider === 'deepseek') && h('span', null, `~ $${estimateCost(Math.ceil(charCount(inputText) / 4), activeModel, provider)} (${activeModel})`)
               ),
               h('div', { className: 'flex flex-col sm:flex-row items-center gap-3.5' },
-                btn({ onClick: () => handleTranslateText(false), disabled, className: 'w-full sm:w-auto px-9 py-3.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-105 active:scale-[0.98] transition-all flex items-center justify-center text-lg disabled:opacity-50 disabled:hover:scale-100 cursor-pointer', title: 'Ctrl+Enter' },
+                btn({ onClick: () => handleStartTranslation(false), disabled, className: 'w-full sm:w-auto px-9 py-3.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-105 active:scale-[0.98] transition-all flex items-center justify-center text-lg disabled:opacity-50 disabled:hover:scale-100 cursor-pointer', title: 'Ctrl+Enter' },
                   isTranslating ? ic(Loader2, 22) : ic(BookText, 22),
                   h('span', { className: 'ml-2' }, isTranslating ? `Translating... (${progress}%)` : (activeSession ? 'Restart' : 'Translate'))
                 ),
-                (!isTranslating && activeSession) && btn({ onClick: () => handleTranslateText(true), className: 'w-full sm:w-auto px-9 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold rounded-full shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-105 active:scale-[0.98] transition-all flex items-center justify-center text-lg cursor-pointer' },
+                (!isTranslating && activeSession) && btn({ onClick: () => handleStartTranslation(true), className: 'w-full sm:w-auto px-9 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold rounded-full shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-105 active:scale-[0.98] transition-all flex items-center justify-center text-lg cursor-pointer' },
                   ic(RotateCcw, 22),
                   h('span', { className: 'ml-2' }, 'Resume')
                 ),
