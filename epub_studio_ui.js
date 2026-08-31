@@ -1,16 +1,15 @@
 (function() {
-const splitHtml = `<div id="epub-split-tab"
-            class="bg-white/95 dark:bg-slate-900/90 sm:backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
+const splitHtml = `<div id="epub-split-tab" class="w-full overflow-hidden transition-all">
 
             <input type="file" id="epub-input" accept=".epub,application/epub+zip,application/zip,application/octet-stream,*/*" class="hidden" />
             <div id="upload-section"
-                class="p-12 sm:p-20 text-center hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all cursor-pointer group border-b-2 border-indigo-500/30"
+                class="p-8 sm:p-14 text-center hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all cursor-pointer group border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 rounded-2xl"
                 ondragover="event.preventDefault(); this.classList.add('ring-4','ring-indigo-400');"
                 ondragleave="this.classList.remove('ring-4','ring-indigo-400');"
                 ondrop="event.preventDefault(); this.classList.remove('ring-4','ring-indigo-400'); if(event.dataTransfer.files.length>0 && event.dataTransfer.files[0].name.toLowerCase().endsWith('.epub')) processSplitFile(event.dataTransfer.files[0]);">
                 <div
-                    class="mx-auto w-20 h-20 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/60 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 group-hover:shadow-md transition-all shadow-xs">
-                    <svg id="upload-icon" xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"
+                    class="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/60 rounded-2xl flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-105 group-hover:shadow-md transition-all shadow-xs">
+                    <svg id="upload-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                         stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -18,11 +17,11 @@ const splitHtml = `<div id="epub-split-tab"
                         <line x1="12" y1="3" x2="12" y2="15" />
                     </svg>
                     <div id="loading-spinner"
-                        class="hidden w-10 h-10 border-4 border-indigo-600 dark:border-indigo-400 border-t-transparent rounded-full animate-spin">
+                        class="hidden w-8 h-8 sm:w-10 sm:h-10 border-4 border-indigo-600 dark:border-indigo-400 border-t-transparent rounded-full animate-spin">
                     </div>
                 </div>
-                <h3 id="upload-title" class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Select your .epub file to Split</h3>
-                <p id="upload-desc" class="text-slate-500 dark:text-slate-400 font-medium">Click here or drag and drop your EPUB book</p>
+                <h3 id="upload-title" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Select your .epub file to Split</h3>
+                <p id="upload-desc" class="text-slate-500 dark:text-slate-400 font-medium text-xs sm:text-sm">Click here or drag and drop your EPUB book</p>
                 <div id="loading-progress-wrapper" class="hidden w-full max-w-xs mx-auto mt-4">
                     <div class="flex justify-between text-xs mb-1 font-semibold text-slate-500 dark:text-slate-400">
                         <span id="loading-progress-status">Loading EPUB...</span>
@@ -37,7 +36,7 @@ const splitHtml = `<div id="epub-split-tab"
 
             <div id="editor-section" class="hidden">
                 <div
-                    class="bg-slate-900/95 dark:bg-slate-950/95 text-white p-6 sm:px-10 flex flex-col items-center gap-4 text-center border-b border-slate-800">
+                    class="bg-slate-900/95 dark:bg-slate-950/95 text-white p-5 sm:p-8 rounded-2xl flex flex-col items-center gap-4 text-center mb-6">
                     <div id="split-cover-preview"
                         class="w-24 h-32 bg-slate-800/80 rounded-xl border border-slate-700/80 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer object-cover shadow-md hover:border-indigo-400 hover:scale-105 transition-all"
                         title="Click to upload custom cover">
@@ -46,23 +45,23 @@ const splitHtml = `<div id="epub-split-tab"
 
                     <div class="w-full max-w-lg">
                         <input type="text" id="split-title-input"
-                            class="text-2xl font-bold bg-transparent border-b border-slate-700/80 hover:border-slate-500 focus:border-indigo-400 focus:outline-none w-full pb-1 text-white text-center placeholder-slate-500 transition-all mb-2"
+                            class="text-xl sm:text-2xl font-bold bg-transparent border-b border-slate-700/80 hover:border-slate-500 focus:border-indigo-400 focus:outline-none w-full pb-1 text-white text-center placeholder-slate-500 transition-all mb-2"
                             placeholder="Book Title">
-                        <p id="chapter-count" class="text-indigo-400 font-semibold text-sm mb-4">0 books · 0 ch · 0 words · 0.0 MB</p>
+                        <p id="chapter-count" class="text-indigo-400 font-semibold text-xs sm:text-sm mb-4">0 books · 0 ch · 0 words · 0.0 MB</p>
 
                         <input type="file" id="split-cover-input" accept="image/jpeg, image/png, image/webp"
                             class="hidden">
-                        <div class="flex flex-wrap justify-center gap-2.5">
+                        <div class="flex flex-wrap justify-center gap-2">
                             <button type="button" id="btn-split-cover"
-                                class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-2xs">
+                                class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-2xs">
                                 Change Cover
                             </button>
                             <button id="btn-reset"
-                                class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-2xs">
+                                class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-2xs">
                                 Load Different Book
                             </button>
                             <button type="button" id="btn-remove-split-cover"
-                                class="hidden px-4 py-2 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/60 text-rose-300 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-2xs">
+                                class="hidden px-3.5 py-2 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/60 text-rose-300 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-2xs">
                                 Remove Cover
                             </button>
                         </div>
@@ -71,7 +70,7 @@ const splitHtml = `<div id="epub-split-tab"
 
                 <!-- Metadata Viewer -->
                 <div id="metadata-viewer"
-                    class="hidden bg-slate-900/90 dark:bg-black/90 backdrop-blur text-white px-6 py-4 sm:px-10 border-b border-slate-800">
+                    class="hidden bg-slate-900/90 dark:bg-black/90 text-white p-4 sm:px-6 rounded-2xl border border-slate-800 mb-6">
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Book Metadata</span>
                         <button id="btn-toggle-metadata" class="text-xs text-indigo-400 hover:underline font-semibold cursor-pointer">Hide</button>
@@ -80,199 +79,196 @@ const splitHtml = `<div id="epub-split-tab"
                     </div>
                 </div>
 
-                <div class="p-6 sm:p-8 bg-slate-50/50 dark:bg-slate-950/40">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
 
-                        <div class="space-y-6">
-                            <div
-                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm sm:backdrop-blur-md">
-                                <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-4">1. Extract Range</h3>
-                                <div class="flex flex-col sm:flex-row items-center gap-3 mb-4">
-                                    <div class="w-full">
-                                        <label
-                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Start Chapter</label>
-                                        <input type="number" id="range-start" min="1"
-                                            class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
-                                    </div>
-                                    <div class="text-slate-400 font-bold sm:mt-5 text-xs">TO</div>
-                                    <div class="w-full">
-                                        <label
-                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">End Chapter</label>
-                                        <input type="number" id="range-end" min="1"
-                                            class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
-                                    </div>
+                    <div class="space-y-5 sm:space-y-6">
+                        <div
+                            class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl shadow-sm sm:backdrop-blur-md">
+                            <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 mb-3">1. Extract Range</h3>
+                            <div class="flex flex-col sm:flex-row items-center gap-3 mb-4">
+                                <div class="w-full">
+                                    <label
+                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Start Chapter</label>
+                                    <input type="number" id="range-start" min="1"
+                                        class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
                                 </div>
-                                <button id="btn-export-range"
-                                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-sm">Download Range</button>
+                                <div class="text-slate-400 font-bold sm:mt-5 text-xs">TO</div>
+                                <div class="w-full">
+                                    <label
+                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">End Chapter</label>
+                                    <input type="number" id="range-end" min="1"
+                                        class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
+                                </div>
                             </div>
+                            <button id="btn-export-range"
+                                class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-xs sm:text-sm">Download Range</button>
+                        </div>
 
-                            <div
-                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm sm:backdrop-blur-md">
-                                <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-4">2. Split into Parts</h3>
+                        <div
+                            class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl shadow-sm sm:backdrop-blur-md">
+                            <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 mb-3">2. Split into Parts</h3>
 
-                                <div class="flex gap-4 mb-4">
-                                    <label
-                                        class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
-                                        <input type="radio" name="split-mode" value="chapters"
-                                            class="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded accent-indigo-600"
-                                            checked>
-                                        By Chapters
-                                    </label>
-                                    <label
-                                        class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
-                                        <input type="radio" name="split-mode" value="size"
-                                            class="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded accent-indigo-600">
-                                        By Size
-                                    </label>
-                                </div>
-
-                                <div id="split-mode-chapters-wrapper" class="mb-4">
-                                    <label
-                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Chapters per book</label>
-                                    <input type="number" id="chunk-size" value="100" min="1"
-                                        class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all">
-                                </div>
-
-                                <div id="split-mode-size-wrapper" class="hidden mb-4">
-                                    <label
-                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Target Size per book (MB)</label>
-                                    <input type="number" id="chunk-size-mb" value="20" min="1"
-                                        class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all">
-                                </div>
-
-                                <!-- Keep Only Text Toggle -->
-                                <label class="flex items-center gap-2 cursor-pointer mb-4 select-none">
-                                    <input type="checkbox" id="keep-only-text"
-                                        class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 accent-indigo-600">
-                                    <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">Keep Only Text (strip images, fonts, CSS)</span>
+                            <div class="flex gap-4 mb-4">
+                                <label
+                                    class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    <input type="radio" name="split-mode" value="chapters"
+                                        class="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded accent-indigo-600"
+                                        checked>
+                                    By Chapters
                                 </label>
+                                <label
+                                    class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    <input type="radio" name="split-mode" value="size"
+                                        class="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded accent-indigo-600">
+                                    By Size
+                                </label>
+                            </div>
 
-                                <!-- CSS Theme Injection -->
-                                <div class="mb-4">
-                                    <label
-                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Reading Theme</label>
-                                    <select id="css-theme-inject"
-                                        class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
-                                        <option value="none">None (keep original)</option>
-                                        <option value="dark">Dark Mode Reading</option>
-                                        <option value="sepia">Sepia / Warm</option>
-                                        <option value="large">Large Text</option>
+                            <div id="split-mode-chapters-wrapper" class="mb-4">
+                                <label
+                                    class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Chapters per book</label>
+                                <input type="number" id="chunk-size" value="100" min="1"
+                                    class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all">
+                            </div>
+
+                            <div id="split-mode-size-wrapper" class="hidden mb-4">
+                                <label
+                                    class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Target Size per book (MB)</label>
+                                <input type="number" id="chunk-size-mb" value="20" min="1"
+                                    class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all">
+                            </div>
+
+                            <!-- Keep Only Text Toggle -->
+                            <label class="flex items-center gap-2 cursor-pointer mb-4 select-none">
+                                <input type="checkbox" id="keep-only-text"
+                                    class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 accent-indigo-600">
+                                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">Keep Only Text (strip images, fonts, CSS)</span>
+                            </label>
+
+                            <!-- CSS Theme Injection -->
+                            <div class="mb-4">
+                                <label
+                                    class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Reading Theme</label>
+                                <select id="css-theme-inject"
+                                    class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
+                                    <option value="none">None (keep original)</option>
+                                    <option value="dark">Dark Mode Reading</option>
+                                    <option value="sepia">Sepia / Warm</option>
+                                    <option value="large">Large Text</option>
+                                </select>
+                            </div>
+
+                            <!-- Export Presets -->
+                            <div class="mb-4">
+                                <label
+                                    class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Split Settings Preset</label>
+                                <div class="flex gap-2">
+                                    <select id="export-presets"
+                                        class="flex-1 bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
+                                        <option value="">Load Preset...</option>
                                     </select>
+                                    <button id="btn-save-preset"
+                                        class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">Save</button>
                                 </div>
+                            </div>
 
-                                <!-- Export Presets -->
-                                <div class="mb-4">
-                                    <label
-                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Split Settings Preset</label>
-                                    <div class="flex gap-2">
-                                        <select id="export-presets"
-                                            class="flex-1 bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
-                                            <option value="">Load Preset...</option>
-                                        </select>
-                                        <button id="btn-save-preset"
-                                            class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">Save</button>
-                                    </div>
+                            <button id="btn-export-chunks"
+                                class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-xs sm:text-sm">Download All Parts</button>
+                            <button id="btn-export-zip"
+                                class="mt-2 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 sm:py-2.5 rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 text-xs disabled:opacity-50 cursor-pointer">Export as Plain ZIP</button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col h-full space-y-5 sm:space-y-6">
+
+                        <div
+                            class="bg-slate-950 dark:bg-black rounded-2xl p-4 sm:p-5 border border-slate-800 font-mono text-sm overflow-hidden flex flex-col h-44 sm:h-48 shrink-0 shadow-sm">
+                            <div class="flex items-center justify-between mb-2 sm:mb-3 border-b border-slate-800 pb-2">
+                                <span class="text-slate-400 font-bold uppercase tracking-wider text-xs">Activity Console</span>
+                            </div>
+                            <div id="status-log"
+                                class="flex-1 overflow-y-auto custom-scrollbar space-y-1 text-slate-300 pr-2 pb-2 text-xs leading-relaxed">
+                                <div class="text-indigo-400">> System ready.</div>
+                            </div>
+
+                            <div id="split-progress-wrapper" class="hidden mt-2 pt-2 border-t border-slate-800">
+                                <div class="flex justify-between text-xs mb-1 font-semibold text-slate-400">
+                                    <span id="split-progress-status">Compressing...</span>
+                                    <span id="split-progress-percent">0%</span>
                                 </div>
-
-                                <button id="btn-export-chunks"
-                                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-sm">Download All Parts</button>
-                                <button id="btn-export-zip"
-                                    class="mt-2 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 text-xs disabled:opacity-50 cursor-pointer">Export as Plain ZIP</button>
+                                <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                    <div id="split-progress-bar"
+                                        class="bg-indigo-500 h-1.5 transition-all duration-100 ease-out"
+                                        style="width: 0%"></div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="flex flex-col h-full space-y-6">
-
-                            <div
-                                class="bg-slate-950 dark:bg-black rounded-2xl p-5 border border-slate-800 font-mono text-sm overflow-hidden flex flex-col h-48 shrink-0 shadow-sm">
-                                <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
-                                    <span class="text-slate-400 font-bold uppercase tracking-wider text-xs">Activity Console</span>
+                        <div
+                            class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl shadow-sm sm:backdrop-blur-md flex-1 flex flex-col min-h-[350px] sm:min-h-[400px]">
+                            <div class="flex items-center justify-between mb-3 sm:mb-4">
+                                <div>
+                                    <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">Chapter Selection</h3>
                                 </div>
-                                <div id="status-log"
-                                    class="flex-1 overflow-y-auto custom-scrollbar space-y-1 text-slate-300 pr-2 pb-2 text-xs leading-relaxed">
-                                    <div class="text-indigo-400">> System ready.</div>
-                                </div>
-
-                                <div id="split-progress-wrapper" class="hidden mt-3 pt-3 border-t border-slate-800">
-                                    <div class="flex justify-between text-xs mb-1 font-semibold text-slate-400">
-                                        <span id="split-progress-status">Compressing...</span>
-                                        <span id="split-progress-percent">0%</span>
-                                    </div>
-                                    <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                                        <div id="split-progress-bar"
-                                            class="bg-indigo-500 h-1.5 transition-all duration-100 ease-out"
-                                            style="width: 0%"></div>
-                                    </div>
-                                </div>
+                                <span id="preview-count"
+                                    class="text-xs font-mono font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full whitespace-nowrap shadow-2xs">0 selected</span>
                             </div>
 
-                            <div
-                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm sm:backdrop-blur-md flex-1 flex flex-col min-h-[400px]">
-                                <div class="flex items-center justify-between mb-4">
-                                    <div>
-                                        <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">Chapter Selection</h3>
-                                    </div>
-                                    <span id="preview-count"
-                                        class="text-xs font-mono font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 px-3 py-1 rounded-full whitespace-nowrap shadow-2xs">0 selected</span>
-                                </div>
-
-                                <div class="flex gap-2 mb-4">
-                                    <button id="btn-export-custom"
-                                        class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-sm">
-                                        Download Checked
-                                    </button>
-                                    <button id="btn-share-export"
-                                        class="px-4 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 text-xs cursor-pointer"
-                                        title="Share via Web Share API">
-                                        Share
-                                    </button>
-                                </div>
-
-                                <!-- Estimated output size -->
-                                <div id="estimated-size"
-                                    class="hidden mb-3 text-xs font-semibold text-slate-500 dark:text-slate-400 text-center">
-                                    Estimated output: <span id="estimated-size-value" class="font-bold text-slate-800 dark:text-slate-200">0</span> MB
-                                </div>
-
-                                <div class="flex items-center gap-2 mb-3 flex-wrap">
-                                    <button id="btn-select-all"
-                                        class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">Select All</button>
-                                    <span class="text-slate-300 dark:text-slate-600">|</span>
-                                    <button id="btn-deselect-all"
-                                        class="text-xs font-bold text-slate-500 hover:underline cursor-pointer">Deselect All</button>
-                                    <span class="text-slate-300 dark:text-slate-600">|</span>
-                                    <button id="btn-batch-rename"
-                                        class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">Batch Rename</button>
-                                </div>
-
-                                <!-- Chapter Search -->
-                                <input type="text" id="chapter-search" placeholder="Search chapters..."
-                                    class="w-full mb-3 bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 placeholder-slate-400 transition-all">
-
-                                <div id="chapter-list"
-                                    class="flex-1 overflow-y-auto custom-scrollbar text-xs bg-slate-50/50 dark:bg-slate-950/50 rounded-xl p-2 border border-slate-200/80 dark:border-slate-800/80 divide-y divide-slate-200/80 dark:divide-slate-800/60 font-mono">
-                                </div>
-                                <div id="split-stats-summary"
-                                    class="mt-3 px-3 py-2 rounded-lg bg-slate-100/60 dark:bg-slate-800/60 text-xs text-slate-500 dark:text-slate-400 text-center font-medium">
-                                    0 books · 0 ch · 0 words · 0.0 MB
-                                </div>
+                            <div class="flex gap-2 mb-3 sm:mb-4">
+                                <button id="btn-export-custom"
+                                    class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-xs sm:text-sm">
+                                    Download Checked
+                                </button>
+                                <button id="btn-share-export"
+                                    class="px-3.5 sm:px-4 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 text-xs cursor-pointer"
+                                    title="Share via Web Share API">
+                                    Share
+                                </button>
                             </div>
 
+                            <!-- Estimated output size -->
+                            <div id="estimated-size"
+                                class="hidden mb-3 text-xs font-semibold text-slate-500 dark:text-slate-400 text-center">
+                                Estimated output: <span id="estimated-size-value" class="font-bold text-slate-800 dark:text-slate-200">0</span> MB
+                            </div>
+
+                            <div class="flex items-center gap-2 mb-3 flex-wrap">
+                                <button id="btn-select-all"
+                                    class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">Select All</button>
+                                <span class="text-slate-300 dark:text-slate-600">|</span>
+                                <button id="btn-deselect-all"
+                                    class="text-xs font-bold text-slate-500 hover:underline cursor-pointer">Deselect All</button>
+                                <span class="text-slate-300 dark:text-slate-600">|</span>
+                                <button id="btn-batch-rename"
+                                    class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">Batch Rename</button>
+                            </div>
+
+                            <!-- Chapter Search -->
+                            <input type="text" id="chapter-search" placeholder="Search chapters..."
+                                class="w-full mb-3 bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 placeholder-slate-400 transition-all">
+
+                            <div id="chapter-list"
+                                class="flex-1 overflow-y-auto custom-scrollbar text-xs bg-slate-50/50 dark:bg-slate-950/50 rounded-xl p-2 border border-slate-200/80 dark:border-slate-800/80 divide-y divide-slate-200/80 dark:divide-slate-800/60 font-mono">
+                            </div>
+                            <div id="split-stats-summary"
+                                class="mt-3 px-3 py-2 rounded-lg bg-slate-100/60 dark:bg-slate-800/60 text-xs text-slate-500 dark:text-slate-400 text-center font-medium">
+                                0 books · 0 ch · 0 words · 0.0 MB
+                            </div>
                         </div>
+
                     </div>
                 </div>
             </div>
         </div>
-
         `;
-const mergeHtml = `<div id="epub-merge-tab"
-              class="bg-white/95 dark:bg-slate-900/90 sm:backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
-            <div class="p-8 sm:p-12">
+
+const mergeHtml = `<div id="epub-merge-tab" class="w-full overflow-hidden transition-all">
+            <div class="py-2">
                 <div class="max-w-3xl mx-auto">
-                    <div class="text-center mb-8">
+                    <div class="text-center mb-6">
                         <div
-                            class="w-16 h-16 bg-fuchsia-50 dark:bg-fuchsia-950/60 text-fuchsia-600 dark:text-fuchsia-400 border border-fuchsia-200/80 dark:border-fuchsia-800/60 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xs">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
+                            class="w-14 h-14 bg-fuchsia-50 dark:bg-fuchsia-950/60 text-fuchsia-600 dark:text-fuchsia-400 border border-fuchsia-200/80 dark:border-fuchsia-800/60 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round">
                                 <path d="m8 6 4-4 4 4" />
@@ -280,19 +276,19 @@ const mergeHtml = `<div id="epub-merge-tab"
                                 <path d="m20 22-5-5" />
                             </svg>
                         </div>
-                        <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Smart Novel Merger</h2>
-                        <p class="text-slate-500 dark:text-slate-400 mt-2 font-medium text-sm">Combine multiple EPUB parts into a unified single book with preserved Table of Contents.</p>
+                        <h2 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">Smart Novel Merger</h2>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1.5 font-medium text-xs sm:text-sm">Combine multiple EPUB parts into a unified single book with preserved Table of Contents.</p>
                         <div id="memory-warning"
-                            class="hidden mt-4 inline-block bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-4 py-2 rounded-xl text-sm font-semibold border border-amber-200 dark:border-amber-800/60 shadow-2xs">
+                            class="hidden mt-3 inline-block bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-3.5 py-1.5 rounded-xl text-xs font-semibold border border-amber-200 dark:border-amber-800/60 shadow-2xs">
                             Warning: Total size exceeds 300MB. The browser tab may crash if your device runs out of RAM.
                         </div>
                     </div>
 
                     <input type="file" id="merge-input" accept=".epub,application/epub+zip,application/zip,application/octet-stream,*/*" multiple class="hidden" />
                     <div id="merge-upload-box"
-                        class="border-2 border-dashed border-slate-300/80 dark:border-slate-700/80 hover:border-fuchsia-500/80 hover:bg-fuchsia-50/20 dark:hover:bg-fuchsia-950/20 rounded-2xl p-10 text-center transition-all cursor-pointer mb-6 group">
-                        <span class="text-base font-bold text-fuchsia-600 dark:text-fuchsia-400 group-hover:scale-105 inline-block transition-transform">Click to Select Multiple EPUBs</span>
-                        <span class="block text-slate-400 text-xs mt-1.5 font-medium">or drag and drop them here</span>
+                        class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-fuchsia-500 hover:bg-fuchsia-50/20 dark:hover:bg-fuchsia-950/20 rounded-2xl p-6 sm:p-10 text-center transition-all cursor-pointer mb-6 group">
+                        <span class="text-sm sm:text-base font-bold text-fuchsia-600 dark:text-fuchsia-400 group-hover:scale-105 inline-block transition-transform">Click to Select Multiple EPUBs</span>
+                        <span class="block text-slate-400 text-xs mt-1 font-medium">or drag and drop them here</span>
                     </div>
 
                     <div id="merge-list-container" class="hidden space-y-4">
@@ -329,7 +325,7 @@ const mergeHtml = `<div id="epub-merge-tab"
                         </div>
 
                         <div class="pt-6 border-t border-slate-200/80 dark:border-slate-800/80 mt-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 mb-6">
                                 <div>
                                     <label
                                         class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">New Book Title</label>
@@ -340,7 +336,7 @@ const mergeHtml = `<div id="epub-merge-tab"
                                 <div>
                                     <label
                                         class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Custom Cover (Optional)</label>
-                                    <div class="flex items-center gap-4">
+                                    <div class="flex items-center gap-3 sm:gap-4">
                                         <div id="cover-preview"
                                             class="w-12 h-16 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-300/80 dark:border-slate-700/80 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer object-cover shadow-2xs hover:scale-105 hover:border-fuchsia-400 transition-all"
                                             title="Click to upload custom cover">
@@ -407,7 +403,7 @@ const mergeHtml = `<div id="epub-merge-tab"
                             </details>
 
                             <button id="btn-execute-merge"
-                                class="w-full bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-md shadow-fuchsia-500/20 hover:shadow-fuchsia-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer text-sm">
+                                class="w-full bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white font-bold py-3 sm:py-3.5 rounded-xl shadow-md shadow-fuchsia-500/20 hover:shadow-fuchsia-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm">
                                 <span id="merge-btn-text">Merge & Download</span>
                                 <div id="merge-spinner"
                                     class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin">
