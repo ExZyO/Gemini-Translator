@@ -1,12 +1,12 @@
-const CACHE_NAME = 'gemini-translator-v5.0.5';
+const CACHE_NAME = 'gemini-translator-v5.0.6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
+    './styles.css',
     './manifest.json',
     './splitter.js',
     './merger.js',
     './epub_studio_ui.js',
-    'https://cdn.tailwindcss.com',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
