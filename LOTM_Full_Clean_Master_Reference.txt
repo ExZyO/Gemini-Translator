@@ -17,7 +17,7 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
   * Correct: Sequence 5 Pixie, Sequence 4 Bizarro Sorcerer, Black Emperor mausoleum, Sefirah Castle
   * Incorrect: Sequence 5 'Pixie', Sequence 4 "Bizarro Sorcerer", "Black Emperor" mausoleum, "Sefirah Castle"
 - Mandatory Quotation Exceptions:
-  * Divine Pronouns: Whenever referring to a deity or divine existence using 祂, translate as "He", "Him", "She", or "Her" (with quotation marks). Note: Ensure contextually correct pronouns; do not mistakenly use "He"/"Him" when the text refers to second-person "you".
+  * Divine Pronouns: Whenever referring to a deity or divine existence using 祂 (or possessives 祂的), translate strictly with quotation marks as "He", "Him", "His", "She", "Her", or "Hers" (e.g. on "His" left hand, opened "His" eyes). Note: Ensure contextually correct pronouns; do not mistakenly use "He"/"Him" when the text refers to second-person "you".
   * Specific Authorities / Concepts: Keep quotes on "Grafted", "Grafting", "Theft", "Fooling", "eternal daytime".
 - Full Names vs. Short Names:
   * Use full names only when present in the original text.
