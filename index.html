@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.1.5';
+    const VERSION = '5.1.6';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -925,13 +925,17 @@
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.3 }
       };
-      if (model.includes('3.7') || model.includes('thinking')) {
+      if (model.includes('3.') || model.includes('2.5') || model.includes('2.0') || model.includes('thinking')) {
         payload.generationConfig.thinkingConfig = { thinkingBudget: enableThinking ? 2048 : 0 };
       }
       const r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r || !r.ok) { const b = await r?.text().catch(() => '') || ''; throw new Error(`Gemini API error ${r?.status || 'network'}: ${b.substring(0, 200)}`); }
       const j = await r.json();
-      const t = j?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const candidateParts = j?.candidates?.[0]?.content?.parts || [];
+      const actualParts = candidateParts.filter(p => !p.thought);
+      const t = actualParts.length > 0
+        ? actualParts.map(p => p.text || '').join('')
+        : (candidateParts.map(p => p.text || '').join(''));
       if (!t) throw new Error('Unexpected Gemini response format.');
       
       const usage = j?.usageMetadata || null;
@@ -949,7 +953,7 @@
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.3 }
       };
-      if (model.includes('3.7') || model.includes('thinking')) {
+      if (model.includes('3.') || model.includes('2.5') || model.includes('2.0') || model.includes('thinking')) {
         payload.generationConfig.thinkingConfig = { thinkingBudget: enableThinking ? 2048 : 0 };
       }
       const r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
@@ -976,33 +980,37 @@
             try {
               const j = JSON.parse(d);
               if (j?.usageMetadata) lastUsage = j.usageMetadata;
-              const t = j?.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (t) {
-                if (context !== undefined) {
-                  if (isContextContext) {
-                    finalContext += t;
-                  } else {
-                    slidingWindow += t;
-                    const splitMatch = slidingWindow.match(/\n*---CONTEXT_UPDATE---\n*/i);
-                    if (splitMatch) {
-                      const idx = splitMatch.index;
-                      const textPart = slidingWindow.substring(0, idx);
-                      if (textPart) { onChunk(textPart); accumulatedOutput += textPart; }
-                      finalContext += slidingWindow.substring(idx + splitMatch[0].length);
-                      isContextContext = true;
-                      slidingWindow = '';
+              const candidateParts = j?.candidates?.[0]?.content?.parts || [];
+              for (const part of candidateParts) {
+                if (part.thought) continue; // Skip internal thinking tokens
+                const t = part.text;
+                if (t) {
+                  if (context !== undefined) {
+                    if (isContextContext) {
+                      finalContext += t;
                     } else {
-                      if (slidingWindow.length > 40) {
-                        const safeToEmit = slidingWindow.substring(0, slidingWindow.length - 40);
-                        onChunk(safeToEmit);
-                        accumulatedOutput += safeToEmit;
-                        slidingWindow = slidingWindow.substring(slidingWindow.length - 40);
+                      slidingWindow += t;
+                      const splitMatch = slidingWindow.match(/\n*---CONTEXT_UPDATE---\n*/i);
+                      if (splitMatch) {
+                        const idx = splitMatch.index;
+                        const textPart = slidingWindow.substring(0, idx);
+                        if (textPart) { onChunk(textPart); accumulatedOutput += textPart; }
+                        finalContext += slidingWindow.substring(idx + splitMatch[0].length);
+                        isContextContext = true;
+                        slidingWindow = '';
+                      } else {
+                        if (slidingWindow.length > 40) {
+                          const safeToEmit = slidingWindow.substring(0, slidingWindow.length - 40);
+                          onChunk(safeToEmit);
+                          accumulatedOutput += safeToEmit;
+                          slidingWindow = slidingWindow.substring(slidingWindow.length - 40);
+                        }
                       }
                     }
+                  } else {
+                    onChunk(t);
+                    accumulatedOutput += t;
                   }
-                } else {
-                  onChunk(t);
-                  accumulatedOutput += t;
                 }
               }
             } catch (e) { }
@@ -2478,7 +2486,11 @@ FORMATTING & STRUCTURE RULES:
             });
             if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`Gemini API error ${r.status}: ${b.substring(0, 150)}`); }
             const j = await r.json();
-            optimizedResult = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const candidateParts = j?.candidates?.[0]?.content?.parts || [];
+            const actualParts = candidateParts.filter(p => !p.thought);
+            optimizedResult = actualParts.length > 0
+              ? actualParts.map(p => p.text || '').join('')
+              : (candidateParts.map(p => p.text || '').join(''));
           }
 
           if (!optimizedResult.trim()) throw new Error('Received empty response from AI.');
