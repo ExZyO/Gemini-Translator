@@ -15,7 +15,7 @@
       if ('caches' in window) {
         caches.keys().then(function(keys) {
           keys.forEach(function(k) {
-            if (k !== 'gemini-translator-v4.9.7') {
+            if (k !== 'gemini-translator-v5.0.0') {
               caches.delete(k);
             }
           });
@@ -251,7 +251,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '4.9.8';
+    const VERSION = '5.0.0';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
