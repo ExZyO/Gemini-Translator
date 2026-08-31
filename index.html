@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.3.3';
+    const VERSION = '5.3.4';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2464,6 +2464,175 @@
 
       const applyGlossaryPreset = (type) => {
         const presets = {
+          ri: `I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
+- Natural Literary Localization: Translate into immersive, high-register English dark fantasy prose matching Gu Zhen Ren's raw philosophical and indifferent cosmic tone.
+- Spoken Dialogue Cadence: Preserve character demeanor—from the cold, aloof calculations of Fang Yuan, to the frantic cries of Yao Le (Lele) and the arrogance of clan elders.
+- Zero Censorship & Zero Truncation: NEVER skip, bridge, summarize, or censor graphic dark fantasy scenes, combat, beast feedings, or gore. Translate every sentence with 100% complete fidelity.
+- Pinyin Capitalization: Strictly maintain proper Pinyin capitalization for Chinese names (Fang Yuan, Bai Ning Bing, Gu Yue Bo, Gu Yue Yao Le, Jia Jinsheng).
+- Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical omissions. Output ONLY pure translated chapter text.
+
+II. THE FIVE REGIONS, TWO HEAVENS & SECLUDED DOMAINS
+- 蛊界 -> Gu World
+- 五域 -> Five Regions
+- 中洲 -> Central Continent
+- 南疆 -> Southern Border
+- 北原 -> Northern Plains
+- 东海 -> Eastern Sea
+- 西漠 -> Western Desert
+- 太古九天 -> Immemorial Nine Heavens
+- 两天 -> Two Heavens (White Heaven & Black Heaven / 白天, 黑天)
+- 界壁 -> Regional Wall(s)
+- 宝黄天 -> Treasure Yellow Heaven
+- 天地秘境 -> Secluded Domains of Heaven and Earth
+- 荡魂山 -> Dang Hun Mountain
+- 落魄谷 -> Luo Po Valley
+- 逆流河 -> Reverse Flow River
+- 光阴长河 -> River of Time
+- 生死门 -> Door of Life and Death
+- 市井 -> City Well
+- 疯魔窟 -> Crazed Demon Cave
+- 平等池 -> Pool of Equality
+
+III. FACTIONS, SECTS, TRIBES & ORGANIZATIONS
+- 天庭 -> Heavenly Court
+- 影宗 -> Shadow Sect
+- 十大古派 / 十大古宗 -> Ten Great Ancient Sects
+- 仙鹤门 -> Immortal Crane Sect
+- 天莲派 -> Heavenly Lotus Sect
+- 古魂门 -> Ancient Soul Sect
+- 战仙宗 -> Combat Immortal Sect
+- 万龙坞 -> Myriad Dragon Dock
+- 风云府 -> Wind Cloud Manor
+- 灵蝶谷 -> Spirit Butterfly Valley
+- 灵缘斋 -> Spirit Affinity House
+- 黑天寺 -> Black Heaven Temple
+- 天妒庄 -> Heaven's Envy Manor
+- 古月一族 / 古月山寨 -> Gu Yue Clan / Gu Yue Village
+- 白家寨 -> Bai Clan Village
+- 熊家寨 -> Xiong Clan Village
+- 贾家商队 -> Jia Clan Caravan
+- 异人 -> Variant Human(s)
+- 毛民 -> Hairy Men
+- 石人 -> Rockmen
+- 雪人 -> Snowmen
+- 墨人 -> Inkmen
+- 羽民 -> Feathermen
+- 菌人 / 蘑菇人 -> Mushroommen
+- 鲛人 -> Mermen
+- 蛋人 -> Eggmen
+- 倪家 -> Ni Clan
+- 正道 -> Righteous Path
+- 魔道 -> Demonic Path
+- 散修 -> Lone Cultivator / Rogue Cultivator
+- 执法堂 -> Enforcement Hall
+- 药堂 -> Medicine Hall
+- 学堂家老 -> Academy Elder
+
+IV. CHARACTERS & VENERABLES
+- 古月方源 / 方源 -> Gu Yue Fang Yuan / Fang Yuan
+- 古月方正 / 方正 -> Gu Yue Fang Zheng / Fang Zheng
+- 白凝冰 -> Bai Ning Bing
+- 古月药乐 / 药乐 -> Gu Yue Yao Le / Yao Le
+- 乐乐 -> Lele
+- 古月药姬 -> Gu Yue Yao Ji
+- 古月青书 -> Gu Yue Qing Shu
+- 古月赤山 -> Gu Yue Chi Shan
+- 古月赤练 -> Gu Yue Chi Lian
+- 古月漠颜 -> Gu Yue Mo Yan
+- 古月漠北 -> Gu Yue Mo Bei
+- 古月博 -> Gu Yue Bo
+- 贾金生 -> Jia Jinsheng
+- 贾富 -> Jia Fu
+- 花酒行者 -> Flower Wine Monk
+- 铁血冷 -> Tie Xue Leng
+- 铁若男 -> Tie Ruo Nan
+- 熊力 -> Xiong Li
+- 熊骄缦 -> Xiong Jiao Man
+- 人祖 -> Ren Zu
+- 人祖传 -> The Legends of Ren Zu
+- 尊者 -> Venerable
+- 仙尊 -> Immortal Venerable
+- 魔尊 -> Demon Venerable
+- 元始仙尊 -> Primordial Origin Immortal Venerable
+- 星宿仙尊 -> Star Constellation Immortal Venerable
+- 无极魔尊 -> Limitless Demon Venerable
+- 狂蛮魔尊 -> Reckless Savage Demon Venerable
+- 红莲魔尊 -> Red Lotus Demon Venerable
+- 元莲仙尊 -> Genesis Lotus Immortal Venerable
+- 盗天魔尊 -> Thieving Heaven Demon Venerable
+- 巨阳仙尊 -> Giant Sun Immortal Venerable
+- 幽魂魔尊 -> Spectral Soul Demon Venerable
+- 乐土仙尊 -> Paradise Earth Immortal Venerable
+- 大梦仙尊 -> Great Dream Immortal Venerable
+- 道护者 -> Dao Guardian
+- 天外之魔 -> Otherworldly Demon
+- 完整的天外之魔 -> Complete Otherworldly Demon
+
+V. GU WORMS, PATHS & REFINEMENT LORE
+- 蛊 / 蛊虫 -> Gu / Gu worm
+- 蛊师 -> Gu Master (Rank 1–5)
+- 蛊仙 -> Gu Immortal (Rank 6–9)
+- 本命蛊 -> Vital Gu / Natal Gu
+- 春秋蝉 -> Spring Autumn Cicada
+- 酒虫 -> Liquor worm / Wine worm
+- 月光蛊 -> Moonlight Gu
+- 隐鳞蛊 -> Stealth Scale Gu
+- 强取蛊 -> Plunder Gu
+- 驭熊蛊 -> Bear Enslavement Gu
+- 人兽葬生蛊 -> Man-Beast Life Burial Gu
+- 白玉蛊 -> White Jade Gu
+- 天元宝莲 -> Heavenly Essence Treasure Lotus
+- 天元宝皇莲 -> Heavenly Essence Treasure Imperial Lotus
+- 宿命蛊 -> Fate Gu
+- 态度蛊 -> Attitude Gu
+- 智慧蛊 -> Wisdom Gu
+- 力量蛊 -> Strength Gu
+- 希望蛊 -> Hope Gu
+- 留影壁 -> Photo-wall / Shadow-wall
+- 千里地狼蛛 -> Thousand Li Earth Wolf Spider
+- 雷冠头狼 -> Lightning Crown Wolf
+- 狡电狈 -> Cunning Electric Bei
+- 豪电狼 -> Frenzy Electric Wolf
+- 杀招 -> Killer Move
+- 仙道杀招 -> Immortal Killer Move
+- 蛊阵 -> Gu Formation
+- 蛊屋 -> Gu House
+- 仙蛊屋 -> Immortal Gu House
+- 道痕 -> Dao Mark(s)
+- 道痕互斥 -> Dao Mark Conflict
+- 境界 / 宗师 / 大宗师 / 无上大宗师 -> Attainment / Master / Grandmaster / Great Grandmaster / Supreme Grandmaster
+- 真意 -> True Meaning
+- 梦境 -> Dream Realm
+- 升仙 -> Immortal Ascension
+- 仙窍 -> Immortal Aperture
+- 福地 -> Blessed Land (Rank 6–7)
+- 洞天 -> Grotto-Heaven (Rank 8–9)
+- 地灵 -> Land Spirit
+- 天灵 -> Heavenly Spirit
+- 仙元 -> Immortal Essence
+- 青提仙元 -> Green Grape Immortal Essence (Rank 6)
+- 红枣仙元 -> Red Date Immortal Essence (Rank 7)
+- 白荔仙元 -> White Litchi Immortal Essence (Rank 8)
+- 黄杏仙元 -> Yellow Apricot Immortal Essence (Rank 9)
+- 仙元石 -> Immortal Essence Stone
+- 天劫地灾 / 灾劫 -> Calamities and Tribulations
+- 万劫 -> Myriad Tribulation
+- 混沌浩劫 -> Chaos Tribulation / Chaotic Disaster
+- 天意 -> Heaven's Will
+- 气 / 真元 -> Qi / Primeval Essence
+- 青铜真元 -> Bronze Primeval Essence (Rank 1)
+- 赤铁真元 -> Red Iron Primeval Essence (Rank 2)
+- 白银真元 -> Silver Primeval Essence (Rank 3)
+- 黄金真元 -> Gold Primeval Essence (Rank 4)
+- 紫晶真元 -> Purple Crystal Primeval Essence (Rank 5)
+- 空窍 -> Aperture
+- 识海 -> Sea of Consciousness
+- 神识 -> Divine Sense
+- 十绝体 -> Ten Extreme Physiques
+- 甲等 / 乙等 / 丙等 / 丁等 -> A-grade / B-grade / C-grade / D-grade (Aptitude)
+- 元石 -> Primeval Stones
+- 灵石 -> Spirit Stones
+- 灵泉 -> Spirit Spring`,
           xianxia: `I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES\n- Natural Literary Localization: Translate into immersive, fluent English novel prose matching the author's original RAW scene pacing and tone. Do not invent unmentioned lore or distort character personalities.\n- Spoken Dialogue Cadence: Ensure character dialogue flows naturally in English while preserving each speaker's attitude, arrogance, formality, or humility.\n- Nicknames & Diminutives: Translate affectionate nicknames properly (e.g. 乐乐 -> Lele from 药乐 / Yao Le).\n- Chinese Idioms: Translate idioms according to their actual literary meaning in context (e.g. 鸡犬不留 -> "leaving none alive, not even the chickens and dogs"; 人生地不熟 -> "a stranger in an unfamiliar place"). Avoid robotic word-for-word machine translation.\n- Pinyin Capitalization: Strictly maintain proper Pinyin capitalization for Chinese names (e.g., Fang Yuan, Gu Yue Fang Yuan, Jia Jinsheng, Bai Ning Bing, Gu Yue Yao Le).\n- Zero Censorship & Zero Truncation: NEVER skip, bridge, summarize, or censor graphic dark fantasy scenes, combat, or gore. Translate every sentence fully and completely.\n- Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical omissions. Output ONLY the pure translated chapter.\n\nII. COSMOLOGY, CULTIVATION & CORE TERMINOLOGY\n- 气 -> Qi\n- 灵气 -> Spiritual Qi\n- 真元 -> Primeval Essence\n- 青铜真元 -> Bronze Primeval Essence\n- 赤铁真元 -> Red Iron Primeval Essence\n- 白银真元 -> Silver Primeval Essence\n- 黄金真元 -> Gold Primeval Essence\n- 紫晶真元 -> Purple Crystal Primeval Essence\n- 真气 -> True Qi\n- 丹田 -> Dantian\n- 经脉 -> Meridians\n- 空窍 -> Aperture\n- 识海 -> Sea of Consciousness\n- 神识 -> Divine Sense\n- 三宝 -> Three Treasures (Essence, Qi, Spirit / 精, 气, 神)\n- 精 -> Essence / Lifeblood\n- 神 -> Spirit / Mind / Consciousness\n- 道心 -> Dao Heart\n- 天道 -> Heavenly Dao\n- 天劫 -> Heavenly Tribulation\n- 突破 -> Breakthrough\n- 瓶颈 -> Bottleneck\n- 闭关 -> Closed-door Cultivation\n- 走火入魔 -> Qi Deviation\n- 心魔 -> Heart Demon\n- 周天 -> Heavenly Circuit / Cosmic Orbit\n- 小周天 -> Small Heavenly Circuit / Microcosmic Orbit\n- 大周天 -> Great Heavenly Circuit / Macrocosmic Orbit\n- 太极 -> Taiji / Supreme Ultimate\n- 无极 -> Wuji / Primordial Boundlessness\n\nIII. CULTIVATION REALMS, RANKS & APTITUDE\n- 炼气 -> Qi Condensation\n- 筑基 -> Foundation Establishment\n- 结丹 / 金丹 -> Core Formation / Golden Core\n- 元婴 -> Nascent Soul\n- 化神 -> Soul Formation\n- 渡劫 -> Tribulation Transcendence\n- 大乘 -> Mahayana\n- 飞升 -> Ascension\n- 一转 / 二转 / 三转 / 四转 / 五转 -> Rank 1 / Rank 2 / Rank 3 / Rank 4 / Rank 5 (Gu Master)\n- 六转 / 七转 / 八转 / 九转 -> Rank 6 / Rank 7 / Rank 8 / Rank 9 (Gu Immortal)\n- 甲等 -> A-grade (Aptitude)\n- 乙等 -> B-grade (Aptitude)\n- 丙等 -> C-grade (Aptitude)\n- 丁等 -> D-grade (Aptitude)\n\nIV. MARTIAL WORLD, FACTIONS & CHARACTERS\n- 正道 -> Righteous Path\n- 魔道 -> Demonic Path\n- 宗门 -> Sect\n- 世家 / 家族 -> Clan\n- 江湖 -> Jianghu\n- 掌门 / 宗主 -> Sect Master / Patriarch\n- 族长 -> Clan Head / Patriarch\n- 太上长老 -> Grand Elder\n- 大长老 -> First Elder\n- 长老 -> Clan Elder / Sect Elder\n- 客卿 -> Guest Elder\n- 执法堂 -> Enforcement Hall\n- 药堂 -> Medicine Hall\n- 师兄 -> Senior Brother\n- 师弟 -> Junior Brother\n- 师姐 -> Senior Sister\n- 师妹 -> Junior Sister\n- 师尊 / 师父 -> Master\n- 徒儿 -> Disciple\n- 道友 -> Fellow Daoist\n- 前辈 -> Senior\n- 晚辈 -> Junior\n- 少主 / 少爷 -> Young Master\n- 古月方源 -> Gu Yue Fang Yuan\n- 古月方正 -> Gu Yue Fang Zheng\n- 古月药乐 -> Gu Yue Yao Le\n- 乐乐 -> Lele\n- 古月药姬 -> Gu Yue Yao Ji\n- 古月青书 -> Gu Yue Qing Shu\n- 古月赤山 -> Gu Yue Chi Shan\n- 古月漠颜 -> Gu Yue Mo Yan\n- 白凝冰 -> Bai Ning Bing\n- 贾金生 -> Jia Jinsheng\n- 贾富 -> Jia Fu\n- 熊力 -> Xiong Li\n- 龟息功 -> Turtle Breathing Art\n\nV. GU WORMS, TREASURES & REVEREND INSANITY LORE\n- 灵石 -> Spirit Stones\n- 元石 -> Primeval Stones\n- 储物戒 / 空间戒指 -> Storage Ring / Spatial Ring\n- 储物袋 -> Storage Bag\n- 须弥戒 -> Sumeru Ring\n- 丹药 -> Medicinal Pills / Elixirs\n- 药鼎 / 炼丹炉 -> Alchemy Cauldron / Pill Furnace\n- 法宝 / 灵宝 -> Magic Treasure / Spiritual Treasure\n- 灵草 / 灵药 -> Spirit Herbs / Medicinal Herbs\n- 阵法 -> Formation / Array\n- 符箓 -> Talisman\n- 傀儡 -> Puppet\n- 蛊 / 蛊虫 -> Gu / Gu worm\n- 蛊师 -> Gu Master\n- 蛊仙 -> Gu Immortal\n- 本命蛊 -> Natal Gu / Vital Gu\n- 春秋蝉 -> Spring Autumn Cicada\n- 酒虫 -> Liquor worm / Wine worm\n- 月光蛊 -> Moonlight Gu\n- 隐鳞蛊 -> Stealth Scale Gu\n- 强取蛊 -> Plunder Gu\n- 驭熊蛊 -> Bear Enslavement Gu\n- 人兽葬生蛊 -> Man-Beast Life Burial Gu\n- 天元宝莲 -> Heavenly Essence Treasure Lotus\n- 白玉蛊 -> White Jade Gu\n- 留影壁 -> Photo-wall / Shadow-wall\n- 千里地狼蛛 -> Thousand Li Earth Wolf Spider\n- 花酒行者 -> Flower Wine Monk\n- 灵兽 / 妖兽 -> Spirit Beast / Demonic Beast\n- 雷冠头狼 -> Lightning Crown Wolf\n- 狡电狈 -> Cunning Electric Bei\n\nVI. UNITS OF MEASUREMENT & TIME\n- 里 -> Li (approx. 500 meters)\n- 丈 -> Zhang (approx. 3.3 meters)\n- 尺 -> Chi (approx. 1/3 meter)\n- 寸 -> Cun (approx. 3.3 cm)\n- 一息 -> Breath of time\n- 一炷香 -> Time to burn an incense stick\n- 一盏茶 -> Time to drink a cup of tea\n- 一个时辰 -> Two hours`,
           lightnovel: `Senpai -> Senpai\nSensei -> Sensei\nMagic Circle -> Magic Circle\nGuild Master -> Guild Master\nStatus Window -> Status Screen\nAdventurer -> Adventurer\nDemon King -> Demon King\nHero -> Hero\nBeastman -> Beastfolk`,
           lotm: `I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES\n- Divine Pronouns: Whenever referring to a deity or divine existence using 祂, translate as "He", "Him", "She", or "Her" (with quotation marks).\n- Quotation Marks: Do NOT use quotation marks around personal names or Tarot Club code names unless present in raw text (e.g. The Fool, The World, Miss Justice, Mr. Star).\n- Sefirah Castle: Always use "in Sefirah Castle", never "on Sefirah Castle".\n- Strict Fidelity: Do NOT extrapolate lore or unmentioned explanations into prose.\n\nII. CORE TERMINOLOGY\n- 诡秘之主 -> Lord of the Mysteries\n- 唯一性 -> Uniqueness\n- 非凡特性 -> Beyonder Characteristic(s)\n- 序列 -> Sequence\n- 途径 -> Pathway\n- 源堡 -> Sefirah Castle\n- 灰雾 -> Gray Fog\n- 克莱恩·莫雷蒂 -> Klein Moretti\n- 克莱恩 -> Klein\n- 愚者 -> The Fool\n- 愚者先生 -> Mr. Fool\n- 世界 -> The World\n- 格尔曼·斯帕罗 -> Gehrman Sparrow\n- 阿蒙 -> Amon / Mr. Error\n- 亚当 -> Adam\n- 真实造物主 -> True Creator\n- 远古太阳神 -> Ancient Sun God\n- 黑夜女神 -> Evernight Goddess / the Evernight Goddess\n- 塔罗会 -> Tarot Club\n- 0-08 -> Quill of Alzuhod`,
@@ -4360,6 +4529,7 @@ p {
                         tip: 'Clicking a preset will safely append terms without overwriting your existing glossary.'
                       })
                     ),
+                    btn({ onClick: () => applyGlossaryPreset('ri'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 hover:scale-105 active:scale-95 transition-all' }, 'Reverend Insanity'),
                     btn({ onClick: () => applyGlossaryPreset('lotm'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border border-violet-200/80 dark:border-violet-800/60 hover:bg-violet-100 dark:hover:bg-violet-900/60 hover:scale-105 active:scale-95 transition-all' }, 'LOTM'),
                     btn({ onClick: () => applyGlossaryPreset('xianxia'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 hover:scale-105 active:scale-95 transition-all' }, 'Xianxia'),
                     btn({ onClick: () => applyGlossaryPreset('lightnovel'), disabled, className: 'px-2.5 py-1 rounded-lg font-semibold bg-pink-50 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 border border-pink-200/80 dark:border-pink-800/60 hover:bg-pink-100 dark:hover:bg-pink-900/60 hover:scale-105 active:scale-95 transition-all' }, 'Light Novel'),
