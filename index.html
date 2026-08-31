@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.2.5';
+    const VERSION = '5.2.6';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3350,7 +3350,32 @@ FORMATTING & STRUCTURE RULES:
         for (const ir of opf.querySelectorAll('spine itemref')) {
           const id = ir.getAttribute('idref'); const mi = opf.querySelector(`manifest item[id="${id}"]`); const href = mi?.getAttribute('href'); if (!href) continue;
           const cp = od + href; if (cp === navH || cp === ncxH || href.toLowerCase().includes('toc.xhtml')) continue;
-          const mt = mi.getAttribute('media-type'); if (mt && (mt === 'application/xhtml+xml' || mt === 'text/html')) { const file = zip.file(cp); if (file) { try { const html = await file.async('text'); const doc = new DOMParser().parseFromString(html, 'text/html'); let txt = extractText(doc.body); let title = titles.get(href.split('#')[0]) || doc.querySelector('h1,h2,h3,h4')?.textContent.trim() || `Chapter ${chapters.length + 1}`; if (txt.trim()) chapters.push({ title, text: txt, doc, zipPath: cp }) } catch (e) { } } }
+          const mt = mi.getAttribute('media-type');
+          if (mt && (mt === 'application/xhtml+xml' || mt === 'text/html')) {
+            const file = zip.file(cp);
+            if (file) {
+              try {
+                const html = await file.async('text');
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                let txt = extractText(doc.body);
+                let title = titles.get(href.split('#')[0]) || titles.get(href) || '';
+                if (!title) {
+                  const headingEl = doc.querySelector('h1,h2,h3,h4, [class*="title"], [class*="heading"], [id*="title"], [class*="chap"]');
+                  if (headingEl && headingEl.textContent.trim()) {
+                    title = headingEl.textContent.trim();
+                  }
+                }
+                if (!title) {
+                  const firstLine = (txt || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0] || '';
+                  if (firstLine && (/^(?:第[0-9零一二三四五六七八九十百千万]+[章节回节卷集部]|Chapter\s+\d+|Section\s+\d+|Volume\s+\d+|[【\[(]?(?:作品相关|内容简介|版权信息|制作信息|引言|序章|前言|楔子)[\]】)]?)/i.test(firstLine) || firstLine.length <= 40)) {
+                    title = firstLine;
+                  }
+                }
+                if (!title) title = `Chapter ${chapters.length + 1}`;
+                if (txt.trim()) chapters.push({ title, text: txt, doc, zipPath: cp });
+              } catch (e) { }
+            }
+          }
         }
         if (!chapters.length) throw new Error('No readable text in EPUB.'); return { chapters, isEpub: true, originalZip: zip };
       };
