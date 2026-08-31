@@ -1,14 +1,15 @@
-export const splitHtml = `<div id="epub-split-tab"
-            class="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-300">
+(function() {
+const splitHtml = `<div id="epub-split-tab"
+            class="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
 
             <input type="file" id="epub-input" accept=".epub" class="hidden" />
             <div id="upload-section"
-                class="p-12 sm:p-20 text-center hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer group border-b-4 border-indigo-500"
+                class="p-12 sm:p-20 text-center hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all cursor-pointer group border-b-2 border-indigo-500/30"
                 ondragover="event.preventDefault(); this.classList.add('ring-4','ring-indigo-400');"
                 ondragleave="this.classList.remove('ring-4','ring-indigo-400');"
                 ondrop="event.preventDefault(); this.classList.remove('ring-4','ring-indigo-400'); if(event.dataTransfer.files.length>0 && event.dataTransfer.files[0].name.endsWith('.epub')) processSplitFile(event.dataTransfer.files[0]);">
                 <div
-                    class="mx-auto w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-sm">
+                    class="mx-auto w-20 h-20 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/60 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 group-hover:shadow-md transition-all shadow-xs">
                     <svg id="upload-icon" xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                         stroke-linejoin="round">
@@ -20,17 +21,15 @@ export const splitHtml = `<div id="epub-split-tab"
                         class="hidden w-10 h-10 border-4 border-indigo-600 dark:border-indigo-400 border-t-transparent rounded-full animate-spin">
                     </div>
                 </div>
-                <h3 id="upload-title" class="text-2xl font-bold text-slate-800 dark:text-white mb-2">Select your .epub
-                    file to Split</h3>
-                <p id="upload-desc" class="text-slate-500 dark:text-slate-400 font-medium">Click here or drag and drop
-                </p>
+                <h3 id="upload-title" class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Select your .epub file to Split</h3>
+                <p id="upload-desc" class="text-slate-500 dark:text-slate-400 font-medium">Click here or drag and drop your EPUB book</p>
                 <div id="loading-progress-wrapper" class="hidden w-full max-w-xs mx-auto mt-4">
-                    <div class="flex justify-between text-xs mb-1 text-slate-400">
+                    <div class="flex justify-between text-xs mb-1 font-semibold text-slate-500 dark:text-slate-400">
                         <span id="loading-progress-status">Loading EPUB...</span>
                         <span id="loading-progress-percent">0%</span>
                     </div>
-                    <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                        <div id="loading-progress-bar" class="bg-indigo-500 h-1.5 transition-all duration-200 ease-out"
+                    <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <div id="loading-progress-bar" class="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full transition-all duration-200 ease-out"
                             style="width: 0%"></div>
                     </div>
                 </div>
@@ -38,32 +37,32 @@ export const splitHtml = `<div id="epub-split-tab"
 
             <div id="editor-section" class="hidden">
                 <div
-                    class="bg-slate-900 dark:bg-black text-white p-6 sm:px-10 flex flex-col items-center gap-4 text-center">
+                    class="bg-slate-900/95 dark:bg-slate-950/95 text-white p-6 sm:px-10 flex flex-col items-center gap-4 text-center border-b border-slate-800">
                     <div id="split-cover-preview"
-                        class="w-24 h-32 bg-slate-800 rounded-lg border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer object-cover shadow-md hover:border-indigo-500 transition-colors"
+                        class="w-24 h-32 bg-slate-800/80 rounded-xl border border-slate-700/80 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer object-cover shadow-md hover:border-indigo-400 hover:scale-105 transition-all"
                         title="Click to upload custom cover">
-                        <span class="text-xs text-slate-400 text-center px-2">Current<br>Cover</span>
+                        <span class="text-xs text-slate-400 font-semibold text-center px-2">Current<br>Cover</span>
                     </div>
 
                     <div class="w-full max-w-lg">
                         <input type="text" id="split-title-input"
-                            class="text-2xl font-bold bg-transparent border-b border-slate-700 hover:border-slate-500 focus:border-indigo-500 focus:outline-none w-full pb-1 text-white text-center placeholder-slate-500 transition-colors mb-2"
+                            class="text-2xl font-bold bg-transparent border-b border-slate-700/80 hover:border-slate-500 focus:border-indigo-400 focus:outline-none w-full pb-1 text-white text-center placeholder-slate-500 transition-all mb-2"
                             placeholder="Book Title">
-                        <p id="chapter-count" class="text-indigo-300 font-medium mb-4">0 story chapters detected</p>
+                        <p id="chapter-count" class="text-indigo-400 font-semibold text-sm mb-4">0 story chapters detected</p>
 
                         <input type="file" id="split-cover-input" accept="image/jpeg, image/png, image/webp"
                             class="hidden">
-                        <div class="flex flex-wrap justify-center gap-3">
+                        <div class="flex flex-wrap justify-center gap-2.5">
                             <button type="button" id="btn-split-cover"
-                                class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 rounded-lg text-sm font-medium transition-colors">
+                                class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-2xs">
                                 Change Cover
                             </button>
                             <button id="btn-reset"
-                                class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 rounded-lg text-sm font-medium transition-colors">
+                                class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-2xs">
                                 Load Different Book
                             </button>
                             <button type="button" id="btn-remove-split-cover"
-                                class="hidden px-4 py-2 bg-red-900/40 hover:bg-red-900/70 border border-red-800/50 text-red-400 rounded-lg text-sm font-medium transition-colors">
+                                class="hidden px-4 py-2 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/60 text-rose-300 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-2xs">
                                 Remove Cover
                             </button>
                         </div>
@@ -72,94 +71,88 @@ export const splitHtml = `<div id="epub-split-tab"
 
                 <!-- Metadata Viewer -->
                 <div id="metadata-viewer"
-                    class="hidden bg-slate-800/80 dark:bg-black/80 backdrop-blur text-white px-6 py-4 sm:px-10">
+                    class="hidden bg-slate-900/90 dark:bg-black/90 backdrop-blur text-white px-6 py-4 sm:px-10 border-b border-slate-800">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">ðŸ“Š Book Metadata</span>
-                        <button id="btn-toggle-metadata" class="text-xs text-indigo-400 hover:underline">Hide</button>
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Book Metadata</span>
+                        <button id="btn-toggle-metadata" class="text-xs text-indigo-400 hover:underline font-semibold cursor-pointer">Hide</button>
                     </div>
                     <div id="metadata-content" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                     </div>
                 </div>
 
-                <div class="p-6 sm:p-10 bg-slate-50 dark:bg-slate-800/50">
+                <div class="p-6 sm:p-8 bg-slate-50/50 dark:bg-slate-950/40">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                         <div class="space-y-6">
                             <div
-                                class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm">
-                                <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4">1. Extract Range</h3>
+                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm backdrop-blur-md">
+                                <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-4">1. Extract Range</h3>
                                 <div class="flex flex-col sm:flex-row items-center gap-3 mb-4">
                                     <div class="w-full">
                                         <label
-                                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Start</label>
+                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Start Chapter</label>
                                         <input type="number" id="range-start" min="1"
-                                            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-lg font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
                                     </div>
-                                    <div class="text-slate-400 font-bold sm:mt-6">TO</div>
+                                    <div class="text-slate-400 font-bold sm:mt-5 text-xs">TO</div>
                                     <div class="w-full">
                                         <label
-                                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">End</label>
+                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">End Chapter</label>
                                         <input type="number" id="range-end" min="1"
-                                            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-lg font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
                                     </div>
                                 </div>
                                 <button id="btn-export-range"
-                                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-sm disabled:opacity-50">Download
-                                    Range</button>
+                                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-sm">Download Range</button>
                             </div>
 
                             <div
-                                class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm">
-                                <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4">2. Split into Parts
-                                </h3>
+                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm backdrop-blur-md">
+                                <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-4">2. Split into Parts</h3>
 
                                 <div class="flex gap-4 mb-4">
                                     <label
-                                        class="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700 dark:text-slate-300">
+                                        class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
                                         <input type="radio" name="split-mode" value="chapters"
-                                            class="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                                            class="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded accent-indigo-600"
                                             checked>
                                         By Chapters
                                     </label>
                                     <label
-                                        class="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700 dark:text-slate-300">
+                                        class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
                                         <input type="radio" name="split-mode" value="size"
-                                            class="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300">
+                                            class="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded accent-indigo-600">
                                         By Size
                                     </label>
                                 </div>
 
                                 <div id="split-mode-chapters-wrapper" class="mb-4">
                                     <label
-                                        class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Chapters
-                                        per book</label>
+                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Chapters per book</label>
                                     <input type="number" id="chunk-size" value="100" min="1"
-                                        class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-lg font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                        class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all">
                                 </div>
 
                                 <div id="split-mode-size-wrapper" class="hidden mb-4">
                                     <label
-                                        class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Target
-                                        Size per book (MB)</label>
+                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Target Size per book (MB)</label>
                                     <input type="number" id="chunk-size-mb" value="20" min="1"
-                                        class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-lg font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                        class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all">
                                 </div>
 
                                 <!-- Keep Only Text Toggle -->
-                                <label class="flex items-center gap-2 cursor-pointer mb-4">
+                                <label class="flex items-center gap-2 cursor-pointer mb-4 select-none">
                                     <input type="checkbox" id="keep-only-text"
-                                        class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
-                                    <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Keep Only Text
-                                        (strip images, fonts, CSS)</span>
+                                        class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 accent-indigo-600">
+                                    <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">Keep Only Text (strip images, fonts, CSS)</span>
                                 </label>
 
                                 <!-- CSS Theme Injection -->
                                 <div class="mb-4">
                                     <label
-                                        class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Reading
-                                        Theme</label>
+                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Reading Theme</label>
                                     <select id="css-theme-inject"
-                                        class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
                                         <option value="none">None (keep original)</option>
                                         <option value="dark">Dark Mode Reading</option>
                                         <option value="sepia">Sepia / Warm</option>
@@ -168,41 +161,40 @@ export const splitHtml = `<div id="epub-split-tab"
                                 </div>
 
                                 <!-- Export Presets -->
-                                <div class="flex gap-2 mb-4">
-                                    <select id="export-presets"
-                                        class="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none">
-                                        <option value="">Load Preset...</option>
-                                    </select>
-                                    <button id="btn-save-preset"
-                                        class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg">Save</button>
+                                <div class="mb-4">
+                                    <label
+                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Split Settings Preset</label>
+                                    <div class="flex gap-2">
+                                        <select id="export-presets"
+                                            class="flex-1 bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
+                                            <option value="">Load Preset...</option>
+                                        </select>
+                                        <button id="btn-save-preset"
+                                            class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">Save</button>
+                                    </div>
                                 </div>
 
                                 <button id="btn-export-chunks"
-                                    class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-sm disabled:opacity-50">Download
-                                    All Parts</button>
-
-                                <!-- Export as ZIP -->
+                                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-sm">Download All Parts</button>
                                 <button id="btn-export-zip"
-                                    class="mt-2 w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl transition-colors shadow-sm text-sm disabled:opacity-50">ðŸ“¦
-                                    Export as Plain ZIP</button>
+                                    class="mt-2 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 text-xs disabled:opacity-50 cursor-pointer">Export as Plain ZIP</button>
                             </div>
                         </div>
 
                         <div class="flex flex-col h-full space-y-6">
 
                             <div
-                                class="bg-slate-900 dark:bg-black rounded-2xl p-5 border border-slate-800 font-mono text-sm overflow-hidden flex flex-col h-48 shrink-0 shadow-sm">
-                                <div class="flex items-center justify-between mb-3 border-b border-slate-700 pb-2">
-                                    <span class="text-slate-400 font-bold uppercase tracking-wider text-xs">Activity
-                                        Console</span>
+                                class="bg-slate-950 dark:bg-black rounded-2xl p-5 border border-slate-800 font-mono text-sm overflow-hidden flex flex-col h-48 shrink-0 shadow-sm">
+                                <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                                    <span class="text-slate-400 font-bold uppercase tracking-wider text-xs">Activity Console</span>
                                 </div>
                                 <div id="status-log"
-                                    class="flex-1 overflow-y-auto custom-scrollbar space-y-1 text-slate-300 pr-2 pb-2">
+                                    class="flex-1 overflow-y-auto custom-scrollbar space-y-1 text-slate-300 pr-2 pb-2 text-xs leading-relaxed">
                                     <div class="text-indigo-400">> System ready.</div>
                                 </div>
 
-                                <div id="split-progress-wrapper" class="hidden mt-3 pt-3 border-t border-slate-700">
-                                    <div class="flex justify-between text-xs mb-1 text-slate-400">
+                                <div id="split-progress-wrapper" class="hidden mt-3 pt-3 border-t border-slate-800">
+                                    <div class="flex justify-between text-xs mb-1 font-semibold text-slate-400">
                                         <span id="split-progress-status">Compressing...</span>
                                         <span id="split-progress-percent">0%</span>
                                     </div>
@@ -215,54 +207,50 @@ export const splitHtml = `<div id="epub-split-tab"
                             </div>
 
                             <div
-                                class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex-1 flex flex-col min-h-[400px]">
+                                class="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-2xl shadow-sm backdrop-blur-md flex-1 flex flex-col min-h-[400px]">
                                 <div class="flex items-center justify-between mb-4">
                                     <div>
-                                        <h3 class="text-lg font-bold text-slate-800 dark:text-white">ðŸ“‹ Chapter
-                                            Selection</h3>
+                                        <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">Chapter Selection</h3>
                                     </div>
                                     <span id="preview-count"
-                                        class="text-xs font-mono bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full whitespace-nowrap">0
-                                        selected</span>
+                                        class="text-xs font-mono font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 px-3 py-1 rounded-full whitespace-nowrap shadow-2xs">0 selected</span>
                                 </div>
 
                                 <div class="flex gap-2 mb-4">
                                     <button id="btn-export-custom"
-                                        class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-sm disabled:opacity-50">
+                                        class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-sm">
                                         Download Checked
                                     </button>
                                     <button id="btn-share-export"
-                                        class="px-4 bg-slate-600 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                                        class="px-4 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 text-xs cursor-pointer"
                                         title="Share via Web Share API">
-                                        ðŸ“¤
+                                        Share
                                     </button>
                                 </div>
 
                                 <!-- Estimated output size -->
                                 <div id="estimated-size"
-                                    class="hidden mb-3 text-xs font-bold text-slate-400 dark:text-slate-500 text-center">
-                                    Estimated output: <span id="estimated-size-value">0</span> MB
+                                    class="hidden mb-3 text-xs font-semibold text-slate-500 dark:text-slate-400 text-center">
+                                    Estimated output: <span id="estimated-size-value" class="font-bold text-slate-800 dark:text-slate-200">0</span> MB
                                 </div>
 
                                 <div class="flex items-center gap-2 mb-3 flex-wrap">
                                     <button id="btn-select-all"
-                                        class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Select
-                                        All</button>
+                                        class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">Select All</button>
                                     <span class="text-slate-300 dark:text-slate-600">|</span>
                                     <button id="btn-deselect-all"
-                                        class="text-xs font-bold text-slate-500 hover:underline">Deselect All</button>
+                                        class="text-xs font-bold text-slate-500 hover:underline cursor-pointer">Deselect All</button>
                                     <span class="text-slate-300 dark:text-slate-600">|</span>
                                     <button id="btn-batch-rename"
-                                        class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline">Batch
-                                        Rename</button>
+                                        class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">Batch Rename</button>
                                 </div>
 
                                 <!-- Chapter Search -->
-                                <input type="text" id="chapter-search" placeholder="ðŸ” Search chapters..."
-                                    class="w-full mb-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400">
+                                <input type="text" id="chapter-search" placeholder="Search chapters..."
+                                    class="w-full mb-3 bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 placeholder-slate-400 transition-all">
 
                                 <div id="chapter-list"
-                                    class="flex-1 overflow-y-auto custom-scrollbar text-sm bg-slate-50 dark:bg-slate-900/50 rounded-xl p-2 border border-slate-200 dark:border-slate-700 divide-y divide-slate-200 dark:divide-slate-700/50 font-mono">
+                                    class="flex-1 overflow-y-auto custom-scrollbar text-xs bg-slate-50/50 dark:bg-slate-950/50 rounded-xl p-2 border border-slate-200/80 dark:border-slate-800/80 divide-y divide-slate-200/80 dark:divide-slate-800/60 font-mono">
                                 </div>
                             </div>
 
@@ -273,13 +261,13 @@ export const splitHtml = `<div id="epub-split-tab"
         </div>
 
         `;
-export const mergeHtml = `<div id="epub-merge-tab"
-              class="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-300">
+const mergeHtml = `<div id="epub-merge-tab"
+              class="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
             <div class="p-8 sm:p-12">
                 <div class="max-w-3xl mx-auto">
                     <div class="text-center mb-8">
                         <div
-                            class="w-16 h-16 bg-fuchsia-100 dark:bg-fuchsia-900/40 text-fuchsia-600 dark:text-fuchsia-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                            class="w-16 h-16 bg-fuchsia-50 dark:bg-fuchsia-950/60 text-fuchsia-600 dark:text-fuchsia-400 border border-fuchsia-200/80 dark:border-fuchsia-800/60 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xs">
                             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round">
@@ -288,29 +276,27 @@ export const mergeHtml = `<div id="epub-merge-tab"
                                 <path d="m20 22-5-5" />
                             </svg>
                         </div>
-                        <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Smart Novel Merger</h2>
-                        <p class="text-slate-500 dark:text-slate-400 mt-2">Combine parts together. This tool now maps
-                            and combines Tables of Contents correctly.</p>
+                        <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Smart Novel Merger</h2>
+                        <p class="text-slate-500 dark:text-slate-400 mt-2 font-medium text-sm">Combine multiple EPUB parts into a unified single book with preserved Table of Contents.</p>
                         <div id="memory-warning"
-                            class="hidden mt-4 inline-block bg-amber-100 text-amber-800 px-4 py-2 rounded-lg text-sm font-medium border border-amber-200">
-                            âš ï¸ Total size exceeds 300MB. The browser tab may crash if your device runs out of RAM.
+                            class="hidden mt-4 inline-block bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-4 py-2 rounded-xl text-sm font-semibold border border-amber-200 dark:border-amber-800/60 shadow-2xs">
+                            Warning: Total size exceeds 300MB. The browser tab may crash if your device runs out of RAM.
                         </div>
                     </div>
 
                     <input type="file" id="merge-input" accept=".epub" multiple class="hidden" />
                     <div id="merge-upload-box"
-                        class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl p-10 text-center hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer mb-6">
-                        <span class="text-lg font-bold text-indigo-600 dark:text-indigo-400">Click to Select Multiple
-                            EPUBs</span>
-                        <span class="block text-slate-400 text-sm mt-1">or drag and drop them here</span>
+                        class="border-2 border-dashed border-slate-300/80 dark:border-slate-700/80 hover:border-fuchsia-500/80 hover:bg-fuchsia-50/20 dark:hover:bg-fuchsia-950/20 rounded-2xl p-10 text-center transition-all cursor-pointer mb-6 group">
+                        <span class="text-base font-bold text-fuchsia-600 dark:text-fuchsia-400 group-hover:scale-105 inline-block transition-transform">Click to Select Multiple EPUBs</span>
+                        <span class="block text-slate-400 text-xs mt-1.5 font-medium">or drag and drop them here</span>
                     </div>
 
                     <div id="merge-list-container" class="hidden space-y-4">
                         <div class="flex items-center justify-between">
-                            <h3 class="font-bold text-slate-700 dark:text-slate-300">Files to Merge:</h3>
-                            <div class="flex items-center gap-4">
+                            <h3 class="font-bold text-sm text-slate-800 dark:text-slate-200">Files to Merge:</h3>
+                            <div class="flex items-center gap-3">
                                 <button id="btn-clear-all-merge"
-                                    class="hidden text-xs font-bold text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:underline flex items-center gap-1">
+                                    class="hidden text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                         stroke-linejoin="round">
@@ -323,7 +309,7 @@ export const mergeHtml = `<div id="epub-merge-tab"
                                     Clear All
                                 </button>
                                 <button id="btn-add-more-merge"
-                                    class="text-xs font-bold text-fuchsia-600 dark:text-fuchsia-400 hover:underline flex items-center gap-1">
+                                    class="text-xs font-bold text-fuchsia-600 dark:text-fuchsia-400 hover:underline flex items-center gap-1 cursor-pointer">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                         stroke-linejoin="round">
@@ -338,36 +324,33 @@ export const mergeHtml = `<div id="epub-merge-tab"
                         <div id="merge-file-list" class="space-y-2 max-h-96 overflow-y-auto custom-scrollbar pr-2 pb-2">
                         </div>
 
-                        <div class="pt-6 border-t border-slate-200 dark:border-slate-700 mt-4">
+                        <div class="pt-6 border-t border-slate-200/80 dark:border-slate-800/80 mt-4">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                 <div>
                                     <label
-                                        class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">New
-                                        Book Title</label>
+                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">New Book Title</label>
                                     <input type="text" id="merge-title" placeholder="e.g. Reverend Insanity (Complete)"
-                                        class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500">
+                                        class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 font-bold text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all">
                                 </div>
 
                                 <div>
                                     <label
-                                        class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Custom
-                                        Cover (Optional)</label>
+                                        class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Custom Cover (Optional)</label>
                                     <div class="flex items-center gap-4">
                                         <div id="cover-preview"
-                                            class="w-12 h-16 bg-slate-200 dark:bg-slate-700 rounded border border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer object-cover"
+                                            class="w-12 h-16 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-300/80 dark:border-slate-700/80 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer object-cover shadow-2xs hover:scale-105 hover:border-fuchsia-400 transition-all"
                                             title="Click to upload custom cover">
-                                            <span class="text-[10px] leading-tight text-slate-400 text-center px-1">Book
-                                                1<br>Cover</span>
+                                            <span class="text-[10px] leading-tight font-semibold text-slate-400 text-center px-1">Book 1<br>Cover</span>
                                         </div>
                                         <div class="flex-1">
                                             <input type="file" id="cover-input"
                                                 accept="image/jpeg, image/png, image/webp" class="hidden">
                                             <button type="button" id="btn-select-cover"
-                                                class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-lg text-sm font-medium transition-colors">
+                                                class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300/80 dark:border-slate-700/80 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer">
                                                 Upload Image
                                             </button>
                                             <button type="button" id="btn-remove-cover"
-                                                class="hidden ml-2 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 rounded-lg text-sm font-medium transition-colors">
+                                                class="hidden ml-2 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 rounded-xl text-xs font-bold hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer">
                                                 Remove
                                             </button>
                                         </div>
@@ -376,11 +359,11 @@ export const mergeHtml = `<div id="epub-merge-tab"
                             </div>
 
                             <details
-                                class="mb-6 group bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                class="mb-6 group bg-slate-50/60 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
                                 <summary
-                                    class="cursor-pointer p-4 font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between select-none">
-                                    <span>Advanced Settings</span>
-                                    <svg class="w-5 h-5 transition-transform group-open:rotate-180"
+                                    class="cursor-pointer p-4 font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between select-none">
+                                    <span>Advanced Metadata & Compression</span>
+                                    <svg class="w-4 h-4 text-slate-400 transition-transform group-open:rotate-180"
                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                         <path fill-rule="evenodd"
                                             d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
@@ -388,31 +371,30 @@ export const mergeHtml = `<div id="epub-merge-tab"
                                     </svg>
                                 </summary>
                                 <div
-                                    class="p-4 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-700">
+                                    class="p-4 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200/80 dark:border-slate-800/80">
                                     <div>
                                         <label
-                                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Author
-                                            / Creator</label>
+                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Author / Creator</label>
                                         <input type="text" id="merge-author"
-                                            class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500">
+                                            class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all">
                                     </div>
                                     <div>
                                         <label
-                                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Publisher</label>
+                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Publisher</label>
                                         <input type="text" id="merge-publisher"
-                                            class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500">
+                                            class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all">
                                     </div>
                                     <div>
                                         <label
-                                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Language</label>
+                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Language</label>
                                         <input type="text" id="merge-language" value="en"
-                                            class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500">
+                                            class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all">
                                     </div>
                                     <div>
                                         <label
-                                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Compression</label>
+                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Compression</label>
                                         <select id="merge-compression"
-                                            class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500 h-[38px]">
+                                            class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all h-[36px]">
                                             <option value="DEFLATE">Small File (DEFLATE max)</option>
                                             <option value="STORE" selected>Fast Speed (STORE uncompressed)</option>
                                         </select>
@@ -421,7 +403,7 @@ export const mergeHtml = `<div id="epub-merge-tab"
                             </details>
 
                             <button id="btn-execute-merge"
-                                class="w-full bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                                class="w-full bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-md shadow-fuchsia-500/20 hover:shadow-fuchsia-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer text-sm">
                                 <span id="merge-btn-text">Merge & Download</span>
                                 <div id="merge-spinner"
                                     class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin">
@@ -430,13 +412,13 @@ export const mergeHtml = `<div id="epub-merge-tab"
 
                             <div id="merge-progress-wrapper" class="hidden mt-4">
                                 <div
-                                    class="flex justify-between text-xs mb-1 font-bold text-slate-500 dark:text-slate-400">
+                                    class="flex justify-between text-xs mb-1 font-semibold text-slate-500 dark:text-slate-400">
                                     <span id="merge-progress-status">Compressing Final File...</span>
                                     <span id="merge-progress-percent">0%</span>
                                 </div>
-                                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                                <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
                                     <div id="merge-progress-bar"
-                                        class="bg-fuchsia-500 h-2 transition-all duration-100 ease-out"
+                                        class="bg-gradient-to-r from-fuchsia-600 to-indigo-600 h-2 transition-all duration-100 ease-out"
                                         style="width: 0%"></div>
                                 </div>
                             </div>
@@ -449,7 +431,7 @@ export const mergeHtml = `<div id="epub-merge-tab"
     </div>
 
 `;
-export const modalHtml = `<!-- Chapter Preview Modal -->
+const modalHtml = `<!-- Chapter Preview Modal -->
     <div id="chapter-preview-modal"
         class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
         onclick="if(event.target===this)this.classList.add('hidden')">
@@ -459,12 +441,21 @@ export const modalHtml = `<!-- Chapter Preview Modal -->
                 <h3 id="preview-modal-title" class="font-bold text-slate-800 dark:text-white truncate">Chapter Preview
                 </h3>
                 <button onclick="document.getElementById('chapter-preview-modal').classList.add('hidden')"
-                    class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-red-500 text-lg font-bold">âœ•</button>
+                    class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-red-500 text-lg font-bold">✕</button>
             </div>
             <div id="preview-modal-body"
                 class="p-6 overflow-y-auto custom-scrollbar text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-serif">
             </div>
         </div>
     </div>
+`;
 
-    `;
+if (typeof window !== 'undefined') {
+    window.splitHtml = splitHtml;
+    window.mergeHtml = mergeHtml;
+    window.modalHtml = modalHtml;
+}
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { splitHtml, mergeHtml, modalHtml };
+}
+})();

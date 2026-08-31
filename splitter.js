@@ -1,4 +1,4 @@
-﻿window.initSplitter = function() {
+window.initSplitter = function() {
 let splitMasterZip = null;
 let splitOpfPath = "";
 let splitOpfDir = "";
@@ -58,8 +58,8 @@ async function processSplitFile(file) {
 
     // Memory pressure warning for very large files
     const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
-    if (file.size > 500 * 1024 * 1024) {
-        showToast(`âš ï¸ Large file detected (${fileSizeMB}MB). Processing may use significant RAM.`, 'warn');
+    if (fileSizeMB > 100) {
+        showToast(`Large file detected (${fileSizeMB}MB). Processing may use significant RAM.`, 'warn');
     }
 
     if (loadingWrapper) {
@@ -174,14 +174,16 @@ async function processSplitFile(file) {
             const sizeStr = chap.fileSize > 1024 ? `${(chap.fileSize / 1024).toFixed(0)}KB` : `${chap.fileSize}B`;
             const wcStr = chap.wordCount > 0 ? `${(chap.wordCount / 1000).toFixed(1)}k words` : '';
             const div = document.createElement('div');
-            div.className = "flex items-start gap-3 py-2 chap-row";
+            div.className = "flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-slate-100/70 dark:hover:bg-slate-800/50 transition-colors chap-row";
             div.setAttribute('data-idref', chap.idref);
             div.innerHTML = `
-                <input type="checkbox" id="chk-${chap.idref}" value="${chap.idref}" class="mt-1 w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer chap-checkbox" checked>
-                <label for="chk-${chap.idref}" class="flex-1 cursor-pointer">
-                    <span class="font-bold text-slate-700 dark:text-slate-300">#${chap.displayIndex}</span>
-                    <span class="chap-name text-slate-500 dark:text-slate-400 ml-1 break-all whitespace-normal" data-idref="${chap.idref}" title="Double-click to rename, click to preview">${chap.customName || chap.originalName}</span>
-                    <span class="text-[10px] text-slate-400 ml-1">${sizeStr}${wcStr ? ' Â· ' + wcStr : ''}</span>
+                <input type="checkbox" id="chk-${chap.idref}" value="${chap.idref}" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer chap-checkbox accent-indigo-600 shrink-0" checked>
+                <label for="chk-${chap.idref}" class="flex-1 cursor-pointer min-w-0 flex items-center justify-between gap-2">
+                    <div class="truncate">
+                        <span class="font-bold text-slate-800 dark:text-slate-200">#${chap.displayIndex}</span>
+                        <span class="chap-name text-slate-600 dark:text-slate-400 ml-1 break-all whitespace-normal font-medium" data-idref="${chap.idref}" title="Double-click to rename, click to preview">${chap.customName || chap.originalName}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-400 font-medium shrink-0">${sizeStr}${wcStr ? ' · ' + wcStr : ''}</span>
                 </label>
             `;
             // Click chapter name to preview
@@ -196,7 +198,7 @@ async function processSplitFile(file) {
                     const html = await f.async('text');
                     const stripped = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
                     const preview = stripped.substring(0, 2000) + (stripped.length > 2000 ? '...' : '');
-                    document.getElementById('preview-modal-title').textContent = `#${chap.displayIndex} â€” ${chap.customName || chap.originalName}`;
+                    document.getElementById('preview-modal-title').textContent = `#${chap.displayIndex} — ${chap.customName || chap.originalName}`;
                     document.getElementById('preview-modal-body').textContent = preview;
                     document.getElementById('chapter-preview-modal').classList.remove('hidden');
                 } catch (err) { showToast('Cannot preview', 'error'); }
@@ -242,9 +244,9 @@ async function processSplitFile(file) {
             const mc = document.getElementById('metadata-content');
             const mv = document.getElementById('metadata-viewer');
             if (mc && mv) {
-                const getTag = (tag) => { const el = splitOpfDoc.getElementsByTagName(tag)[0]; return el ? el.textContent : 'â€”'; };
+                const getTag = (tag) => { const el = splitOpfDoc.getElementsByTagName(tag)[0]; return el ? el.textContent : '—'; };
                 const descEl = splitOpfDoc.getElementsByTagName('dc:description')[0];
-                const desc = descEl ? descEl.textContent.substring(0, 200) : 'â€”';
+                const desc = descEl ? descEl.textContent.substring(0, 200) : '—';
                 mc.innerHTML = `
                     <div><span class="text-slate-500">Author:</span> <span class="font-medium text-white">${getTag('dc:creator')}</span></div>
                     <div><span class="text-slate-500">Publisher:</span> <span class="font-medium text-white">${getTag('dc:publisher')}</span></div>
@@ -427,8 +429,66 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
         logMsg(`Compressing & Zipping...`);
 
         let blob;
-        if (window.location.protocol === 'file:') {
-            console.log("Local file execution detected. Falling back to main-thread zip generation.");
+        try {
+            const serializedFiles = {};
+            let countSerial = 0;
+            for (let path in newZip.files) {
+                if (path === "mimetype" || newZip.files[path].dir) continue;
+                serializedFiles[path] = await newZip.files[path].async("blob");
+                if (++countSerial % 50 === 0) await new Promise(r => setTimeout(r, 2));
+            }
+
+            const workerCode = `
+                importScripts('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+                self.onmessage = async function(e) {
+                    try {
+                        const { filesConfig, compression } = e.data;
+                        const zip = new JSZip();
+                        zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+                        for (let path in filesConfig) {
+                            zip.file(path, filesConfig[path]);
+                        }
+                        const blob = await zip.generateAsync({ type: "blob", compression: compression || "DEFLATE", mimeType: "application/epub+zip" }, function updateCallback(metadata) {
+                            self.postMessage({ type: 'progress', percent: metadata.percent });
+                        });
+                        self.postMessage({ type: 'success', blob: blob });
+                    } catch (err) {
+                        self.postMessage({ type: 'error', error: err.message });
+                    }
+                };
+            `;
+            const blobURL = URL.createObjectURL(new Blob([workerCode], { type: 'application/javascript' }));
+            const worker = new Worker(blobURL);
+            worker.postMessage({ filesConfig: serializedFiles, compression: "DEFLATE" });
+
+            blob = await new Promise((resolve, reject) => {
+                worker.onmessage = (e) => {
+                    const data = e.data;
+                    if (data.type === 'progress') {
+                        const pWrapper = document.getElementById('split-progress-wrapper');
+                        const pBar = document.getElementById('split-progress-bar');
+                        const pPercent = document.getElementById('split-progress-percent');
+                        if (pWrapper) pWrapper.classList.remove('hidden');
+                        if (pBar) pBar.style.width = data.percent.toFixed(0) + '%';
+                        if (pPercent) pPercent.textContent = data.percent.toFixed(0) + '%';
+                    } else if (data.type === 'success') {
+                        resolve(data.blob);
+                        worker.terminate();
+                        URL.revokeObjectURL(blobURL);
+                    } else if (data.type === 'error') {
+                        reject(new Error(data.error));
+                        worker.terminate();
+                        URL.revokeObjectURL(blobURL);
+                    }
+                };
+                worker.onerror = (e) => {
+                    reject(new Error(e.message || "Worker crashed"));
+                    worker.terminate();
+                    URL.revokeObjectURL(blobURL);
+                };
+            });
+        } catch (workerErr) {
+            console.warn("Web Worker failed or unsupported, using main-thread fallback:", workerErr);
             blob = await newZip.generateAsync(
                 { type: "blob", compression: "DEFLATE", mimeType: "application/epub+zip" },
                 function updateCallback(metadata) {
@@ -440,37 +500,6 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
                     if (pPercent) pPercent.textContent = metadata.percent.toFixed(0) + '%';
                 }
             );
-        } else {
-            // Pass to Web Worker
-            const serializedFiles = {};
-            for (let path in newZip.files) {
-                if (path === "mimetype" || newZip.files[path].dir) continue;
-                serializedFiles[path] = await newZip.files[path].async("arraybuffer");
-            }
-
-            const worker = new Worker('zip-worker.js');
-            worker.postMessage({ id: 'split', filesConfig: serializedFiles });
-
-            blob = await new Promise((resolve, reject) => {
-                worker.onmessage = (e) => {
-                    const data = e.data;
-                    if (data.type === 'progress') {
-                        const pWrapper = document.getElementById('split-progress-wrapper');
-                        const pBar = document.getElementById('split-progress-bar');
-                        const pPercent = document.getElementById('split-progress-percent');
-
-                        if (pWrapper) pWrapper.classList.remove('hidden');
-                        if (pBar) pBar.style.width = data.percent.toFixed(0) + '%';
-                        if (pPercent) pPercent.textContent = data.percent.toFixed(0) + '%';
-                    } else if (data.type === 'success') {
-                        resolve(data.blob);
-                        worker.terminate();
-                    } else if (data.type === 'error') {
-                        reject(new Error(data.error));
-                        worker.terminate();
-                    }
-                };
-            });
         }
 
         // Store for share button
@@ -636,7 +665,46 @@ document.querySelectorAll('input[name="split-mode"]').forEach(radio => {
     });
 });
 
-document.getElementById('btn-reset').addEventListener('click', () => location.reload());
+document.getElementById('btn-reset')?.addEventListener('click', () => {
+    // Reset state in place without reloading entire page
+    splitMasterZip = null;
+    splitOpfPath = "";
+    splitOpfDir = "";
+    splitOpfDoc = null;
+    allItems = [];
+    spineItems = [];
+    storyChapters = [];
+    frontMatter = [];
+    baseBookTitle = "Unknown Title";
+    splitCustomCoverFile = null;
+    lastExportBlob = null;
+
+    if (splitCoverInput) splitCoverInput.value = '';
+    if (splitCoverPreview) splitCoverPreview.innerHTML = `<span class="text-xs text-slate-400 font-semibold text-center px-2">Current<br>Cover</span>`;
+    if (btnRemoveSplitCover) btnRemoveSplitCover.classList.add('hidden');
+    if (splitTitleInput) splitTitleInput.value = '';
+
+    const epubInput = document.getElementById('epub-input');
+    if (epubInput) epubInput.value = '';
+
+    const listEl = document.getElementById('chapter-list');
+    if (listEl) listEl.innerHTML = '';
+
+    const statusLog = document.getElementById('status-log');
+    if (statusLog) statusLog.innerHTML = '<div class="text-indigo-400">> System ready.</div>';
+
+    const loadingWrapper = document.getElementById('loading-progress-wrapper');
+    if (loadingWrapper) loadingWrapper.classList.add('hidden');
+
+    const metaViewer = document.getElementById('metadata-viewer');
+    if (metaViewer) metaViewer.classList.add('hidden');
+
+    document.getElementById('editor-section').classList.add('hidden');
+    document.getElementById('upload-section').classList.remove('hidden');
+
+    // Immediately prompt user to choose the new book
+    if (epubInput) epubInput.click();
+});
 
 // --- Chapter Search / Filter ---
 document.getElementById('chapter-search')?.addEventListener('input', (e) => {
@@ -733,7 +801,7 @@ document.getElementById('btn-export-zip')?.addEventListener('click', async () =>
     const a = document.createElement('a');
     a.href = url;
     const title = (splitTitleInput.value.trim() || baseBookTitle);
-    a.download = `${sanitize(title)}_chapters.zip`;
+    a.download = `${sanitizeFilename(title)}_chapters.zip`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('ZIP exported!', 'success');
@@ -757,7 +825,7 @@ document.getElementById('btn-share-export')?.addEventListener('click', async () 
 
     if (lastExportBlob) {
         const title = (splitTitleInput.value.trim() || baseBookTitle);
-        const file = new File([lastExportBlob], `${sanitize(title)}.epub`, { type: 'application/epub+zip' });
+        const file = new File([lastExportBlob], `${sanitizeFilename(title)}.epub`, { type: 'application/epub+zip' });
         try {
             await navigator.share({ files: [file], title });
             showToast('Shared!', 'success');

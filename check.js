@@ -1,10 +1,22 @@
 const fs = require('fs');
 const code = fs.readFileSync('index.html', 'utf8');
-const scriptMatch = code.match(/<script type="module">([\s\S]*?)<\/script>/);
-const scriptContent = scriptMatch[1].replace(/import /g, '//import ').replace(/export /g, '//export ');
-try {
-  new Function(scriptContent);
-  console.log('Syntax is valid');
-} catch (e) {
-  console.log('Syntax error:', e.message);
+const scripts = [...code.matchAll(/<script(?:\s+[^>]*)?>([\s\S]*?)<\/script>/gi)];
+
+let hasError = false;
+scripts.forEach((match, idx) => {
+  const content = match[1].trim();
+  if (!content) return;
+  try {
+    new Function('React', 'ReactDOM', 'lucide', content);
+  } catch (e) {
+    console.error(`Syntax error in script #${idx + 1}:`, e.message);
+    hasError = true;
+  }
+});
+
+if (!hasError) {
+  console.log('Syntax is valid for all inline scripts!');
+} else {
+  process.exit(1);
 }
+

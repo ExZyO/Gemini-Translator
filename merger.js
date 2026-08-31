@@ -1,6 +1,8 @@
 window.initMerger = function() {
 let mergeFiles = [];
 let customCoverFile = null;
+let mergeChapterCounts = new Map(); // file.name -> chapter count
+let mergeWordCounts = new Map(); // file.name -> word count
 
 const mergeInput = document.getElementById('merge-input');
 const mergeUploadBox = document.getElementById('merge-upload-box');
@@ -69,7 +71,7 @@ function handleMergeFiles(files) {
     const existingNames = new Set(mergeFiles.map(f => f.name));
     const dupes = validFiles.filter(f => existingNames.has(f.name));
     if (dupes.length > 0) {
-        showToast(`âš ï¸ Duplicate${dupes.length > 1 ? 's' : ''} detected: ${dupes.map(f => f.name).join(', ')}`, 'warn');
+        showToast(`Duplicate${dupes.length > 1 ? 's' : ''} detected: ${dupes.map(f => f.name).join(', ')}`, 'warn');
     }
 
     mergeFiles = mergeFiles.concat(validFiles);
@@ -79,6 +81,105 @@ function handleMergeFiles(files) {
     if (mergeFiles.length > 0 && !mergeTitleInput.value) {
         let baseName = mergeFiles[0].name.replace('.epub', '').replace(/\([^\)]+\)/g, '').trim();
         mergeTitleInput.value = `${baseName} (Merged)`;
+    }
+
+    // Auto-extract cover from the first EPUB if no custom cover is set
+    if (!customCoverFile && mergeFiles.length > 0) {
+        extractCoverFromEpub(mergeFiles[0]);
+    }
+
+    // Extract chapter counts for newly added files
+    extractEpubStats(validFiles);
+
+    renderMergeList();
+}
+
+async function extractCoverFromEpub(file) {
+    try {
+        const zip = await new JSZip().loadAsync(file);
+        const containerXml = await zip.file("META-INF/container.xml").async("text");
+        const parser = new DOMParser();
+        const opfPath = parser.parseFromString(containerXml, "text/xml").querySelector("rootfile").getAttribute("full-path");
+        const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : "";
+        const opfText = await zip.file(opfPath).async("text");
+        const opfDoc = parser.parseFromString(opfText, "text/xml");
+
+        // Try properties="cover-image" first
+        let coverItem = opfDoc.querySelector('item[properties~="cover-image"]');
+        // Fallback: meta name="cover" -> content id
+        if (!coverItem) {
+            const metaCover = opfDoc.querySelector('meta[name="cover"]');
+            if (metaCover) {
+                const coverId = metaCover.getAttribute("content");
+                coverItem = opfDoc.querySelector(`item[id="${coverId}"]`);
+            }
+        }
+        // Fallback: any image item with "cover" in href or id
+        if (!coverItem) {
+            coverItem = Array.from(opfDoc.querySelectorAll('item[media-type^="image"]')).find(item => {
+                const h = (item.getAttribute('href') || '').toLowerCase();
+                const id = (item.getAttribute('id') || '').toLowerCase();
+                return h.includes('cover') || id.includes('cover');
+            });
+        }
+
+        if (coverItem) {
+            let coverHref = coverItem.getAttribute("href");
+            if (coverHref.startsWith('../')) coverHref = coverHref.replace('../', '');
+            const fullCoverPath = opfDir + coverHref;
+            const coverFile = zip.file(fullCoverPath);
+            if (coverFile) {
+                const coverBlob = await coverFile.async("blob");
+                const blobUrl = URL.createObjectURL(coverBlob);
+                coverPreview.innerHTML = `<img src="${blobUrl}" class="w-full h-full object-cover">`;
+            }
+        }
+    } catch (e) {
+        console.log("Cover extraction skipped:", e.message);
+    }
+}
+
+async function extractEpubStats(files) {
+    const parser = new DOMParser();
+    for (const file of files) {
+        try {
+            const zip = await new JSZip().loadAsync(file);
+            const containerXml = await zip.file("META-INF/container.xml").async("text");
+            const opfPath = parser.parseFromString(containerXml, "text/xml").querySelector("rootfile").getAttribute("full-path");
+            const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : "";
+            const opfText = await zip.file(opfPath).async("text");
+            const opfDoc = parser.parseFromString(opfText, "text/xml");
+
+            const spineItems = opfDoc.querySelectorAll('spine itemref');
+            mergeChapterCounts.set(file.name, spineItems.length);
+
+            // Build id->href map from manifest
+            const manifest = {};
+            opfDoc.querySelectorAll('manifest item').forEach(item => {
+                manifest[item.getAttribute('id')] = item.getAttribute('href');
+            });
+
+            // Read text from each spine item and count words
+            let totalWords = 0;
+            for (const itemref of spineItems) {
+                const idref = itemref.getAttribute('idref');
+                const href = manifest[idref];
+                if (!href) continue;
+                const fullPath = href.startsWith('../') ? href.replace('../', '') : opfDir + href;
+                const entry = zip.file(fullPath);
+                if (!entry) continue;
+                try {
+                    const xhtml = await entry.async("text");
+                    const doc = parser.parseFromString(xhtml, "text/html");
+                    const text = (doc.body ? doc.body.textContent : doc.documentElement.textContent) || '';
+                    const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+                    totalWords += words;
+                } catch (_) { /* skip unreadable */ }
+            }
+            mergeWordCounts.set(file.name, totalWords);
+        } catch (e) {
+            console.log("Stats extraction skipped for", file.name, e.message);
+        }
     }
     renderMergeList();
 }
@@ -102,7 +203,7 @@ function renderMergeList() {
 
     mergeFiles.forEach((f, idx) => {
         const div = document.createElement('div');
-        div.className = "p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg flex items-center justify-between gap-2";
+        div.className = "p-2.5 bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl flex items-center justify-between gap-2 shadow-2xs hover:border-fuchsia-400/50 transition-all";
 
         // Desktop Drag events
         div.draggable = true;
@@ -129,18 +230,28 @@ function renderMergeList() {
         }
 
         // UI FIX: Using flex-nowrap and min-w-0 for the filename to ensure it wraps correctly without pushing buttons
+        const chCount = mergeChapterCounts.get(f.name);
+        const wCount = mergeWordCounts.get(f.name);
+        const sizeKB = (f.size / 1024).toFixed(0);
+        const sizeMB = (f.size / (1024 * 1024)).toFixed(1);
+        const sizeLabel = f.size >= 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
+        const chapLabel = chCount != null ? `${chCount} ch` : '';
+        const wordLabel = wCount != null ? (wCount >= 1000 ? `${(wCount / 1000).toFixed(1)}k words` : `${wCount} words`) : '…';
+        const infoParts = [sizeLabel, chapLabel, wordLabel].filter(Boolean).join(' · ');
+
         div.innerHTML = `
-            <div class="flex items-start gap-2 min-w-0 flex-1 cursor-move select-none p-1">
-                <span class="text-xs font-bold text-fuchsia-500 mt-2">${idx + 1}.</span>
+            <div class="flex items-start gap-2.5 min-w-0 flex-1 cursor-move select-none p-1">
+                <span class="text-xs font-bold text-fuchsia-600 dark:text-fuchsia-400 mt-2">${idx + 1}.</span>
                 <div class="flex flex-col min-w-0 flex-1">
-                    <span class="font-medium text-sm break-words whitespace-normal leading-tight pr-1 text-slate-500 dark:text-slate-400 max-h-10 overflow-hidden text-ellipsis">${f.name}</span>
-                    <input type="text" class="book-label-input mt-1 w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-fuchsia-500" value="${f.customLabel}" placeholder="e.g. Volume 1">
+                    <span class="font-semibold text-xs break-words whitespace-normal leading-tight pr-1 text-slate-800 dark:text-slate-200 max-h-10 overflow-hidden text-ellipsis">${f.name}</span>
+                    <span class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">${infoParts}</span>
+                    <input type="text" class="book-label-input mt-1.5 w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500" value="${f.customLabel}" placeholder="e.g. Volume 1">
                 </div>
             </div>
-            <div class="flex items-center gap-1 shrink-0">
-                <button type="button" class="btn-up w-8 h-8 flex items-center justify-center text-slate-400 hover:text-fuchsia-500 bg-slate-100 dark:bg-slate-800 rounded disabled:opacity-30" ${idx === 0 ? 'disabled' : ''}>â†‘</button>
-                <button type="button" class="btn-down w-8 h-8 flex items-center justify-center text-slate-400 hover:text-fuchsia-500 bg-slate-100 dark:bg-slate-800 rounded disabled:opacity-30" ${idx === mergeFiles.length - 1 ? 'disabled' : ''}>â†“</button>
-                <button type="button" class="btn-remove w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded font-bold">âœ•</button>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <button type="button" class="btn-up w-8 h-8 flex items-center justify-center text-slate-500 hover:text-fuchsia-600 bg-slate-100 dark:bg-slate-800 rounded-lg disabled:opacity-30 transition-all cursor-pointer font-bold" ${idx === 0 ? 'disabled' : ''}>↑</button>
+                <button type="button" class="btn-down w-8 h-8 flex items-center justify-center text-slate-500 hover:text-fuchsia-600 bg-slate-100 dark:bg-slate-800 rounded-lg disabled:opacity-30 transition-all cursor-pointer font-bold" ${idx === mergeFiles.length - 1 ? 'disabled' : ''}>↓</button>
+                <button type="button" class="btn-remove w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg text-sm font-bold transition-all cursor-pointer" aria-label="Remove">✕</button>
             </div>
         `;
 
@@ -174,6 +285,19 @@ function renderMergeList() {
 
         mergeFileList.appendChild(div);
     });
+
+    // Total summary
+    const totalSize = mergeFiles.reduce((acc, f) => acc + f.size, 0);
+    const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
+    const totalChapters = mergeFiles.reduce((acc, f) => acc + (mergeChapterCounts.get(f.name) || 0), 0);
+    const totalWords = mergeFiles.reduce((acc, f) => acc + (mergeWordCounts.get(f.name) || 0), 0);
+    const wordsKnown = mergeFiles.filter(f => mergeWordCounts.has(f.name)).length;
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'mt-3 px-3 py-2 rounded-lg bg-slate-100/60 dark:bg-slate-800/60 text-xs text-slate-500 dark:text-slate-400 text-center';
+    const wordTotal = totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}k` : totalWords;
+    const wordText = wordsKnown === mergeFiles.length ? `${wordTotal} words` : `${wordTotal}+ words (scanning…)`;
+    summaryDiv.textContent = `${mergeFiles.length} books · ${totalChapters} ch · ${wordText} · ${totalSizeMB} MB`;
+    mergeFileList.appendChild(summaryDiv);
 }
 
 // Function to update the manual progress bar during parsing
