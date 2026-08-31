@@ -41,7 +41,7 @@
   <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="./icons.js"></script>
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -215,7 +215,11 @@
         const className = (props && props.className) || '';
         const nameKebab = String(name || '').replace(/([A-Z])/g, '-$1').toLowerCase().replace(/^-/, '');
         const nameLower = String(name || '').toLowerCase();
-        const iconDef = (window.lucide && (
+        const iconDef = (window.LUCIDE_ICONS && (
+          window.LUCIDE_ICONS[name] ||
+          window.LUCIDE_ICONS[nameLower] ||
+          window.LUCIDE_ICONS[nameKebab]
+        )) || (window.lucide && (
           window.lucide[name] ||
           window.lucide[nameLower] ||
           window.lucide[nameKebab] ||
@@ -275,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.0.8';
+    const VERSION = '5.0.9';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;

@@ -1,9 +1,10 @@
-const CACHE_NAME = 'gemini-translator-v5.0.8';
+const CACHE_NAME = 'gemini-translator-v5.0.9';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './styles.css',
     './worker.js',
+    './icons.js',
     './manifest.json',
     './splitter.js',
     './merger.js',
@@ -16,8 +17,7 @@ const ASSETS_TO_CACHE = [
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js',
     'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
-    'https://unpkg.com/lucide@latest'
+    'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'
 ];
 
 self.addEventListener('install', (event) => {
