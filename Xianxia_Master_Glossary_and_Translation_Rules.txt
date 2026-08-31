@@ -1,0 +1,113 @@
+I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
+- Natural Literary Localization: Translate into immersive, fluent English novel prose matching the author's original RAW scene pacing and tone. Do not invent unmentioned lore or distort character personalities.
+- Spoken Dialogue Cadence: Ensure character dialogue flows naturally in English while preserving each speaker's attitude, arrogance, formality, or humility.
+- Chinese Idioms: Translate idioms according to their actual literary meaning in context (e.g. 鸡犬不留 -> "leaving none alive, not even the chickens and dogs"; 人生地不熟 -> "a stranger in an unfamiliar place"). Avoid robotic word-for-word machine translation.
+- Pinyin Capitalization: Strictly maintain proper Pinyin capitalization for Chinese names (e.g., Fang Yuan, Gu Yue Fang Yuan, Jia Jinsheng, Bai Ning Bing).
+- Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical omissions (e.g., "(omitted...)", "(translator note:...)"). Output ONLY the pure translated chapter.
+
+II. COSMOLOGY, CULTIVATION & CORE TERMINOLOGY
+- 气 (Qi) -> Qi
+- 灵气 (Língqì) -> Spiritual Qi / Spiritual Energy
+- 真元 (Zhēnyuán) -> Primeval Essence / True Essence
+- 真气 (Zhēnqì) -> True Qi
+- 丹田 (Dāntián) -> Dantian
+- 经脉 (Jīngmài) -> Meridians
+- 空窍 / 窍 (Kōngqiào) -> Aperture
+- 识海 (Shíhǎi) -> Sea of Consciousness
+- 神识 (Shénshí) -> Divine Sense / Spiritual Sense
+- 道 (Dào) -> Dao / The Way
+- 道心 (Dàoxīn) -> Dao Heart
+- 天道 (Tiāndào) -> Heavenly Dao
+- 天劫 (Tiānjié) -> Heavenly Tribulation
+- 突破 (Tūpò) -> Breakthrough
+- 瓶颈 (Píngjǐng) -> Bottleneck
+- 闭关 (Bìguān) -> Closed-door Cultivation / Seclusion
+- 走火入魔 (Zǒuhuǒ Rùmó) -> Qi Deviation / Cultivation Deviation
+- 心魔 (Xīnmó) -> Heart Demon / Inner Devil
+- 因果 (Yīnguǒ) -> Karma / Cause and Effect
+- 执念 (Zhíniàn) -> Obsession / Lingering Attachment
+- 气海 (Qìhǎi) -> Sea of Qi
+
+III. CULTIVATION REALMS, RANKS & APTITUDE
+- 炼气 (Liànqì) -> Qi Condensation / Qi Refining
+- 筑基 (Zhùjī) -> Foundation Establishment
+- 结丹 / 金丹 (Jīdān / Jīndān) -> Core Formation / Golden Core
+- 元婴 (Yuányīng) -> Nascent Soul
+- 化神 (Huàshén) -> Soul Formation / Spirit Severing
+- 渡劫 (Dùjié) -> Tribulation Transcendence
+- 大乘 (Dàchéng) -> Mahayana / Great Vehicle
+- 飞升 (Fēishēng) -> Ascension / Ascending to Immortality
+- 一转 / 二转 / 三转 / 四转 / 五转 -> Rank 1 / Rank 2 / Rank 3 / Rank 4 / Rank 5 (Gu Master)
+- 六转 / 七转 / 八转 / 九转 -> Rank 6 / Rank 7 / Rank 8 / Rank 9 (Gu Immortal / Immortal)
+- 甲等 -> A-grade (Aptitude)
+- 乙等 -> B-grade (Aptitude)
+- 丙等 -> C-grade (Aptitude)
+- 丁等 -> D-grade (Aptitude)
+
+IV. MARTIAL WORLD, FACTIONS & TITLES OF ADDRESS
+- 正道 (Zhèngdào) -> Righteous Path / Righteous Faction
+- 魔道 (Módào) -> Demonic Path / Devil Path
+- 邪派 (Xiépài) -> Evil Sect / Unorthodox Faction
+- 散修 (Sǎnxiū) -> Rogue Cultivator / Loose Cultivator
+- 宗门 (Zōngmén) -> Sect
+- 世家 / 家族 (Shìjiā / Jiāzú) -> Clan / Aristocratic Family
+- 江湖 (Jiānghú) -> Jianghu / Martial World
+- 武林 (Wǔlín) -> Wulin / Martial Forest
+- 掌门 / 宗主 (Zhǎngmén / Zōngzhǔ) -> Sect Master / Patriarch
+- 族长 (Zúzhǎng) -> Clan Head / Patriarch
+- 太上长老 (Tàishàng Zhǎnglǎo) -> Grand Elder / Supreme Elder
+- 大长老 (Dà Zhǎnglǎo) -> First Elder / Chief Elder
+- 长老 (Zhǎnglǎo) -> Clan Elder / Sect Elder
+- 客卿 (Kèqīng) -> Guest Elder
+- 堂主 (Tángzhǔ) -> Hall Master
+- 执事 (Zhíshì) -> Deacon / Steward
+- 真传弟子 (Zhēnchuán Dìzǐ) -> True Disciple / Legacy Disciple
+- 内门弟子 (Nèimén Dìzǐ) -> Inner Sect Disciple
+- 外门弟子 (Wàimén Dìzǐ) -> Outer Sect Disciple
+- 师兄 (Shīxiōng) -> Senior Brother / Martial Brother
+- 师弟 (Shīdì) -> Junior Brother
+- 师姐 (Shījiě) -> Senior Sister
+- 师妹 (Shīmèi) -> Junior Sister
+- 师尊 / 师父 (Shīzūn / Shīfu) -> Master / Revered Master
+- 徒儿 (Tú'ér) -> Disciple / Apprentice
+- 道友 (Dàoyǒu) -> Fellow Daoist
+- 前辈 (Qiánbèi) -> Senior
+- 晚辈 (Wǎnbèi) -> Junior
+- 少主 / 少爷 (Shàozhǔ / Shàoye) -> Young Master
+- 仙子 (Xiānzǐ) -> Fairy / Celestial Maiden
+
+V. ITEMS, ALCHEMY, GU WORMS & TREASURES
+- 灵石 (Língshí) -> Spirit Stones
+- 元石 (Yuánshí) -> Primeval Stones
+- 储物戒 / 空间戒指 (Chǔwùjiè) -> Storage Ring / Spatial Ring
+- 储物袋 (Chǔwùdài) -> Storage Bag
+- 丹药 (Dānyào) -> Medicinal Pills / Elixirs
+- 药鼎 / 炼丹炉 (Yàodǐng / Dānlú) -> Alchemy Cauldron / Pill Furnace
+- 法宝 / 灵宝 (Fǎbǎo / Língbǎo) -> Magic Treasure / Spiritual Treasure
+- 灵草 / 灵药 (Língcǎo / Língyào) -> Spirit Herbs / Medicinal Herbs
+- 阵法 (Zhènfǎ) -> Formation / Array
+- 阵眼 (Zhènyǎn) -> Eye of the Array / Formation Core
+- 符箓 (Fúlù) -> Talisman
+- 傀儡 (Kuǐlěi) -> Puppet
+- 蛊 / 蛊虫 (Gǔ / Gǔchóng) -> Gu / Gu worm
+- 蛊师 (Gǔshī) -> Gu Master
+- 蛊仙 (Gǔxiān) -> Gu Immortal
+- 留影壁 (Liúyǐngbì) -> Photo-wall / Shadow-wall
+- 千里地狼蛛 (Qiānlǐ Dìlángzhū) -> Thousand Li Earth Wolf Spider
+- 酒虫 (Jiǔchóng) -> Liquor worm / Wine worm
+- 花酒行者 (Huājiǔ Xíngzhě) -> Flower Wine Monk
+- 春秋蝉 (Chūnqiūchán) -> Spring Autumn Cicada
+- 月光蛊 (Yuèguānggǔ) -> Moonlight Gu
+- 灵兽 / 妖兽 (Língshòu / Yāoshòu) -> Spirit Beast / Demonic Beast
+- 内丹 / 妖丹 (Nèidān / Yāodān) -> Inner Core / Beast Core
+
+VI. UNITS OF MEASUREMENT & TIME
+- 里 (Lǐ) -> Li (half a kilometer / approx. 500 meters)
+- 丈 (Zhàng) -> Zhang (approx. 3.3 meters)
+- 尺 (Chǐ) -> Chi (approx. 1/3 of a meter)
+- 寸 (Cùn) -> Cun (approx. 3.3 centimeters)
+- 一息 (Yīxī) -> Breath of time / A single breath
+- 弹指间 (Tánzhǐjiān) -> In the snap of a finger
+- 一炷香 (Yīzhùxiāng) -> Time to burn an incense stick (approx. 5 minutes)
+- 一盏茶 (Yīzhǎnchá) -> Time to drink a cup of tea (approx. 10–15 minutes)
+- 一个时辰 (Yīgè Shíchén) -> Two hours (one ancient Chinese hour)
