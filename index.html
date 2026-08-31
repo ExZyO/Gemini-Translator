@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.1.8';
+    const VERSION = '5.1.9';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -925,10 +925,14 @@
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.3 }
       };
-      if (enableThinking && (model.includes('3.7') || model.includes('thinking'))) {
-        payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
-      } else if (!enableThinking && model.includes('3.7-flash')) {
-        payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      if (enableThinking) {
+        if (model.includes('3.') || model.includes('2.5') || model.includes('thinking')) {
+          payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+        }
+      } else {
+        if (model.includes('3.') || model.includes('2.5') || model.includes('thinking')) {
+          payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
       }
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.generationConfig?.thinkingConfig) {
@@ -959,10 +963,14 @@
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.3 }
       };
-      if (enableThinking && (model.includes('3.7') || model.includes('thinking'))) {
-        payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
-      } else if (!enableThinking && model.includes('3.7-flash')) {
-        payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      if (enableThinking) {
+        if (model.includes('3.') || model.includes('2.5') || model.includes('thinking')) {
+          payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+        }
+      } else {
+        if (model.includes('3.') || model.includes('2.5') || model.includes('thinking')) {
+          payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
       }
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.generationConfig?.thinkingConfig) {
