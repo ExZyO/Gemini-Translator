@@ -263,7 +263,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.4.9';
+    const VERSION = '5.5.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2038,6 +2038,7 @@
       const [useCustomOpenaiModel, setUseCustomOpenaiModel] = useState(false);
       const [customClaudeModel, setCustomClaudeModel] = useState('');
       const [useCustomClaudeModel, setUseCustomClaudeModel] = useState(false);
+      const isStandalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
       const [deferredPrompt, setDeferredPrompt] = useState(null);
 
       useEffect(() => {
@@ -2050,15 +2051,18 @@
       }, []);
 
       const handleInstallPWA = async () => {
-        if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        try {
-          const choice = await deferredPrompt.userChoice;
-          if (choice && choice.outcome === 'accepted') {
-            toast('Gemini Translator installed successfully!');
-          }
-        } catch (e) {}
-        setDeferredPrompt(null);
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          try {
+            const choice = await deferredPrompt.userChoice;
+            if (choice && choice.outcome === 'accepted') {
+              toast('Gemini Translator installed successfully!');
+            }
+          } catch (e) {}
+          setDeferredPrompt(null);
+        } else {
+          alert('📱 How to install as a full App:\n\n• Microsoft Edge (Android):\n  1. Tap the "..." menu at the bottom.\n  2. Tap "Add to phone" (or "...") and select "Install app". (Make sure to choose "Install app", NOT "Add shortcut")\n\n• Google Chrome (Android):\n  1. Tap the 3 dots (top right) -> "Install app".\n\n• Samsung Internet:\n  1. Tap the install icon in the URL bar (or menu -> "Add page to" -> "App screen").');
+        }
       };
 
       // --- Multi-Key Profile Management Helpers ---
@@ -7088,9 +7092,9 @@ p {
               h('span', { className: 'text-[11px] sm:text-xs font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full' }, `v${VERSION}`)
             ),
             h('div', { className: 'flex items-center gap-2' },
-              deferredPrompt && h('button', {
+              !isStandalone && h('button', {
                 onClick: handleInstallPWA,
-                className: 'px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all animate-pulse cursor-pointer',
+                className: `px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer ${deferredPrompt ? 'animate-pulse' : ''}`,
                 title: 'Install App on Phone / Desktop'
               }, ic(Download, 14), h('span', { className: 'hidden sm:inline' }, 'Install App'), h('span', { className: 'sm:hidden' }, 'Install')),
               h('button', { onClick: () => setDarkMode(!darkMode), className: 'p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer', 'aria-label': 'Toggle dark mode' }, ic(darkMode ? Sun : Moon, 20))
