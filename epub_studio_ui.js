@@ -2,12 +2,12 @@
 const splitHtml = `<div id="epub-split-tab"
             class="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
 
-            <input type="file" id="epub-input" accept=".epub" class="hidden" />
+            <input type="file" id="epub-input" accept=".epub,application/epub+zip,application/zip,application/octet-stream,*/*" class="hidden" />
             <div id="upload-section"
                 class="p-12 sm:p-20 text-center hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all cursor-pointer group border-b-2 border-indigo-500/30"
                 ondragover="event.preventDefault(); this.classList.add('ring-4','ring-indigo-400');"
                 ondragleave="this.classList.remove('ring-4','ring-indigo-400');"
-                ondrop="event.preventDefault(); this.classList.remove('ring-4','ring-indigo-400'); if(event.dataTransfer.files.length>0 && event.dataTransfer.files[0].name.endsWith('.epub')) processSplitFile(event.dataTransfer.files[0]);">
+                ondrop="event.preventDefault(); this.classList.remove('ring-4','ring-indigo-400'); if(event.dataTransfer.files.length>0 && event.dataTransfer.files[0].name.toLowerCase().endsWith('.epub')) processSplitFile(event.dataTransfer.files[0]);">
                 <div
                     class="mx-auto w-20 h-20 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/60 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 group-hover:shadow-md transition-all shadow-xs">
                     <svg id="upload-icon" xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"
@@ -48,7 +48,7 @@ const splitHtml = `<div id="epub-split-tab"
                         <input type="text" id="split-title-input"
                             class="text-2xl font-bold bg-transparent border-b border-slate-700/80 hover:border-slate-500 focus:border-indigo-400 focus:outline-none w-full pb-1 text-white text-center placeholder-slate-500 transition-all mb-2"
                             placeholder="Book Title">
-                        <p id="chapter-count" class="text-indigo-400 font-semibold text-sm mb-4">0 story chapters detected</p>
+                        <p id="chapter-count" class="text-indigo-400 font-semibold text-sm mb-4">0 books · 0 ch · 0 words · 0.0 MB</p>
 
                         <input type="file" id="split-cover-input" accept="image/jpeg, image/png, image/webp"
                             class="hidden">
@@ -252,6 +252,10 @@ const splitHtml = `<div id="epub-split-tab"
                                 <div id="chapter-list"
                                     class="flex-1 overflow-y-auto custom-scrollbar text-xs bg-slate-50/50 dark:bg-slate-950/50 rounded-xl p-2 border border-slate-200/80 dark:border-slate-800/80 divide-y divide-slate-200/80 dark:divide-slate-800/60 font-mono">
                                 </div>
+                                <div id="split-stats-summary"
+                                    class="mt-3 px-3 py-2 rounded-lg bg-slate-100/60 dark:bg-slate-800/60 text-xs text-slate-500 dark:text-slate-400 text-center font-medium">
+                                    0 books · 0 ch · 0 words · 0.0 MB
+                                </div>
                             </div>
 
                         </div>
@@ -284,7 +288,7 @@ const mergeHtml = `<div id="epub-merge-tab"
                         </div>
                     </div>
 
-                    <input type="file" id="merge-input" accept=".epub" multiple class="hidden" />
+                    <input type="file" id="merge-input" accept=".epub,application/epub+zip,application/zip,application/octet-stream,*/*" multiple class="hidden" />
                     <div id="merge-upload-box"
                         class="border-2 border-dashed border-slate-300/80 dark:border-slate-700/80 hover:border-fuchsia-500/80 hover:bg-fuchsia-50/20 dark:hover:bg-fuchsia-950/20 rounded-2xl p-10 text-center transition-all cursor-pointer mb-6 group">
                         <span class="text-base font-bold text-fuchsia-600 dark:text-fuchsia-400 group-hover:scale-105 inline-block transition-transform">Click to Select Multiple EPUBs</span>

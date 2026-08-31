@@ -1,3 +1,17 @@
+function formatWordStat(count) {
+    if (!count || count <= 0) return '0 words';
+    if (count >= 1000000) {
+        return `${(count / 1000000).toFixed(2).replace(/\.00$/, '')}M words`;
+    }
+    if (count >= 10000) {
+        return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k words`;
+    }
+    if (count >= 1000) {
+        return `${count.toLocaleString()} words`;
+    }
+    return `${count} words`;
+}
+
 window.initSplitter = function() {
 let splitMasterZip = null;
 let splitOpfPath = "";
@@ -49,6 +63,7 @@ document.getElementById('epub-input').addEventListener('change', (e) => {
     if (e.target.files.length > 0) processSplitFile(e.target.files[0]);
 });
 
+window.processSplitFile = processSplitFile;
 async function processSplitFile(file) {
     // Show loading progress for large files
     const loadingWrapper = document.getElementById('loading-progress-wrapper');
@@ -150,9 +165,8 @@ async function processSplitFile(file) {
             }
         });
 
-        document.getElementById('chapter-count').textContent = `${storyChapters.length} story chapters detected`;
-
         // Compute word count + file size for each chapter
+        let totalSplitWords = 0;
         for (let chap of storyChapters) {
             const fullPath = splitOpfDir + chap.originalName;
             const f = splitMasterZip.files[fullPath];
@@ -163,16 +177,29 @@ async function processSplitFile(file) {
                 try {
                     const txt = await f.async('text');
                     const stripped = txt.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-                    chap.wordCount = stripped.split(' ').filter(w => w.length > 0).length;
+                    const cjk = (stripped.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
+                    const nonCjk = (stripped.replace(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\b\w+\b/g) || []).length;
+                    chap.wordCount = cjk + nonCjk;
+                    totalSplitWords += chap.wordCount;
                 } catch (e) { /* skip */ }
             }
         }
+
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        const wordText = formatWordStat(totalSplitWords);
+        const statsBadgeText = `1 book · ${storyChapters.length} ch · ${wordText} · ${fileSizeMB} MB`;
+
+        const chapCountEl = document.getElementById('chapter-count');
+        if (chapCountEl) chapCountEl.textContent = statsBadgeText;
+
+        const summaryStatsEl = document.getElementById('split-stats-summary');
+        if (summaryStatsEl) summaryStatsEl.textContent = statsBadgeText;
 
         const listEl = document.getElementById('chapter-list');
         listEl.innerHTML = '';
         storyChapters.forEach(chap => {
             const sizeStr = chap.fileSize > 1024 ? `${(chap.fileSize / 1024).toFixed(0)}KB` : `${chap.fileSize}B`;
-            const wcStr = chap.wordCount > 0 ? `${(chap.wordCount / 1000).toFixed(1)}k words` : '';
+            const wcStr = chap.wordCount > 0 ? formatWordStat(chap.wordCount) : '';
             const div = document.createElement('div');
             div.className = "flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-slate-100/70 dark:hover:bg-slate-800/50 transition-colors chap-row";
             div.setAttribute('data-idref', chap.idref);
@@ -233,8 +260,26 @@ async function processSplitFile(file) {
             listEl.appendChild(div);
         });
 
-        const updateCount = () => {
-            document.getElementById('preview-count').textContent = `${document.querySelectorAll('.chap-checkbox:checked').length} selected`;
+                const updateCount = () => {
+            const checked = Array.from(document.querySelectorAll('.chap-checkbox:checked'));
+            const previewEl = document.getElementById('preview-count');
+            if (!previewEl) return;
+            if (checked.length === 0) {
+                previewEl.textContent = '0 selected';
+                return;
+            }
+            let selWords = 0;
+            let selBytes = 0;
+            checked.forEach(cb => {
+                const chap = storyChapters.find(c => c.idref === cb.value);
+                if (chap) {
+                    selWords += (chap.wordCount || 0);
+                    selBytes += (chap.fileSize || 0);
+                }
+            });
+            const wLabel = formatWordStat(selWords);
+            const mbLabel = (selBytes / (1024 * 1024)).toFixed(1);
+            previewEl.textContent = `${checked.length} / ${storyChapters.length} selected · ${wLabel} · ${mbLabel} MB`;
         };
         document.querySelectorAll('.chap-checkbox').forEach(cb => cb.addEventListener('change', updateCount));
         updateCount();

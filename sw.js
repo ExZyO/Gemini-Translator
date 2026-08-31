@@ -1,9 +1,8 @@
-const CACHE_NAME = 'gemini-translator-v4.9.4';
+const CACHE_NAME = 'gemini-translator-v4.9.7';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
-    './utils.js',
     './splitter.js',
     './merger.js',
     './epub_studio_ui.js',
@@ -47,22 +46,44 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    // Prevent caching of translation API calls
     const url = event.request.url;
+
+    // Prevent caching of translation API calls
     if (url.includes('api.deepl.com') ||
         url.includes('generativelanguage.googleapis.com') ||
         url.includes('googleapis.com') ||
+        url.includes('api.deepseek.com') ||
+        url.includes('api.openai.com') ||
+        url.includes('api.anthropic.com') ||
         url.includes('libretranslate')) {
         return;
     }
 
+    // NETWORK-FIRST FOR HTML DOCUMENTS TO PREVENT STALE CACHE BUGS
+    if (event.request.mode === 'navigate' || url.endsWith('.html') || url.endsWith('/')) {
+        event.respondWith(
+            fetch(event.request)
+                .then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200) {
+                        const responseClone = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, responseClone);
+                        });
+                    }
+                    return networkResponse;
+                })
+                .catch(() => caches.match(event.request))
+        );
+        return;
+    }
+
+    // Cache-first with network fallback for other static assets
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             if (cachedResponse) {
                 return cachedResponse;
             }
             return fetch(event.request).then((response) => {
-                // Cache external CDNs and local static assets as they are requested
                 if (event.request.method === 'GET' && (url.startsWith('http://') || url.startsWith('https://'))) {
                     const responseToCache = response.clone();
                     caches.open(CACHE_NAME).then((cache) => {
@@ -74,4 +95,3 @@ self.addEventListener('fetch', (event) => {
         })
     );
 });
-

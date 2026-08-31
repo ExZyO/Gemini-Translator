@@ -5,6 +5,7 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
 1. Translation Priority & Formatting:
 - Format Preservation: Maintain the exact original formatting, line breaks, paragraph spacing, and word spacing.
 - Accuracy & Completeness: Translate with maximum detail and fidelity into English. Never omit, drop, or forget words or sentences.
+- Strict Fidelity & Zero Extrapolation: Translate ONLY what is present in the raw source text. Use the glossary rules and lore descriptions strictly for terminology disambiguation and correct term selection. Do NOT invent, extrapolate, or add background explanations, abilities, or lore into the English prose that were not stated in the original Chinese text.
 - No Page Breaks: Do NOT output "---Page End ---". Format chapter headings strictly as "Chapter [number]: [Name]" or "Chapter [number] - [Name]".
 - Hyperlinks: Ignore all URL links.
 
@@ -22,6 +23,7 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
   * Use full names only when present in the original text.
   * Example: 克莱恩 -> Klein; 克莱恩·莫雷蒂 -> Klein Moretti.
 - Preposition for Sefirah Castle: Always use "in Sefirah Castle" (a location/space), never "on Sefirah Castle" or "the Sefirah Castle".
+- Sequence Referrals & Beyonder Titles: When a character or entity is referred to by their sequence title alone in narrative description (e.g. 一位荣耀者, 一名秘偶大师, 一位秘法师), render it naturally with sequence rank awareness (e.g. "a powerful Sequence 2 Glory", "a Sequence 5 Marionettist", "a Sequence 4 Secrets Sorcerer") when it enhances narrative flow and clarifies power tiers.
 - Capitalization: Do not capitalize terms unless capitalized in standard English novel conventions or indicated in this glossary.
 
 3. Terminology & Phrasing Corrections:
@@ -68,13 +70,152 @@ Fundamental Beyonder Concepts:
 - 序列 (Xulie) -> Sequence
 - 途径 (Tujing) -> Pathway
 
-Essential Vocabulary Words:
-- Entities & Concepts: Avatar, marionette, Worm of Spirit, Spirit Worm, placated, Great Old One, Pillar, Pillar of The Universe, mysticism, characteristics, Beyonder Characteristics, Uniqueness, Apocalypse, Hexes, King of Angels, King of Kings of Angels, True God, Above the Sequences, Grounded Angel / Grounded Angels, Parasitizing, copper whistle, spirituality, self-awareness, Blessed, Mythical Creature, Child of God, doll, dolls, spiritual intuition, convergence, corruption, "eternal daytime", theft, "Theft", "Fooling", "Fooling" authority, half-crazy, half-mad, divinity, godhood.
-- Sefirot & Mystical Locations: grayish-white fog, gray fog, the Hall of Truth, River of Eternal Darkness, Chaos Sea, Sefirah Castle, Brood Hive, Tenebrous World, Nation of Disorder, City of Calamity, Key of Light, Knowledge Moor, Spirit World, Astral World, Underworld, Mind World, Mirror World, Abyss, Cosmos, Calderon City, Foggy Town, City of Miracles Livesyd, long bronze table, mottled long bronze table, ancient mottled bronze table, bluish-black door.
-- Geographical & Historical Terms: Loen, Loen Kingdom, Intis, Intis Republic, Feysac Empire, Feynapotter Kingdom, Tingen, Tingen City, Lenburg, Masin, Segar, East Balam, West Balam, Highlands Kingdom, Bansy Harbour, Binsy Town, Binsy, Sonia Sea, Forsaken Land of the Gods, Forsaken Land of God, the Giant King's Court, ruins of the battle of the gods, battle of the god's ruin, Berserk Sea, City of Silver, Moon City, Chernobyl, Poto Harbour, Waypoint Island, Hanth Island, Sonia Island, Rosted Archipelago / Rorsted Archipelago, Bayam, Gargas Archipelago, Fog Sea, Fog Sea Archipelago, Farim, Banamo Island, Primitive Island, Polar Sea, North Sea, Southern Continent, Northern Continent, Western Continent, Tiana Port, Pritz Harbour, the New City of Silver, Midseashire, Belltaine City, Belltaine, Hornacis, Zouteland Street, Iron Cross Street, Besik Street, Champagne Street, Pelican Street, Daffodil Street, Khoy University.
-- Epochs & Historical Eras: Pre-Epoch, 1st Epoch, 2nd Epoch (Dark Epoch), 3rd Epoch (The Cataclysm / The Cataclysm Epoch / Epoch of The Gods), 4th Epoch (Pale Era, The Iron Age, Early Era of Fire, Dual Era, Warring Era, First Solomon Empire, Tudor Empire, Tudor-Trunsoest United Empire, Tudor-Trunsoest Underground Ruins, Balam Empire, War of The Four Emperors), 5th Epoch.
-- Titles & Factions: Queen Mystic, Arrodes, The Great Smog of Backlund, Flegrea, Admiral of Blood, the magic mirror, Phoenix Ancestor Gregrace, Gregrace, the Primordial One, The Revelation of Evernight, divine revelation, King of the Five Seas, Queen of Stars, King of Immortality, Queen of Ailment, King of Dusk, King of the Black Throne, Pirate Admiral, Pirate Admirals, Vice Admiral Hurricane, Siatas, Groselle, Elven Songster Siatas, Mobet Zoroast, Frunziar Edward, Queen of Calamity Cohinem, Elf King Soniathrym, Cohinem, Soniathrym, Dragon of Imagination Ankewelt, Quill of Alzuhood, Adol, Temperance Faction, Indulgence Faction, Machinery Hivemind, Fertility Order, Mandated Punishers, Inquisition, the Eternal Blazing Sun, the True Creator, Megose, True Creator's child, Giant King Aurmir, God of Dawn Badheil, Wind Angel Leodero, Sanguine Ancestor, Earth Mother, God of Craftsmanship, God of Steam and Machinery, Dragon of Betrayal Herabergen, God of Glory Bladel, the Black Emperor Card, the Black Emperor Card of Blasphemy, Miss Messenger, Chained God, Primordial Moon Faction, Angel of Mercury, Angel of Death, Angel of Redemption, Angel of Life, Angel of Retribution, Angel of the Holy Spirit, Angel of Time, Angel of Stars, Mahmosi, Tirie, Abomination Suah, Winner Enuni, Enzo, Biles, Roy, Phil, Pasha, Weber, Dragon of Nightmare, God Almighty, Twilight Sword, The Annihilation Demonic Wolf, Angel of Imagination, Dark Angel, White Angel, Wisdom Angel, Dark Side of The Universe, Devil Monarch Farbauti, Primordial God Almighty, Church of the God of Combat, Church of the Earth Mother, Church of the Lord of Storms, the Tyrant's Church, Church of the God of Knowledge, Church of the Eternal Blazing Sun, Church of Steam, Church of the God of Steam and Machinery, Church of The Fool, Church of Evernight, The Church of the Evernight Goddess, Nation of the Evernight.
-- Titles & Descriptions: Blazing Danitz, King of the North Ulyssan, Nation of Frost, quasi-demigod, tycoon, daze, dazed expression.
+Essential Vocabulary & Concepts (Chinese -> English):
+
+- 1. Entities & Beyonder Concepts:
+  * 人偶 -> doll / dolls
+  * 分身 -> Avatar
+  * 半疯 -> half-crazy / half-mad
+  * 唯一性 -> Uniqueness
+  * 地面天使 -> Grounded Angel / Grounded Angels
+  * 天使之王 -> King of Angels
+  * 天使之王中的王者 -> King of Kings of Angels
+  * 安抚 -> placated
+  * 寄生 -> Parasitizing
+  * 巫术 / 诅咒 -> Hexes
+  * 序列之上 -> Above the Sequences
+  * 愚弄 -> "Fooling" / "Fooling" authority
+  * 支柱 / 宇宙支柱 -> Pillar / Pillar of The Universe
+  * 旧日 / 伟大旧日 -> Great Old One
+  * 末日 -> Apocalypse
+  * 永昼 -> "eternal daytime"
+  * 污染 / 侵蚀 -> corruption
+  * 灵之虫 -> Worm of Spirit / Spirit Worm
+  * 灵性 -> spirituality
+  * 灵感 / 灵性直觉 -> spiritual intuition
+  * 特性 / 非凡特性 -> Characteristic(s) / Beyonder Characteristics
+  * 真神 -> True God
+  * 眷者 -> Blessed
+  * 神子 -> Child of God
+  * 神性 -> divinity / godhood
+  * 神秘学 -> mysticism
+  * 神话生物 -> Mythical Creature
+  * 秘偶 -> marionette
+  * 窃取 / 偷盗 -> theft / "Theft"
+  * 聚合 -> convergence
+  * 自我意识 -> self-awareness
+  * 铜哨 -> copper whistle (Azik's Copper Whistle)
+
+- 2. Sefirot & Mystical Locations:
+  * 光之钥 -> Key of Light
+  * 冥界 -> Underworld
+  * 卡尔德隆城 -> Calderon City
+  * 奇迹之城利维希德 -> City of Miracles Livesyd
+  * 心智体 / 心灵世界 -> Mind World
+  * 星界 -> Astral World
+  * 星空 / 宇宙 -> Cosmos
+  * 暗影世界 -> Tenebrous World
+  * 母巢 -> Brood Hive
+  * 永暗之河 -> River of Eternal Darkness
+  * 深渊 -> Abyss
+  * 深黑大门 -> bluish-black door
+  * 混沌海 -> Chaos Sea
+  * 源堡 -> Sefirah Castle
+  * 灰白雾气 / 灰雾 -> grayish-white fog / gray fog
+  * 灵界 -> Spirit World
+  * 灾祸之城 -> City of Calamity
+  * 真理大厅 -> the Hall of Truth
+  * 知识荒野 -> Knowledge Moor
+  * 秩序之国 -> Nation of Disorder
+  * 迷雾小镇 -> Foggy Town
+  * 镜中世界 -> Mirror World
+  * 青铜长桌 / 斑驳长桌 -> long bronze table / mottled long bronze table
+
+- 3. Geographical & Historical Terms:
+  * 东拜朗 -> East Balam
+  * 中苏尼亚郡 / 间海郡 -> Midseashire
+  * 伦堡 -> Lenburg
+  * 佐特兰街 -> Zouteland Street
+  * 切尔诺贝利 -> Chernobyl
+  * 加尔加斯群岛 -> Gargas Archipelago
+  * 北大陆 -> Northern Continent
+  * 北海 -> North Sea
+  * 南大陆 -> Southern Continent
+  * 原始岛屿 -> Primitive Island
+  * 因蒂斯 / 因蒂斯共和国 -> Intis / Intis Republic
+  * 塞加尔 -> Segar
+  * 巨人王庭 -> the Giant King's Court
+  * 巴纳莫岛 -> Banamo Island
+  * 廷根 / 廷根市 -> Tingen / Tingen City
+  * 弗萨克 / 弗萨克帝国 -> Feysac / Feysac Empire
+  * 拜亚姆 -> Bayam
+  * 拜朗帝国 -> Balam Empire
+  * 新白银之城 -> the New City of Silver
+  * 普利兹港 -> Pritz Harbour
+  * 普托港 -> Poto Harbour
+  * 月城 -> Moon City
+  * 极地海 -> Polar Sea
+  * 水仙花街 -> Daffodil Street
+  * 汉特岛 -> Hanth Island
+  * 法利姆 -> Farim
+  * 狂暴海 -> Berserk Sea
+  * 班西港 / 班西镇 -> Bansy Harbour / Binsy Town / Bansy
+  * 白银之城 -> City of Silver
+  * 神弃之地 -> Forsaken Land of the Gods / Forsaken Land of God
+  * 神战遗迹 -> ruins of the battle of the gods
+  * 罗思德群岛 -> Rosted Archipelago / Rorsted Archipelago
+  * 航标岛 -> Waypoint Island
+  * 苏尼亚岛 -> Sonia Island
+  * 苏尼亚海 -> Sonia Sea
+  * 蒂亚纳港 -> Tiana Port
+  * 西大陆 -> Western Continent
+  * 西拜朗 -> West Balam
+  * 贝尔丹 / 贝尔丹市 -> Belltaine / Belltaine City
+  * 贝西克街 -> Besik Street
+  * 费内波特 / 费内波特王国 -> Feynapotter / Feynapotter Kingdom
+  * 迷雾小镇 -> Foggy Town
+  * 迷雾海 -> Fog Sea
+  * 迷雾群岛 -> Fog Sea Archipelago
+  * 铁十字街 -> Iron Cross Street
+  * 霍伊大学 -> Khoy University
+  * 霍纳奇斯 / 霍纳奇斯山脉 -> Hornacis
+  * 香槟街 -> Champagne Street
+  * 马锡 -> Masin
+  * 高原王国 -> Highlands Kingdom
+  * 鲁恩 / 鲁恩王国 -> Loen / Loen Kingdom
+  * 鹈鹕街 -> Pelican Street
+
+- 4. Epochs & Historical Eras:
+  * 前纪元 -> Pre-Epoch
+  * 四皇之战 -> War of The Four Emperors
+  * 图铎-特伦索斯特地下遗迹 -> Tudor-Trunsoest Underground Ruins
+  * 图铎-特伦索斯特联合帝国 -> Tudor-Trunsoest United Empire
+  * 图铎帝国 -> Tudor Empire
+  * 所罗门帝国 -> First Solomon Empire / Solomon Empire
+  * 第一纪 -> 1st Epoch (Chaos Epoch)
+  * 第三纪·大灾变 / 神战纪元 -> 3rd Epoch (The Cataclysm / Epoch of The Gods)
+  * 第二纪·黑暗纪元 -> 2nd Epoch (Dark Epoch)
+  * 第五纪·黑铁纪元 -> 5th Epoch (Iron Era)
+  * 第四纪·众神纪元 -> 4th Epoch (Pale Era, Iron Age, War of The Four Emperors)
+
+- 5. Titles & Descriptions:
+  * 不死之王 -> King of Immortality
+  * 五海之王 -> King of the Five Seas
+  * 准半神 -> quasi-demigod
+  * 北方之王尤利塞斯 -> King of the North Ulyssan
+  * 发愣 / 呆滞 / 茫然 -> daze / dazed expression
+  * 大富翁 -> tycoon
+  * 星之女王 -> Queen of Stars
+  * 海盗将军 -> Pirate Admiral / Pirate Admirals
+  * 烈焰达尼兹 -> Blazing Danitz
+  * 疾病中将 -> Queen of Ailment
+  * 贝克兰德大雾霾 -> The Great Smog of Backlund
+  * 霜之国 -> Nation of Frost
+  * 飓风中将 -> Vice Admiral Hurricane
+  * 魔镜 / 魔法镜子 -> the magic mirror
+  * 黄昏中将 -> King of Dusk
+  * 黑夜神谕 / 启示 -> The Revelation of Evernight / divine revelation
+  * 黑座之王 -> King of the Black Throne
 
 III. CHINESE / ENGLISH CHARACTER NAME & ENTITY DIRECTORY
 
@@ -162,30 +303,30 @@ III. CHINESE / ENGLISH CHARACTER NAME & ENTITY DIRECTORY
 IV. COSMOLOGY, SEFIROT, EPOCHS & BEYONDER LAWS
 
 Known Sefirot:
-1. Chaos Sea
-2. Sefirah Castle
-3. Brood Hive
-4. Tenebrous World
-5. Nation of Disorder
-6. City of Calamity
-7. River of Eternal Darkness
-8. Key of Light
-9. Knowledge Moor
+1. 混沌海 -> Chaos Sea
+2. 源堡 -> Sefirah Castle
+3. 母巢 -> Brood Hive
+4. 暗影世界 -> Tenebrous World
+5. 秩序之国 -> Nation of Disorder
+6. 灾祸之城 -> City of Calamity
+7. 永暗之河 -> River of Eternal Darkness
+8. 光之钥 -> Key of Light
+9. 知识荒野 -> Knowledge Moor
 
 Note: The River of Eternal Darkness and City of Calamity symbolize the yet-to-exist hidden 4th Pillar.
 
 Core Beyonder Laws & Principles:
-- Acting Method
-- Divination
-- Tarot Cards
-- Uniquenesses
+- 扮演法 -> Acting Method
+- 占卜 -> Divination
+- 塔罗牌 -> Tarot Cards
+- 唯一性 -> Uniquenesses
 - Only Above the Sequence (ATS) or Great Old One (GOO)
-- Law of Beyonder Characteristics Indestructibility
-- Law of Beyonder Characteristics Convergence
-- Law of Similar Sequence Beyonder Characteristics Conservation
+- 非凡特性不灭定律 -> Law of Beyonder Characteristics Indestructibility
+- 非凡特性聚合定律 -> Law of Beyonder Characteristics Convergence
+- 非凡特性同途径守恒定律 -> Law of Similar Sequence Beyonder Characteristics Conservation
 
 Epochs:
-- Pre-Epoch
+- 前纪元 (Pre-Epoch) -> Pre-Epoch
 - 1st Epoch
 - 2nd Epoch (Dark Epoch)
 - 3rd Epoch (The Cataclysm Epoch / Epoch of The Gods)
@@ -195,38 +336,38 @@ Epochs:
 V. ORGANIZATIONS & FACTIONS
 
 Second Epoch:
-- Great White Brotherhood
+- 大白兄弟会 -> Great White Brotherhood
 
 Third Epoch:
-- Rose Redemption
+- 救赎蔷薇 -> Rose Redemption
 
 Fourth Epoch:
-- Twilight Hermit Order
-- Moses Ascetic Order
-- Demoness Sect
-- Mirror People
-- Secret Order
-- Blood Sanctify Sect
+- 黄昏隐士会 -> Twilight Hermit Order
+- 摩斯苦修会 -> Moses Ascetic Order
+- 魔女教派 -> Demoness Sect
+- 镜中人 -> Mirror People
+- 密修会 -> Secret Order
+- 拜血教 -> Blood Sanctify Sect
 
 Beginning of the Fifth Epoch:
-- Theosophy Order
-- Numinous Episcopate
-- Life School of Thought
-- Rose School of Thought
+- 哲学会 / 通识者组织 -> Theosophy Order
+- 灵教团 -> Numinous Episcopate
+- 生命学派 -> Life School of Thought
+- 玫瑰学派 -> Rose School of Thought
 
 Newly Founded in the Fifth Epoch:
-- Aurora Order
-- Iron and Blood Cross Order
-- Psychology Alchemists
-- Element Dawn
-- Hermits of Fate
-- Naturism Sect
-- Tarot Club
-- Celestial Research Association
+- 极光会 -> Aurora Order
+- 铁血十字会 -> Iron and Blood Cross Order
+- 心理炼金会 -> Psychology Alchemists
+- 要素黎明 -> Element Dawn
+- 命运隐士会 -> Hermits of Fate
+- 自然教派 -> Naturism Sect
+- 塔罗会 -> Tarot Club
+- 天体研究学会 -> Celestial Research Association
 
 Founded After the World War (Fifth Epoch):
-- Curly-Haired Baboons Research Society
-- April Fool's
+- 卷毛狒狒研究会 -> Curly-Haired Baboons Research Society
+- 愚人节 (April Fool's) -> April Fool's
 - Sinners
 - Nightstalkers
 - Bliss Society
@@ -242,102 +383,102 @@ Founded After the World War (Fifth Epoch):
 VI. COMPLETE CHARACTER DIRECTORY (A–Z WITH PATHWAYS)
 
 A
-- Aaron Ceres - Human
-- Ace Snake - Tyrant
-- Adam - Visionary
-- Ademisaul - Wheel of Fortune
-- Agalito - Abyss
-- Agrippina - Mother (Sequence 4 or 3)
-- Aguesid Negan - Justiciar
-- Aiflor - Visionary
-- Ait - Twilight Giant
-- Aiur Moria - Human
-- Albus Medici - Red Priest
-- Alexis - Moon
-- Alfred Hall - Justiciar
-- Alger Wilson - Tyrant / Hanged Man
-- Alice Moretti - Human
-- Alicia Tamara - Black Emperor
-- Alista Tudor - Red Priest
-- Alzuhod - Visionary
-- Amandina - Darkness
-- Amon - Error
-- Amyrius Rieveldt - Justiciar
-- Ancient Sun God - Visionary / Hanged Man / Tyrant / Sun / White Tower (God Almighty)
-- Anderson Hood - Red Priest
-- Andy Haydn - Justiciar
-- Angouleme de Francois - Sun
-- Animal Trainer - Human
-- Ankewelt - Visionary
-- Annette Sanson - Eternal Aeon
-- Anthony Reid - Visionary
-- Anthony Stevenson - Darkness
-- Antigonus - Fool
-- Antoine - Twilight Giant
+- 艾伦·塞雷斯 -> Aaron Ceres - Human
+- 艾斯·斯内克 -> Ace Snake - Tyrant
+- 亚当 -> Adam - Visionary
+- 阿德米索尔 -> Ademisaul - Wheel of Fortune
+- 阿加里图 -> Agalito - Abyss
+- 阿格里皮娜 -> Agrippina - Mother (Sequence 4 or 3)
+- 阿圭西德·尼根 -> Aguesid Negan - Justiciar
+- 艾芙洛 -> Aiflor - Visionary
+- 艾特 -> Ait - Twilight Giant
+- 艾欧·莫里亚 -> Aiur Moria - Human
+- 阿尔布斯·梅迪奇 -> Albus Medici - Red Priest
+- 亚历克西斯 -> Alexis - Moon
+- 阿尔弗雷德·霍尔 -> Alfred Hall - Justiciar
+- 阿尔杰·威尔逊 -> Alger Wilson - Tyrant / Hanged Man
+- 爱丽丝·莫雷蒂 -> Alice Moretti - Human
+- 阿丽莎·塔玛拉 -> Alicia Tamara - Black Emperor
+- 亚利斯塔·图铎 -> Alista Tudor - Red Priest
+- 阿兹霍德 -> Alzuhod - Visionary
+- 阿曼迪娜 -> Amandina - Darkness
+- 阿蒙 -> Amon - Error
+- 阿米里斯·里维尔特 -> Amyrius Rieveldt - Justiciar
+- 远古太阳神 -> Ancient Sun God - Visionary / Hanged Man / Tyrant / Sun / White Tower (God Almighty)
+- 安德森·胡德 -> Anderson Hood - Red Priest
+- 安迪·海顿 -> Andy Haydn - Justiciar
+- 昂古莱姆·德·弗朗索瓦 -> Angouleme de Francois - Sun
+- 驯兽师 -> Animal Trainer - Human
+- 安格尔威德 -> Ankewelt - Visionary
+- 阿内特·桑松 -> Annette Sanson - Eternal Aeon
+- 安东尼·瑞德 -> Anthony Reid - Visionary
+- 安东尼·史蒂文森 -> Anthony Stevenson - Darkness
+- 安提哥努斯 -> Antigonus - Fool
+- 安托万 -> Antoine - Twilight Giant
 - Antoine (Secret Order) - Fool
-- Apollo - Sun
-- Argos - Moon
-- Arianna - Darkness
-- Ariehogg - Visionary
-- Artificial Death - Death
-- Associate Professor - Hermit
-- Atur Sanson - Eternal Aeon
-- Audrey Hall - Visionary
-- Auernia - Moon
-- Aulisa - Door
-- Aurmir - Twilight Giant
-- Aurore Lee - Hermit / Eternal Aeon
-- Awatoma Einhorn - Red Priest
-- Ava Lizier - Human
-- Azik Eggers - Death
+- 阿波罗 -> Apollo - Sun
+- 阿戈斯 -> Argos - Moon
+- 阿里安娜 -> Arianna - Darkness
+- 阿里霍格 -> Ariehogg - Visionary
+- 人造死神 -> Artificial Death - Death
+- 副教授 -> Associate Professor - Hermit
+- 阿图尔·桑松 -> Atur Sanson - Eternal Aeon
+- 奥黛丽·霍尔 -> Audrey Hall - Visionary
+- 奥尔尼娅 -> Auernia - Moon
+- 奥利莎 -> Aulisa - Door
+- 奥尔米尔 -> Aurmir - Twilight Giant
+- 奥尔罗·李 -> Aurore Lee - Hermit / Eternal Aeon
+- 阿瓦托玛·艾因霍恩 -> Awatoma Einhorn - Red Priest
+- 艾娃·莉洁尔 -> Ava Lizier - Human
+- 阿兹克·艾格斯 -> Azik Eggers - Death
 
 B
-- Bainar - Tail-Devourer
-- Bakerland Jean Madan - Red Priest
-- Bard - Error
-- Barranca - Chained
-- Barton - Human
-- Basil - Abyss
-- Batna Comte - Human
-- Baynfel - Hanged Man
-- Beatrice Incourt - Patriarch
-- Belize - Justiciar
-- Bella - Paragon
-- Benson Moretti - Black Emperor
-- Berg - White Tower
-- Bernadette Gustav - Hermit
-- Bethel Abraham - Door
-- Biles - Tyrant
-- Bilt Brando - Unknown (Sequence 7 or 6)
-- Bladel - Twilight Giant
-- Bliss Sanson - Eternal Aeon
-- Bornova Gustav - Paragon
-- Botis - Door
+- 贝纳尔 -> Bainar - Tail-Devourer
+- 贝克兰·让·马丹 -> Bakerland Jean Madan - Red Priest
+- 巴德 -> Bard - Error
+- 巴兰卡 -> Barranca - Chained
+- 巴顿 -> Barton - Human
+- 巴西尔 -> Basil - Abyss
+- 巴特纳·孔泰 -> Batna Comte - Human
+- 拜因费尔 -> Baynfel - Hanged Man
+- 贝亚特丽丝·昂古尔 -> Beatrice Incourt - Patriarch
+- 贝利斯 -> Belize - Justiciar
+- 贝拉 -> Bella - Paragon
+- 班森·莫雷蒂 -> Benson Moretti - Black Emperor
+- 伯格 -> Berg - White Tower
+- 贝尔纳黛·古斯塔夫 -> Bernadette Gustav - Hermit
+- 伯特利·亚伯拉罕 -> Bethel Abraham - Door
+- 贝尔斯 -> Biles - Tyrant
+- 比尔特·布兰多 -> Bilt Brando - Unknown (Sequence 7 or 6)
+- 布拉德尔 -> Bladel - Twilight Giant
+- 布里斯·桑松 -> Bliss Sanson - Eternal Aeon
+- 博尔诺瓦·古斯塔夫 -> Bornova Gustav - Paragon
+- 博提斯 -> Botis - Door
 - Bouvard Pont-Pero - Eternal Aeon
-- Bram Andariel - Abyss
-- Bredt - Human
-- Breeder Master - Mother
-- Brignais - White Tower
-- Brood Hive - Mother / Moon
-- Browns Sauron - Demoness
-- Bulatov Ivan - Twilight Giant
-- Burman - Death
-- Beost - Chaos Primogenitor
+- 布拉姆·安达利尔 -> Bram Andariel - Abyss
+- 布雷特 -> Bredt - Human
+- 培育大师 -> Breeder Master - Mother
+- 布里涅 -> Brignais - White Tower
+- 母巢 -> Brood Hive - Mother / Moon
+- 布朗斯·索伦 -> Browns Sauron - Demoness
+- 布拉托夫·伊万 -> Bulatov Ivan - Twilight Giant
+- 伯曼 -> Burman - Death
+- 贝奥斯特 -> Beost - Chaos Primogenitor
 
 C
-- Caitlyn Hall - Human
-- Cali - Chained
-- Camus Castiya - Justiciar
-- Capim - Unknown (possibly Justiciar)
-- Carnot - Unknown
+- 凯特琳·霍尔 -> Caitlyn Hall - Human
+- 卡利 -> Cali - Chained
+- 卡缪·卡斯蒂亚 -> Camus Castiya - Justiciar
+- 卡平 -> Capim - Unknown (possibly Justiciar)
+- 卡诺 -> Carnot - Unknown
 - Cassandra - Orator
 - Castina - Chaos Primogenitor
 - Cathy - Chaos Primogenitor
-- Cattleya - Hermit (Sequence 4 Mysticologist, Sequence 3 Clairvoyant, Sequence 2 Sage, Sequence 1 Knowledge Emperor)
+- 嘉德丽雅 -> Cattleya - Hermit (Sequence 4 Mysticologist, Sequence 3 Clairvoyant, Sequence 2 Sage, Sequence 1 Knowledge Emperor)
 - Celeste - Demoness
 - Celestial Master - Hermit / Paragon
 - Celestial Thearch - Black Emperor / Justiciar
-- Celestial Worthy of Heaven and Earth for Blessings - Fool / Door / Error (Lord of The Mysteries)
+- 福生玄黄天尊 -> Celestial Worthy of Heaven and Earth for Blessings - Fool / Door / Error (Lord of The Mysteries)
 - Celt - Justiciar
 - Celia Bello - Demoness
 - Cesare Francis - Human
@@ -349,25 +490,25 @@ C
 - Christo - Moon
 - Ciel Gustav - Paragon
 - Cielf June - Paragon
-- Circle of Inevitability - Eternal Aeon (Circle of Inevitability)
+- 宿命之环 -> Circle of Inevitability - Eternal Aeon (Circle of Inevitability)
 - Clarice - Demoness
 - Class Khizi - Unknown
-- Claude - Paragon (Sequence 4 or 3)
+- 克劳德 -> Claude - Paragon (Sequence 4 or 3)
 - Clemence Athana - Visionary
-- Cohinem - Tyrant
-- Colin Iliad - Twilight Giant
+- 科希奈姆 -> Cohinem - Tyrant
+- 科林·伊利亚特 -> Colin Iliad - Twilight Giant
 - Condensed Matter - Hermit
 - Connors Viktor - Human
 - Constace Sanson - Eternal Aeon
 - Cosmi Odora - Moon
 - Crestet Cesimir - Darkness
-- Cynthia - Patriarch
+- 辛西娅 -> Cynthia - Patriarch
 
 D
 - Dabomachie - Twilight Giant
 - Dalberro - Second Law
-- Daly Simone - Death
-- Danitz Dubois - Red Priest
+- 戴莉·西蒙妮 -> Daly Simone - Death
+- 达尼兹·迪布瓦 -> Danitz Dubois - Red Priest
 - Darc Regence - Twilight Giant
 - Darkwill - Moon
 - Davy Raymond - Darkness
@@ -380,7 +521,7 @@ D
 - Demoness of Purple - Demoness
 - Demoness of Scarlet - Demoness
 - Demoness of Silver - Demoness
-- Derrick Berg - Sun
+- 戴里克·伯格 -> Derrick Berg - Sun
 - Devajo Andariel - (Unassigned)
 - Devil Dog - Abyss
 - Diest - Red Priest
@@ -388,7 +529,7 @@ D
 - Doll Messenger - Unknown
 - Doragu Gale - Human
 - Dorian Gray Abraham - Door
-- Dunn Smith - Darkness
+- 邓恩·史密斯 -> Dunn Smith - Darkness
 
 E
 - Earl Hall - Human
@@ -397,41 +538,41 @@ E
 - Edefana - Visionary
 - Edmonton - Unknown (Mid Sequence)
 - Edwards - Human
-- Edwina Edwards - White Tower (Sequence 4 Prophet)
+- 艾德雯娜·爱德华兹 -> Edwina Edwards - White Tower (Sequence 4 Prophet)
 - Egor Einhorn - Red Priest
 - Einhorn - Red Priest
-- Elizabeth - Human
+- 伊丽莎白 -> Elizabeth - Human
 - Elland Kag - Justiciar
 - Elodie - Human
 - Elros Einhorn - Red Priest
-- Emlyn White - Moon
-- Enzo - Wheel of Fortune
-- Eric - Darkness
-- Ernes Boyar - Moon
+- 埃姆林·怀特 -> Emlyn White - Moon
+- 恩佐 -> Enzo - Wheel of Fortune
+- 埃里克 -> Eric - Darkness
+- 欧内斯特·博亚尔 -> Ernes Boyar - Moon
 - Escalante Oseleka - Visionary
-- Eternal Blazing Sun - Sun
-- Evernight Goddess - Darkness / Death / Twilight Giant (Eternal Darkness)
+- 永恒烈阳 -> Eternal Blazing Sun - Sun
+- 黑夜女神 -> Evernight Goddess - Darkness / Death / Twilight Giant (Eternal Darkness)
 
 F
-- Farbauti - Abyss
+- 法布提 -> Farbauti - Abyss
 - Fernandez Oro - Condenser
 - Flameng - Human
-- Flegrea - Fool
+- 弗雷格拉 -> Flegrea - Fool
 - Flight Ken - Chained
-- Flora Jacob - Error
+- 弗罗拉·雅各 -> Flora Jacob - Error
 - Floren Sauron - Red Priest
-- Fors Wall - Door
+- 佛尔思·沃尔 -> Fors Wall - Door
 - Framis Cage - Human
 - Franca Roland - Demoness
-- Frank Lee - Mother
+- 弗兰克·李 -> Frank Lee - Mother
 - Mr. Franky - Human
-- Frunziar Edward - Justiciar
-- Frye - Death
+- 弗朗齐亚·爱德华 -> Frunziar Edward - Justiciar
+- 弗莱 -> Frye - Death
 - Funkel - Human
 
 G
 - Gaard II - Tyrant
-- Gabriel - Human
+- 加百列 -> Gabriel - Human
 - Galis Kevin - Moon
 - Gandalf - Twilight Giant (Sequence 4 or 3)
 - Gardner Martin - Red Priest
@@ -439,18 +580,18 @@ G
 - George Augustus III - Black Emperor
 - Georgina Augustus - Justiciar
 - Giant - Hanged Man
-- Glacis - Human
+- 格拉西斯 -> Glacis - Human
 - Glaint - Moon
-- God of Combat - Twilight Giant
-- God of Knowledge and Wisdom - White Tower
-- God of Steam and Machinery - Paragon
+- 战神 -> God of Combat - Twilight Giant
+- 知识与智慧之神 -> God of Knowledge and Wisdom - White Tower
+- 蒸汽与机械之神 -> God of Steam and Machinery - Paragon
 - Goddess of Fate - Eternal Edict
 - Golden Buddha - Wheel of Fortune / Key of Light (Quasi)
 - Gonlun - Twilight Giant
 - Gray - Twilight Giant
-- Gregrace - Death
+- 格蕾嘉莉 -> Gregrace - Death
 - Grimm - Human
-- Groselle - Twilight Giant
+- 格罗塞尔 -> Groselle - Twilight Giant
 - Grove Augustus - Justiciar
 - Guei - White Tower
 - Guillaume Benet - Eternal Aeon
@@ -465,7 +606,7 @@ H
 - Harrison - Error
 - Hart - Chaos Primogenitor
 - Hawick - Death
-- Hazel Macht - Error
+- 海柔尔·马赫特 -> Hazel Macht - Error
 - Headmaster - Moon
 - Heath Doyle - Hanged Man
 - Hedsey - Patriarch
@@ -487,7 +628,7 @@ H
 - Horamick Haydn - Paragon
 - Howl Constantine - Tyrant
 - Hugues Artois - Human
-- Hvin Rambis - Visionary
+- 赫温·兰比斯 -> Hvin Rambis - Visionary
 - Heloise - Eternal Edict
 
 I
@@ -497,23 +638,23 @@ I
 - Ikanser Bernard - Paragon
 - Ilya - Darkness
 - Imre - Sun (Mid Sequence)
-- Ince Zangwill - Darkness
-- Inextinguishable Ravings - Everlasting
-- Isengard Stanton - White Tower
+- 因斯·赞格威尔 -> Ince Zangwill - Darkness
+- 不熄的呓语 -> Inextinguishable Ravings - Everlasting
+- 艾辛格·斯坦顿 -> Isengard Stanton - White Tower
 - Isotope - Hermit
 - Ive - Patriarch
 - Iveljsta Eggers - Chained
 
 J
-- Jack - Human
+- 杰克 -> Jack - Human
 - Jack Walton - Paragon
-- Jacob - Door
+- 雅各 -> Jacob - Door
 - Jahn Kottman - Tyrant
 - Jasmine - Human
 - Jason - Chained
 - Jason Beria - Abyss
 - Jebus Lata - Chaos Mist
-- Jenna - Demoness
+- 简娜 -> Jenna - Demoness
 - Jevington Augustus - Human
 - Jimmy Necker - Human
 - Jodeson - Error
@@ -532,12 +673,12 @@ K
 - Kaslana - Justiciar
 - Kaspars Kalinin - Human
 - Katarina Pelle - Demoness
-- Katy - Justiciar
+- 凯蒂 -> Katy - Justiciar
 - Kenley White - Darkness
 - Kircheis - Abyss
 - Kisma - Hanged Man
 - Klarman - Moon
-- Klein Moretti - Fool / Door / Error (Lord of The Mysteries)
+- 克莱恩·莫雷蒂 -> Klein Moretti - Fool / Door / Error (Lord of The Mysteries)
 - Kmerolo - Hermit
 - Kolobo - Wheel of Fortune
 - Kotar - Fool
@@ -548,36 +689,36 @@ K
 L
 - La Nou Bruch - Moon
 - Lady Moon - Chaos Primogenitor
-- Lanevus - Error
-- Larrion - Twilight Giant
+- 兰尔乌斯 -> Lanevus - Error
+- 拉里翁 -> Larrion - Twilight Giant
 - Lawrence Nord - Door
 - Leah Bellot - Fool
 - Legere - Twilight Giant
 - Leomaster - Hanged Man
-- Leon - Hermit
-- Leonard Mitchell - Darkness
+- 昂 -> Leon - Hermit
+- 伦纳德·米切尔 -> Leonard Mitchell - Darkness
 - Leticia Dolera - Human
 - Lewis Wien - Door
 - Lez - Tail-Devourer
 - Liaval - Twilight Giant
-- Lilith - Mother
+- 莉莉丝 -> Lilith - Mother
 - Lius - Death
 - Loban - Human
 - Lockhart Siakam - Black Emperor
 - Loki - Fool
-- Lord of Storms - Tyrant
+- 风暴之主 -> Lord of Storms - Tyrant
 - Lorotta - Death
 - Louis Gustav - Unknown (Sequence 4 or 3)
 - Louis Lund - Chaos Primogenitor
-- Lovia Tiffany - Hanged Man
+- 洛薇雅·蒂芙尼 -> Lovia Tiffany - Hanged Man
 - Luan - Black Emperor
 - Lucca Brewster - White Tower
 - Lucy Brook - Human
-- Ludwell - Death
+- 拉德维尔 -> Ludwell - Death
 - Ludwig Phil - Tail-Devourer
 - Lugano Toscano - Mother
 - Luke Sammer - Human
-- Lumian Lee - Red Priest / Demoness (Calamity of Destruction)
+- 卢米安·李 -> Lumian Lee - Red Priest / Demoness (Calamity of Destruction)
 - Luo Shan - Shaman
 - Lutique - Sun
 
@@ -589,7 +730,7 @@ M
 - Malevolent Dragon - Red Priest / Demoness (Calamity of Destruction)
 - Margot - Red Priest
 - Marianne - Darkness
-- Maric - Chained
+- 马里奇 -> Maric - Chained
 - Mary Schott - Human
 - Mason - Twilight Giant
 - Mason Dere - Justiciar
@@ -597,9 +738,9 @@ M
 - Maury Macht - Human
 - Maveti - Chained
 - Maysanchez - Death
-- Medici - Red Priest
-- Megose - Human
-- Melissa Moretti - Paragon
+- 梅迪奇 -> Medici - Red Priest
+- 梅戈斯 -> Megose - Human
+- 梅丽莎·莫雷蒂 -> Melissa Moretti - Paragon
 - Meursault - Red Priest
 - Michel - Human
 - Mike Joseph - Human
@@ -609,14 +750,14 @@ M
 - Miss Sloth - Visionary
 - Mistral - Moon
 - Mithor King - Black Emperor
-- Mobet Zoroast - Error
+- 莫贝特·索罗亚斯德 -> Mobet Zoroast - Error
 - Mocoxidos - Second Law
-- Monarch of Decay - Second Law
-- Mother Goddess of Depravity - Mother / Moon / Chaos Primogenitor
-- Mother of the Sky - Darkness
-- Mother Tree of Desire - Abyss / Chained / Patriarch
-- Mr. A - Hanged Man
-- Mr. Door - Door
+- 衰败君王 -> Monarch of Decay - Second Law
+- 堕落母神 -> Mother Goddess of Depravity - Mother / Moon / Chaos Primogenitor
+- 天之母亲 (0-17) -> Mother of the Sky - Darkness
+- 欲望母树 -> Mother Tree of Desire - Abyss / Chained / Patriarch
+- A先生 -> Mr. A - Hanged Man
+- 门先生 (伯特利·亚伯拉罕) -> Mr. Door - Door
 - Mr. Envy - Visionary
 - Mr. Gluttony - Visionary
 - Mr. Harry - Visionary
@@ -634,19 +775,19 @@ O
 - Old Kohler - Human
 - Old Neil - Hermit
 - Olmer - Moon
-- Omebella - Mother
+- 欧弥贝拉 -> Omebella - Mother
 - Orianna - Human
 - Original Creator - All Pathways
 - Orpheus - Sun
-- Ouroboros - Wheel of Fortune
+- 乌洛琉斯 (命运天使) -> Ouroboros - Wheel of Fortune
 - Ozil - Twilight Giant
 
 P
 - Pacheco Dwayne - Black Emperor
 - Palenque Taciblius - Unknown (Sequence 4)
 - Pallas Negan - Justiciar
-- Pallez Zoroast - Error
-- Panatiya - Demoness
+- 帕列斯·索罗亚斯德 -> Pallez Zoroast - Error
+- 潘娜蒂亚 -> Panatiya - Demoness
 - Parker - Justiciar
 - Parvi - Human
 - Pasha - Red Priest
@@ -654,9 +795,9 @@ P
 - Pauli Derlau - Visionary
 - Phil - Error
 - Portland Moment - Paragon
-- Primordial Demoness - Demoness
+- 原初魔女 (奇克) -> Primordial Demoness - Demoness
 - Primordial God Almighty - Visionary / Hanged Man / Tyrant / Sun / White Tower (God Almighty)
-- Primordial Hunger - Tail-Devourer
+- 原初饥饿 -> Primordial Hunger - Tail-Devourer
 
 Q
 - Qilangos - Tyrant
@@ -664,17 +805,17 @@ Q
 
 R
 - Rafter Pound - Black Emperor
-- Ralph - Human
+- 拉尔夫 -> Ralph - Human
 - Randall Valentinus - Tyrant
 - Ray Bieber - Human
 - Rebach - Human
-- Reinette Tinekerr - Chained
+- 蕾妮特·缇尼科尔 -> Reinette Tinekerr - Chained
 - Ricciardo - Wheel of Fortune
 - Richardson - Human
-- Roland - Mother
+- 罗兰 -> Roland - Mother
 - Rosago - Fool
-- Roselle Gustav - Black Emperor
-- Roy - Twilight Giant
+- 罗塞尔·古斯塔夫 -> Roselle Gustav - Black Emperor
+- 罗伊 -> Roy - Twilight Giant
 - Roy King - Wheel of Fortune
 - Royale Reideen - Darkness
 - Rozanne - Human
@@ -682,10 +823,10 @@ R
 
 S
 - Saint Germain - Human
-- Salinger - Death
-- Sasrir - Hanged Man
-- Sauron - Red Priest
-- Sauron-Einhorn-Medici - Red Priest
+- 萨林格尔 -> Salinger - Death
+- 萨斯利尔 -> Sasrir - Hanged Man
+- 索伦 -> Sauron - Red Priest
+- 索伦 -> Sauron - Einhorn-Medici - Red Priest
 - Savigny Solomon - Black Emperor
 - Seeka Tron - Darkness
 - Selena - Darkness
@@ -694,26 +835,26 @@ S
 - Serapis - Human
 - Shanks - Chained
 - Sharon - Demoness
-- Sharron - Chained
+- 莎伦 -> Sharron - Chained
 - Shermane - Demoness
 - Sia Palenque Eggers - Death
-- Siatas - Tyrant
+- 西娅朵 -> Siatas - Tyrant
 - Sirius Arapis - Hanged Man
 - Smine - Human
 - Snowman - Sun
 - Soest - Darkness
 - Solomon - Black Emperor
 - Son of Chaos - Black Emperor / Justiciar / Chaos Mist
-- Soniathrym - Tyrant
+- 索尼亚斯利姆 (精灵王) -> Soniathrym - Tyrant
 - Squall - Abyss
 - Stelyn Sammer - Human
 - Steph - Hanged Man
 - Stephen Hampres - Visionary
 - Steve - Chained
 - Stratford - Justiciar
-- Suah - Chained
+- 斯厄阿 (神孽) -> Suah - Chained
 - Suited Clown - Fool
-- Supernova Dominator - Condenser
+- 超星主 -> Supernova Dominator - Condenser
 - Susie - Visionary
 - Swain - Tyrant
 - Syndras - Human
@@ -724,9 +865,9 @@ T
 - Tony Twain - Red Priest
 - Tracey - Demoness
 - Tracy - Demoness
-- Trissy - Demoness
-- True Creator - Hanged Man
-- Trunsoest - Justiciar
+- 特莉丝 -> Trissy - Demoness
+- 真实造物主 -> True Creator - Hanged Man
+- 特伦索斯特 -> Trunsoest - Justiciar
 - Tutanssess II - Chained
 - Tyre - Chained
 
@@ -735,8 +876,8 @@ U
 - Ukfa Connerchris - Mother
 - Ukfa - (Likely same as Ukfa Connerchris)
 - Ulika - Death
-- Ulyssan - Unknown
-- Utravsky - Twilight Giant
+- 尤利塞斯 -> Ulyssan - Unknown
+- 乌特拉夫斯基 -> Utravsky - Twilight Giant
 
 V
 - Venithan - Human
@@ -745,7 +886,7 @@ V
 
 W
 - Waite Chirmont - Twilight Giant
-- Walter - Human
+- 沃尔特 -> Walter - Human
 - Waymandy - Moon
 - Weber - Human
 - Weimer - Human
@@ -758,21 +899,21 @@ W
 - Windsor Behring - Moon
 
 X
-- Xio Derecha - Justiciar
+- 休·迪尔查 -> Xio Derecha - Justiciar
 
 Z
-- Zaratul - Fool
+- 查拉图 -> Zaratul - Fool
 - Zaratul Senior - Fool
 - Zatwen - Chained
 - Zoroast - Error
 
 VII. HONORIFIC NAMES & DIVINE TITLES
 
-- Adam:
+- 亚当 (Adam):
   * After fusing with the True Creator:
     "The Lord that Created Everything, The Omnipotent and Omniscient God, The Lord who Reigns Behind the Curtain of Shadows, The Ruler of the Mind World, The Degenerate Nature of all Living Things."
 
-- Amon:
+- 阿蒙 (Amon):
   * King of Angels:
     "The Clock-Hand that Tampers with Time, The Shadow that Roams across Fate, The Embodiment of Deceit and Trickery."
   * God:
@@ -780,22 +921,22 @@ VII. HONORIFIC NAMES & DIVINE TITLES
   * Current:
     "The Shadow Wandering through Fate, The Past God of Deceit, The Destined Messiah."
 
-- Ancient Sun God:
+- 远古太阳神 (Ancient Sun God):
   "The Lord that Created Everything, The Omnipotent and Omniscient, The Source of Everything Great, The Beginning and The End, The God of Gods, Ruler of the vast Astral World."
 
 - Arrodes:
   "Eyes that watch All Living Beings; The Stigmata from the Primordial Land; The Omniscient One who serves The Fool; The Great Arrodes."
 
-- Awatoma Einhorn:
+- 阿瓦托玛·艾因霍恩 (Awatoma Einhorn):
   "The Ruler of the Fog of the Battlefield; The Symbol of Weather Flux; The Totem of the Storm and Lightning; The Great Awatoma Einhorn."
 
-- Bernadette Gustav:
+- 贝尔纳黛·古斯塔夫 (Bernadette Gustav):
   "The Sacred Spirit that Pursues Knowledge; The Mysterious World's Lighthouse; Eyes that Pry into Fate; The Royalty above the Sea; The Pure and Holy Bernadette Gustav."
 
-- Bethel Abraham:
+- 伯特利·亚伯拉罕 (Bethel Abraham):
   "Great Door of All Doors; Guide of Endless Cosmos; Key to all Mysterious Worlds."
 
-- Celestial Worthy of Heaven and Earth for Blessings:
+- 福生玄黄天尊 (Celestial Worthy of Heaven and Earth for Blessings):
   * General:
     "Lord of Mysteries; King of Space-Time; Beacon of Destiny; Embodiment of Sefirah Castle; Dominator of the Spirit World."
   * Western Continent (Daoist Honorific Name):
@@ -807,22 +948,22 @@ VII. HONORIFIC NAMES & DIVINE TITLES
 - Circle of Inevitability:
   "The Eternal Cycle; The Predestined Destiny; Embodiment of Cause, Effect, and Process; Symbol of Past, Present, and Future." (Note: During prayers and rituals, the latter two segments may be adapted in various ways).
 
-- Death:
+- 死神 (萨林格尔) (Death):
   "The Essence of Death; Lord of the Dead; Final Home to all Living-beings."
 
-- Earth Mother:
+- 大地母神 (Earth Mother):
   "The Source of Life; The Mother of All Things; The Propagation of the Fertile Land; The Symbol of the Crimson Moon and Reproduction; The Destination and the Starting Point of Everything."
 
-- Eternal Blazing Sun:
+- 永恒烈阳 (Eternal Blazing Sun):
   "Eternal Blazing Sun; Inextinguishable Light; Embodiment of Order; God of Contracts; Guardian of Businesses." (Also has the proselytizing title "Father of All Life", though beyond "His" mystical domain).
 
-- Evernight Goddess:
+- 黑夜女神 (Evernight Goddess):
   * Former:
     "The Evernight Goddess stands higher than the cosmos and more eternal than eternity. The Lady of Crimson, The Mother of Concealment, The Empress of Misfortune and Horror, Mistress of Repose and Silence."
   * Current (Post-1350 World War, relinquished Moon authority):
     "The Evernight Goddess stands higher than the cosmos and more eternal than eternity. The Mother of Concealment, The Empress of Misfortune and Horror, Mistress of Repose and Silence."
 
-- Fors Wall:
+- 佛尔思·沃尔 (Fors Wall):
   "Cosmic Traveler, Beholden to the King of Yellow and Black, The Sorcerer chronicling the World." (Carries the power to conceal secrets).
 
 - Franca Roland (God of Disease):
@@ -831,7 +972,7 @@ VII. HONORIFIC NAMES & DIVINE TITLES
   * Current:
     "The Ancient One who transcends time, One who remains forever young, Envoy of Disease and Plague, Lady who spreads pain and despair, Protector of humanity's adventurous spirit, Companion to the Great Malady God."
 
-- Gehrman Sparrow:
+- 格尔曼·斯帕罗 (Gehrman Sparrow):
   * First:
     "The Blessed of the Spirit World and the Sefirah Castle; The Mystery stemming from ancient times; The Witness of an extended history; Protector of Backlund magic and drama performers; The Great Gehrman Sparrow."
   * Second:
@@ -842,13 +983,13 @@ VII. HONORIFIC NAMES & DIVINE TITLES
 - Goddess of Fate:
   "The Weaver of All Fates; The Symbol of Ultimate Judgement; The Eternal Goddess of the Future."
 
-- God of Combat:
+- 战神 (God of Combat):
   "Symbol of Power and Glory, The Great Knight God; Master of War, Patron of Guns; Twilight of All Things."
 
-- God of Knowledge and Wisdom:
+- 知识与智慧之神 (God of Knowledge and Wisdom):
   "Power of Knowledge; Power of Reason; God of Wisdom!"
 
-- God of Steam and Machinery:
+- 蒸汽与机械之神 (God of Steam and Machinery):
   "Embodiment of Essence; Guardian of Craftsmen; Brilliance of Technology."
 
 - Haiter:
@@ -863,7 +1004,7 @@ VII. HONORIFIC NAMES & DIVINE TITLES
 - Kotar:
   "The Dark Lord that exists alongside History, The Embodiment of Countless Miracles, The God of Wishes."
 
-- Lumian Lee:
+- 卢米安·李 (Lumian Lee):
   * God of Plague:
     "The Lady more ancient than the times; Servant of Calamity; Child of Plague and Disease; Destroyer who walks in Shadows; Guide of all lost lambs in Trier; The Great God of Plague."
   * First:
@@ -873,7 +1014,7 @@ VII. HONORIFIC NAMES & DIVINE TITLES
   * Third / Current:
     "Beholden to the King of Yellow and Black; Priest of the Apocalypse and War; The Multi-Faced Conqueror of All. The True Malady God."
 
-- Lord of Storms:
+- 风暴之主 (Lord of Storms):
   "King of the Skies; Emperor of the Seas; Lord of the Calamity; God of the Storms."
 
 - Medici / Sauron-Einhorn-Medici:
@@ -882,19 +1023,19 @@ VII. HONORIFIC NAMES & DIVINE TITLES
 - Monarch of Decay:
   "The Inevitable Decay of All Things; The Endpoint of the River of Time; The Lord of Rot and Putrescence; The Irreversible Entropy."
 
-- Mother Goddess of Depravity:
+- 堕落母神 (Mother Goddess of Depravity):
   * Current:
     "Mother Tree of Desire; Perpetual Blatherer; Heartless God."
   * Former:
     "Mother Tree of Desire; Father of Devils; Lord of Deviants; Source of Curses; Perpetual Blatherer; Heartless God." (Translation Note: "失心之神" literally translates to "lost heart", but contextually means "God of Lost Mind").
 
-- Mother of the Sky:
+- 天之母亲 (0-17) (Mother of the Sky):
   "A Beyonder from ancient times; Ruler of the Nation of the Evernight; Noble Mother of the Sky."
 
 - Primordial God Almighty:
   "God Almighty; Creator; Maker; The Omnipotent and Omniscient; Lord of the Astral World."
 
-- Primordial Demoness:
+- 原初魔女 (奇克) (Primordial Demoness):
   * Hidden:
     "The Source of All Catastrophes; The Symbol of Destruction and the Apocalypse; The Demoness who controls Chaos; The Female Body of the Primordial God Almighty; The Original Creator - the Oldest One - in the mirror."
   * Public (Incomplete):
@@ -909,16 +1050,16 @@ VII. HONORIFIC NAMES & DIVINE TITLES
 - Snarner Einhorn:
   "The Embodiment of Iron and Blood; The Symbol of the Calamity of War; The Priest who controls the Weather; The Great Snarner Einhorn."
 
-- Suah:
+- 斯厄阿 (神孽) (Suah):
   "Son of the God who should never have been born; A cage for the imprisoning curse; An evil that erodes history."
 
 - Supernova Dominator:
   "The Ruler of Stars; The Symbolism of Weight and Density; The Controller of Fundamental Forces; The Laws of the Boundless Cosmos."
 
-- The Fool:
+- 愚者牌 (The Fool):
   "The Fool that doesn't belong to this era; The Mysterious Ruler above the Gray Fog; The King of Yellow and Black who wields good luck."
 
-- True Creator:
+- 真实造物主 (True Creator):
   * Original:
     "The Lord that Created Everything, The Lord who Reigns Behind the Curtain of Shadows, The Degenerate Nature of all Living Things."
   * Fusing with Adam:
@@ -938,78 +1079,78 @@ VII. HONORIFIC NAMES & DIVINE TITLES
 
 VIII. KNOWN MYTHICAL CREATURE FORMS
 
-- Black Emperor: A Curly-Haired Baboon.
-- Chained: A huge Rag Doll chained with thorny vines, bright red bloody eyes, and no human breath. (Reinette Tinekerr: Appears as tall as a castle, shrinks to normal size in the real world; regains a head on "Her" neck upon advancing to Sequence 1 Abomination).
-- Darkness: An Invisible Fog with Stars / Flowing shadows with eyes hidden behind the curtain of shadows.
-- Death: A white-yellow Feathered Serpent (Kukulkan / Quetzalcoatl); former form was a black-pale Phoenix. Accompanied by a black fog corporeal Coffin and a golden bird-shaped Accessory -> A dark black Scythe (huge black heavy Sickle) and a golden bird-shaped Accessory.
-- Demoness: A woman with snake hair, known as a Gorgon.
-- Door: A huge human figure composed of a light ball formed by Worms of Cosmos and constructed by layers of Doors.
-- Error: An ancient stone Clock with Worms of Time hands, or a Worm of Time composed of twelve knot patterns. Accompanied by a crystal Monocle -> A pair of black Gloves.
-- Fool: A tentacled spiraling vortex of Worms of Spirit. Translucent Mask marked with the symbol of the Fool Pathway and a translucent dark-colored cloak -> Retracted Mask with a black Windbreaker. (Sacred Emblem: Pupil-less Eye and Contorted Lines, representing secrecy and change).
-- Hermit: A Gigantic Flesh formed of Countless Eyeballs.
-- Justiciar: A golden Brass-Book.
-- Moon: Flesh Mountain of Reproductive Organs. A two-handed Crimson Moon.
-- Mother: An arm's length illusory Baby.
-- Red Priest: A Flame / Fire Giant, known as a Fire Jotunn, with dark skin.
-- Sun: Unknown Feathered Creature burning in Golden Flames. A burning, illusory Sun.
-- Twilight Giant: A one-eyed giant, known as a Cyclops with black and blue skin. A gigantic Twilight Sword.
-- Tyrant: A Sea Creature with Tentacles surrounded by Lightning. Lightning, squalls, and waves forming a supercilious phantom.
-- Visionary: A Golden-Eyed Dragon with Gray Scales, known as a Mind Dragon.
-- Wheel of Fortune: A scaleless Silver Snake covered with various mysterious patterns and symbols. A palm-sized Die.
+- 黑皇帝途径 -> Black Emperor: A Curly-Haired Baboon.
+- 被缚者途径 / 异种途径 -> Chained: A huge Rag Doll chained with thorny vines, bright red bloody eyes, and no human breath. (Reinette Tinekerr: Appears as tall as a castle, shrinks to normal size in the real world; regains a head on "Her" neck upon advancing to Sequence 1 Abomination).
+- 黑暗途径 / 不眠者途径 -> Darkness: An Invisible Fog with Stars / Flowing shadows with eyes hidden behind the curtain of shadows.
+- 死神途径 / 收尸人途径 -> Death: A white-yellow Feathered Serpent (Kukulkan / Quetzalcoatl); former form was a black-pale Phoenix. Accompanied by a black fog corporeal Coffin and a golden bird-shaped Accessory -> A dark black Scythe (huge black heavy Sickle) and a golden bird-shaped Accessory.
+- 魔女途径 / 刺客途径 -> Demoness: A woman with snake hair, known as a Gorgon.
+- 门途径 / 学徒途径 -> Door: A huge human figure composed of a light ball formed by Worms of Cosmos and constructed by layers of Doors.
+- 错误途径 / 偷盗者途径 -> Error: An ancient stone Clock with Worms of Time hands, or a Worm of Time composed of twelve knot patterns. Accompanied by a crystal Monocle -> A pair of black Gloves.
+- 愚者途径 / 占卜家途径 -> Fool: A tentacled spiraling vortex of Worms of Spirit. Translucent Mask marked with the symbol of the Fool Pathway and a translucent dark-colored cloak -> Retracted Mask with a black Windbreaker. (Sacred Emblem: Pupil-less Eye and Contorted Lines, representing secrecy and change).
+- 隐者途径 / 窥秘人途径 -> Hermit: A Gigantic Flesh formed of Countless Eyeballs.
+- 审判者途径 / 仲裁人途径 -> Justiciar: A golden Brass-Book.
+- 月亮途径 / 药师途径 -> Moon: Flesh Mountain of Reproductive Organs. A two-handed Crimson Moon.
+- 母亲途径 / 耕种者途径 -> Mother: An arm's length illusory Baby.
+- 红祭司途径 / 猎人途径 -> Red Priest: A Flame / Fire Giant, known as a Fire Jotunn, with dark skin.
+- 太阳途径 / 歌颂者途径 -> Sun: Unknown Feathered Creature burning in Golden Flames. A burning, illusory Sun.
+- 黄昏巨人途径 / 战士途径 -> Twilight Giant: A one-eyed giant, known as a Cyclops with black and blue skin. A gigantic Twilight Sword.
+- 暴君途径 / 水手途径 -> Tyrant: A Sea Creature with Tentacles surrounded by Lightning. Lightning, squalls, and waves forming a supercilious phantom.
+- 空想家途径 / 观众途径 -> Visionary: A Golden-Eyed Dragon with Gray Scales, known as a Mind Dragon.
+- 命运之轮途径 / 怪物途径 -> Wheel of Fortune: A scaleless Silver Snake covered with various mysterious patterns and symbols. A palm-sized Die.
 - White Tower: Illusory Bookshelves containing pools of black, liquid shadows hidden in different sections. A white tower with numerous brass eyes.
 
 IX. CARDS OF BLASPHEMY, SEALED ARTIFACTS & MYSTICAL ITEMS
 
 Cards of Blasphemy:
-1. The Fool
-2. The Magician
-3. The High Priestess
-4. The Empress
-5. The Emperor
-6. The Hierophant
-7. The Lovers
-8. The Chariot
-9. Strength
-10. The Hermit
-11. Wheel of Fortune
-12. Justice
-13. The Hanged Man
-14. Death
-15. Temperance
-16. The Devil
-17. The Tower
-18. The Star
-19. The Moon
-20. The Sun
-21. Judgment
-22. The World
+1. 愚者牌 -> The Fool
+2. 魔术师牌 -> The Magician
+3. 女祭司牌 -> The High Priestess
+4. 皇后牌 -> The Empress
+5. 皇帝牌 -> The Emperor
+6. 教皇牌 -> The Hierophant
+7. 恋人牌 -> The Lovers
+8. 战车牌 -> The Chariot
+9. 力量牌 -> Strength
+10. 隐者牌 -> The Hermit
+11. 命运之轮牌 -> Wheel of Fortune
+12. 正义牌 -> Justice
+13. 倒吊人牌 -> The Hanged Man
+14. 死神 (萨林格尔) -> Death
+15. 节制牌 -> Temperance
+16. 恶魔牌 -> The Devil
+17. 高塔牌 -> The Tower
+18. 星星牌 -> The Star
+19. 月亮牌 -> The Moon
+20. 太阳牌 -> The Sun
+21. 审判牌 -> Judgment
+22. 世界牌 / 红祭司牌 -> The World
 
 Charms:
-- Teleportation Charm
-- Aging Charm
-- Deprivation Charm
-- Deceit Charm
-- Parasite Charm
-- Yesterday Once More Charm
-- Deity's Curse
-- Language Comprehension Charm
-- Fate Siphon
-- Ninth Law
-- Shriek Charm
-- Language of Foulness
-- Flaring Sun Charm
-- Requiem Charm
-- Dream Charm
-- Slumber Charm
+- 传送符咒 -> Teleportation Charm
+- 衰老符咒 -> Aging Charm
+- 剥夺符咒 -> Deprivation Charm
+- 欺诈符咒 -> Deceit Charm
+- 寄生符咒 -> Parasite Charm
+- 昨日重现符咒 -> Yesterday Once More Charm
+- 神之诅咒 -> Deity's Curse
+- 语言理解符咒 -> Language Comprehension Charm
+- 窃运符咒 -> Fate Siphon
+- 第九律 -> Ninth Law
+- 尖啸符咒 -> Shriek Charm
+- 污秽之语符咒 -> Language of Foulness
+- 阳炎符咒 -> Flaring Sun Charm
+- 安魂符咒 -> Requiem Charm
+- 梦境符咒 -> Dream Charm
+- 沉眠符咒 -> Slumber Charm
 
 Sealed Artifacts Directory:
 
 Grade 0:
-- Staff of the Stars
-- Box of the Great Old Ones
+- 星之杖 -> Staff of the Stars
+- 大旧日之盒 -> Box of the Great Old Ones
 - Unknown (See Thorned Crown)
-- Theater With Curtains That Never Draw
-- Groselle's Travels
+- 永不落幕的剧场 -> Theater With Curtains That Never Draw
+- 格罗塞尔游记 -> Groselle's Travels
 - Cheek's Ring
 - Book of Calamity
 - Pale Death
@@ -1019,8 +1160,8 @@ Grade 0:
 - Proof of Glory
 - The Last Banquet
 - Angel of Concealment
-- Quill of Alzuhod
-- Magic Wishing Lamp
+- 阿兹霍德之笔 (0-08) -> Quill of Alzuhod
+- 许愿神灯 -> Magic Wishing Lamp
 - Salinger's Blood Banner - 0-01
 
 Grade 1:
@@ -1032,7 +1173,7 @@ Grade 1:
 - Twilight Mask
 - Sword of Silverdawn
 - Concerto of Light and Shadow
-- Unshadowed Crucifix
+- 无暗十字 (1-42) -> Unshadowed Crucifix
 - Golden Sundial
 - 1-80
 - Lilith's Ring
@@ -1049,7 +1190,7 @@ Grade 2:
 - Traveler Robe
 - Lucky Grass
 - Wintry Blade
-- Word of the Sea
+- 海之言 -> Word of the Sea
 - Gargoyle Glasses
 - Hand of Horror
 - Flower of Blood
@@ -1057,7 +1198,7 @@ Grade 2:
 - Cardi's Ring
 - Thunder God's Roar
 - Scales of Luck
-- Death Knell
+- 丧钟 -> Death Knell
 - Judge Button
 - Leymano's Spellbook
 - Tinder
@@ -1073,17 +1214,17 @@ Grade 2:
 - Scarlet Lunar Corona
 - Mental Terror Candle
 - Shapeshifting Hat
-- Sun Brooch
+- 太阳胸针 -> Sun Brooch
 - 2-081
 - Notary Certificate
 - Blood Vessel Thief
 - Door of Death
 - Inexhaustible Poison
-- Creeping Hunger
+- 蠕动的饥饿 -> Creeping Hunger
 - Antigonus Family Puppet
 
 Grade 3:
-- Trunsoest Brass Book
+- 特伦索斯特黄铜书 -> Trunsoest Brass Book
 - Die of Probability
 
 Unknown Grade:
@@ -1091,7 +1232,7 @@ Unknown Grade:
 - Broken Finger
 - Murloc Cufflink
 - Eye of Crystal
-- Master Key
+- 万能钥匙 -> Master Key
 - Spirit Medium's Mirror
 - Peaceful Hair Strands
 - Mutated Sun Sacred Emblem
@@ -1119,117 +1260,117 @@ Beyonder Weapons & Miscellaneous:
 
 X. PILLARS, GREAT OLD ONES & COMPLETE PATHWAY TREES
 
-1. LORD OF THE MYSTERIES (PILLAR)
+1. 诡秘之主 -> LORD OF THE MYSTERIES (PILLAR)
 
 Pathways: Fool, Error, Door.
 This Great Old One is one of the three Pillars.
 
 Authorities & Symbolisms:
-- Fool: Authorities over Fooling, Foolishness, Change, Miracles, Bizarreness.
+- 愚者途径 / 占卜家途径 -> Fool: Authorities over Fooling, Foolishness, Change, Miracles, Bizarreness.
   * Bizarreness: Manifests as Grafting.
   * Foolishness: Ability to turn every rational being into a Fool.
-- Error: Authorities over Errors, Time, Theft, Deceit, Destiny.
+- 错误途径 / 偷盗者途径 -> Error: Authorities over Errors, Time, Theft, Deceit, Destiny.
   * Deceit: Symbol of Deceit, ability to Deceive, mislead, and manipulate everything.
-- Door: Authorities over Doors, Position, Space, Seals, Teleportation.
+- 门途径 / 学徒途径 -> Door: Authorities over Doors, Position, Space, Seals, Teleportation.
 
 Symbolic Counters against other Great Old Ones:
-- Mother Goddess of Depravity: New Life, Death, Desolation counter Marionettes. New Life counters Foolishness (though "She" can still be Deceived). Sovereign of the Physical World counters Grafting, Theft, Seal, Banishment, Blink.
-- High-Dimensional Overseer: Dimensionality and Change counter each other. Counters Parasitism, Marionettes, Blink.
-- Monarch of Decay: Decay and Certain Death counter Avatars and Blink (Death/Decay of Avatar/Afterimage equals death/decay of main body).
-- Inextinguishable Ravings: Source of All Ravings counters Avatars, Marionettes, Blink by projecting directly into Sefirot and Uniquenesses.
-- Primordial Hunger: Convergence and Devouring counter Avatars, Marionettes, Blink.
+- 堕落母神 -> Mother Goddess of Depravity: New Life, Death, Desolation counter Marionettes. New Life counters Foolishness (though "She" can still be Deceived). Sovereign of the Physical World counters Grafting, Theft, Seal, Banishment, Blink.
+- 高维俯视者 -> High-Dimensional Overseer: Dimensionality and Change counter each other. Counters Parasitism, Marionettes, Blink.
+- 衰败君王 -> Monarch of Decay: Decay and Certain Death counter Avatars and Blink (Death/Decay of Avatar/Afterimage equals death/decay of main body).
+- 不熄的呓语 -> Inextinguishable Ravings: Source of All Ravings counters Avatars, Marionettes, Blink by projecting directly into Sefirot and Uniquenesses.
+- 原初饥饿 -> Primordial Hunger: Convergence and Devouring counter Avatars, Marionettes, Blink.
 - Father of Devils: Source of Curses indirectly curses true body via Avatars and Marionettes.
-- Supernova Dominator: Density, Gravity, and Attraction distort Space-Time and Dimensions.
-- Circle of Inevitability: Countered by King of Space-Time (counters Past, Present, Future), Beacon of Destiny (counters Cycle), Error (counters Destiny).
+- 超星主 -> Supernova Dominator: Density, Gravity, and Attraction distort Space-Time and Dimensions.
+- 宿命之环 -> Circle of Inevitability: Countered by King of Space-Time (counters Past, Present, Future), Beacon of Destiny (counters Cycle), Error (counters Destiny).
 
 Mythical Creature Form:
 A glowing bluish-black door flickering in and out of existence within a massive dark vortex bristling with slick tentacles. Every gust of wind, droplet of water, and ray of light in the vortex consists of Worms of Spirit, Worms of Time, and Worms of Stars. The vortex interior is an infinite abyss containing an entire universe and a Spirit World connected to every planet.
 
 Formula:
-- Sefirah Castle
+- 源堡 -> Sefirah Castle
 - Uniquenesses of: The Fool, The Error, The Door
 - 1 Beyonder Characteristic each from: Attendant of Mysteries, Worm of Time, Key of Stars.
 
 A. The Fool Pathway:
-- Sequence 9: Seer
-  * Enhanced Memory
-  * Spirit Vision
-  * Divination Arts & Ritualistic Magic
-  * Danger Intuition
-- Sequence 8: Clown
-  * Physical Enhancement
-  * Paper Daggers
-  * Spirituality
-  * Danger Intuition
-- Sequence 7: Magician
-  * Damage Transfer
-  * Flaming Jump
-  * Air Bullet
-  * Paper Figurine Substitute
-  * Flame Controlling
-  * Underwater Breathing
-  * Bone Softening
-  * Drawing Paper As Weapons
-  * Illusion Creation
-  * Physical Enhancement
-  * Spirituality
-  * Spirit Vision
-- Sequence 6: Faceless
-  * Shapeshifting
-  * Flame Controlling
-  * Flaming Jump
+- 占卜家 -> Sequence 9: Seer
+  * 记忆增强 -> Enhanced Memory
+  * 灵视 -> Spirit Vision
+  * 占卜法与仪式魔法 -> Divination Arts & Ritualistic Magic
+  * 危险直觉 -> Danger Intuition
+- 小丑 -> Sequence 8: Clown
+  * 肉体强化 -> Physical Enhancement
+  * 纸牌飞刀 -> Paper Daggers
+  * 灵性增强 -> Spirituality
+  * 危险直觉 -> Danger Intuition
+- 魔术师 -> Sequence 7: Magician
+  * 伤害转移 -> Damage Transfer
+  * 火焰跳跃 -> Flaming Jump
+  * 空气子弹 -> Air Bullet
+  * 纸人替身 -> Paper Figurine Substitute
+  * 控火 -> Flame Controlling
+  * 水下呼吸 -> Underwater Breathing
+  * 骨骼软化 -> Bone Softening
+  * 抽纸成兵 -> Drawing Paper As Weapons
+  * 幻术制造 -> Illusion Creation
+  * 肉体强化 -> Physical Enhancement
+  * 灵性增强 -> Spirituality
+  * 灵视 -> Spirit Vision
+- 无面人 -> Sequence 6: Faceless
+  * 无面幻化 / 变形 -> Shapeshifting
+  * 控火 -> Flame Controlling
+  * 火焰跳跃 -> Flaming Jump
   * Air Bullets
-  * Underwater Breathing
+  * 水下呼吸 -> Underwater Breathing
   * Paper Figurine Substitutes
-  * Damage Transfer
-  * Spirituality
-  * Divination
-- Sequence 5: Marionettist
-  * Spirit Body Threads Manipulation
+  * 伤害转移 -> Damage Transfer
+  * 灵性增强 -> Spirituality
+  * 占卜 -> Divination
+- 秘偶大师 -> Sequence 5: Marionettist
+  * 灵体之线操控 -> Spirit Body Threads Manipulation
   * Marionette
-  * Air Bullet
-- Sequence 4: Bizarro Sorcerer
+  * 空气子弹 -> Air Bullet
+- 诡法师 -> Sequence 4: Bizarro Sorcerer
   * Concealment
-  * Damage Transfer
+  * 伤害转移 -> Damage Transfer
   * Air Cannon
-  * Flaming Jump
-  * Illusion Creation
-  * Shapeshifting
-  * Spirit Body Threads Manipulation
+  * 火焰跳跃 -> Flaming Jump
+  * 幻术制造 -> Illusion Creation
+  * 无面幻化 / 变形 -> Shapeshifting
+  * 灵体之线操控 -> Spirit Body Threads Manipulation
   * Bestowal
   * Marionette
   * Marionette Interchange
-  * Spirituality
-  * Divination
-  * Spirit Vision
+  * 灵性增强 -> Spirituality
+  * 占卜 -> Divination
+  * 灵视 -> Spirit Vision
   * Mythical Creature Form (Worms of Spirit)
-- Sequence 3: Scholar of Yore
+- 古代学者 -> Sequence 3: Scholar of Yore
   * Historical Void Borrowing
   * Historical Projection Summoning
   * Historical Void Hiding
   * Paper Figurine Substitutes
-  * Damage Transfer
-  * Flaming Jump
+  * 伤害转移 -> Damage Transfer
+  * 火焰跳跃 -> Flaming Jump
   * Air Cannon
-  * Shapeshifting
-  * Spirit Body Threads Manipulation
+  * 无面幻化 / 变形 -> Shapeshifting
+  * 灵体之线操控 -> Spirit Body Threads Manipulation
   * Marionette Interchange
   * Mythical Creature Form (Worms of Spirit)
-- Sequence 2: Miracle Invoker
+- 奇迹师 -> Sequence 2: Miracle Invoker
   * Miracles (Wishes)
   * Resurrection
   * Jamming in Fate
   * Historical Void Summoning
-  * Spirituality
-  * Spirit Body Threads Manipulation
+  * 灵性增强 -> Spirituality
+  * 灵体之线操控 -> Spirit Body Threads Manipulation
   * Marionette
-  * Mythical Creature Form
-- Sequence 1: Attendant of Mysteries
+  * 神话生物形态 -> Mythical Creature Form
+- 诡秘侍者 -> Sequence 1: Attendant of Mysteries
   * Regenerate
   * Change (Reassembly / Tampering / Grafting)
   * Concealment (Realm of Mysteries)
   * Bizarreness
-  * Spirit Body Threads Manipulation
+  * 灵体之线操控 -> Spirit Body Threads Manipulation
   * Resurrection
   * Spirit Body
 - Sequence 0: Fool
@@ -1241,32 +1382,32 @@ A. The Fool Pathway:
   * Fooling (Mind)
 
 B. The Error Pathway:
-- Sequence 9: Marauder
+- 偷盗者 -> Sequence 9: Marauder
   * Agile Hands
   * Superior Observation
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Theft (Stealing)
   * Combat Proficiency
-- Sequence 8: Swindler
+- 诈骗师 -> Sequence 8: Swindler
   * Mental Disruption
   * Charm
   * Eloquence
   * Thought Misdirection
   * Superior Observation
-  * Physical Enhancement
-- Sequence 7: Cryptologist
+  * 肉体强化 -> Physical Enhancement
+- 解密学者 -> Sequence 7: Cryptologist
   * Decryption
   * Superior Observation
 - Sequence 6: Prometheus
   * Mental Resistance
   * Theft (Stealing)
   * Superior Observation
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
 - Sequence 5: Dream Stealer (Dreams Thief)
   * Dream Infusion
   * Theft (Stealing: Disguise / Theft of Heavenly Mysteries, Thought Usurpation)
   * Decryption
-- Sequence 4: Parasite
+- 寄生者 -> Sequence 4: Parasite
   * Avatars
   * Insect Physiology
   * Decryption
@@ -1284,8 +1425,8 @@ B. The Error Pathway:
   * Theft (Stealing: Fate Siphoning, Parasitism)
   * Deceit
   * Avatars
-  * Mythical Creature Form
-- Sequence 1: Worm of Time
+  * 神话生物形态 -> Mythical Creature Form
+- 时之虫 -> Sequence 1: Worm of Time
   * Theft (Stealing: Aging)
   * Time
   * Decryption
@@ -1299,22 +1440,22 @@ B. The Error Pathway:
   * Decryption
 
 C. The Door Pathway:
-- Sequence 9: Apprentice
+- 学徒 -> Sequence 9: Apprentice
   * Door Opening
-- Sequence 8: Trickmaster
+- 戏法大师 -> Sequence 8: Trickmaster
   * Spells: Gas Transfer, Flash, Escape Trick, Tumble, Object Manipulation, Electric Shock, Freezing, Loud Noise, Black Curtain, Burning, Fog, Wind
-- Sequence 7: Astrologer
+- 占星人 -> Sequence 7: Astrologer
   * Spirituality (Spirit Vision, Ritualistic Magic & Divination Arts, Anti-Divination, Spiritual Intuition)
   * Door Opening (Enhanced)
-- Sequence 6: Scribe
+- 记录官 -> Sequence 6: Scribe
   * Record
-- Sequence 5: Traveler
+- 旅行家 -> Sequence 5: Traveler
   * Traveler's Door (Door of Teleportation, Traveling, Blink)
   * Positioning
   * Invisible Hand
   * Record (Enhanced)
-- Sequence 4: Secrets Sorcerer
-  * Space Concealment
+- 秘法师 -> Sequence 4: Secrets Sorcerer
+  * 空间隐匿 -> Space Concealment
   * Transfiguration
   * Secret Keeping
   * Exile
@@ -1323,59 +1464,59 @@ C. The Door Pathway:
   * Traveler's Door (Blink Enhanced)
   * Spirituality (Spiritual Intuition Enhanced)
   * Mythical Creature Form (Worms of Star)
-- Sequence 3: Wanderer
+- 漫游者 -> Sequence 3: Wanderer
   * Wandering
   * Space Tearing
   * Space Integration
   * Space Concealment (Enhanced)
   * Door Opening (Enhanced)
   * Listening to Prayers
-- Sequence 2: Planeswalker
+- 旅法师 -> Sequence 2: Planeswalker
   * Symbolization
   * Dimension Sight
   * Teleportation (Mirror World, Underworld, Higher Dimensions, Dreams)
   * Replication (Reenactment Enhanced)
   * Sealing (Enhanced)
   * Spirituality (Enhanced)
-  * Mythical Creature Form
-- Sequence 1: Key of Stars
+  * 神话生物形态 -> Mythical Creature Form
+- 星之钥 -> Sequence 1: Key of Stars
   * Space Fragmentation (Gravity Manipulation)
   * Position
   * Seals (Journey / Space-Time Maze)
   * All Beyonder powers reinforced and enhanced
   * Dimension Sight (Enhanced)
 - Sequence 0: Door
-  * Door
+  * 门途径 / 学徒途径 -> Door
   * Space
   * Seals
   * Conceptualization (Enhanced)
   * Replication (Reenactment Enhanced)
 
-2. GOD ALMIGHTY (PILLAR)
+2. 上帝 / 全知全能者 -> GOD ALMIGHTY (PILLAR)
 
 Pathways: Visionary, Sun, Tyrant, White Tower, Hanged Man.
 Full Title: God Almighty; Creator; Maker; The Omnipotent and Omniscient; Lord of the Astral World.
 
 Authorities & Derived Abilities:
-- Sun: Sun, Purification, Omnipotence, Omniscience
+- 太阳途径 / 歌颂者途径 -> Sun: Sun, Purification, Omnipotence, Omniscience
 - White Tower: Wisdom, Omniscience
-- Hanged Man: Shadows, Darkness, Corruption, Degeneration, Mutation, Sin, Sacrifice, Maker, Omnipotence
-- Tyrant: Tyranny, Matter Acceleration, Omnipotence over Sea, Land, Sky
-- Visionary: Mind, Envisioning, Creator, Omnipotence of Psyche
+- 倒吊人途径 / 秘祈人途径 -> Hanged Man: Shadows, Darkness, Corruption, Degeneration, Mutation, Sin, Sacrifice, Maker, Omnipotence
+- 暴君途径 / 水手途径 -> Tyrant: Tyranny, Matter Acceleration, Omnipotence over Sea, Land, Sky
+- 空想家途径 / 观众途径 -> Visionary: Mind, Envisioning, Creator, Omnipotence of Psyche
 - Derived Abilities & Symbols: Lord of The Astral World, Chaos Sea, The Omnipotent and Omniscient (Relative), Maker, Creator (Barrier), Notarization, Unshadowed Domain.
 
 Formula:
-- Chaos Sea
+- 混沌海 -> Chaos Sea
 - Uniquenesses of: The Visionary, The Sun, The Tyrant, The White Tower, The Hanged Man
 - 1 Beyonder Characteristic each from: The Author, The White Angel, The Thunder God, The Omniscient Eye, The Dark Angel.
 
 A. The Visionary Pathway:
-- Sequence 9: Spectator
+- 观众 -> Sequence 9: Spectator
   * Enhanced Mental Attributes
   * Body Language Analysis
   * Enhanced Vision
-- Sequence 8: Telepathist
-  * Mind Reading
+- 读心者 -> Sequence 8: Telepathist
+  * 读心 / 心灵感应 -> Mind Reading
   * Body Language Analysis (Enhanced)
   * Enhanced Vision (Enhanced)
 - Sequence 7: Psychiatrist (Psyche Analyst)
@@ -1386,15 +1527,15 @@ A. The Visionary Pathway:
   * Placate (Psychoanalysis)
   * Physical Enhancements
   * Body Language Analysis (Enhanced)
-- Sequence 6: Hypnotist
-  * Psychological Invisibility
+- 催眠师 -> Sequence 6: Hypnotist
+  * 心理学隐身 -> Psychological Invisibility
   * Hypnosis (Qualitative Change: Non-Combat Hypnosis, Battle Hypnotism)
   * Physical Enhancement (Dragon Scales)
-- Sequence 5: Dreamwalker
+- 梦境行者 -> Sequence 5: Dreamwalker
   * Alteration
   * Guidance
   * Dream Traversal
-- Sequence 4: Manipulator
+- 操纵师 -> Sequence 4: Manipulator
   * Manipulation
   * Mental Plague
   * Virtual Persona
@@ -1414,7 +1555,7 @@ A. The Visionary Pathway:
   * Hypnosis (Battle Hypnotism Enhanced)
   * Virtual Persona (Enhanced)
   * Mythical Creature Form (Further Developed Incomplete Mind Dragon)
-- Sequence 2: Discerner
+- 洞悉者 -> Sequence 2: Discerner
   * Dream Maze
   * Discernment
   * Dream Weaving (Massively Enhanced)
@@ -1422,37 +1563,37 @@ A. The Visionary Pathway:
   * Mythical Creature Form (Complete Mind Dragon)
 - Sequence 1: Author (Fairytale)
   * Mind & Fantasy
-- Sequence 0: Visionary
+- 空想家 -> Sequence 0: Visionary
   * Envisioning / Imagination (Psyche: Prophecy, Divine Kingdom)
   * Conceptualization (Enhanced)
   * Replication (Reenactment Enhanced)
 
 B. The Sun Pathway:
-- Sequence 9: Bard
+- 歌颂者 -> Sequence 9: Bard
   * Enhancement
-- Sequence 8: Light Suppliant
+- 祈光人 -> Sequence 8: Light Suppliant
   * Limited Spells (Sun Domain: Miniature Suns, Disperse Darkness, Fiery Light Beam, Blinding White Light)
   * Evil Detection
-- Sequence 7: Solar High Priest
+- 太阳神官 -> Sequence 7: Solar High Priest
   * Theurgical Abilities (Sun Domain: Sun Halo, Sun Holy Water, Holy Light Summoning, Cleave of Purification, Fire of Light, Holy Oath)
   * Horror Immunity
   * Physical Enhancements
-- Sequence 6: Notary
+- 公证人 -> Sequence 6: Notary
   * Notarization (Authentication, Amplification, Nullification)
   * Physical Enhancements (Massive Boost)
-- Sequence 5: Priest of Light
+- 光之祭司 -> Sequence 5: Priest of Light
   * Theurgical Abilities (Enhanced: Light of Holiness, Sword of Light, Purification Halo)
-- Sequence 4: Unshadowed
+- 无暗者 -> Sequence 4: Unshadowed
   * Unshadowed Domain
   * Flaring Sun
   * Holy Eye
   * Holy Equipment
   * Purification
-  * Unshadowed Spear
+  * 无暗之枪 -> Unshadowed Spear
   * Notarization (Massively Enhanced)
   * Mythical Creature Form (Incomplete Feathered Golden Flames)
-- Sequence 3: Justice Mentor
-  * Justice
+- 正义导师 -> Sequence 3: Justice Mentor
+  * 正义牌 -> Justice
   * Unshadowed Domain (Enhanced)
   * Holy Equipment (Enhanced, for allies)
   * Listening to Prayers
@@ -1460,7 +1601,7 @@ B. The Sun Pathway:
   * Sunlight Transformation
   * Spear of Light (Enhanced)
   * Ocean of Light (Enhanced)
-- Sequence 1: White Angel
+- 白天使 -> Sequence 1: White Angel
   * Authorities reinforced
 - Sequence 0: Sun
   * Sun Authority
@@ -1477,13 +1618,13 @@ C. The Tyrant (Sailor) Pathway:
 - Sequence 7: Seafarer (Storm Priest)
   * Navigation
   * Water Manipulation (Water Film, Aqueous Light, Restorative Spells)
-  * Enhanced Memory
+  * 记忆增强 -> Enhanced Memory
   * Aquatic Attributes (Enhanced)
 - Sequence 6: Wind-blessed
   * Wind Manipulation (Flight, Float, Windblades, Imbued Hands, Wind Binding, Eavesdrop via Wind, Air Cushions)
   * Irascible Temperament
 - Sequence 5: Ocean Songster
-  * Lightning Strike
+  * 雷霆打击 -> Lightning Strike
   * Siren Song
   * Water Manipulation (Greatly Improved)
   * Wind Manipulation (Moderately Enhanced: Flight Longer)
@@ -1493,7 +1634,7 @@ C. The Tyrant (Sailor) Pathway:
   * Roar
   * Lightning Strike (Enhanced)
   * Mythical Creature Form (Incomplete Sea Creature with Tentacles)
-- Sequence 3: Sea King
+- 海王 -> Sequence 3: Sea King
   * Sea Ruler
   * Lightning Storm
   * Thunderclap
@@ -1503,12 +1644,12 @@ C. The Tyrant (Sailor) Pathway:
   * Aquatic Attributes
   * Navigation (Never Lost)
   * Listening and Responding to Prayers
-- Sequence 2: Calamity
+- 天灾 -> Sequence 2: Calamity
   * Calamity Authority
   * Mythical Creature Form (Complete Sea Creature with Silvery Lightning Tentacles)
-- Sequence 1: Thunder God
+- 雷神 -> Sequence 1: Thunder God
   * Authorities reinforced
-- Sequence 0: Tyrant
+- 暴君 -> Sequence 0: Tyrant
   * Tyranny (Storms, Seas, Calamities, Lightning, Omnipotent over Seas, Lands, Sky)
   * Matter (Manipulate Speed)
 
@@ -1523,7 +1664,7 @@ D. The White Tower (Reader) Pathway:
   * Physical Enhancements
   * Combat Proficiency
   * Enhanced Mental Attributes
-  * Spirituality
+  * 灵性增强 -> Spirituality
 - Sequence 6: Polymath
   * Analysis
   * Imitation
@@ -1535,27 +1676,27 @@ D. The White Tower (Reader) Pathway:
 - Sequence 4: Prophet
   * Prophecy
   * Spellcasting
-  * Mythical Creature Form
+  * 神话生物形态 -> Mythical Creature Form
 - Sequence 3: Cognizer
   * Cognize
   * Fulcrum
-  * Mythical Creature Form
+  * 神话生物形态 -> Mythical Creature Form
 - Sequence 2: Wisdom Angel
   * Wisdom
-  * Mythical Creature Form
+  * 神话生物形态 -> Mythical Creature Form
 - Sequence 1: Omniscient Eye
   * Omniscience
 - Sequence 0: White Tower
   * White Tower Authority
 
 E. The Hanged Man (Secrets Suppliant) Pathway:
-- Sequence 9: Secrets Suppliant
+- 秘祈人 -> Sequence 9: Secrets Suppliant
   * Knowledge (Mysticism)
   * High Spirituality (Ritualistic Magic and Divination Arts)
 - Sequence 8: Listener (Whispered)
   * Listen
   * High Spirituality
-- Sequence 7: Shadow Ascetic
+- 隐修士 -> Sequence 7: Shadow Ascetic
   * Shadow Summon
   * Shadow Curse
   * Shadow Manipulation
@@ -1563,42 +1704,42 @@ E. The Hanged Man (Secrets Suppliant) Pathway:
   * Shadow Shaping
 - Sequence 6: Rose Bishop (Rose Priest)
   * Flesh and Blood Magic (Flesh Creek, Flesh Softening, Flesh Bomb, Flesh and Blood Servants, Flesh and Blood Curse, Body Hiding, Flesh Cloak, Birth Control)
-- Sequence 5: Shepherd
-  * Grazing
+- 牧羊人 -> Sequence 5: Shepherd
+  * 放牧 (灵魂与能力) -> Grazing
   * Flesh and Blood Magic (Devouring)
   * Commandeering Shadows
-- Sequence 4: Black Knight
+- 黑骑士 -> Sequence 4: Black Knight
   * Cull of Spiritual Flesh
   * Black Armor
   * Shadow of Depravation
   * Flesh and Blood Magic (Flesh Rug)
   * Commandeering Shadows
   * Shadow Enclosure
-  * Grazing
-  * Mythical Creature Form
-- Sequence 3: Trinity Templar
+  * 放牧 (灵魂与能力) -> Grazing
+  * 神话生物形态 -> Mythical Creature Form
+- 三头六臂 / 银骑士 -> Sequence 3: Trinity Templar
   * Trinity Body
   * Cull of the Spirit Flesh
   * Shadow Substitutes
-  * Grazing
+  * 放牧 (灵魂与能力) -> Grazing
   * Flesh and Blood Magic (Flesh and Blood Immortality)
-  * Mythical Creature Form
-- Sequence 2: Profane Presbyter
+  * 神话生物形态 -> Mythical Creature Form
+- 亵渎祭司 -> Sequence 2: Profane Presbyter
   * Profane Language
   * Flesh and Blood Magic
   * Shadows
-  * Grazing
-  * Mythical Creature Form
-- Sequence 1: Dark Angel
+  * 放牧 (灵魂与能力) -> Grazing
+  * 神话生物形态 -> Mythical Creature Form
+- 秽语长老 / 暗天使 -> Sequence 1: Dark Angel
   * Profane Language
   * Degeneration / Depravity
-  * Darkness
+  * 黑暗途径 / 不眠者途径 -> Darkness
   * Shadows (Shadow Ruler)
   * Grazing (Depraved Dependents)
 - Sequence 0: Hanged Man
   * Sin-Bearing (Scapegoat)
   * Sacrifice (Hanged Man)
-  * Darkness
+  * 黑暗途径 / 不眠者途径 -> Darkness
   * Shadows (Lord of Shadows)
   * Degeneration / Depravity (Degenerate Nature)
   * Corruption (Incarnation of Corruption)
@@ -1610,55 +1751,55 @@ Pathways: Darkness, Death, Twilight Giant.
 Authorities: Darkness, Death, Twilight Giant, Eternal Darkness, River of Eternal Darkness, Singularity of All, Space-Time-in-One, Passage of Time, Eternal Rest.
 
 A. The Darkness (Sleepless) Pathway:
-- Sequence 9: Sleepless
+- 不眠者 -> Sequence 9: Sleepless
   * Nocturnality
   * High Spirituality (Spirit Vision, Divination Arts & Ritualistic Magic)
-- Sequence 8: Midnight Poet
+- 午夜诗人 -> Sequence 8: Midnight Poet
   * Midnight Poem (Tranquilize, Lullaby, Pacify)
-- Sequence 7: Nightmare
+- 梦魇 -> Sequence 7: Nightmare
   * Nightmare State
   * Guidance
   * Dream Pulling
   * Nightmare Limbs
   * High Spirituality
   * Midnight Poem
-- Sequence 6: Soul Assurer
+- 灵魂导引者 -> Sequence 6: Soul Assurer
   * Soul Soothing
   * Soul Agitating
   * High Spirituality (Ritualistic Magic & Divination Arts)
 - Sequence 5: Spirit Warlock
   * Spirit Commandeering
-- Sequence 4: Nightwatcher
+- 夜之眷者 -> Sequence 4: Nightwatcher
   * Serene Hair Strands
   * Concealment
   * Curse of Misfortune
-  * Mythical Creature Form
+  * 神话生物形态 -> Mythical Creature Form
 - Sequence 3: Horror Bishop
   * Wave of Darkness
   * Terror Aura
   * Darkness Teleportation
   * Midnight Poem
   * Dream Pulling
-  * Mythical Creature Form
-- Sequence 2: Servant of Concealment
+  * 神话生物形态 -> Mythical Creature Form
+- 隐秘之仆 -> Sequence 2: Servant of Concealment
   * Fate Awareness
   * Concealment
   * Serenity Aura
-  * Mythical Creature Form
+  * 神话生物形态 -> Mythical Creature Form
 - Sequence 1: Knight of Misfortune
   * Authorities reinforced
-- Sequence 0: Darkness
+- 黑暗 -> Sequence 0: Darkness
   * Darkness, Horror, Dreams, Concealment
 
 B. The Death (Corpse Collector) Pathway:
-- Sequence 9: Corpse Collector
+- 收尸人 -> Sequence 9: Corpse Collector
   * Physical Enhancement (Divine Blood)
   * Knowledge (Undead)
   * Spirituality (Spirit Vision)
-- Sequence 8: Gravedigger
+- 掘墓人 -> Sequence 8: Gravedigger
   * Spirit Communication
   * Eye of Death
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Spirituality (Spirit Vision)
 - Sequence 7: Spirit Medium
   * Spirit Manipulation
@@ -1669,29 +1810,29 @@ B. The Death (Corpse Collector) Pathway:
   * Necromancy
   * Spirit World Communication
   * Language of the Dead
-- Sequence 5: Gatekeeper
+- 看门人 -> Sequence 5: Gatekeeper
   * Door to the Underworld
   * Internal Underworld
-- Sequence 4: Undying
+- 不死者 -> Sequence 4: Undying
   * Underworld Authority (Sealing)
   * Spirit World Traversal
   * Rotting Wind
   * Resurrection
   * Spirit Body
-  * Mythical Creature Form
-- Sequence 3: Ferryman
+  * 神话生物形态 -> Mythical Creature Form
+- 摆渡人 -> Sequence 3: Ferryman
   * Death Gaze
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Resurrection
   * Underworld Authority
-  * Mythical Creature Form
-- Sequence 2: Death Consul
+  * 神话生物形态 -> Mythical Creature Form
+- 死亡执政官 -> Sequence 2: Death Consul
   * Dead Flame
   * Language of the Dead
-  * Mythical Creature Form
-- Sequence 1: Pale Emperor
+  * 神话生物形态 -> Mythical Creature Form
+- 苍白皇帝 -> Sequence 1: Pale Emperor
   * Death (Withering)
-- Sequence 0: Death
+- 死神 -> Sequence 0: Death
   * Death Authority
 
 C. The Twilight Giant (Warrior) Pathway:
@@ -1702,7 +1843,7 @@ C. The Twilight Giant (Warrior) Pathway:
 - Sequence 8: Pugilist (Gladiator)
   * Supernatural Resistance
   * Combat Proficiency (Gladiatorial)
-- Sequence 7: Weapon Master
+- 武器大师 -> Sequence 7: Weapon Master
   * Weapon Mastery
   * Physical Enhancement (Divine Blood)
   * Supernatural Resistance
@@ -1712,40 +1853,40 @@ C. The Twilight Giant (Warrior) Pathway:
   * Light of Dawn (Sunrise Gleam)
   * Dawn Armor
   * Dawn Weaponry (Sword of Dawn, Hurricane of Light)
-- Sequence 5: Guardian
-  * Protection
+- 守护者 -> Sequence 5: Guardian
+  * 守护 / 庇护 -> Protection
   * Damage Transference
   * Giant's Physique (Strength of Giants)
   * Supernatural Resistance
-  * Spirituality
-- Sequence 4: Demon Hunter
+  * 灵性增强 -> Spirituality
+- 猎魔者 -> Sequence 4: Demon Hunter
   * Eye of Demon Hunting
   * Alchemy
   * Mind Concealment
   * Tracking
   * Spirituality (Spiritual Intuition)
-  * Mythical Creature Form
-- Sequence 3: Silver Knight
+  * 神话生物形态 -> Mythical Creature Form
+- 银骑士 -> Sequence 3: Silver Knight
   * Blessing
-  * Mercury Liquefaction
-  * Silver Rapier
-  * Light Concealment
-  * Sword of Dawn
-  * Silver Armor
-  * Mythical Creature Form
-- Sequence 2: Glory
-  * Passage of Time
-  * Twilight Sword
-  * Cage
-  * Sword of Dawn (Hurricane of Light)
-  * Mythical Creature Form
-- Sequence 1: Hand of God
-  * Divine Right Hand
-  * Protection
-- Sequence 0: Twilight Giant
-  * Twilight, Passage of Time, Decay
+  * 水银液化 -> Mercury Liquefaction
+  * 银光长剑 / 银色细剑 -> Silver Rapier
+  * 光芒隐匿 / 银光隐匿 -> Light Concealment
+  * 晨曦之剑 -> Sword of Dawn
+  * 银白全甲 -> Silver Armor
+  * 神话生物形态 -> Mythical Creature Form
+- 荣耀者 -> Sequence 2: Glory
+  * 岁月流逝 / 时间流逝 -> Passage of Time
+  * 黄昏之剑 -> Twilight Sword
+  * 衰亡牢笼 -> Cage
+  * 晨曦之剑 (风暴光剑) -> Sword of Dawn (Hurricane of Light)
+  * 神话生物形态 -> Mythical Creature Form
+- 神之手 -> Sequence 1: Hand of God
+  * 神之右手 -> Divine Right Hand
+  * 守护 / 庇护 -> Protection
+- 黄昏巨人 -> Sequence 0: Twilight Giant
+  * 黄昏、岁月、衰亡 -> Twilight, Passage of Time, Decay
 
-4. CALAMITY OF DESTRUCTION (GREAT OLD ONE)
+4. 毁灭之灾 / 根源之祸 -> CALAMITY OF DESTRUCTION (GREAT OLD ONE)
 
 Pathways: Demoness, Red Priest.
 Overview: One half of the Fourth Pillar (exchangeable with Eternal Darkness). Combines Red Priest (Masculinity) and Demoness (Femininity), rendering the user a true hermaphrodite. Contains a mixture of the Primordial God Almighty's mental imprint from the First Epoch accommodation of the City of Calamity.
@@ -1754,24 +1895,24 @@ Honorific Name: Calamity of Destruction; Origins of Disaster / Disaster of Origi
 Authorities & Symbols: Full authority over Red Priest and Demoness Pathways. Represents Disasters (natural and man-made), War, Conquest, Chaos, Apocalypse, Catastrophe, Fire of Destruction, Return of All Things to Chaos, Ruler of the Mirror World, Mirror Magic and Weather, Petrification, Plague.
 
 Formula:
-- City of Calamity
+- 灾祸之城 -> City of Calamity
 - Uniquenesses of: The Demoness, The Red Priest
 - 1 Beyonder Characteristic each from: Apocalypse (Demoness), Conqueror (Red Priest)
 Known Achievers: Lumian Lee, Salinger (Half), Malevolent Dragon (Will of the Sefirah), Primordial God Almighty (Former).
 
 A. The Demoness Pathway:
-- Sequence 9: Assassin
-  * Shadow Concealment
+- 刺客 -> Sequence 9: Assassin
+  * 阴影潜行 -> Shadow Concealment
   * Physical Enhancement (Feather Fall, Mighty Blow)
   * Heightened Senses (Night Vision)
-- Sequence 8: Instigator
+- 教唆者 -> Sequence 8: Instigator
   * Instigation
   * Physical Enhancement (Enhanced)
-- Sequence 7: Witch
+- 女巫 -> Sequence 7: Witch
   * Gender Transition to Female (if male)
   * Charm
   * Black Magic (Black Flames, Frost Spells, Mirror Manipulation, Mirror Substitution, Curse, Staff Substitution, Bloodline Curse, Invisibility)
-  * Divination
+  * 占卜 -> Divination
   * Anti-Divination
 - Sequence 6: Pleasure (Demoness of Pleasure)
   * Threads
@@ -1788,7 +1929,7 @@ A. The Demoness Pathway:
   * Mythical Creature Form (Incomplete Gorgon)
 - Sequence 3: Unaging (Demoness of Unaging)
   * Mirror Self (Concealed Resurrection)
-  * Petrification
+  * 石化凝视 -> Petrification
   * Charm
   * Black Magic (Curse Scope/Power, Mirror World Traversal, Power Transmission through Mirror World, Forcibly Pulling into Mirror World, Mirror Surveillance, Mirror Control Range, Mirror Substitution Timing)
   * Plague
@@ -1807,12 +1948,12 @@ A. The Demoness Pathway:
   * Mythical Creature Form (Black python-like tentacles as hair, transforms into beautiful women)
 
 B. The Red Priest (Hunter) Pathway:
-- Sequence 9: Hunter
+- 猎人 -> Sequence 9: Hunter
   * Knowledge (Survival, Traps)
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Heightened Senses
   * Spirituality (Ritualistic Magic, Spirit Vision, Danger Intuition)
-- Sequence 8: Provoker
+- 挑衅者 -> Sequence 8: Provoker
   * Provocation
   * Physical Enhancement (Enhanced)
   * Spirituality (Spirit Vision Enhanced)
@@ -1827,16 +1968,16 @@ B. The Red Priest (Hunter) Pathway:
   * Flame Transformation
   * Pyrokinesis
   * Information-Gathering
-  * Physical Enhancement
-  * Spirituality
-- Sequence 5: Reaper
+  * 肉体强化 -> Physical Enhancement
+  * 灵性增强 -> Spirituality
+- 收割者 -> Sequence 5: Reaper
   * Weakness Investigation
   * Cull
   * Precision
   * Pyrokinesis
   * Flame Transformation
-  * Physical Enhancement
-  * Spirituality
+  * 肉体强化 -> Physical Enhancement
+  * 灵性增强 -> Spirituality
   * Enhanced Mental Attributes
 - Sequence 4: Iron-blooded Knight
   * Gender Transition to Male (if female)
@@ -1848,19 +1989,19 @@ B. The Red Priest (Hunter) Pathway:
   * Flame Transformation
   * Cull
   * Mythical Creature Form (Incomplete Calamity Giant)
-- Sequence 3: War Bishop
+- 战争主教 -> Sequence 3: War Bishop
   * War Song (War Cry)
   * Fog of War
   * Ritualist of War (Petitioning)
   * Chain of Command (Crowd Control, Strength Gathering, Communication)
   * Pyrokinesis
   * Mythical Creature Form (Respond to Prayers)
-- Sequence 2: Weather Warlock
+- 天气术士 -> Sequence 2: Weather Warlock
   * Charisma
   * Authority over Weather (Weather Manipulation)
   * Information-Gathering
-  * Physical Enhancement
-  * Spirituality
+  * 肉体强化 -> Physical Enhancement
+  * 灵性增强 -> Spirituality
   * Tracking
   * Pyrokinesis
   * Flame Transformation
@@ -1872,12 +2013,12 @@ B. The Red Priest (Hunter) Pathway:
   * Fog of War
   * Ritualist of War
   * Complete Calamity Giant Mythical Creature Form
-- Sequence 1: Conqueror
+- 征服者 -> Sequence 1: Conqueror
   * Authority over Conquest
   * Galvanization
   * Chain of Command
   * Pyrokinesis
-- Sequence 0: Red Priest
+- 红祭司 -> Sequence 0: Red Priest
   * Embodiment of War
   * Authorities over Destruction, Masculinity, Essence of War (Ritualist of War, Chain of Command, Fog of War), Conquest, Pyrokinesis
 
@@ -1887,12 +2028,12 @@ Pathways: Hermit, Paragon.
 Full Title: Demon of Knowledge; Arcana of Madness.
 
 Authorities & Symbolisms:
-- Hermit: Knowledge, Information, Numbers. Symbol of Knowledge.
-- Paragon: Essence, Technology, Physics. Symbol of Progress.
+- 隐者途径 / 窥秘人途径 -> Hermit: Knowledge, Information, Numbers. Symbol of Knowledge.
+- 完美者途径 / 通识者途径 -> Paragon: Essence, Technology, Physics. Symbol of Progress.
 - Limitation: Minimal influence on the highest dimension.
 
 Formula:
-- Knowledge Moor
+- 知识荒野 -> Knowledge Moor
 - Uniquenesses of: The Hermit, The Paragon
 - 1 Beyonder Characteristic each from: Knowledge Emperor (Hermit), Illuminator (Paragon).
 
@@ -1907,7 +2048,7 @@ A. The Hermit Pathway:
   * Spellcasting (Scene Depiction, Soul Summoning, Invisible Hand, Flames, Wind, Purification, Weeding, Lightning, Plant Snare, Sea Wave)
   * Knowledge (Witchcraft)
   * Eyes of Mystery Prying
-  * Spirituality
+  * 灵性增强 -> Spirituality
 - Sequence 6: Scrolls Professor
   * Scroll Making (Secret Voice, Freezing, Storm, Numb, Burning, Wind, Healing, Sun)
 - Sequence 5: Constellations Master
@@ -1976,27 +2117,27 @@ Pathways: Mother, Moon.
 
 A. The Mother (Planter) Pathway:
 - Sequence 9: Planter
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Farming Proficiency
   * Weather Forecasting
 - Sequence 8: Doctor (Healing Pastor)
   * Surgical Mastery
   * Treatments (Evil Ailment Treatment, Disease Treatments, Trauma Treatment)
   * Soul Suture
-  * Spirituality
-  * Spirit Vision
+  * 灵性增强 -> Spirituality
+  * 灵视 -> Spirit Vision
 - Sequence 7: Harvest Priest
   * Seed Catalyzation
   * Plant & Insect Commanding
   * Knowledge
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
 - Sequence 6: Biologist
   * Crossbreeding
 - Sequence 5: Druid
   * Bear Transformation
   * Underground Slink
   * Poison Hair Incineration
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Crossbreeding
 - Sequence 4: Classical Alchemist
   * Mutation
@@ -2025,32 +2166,32 @@ A. The Mother (Planter) Pathway:
 
 B. The Moon (Apothecary) Pathway:
 - Sequence 9: Apothecary
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Medicinal Concoction
-  * Spirituality
-  * Spirit Vision
+  * 灵性增强 -> Spirituality
+  * 灵视 -> Spirit Vision
 - Sequence 8: Beast Tamer
   * Taming
   * Intimidation
   * Animal Senses
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
 - Sequence 7: Vampire
   * Wings of Darkness
   * Claw of Corrosion
   * Abyss Shackles
   * The Embrace
   * Blood Servant Conversion
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
 - Sequence 6: Potions Professor (Baron)
   * Discerning Spiritual Materials
   * Potion & Perfume Crafting
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
 - Sequence 5: Scarlet Scholar (Viscount)
   * Lunar Battlefield
   * Moonlight Transformation
   * Flash Teleportation
   * Potion & Perfume Crafting
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
 - Sequence 4: Shaman King (Earl)
   * Spirituality Manipulation
   * Moon Strength Drawing Ritual
@@ -2059,26 +2200,26 @@ B. The Moon (Apothecary) Pathway:
   * Moon Paper Figurine
   * Gaze of Darkness
   * Bat Swarm Transformation
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Abyss Shackles
 - Sequence 3: High Summoner (Marquis)
   * Door of Summoning
   * Bat Wing Isolation
 - Sequence 2: Life-Giver (Duke)
   * Creation
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Moonlight Transformation
   * Door of Summoning
 - Sequence 1: Beauty Goddess (Queen)
   * Beauty Authority
 - Sequence 0: Moon
-  * Moon
+  * 月亮途径 / 药师途径 -> Moon
   * Beauty
   * Reproduction
   * Fertility
   * Proliferation
 
-7. FATHER OF DEVILS (GREAT OLD ONE)
+7. 恶魔之父 -> FATHER OF DEVILS (GREAT OLD ONE)
 
 Pathways: Abyss, Chained.
 Authorities: Source of Curses, Desires, Binding.
@@ -2086,7 +2227,7 @@ Authorities: Source of Curses, Desires, Binding.
 A. The Abyss (Criminal) Pathway:
 - Sequence 9: Criminal
   * Criminal Proficiency
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
 - Sequence 8: Unwinged Angel (Coldblooded)
   * Demonic Attribute
   * Physical Enhancements
@@ -2098,7 +2239,7 @@ A. The Abyss (Criminal) Pathway:
   * Shadow-Shifter
   * Danger Premonition
   * Slow
-  * Death
+  * 死神 (萨林格尔) -> Death
   * Corruption
   * Poisonous Flame Control
   * Sulfur Fireball
@@ -2115,7 +2256,7 @@ A. The Abyss (Criminal) Pathway:
   * Desire Mastery
   * Enhanced Mental Attributes
   * Danger Premonition
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Spell-like abilities
   * Demonization
 - Sequence 3: Blatherer
@@ -2138,7 +2279,7 @@ A. The Abyss (Criminal) Pathway:
 B. The Chained (Prisoner) Pathway:
 - Sequence 9: Prisoner
   * Knowledge (Criminal)
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Binding
 - Sequence 8: Lunatic
   * Berserk
@@ -2173,7 +2314,7 @@ B. The Chained (Prisoner) Pathway:
   * Source of Curses
   * Poltergeist
   * Evil Spirit Transformation
-  * Spirituality
+  * 灵性增强 -> Spirituality
   * Spiritual Intuition
   * Incomplete Mythical Creature Form
 - Sequence 3: Disciple of Silence (Cursed Artifact)
@@ -2199,12 +2340,12 @@ B. The Chained (Prisoner) Pathway:
 Pathways: Black Emperor, Justiciar.
 
 Authorities & Symbolisms:
-- Black Emperor: Disorder, Entropy, Distortion, Shadow of Order.
-- Justiciar: Balance, Law, Order.
+- 黑皇帝途径 -> Black Emperor: Disorder, Entropy, Distortion, Shadow of Order.
+- 审判者途径 / 仲裁人途径 -> Justiciar: Balance, Law, Order.
 - Limitation: Minimal influence on the highest dimension.
 
 Formula:
-- Nation of Disorder
+- 秩序之国 -> Nation of Disorder
 - Uniquenesses of: The Black Emperor, The Justiciar
 - 1 Beyonder Characteristic each from: Prince of Abolition (Black Emperor), Hand of Order (Justiciar).
 
@@ -2213,7 +2354,7 @@ A. The Black Emperor (Lawyer) Pathway:
   * Eloquence
   * Law Proficiency
 - Sequence 8: Barbarian
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
   * Mental Resistance
 - Sequence 7: Briber
   * Bribery (Bribe-Weaken, Bribe-Arrogance, Bribe-Charm, Bribe-Connection)
@@ -2248,7 +2389,7 @@ A. The Black Emperor (Lawyer) Pathway:
 B. The Justiciar (Arbiter) Pathway:
 - Sequence 9: Arbiter
   * Authority
-  * Physical Enhancement
+  * 肉体强化 -> Physical Enhancement
 - Sequence 8: Sheriff
   * Area of Jurisdiction (Territory)
   * Recognition
@@ -2267,7 +2408,7 @@ B. The Justiciar (Arbiter) Pathway:
   * Confinement
   * Imprison
   * Release
-  * Death
+  * 死神 (萨林格尔) -> Death
   * Exile
   * Flog
   * Prohibition
@@ -2304,16 +2445,16 @@ B. The Justiciar (Arbiter) Pathway:
 
 XI. OUTER DEITIES & NON-STANDARD PATHWAYS
 
-1. Circle of Inevitability (Eternal Aeon Pathway):
+1. 宿命之环 -> Circle of Inevitability (Eternal Aeon Pathway):
 - Authorities & Symbolisms: Eternal Aeon: Cause, Process, Effect, Past, Present, Future, Cycle, Loop, Substitution, Inevitability, Destiny.
 - Counters: Lord of the Mysteries (King of Space-Time, Beacon of Destiny, Error), Eternal Darkness (Space-Time-in-One), Calamity of Destruction (Return of All Things to Chaos).
 - Sequence Progression:
-  * Sequence 9: Dancer - Knowledge (Mysticism), Summoning Dance, Enigmatic Dance, Spirituality, Wall of Spirituality, Physical Enhancement
-  * Sequence 8: Alms Monk - Endurance, Luck Intuition, Knowledge (Ritualistic Spells: Prophecy, Luck Enhancement, Animal Creation, Substitution, Exorcism), Knowledge (Mysticism Enhanced)
-  * Sequence 7: Contractee - Contracts, Endurance, Luck Intuition, Knowledge (Mysticism), Summoning Dance, Physical Enhancement, Spirituality
+  * 舞蹈家 -> Sequence 9: Dancer - Knowledge (Mysticism), Summoning Dance, Enigmatic Dance, Spirituality, Wall of Spirituality, Physical Enhancement
+  * 托钵僧侣 -> Sequence 8: Alms Monk - Endurance, Luck Intuition, Knowledge (Ritualistic Spells: Prophecy, Luck Enhancement, Animal Creation, Substitution, Exorcism), Knowledge (Mysticism Enhanced)
+  * 受契者 -> Sequence 7: Contractee - Contracts, Endurance, Luck Intuition, Knowledge (Mysticism), Summoning Dance, Physical Enhancement, Spirituality
   * Sequence 6: Ascetic - Compression (Mental, Strength, Ritualistic), Simplified Animal Creation & Exorcism Spells, Spirituality, Endurance, Contracts, Luck Enhancement Spell
-  * Sequence 5: Fate Appropriator - Fate Observation, Fate Appropriation, Fate Exchange, Compelling Fate, Magnified Fate, Fate Rituals, Spirituality, Physical Enhancements, Contracts, Endurance, Ritualistic Spells, Animal Creation Spell
-  * Sequence 4: Circle Inhabitant - Circle Inhabitant, Fate Observation, Fate Appropriation, Fate Exchange
+  * 授命者 / 夺运者 -> Sequence 5: Fate Appropriator - Fate Observation, Fate Appropriation, Fate Exchange, Compelling Fate, Magnified Fate, Fate Rituals, Spirituality, Physical Enhancements, Contracts, Endurance, Ritualistic Spells, Animal Creation Spell
+  * 环中人 -> Sequence 4: Circle Inhabitant - Circle Inhabitant, Fate Observation, Fate Appropriation, Fate Exchange
   * Sequence 3: Sufferer - Reenactment, Present State, Endurance, Circle Inhabitant, Contracts
   * Sequence 2: Sinner - Past & Cause Authority; Weakness: Depraved Nature; Mythical Creature Form (Two-headed, Two-bodied, Four-Armed being)
   * Sequence 1: Angel of Redemption - Future, Effect, & Destiny Authority; Mythical Creature Form (Three-headed, Three-bodied, Six-Armed Giant)
@@ -2396,7 +2537,7 @@ XI. OUTER DEITIES & NON-STANDARD PATHWAYS
 7. Inextinguishable Ravings (Everlasting / Initiator Pathway):
 - Authorities & Symbolism:
   * Everlasting Pathway: Consciousness, Spirit, Immortality, Life's Spirit.
-  * Inextinguishable Ravings: Awaken residual Original Creator spiritual imprints across all Sefirot, Uniquenesses, and Characteristics. Projects voice directly into Sefirot.
+  - 不熄的呓语 -> Inextinguishable Ravings: Awaken residual Original Creator spiritual imprints across all Sefirot, Uniquenesses, and Characteristics. Projects voice directly into Sefirot.
   * Philosophical Essence: Transmits the First Philosophy, inflicting severe mental and physical anguish on listeners.
   * Counters: Countered by Eternal Darkness (slumber) and Primordial Hunger (devouring ravings).
 - Appearance:

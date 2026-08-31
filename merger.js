@@ -1,3 +1,17 @@
+function formatWordStat(count) {
+    if (!count || count <= 0) return '0 words';
+    if (count >= 1000000) {
+        return `${(count / 1000000).toFixed(2).replace(/\.00$/, '')}M words`;
+    }
+    if (count >= 10000) {
+        return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k words`;
+    }
+    if (count >= 1000) {
+        return `${count.toLocaleString()} words`;
+    }
+    return `${count} words`;
+}
+
 window.initMerger = function() {
 let mergeFiles = [];
 let customCoverFile = null;
@@ -63,8 +77,9 @@ mergeInput.addEventListener('change', (e) => {
     e.target.value = '';
 });
 
+window.handleMergeFiles = handleMergeFiles;
 function handleMergeFiles(files) {
-    const validFiles = files.filter(f => f.name.endsWith('.epub'));
+    const validFiles = files.filter(f => f.name.toLowerCase().endsWith('.epub'));
     if (validFiles.length === 0) return;
 
     // Duplicate detection
@@ -79,7 +94,7 @@ function handleMergeFiles(files) {
     mergeListContainer.classList.remove('hidden');
 
     if (mergeFiles.length > 0 && !mergeTitleInput.value) {
-        let baseName = mergeFiles[0].name.replace('.epub', '').replace(/\([^\)]+\)/g, '').trim();
+        let baseName = mergeFiles[0].name.replace(/\.epub$/i, '').replace(/\([^\)]+\)/g, '').trim();
         mergeTitleInput.value = `${baseName} (Merged)`;
     }
 
@@ -172,7 +187,9 @@ async function extractEpubStats(files) {
                     const xhtml = await entry.async("text");
                     const doc = parser.parseFromString(xhtml, "text/html");
                     const text = (doc.body ? doc.body.textContent : doc.documentElement.textContent) || '';
-                    const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+                    const cjk = (text.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
+                    const nonCjk = (text.replace(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\b\w+\b/g) || []).length;
+                    const words = cjk + nonCjk;
                     totalWords += words;
                 } catch (_) { /* skip unreadable */ }
             }
@@ -236,7 +253,7 @@ function renderMergeList() {
         const sizeMB = (f.size / (1024 * 1024)).toFixed(1);
         const sizeLabel = f.size >= 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
         const chapLabel = chCount != null ? `${chCount} ch` : '';
-        const wordLabel = wCount != null ? (wCount >= 1000 ? `${(wCount / 1000).toFixed(1)}k words` : `${wCount} words`) : '…';
+        const wordLabel = wCount != null ? formatWordStat(wCount) : '…';
         const infoParts = [sizeLabel, chapLabel, wordLabel].filter(Boolean).join(' · ');
 
         div.innerHTML = `
