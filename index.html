@@ -263,7 +263,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.4.6';
+    const VERSION = '5.4.7';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2185,7 +2185,7 @@
         try { return JSON.parse(localStorage.getItem('savedGlossaries') || '[]'); } catch (e) { return []; }
       });
       const [newGlossaryName, setNewGlossaryName] = useState('');
-      const [activeGlossaryId, setActiveGlossaryId] = useState(null);
+      const [activeGlossaryId, setActiveGlossaryId] = useState(() => localStorage.getItem('activeGlossaryId') || null);
       const [defaultGlossaryName, setDefaultGlossaryName] = useState(() => localStorage.getItem('defaultGlossaryName') || null);
 
       // --- Reader Mode State ---
@@ -2551,6 +2551,7 @@
         try { await dbPut('glossaries', updatedEntry); } catch(e) {}
         setNewGlossaryName('');
         setActiveGlossaryId(name);
+        localStorage.setItem('activeGlossaryId', name);
         setError('');
         toast(`Profile "${name}" saved!`);
       };
@@ -2559,23 +2560,21 @@
         setTerminology(g.content || '');
         setCustomInstructions(g.instructions || '');
         setActiveGlossaryId(g.name);
+        localStorage.setItem('activeGlossaryId', g.name);
         localStorage.setItem('terminology', g.content || '');
         localStorage.setItem('customInstructions', g.instructions || '');
         toast(`Loaded "${g.name}"`);
       };
 
       const handleDeleteGlossary = n => {
-        confirmAction(`Delete "${n}"?`, async () => {
+        confirmAction(`Delete profile "${n}"?`, async () => {
           const u = savedGlossaries.filter(g => g.name !== n);
           setSavedGlossaries(u);
           localStorage.setItem('savedGlossaries', JSON.stringify(u));
           try { await dbDelete('glossaries', n); } catch(e) {}
           if (activeGlossaryId === n) {
-            setTerminology('');
-            setCustomInstructions('');
             setActiveGlossaryId(null);
-            localStorage.removeItem('terminology');
-            localStorage.removeItem('customInstructions');
+            localStorage.removeItem('activeGlossaryId');
           }
           if (defaultGlossaryName === n) {
             localStorage.removeItem('defaultGlossaryName');
@@ -2595,9 +2594,53 @@
           localStorage.setItem('savedGlossaries', JSON.stringify(u));
           localStorage.setItem('terminology', terminology);
           localStorage.setItem('customInstructions', customInstructions);
+          setActiveGlossaryId(n);
+          localStorage.setItem('activeGlossaryId', n);
           try { await dbPut('glossaries', updatedEntry); } catch(e) {}
-          toast(`"${n}" updated!`);
+          toast(`Saved changes to "${n}"!`);
+        } else {
+          // If not found in list, save as new
+          const updatedEntry = { name: n, content: terminology, instructions: customInstructions };
+          const u = [...savedGlossaries, updatedEntry];
+          setSavedGlossaries(u);
+          localStorage.setItem('savedGlossaries', JSON.stringify(u));
+          setActiveGlossaryId(n);
+          localStorage.setItem('activeGlossaryId', n);
+          try { await dbPut('glossaries', updatedEntry); } catch(e) {}
+          toast(`Created and saved "${n}"!`);
         }
+      };
+
+      const handleRenameGlossary = (oldName) => {
+        const newName = window.prompt(`Enter new name for profile "${oldName}":`, oldName);
+        if (!newName || !newName.trim() || newName.trim() === oldName) return;
+        const trimmed = newName.trim();
+        if (savedGlossaries.some(g => g.name === trimmed)) {
+          return setError(`A profile named "${trimmed}" already exists.`);
+        }
+        const u = savedGlossaries.map(g => g.name === oldName ? { ...g, name: trimmed } : g);
+        setSavedGlossaries(u);
+        localStorage.setItem('savedGlossaries', JSON.stringify(u));
+        try { dbDelete('glossaries', oldName); } catch(e) {}
+        const renamed = u.find(g => g.name === trimmed);
+        if (renamed) {
+          try { dbPut('glossaries', renamed); } catch(e) {}
+        }
+        if (activeGlossaryId === oldName) {
+          setActiveGlossaryId(trimmed);
+          localStorage.setItem('activeGlossaryId', trimmed);
+        }
+        if (defaultGlossaryName === oldName) {
+          setDefaultGlossaryName(trimmed);
+          localStorage.setItem('defaultGlossaryName', trimmed);
+        }
+        toast(`Profile renamed to "${trimmed}"!`);
+      };
+
+      const handleUnlinkGlossary = () => {
+        setActiveGlossaryId(null);
+        localStorage.removeItem('activeGlossaryId');
+        toast('Unlinked active profile.', 'info');
       };
 
       const setDefaultGloss = () => { if (!activeGlossaryId) return setError('Load a profile first.'); localStorage.setItem('defaultGlossaryName', activeGlossaryId); setDefaultGlossaryName(activeGlossaryId); toast(`"${activeGlossaryId}" set as default!`) };
@@ -5026,6 +5069,19 @@ p {
             // Glossary
             h('div', { className: 'bg-white dark:bg-slate-900 sm:backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden max-w-full' },
               h('div', { className: 'p-5 space-y-3' },
+                activeGlossaryId && h('div', { className: 'flex flex-wrap items-center justify-between gap-2 p-2.5 bg-indigo-50/90 dark:bg-indigo-950/60 border border-indigo-200/90 dark:border-indigo-800/80 rounded-xl' },
+                  h('div', { className: 'flex items-center gap-2 text-xs font-bold text-indigo-900 dark:text-indigo-200' },
+                    ic(BookOpen, 16),
+                    h('span', null, 'Active Profile:'),
+                    h('span', { className: 'px-2 py-0.5 bg-indigo-200/70 dark:bg-indigo-900/80 rounded-md font-black text-indigo-800 dark:text-indigo-200' }, activeGlossaryId),
+                    defaultGlossaryName === activeGlossaryId && h('span', { className: 'text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 px-1.5 py-0.5 rounded font-bold' }, 'Default')
+                  ),
+                  h('div', { className: 'flex items-center gap-1.5' },
+                    btn({ onClick: () => handleUpdateGlossary(activeGlossaryId), disabled, className: 'px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1 cursor-pointer hover:scale-105 active:scale-95 transition-all' }, ic(Save, 13), 'Save to Profile'),
+                    btn({ onClick: () => { const g = savedGlossaries.find(x => x.name === activeGlossaryId); if (g) handleLoadGlossary(g); }, disabled, className: 'px-2.5 py-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg cursor-pointer flex items-center gap-1', title: 'Revert to saved profile' }, ic(RotateCcw, 12), 'Revert'),
+                    btn({ onClick: handleUnlinkGlossary, disabled, className: 'p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer', title: 'Unlink active profile' }, ic(X, 14))
+                  )
+                ),
                 h('div', { className: 'flex flex-wrap items-center justify-between gap-2 mb-1.5' },
                   h('div', { className: 'flex flex-wrap items-center gap-2' },
                     h('label', { className: 'text-sm font-bold text-slate-800 dark:text-slate-200' }, 'Glossary & Terminology'),
@@ -5114,7 +5170,7 @@ p {
                 h('div', { className: `collapsible ${showGlossaryManager ? 'open' : ''}` },
                   h('div', { className: 'p-5 space-y-3' },
                     h('div', { className: 'flex items-center justify-between text-xs text-slate-500 mb-1' },
-                      h('span', { className: 'font-medium' }, 'Save and load separate glossaries for different webnovels or books.'),
+                      h('span', { className: 'font-medium' }, 'Save, update, and switch between separate glossaries for different webnovels or books.'),
                       h(InfoTooltip, {
                         title: 'Novel Profiles',
                         text: 'Save and switch between separate glossaries and custom instructions for different webnovels or light novels.',
@@ -5122,8 +5178,8 @@ p {
                       })
                     ),
                     h('div', { className: 'flex gap-2' },
-                      h('input', { type: 'text', value: newGlossaryName, onChange: e => setNewGlossaryName(e.target.value), disabled, placeholder: 'Profile name...', className: 'flex-1 p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all' }),
-                      btn({ onClick: handleSaveGlossary, disabled, className: 'px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer' }, 'Save')
+                      h('input', { type: 'text', value: newGlossaryName, onChange: e => setNewGlossaryName(e.target.value), disabled, placeholder: 'New profile name...', className: 'flex-1 p-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all' }),
+                      btn({ onClick: handleSaveGlossary, disabled, className: 'px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer flex items-center gap-1' }, ic(Plus, 14), 'Save as New')
                     ),
                     h('div', { className: 'flex flex-wrap gap-2' },
                       btn({ onClick: setDefaultGloss, disabled: !activeGlossaryId || disabled, className: 'px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 transition-all cursor-pointer' }, 'Set Default'),
@@ -5139,10 +5195,11 @@ p {
                             g.name,
                             defaultGlossaryName === g.name && h('span', { className: 'text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 ml-1.5' }, 'Default')
                           ),
-                          h('div', { className: 'flex gap-1.5 ml-2' },
+                          h('div', { className: 'flex flex-wrap items-center gap-1.5 ml-2' },
                             btn({ onClick: () => handleLoadGlossary(g), disabled, className: 'px-2.5 py-1 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-2xs hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer' }, 'Load'),
-                            activeGlossaryId === g.name && btn({ onClick: () => handleUpdateGlossary(g.name), disabled, className: 'px-2.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-2xs hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer' }, 'Update'),
-                            btn({ onClick: () => handleDeleteGlossary(g.name), disabled, className: 'px-2.5 py-1 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg shadow-2xs hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer' }, 'Del')
+                            btn({ onClick: () => handleUpdateGlossary(g.name), disabled, className: 'px-2.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-2xs hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer flex items-center gap-1', title: `Save current editor text to "${g.name}"` }, ic(Save, 12), 'Save'),
+                            btn({ onClick: () => handleRenameGlossary(g.name), disabled, className: 'px-2 py-1 text-xs font-semibold bg-slate-600 hover:bg-slate-500 text-white rounded-lg shadow-2xs hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer' }, 'Rename'),
+                            btn({ onClick: () => handleDeleteGlossary(g.name), disabled, className: 'px-2 py-1 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg shadow-2xs hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer' }, 'Del')
                           )
                         )
                       )
