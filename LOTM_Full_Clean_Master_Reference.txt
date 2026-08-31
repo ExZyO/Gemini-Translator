@@ -38,6 +38,7 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
 - Genie / Magic Wishing Lamp: Translate as "Genie" (also referred to as Magic Wishing Lamp / The Magic Wishing Lamp).
 - Classical Alchemist: Use "Classical Alchemist" (not Ancient Alchemist).
 - The Chaos Sea: Ensure appropriate definite article based on context (the Chaos Sea).
+- Abbreviations & Titles: Translate 白造 as "City of Silver's Creator" (short for 白银城造物主 / Ancient Sun God), NEVER as "White Creator" or "the White Creator".
 
 4. Style & Paragraph Demonstration Examples:
 - Example 1 (Tarot Club Narrative Flow):
@@ -259,6 +260,7 @@ Key Chinese Sequence Titles & Abilities:
 - 亚当 -> Adam
 - 格里沙 -> Grisha
 - 远古太阳神 -> Ancient Sun God (City of Silver's Creator / 白造 / 白银城造物主)
+- 白造 / 白银城造物主 -> City of Silver's Creator / Ancient Sun God
 - 萨斯利尔 -> Sasrir / Sarsir
 - 真实造物主 -> True Creator
 - 天尊 -> Celestial Worthy
