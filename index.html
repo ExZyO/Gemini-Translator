@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.2.9';
+    const VERSION = '5.3.0';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2279,10 +2279,15 @@
             }
 
             const dbGloss = await dbGetAll('glossaries');
-            if (dbGloss && dbGloss.length > 0) {
-              setSavedGlossaries(dbGloss);
-            } else if (localG && localG.length > 0) {
-              for (const gItem of localG) {
+            const currentLocalG = JSON.parse(localStorage.getItem('savedGlossaries') || '[]');
+            const gMap = new Map();
+            (dbGloss || []).forEach(g => { if (g && g.name) gMap.set(g.name, g); });
+            currentLocalG.forEach(g => { if (g && g.name) gMap.set(g.name, g); });
+            const mergedG = Array.from(gMap.values());
+            if (mergedG.length > 0) {
+              setSavedGlossaries(mergedG);
+              localStorage.setItem('savedGlossaries', JSON.stringify(mergedG));
+              for (const gItem of mergedG) {
                 await dbPut('glossaries', gItem);
               }
             }
@@ -2343,7 +2348,7 @@
       const saveLibreUrl = () => { localStorage.setItem('libreUrl', libreUrl); toast('LibreTranslate URL saved!') };
 
       // --- Profile/Glossary Handlers ---
-      const handleSaveGlossary = () => {
+      const handleSaveGlossary = async () => {
         const name = (newGlossaryName || '').trim();
         if (!name) return setError('Enter a profile name.');
         if (!terminology.trim() && !customInstructions.trim()) return setError('Profile content is empty.');
@@ -2360,6 +2365,7 @@
         localStorage.setItem('savedGlossaries', JSON.stringify(u));
         localStorage.setItem('terminology', terminology);
         localStorage.setItem('customInstructions', customInstructions);
+        try { await dbPut('glossaries', updatedEntry); } catch(e) {}
         setNewGlossaryName('');
         setActiveGlossaryId(name);
         setError('');
@@ -2376,10 +2382,11 @@
       };
 
       const handleDeleteGlossary = n => {
-        confirmAction(`Delete "${n}"?`, () => {
+        confirmAction(`Delete "${n}"?`, async () => {
           const u = savedGlossaries.filter(g => g.name !== n);
           setSavedGlossaries(u);
           localStorage.setItem('savedGlossaries', JSON.stringify(u));
+          try { await dbDelete('glossaries', n); } catch(e) {}
           if (activeGlossaryId === n) {
             setTerminology('');
             setCustomInstructions('');
@@ -2395,15 +2402,17 @@
         });
       };
 
-      const handleUpdateGlossary = n => {
+      const handleUpdateGlossary = async n => {
         const i = savedGlossaries.findIndex(g => g.name === n);
         if (i > -1) {
+          const updatedEntry = { name: n, content: terminology, instructions: customInstructions };
           const u = [...savedGlossaries];
-          u[i] = { name: n, content: terminology, instructions: customInstructions };
+          u[i] = updatedEntry;
           setSavedGlossaries(u);
           localStorage.setItem('savedGlossaries', JSON.stringify(u));
           localStorage.setItem('terminology', terminology);
           localStorage.setItem('customInstructions', customInstructions);
+          try { await dbPut('glossaries', updatedEntry); } catch(e) {}
           toast(`"${n}" updated!`);
         }
       };
