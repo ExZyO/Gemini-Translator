@@ -279,7 +279,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.2.1';
+    const VERSION = '5.2.2';
     const MAX_PAYLOAD = 4500;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1291,21 +1291,31 @@
     const translateWithRotation = async (text, opts) => {
       let currentOpts = { ...opts };
       const rotateFn = opts?.rotateApiKey || (typeof window !== 'undefined' ? window.rotateApiKey : null);
-      const maxAttempts = 8;
+      const maxAttempts = 10;
+      let backoffDelay = 2000;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
-          return await translateChunk(text, currentOpts);
+          const res = await translateChunk(text, currentOpts);
+          if (res) return res;
+          throw new Error('Empty response from translation provider');
         } catch (err) {
           if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
           const errMsg = (err.message || '').toLowerCase();
           const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
-          if (isRateLimit && typeof rotateFn === 'function') {
-            const nextKey = rotateFn();
-            if (nextKey && nextKey !== currentOpts.apiKey) {
-              console.warn(`Rate limit encountered → Rotated to next key (attempt ${attempt + 1}/${maxAttempts})`);
-              currentOpts.apiKey = nextKey;
-              continue;
+          if (isRateLimit) {
+            if (typeof rotateFn === 'function') {
+              const nextKey = rotateFn();
+              if (nextKey && nextKey !== currentOpts.apiKey) {
+                console.warn(`Rate limit encountered → Rotated to next key (attempt ${attempt + 1}/${maxAttempts})`);
+                currentOpts.apiKey = nextKey;
+                await new Promise(r => setTimeout(r, 600));
+                continue;
+              }
             }
+            console.warn(`Rate limit cooling pause for ${(backoffDelay / 1000).toFixed(1)}s (attempt ${attempt + 1}/${maxAttempts})...`);
+            await new Promise(r => setTimeout(r, backoffDelay));
+            backoffDelay = Math.min(backoffDelay * 1.5, 10000);
+            continue;
           }
           throw err;
         }
@@ -3162,7 +3172,7 @@ FORMATTING & STRUCTURE RULES:
               if (!(resume && newChapters[i]?.title)) {
                 try {
                   const tRes = await translateWithRotation(title, { ...opts, context: useContext ? chapterCtx : undefined });
-                  title = tRes.text || tRes;
+                  title = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
                   if (tRes?.usage) {
                     totalPromptTokens += tRes.usage.promptTokens || 0;
                     totalOutputTokens += tRes.usage.outputTokens || 0;
@@ -3182,9 +3192,9 @@ FORMATTING & STRUCTURE RULES:
               let translatedText = '';
               try {
                 const translated = await translateWithRotation(chunks[j].text, { ...opts, context: useContext ? chapterCtx : undefined });
-                translatedText = translated.text || translated;
+                translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
                 if (useContext) {
-                  chapterCtx = translated.newContext || chapterCtx;
+                  chapterCtx = translated?.newContext || chapterCtx;
                 }
                 if (translated?.usage) {
                   totalPromptTokens += translated.usage.promptTokens || 0;
@@ -3195,7 +3205,7 @@ FORMATTING & STRUCTURE RULES:
                 if (e.name === 'AbortError' || opts?.signal?.aborted) throw e;
                 const isFatalQuota = (e.message || '').includes('429') || (e.message || '').includes('quota') || (e.message || '').includes('billing');
                 if (isFatalQuota) {
-                  throw new Error(`API Quota exhausted across keys. If on free tier, switch model to Gemini 2.5 Flash. Progress saved at chapter ${i + 1}.`);
+                  throw new Error(`API Quota exhausted across keys. If on free tier, switch model to Gemini 1.5 Flash. Progress saved at chapter ${i + 1}.`);
                 }
                 translatedText = `\n\n[Error: ${e.message}]\n\n`;
               }
