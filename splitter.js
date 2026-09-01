@@ -1953,7 +1953,8 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
             updateTelemetryUI();
 
             // Stream live result items into the view
-            if (liveFeed) {
+            if (liveFeed && items.length > 0) {
+                const liveFrag = document.createDocumentFragment();
                 items.forEach(item => {
                     const orig = storyChapters.find(c => c.displayIndex === item.index);
                     const row = document.createElement('div');
@@ -1964,8 +1965,9 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
                         <span class="text-indigo-500 font-bold shrink-0">&rarr;</span>
                         <span class="text-emerald-600 dark:text-emerald-400 font-semibold truncate flex-1">${item.cleanedName}</span>
                     `;
-                    liveFeed.appendChild(row);
+                    liveFrag.appendChild(row);
                 });
+                liveFeed.appendChild(liveFrag);
                 liveFeed.scrollTop = liveFeed.scrollHeight;
             }
 
