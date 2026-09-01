@@ -183,6 +183,7 @@
 
 <body>
   <div id="root"></div>
+  <script src="native-bridge.js"></script>
   <script src="utils.js"></script>
   <script src="splitter.js"></script>
   <script src="merger.js"></script>
@@ -271,7 +272,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.6.3';
+    const VERSION = '6.7.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -7274,6 +7275,8 @@ FORMATTING & STRUCTURE RULES:
         }
         const startTime = performance.now();
         setIsTranslating(true); setProgress(0); setProgressLabel(resume ? 'Resuming...' : 'Preparing...'); setError('');
+        window.NativeBridge?.acquireWakeLock();
+        window.NativeBridge?.showProgressNotification('Gemini Translator', resume ? 'Resuming translation...' : 'Starting text translation...', 0);
         if (!resume) { setAssembledText(''); setTranslatedChapters([]); }
 
         const ctrl = new AbortController(); abortRef.current = ctrl;
@@ -7302,6 +7305,9 @@ FORMATTING & STRUCTURE RULES:
           if (isAIProvider && enableStreaming) {
             for (let i = startIndex; i < chunks.length; i++) {
               setProgressLabel(`Streaming chunk ${i + 1}/${chunks.length}${useContext ? ' (with context)' : ''}...`);
+              const pct = Math.round(((i + 1) / chunks.length) * 100);
+              window.NativeBridge?.showProgressNotification('Gemini Translator', `Chunk ${i + 1}/${chunks.length} (${pct}%)`, pct);
+              window.NativeBridge?.haptic('milestone');
               let chunkResult = '';
               const streamRes = await streamWithRotation(chunks[i], {
                 ...opts,
@@ -7428,6 +7434,8 @@ FORMATTING & STRUCTURE RULES:
         }
         const startTime = performance.now();
         setIsTranslating(true); setProgress(0); setError('');
+        window.NativeBridge?.acquireWakeLock();
+        window.NativeBridge?.showProgressNotification('Gemini Ebook Translator', resume ? 'Resuming book...' : 'Analyzing chapters...', 0);
         if (!resume) { setAssembledText(''); setTranslatedChapters([]); }
 
         const isEpub = isEpubParam || currentIsEpub;
@@ -7612,11 +7620,17 @@ FORMATTING & STRUCTURE RULES:
           addToHistory(srcLang, tgtLang, provider, inputText || (chapters || []).map(c => c.text).join('\n\n'), final, stats);
           localStorage.removeItem(jobId); setActiveSession(null);
           toast(`Ebook translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
+          window.NativeBridge?.releaseWakeLock();
+          window.NativeBridge?.clearProgressNotification(true, 'Book Translation Complete! ✨', `${chapters.length} chapters translated in ${durationStr}.`);
+          window.NativeBridge?.haptic('success');
         } catch (e) {
           if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error') } else toast('Translation paused.', 'info')
           setTranslatedChapters(resume && activeSession ? activeSession.newChapters : []);
         }
-        finally { setIsTranslating(false); setProgress(0); setProgressLabel(''); abortRef.current = null }
+        finally { 
+          setIsTranslating(false); setProgress(0); setProgressLabel(''); abortRef.current = null;
+          window.NativeBridge?.releaseWakeLock();
+        }
       };
 
       const handleStartTranslation = async (resume = false) => {
@@ -8512,6 +8526,16 @@ p {
                       btn({ onClick: () => { if (currentDisplayOutput) copyText(currentDisplayOutput).then(() => toast('Copied!')) }, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer', 'aria-label': 'Copy translation', title: 'Ctrl+Shift+C' }, ic(Copy, 14), 'Copy'),
                       btn({ onClick: () => { setReaderOpen(true); setReaderChapterIdx(0); }, className: 'px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer' }, ic(BookText, 14), 'Reader View'),
                       btn({ onClick: handleDownloadEPUB, disabled: downloadingEpub, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold rounded-lg shadow-sm shadow-teal-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer' }, downloadingEpub ? ic(Loader2, 14) : ic(Download, 14), 'EPUB'),
+                    btn({
+                      onClick: async () => {
+                        await handleDownloadEPUB();
+                        const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.epub`;
+                        const opened = await window.NativeBridge?.openWithReader(fileName);
+                        if (!opened) toast('EPUB saved to Downloads! Tap to open with your favorite reader.', 'info');
+                      },
+                      className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-sm shadow-blue-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer',
+                      title: 'Open directly with Moon+ Reader, ReadEra, or Kindle'
+                    }, ic(BookOpen, 14), 'Open in Reader'),
                       btn({ onClick: handleDownloadPDF, disabled: downloadingPdf, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg shadow-sm shadow-rose-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer' }, downloadingPdf ? ic(Loader2, 14) : ic(Download, 14), 'PDF'),
                       btn({ onClick: handleDownloadDOCX, disabled: downloadingDocx, className: 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm shadow-blue-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer' }, downloadingDocx ? ic(Loader2, 15) : ic(FileDown, 14), 'DOCX')
                     ),

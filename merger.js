@@ -781,6 +781,9 @@ btnExecuteMerge?.addEventListener('click', async () => {
         a.download = `${cleanTitle}.epub`;
         a.click();
         showToast("✨ Books merged successfully!", "success");
+        window.NativeBridge?.releaseWakeLock();
+        window.NativeBridge?.clearProgressNotification(true, 'EPUB Merge Complete! ✨', `${cleanTitle}.epub is ready.`);
+        window.NativeBridge?.haptic('success');
         if (typeof addExportEntry === 'function') {
             addExportEntry(cleanTitle, 'merge', `${mergeFiles.length} books`);
         }
@@ -794,6 +797,7 @@ btnExecuteMerge?.addEventListener('click', async () => {
             showToast("Merge failed: " + err.message, "error");
         }
     } finally {
+        window.NativeBridge?.releaseWakeLock();
         if (btnText) btnText.textContent = "Merge & Download";
         if (btnSpinner) btnSpinner.classList.add('hidden');
         btnExecuteMerge.disabled = false;
