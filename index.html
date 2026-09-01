@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.3.1';
+    const VERSION = '8.3.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2293,6 +2293,7 @@ const formatModelName = (id, displayName) => {
       const useCleanArtifacts = options.cleanWebArtifacts !== undefined ? options.cleanWebArtifacts : (localStorage.getItem('epubCleanWebArtifacts') !== 'false');
       const fontTheme = options.fontTheme || localStorage.getItem('epubFontTheme') || 'literata';
       const useJustify = options.justifyText !== undefined ? options.justifyText : (localStorage.getItem('epubJustifyText') !== 'false');
+      const useIncludeImages = options.includeImages !== undefined ? options.includeImages : (localStorage.getItem('epubIncludeImages') !== 'false');
 
       const getElapsed = () => {
         const sec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
@@ -2502,7 +2503,7 @@ hr {
         // Step 2: Download all unique illustrations
         const imgUrlList = Array.from(uniqueImgUrls);
 
-        if (imgUrlList.length > 0) {
+        if (useIncludeImages && imgUrlList.length > 0) {
           onProgress?.(` Pre-caching ${imgUrlList.length} illustration(s) • ${getElapsed()}...`, 5, getElapsed());
           window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-caching ${imgUrlList.length} images • ${getElapsed()}`, 5, true);
           let downloadedCount = 0;
@@ -2609,6 +2610,7 @@ hr {
             // Illustration
             const imgMatch = trimmed.match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
             if (imgMatch) {
+              if (!useIncludeImages) continue;
               const altText = imgMatch[1] || 'Illustration';
               const imgUrl = imgMatch[2];
               const cached = imageCache.get(imgUrl);
@@ -3766,6 +3768,9 @@ ${bodyHtml.join('\n ')}
       const [epubCleanWebArtifacts, setEpubCleanWebArtifacts] = useState(() => localStorage.getItem('epubCleanWebArtifacts') !== 'false');
       const [epubFontTheme, setEpubFontTheme] = useState(() => localStorage.getItem('epubFontTheme') || 'literata');
       const [epubJustifyText, setEpubJustifyText] = useState(() => localStorage.getItem('epubJustifyText') !== 'false');
+      const [epubIncludeImages, setEpubIncludeImages] = useState(() => localStorage.getItem('epubIncludeImages') !== 'false');
+
+      useEffect(() => { localStorage.setItem('epubIncludeImages', String(epubIncludeImages)); }, [epubIncludeImages]);
 
       useEffect(() => { localStorage.setItem('epubDropCaps', String(epubDropCaps)); }, [epubDropCaps]);
       useEffect(() => { localStorage.setItem('epubSmartQuotes', String(epubSmartQuotes)); }, [epubSmartQuotes]);
@@ -9809,6 +9814,19 @@ FORMATTING & STRUCTURE RULES:
                 )
               ),
               h('div', { className: 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3' },
+                // Include Illustrations Toggle
+                h('label', { className: `flex items-center justify-between p-3 rounded-xl border cursor-pointer select-none transition-all ${epubIncludeImages ? 'border-teal-500/50 bg-teal-50/50 dark:bg-teal-950/30' : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40'}` },
+                  h('div', { className: 'space-y-0.5 pr-2' },
+                    h('p', { className: 'text-xs font-bold text-slate-800 dark:text-slate-200' }, 'Embed Images'),
+                    h('p', { className: 'text-[11px] text-slate-500 dark:text-slate-400' }, 'Pre-cache story illustrations')
+                  ),
+                  h('input', {
+                    type: 'checkbox',
+                    checked: epubIncludeImages,
+                    onChange: e => setEpubIncludeImages(e.target.checked),
+                    className: 'rounded accent-teal-600 w-4 h-4'
+                  })
+                ),
                 // Drop Caps Toggle
                 h('label', { className: `flex items-center justify-between p-3 rounded-xl border cursor-pointer select-none transition-all ${epubDropCaps ? 'border-indigo-500/50 bg-indigo-50/50 dark:bg-indigo-950/30' : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40'}` },
                   h('div', { className: 'space-y-0.5 pr-2' },
@@ -10262,6 +10280,24 @@ FORMATTING & STRUCTURE RULES:
                 },
                 className: 'w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-sm font-bold rounded-xl shadow-md shadow-teal-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all shrink-0 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50'
               }, isFetchingUrl ? ic(Loader2, 16) : ic(Download, 16), isFetchingUrl ? 'Fetching...' : 'Fetch Novel')
+            ),
+
+            h('div', { className: 'flex flex-wrap items-center justify-between gap-2 pt-1' },
+              h('label', { className: 'flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 dark:text-slate-300' },
+                h('input', {
+                  type: 'checkbox',
+                  checked: epubIncludeImages,
+                  onChange: e => setEpubIncludeImages(e.target.checked),
+                  className: 'rounded accent-teal-600 w-4 h-4'
+                }),
+                h('span', null, 'Include Illustrations / Images'),
+                h(InfoTooltip, {
+                  title: 'Include Illustrations',
+                  text: 'When checked: Pre-caches and embeds all chapter illustrations into the EPUB. When unchecked: Skips image downloads and produces an ultra-lightweight text-only EPUB in seconds.',
+                  tip: 'Uncheck if you want lightning-fast downloads and smaller file sizes.'
+                })
+              ),
+              h('span', { className: 'text-[11px] font-mono text-teal-600 dark:text-teal-400 font-bold' }, epubIncludeImages ? 'Full Media Mode' : 'Text-Only Fast Mode')
             ),
 
             isFetchingUrl && h('div', { className: 'p-3 bg-teal-50 dark:bg-teal-950/60 rounded-xl border border-teal-200/80 dark:border-teal-800/60 flex items-center gap-2 text-xs font-semibold text-teal-700 dark:text-teal-300' },
