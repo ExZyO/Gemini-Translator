@@ -139,6 +139,47 @@ function calcTocCost(pTok, oTok, model, prov) {
     return cost < 0.0001 && cost > 0 ? '$0.0001' : '$' + cost.toFixed(4);
 }
 
+function cleanChapterTitleString(raw, fallbackIndex) {
+    if (!raw) return 'Chapter ' + fallbackIndex;
+    let s = raw.trim();
+
+    // Remove file paths and extensions (.xhtml, .html)
+    s = s.replace(/^.*[\\\/]/, '');
+    s = s.replace(/\.(?:xhtml|html|xml)$/i, '');
+
+    // Replace underscores with spaces if it looks like a filename
+    if (s.includes('_')) s = s.replace(/_/g, ' ');
+
+    // Normalize whitespace
+    s = s.replace(/\s+/g, ' ').trim();
+
+    // Strip leading scrape numbers like "0003 4 Chapter 4" or "0000 1 Chapter 1"
+    s = s.replace(/^(?:\d+[\s\.\-_]+)+(?:Chapter|\bCh\b)/i, 'Chapter');
+
+    // Pattern: "136: Chapter 136 - 136: Clash of brawn and brain"
+    // "Chapter 4 - 4: Gu Yue Fang Yuan" or "Chapter 4 - 4 Gu Yue Fang Yuan"
+    s = s.replace(/^\d+[\s:\.\-]+(?:Chapter|\bCh\b)\s*(\d+)[\s:\.\-]+(?:\d+[\s:\.\-]+)?/i, 'Chapter $1 - ');
+    s = s.replace(/^(?:Chapter|\bCh\b)\s*(\d+)[\s:\.\-]+(?:\d+[\s:\.\-]+)?/i, 'Chapter $1 - ');
+    s = s.replace(/^(?:Chapter|\bCh\b)\s*(\d+)\s*[:\-]\s*(?:Chapter|\bCh\b)\s*\1\s*[:\-]\s*/i, 'Chapter $1 - ');
+
+    // Strip multiple dashes or colons
+    s = s.replace(/^Chapter\s*(\d+)\s*[\-:]\s*[\-:]\s*/i, 'Chapter $1 - ');
+    s = s.replace(/^Chapter\s*(\d+)\s*-\s*:\s*/i, 'Chapter $1 - ');
+    s = s.replace(/^Chapter\s*(\d+)\s*:\s*-\s*/i, 'Chapter $1 - ');
+
+    // If it starts with just a number like "0004 Title" or "4. Title"
+    if (/^\d+[\.\-:]\s+/.test(s)) {
+        const num = s.match(/^(\d+)/)[1];
+        const rest = s.replace(/^\d+[\.\-:]\s+/, '');
+        s = 'Chapter ' + parseInt(num, 10) + ' - ' + rest;
+    }
+
+    // Clean trailing junk
+    s = s.trim().replace(/^Chapter\s*(\d+)\s*[\-:]\s*$/i, 'Chapter $1');
+
+    return s || ('Chapter ' + fallbackIndex);
+}
+
 function extractHeadingFromXhtml(html, fallbackIndex) {
     if (!html) return 'Chapter ' + fallbackIndex;
     
@@ -146,7 +187,7 @@ function extractHeadingFromXhtml(html, fallbackIndex) {
     const hMatch = html.match(/<(?:h1|h2|h3)[^>]*>([\s\S]*?)<\/(?:h1|h2|h3)>/i);
     if (hMatch) {
         const clean = hMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        if (clean.length > 1 && clean.length < 140) return clean;
+        if (clean.length > 1 && clean.length < 140) return cleanChapterTitleString(clean, fallbackIndex);
     }
 
     // 2. Look for title tag (if not just a file path)
@@ -154,7 +195,7 @@ function extractHeadingFromXhtml(html, fallbackIndex) {
     if (tMatch) {
         const clean = tMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
         if (clean.length > 1 && clean.length < 140 && !clean.toLowerCase().endsWith('.xhtml') && !clean.toLowerCase().endsWith('.html')) {
-            return clean;
+            return cleanChapterTitleString(clean, fallbackIndex);
         }
     }
 
@@ -162,7 +203,7 @@ function extractHeadingFromXhtml(html, fallbackIndex) {
     const pMatch = html.match(/<p[^>]*class="[^"]*(?:title|chapter|head)[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
     if (pMatch) {
         const clean = pMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        if (clean.length > 1 && clean.length < 140) return clean;
+        if (clean.length > 1 && clean.length < 140) return cleanChapterTitleString(clean, fallbackIndex);
     }
 
     return 'Chapter ' + fallbackIndex;
@@ -1489,6 +1530,9 @@ document.getElementById('btn-instant-extract-toc')?.addEventListener('click', as
                 const txt = await f.async('text');
                 heading = extractHeadingFromXhtml(txt, chap.displayIndex);
             } catch (e) {}
+        }
+        if (!heading || heading === 'Chapter ' + chap.displayIndex) {
+            heading = cleanChapterTitleString(chap.customName || chap.originalName, chap.displayIndex);
         }
         aiPolishedResults.push({ index: chap.displayIndex, idref: chap.idref, cleanedName: heading });
         
