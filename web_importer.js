@@ -46,7 +46,14 @@
         }
 
         if (!best) best = src;
-        if (!best || best.startsWith('data:image/svg') || best.includes('avatar') || best.includes('emoji') || best.includes('gravatar')) return '';
+        if (!best || best.startsWith('data:image/svg') || 
+            best.includes('avatar') || best.includes('emoji') || best.includes('gravatar') ||
+            best.includes('s.w.org') || best.includes('pixel.wp.com') || best.includes('widgets') ||
+            best.includes('badge') || best.includes('button') || best.includes('icon') ||
+            best.includes('paypal') || best.includes('patreon') || best.includes('discord') ||
+            best.includes('sharedaddy') || best.includes('logo') || best.includes('banner') ||
+            best.includes('smilies') || best.includes('reaction') || best.includes('jp-carousel') ||
+            best.includes('advertisement') || best.includes('rating')) return '';
 
         // Strip resize/thumbnail query params for full original uncompressed resolution
         if (best.includes('wp.com') || best.includes('wordpress.com') || best.includes('witchculttranslation.com')) {

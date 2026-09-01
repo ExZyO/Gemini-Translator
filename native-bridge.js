@@ -139,7 +139,44 @@
         saveBlob: async (blob, fileName, mimeType = "application/epub+zip", openChooser = false) => {
             try {
                 const bridge = getBridge();
-                if (bridge && bridge.saveAndOpenFile) {
+                if (bridge && bridge.saveBlobChunk) {
+                    const chunkSize = 1.5 * 1024 * 1024; // 1.5MB chunk size (prevents V8 heap memory exhaustion)
+                    const totalSize = blob.size;
+                    const transferId = 'xfer_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+                    let offset = 0;
+                    let isFirst = true;
+
+                    while (offset < totalSize) {
+                        const nextOffset = Math.min(offset + chunkSize, totalSize);
+                        const slice = blob.slice(offset, nextOffset);
+                        const isLast = (nextOffset >= totalSize);
+
+                        const chunkBase64 = await new Promise((res, rej) => {
+                            const r = new FileReader();
+                            r.onload = () => {
+                                const b64 = (r.result || '').split(',')[1] || '';
+                                res(b64);
+                            };
+                            r.onerror = rej;
+                            r.readAsDataURL(slice);
+                        });
+
+                        const result = await bridge.saveBlobChunk({
+                            transferId,
+                            fileName,
+                            chunkBase64,
+                            isFirst,
+                            isLast,
+                            mimeType,
+                            openChooser
+                        });
+
+                        if (isLast) return result;
+                        isFirst = false;
+                        offset = nextOffset;
+                    }
+                    return { success: true, fileName };
+                } else if (bridge && bridge.saveAndOpenFile) {
                     return new Promise((resolve) => {
                         const reader = new FileReader();
                         reader.readAsDataURL(blob);

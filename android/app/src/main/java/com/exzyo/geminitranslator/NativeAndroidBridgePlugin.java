@@ -844,6 +844,122 @@ public class NativeAndroidBridgePlugin extends Plugin {
         }
     }
 
+    private final java.util.Map<String, FileOutputStream> chunkStreams = new java.util.concurrent.ConcurrentHashMap<>();
+
+    @PluginMethod
+    public void saveBlobChunk(PluginCall call) {
+        try {
+            Context context = getContext();
+            String transferId = call.getString("transferId", "default");
+            String fileName = call.getString("fileName", "book.epub");
+            String chunkBase64 = call.getString("chunkBase64", "");
+            boolean isFirst = call.getBoolean("isFirst", false);
+            boolean isLast = call.getBoolean("isLast", false);
+            String mimeType = call.getString("mimeType", "application/epub+zip");
+            boolean openChooser = call.getBoolean("openChooser", false);
+
+            File cacheFile = new File(context.getCacheDir(), fileName);
+            if (isFirst) {
+                if (cacheFile.exists()) cacheFile.delete();
+                FileOutputStream fos = new FileOutputStream(cacheFile, false);
+                chunkStreams.put(transferId, fos);
+            }
+
+            FileOutputStream fos = chunkStreams.get(transferId);
+            if (fos == null) {
+                fos = new FileOutputStream(cacheFile, true);
+                chunkStreams.put(transferId, fos);
+            }
+
+            if (chunkBase64 != null && !chunkBase64.isEmpty()) {
+                byte[] chunkBytes = Base64.decode(chunkBase64, Base64.NO_WRAP);
+                fos.write(chunkBytes);
+                fos.flush();
+            }
+
+            if (isLast) {
+                try {
+                    fos.close();
+                } catch (Exception ignored) {}
+                chunkStreams.remove(transferId);
+
+                String savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try {
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                        values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+                        values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/GeminiTranslator");
+                        values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                        Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                        if (uri != null) {
+                            try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = context.getContentResolver().openOutputStream(uri)) {
+                                byte[] buf = new byte[65536];
+                                int len;
+                                while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                                out.flush();
+                            }
+                            values.clear();
+                            values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                            context.getContentResolver().update(uri, values, null, null);
+                        }
+                    } catch (Exception msErr) {
+                        Log.w(TAG, "Chunked MediaStore save: " + msErr.getMessage());
+                    }
+                }
+
+                try {
+                    File pubDownloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "GeminiTranslator");
+                    if (pubDownloads.exists() || pubDownloads.mkdirs()) {
+                        File dest = new File(pubDownloads, fileName);
+                        try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = new FileOutputStream(dest)) {
+                            byte[] buf = new byte[65536];
+                            int len;
+                            while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                            out.flush();
+                        }
+                        MediaScannerConnection.scanFile(context, new String[]{dest.getAbsolutePath()}, new String[]{mimeType}, null);
+                        savedPath = dest.getAbsolutePath();
+                    }
+                } catch (Exception pubErr) {
+                    Log.w(TAG, "Chunked public download save: " + pubErr.getMessage());
+                }
+
+                final String finalToastPath = savedPath;
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    Toast.makeText(context, "💾 Saved: " + fileName + "\n📁 Download/GeminiTranslator", Toast.LENGTH_LONG).show();
+                });
+
+                if (openChooser) {
+                    try {
+                        Uri contentUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", cacheFile);
+                        Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+                        viewIntent.setDataAndType(contentUri, mimeType);
+                        viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                        Intent chooser = Intent.createChooser(viewIntent, "Open " + fileName + " with...");
+                        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        context.startActivity(chooser);
+                    } catch (Exception e) {}
+                }
+
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("path", savedPath);
+                ret.put("fileName", fileName);
+                call.resolve(ret);
+                return;
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("chunkSaved", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "saveBlobChunk error: " + e.getMessage(), e);
+            call.reject("Chunk save error: " + e.getMessage());
+        }
+    }
+
     @PluginMethod
     public void saveAndOpenFile(PluginCall call) {
         try {

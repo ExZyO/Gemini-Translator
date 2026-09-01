@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.9.8';
+    const VERSION = '7.9.9';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2277,7 +2277,7 @@ const formatModelName = (id, displayName) => {
   <rootfiles>
     <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
-</container>`);
+</container>`, { compression: 'STORE' });
 
         const oebps = zip.folder('OEBPS');
         const imgFolder = oebps.folder('images');
@@ -2327,7 +2327,7 @@ p.divider {
   border-radius: 8px;
 }
 `;
-        oebps.file('style.css', cssContent);
+        oebps.file('style.css', cssContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
 
         const manifestItems = [
           '<item id="css" href="style.css" media-type="text/css"/>',
@@ -2336,14 +2336,22 @@ p.divider {
         const spineItems = [];
         const tocNavPoints = [];
 
-        // Step 1: Scan all chapters for unique illustration URLs
+        // Step 1: Scan and strictly filter unique illustration URLs
         const uniqueImgUrls = new Set();
         for (const ch of chaptersList) {
           const rawLines = (ch.text || ch.content || '').split(/\r?\n/);
           for (const line of rawLines) {
             const imgMatch = line.trim().match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
             if (imgMatch && imgMatch[2]) {
-              uniqueImgUrls.add(imgMatch[2]);
+              const u = imgMatch[2];
+              if (!u.includes('avatar') && !u.includes('emoji') && !u.includes('gravatar') &&
+                  !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
+                  !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
+                  !u.includes('paypal') && !u.includes('patreon') && !u.includes('discord') &&
+                  !u.includes('sharedaddy') && !u.includes('logo') && !u.includes('banner') &&
+                  !u.includes('reaction') && !u.includes('smilies') && !u.includes('jp-carousel')) {
+                uniqueImgUrls.add(u);
+              }
             }
           }
         }
@@ -2351,8 +2359,10 @@ p.divider {
         const imageCache = new Map();
         let imgSeq = 0;
 
-        // Step 2: Download unique illustrations in parallel (concurrency = 8, 4s timeout)
-        const imgUrlList = Array.from(uniqueImgUrls);
+        // Step 2: Download unique illustrations with memory-safe concurrency (max 150 illustrations)
+        const fullImgList = Array.from(uniqueImgUrls);
+        const imgUrlList = fullImgList.slice(0, 150); // Memory safety cap for mobile WebView
+
         if (imgUrlList.length > 0) {
           onProgress?.(`🖼️ Pre-caching ${imgUrlList.length} illustration(s)...`, 5);
           window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-caching ${imgUrlList.length} illustrations...`, 5, true);
@@ -2362,7 +2372,7 @@ p.divider {
           const downloadWorker = async (url) => {
             try {
               let buffer = null;
-              const imgTimeout = 4000;
+              const imgTimeout = 3500;
               const AC = typeof AbortController !== 'undefined' ? AbortController : (typeof window !== 'undefined' ? window.AbortController : null);
               const controller = AC ? new AC() : null;
               const timer = controller ? setTimeout(() => controller.abort(), imgTimeout) : null;
@@ -2387,12 +2397,13 @@ p.divider {
                 const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : 'image/jpeg'));
                 const imgFilename = `img_${imgSeq}.${ext}`;
                 const manifestId = `img_${imgSeq}`;
-                imgFolder.file(imgFilename, buffer);
+                // Store image with STORE (no re-compression, 100x faster, zero CPU burn)
+                imgFolder.file(imgFilename, buffer, { compression: 'STORE' });
                 manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="${mime}"/>`);
                 imageCache.set(url, { localHref: `images/${imgFilename}`, manifestId });
               }
             } catch (e) {
-              // Gracefully proceed
+              // Proceed gracefully
             }
             downloadedCount++;
             if (downloadedCount - lastReportedImg >= 5 || downloadedCount === imgUrlList.length) {
@@ -2403,7 +2414,7 @@ p.divider {
             }
           };
 
-          const concurrency = 8;
+          const concurrency = 6;
           for (let i = 0; i < imgUrlList.length; i += concurrency) {
             const chunk = imgUrlList.slice(i, i + concurrency);
             await Promise.all(chunk.map(u => downloadWorker(u)));
@@ -2469,7 +2480,7 @@ ${bodyHtml.join('\n  ')}
 </body>
 </html>`;
 
-          oebps.file(chFilename, xhtmlContent);
+          oebps.file(chFilename, xhtmlContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
         }
 
         const opfContent = `<?xml version="1.0" encoding="UTF-8"?>
@@ -2488,7 +2499,7 @@ ${bodyHtml.join('\n  ')}
   ${spineItems.join('\n    ')}
 </spine>
 </package>`;
-        oebps.file('content.opf', opfContent);
+        oebps.file('content.opf', opfContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
 
         const ncxContent = `<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
@@ -2503,14 +2514,14 @@ ${bodyHtml.join('\n  ')}
   ${tocNavPoints.join('')}
 </navMap>
 </ncx>`;
-        oebps.file('toc.ncx', ncxContent);
+        oebps.file('toc.ncx', ncxContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
 
-        onProgress?.('📦 Compressing EPUB archive...', 60);
+        onProgress?.('📦 Compiling EPUB archive...', 60);
         window.NativeBridge?.showProgressNotification?.('Compiling EPUB', 'Compressing archive...', 60, true);
 
         let lastReportedPct = 0;
         const blob = await zip.generateAsync(
-          { type: 'blob', mimeType: 'application/epub+zip', compression: 'DEFLATE', compressionOptions: { level: 3 } },
+          { type: 'blob', mimeType: 'application/epub+zip' },
           (meta) => {
             const pct = Math.min(99, Math.round(60 + (meta.percent * 0.39)));
             if (pct - lastReportedPct >= 5 || meta.percent === 100) {
