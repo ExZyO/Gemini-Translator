@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.9.7';
+    const VERSION = '7.9.8';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -9022,7 +9022,12 @@ FORMATTING & STRUCTURE RULES:
           const lang = tgtLang.split(/[-_ ]/)[0].toLowerCase() || 'en';
 
           // Always compile a clean, standardized EPUB with translated TOC and proper paragraph spacing
-          const blob = await generateEpubFromChapters(chaptersToExport, docTitle, author, lang);
+          setEpubPackagingModal({ title: docTitle, status: '⚡ Assembling translated EPUB archive...', pct: 10 });
+          const blob = await generateEpubFromChapters(chaptersToExport, docTitle, author, lang, (status, pct) => {
+            setEpubPackagingModal({ title: docTitle, status, pct });
+          });
+          setEpubPackagingModal(null);
+          toast('✨ EPUB downloaded successfully!', 'success');
           const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.epub`;
           await saveUniversalBlob(blob, fileName, 'application/epub+zip');
         } catch (e) {
@@ -10012,13 +10017,16 @@ FORMATTING & STRUCTURE RULES:
                 btn({
                   onClick: async () => {
                     try {
-                      toast('📦 Compiling EPUB package...', 'info');
+                      setEpubPackagingModal({ title: webImportData.title || 'Web Novel', status: '⚡ Assembling EPUB archive...', pct: 5 });
                       const blob = await generateEpubFromChapters(webImportData.chapters, webImportData.title, webImportData.author, 'en', (status, pct) => {
-                        toast(status, 'info', 2000);
+                        setEpubPackagingModal({ title: webImportData.title || 'Web Novel', status, pct });
                       });
+                      setEpubPackagingModal(null);
                       const safeName = (webImportData.title || 'novel').toLowerCase().replace(/[^a-z0-9_-]/g, '_') + '.epub';
-                      await saveUniversalBlob(blob, safeName, 'application/epub+zip');
+                      await saveUniversalBlob(blob, safeName, 'application/epub+zip', false);
+                      toast('✨ EPUB downloaded successfully!', 'success');
                     } catch (e) {
+                      setEpubPackagingModal(null);
                       toast('EPUB export failed: ' + e.message, 'error');
                     }
                   },
@@ -10237,19 +10245,21 @@ FORMATTING & STRUCTURE RULES:
                       btn({
                         onClick: async () => {
                           try {
-                            toast('\u{1F4E6} Loading chapters from IndexedDB...', 'info');
+                            setEpubPackagingModal({ title: item.title, status: '📦 Loading chapters from IndexedDB...', pct: 5 });
                             let full = null;
                             if (window.GeminiNovelDB) full = await window.GeminiNovelDB.getNovel(item.id);
                             const chaptersToBuild = full?.rawChapters || [];
                             if (chaptersToBuild.length === 0) throw new Error('No chapters stored');
-                            toast('\u{1F4E6} Compiling EPUB package...', 'info');
+                            setEpubPackagingModal({ title: item.title, status: '⚡ Assembling EPUB archive...', pct: 15 });
                             const blob = await generateEpubFromChapters(chaptersToBuild, item.title, item.author, 'en', (status, pct) => {
-                              toast(status, 'info', 2000);
+                              setEpubPackagingModal({ title: item.title, status, pct });
                             });
+                            setEpubPackagingModal(null);
                             const safeName = (item.title || 'novel').toLowerCase().replace(/[^a-z0-9_-]/g, '_') + '.epub';
-                            await saveUniversalBlob(blob, safeName, 'application/epub+zip');
-                            toast('\u2728 EPUB downloaded successfully!', 'success');
+                            await saveUniversalBlob(blob, safeName, 'application/epub+zip', false);
+                            toast('✨ EPUB downloaded successfully!', 'success');
                           } catch (e) {
+                            setEpubPackagingModal(null);
                             toast('EPUB build failed: ' + e.message, 'error');
                           }
                         },
