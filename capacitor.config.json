@@ -1,0 +1,11 @@
+{
+  "appId": "com.exzyo.geminitranslator",
+  "appName": "Gemini Translator",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
