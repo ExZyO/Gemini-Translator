@@ -1,3 +1,36 @@
+
+function extractTocEntriesFromXml(xmlText) {
+    const map = new Map();
+    if (!xmlText) return map;
+
+    // 1. Robust NCX regex parser (immune to XML namespace bugs)
+    const itemRegex = /<navPoint[^>]*>[\s\S]*?<navLabel>[\s\S]*?<text>([\s\S]*?)<\/text>[\s\S]*?<\/navLabel>[\s\S]*?<content[^>]*src="([^"]*)"/gi;
+    let match;
+    while ((match = itemRegex.exec(xmlText)) !== null) {
+        const label = match[1].replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").trim();
+        const src = match[2].split('#')[0].trim();
+        if (src && label && !isMachineFilename(label)) {
+            const fname = src.split('/').pop();
+            map.set(src, label);
+            map.set(fname, label);
+        }
+    }
+
+    // 2. Robust EPUB 3 nav.xhtml regex parser
+    const navLinkRegex = /<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+    while ((match = navLinkRegex.exec(xmlText)) !== null) {
+        const src = match[1].split('#')[0].trim();
+        const label = match[2].replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").trim();
+        if (src && label && !isMachineFilename(label)) {
+            const fname = src.split('/').pop();
+            if (!map.has(src)) map.set(src, label);
+            if (!map.has(fname)) map.set(fname, label);
+        }
+    }
+
+    return map;
+}
+
 let splitTocMap = new Map();
 
 function escapeXml(unsafe) {
