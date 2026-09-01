@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.6.6';
+    const VERSION = '5.6.7';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1522,7 +1522,7 @@
     // ═══════════════════════════════════════════════════════════════
     // AI TABLE OF CONTENTS & METADATA POLISHER ENGINE
     // ═══════════════════════════════════════════════════════════════
-            window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus) {
+                window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus) {
       const provider = localStorage.getItem('translationProvider') || 'gemini';
       
       let allKeys = [];
@@ -1557,7 +1557,7 @@ Return strictly a JSON object with this exact format:
   ]
 }`;
 
-            // Strictly Gemini 3 models lineup
+      // High capacity, high speed Gemini 3 models
       const preferredModel = localStorage.getItem('geminiModel') || 'gemini-3.7-flash';
       const geminiModels = Array.from(new Set([
         preferredModel,
@@ -1566,11 +1566,11 @@ Return strictly a JSON object with this exact format:
         'gemini-3.5-flash',
         'gemini-3.5-flash-lite',
         'gemini-3.7-pro',
-        'gemini-3.5-pro',
-        'gemini-3.1-pro'
+        'gemini-3.5-pro'
       ])).filter(m => m.startsWith('gemini-3'));
+
       let modelIdx = 0;
-      const maxAttempts = 10;
+      const maxAttempts = 12;
       let backoffDelay = 1500;
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -1596,13 +1596,14 @@ Return strictly a JSON object with this exact format:
             if (!res.ok) {
               const errTxt = await res.text().catch(() => '');
               const is404 = res.status === 404 || errTxt.includes('no longer available') || errTxt.includes('not found') || errTxt.includes('is not supported');
-              const is429 = res.status === 429 || errTxt.includes('quota') || errTxt.includes('RESOURCE_EXHAUSTED');
+              const is503 = res.status === 503 || res.status === 500 || res.status === 502 || res.status === 504 || errTxt.includes('high demand') || errTxt.includes('UNAVAILABLE') || errTxt.includes('overloaded');
+              const is429 = res.status === 429 || errTxt.includes('quota') || errTxt.includes('RESOURCE_EXHAUSTED') || errTxt.includes('rate limit');
 
-              if (is404) {
+              if (is404 || is503) {
                 modelIdx++;
                 const nextModel = geminiModels[modelIdx % geminiModels.length];
-                if (typeof onRetryStatus === 'function') onRetryStatus(`Model ${currentModel} unavailable. Auto-switched to ${nextModel}...`);
-                await new Promise(r => setTimeout(r, 200));
+                if (typeof onRetryStatus === 'function') onRetryStatus(`Model ${currentModel} ${is503 ? 'high demand (503)' : 'unavailable'}. Switched to ${nextModel}...`);
+                await new Promise(r => setTimeout(r, 600));
                 continue;
               }
 
@@ -1637,7 +1638,7 @@ Return strictly a JSON object with this exact format:
             });
             if (!res.ok) {
               const errTxt = await res.text().catch(() => '');
-              if (res.status === 429) {
+              if (res.status === 429 || res.status === 503) {
                 await new Promise(r => setTimeout(r, backoffDelay));
                 backoffDelay = Math.min(backoffDelay * 1.5, 10000);
                 continue;
@@ -1658,7 +1659,7 @@ Return strictly a JSON object with this exact format:
             });
             if (!res.ok) {
               const errTxt = await res.text().catch(() => '');
-              if (res.status === 429) {
+              if (res.status === 429 || res.status === 503) {
                 await new Promise(r => setTimeout(r, backoffDelay));
                 backoffDelay = Math.min(backoffDelay * 1.5, 10000);
                 continue;
@@ -1679,7 +1680,7 @@ Return strictly a JSON object with this exact format:
             });
             if (!res.ok) {
               const errTxt = await res.text().catch(() => '');
-              if (res.status === 429) {
+              if (res.status === 429 || res.status === 503) {
                 await new Promise(r => setTimeout(r, backoffDelay));
                 backoffDelay = Math.min(backoffDelay * 1.5, 10000);
                 continue;
@@ -1693,11 +1694,10 @@ Return strictly a JSON object with this exact format:
           const clean = rawJson.replace(/^\`\`\`json\s*/i, '').replace(/\s*\`\`\`$/i, '').trim();
           return JSON.parse(clean);
         } catch (err) {
-          const is429 = (err.message || '').includes('429') || (err.message || '').includes('quota');
-          const is404 = (err.message || '').includes('404') || (err.message || '').includes('no longer available') || (err.message || '').includes('not found');
-          if ((is429 || is404) && attempt < maxAttempts - 1) {
-            if (is404) modelIdx++;
-            else rotateKey();
+          const isTransient = (err.message || '').includes('429') || (err.message || '').includes('503') || (err.message || '').includes('quota') || (err.message || '').includes('demand') || (err.message || '').includes('404');
+          if (isTransient && attempt < maxAttempts - 1) {
+            modelIdx++;
+            rotateKey();
             await new Promise(r => setTimeout(r, backoffDelay));
             backoffDelay = Math.min(backoffDelay * 1.5, 10000);
             continue;
