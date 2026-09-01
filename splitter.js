@@ -245,13 +245,17 @@ function extractHeadingFromXhtml(html, fallbackIndex, tocTitle = '') {
 
     const lower = html.toLowerCase();
 
-    // 1. Check for Image / Illustration pages
+    // 1. Check for Image / Illustration pages (Inspect image attributes specifically, not <title> in <head>)
     if (lower.includes('<img') || lower.includes('<image')) {
-        const textOnly = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        const textOnly = html.replace(/<head[\s\S]*?<\/head>/gi, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
         if (textOnly.length < 60) {
-            if (/cover/i.test(html)) return 'Cover';
-            if (/title/i.test(html)) return 'Title Page';
-            if (/color|gallery|insert|illust|plate/i.test(html)) return 'Illustrations';
+            const imgMatch = html.match(/<(?:img|image)[^>]*?(?:src|href)="([^"]*)"[^>]*>/i);
+            const imgSrc = (imgMatch ? imgMatch[1] : '').toLowerCase();
+            const imgClass = (html.match(/class="([^"]*)"/i) || ['', ''])[1].toLowerCase();
+            const combined = imgSrc + ' ' + imgClass;
+            if (/cover/i.test(combined)) return 'Cover';
+            if (/title[-_]?page|titlepage/i.test(combined)) return 'Title Page';
+            if (/color|gallery|insert|illust|plate/i.test(combined)) return 'Illustrations';
             return 'Illustration';
         }
     }
