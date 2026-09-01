@@ -79,7 +79,7 @@
         },
 
         // ══════════════════════════════════════════════════════════════════════
-        // NATIVE CORS-FREE WEB CRAWLER & NOVEL FETCHER
+        // NATIVE CORS-FREE WEB CRAWLER & MULTI-PROXY ENGINE
         // ══════════════════════════════════════════════════════════════════════
         fetchUrl: async (url, options = {}) => {
             const bridge = getBridge();
@@ -97,15 +97,28 @@
                     cookies: res.cookies || ''
                 };
             }
-            // Fallback for browser testing (via standard fetch / CORS proxies)
-            try {
-                const directRes = await fetch(url, options);
-                return directRes;
-            } catch (err) {
-                // If blocked by browser CORS, try reliable CORS mirror for web dev
-                const corsUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-                return await fetch(corsUrl, options);
+            
+            // Browser Fallback with multi-proxy redundancy
+            const proxies = [
+                (u) => u, // Direct fetch
+                (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
+                (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+                (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
+            ];
+
+            let lastErr = null;
+            for (const proxyFn of proxies) {
+                try {
+                    const target = proxyFn(url);
+                    const res = await fetch(target, options);
+                    if (res.ok) {
+                        return res;
+                    }
+                } catch (err) {
+                    lastErr = err;
+                }
             }
+            throw lastErr || new Error('Failed to fetch URL across all available networks.');
         },
 
         downloadBinary: async (url, options = {}) => {
@@ -124,11 +137,28 @@
                     return bytes.buffer;
                 }
             }
-            // Browser fallback
-            const res = await fetch(url, options);
-            return await res.arrayBuffer();
+            
+            // Browser Fallback with multi-proxy redundancy
+            const proxies = [
+                (u) => u,
+                (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
+                (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u)
+            ];
+
+            for (const proxyFn of proxies) {
+                try {
+                    const target = proxyFn(url);
+                    const res = await fetch(target, options);
+                    if (res.ok) {
+                        return await res.arrayBuffer();
+                    }
+                } catch (err) {
+                    // Try next proxy
+                }
+            }
+            throw new Error('Could not download binary file across network.');
         }
     };
 
-    console.log("⚡ Native Android Superpowers Bridge Initialized (with CORS-Free Crawler)!");
+    console.log("⚡ Native Android Superpowers Bridge Initialized (with Multi-Proxy Redundancy)!");
 })();

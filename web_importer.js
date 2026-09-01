@@ -35,7 +35,7 @@
             const buffer = await window.NativeBridge.downloadBinary(epubUrl);
             if (buffer && buffer.byteLength > 1000) {
                 progressCb?.('Parsing official AO3 EPUB package...', 60);
-                const zip = await window.JSZip.loadAsync(buffer);
+                const zip = await (window.JSZip ? window.JSZip.loadAsync(buffer) : (new JSZip()).loadAsync(buffer));
                 
                 // Parse OPF for metadata
                 const containerXml = await zip.file('META-INF/container.xml')?.async('text');

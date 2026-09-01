@@ -31,9 +31,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.CookieHandler;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -44,11 +48,17 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private static final String CHANNEL_ID = "gemini_translator_progress";
     private static final int NOTIFICATION_ID = 1001;
     private static final int COMPLETE_NOTIFICATION_ID = 1002;
-    private static final String DEFAULT_UA = "Mozilla/5.0 (Linux; Android 14; Mobile; rv:125.0) Gecko/125.0 Firefox/125.0";
+    private static final String DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 
     private PowerManager.WakeLock wakeLock = null;
     private NotificationManager notificationManager = null;
     private boolean isChannelCreated = false;
+
+    static {
+        CookieManager cookieManager = new CookieManager();
+        cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
+        CookieHandler.setDefault(cookieManager);
+    }
 
     private void ensureNotificationChannel() {
         if (isChannelCreated || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
@@ -283,7 +293,6 @@ public class NativeAndroidBridgePlugin extends Plugin {
     @PluginMethod
     public void fetchUrlNative(PluginCall call) {
         new Thread(() -> {
-            HttpURLConnection conn = null;
             try {
                 String targetUrl = call.getString("url");
                 if (targetUrl == null || targetUrl.isEmpty()) {
@@ -291,40 +300,73 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     return;
                 }
 
-                URL url = new URL(targetUrl);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setConnectTimeout(20000);
-                conn.setReadTimeout(30000);
-                conn.setInstanceFollowRedirects(true);
-
-                // Set standard browser headers to prevent anti-bot blocks
-                conn.setRequestProperty("User-Agent", call.getString("userAgent", DEFAULT_UA));
-                conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
-                conn.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7,ja;q=0.6");
-                conn.setRequestProperty("Cache-Control", "no-cache");
-                conn.setRequestProperty("Pragma", "no-cache");
-
+                String userAgent = call.getString("userAgent", DEFAULT_UA);
                 JSObject customHeaders = call.getObject("headers");
-                if (customHeaders != null) {
-                    Iterator<String> keys = customHeaders.keys();
-                    while (keys.hasNext()) {
-                        String k = keys.next();
-                        conn.setRequestProperty(k, customHeaders.getString(k));
+
+                String currentUrl = targetUrl;
+                HttpURLConnection conn = null;
+                int redirects = 0;
+                int statusCode = 0;
+                String cookies = "";
+
+                while (redirects < 10) {
+                    URL url = new URL(currentUrl);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(25000);
+                    conn.setReadTimeout(35000);
+                    conn.setInstanceFollowRedirects(false);
+
+                    conn.setRequestProperty("User-Agent", userAgent);
+                    conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
+                    conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,zh-CN,zh;q=0.8,ja;q=0.7");
+                    conn.setRequestProperty("Cache-Control", "no-cache");
+                    conn.setRequestProperty("Pragma", "no-cache");
+
+                    if (!cookies.isEmpty()) {
+                        conn.setRequestProperty("Cookie", cookies);
                     }
+
+                    if (customHeaders != null) {
+                        Iterator<String> keys = customHeaders.keys();
+                        while (keys.hasNext()) {
+                            String k = keys.next();
+                            conn.setRequestProperty(k, customHeaders.getString(k));
+                        }
+                    }
+
+                    statusCode = conn.getResponseCode();
+
+                    // Accumulate cookies
+                    List<String> setCookies = conn.getHeaderFields().get("Set-Cookie");
+                    if (setCookies != null) {
+                        for (String sc : setCookies) {
+                            String part = sc.split(";")[0];
+                            if (!part.isEmpty()) {
+                                cookies = cookies.isEmpty() ? part : cookies + "; " + part;
+                            }
+                        }
+                    }
+
+                    if (statusCode == HttpURLConnection.HTTP_MOVED_TEMP || 
+                        statusCode == HttpURLConnection.HTTP_MOVED_PERM || 
+                        statusCode == 307 || statusCode == 308) {
+                        String loc = conn.getHeaderField("Location");
+                        if (loc != null && !loc.isEmpty()) {
+                            if (!loc.startsWith("http")) {
+                                loc = new URL(url, loc).toString();
+                            }
+                            currentUrl = loc;
+                            conn.disconnect();
+                            redirects++;
+                            continue;
+                        }
+                    }
+                    break;
                 }
 
-                int statusCode = conn.getResponseCode();
-                
-                // Handle manual redirects if needed
-                if (statusCode == HttpURLConnection.HTTP_MOVED_TEMP || statusCode == HttpURLConnection.HTTP_MOVED_PERM || statusCode == 307 || statusCode == 308) {
-                    String newUrl = conn.getHeaderField("Location");
-                    if (newUrl != null && !newUrl.isEmpty()) {
-                        conn.disconnect();
-                        url = new URL(newUrl);
-                        conn = (HttpURLConnection) url.openConnection();
-                        conn.setRequestProperty("User-Agent", call.getString("userAgent", DEFAULT_UA));
-                        statusCode = conn.getResponseCode();
-                    }
+                if (conn == null) {
+                    call.reject("Could not establish connection to " + targetUrl);
+                    return;
                 }
 
                 InputStream is = (statusCode >= 200 && statusCode < 400) ? conn.getInputStream() : conn.getErrorStream();
@@ -335,29 +377,18 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     response.append(line).append("\n");
                 }
                 reader.close();
+                conn.disconnect();
 
                 JSObject ret = new JSObject();
                 ret.put("status", statusCode);
                 ret.put("data", response.toString());
-                ret.put("url", conn.getURL().toString());
-                
-                // Extract response cookies
-                Map<String, List<String>> headerFields = conn.getHeaderFields();
-                if (headerFields != null && headerFields.containsKey("Set-Cookie")) {
-                    List<String> cookies = headerFields.get("Set-Cookie");
-                    if (cookies != null && !cookies.isEmpty()) {
-                        ret.put("cookies", String.join("; ", cookies));
-                    }
-                }
+                ret.put("url", currentUrl);
+                ret.put("cookies", cookies);
 
                 call.resolve(ret);
             } catch (Exception e) {
                 Log.e(TAG, "Native HTTP fetch failed: " + e.getMessage(), e);
                 call.reject("Native HTTP Fetch Error: " + e.getMessage());
-            } finally {
-                if (conn != null) {
-                    conn.disconnect();
-                }
             }
         }).start();
     }
@@ -365,7 +396,6 @@ public class NativeAndroidBridgePlugin extends Plugin {
     @PluginMethod
     public void downloadBinaryNative(PluginCall call) {
         new Thread(() -> {
-            HttpURLConnection conn = null;
             try {
                 String targetUrl = call.getString("url");
                 if (targetUrl == null || targetUrl.isEmpty()) {
@@ -373,17 +403,58 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     return;
                 }
 
-                URL url = new URL(targetUrl);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setConnectTimeout(25000);
-                conn.setReadTimeout(45000);
-                conn.setInstanceFollowRedirects(true);
-                conn.setRequestProperty("User-Agent", call.getString("userAgent", DEFAULT_UA));
-                conn.setRequestProperty("Accept", "*/*");
+                String userAgent = call.getString("userAgent", DEFAULT_UA);
+                String currentUrl = targetUrl;
+                HttpURLConnection conn = null;
+                int redirects = 0;
+                int statusCode = 0;
+                String cookies = "";
 
-                int statusCode = conn.getResponseCode();
-                if (statusCode >= 400) {
-                    call.reject("HTTP Error " + statusCode + " while downloading binary.");
+                while (redirects < 10) {
+                    URL url = new URL(currentUrl);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(30000);
+                    conn.setReadTimeout(45000);
+                    conn.setInstanceFollowRedirects(false);
+
+                    conn.setRequestProperty("User-Agent", userAgent);
+                    conn.setRequestProperty("Accept", "*/*");
+                    conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
+                    if (!cookies.isEmpty()) {
+                        conn.setRequestProperty("Cookie", cookies);
+                    }
+
+                    statusCode = conn.getResponseCode();
+
+                    List<String> setCookies = conn.getHeaderFields().get("Set-Cookie");
+                    if (setCookies != null) {
+                        for (String sc : setCookies) {
+                            String part = sc.split(";")[0];
+                            if (!part.isEmpty()) {
+                                cookies = cookies.isEmpty() ? part : cookies + "; " + part;
+                            }
+                        }
+                    }
+
+                    if (statusCode == HttpURLConnection.HTTP_MOVED_TEMP || 
+                        statusCode == HttpURLConnection.HTTP_MOVED_PERM || 
+                        statusCode == 307 || statusCode == 308) {
+                        String loc = conn.getHeaderField("Location");
+                        if (loc != null && !loc.isEmpty()) {
+                            if (!loc.startsWith("http")) {
+                                loc = new URL(url, loc).toString();
+                            }
+                            currentUrl = loc;
+                            conn.disconnect();
+                            redirects++;
+                            continue;
+                        }
+                    }
+                    break;
+                }
+
+                if (conn == null || statusCode >= 400) {
+                    call.reject("HTTP Error " + statusCode + " while downloading binary from " + currentUrl);
                     return;
                 }
 
@@ -395,6 +466,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     baos.write(buffer, 0, len);
                 }
                 is.close();
+                conn.disconnect();
 
                 byte[] binaryData = baos.toByteArray();
                 String base64 = Base64.encodeToString(binaryData, Base64.NO_WRAP);
@@ -408,10 +480,6 @@ public class NativeAndroidBridgePlugin extends Plugin {
             } catch (Exception e) {
                 Log.e(TAG, "Native binary download failed: " + e.getMessage(), e);
                 call.reject("Native Binary Download Error: " + e.getMessage());
-            } finally {
-                if (conn != null) {
-                    conn.disconnect();
-                }
             }
         }).start();
     }
