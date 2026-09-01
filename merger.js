@@ -748,8 +748,37 @@ btnExecuteMerge?.addEventListener('click', async () => {
             newZip.file(masterNcxPath, serializer.serializeToString(masterNcxDoc));
         }
 
-        if (masterNavDoc && masterNavPath) {
-            newZip.file(masterNavPath, serializer.serializeToString(masterNavDoc));
+        // Optional Typography & CSS Theme Injection
+        const mergeTheme = document.getElementById('merge-css-theme')?.value;
+        if (mergeTheme && mergeTheme !== 'none') {
+            const themeCSS = {
+                publisher: 'body{font-family:"Literata","Georgia",serif!important;line-height:1.85!important;font-size:1.05em!important;text-align:justify!important}h1,h2{text-align:center!important;font-family:"Literata",serif!important}p{text-indent:1.5em;margin-bottom:0.85em}h1+p{text-indent:0}h1+p::first-letter{font-size:3em;float:left;line-height:0.8;margin-right:0.08em;font-weight:bold}hr{border:none;border-top:1px solid #cbd5e1;margin:2em 3em}',
+                dark: 'body{background:#1a1a2e!important;color:#e0e0e0!important}a{color:#8ab4f8!important}img{opacity:0.85}',
+                sepia: 'body{background:#f4ecd8!important;color:#5b4636!important;font-family:Georgia,serif!important}a{color:#8b4513!important}',
+                large: 'body{font-size:1.4em!important;line-height:1.8!important}'
+            }[mergeTheme];
+
+            if (themeCSS) {
+                const themeFileName = masterOpfDir + 'epub_merged_theme.css';
+                newZip.file(themeFileName, themeCSS);
+                for (let p in newZip.files) {
+                    if (p.endsWith('.xhtml') || p.endsWith('.html')) {
+                        try {
+                            let content = await newZip.file(p).async('text');
+                            if (!content.includes('epub_merged_theme.css')) {
+                                content = content.replace('</head>', '<link rel="stylesheet" type="text/css" href="epub_merged_theme.css"/></head>');
+                                newZip.file(p, content);
+                            }
+                        } catch(e) {}
+                    }
+                }
+                const themeItem = masterOpfDoc.createElement('item');
+                themeItem.setAttribute('id', 'epub-merged-theme-css');
+                themeItem.setAttribute('href', 'epub_merged_theme.css');
+                themeItem.setAttribute('media-type', 'text/css');
+                masterOpfDoc.querySelector('manifest')?.appendChild(themeItem);
+                logMsg(`Applied ${mergeTheme} typography theme to merged book.`);
+            }
         }
 
         newZip.file(masterOpfPath, serializer.serializeToString(masterOpfDoc));
