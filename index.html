@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.1.3';
+    const VERSION = '7.2.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2217,10 +2217,12 @@ const formatModelName = (id, displayName) => {
         // ══════════════════════════════════════════════════════════════════════
     // MOON+ READER ENGINE (OLED Black, Infinite Scroll, TTS Word Highlighter)
     // ══════════════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════════════
+    // MOON+ READER ENGINE (OLED Black, Infinite Scroll, TTS Word Highlighter)
+    // ══════════════════════════════════════════════════════════════════════
     const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
       if (!open) return null;
 
-      // Safe normalization of chapters
       const safeChapters = Array.isArray(chapters) && chapters.length > 0
         ? chapters.filter(c => c && typeof c === 'object')
         : [{ title: 'Document', text: text || '' }];
@@ -2230,12 +2232,11 @@ const formatModelName = (id, displayName) => {
       const [showOverlay, setShowOverlay] = useState(true);
       const [showVisualSheet, setShowVisualSheet] = useState(false);
       const [showTocDrawer, setShowTocDrawer] = useState(false);
-      const [showMoreMenu, setShowMoreMenu] = useState(false);
       const [lineHeight, setLineHeight] = useState(() => parseFloat(localStorage.getItem('readerLineHeight')) || 1.8);
-      const [marginWidth, setMarginWidth] = useState(() => localStorage.getItem('readerMarginWidth') || 'normal'); // tight, normal, wide
+      const [marginWidth, setMarginWidth] = useState(() => localStorage.getItem('readerMarginWidth') || 'normal');
       const [continuousScroll, setContinuousScroll] = useState(() => localStorage.getItem('readerContinuous') !== 'false');
 
-      // TTS Engine State
+      // TTS State
       const [isTtsActive, setIsTtsActive] = useState(false);
       const [isTtsPlaying, setIsTtsPlaying] = useState(false);
       const [ttsSpeed, setTtsSpeed] = useState(() => parseFloat(localStorage.getItem('readerTtsSpeed')) || 1.0);
@@ -2246,7 +2247,6 @@ const formatModelName = (id, displayName) => {
       const utteranceRef = useRef(null);
       const contentContainerRef = useRef(null);
 
-      // Current Chapter Data
       const currentChapter = safeChapters[activeChapterIdx] || safeChapters[0] || { title: 'Document', text: '' };
       const rawTitle = currentChapter.title || `Chapter ${activeChapterIdx + 1}`;
       const rawContent = currentChapter.content || currentChapter.text || text || '';
@@ -2255,7 +2255,7 @@ const formatModelName = (id, displayName) => {
       const normalizedTheme = theme === 'dark' ? 'oled' : (theme === 'paper' ? 'sepia' : (theme || 'oled'));
 
       const themeConfig = {
-        oled: { hexBg: '#000000', hexText: '#EDEDED', hexBarBg: '#0C0C0C', hexBorder: '#222222', accent: '#2DD4BF', name: 'OLED Black' },
+        oled: { hexBg: '#000000', hexText: '#EDEDED', hexBarBg: '#0A0A0A', hexBorder: '#222222', accent: '#2DD4BF', name: 'OLED Black' },
         sepia: { hexBg: '#FBF0D9', hexText: '#433422', hexBarBg: '#F4E6C8', hexBorder: '#E5D3B3', accent: '#92400E', name: 'Warm Paper' },
         slate: { hexBg: '#0F172A', hexText: '#CBD5E1', hexBarBg: '#1E293B', hexBorder: '#334155', accent: '#818CF8', name: 'Midnight' },
         light: { hexBg: '#FFFFFF', hexText: '#18181B', hexBarBg: '#F4F4F5', hexBorder: '#E4E4E7', accent: '#4F46E5', name: 'Clean White' }
@@ -2268,18 +2268,18 @@ const formatModelName = (id, displayName) => {
         mono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
       };
 
-      const marginClasses = {
-        tight: 'max-w-4xl px-4 sm:px-8',
-        normal: 'max-w-3xl px-6 sm:px-12',
-        wide: 'max-w-2xl px-8 sm:px-16'
+      const marginPaddings = {
+        tight: 'max-w-4xl px-3 sm:px-6',
+        normal: 'max-w-3xl px-5 sm:px-10',
+        wide: 'max-w-2xl px-8 sm:px-14'
       };
 
       const highlightColors = {
-        amber: { sentenceStyle: { backgroundColor: 'rgba(251, 191, 36, 0.25)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#FBBF24', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
-        cyan: { sentenceStyle: { backgroundColor: 'rgba(34, 211, 238, 0.25)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#22D3EE', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
-        emerald: { sentenceStyle: { backgroundColor: 'rgba(52, 211, 153, 0.25)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#34D399', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
-        purple: { sentenceStyle: { backgroundColor: 'rgba(192, 132, 252, 0.25)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#C084FC', color: '#FFFFFF', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
-        rose: { sentenceStyle: { backgroundColor: 'rgba(251, 113, 133, 0.25)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#FB7185', color: '#FFFFFF', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } }
+        amber: { sentenceStyle: { backgroundColor: 'rgba(251, 191, 36, 0.3)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#FBBF24', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
+        cyan: { sentenceStyle: { backgroundColor: 'rgba(34, 211, 238, 0.3)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#22D3EE', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
+        emerald: { sentenceStyle: { backgroundColor: 'rgba(52, 211, 153, 0.3)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#34D399', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
+        purple: { sentenceStyle: { backgroundColor: 'rgba(192, 132, 252, 0.3)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#C084FC', color: '#FFFFFF', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
+        rose: { sentenceStyle: { backgroundColor: 'rgba(251, 113, 133, 0.3)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#FB7185', color: '#FFFFFF', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } }
       };
       const activeHighlight = highlightColors[ttsHighlightColor] || highlightColors.amber;
 
@@ -2404,7 +2404,7 @@ const formatModelName = (id, displayName) => {
       const paragraphs = rawContent.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
 
       return h('div', {
-        className: 'fixed inset-0 z-[9999] overflow-hidden flex flex-col select-none transition-colors duration-300',
+        className: 'fixed inset-0 z-[99999] overflow-hidden flex flex-col select-none transition-colors duration-300',
         style: {
           backgroundColor: activeTheme.hexBg,
           color: activeTheme.hexText,
@@ -2413,7 +2413,7 @@ const formatModelName = (id, displayName) => {
       },
         // ── TOP OVERLAY HEADER (Moon+ Style) ──
         h('header', {
-          className: `fixed top-0 inset-x-0 z-30 transition-all duration-300 px-3 py-3 flex items-center justify-between shadow-lg ${showOverlay ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`,
+          className: `fixed top-0 inset-x-0 z-30 transition-all duration-300 px-3 py-3 flex items-center justify-between shadow-xl ${showOverlay ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`,
           style: {
             backgroundColor: activeTheme.hexBarBg,
             borderBottom: `1px solid ${activeTheme.hexBorder}`,
@@ -2422,7 +2422,8 @@ const formatModelName = (id, displayName) => {
         },
           // Left: Back Arrow to Exit Reader
           h('button', {
-            onClick: () => {
+            onClick: (e) => {
+              e.stopPropagation();
               stopTTS();
               onClose();
               window.NativeBridge?.haptic?.('selection');
@@ -2434,21 +2435,32 @@ const formatModelName = (id, displayName) => {
             h('span', { className: 'text-xs font-semibold' }, 'Back')
           ),
 
-          // Center: Book & Chapter Title
-          h('div', { className: 'flex-1 min-w-0 px-3 text-center cursor-pointer', onClick: () => setShowTocDrawer(true) },
+          // Center: Book & Chapter Title (Tap to open TOC)
+          h('div', {
+            className: 'flex-1 min-w-0 px-3 text-center cursor-pointer',
+            onClick: (e) => {
+              e.stopPropagation();
+              setShowTocDrawer(true);
+            }
+          },
             h('p', { className: 'text-xs sm:text-sm font-bold truncate tracking-tight text-inherit' }, rawTitle),
             h('p', { className: 'text-[10px] opacity-60 truncate font-mono mt-0.5' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length}`)
           ),
 
-          // Right: Visual Options & Overflow Menu
+          // Right: Visual Options & Palette Toggle
           h('div', { className: 'flex items-center gap-1 shrink-0' },
             h('button', {
-              onClick: () => { setShowVisualSheet(!showVisualSheet); window.NativeBridge?.haptic?.('selection'); },
+              onClick: (e) => {
+                e.stopPropagation();
+                setShowVisualSheet(!showVisualSheet);
+                window.NativeBridge?.haptic?.('selection');
+              },
               className: 'p-2 rounded-xl hover:bg-white/10 text-inherit transition-all cursor-pointer',
               title: 'Visual Options & Typography'
             }, ic(Type, 18)),
             h('button', {
-              onClick: () => {
+              onClick: (e) => {
+                e.stopPropagation();
                 const themes = ['oled', 'sepia', 'slate', 'light'];
                 const next = themes[(themes.indexOf(normalizedTheme) + 1) % themes.length];
                 setTheme(next);
@@ -2457,41 +2469,8 @@ const formatModelName = (id, displayName) => {
               },
               className: 'p-2 rounded-xl hover:bg-white/10 text-inherit transition-all cursor-pointer',
               title: `Theme: ${activeTheme.name}`
-            }, ic(Palette, 18)),
-            h('button', {
-              onClick: () => setShowMoreMenu(!showMoreMenu),
-              className: 'p-2 rounded-xl hover:bg-white/10 text-inherit transition-all cursor-pointer',
-              title: 'More Operations'
-            }, ic(MoreVertical, 18))
+            }, ic(Palette, 18))
           )
-        ),
-
-        // ── OVERFLOW MENU DROPDOWN ──
-        showMoreMenu && h('div', {
-          className: 'fixed top-14 right-3 z-40 w-56 rounded-2xl p-2 shadow-2xl backdrop-blur-xl text-xs font-medium space-y-1',
-          style: {
-            backgroundColor: activeTheme.hexBarBg,
-            border: `1px solid ${activeTheme.hexBorder}`,
-            color: activeTheme.hexText
-          }
-        },
-          h('button', {
-            onClick: () => { setShowTocDrawer(true); setShowMoreMenu(false); },
-            className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer'
-          }, ic(List, 15), 'Table of Contents'),
-          h('button', {
-            onClick: () => { startTTS(0); setShowMoreMenu(false); },
-            className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer text-teal-400 font-bold'
-          }, ic(Volume2, 15), 'Read Aloud (Google TTS)'),
-          h('button', {
-            onClick: () => {
-              setContinuousScroll(!continuousScroll);
-              localStorage.setItem('readerContinuous', String(!continuousScroll));
-              setShowMoreMenu(false);
-              toast(continuousScroll ? 'Paged Reading Mode' : 'Continuous Infinite Scroll', 'info');
-            },
-            className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer'
-          }, ic(Compass, 15), continuousScroll ? 'Switch to Paged View' : 'Switch to Infinite Scroll')
         ),
 
         // ── READING BODY (Tap center to toggle overlays) ──
@@ -2500,15 +2479,12 @@ const formatModelName = (id, displayName) => {
           onScroll: handleScroll,
           onClick: (e) => {
             if (!window.getSelection()?.toString()) {
-              setShowOverlay(!showOverlay);
+              setShowOverlay(prev => !prev);
               setShowVisualSheet(false);
-              setShowMoreMenu(false);
             }
           },
-          className: `flex-1 overflow-y-auto w-full mx-auto select-text ${marginClasses[marginWidth] || marginClasses.normal} pt-16 pb-24 sm:py-24 transition-all`,
+          className: `flex-1 overflow-y-auto w-full mx-auto select-text ${marginPaddings[marginWidth] || marginPaddings.normal} pt-16 pb-28 sm:py-24 transition-all cursor-pointer`,
           style: {
-            fontSize: `${fontSize}px`,
-            lineHeight: lineHeight,
             backgroundColor: activeTheme.hexBg,
             color: activeTheme.hexText
           }
@@ -2519,13 +2495,17 @@ const formatModelName = (id, displayName) => {
             h('p', { className: 'text-xs opacity-50 mt-1 font-mono' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length}`)
           ),
 
-          // Story Paragraphs with real-time sentence and word highlighter
+          // Story Paragraphs with working line-height and font-size
           paragraphs.length === 0 ? h('p', { className: 'opacity-40 italic text-center py-20' }, 'No translated text available to display...') :
             paragraphs.map((p, pIdx) => {
               const sentencesInP = ttsSentences.filter(s => s.paragraphIdx === pIdx);
               return h('p', {
                 key: pIdx,
-                className: 'mb-6 text-left tracking-normal leading-relaxed text-justify break-words'
+                className: 'mb-6 text-left tracking-normal text-justify break-words',
+                style: {
+                  fontSize: `${fontSize}px`,
+                  lineHeight: `${lineHeight}`
+                }
               },
                 sentencesInP.length > 0 ?
                   sentencesInP.map((sObj, sIdx) => {
@@ -2542,7 +2522,7 @@ const formatModelName = (id, displayName) => {
                         }
                       },
                       style: isSentenceActive ? activeHighlight.sentenceStyle : {},
-                      className: 'transition-colors duration-150 rounded px-0.5 cursor-pointer hover:opacity-90'
+                      className: 'transition-colors duration-150 rounded px-0.5'
                     },
                       isSentenceActive && currentWordRange ? (() => {
                         const str = sObj.text;
@@ -2582,6 +2562,7 @@ const formatModelName = (id, displayName) => {
 
         // ── FLOATING TTS NARRATION PLAYER BAR ──
         isTtsActive && h('div', {
+          onClick: (e) => e.stopPropagation(),
           className: 'fixed bottom-20 inset-x-4 max-w-xl mx-auto z-40 rounded-2xl p-3.5 shadow-2xl flex flex-col gap-2.5 animate-in slide-in-from-bottom duration-200',
           style: {
             backgroundColor: activeTheme.hexBarBg,
@@ -2595,38 +2576,40 @@ const formatModelName = (id, displayName) => {
               h('span', { className: 'truncate' }, `Reading Aloud (Sentence ${currentSentenceIdx + 1}/${ttsSentences.length})`)
             ),
             h('button', {
-              onClick: stopTTS,
-              className: 'p-1 text-slate-400 hover:text-white rounded-lg'
+              onClick: (e) => { e.stopPropagation(); stopTTS(); },
+              className: 'p-1 text-slate-400 hover:text-white rounded-lg cursor-pointer'
             }, ic(X, 16))
           ),
           h('div', { className: 'flex items-center justify-between gap-3' },
             h('div', { className: 'flex items-center gap-1' },
               [0.75, 1.0, 1.25, 1.5, 2.0].map(spd => h('button', {
                 key: spd,
-                onClick: () => {
+                onClick: (e) => {
+                  e.stopPropagation();
                   setTtsSpeed(spd);
                   localStorage.setItem('readerTtsSpeed', spd);
                   if (isTtsActive) startTTS(currentSentenceIdx);
                 },
-                className: `px-2 py-1 text-[10px] font-bold rounded-lg transition-all ${ttsSpeed === spd ? 'bg-teal-500 text-white' : 'hover:bg-white/10 opacity-70'}`
+                className: `px-2 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${ttsSpeed === spd ? 'bg-teal-500 text-white' : 'hover:bg-white/10 opacity-70'}`
               }, `${spd}x`))
             ),
             h('div', { className: 'flex items-center gap-2' },
-              h('button', { onClick: () => skipTTSSentence(-1), className: 'p-1.5 rounded-lg hover:bg-white/10' }, ic(SkipBack, 18)),
+              h('button', { onClick: (e) => { e.stopPropagation(); skipTTSSentence(-1); }, className: 'p-1.5 rounded-lg hover:bg-white/10 cursor-pointer' }, ic(SkipBack, 18)),
               h('button', {
-                onClick: pauseTTS,
-                className: 'p-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-full shadow-md'
+                onClick: (e) => { e.stopPropagation(); pauseTTS(); },
+                className: 'p-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-full shadow-md cursor-pointer'
               }, ic(isTtsPlaying ? Pause : Play, 18)),
-              h('button', { onClick: () => skipTTSSentence(1), className: 'p-1.5 rounded-lg hover:bg-white/10' }, ic(SkipForward, 18))
+              h('button', { onClick: (e) => { e.stopPropagation(); skipTTSSentence(1); }, className: 'p-1.5 rounded-lg hover:bg-white/10 cursor-pointer' }, ic(SkipForward, 18))
             ),
             h('div', { className: 'flex items-center gap-1' },
               ['amber', 'cyan', 'emerald', 'purple', 'rose'].map(c => h('button', {
                 key: c,
-                onClick: () => {
+                onClick: (e) => {
+                  e.stopPropagation();
                   setTtsHighlightColor(c);
                   localStorage.setItem('readerHighlightColor', c);
                 },
-                className: `w-4 h-4 rounded-full border border-white/20 transition-all ${ttsHighlightColor === c ? 'ring-2 ring-white scale-125' : 'opacity-60'} ${
+                className: `w-4 h-4 rounded-full border border-white/20 transition-all cursor-pointer ${ttsHighlightColor === c ? 'ring-2 ring-white scale-125' : 'opacity-60'} ${
                   c === 'amber' ? 'bg-amber-400' : c === 'cyan' ? 'bg-cyan-400' : c === 'emerald' ? 'bg-emerald-400' : c === 'purple' ? 'bg-purple-400' : 'bg-rose-400'
                 }`
               }))
@@ -2636,6 +2619,7 @@ const formatModelName = (id, displayName) => {
 
         // ── VISUAL OPTIONS & TYPOGRAPHY SHEET (Moon+ Style) ──
         showVisualSheet && h('div', {
+          onClick: (e) => e.stopPropagation(),
           className: 'fixed bottom-16 inset-x-4 max-w-lg mx-auto z-40 rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200',
           style: {
             backgroundColor: activeTheme.hexBarBg,
@@ -2645,7 +2629,7 @@ const formatModelName = (id, displayName) => {
         },
           h('div', { className: 'flex items-center justify-between border-b pb-2', style: { borderColor: activeTheme.hexBorder } },
             h('span', { className: 'text-xs font-bold uppercase tracking-wider text-inherit' }, 'Visual Options & Typography'),
-            h('button', { onClick: () => setShowVisualSheet(false), className: 'p-1 hover:bg-white/10 rounded-lg' }, ic(X, 15))
+            h('button', { onClick: (e) => { e.stopPropagation(); setShowVisualSheet(false); }, className: 'p-1 hover:bg-white/10 rounded-lg cursor-pointer' }, ic(X, 15))
           ),
           // Font Size Slider
           h('div', { className: 'space-y-1.5' },
@@ -2655,8 +2639,8 @@ const formatModelName = (id, displayName) => {
             ),
             h('div', { className: 'flex items-center gap-3' },
               h('button', {
-                onClick: () => { const n = Math.max(12, fontSize - 1); setFontSize(n); localStorage.setItem('readerFontSize', n); },
-                className: 'px-2.5 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs',
+                onClick: (e) => { e.stopPropagation(); const n = Math.max(12, fontSize - 1); setFontSize(n); localStorage.setItem('readerFontSize', n); },
+                className: 'px-2.5 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs cursor-pointer',
                 style: { borderColor: activeTheme.hexBorder }
               }, 'A-'),
               h('input', {
@@ -2668,8 +2652,8 @@ const formatModelName = (id, displayName) => {
                 className: 'flex-1 accent-teal-500'
               }),
               h('button', {
-                onClick: () => { const n = Math.min(38, fontSize + 1); setFontSize(n); localStorage.setItem('readerFontSize', n); },
-                className: 'px-2.5 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs',
+                onClick: (e) => { e.stopPropagation(); const n = Math.min(38, fontSize + 1); setFontSize(n); localStorage.setItem('readerFontSize', n); },
+                className: 'px-2.5 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs cursor-pointer',
                 style: { borderColor: activeTheme.hexBorder }
               }, 'A+')
             )
@@ -2684,8 +2668,8 @@ const formatModelName = (id, displayName) => {
                 { id: 'mono', label: 'Mono' }
               ].map(f => h('button', {
                 key: f.id,
-                onClick: () => { setFont(f.id); localStorage.setItem('readerFont', f.id); },
-                className: `p-2 rounded-xl text-xs font-bold border transition-all ${font === f.id ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'hover:bg-white/10 opacity-70'}`,
+                onClick: (e) => { e.stopPropagation(); setFont(f.id); localStorage.setItem('readerFont', f.id); },
+                className: `p-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${font === f.id ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'hover:bg-white/10 opacity-70'}`,
                 style: { borderColor: activeTheme.hexBorder }
               }, f.label))
             )
@@ -2701,8 +2685,8 @@ const formatModelName = (id, displayName) => {
                 { id: 'light', label: 'White', bg: 'bg-white text-black' }
               ].map(t => h('button', {
                 key: t.id,
-                onClick: () => { setTheme(t.id); localStorage.setItem('readerTheme', t.id); },
-                className: `p-2 rounded-xl text-xs font-bold border ${t.bg} transition-all ${normalizedTheme === t.id ? 'ring-2 ring-teal-500 scale-105 shadow-md' : 'opacity-80'}`,
+                onClick: (e) => { e.stopPropagation(); setTheme(t.id); localStorage.setItem('readerTheme', t.id); },
+                className: `p-2 rounded-xl text-xs font-bold border ${t.bg} transition-all cursor-pointer ${normalizedTheme === t.id ? 'ring-2 ring-teal-500 scale-105 shadow-md' : 'opacity-80'}`,
                 style: { borderColor: activeTheme.hexBorder }
               }, t.label))
             )
@@ -2714,8 +2698,8 @@ const formatModelName = (id, displayName) => {
               h('div', { className: 'flex rounded-xl overflow-hidden border', style: { borderColor: activeTheme.hexBorder } },
                 [1.4, 1.8, 2.2].map(lh => h('button', {
                   key: lh,
-                  onClick: () => { setLineHeight(lh); localStorage.setItem('readerLineHeight', lh); },
-                  className: `flex-1 py-1 text-xs font-bold transition-all ${lineHeight === lh ? 'bg-teal-500 text-white' : 'hover:bg-white/10'}`
+                  onClick: (e) => { e.stopPropagation(); setLineHeight(lh); localStorage.setItem('readerLineHeight', lh); },
+                  className: `flex-1 py-1 text-xs font-bold transition-all cursor-pointer ${lineHeight === lh ? 'bg-teal-500 text-white' : 'hover:bg-white/10'}`
                 }, `${lh}x`))
               )
             ),
@@ -2724,8 +2708,8 @@ const formatModelName = (id, displayName) => {
               h('div', { className: 'flex rounded-xl overflow-hidden border', style: { borderColor: activeTheme.hexBorder } },
                 ['tight', 'normal', 'wide'].map(m => h('button', {
                   key: m,
-                  onClick: () => { setMarginWidth(m); localStorage.setItem('readerMarginWidth', m); },
-                  className: `flex-1 py-1 text-[11px] font-bold capitalize transition-all ${marginWidth === m ? 'bg-teal-500 text-white' : 'hover:bg-white/10'}`
+                  onClick: (e) => { e.stopPropagation(); setMarginWidth(m); localStorage.setItem('readerMarginWidth', m); },
+                  className: `flex-1 py-1 text-[11px] font-bold capitalize transition-all cursor-pointer ${marginWidth === m ? 'bg-teal-500 text-white' : 'hover:bg-white/10'}`
                 }, m))
               )
             )
@@ -2751,14 +2735,14 @@ const formatModelName = (id, displayName) => {
                 h('h3', { className: 'text-sm font-bold truncate' }, 'Table of Contents'),
                 h('p', { className: 'text-[11px] opacity-60' }, `${safeChapters.length} chapters available`)
               ),
-              h('button', { onClick: () => setShowTocDrawer(false), className: 'p-1 hover:bg-white/10 rounded-lg' }, ic(X, 18))
+              h('button', { onClick: () => setShowTocDrawer(false), className: 'p-1 hover:bg-white/10 rounded-lg cursor-pointer' }, ic(X, 18))
             ),
             h('div', { className: 'flex-1 overflow-y-auto py-3 space-y-1' },
               safeChapters.map((ch, idx) =>
                 h('button', {
                   key: idx,
                   onClick: () => { changeChapter(idx); setShowTocDrawer(false); },
-                  className: `w-full text-left p-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-between gap-2 ${activeChapterIdx === idx ? 'bg-teal-500 text-white shadow-sm' : 'hover:bg-white/5 opacity-80'}`
+                  className: `w-full text-left p-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${activeChapterIdx === idx ? 'bg-teal-500 text-white shadow-sm' : 'hover:bg-white/5 opacity-80'}`
                 },
                   h('span', { className: 'truncate flex-1' }, `${idx + 1}. ${ch.title || `Chapter ${idx + 1}`}`),
                   h('span', { className: 'text-[10px] opacity-60 font-mono shrink-0' }, `${(ch.text || ch.content || '').length}c`)
@@ -2770,6 +2754,7 @@ const formatModelName = (id, displayName) => {
 
         // ── BOTTOM OVERLAY TOOLBAR (Moon+ Style) ──
         h('footer', {
+          onClick: (e) => e.stopPropagation(),
           className: `fixed bottom-0 inset-x-0 z-30 transition-all duration-300 px-4 py-2.5 flex flex-col gap-2 shadow-2xl ${showOverlay ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`,
           style: {
             backgroundColor: activeTheme.hexBarBg,
@@ -2781,7 +2766,7 @@ const formatModelName = (id, displayName) => {
           h('div', { className: 'flex items-center justify-between gap-3 text-xs' },
             h('button', {
               disabled: activeChapterIdx <= 0,
-              onClick: () => changeChapter(activeChapterIdx - 1),
+              onClick: (e) => { e.stopPropagation(); changeChapter(activeChapterIdx - 1); },
               className: 'p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-30 transition-all cursor-pointer'
             }, ic(ChevronDown, 16, 'rotate-90')),
             h('div', { className: 'flex-1 flex items-center gap-2' },
@@ -2797,7 +2782,7 @@ const formatModelName = (id, displayName) => {
             h('span', { className: 'text-xs font-mono font-bold opacity-80 shrink-0 min-w-[45px] text-right' }, `${scrollPercent}%`),
             h('button', {
               disabled: activeChapterIdx >= safeChapters.length - 1,
-              onClick: () => changeChapter(activeChapterIdx + 1),
+              onClick: (e) => { e.stopPropagation(); changeChapter(activeChapterIdx + 1); },
               className: 'p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-30 transition-all cursor-pointer'
             }, ic(ChevronDown, 16, '-rotate-90'))
           ),
@@ -2805,7 +2790,8 @@ const formatModelName = (id, displayName) => {
           // Row 2: Tool Icons (Audio, Visual Options, Chapters, Themes)
           h('div', { className: 'flex items-center justify-between pt-1 border-t', style: { borderColor: activeTheme.hexBorder } },
             h('button', {
-              onClick: () => {
+              onClick: (e) => {
+                e.stopPropagation();
                 if (isTtsActive) pauseTTS();
                 else startTTS(0);
                 window.NativeBridge?.haptic?.('selection');
@@ -2815,19 +2801,20 @@ const formatModelName = (id, displayName) => {
             }, ic(Volume2, 16), h('span', { className: 'text-[11px]' }, isTtsActive ? 'Speaking' : 'TTS')),
 
             h('button', {
-              onClick: () => { setShowVisualSheet(!showVisualSheet); window.NativeBridge?.haptic?.('selection'); },
+              onClick: (e) => { e.stopPropagation(); setShowVisualSheet(!showVisualSheet); window.NativeBridge?.haptic?.('selection'); },
               className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
               title: 'Visual Options'
             }, ic(Type, 16), h('span', { className: 'text-[11px]' }, 'Font (A±)')),
 
             h('button', {
-              onClick: () => { setShowTocDrawer(true); window.NativeBridge?.haptic?.('selection'); },
+              onClick: (e) => { e.stopPropagation(); setShowTocDrawer(true); window.NativeBridge?.haptic?.('selection'); },
               className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
               title: 'Table of Contents'
             }, ic(List, 16), h('span', { className: 'text-[11px]' }, 'Chapters')),
 
             h('button', {
-              onClick: () => {
+              onClick: (e) => {
+                e.stopPropagation();
                 const themes = ['oled', 'sepia', 'slate', 'light'];
                 const next = themes[(themes.indexOf(normalizedTheme) + 1) % themes.length];
                 setTheme(next);
