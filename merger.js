@@ -93,7 +93,10 @@ mergeInput.addEventListener('change', (e) => {
 
 window.handleMergeFiles = handleMergeFiles;
 function handleMergeFiles(files) {
-    const validFiles = files.filter(f => f.name.toLowerCase().endsWith('.epub'));
+    const validFiles = files.filter(f => {
+        const n = (f.name || '').toLowerCase();
+        return n.endsWith('.epub') || n.endsWith('.zip') || f.type === 'application/epub+zip';
+    });
     if (validFiles.length === 0) return;
 
     // Duplicate detection

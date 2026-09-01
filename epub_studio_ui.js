@@ -1,7 +1,7 @@
 (function() {
 const splitHtml = `<div id="epub-split-tab" class="w-full overflow-hidden transition-all">
 
-            <input type="file" id="epub-input" accept=".epub,application/epub+zip,application/zip,application/octet-stream,*/*" class="hidden" />
+            <input type="file" id="epub-input" accept="*/*,.epub" class="hidden" />
             <div id="upload-section"
                 class="p-8 sm:p-14 text-center hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all cursor-pointer group border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 rounded-2xl"
                 ondragover="event.preventDefault(); this.classList.add('ring-4','ring-indigo-400');"
@@ -225,15 +225,16 @@ const splitHtml = `<div id="epub-split-tab" class="w-full overflow-hidden transi
 
                         <div
                             class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl shadow-sm sm:backdrop-blur-md flex-1 flex flex-col min-h-[350px] sm:min-h-[400px]">
-                            <div class="flex items-center justify-between mb-3 sm:mb-4 gap-2 flex-wrap">
-                                <div class="flex items-center gap-2">
+                            <div class="flex flex-col gap-2 mb-3 sm:mb-4">
+                                <div class="flex items-center justify-between gap-2">
                                     <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">Chapter Selection</h3>
-                                    <button type="button" id="btn-ai-polish-toc" class="px-2.5 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg text-[11px] font-bold shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1 cursor-pointer" title="AI automatically standardizes and cleans chapter names & TOC">
+                                    <button type="button" id="btn-ai-polish-toc" class="px-2.5 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg text-[11px] font-bold shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1 cursor-pointer shrink-0" title="AI automatically standardizes and cleans all chapter names & TOC">
                                         <span>✨ AI Polish TOC</span>
                                     </button>
                                 </div>
-                                <span id="preview-count"
-                                    class="text-xs font-mono font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full whitespace-nowrap shadow-2xs">0 selected</span>
+                                <div class="flex items-center justify-between gap-2 bg-indigo-50/70 dark:bg-indigo-950/50 px-3 py-1.5 rounded-xl border border-indigo-200/70 dark:border-indigo-800/60">
+                                    <span id="preview-count" class="text-[11px] sm:text-xs font-mono font-bold text-indigo-700 dark:text-indigo-300 break-words leading-tight">0 selected</span>
+                                </div>
                             </div>
 
                             <div class="flex flex-wrap gap-2 mb-3 sm:mb-4">
@@ -314,11 +315,16 @@ const mergeHtml = `<div id="epub-merge-tab" class="w-full overflow-hidden transi
                         </div>
                     </div>
 
-                    <input type="file" id="merge-input" accept=".epub,application/epub+zip,application/zip,application/octet-stream,*/*" multiple class="hidden" />
+                    <input type="file" id="merge-input" accept="*/*,.epub" multiple class="hidden" />
                     <div id="merge-upload-box"
                         class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-fuchsia-500 hover:bg-fuchsia-50/20 dark:hover:bg-fuchsia-950/20 rounded-2xl p-6 sm:p-10 text-center transition-all cursor-pointer mb-6 group">
-                        <span class="text-sm sm:text-base font-bold text-fuchsia-600 dark:text-fuchsia-400 group-hover:scale-105 inline-block transition-transform">Click to Select Multiple EPUBs</span>
+                        <span class="text-sm sm:text-base font-bold text-fuchsia-600 dark:text-fuchsia-400 group-hover:scale-105 inline-block transition-transform">Click to Select EPUB Books</span>
                         <span class="block text-slate-400 text-xs mt-1 font-medium">or drag and drop them here</span>
+                        <div class="mt-3 flex flex-wrap justify-center items-center gap-2">
+                            <span class="px-3 py-1 rounded-lg bg-fuchsia-50 dark:bg-fuchsia-950/60 text-fuchsia-700 dark:text-fuchsia-300 text-[11px] font-semibold border border-fuchsia-200/80 dark:border-fuchsia-800/60">
+                                📱 Phone Tip: Long-press to multi-select, or add books sequentially
+                            </span>
+                        </div>
                     </div>
 
                     <div id="merge-list-container" class="hidden space-y-4">

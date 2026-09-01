@@ -1297,39 +1297,76 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
     const btnApply = document.getElementById('btn-apply-ai-toc');
 
     btn.disabled = true;
-    btnText.textContent = 'Analyzing & Polishing...';
-    container.innerHTML = '<div class="text-center py-8 text-indigo-400 font-semibold animate-pulse">Analyzing chapter structure and generating clean standardized titles...</div>';
+    btnApply.disabled = true;
+    aiPolishedResults = [];
+
+    const batchSize = 100;
+    const totalChapters = storyChapters.length;
+    const totalBatches = Math.ceil(totalChapters / batchSize);
+    let suggestedBookTitle = splitTitleInput.value.trim() || baseBookTitle;
+
+    container.innerHTML = `
+        <div class="p-4 bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl text-center space-y-2">
+            <p id="ai-batch-status-text" class="text-xs font-bold text-indigo-700 dark:text-indigo-300">Starting AI Polish for ${totalChapters} chapters across ${totalBatches} batch${totalBatches > 1 ? 'es' : ''}...</p>
+            <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div id="ai-batch-progress-bar" class="bg-gradient-to-r from-purple-600 to-indigo-600 h-2 transition-all duration-200" style="width: 0%"></div>
+            </div>
+        </div>
+    `;
 
     try {
-        // Extract chapter samples
-        const sampleChapters = storyChapters.slice(0, 150).map((c, i) => ({
-            index: c.displayIndex,
-            idref: c.idref,
-            rawName: c.customName || c.originalName
-        }));
+        for (let b = 0; b < totalBatches; b++) {
+            const startIdx = b * batchSize;
+            const endIdx = Math.min(startIdx + batchSize, totalChapters);
+            const batchChapters = storyChapters.slice(startIdx, endIdx).map(c => ({
+                index: c.displayIndex,
+                idref: c.idref,
+                rawName: c.customName || c.originalName
+            }));
 
-        const result = await window.aiPolishEpubToc(sampleChapters, splitTitleInput.value.trim() || baseBookTitle);
-        aiPolishedResults = result.chapters || [];
+            const pct = Math.round(((b) / totalBatches) * 100);
+            const pBar = document.getElementById('ai-batch-progress-bar');
+            const pText = document.getElementById('ai-batch-status-text');
+            if (pBar) pBar.style.width = `${pct}%`;
+            if (pText) pText.textContent = `Polishing Batch ${b + 1}/${totalBatches}: Chapters ${startIdx + 1} to ${endIdx}...`;
+            btnText.textContent = `Processing ${startIdx + 1}–${endIdx} / ${totalChapters}...`;
+
+            const res = await window.aiPolishEpubToc(batchChapters, suggestedBookTitle);
+            if (res.cleanedTitle && b === 0) suggestedBookTitle = res.cleanedTitle;
+
+            if (Array.isArray(res.chapters)) {
+                aiPolishedResults.push(...res.chapters);
+            } else if (res.chapters && typeof res.chapters === 'object') {
+                aiPolishedResults.push(...Object.values(res.chapters));
+            }
+        }
+
+        const pBar = document.getElementById('ai-batch-progress-bar');
+        const pText = document.getElementById('ai-batch-status-text');
+        if (pBar) pBar.style.width = '100%';
+        if (pText) pText.textContent = `✅ Complete! Polished ${aiPolishedResults.length} / ${totalChapters} chapters.`;
 
         if (aiPolishedResults.length === 0) {
-            container.innerHTML = '<p class="text-rose-400 text-center py-6">AI did not return cleaned titles. Please try again.</p>';
+            container.innerHTML = '<p class="text-rose-400 text-center py-6">AI did not return cleaned titles. Please check your API key and try again.</p>';
             return;
         }
 
-        // Render clean comparison table
+        // Render full comparison table with search filter
         let html = `
-            <div class="mb-3 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-800 dark:text-emerald-300">
-                <span class="font-bold">Suggested Book Title:</span> ${result.cleanedTitle || baseBookTitle}
+            <div class="mb-3 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-800 dark:text-emerald-300 flex items-center justify-between gap-2 flex-wrap">
+                <div><span class="font-bold">Suggested Book Title:</span> ${suggestedBookTitle}</div>
+                <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-200/60 dark:bg-emerald-900/60 font-bold">${aiPolishedResults.length} chapters polished</span>
             </div>
-            <div class="space-y-1.5">
+            <input type="text" id="ai-modal-filter" placeholder="Filter polished chapters..." class="w-full mb-3 bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500/30">
+            <div id="ai-toc-table-rows" class="space-y-1.5 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1">
         `;
 
         aiPolishedResults.forEach(item => {
-            const orig = sampleChapters.find(c => c.index === item.index);
+            const orig = storyChapters.find(c => c.displayIndex === item.index);
             html += `
-                <div class="p-2 bg-slate-100/80 dark:bg-slate-800/80 rounded-lg flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700/70">
+                <div class="ai-row p-2 bg-slate-100/80 dark:bg-slate-800/80 rounded-lg flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700/70 text-xs">
                     <span class="text-slate-400 shrink-0 font-bold">#${item.index}</span>
-                    <span class="text-slate-500 line-through truncate max-w-[40%]" title="${orig ? orig.rawName : ''}">${orig ? orig.rawName : ''}</span>
+                    <span class="text-slate-500 line-through truncate max-w-[35%]" title="${orig ? (orig.customName || orig.originalName) : ''}">${orig ? (orig.customName || orig.originalName) : ''}</span>
                     <span class="text-indigo-500 font-bold shrink-0">&rarr;</span>
                     <span class="text-emerald-600 dark:text-emerald-400 font-semibold truncate flex-1">${item.cleanedName}</span>
                 </div>
@@ -1337,15 +1374,24 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
         });
         html += '</div>';
         container.innerHTML = html;
+
+        // Hook search filter inside modal
+        document.getElementById('ai-modal-filter')?.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            document.querySelectorAll('#ai-toc-table-rows .ai-row').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+            });
+        });
+
         btnApply.disabled = false;
-        showToast('AI Table of Contents polished successfully!', 'success');
+        showToast(`AI polished ${aiPolishedResults.length} chapters successfully!`, 'success');
     } catch (err) {
         console.error('AI TOC polish failed:', err);
         container.innerHTML = `<div class="text-rose-400 p-4 bg-rose-950/20 rounded-xl border border-rose-800/50">Error: ${err.message}</div>`;
         showToast('AI Polish failed: ' + err.message, 'error');
     } finally {
         btn.disabled = false;
-        btnText.textContent = 'Regenerate AI Cleaned TOC';
+        btnText.textContent = 'Regenerate Cleaned TOC';
     }
 });
 
