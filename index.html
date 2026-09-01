@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.3.2';
+    const VERSION = '7.3.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3231,6 +3231,7 @@ const formatModelName = (id, displayName) => {
       const [darkMode, setDarkMode] = useState(() => { const s = localStorage.getItem('darkMode'); return s !== null ? s === 'true' : window.matchMedia('(prefers-color-scheme:dark)').matches });
       const [toasts, setToasts] = useState([]);
       const [availableUpdate, setAvailableUpdate] = useState(null);
+      const [downloadSuccessModal, setDownloadSuccessModal] = useState(null);
       const [isUpdating, setIsUpdating] = useState(false);
 
       const checkForAppUpdate = async (isManual = false) => {
