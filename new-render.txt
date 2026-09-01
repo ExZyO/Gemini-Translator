@@ -40,6 +40,25 @@
         e.target.value = '';
       };
 
+      const removeImportChapter = (idx) => {
+        setWebImportData(prev => {
+          if (!prev || !prev.chapters) return prev;
+          const chapters = prev.chapters.filter((_, i) => i !== idx);
+          return { ...prev, chapters };
+        });
+      };
+
+      const moveImportChapter = (idx, dir) => {
+        setWebImportData(prev => {
+          if (!prev || !prev.chapters) return prev;
+          const chapters = [...prev.chapters];
+          const j = idx + dir;
+          if (j < 0 || j >= chapters.length) return prev;
+          [chapters[idx], chapters[j]] = [chapters[j], chapters[idx]];
+          return { ...prev, chapters };
+        });
+      };
+
       const handleExportRow = async (kind) => {
         if (kind === 'epub') { setSheetOpen(false); await handleDownloadEPUB(); return; }
         if (kind === 'reader') {
@@ -254,12 +273,21 @@
                 )
               ),
               webImportData && webImportData.chapters && webImportData.chapters.length > 0 && h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, `Chapters (${webImportData.chapters.length})`)),
-                webImportData.chapters.slice(0, 12).map((c, i) => h('div', { key: i, className: 'set-row' },
-                  h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, c.title || `Chapter ${i + 1}`),
-                  h('span', { className: 'count' }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()} words`)
-                )),
-                webImportData.chapters.length > 12 && h('div', { className: 'count', style: { paddingTop: 8 } }, `+ ${webImportData.chapters.length - 12} more chapters`)
+                h('div', { className: 'card-title' },
+                  h('span', null, `Chapters (${webImportData.chapters.length})`),
+                  h('span', { className: 'count' }, '↑↓ reorder · ✕ remove')
+                ),
+                h('div', { className: 'custom-scrollbar', style: { maxHeight: 320, overflowY: 'auto' } },
+                  webImportData.chapters.map((c, i) => h('div', { key: i, className: 'set-row' },
+                    h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${i + 1}. ${c.title || `Chapter ${i + 1}`}`),
+                    h('div', { className: 'pane-acts' },
+                      h('span', { className: 'count' }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()}w`),
+                      h('button', { type: 'button', className: 'chip-act', disabled: i === 0, onClick: () => moveImportChapter(i, -1) }, '↑'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: i >= webImportData.chapters.length - 1, onClick: () => moveImportChapter(i, 1) }, '↓'),
+                      h('button', { type: 'button', className: 'chip-act', style: { color: 'var(--rose)' }, onClick: () => removeImportChapter(i) }, '✕')
+                    )
+                  ))
+                )
               )
             ),
 
@@ -305,7 +333,8 @@
                           const blob = await generateEpubFromChapters(full.rawChapters, item.title, item.author || 'Author');
                           const cleanName = sanitizeFilename(item.title).replace(/\s+/g, '_');
                           await saveUniversalBlob(blob, `${cleanName}.epub`, 'application/epub+zip');
-                        } }, 'EPUB')
+                        } }, 'EPUB'),
+                        h('button', { type: 'button', className: 'mini-btn danger', onClick: () => confirmAction(`Remove "${item.title}" from the library?`, async () => { await deleteNovelFromHistory(item.id); }) }, 'Remove')
                       )
                     ))
                   ),
@@ -314,11 +343,12 @@
                 history.length > 0 && h('button', { type: 'button', className: 'mini-btn danger', onClick: clearHistory }, 'Clear')
               ),
               history.length > 0 && h(React.Fragment, null,
-                history.slice(0, 25).map(entry => h('div', { key: entry.id, className: 'set-row' },
-                  h('span', { className: 'l', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${new Date(entry.ts).toLocaleDateString()} · ${entry.srcLang || 'Auto'} → ${entry.tgtLang} · ${(entry.outputPreview || '').substring(0, 60)}`),
-                  h('div', { className: 'pane-acts' },
-                    h('button', { type: 'button', className: 'chip-act', onClick: () => loadFromHistory(entry) }, 'Load'),
-                    h('button', { type: 'button', className: 'chip-act', onClick: () => deleteHistoryItem(entry.id) }, '✕')
+                history.slice(0, 50).map(entry => h('div', { key: entry.id, className: 'book-card' },
+                  h('div', { className: 't' }, `Translation · ${new Date(entry.ts).toLocaleString()}`),
+                  h('div', { className: 'm' }, `${entry.srcLang || 'Auto'} → ${entry.tgtLang}${entry.outputPreview ? ' · ' + (entry.outputPreview.length > 140 ? entry.outputPreview.substring(0, 140) + '…' : entry.outputPreview) : ''}`),
+                  h('div', { className: 'book-acts' },
+                    h('button', { type: 'button', className: 'mini-btn', onClick: () => loadFromHistory(entry) }, 'Load'),
+                    h('button', { type: 'button', className: 'mini-btn danger', onClick: () => deleteHistoryItem(entry.id) }, 'Delete')
                   )
                 ))
               )

@@ -329,6 +329,21 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 .studio-host [class*="bg-indigo-600"] { background-color: var(--iris-deep) !important; }
 .studio-host input[type="text"], .studio-host input:not([type]), .studio-host textarea, .studio-host select { background-color: var(--ember-2) !important; color: var(--paper-dim) !important; border-color: var(--hairline) !important; }
 .studio-host button[class*="text-white"] { color: #E6E9FF !important; }
+.studio-host .cap { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--slate); }
+.studio-host .tl-field { width: 100%; background: var(--ember-2); border: 1px solid var(--hairline); border-radius: 10px; padding: 9px 12px; font-size: 12.5px; color: var(--paper-dim); outline: none; }
+.studio-host .tl-field:focus { border-color: var(--iris-deep); }
+.studio-host .tl-drop { border: 1.5px dashed var(--hairline); border-radius: 16px; padding: 28px 16px; text-align: center; cursor: pointer; background: rgba(14,15,18,.6); }
+.studio-host .tl-drop:hover { border-color: var(--iris-deep); }
+.studio-host .tl-btn { font-size: 11.5px; font-weight: 700; color: var(--paper-dim); border: 1px solid var(--hairline); background: var(--ember-2); border-radius: 10px; padding: 8px 12px; cursor: pointer; }
+.studio-host .tl-btn.primary { color: #E6E9FF; background: linear-gradient(180deg, #3A4178, #262B54); border-color: var(--iris-deep); }
+.studio-host .tl-btn.accent { color: #E6E9FF; background: var(--iris-deep); border-color: var(--iris-deep); }
+.studio-host .tl-btn.danger { color: var(--rose); border-color: rgba(229,99,111,.5); }
+.studio-host .tl-check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--paper-dim); cursor: pointer; }
+.studio-host .tl-check input { accent-color: var(--iris); width: 15px; height: 15px; }
+.studio-host .tl-console { background: #050608; border: 1px solid var(--hairline); border-radius: 12px; padding: 10px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--slate); }
+.studio-host .tl-list { border: 1px solid var(--hairline); border-radius: 12px; background: rgba(14,15,18,.6); }
+.studio-host .ring-4 { box-shadow: 0 0 0 3px rgba(124,135,255,.5) !important; }
+.studio-host .ring-indigo-400 { border-color: var(--iris) !important; }
 
 /* ── Glossary editor ── */
 .gloss-overlay { position: fixed; inset: 0; z-index: 95; background: var(--void); display: flex; flex-direction: column; }
@@ -501,7 +516,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.3';
+    const VERSION = '8.4.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1167,7 +1182,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       const srcDisplay = srcLang && srcLang !== 'Auto-detect' ? srcLang : 'Chinese';
       const tgtDisplay = tgtLang || 'English';
 
-      let promptHeader = `You are a master literary localization editor translating an authorized Xianxia dark fantasy webnovel from ${srcDisplay} into publication-quality ${tgtDisplay}.\n\n` +
+      let promptHeader = `You are a master literary localization editor translating an authorized webnovel from ${srcDisplay} into publication-quality ${tgtDisplay}.\n\n` +
         `TRANSLATION GUIDELINES:\n` +
         `1. Raw Accuracy & Tone Fidelity: Faithfully capture the original RAW text's exact meaning, scene pacing, and narrative tone (ruthless, contemplative, dark, humorous, or conversational). Do not invent unmentioned lore or distort character personalities.\n` +
         `2. 100% Complete Zero-Omission Fidelity (No Self-Censorship or Summarization): This is an authorized literary translation of a published fantasy novel. You MUST translate every single sentence, action, combat exchange, gory beast attack, character death, dialogue line, and philosophical passage completely from beginning to end. NEVER summarize, skip, self-censor, or omit any scenes or paragraphs.\n` +
@@ -1175,14 +1190,12 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         `4. NO Random Markdown Asterisks / Clean Onomatopoeia: Do NOT wrap sound effects, onomatopoeia, or emphasized words in asterisks or markdown italics (e.g. write "Crack!", "Rip!", "Whoosh!" or integrate naturally into prose rather than "*Crack!*", "*Rip!*", "*Whoosh!*"). Maintain clean, standard novel formatting without distracting markdown symbols.\n` +
         `5. Natural English Flow (No Chinglish): Localize Chinese idioms, rhetorical patterns, and colloquial exclamations into natural, immersive English phrasing (e.g. translate "这是何等概念/什么概念" as "What kind of insane power is this?!" / "How is that even possible?!" rather than literal "What concept is this"). Avoid stiff word-for-word machine translation.\n` +
         `6. Spoken Dialogue: Ensure character dialogue flows naturally in English while preserving each speaker's distinct personality, attitude, and tone from the source.\n` +
-        `7. Proper Nouns & Names: Strictly preserve Chinese character names (Pinyin with proper capitalization: Fang Yuan, Jia Jinsheng, Gu Yue Bo), cultivation ranks, and locations.\n` +
+        `7. Proper Nouns & Names: Strictly preserve the source's character names (proper Pinyin capitalization for Chinese names), ranks, and locations exactly as they appear in the source text.\n` +
         `8. Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical explanations (e.g. "(omitted...)", "(translator note:...)"). Output ONLY the pure translated chapter.\n` +
-        `9. Dignified Literary Translation of Classical Metaphors: In Chinese literature, descriptions of characters (e.g. "莲藕般双腿", "少女娇躯", "嫩肉") are poetic classical tropes. In combat, injury, or dark fantasy scenes, localize these into serious, dignified, non-suggestive English prose (e.g. "her pale, slender legs", "her fragile body", "her flesh") to maintain solemn, high-register dark fantasy without tripping automated filters.\n` +
-        `10. Dignified Translation for Demonic Rituals & Sacrificial Preparations: When translating demonic cultivation rituals, blood sacrifices, or Gu refining preparations (such as removing a sacrifice's outer robes/garments, binding victims to boulders, or beast feeding), translate the action with solemn, serious, and matter-of-fact narrative English (e.g. "he stripped away her robes to prepare the sacrifice", "severing her outer garments"). Strictly avoid lurid, gratuitous, or sexually suggestive phrasing that could trigger automated content filters, ensuring clean literary prose while preserving 100% of the narrative actions, dialogue, and plot progression.\n` +
-        `11. Classical Poetry, Chanted Songs & Mythic Parables: When characters recite classical Chinese poems, sing martial ballads (e.g. Feng Jiu Ge's songs, Fang Yuan's verses), or when narrating excerpts from <<The Legends of Ren Zu>> (人祖传):\n` +
-        ` - Direct Emotional Weight & Punchy Power: Translate poems into evocative, rhythmically resonant English verse prioritizing direct emotional weight, heroic clarity, and poetic meter rather than overly literal obscure nature metaphors (e.g. render "早岁已知世事艰...千磨万击心铸铁...炼蛊炼人还炼天" as "In my youth I knew the hardships of the world... A heart of steel forged from countless setbacks... Refine Gu! Refine Human! Refine Heaven!!").\n` +
-        ` - Exclamatory Battle-Cry Climaxes: Use sharp, punchy imperative and exclamatory phrasing for climactic poem endings rather than passive/participle forms.\n` +
-        ` - In <<The Legends of Ren Zu>> and mythic parables, preserve strict anaphoric repetition (e.g. repeating "On what basis... / If such... / Then let me...") and word-for-word identical refrains across allegorical birds, beasts, and fishes to maintain the sacred, liturgical fable cadence.\n` +
+        `9. Dignified Literary Translation of Classical Metaphors: When the source uses poetic classical tropes for character descriptions, localize them into serious, dignified, non-suggestive English prose to maintain a solemn, high-register tone without tripping automated filters.\n` +
+        `10. Dignified Translation for Rituals & Dark Scenes: When translating rituals, sacrifices, or preparations in dark fantasy scenes, translate the action with solemn, serious, and matter-of-fact narrative English. Strictly avoid lurid or gratuitous phrasing that could trigger automated content filters, while preserving 100% of the narrative actions, dialogue, and plot progression.\n` +
+        `11. Classical Poetry, Chanted Songs & Mythic Parables: Translate poems, songs, and parables into evocative, rhythmically resonant English verse prioritizing direct emotional weight, heroic clarity, and poetic meter. Use sharp, punchy imperative phrasing for climactic endings, and preserve anaphoric repetition and refrains word-for-word.\n` +
+        `Glossary Discipline: Apply glossary/terminology mappings ONLY when the exact term appears in the source text. Never force terminology, characters, or lore from another work into the translation.\n` +
         `12. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n` +
         `13. Premium Typography & Formatting:\n` +
         ` - Use proper typographic punctuation: curly/smart quotes (\u201c...\u201d and \u2018...\u2019), em-dashes (\u2014) instead of double hyphens (--), and proper ellipsis (\u2026) instead of three dots (...).\n` +
@@ -1243,12 +1256,8 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       if (context !== undefined && ctxMarker.test(text)) {
         const parts = text.split(ctxMarker);
         const mainBody = parts[0].trim();
-        if (mainBody.length > 0) {
-          text = cleanNovelProse(mainBody);
-          newContext = parts.slice(1).join('\n').trim();
-        } else if (parts.length > 1 && parts[1].trim().length > 0) {
-          text = cleanNovelProse(parts.slice(1).join('\n').trim());
-        }
+        newContext = parts.slice(1).join('\n').trim() || context;
+        text = mainBody.length > 0 ? cleanNovelProse(mainBody) : '';
       } else {
         text = text.trim();
       }
@@ -9421,6 +9430,25 @@ FORMATTING & STRUCTURE RULES:
         e.target.value = '';
       };
 
+      const removeImportChapter = (idx) => {
+        setWebImportData(prev => {
+          if (!prev || !prev.chapters) return prev;
+          const chapters = prev.chapters.filter((_, i) => i !== idx);
+          return { ...prev, chapters };
+        });
+      };
+
+      const moveImportChapter = (idx, dir) => {
+        setWebImportData(prev => {
+          if (!prev || !prev.chapters) return prev;
+          const chapters = [...prev.chapters];
+          const j = idx + dir;
+          if (j < 0 || j >= chapters.length) return prev;
+          [chapters[idx], chapters[j]] = [chapters[j], chapters[idx]];
+          return { ...prev, chapters };
+        });
+      };
+
       const handleExportRow = async (kind) => {
         if (kind === 'epub') { setSheetOpen(false); await handleDownloadEPUB(); return; }
         if (kind === 'reader') {
@@ -9635,12 +9663,21 @@ FORMATTING & STRUCTURE RULES:
                 )
               ),
               webImportData && webImportData.chapters && webImportData.chapters.length > 0 && h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, `Chapters (${webImportData.chapters.length})`)),
-                webImportData.chapters.slice(0, 12).map((c, i) => h('div', { key: i, className: 'set-row' },
-                  h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, c.title || `Chapter ${i + 1}`),
-                  h('span', { className: 'count' }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()} words`)
-                )),
-                webImportData.chapters.length > 12 && h('div', { className: 'count', style: { paddingTop: 8 } }, `+ ${webImportData.chapters.length - 12} more chapters`)
+                h('div', { className: 'card-title' },
+                  h('span', null, `Chapters (${webImportData.chapters.length})`),
+                  h('span', { className: 'count' }, '↑↓ reorder · ✕ remove')
+                ),
+                h('div', { className: 'custom-scrollbar', style: { maxHeight: 320, overflowY: 'auto' } },
+                  webImportData.chapters.map((c, i) => h('div', { key: i, className: 'set-row' },
+                    h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${i + 1}. ${c.title || `Chapter ${i + 1}`}`),
+                    h('div', { className: 'pane-acts' },
+                      h('span', { className: 'count' }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()}w`),
+                      h('button', { type: 'button', className: 'chip-act', disabled: i === 0, onClick: () => moveImportChapter(i, -1) }, '↑'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: i >= webImportData.chapters.length - 1, onClick: () => moveImportChapter(i, 1) }, '↓'),
+                      h('button', { type: 'button', className: 'chip-act', style: { color: 'var(--rose)' }, onClick: () => removeImportChapter(i) }, '✕')
+                    )
+                  ))
+                )
               )
             ),
 
@@ -9686,7 +9723,8 @@ FORMATTING & STRUCTURE RULES:
                           const blob = await generateEpubFromChapters(full.rawChapters, item.title, item.author || 'Author');
                           const cleanName = sanitizeFilename(item.title).replace(/\s+/g, '_');
                           await saveUniversalBlob(blob, `${cleanName}.epub`, 'application/epub+zip');
-                        } }, 'EPUB')
+                        } }, 'EPUB'),
+                        h('button', { type: 'button', className: 'mini-btn danger', onClick: () => confirmAction(`Remove "${item.title}" from the library?`, async () => { await deleteNovelFromHistory(item.id); }) }, 'Remove')
                       )
                     ))
                   ),
@@ -9695,11 +9733,12 @@ FORMATTING & STRUCTURE RULES:
                 history.length > 0 && h('button', { type: 'button', className: 'mini-btn danger', onClick: clearHistory }, 'Clear')
               ),
               history.length > 0 && h(React.Fragment, null,
-                history.slice(0, 25).map(entry => h('div', { key: entry.id, className: 'set-row' },
-                  h('span', { className: 'l', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${new Date(entry.ts).toLocaleDateString()} · ${entry.srcLang || 'Auto'} → ${entry.tgtLang} · ${(entry.outputPreview || '').substring(0, 60)}`),
-                  h('div', { className: 'pane-acts' },
-                    h('button', { type: 'button', className: 'chip-act', onClick: () => loadFromHistory(entry) }, 'Load'),
-                    h('button', { type: 'button', className: 'chip-act', onClick: () => deleteHistoryItem(entry.id) }, '✕')
+                history.slice(0, 50).map(entry => h('div', { key: entry.id, className: 'book-card' },
+                  h('div', { className: 't' }, `Translation · ${new Date(entry.ts).toLocaleString()}`),
+                  h('div', { className: 'm' }, `${entry.srcLang || 'Auto'} → ${entry.tgtLang}${entry.outputPreview ? ' · ' + (entry.outputPreview.length > 140 ? entry.outputPreview.substring(0, 140) + '…' : entry.outputPreview) : ''}`),
+                  h('div', { className: 'book-acts' },
+                    h('button', { type: 'button', className: 'mini-btn', onClick: () => loadFromHistory(entry) }, 'Load'),
+                    h('button', { type: 'button', className: 'mini-btn danger', onClick: () => deleteHistoryItem(entry.id) }, 'Delete')
                   )
                 ))
               )
