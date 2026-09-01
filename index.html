@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.6.0';
+    const VERSION = '7.6.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -9936,25 +9936,52 @@ p {
 
           // Story Preview & Instant Translation Action Card
           webImportData && h('div', { className: 'p-5 sm:p-7 bg-white dark:bg-slate-900 rounded-2xl border border-teal-500/30 dark:border-teal-500/20 shadow-md space-y-4' },
-            h('div', { className: 'flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4' },
+            h('div', { className: 'flex flex-col lg:flex-row justify-between lg:items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4' },
               h('div', null,
-                h('h3', { className: 'text-xl font-bold text-slate-900 dark:text-slate-100' }, webImportData.title),
-                h('p', { className: 'text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium' }, `By ${webImportData.author} · ${webImportData.chapters.length} chapter(s)`)
+                h('h3', { className: 'text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100' }, webImportData.title),
+                h('p', { className: 'text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium' }, `By ${webImportData.author} · ${webImportData.chapters.length} chapter(s) discovered`)
               ),
-              btn({
-                onClick: () => {
-                  setChapters(webImportData.chapters);
-                  if (webImportData.isEpub && webImportData.rawZip) {
-                    setCurrentIsEpub(true);
-                    setCurrentOriginalZip(webImportData.rawZip);
-                    window.currentTranslatedZip = webImportData.rawZip;
-                  }
-                  setActiveTab('text');
-                  handleTranslateEbook(webImportData.chapters, false, webImportData.isEpub, webImportData.rawZip);
-                  toast(`⚡ Starting 20x Turbo translation for "${webImportData.title}"!`, 'success');
-                },
-                className: 'px-5 py-2.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-indigo-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2 cursor-pointer'
-              }, ic(Sparkles, 16), '⚡ Translate & Build EPUB (20x Parallel)')
+              h('div', { className: 'flex flex-wrap items-center gap-2' },
+                // 1. Direct Download EPUB Button
+                btn({
+                  onClick: async () => {
+                    try {
+                      toast('📦 Compiling EPUB package...', 'info');
+                      const blob = await generateEpubFromChapters(webImportData.chapters, webImportData.title, webImportData.author, 'en');
+                      const safeName = (webImportData.title || 'novel').toLowerCase().replace(/[^a-z0-9_-]/g, '_') + '.epub';
+                      await saveUniversalBlob(blob, safeName, 'application/epub+zip');
+                    } catch (e) {
+                      toast('EPUB export failed: ' + e.message, 'error');
+                    }
+                  },
+                  className: 'px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer'
+                }, ic(Download, 15), '📥 Download EPUB'),
+
+                // 2. Direct Read in Moon Reader Button
+                btn({
+                  onClick: () => {
+                    setChapters(webImportData.chapters);
+                    setReaderOpen(true);
+                  },
+                  className: 'px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-teal-400 text-xs font-bold rounded-xl border border-teal-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer'
+                }, ic(BookOpen, 15), '📖 Read in Reader'),
+
+                // 3. Translate to another language
+                btn({
+                  onClick: () => {
+                    setChapters(webImportData.chapters);
+                    if (webImportData.isEpub && webImportData.rawZip) {
+                      setCurrentIsEpub(true);
+                      setCurrentOriginalZip(webImportData.rawZip);
+                      window.currentTranslatedZip = webImportData.rawZip;
+                    }
+                    setActiveTab('text');
+                    handleTranslateEbook(webImportData.chapters, false, webImportData.isEpub, webImportData.rawZip);
+                    toast(`⚡ Starting 20x Turbo translation for "${webImportData.title}"!`, 'success');
+                  },
+                  className: 'px-4 py-2.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer'
+                }, ic(Sparkles, 15), '⚡ Translate (20x)')
+              )
             ),
 
             webImportData.tags && webImportData.tags.length > 0 && h('div', { className: 'flex flex-wrap gap-1.5' },
