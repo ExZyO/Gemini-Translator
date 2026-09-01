@@ -1278,7 +1278,7 @@ document.getElementById('btn-ai-polish-toc')?.addEventListener('click', () => {
     const modelLabel = document.getElementById('ai-polish-model-name');
     if (modelLabel) {
         const prov = localStorage.getItem('translationProvider') || 'gemini';
-        modelLabel.textContent = prov.toUpperCase();
+        modelLabel.textContent = (prov === 'gemini' || !prov) ? 'Gemini 3.5 Flash-Lite' : prov.toUpperCase();
     }
 
     const statsEl = document.getElementById('ai-toc-stats');
