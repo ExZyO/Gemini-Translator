@@ -80,6 +80,34 @@
             }
         },
 
+        fetchNative: async (url) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.fetchNative) {
+                    return await bridge.fetchNative({ url });
+                }
+            } catch (e) {
+                console.warn('Native fetch bridge error:', e);
+            }
+            // Browser CORS fallback
+            const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+            const res = await fetch(proxy);
+            const text = await res.text();
+            return { success: true, data: text };
+        },
+
+        shareFile: async (fileName, path, mimeType) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.shareFile) {
+                    return await bridge.shareFile({ fileName, path, mimeType });
+                }
+            } catch (e) {
+                console.warn('Share bridge error:', e);
+            }
+            return false;
+        },
+
         isAvailable: () => isCapacitor() && !!getBridge(),
 
         speakNative: async (text, rate = 1.0) => {

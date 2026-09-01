@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gemini-translator-v7.4.3';
+const CACHE_NAME = 'gemini-translator-v7.5.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

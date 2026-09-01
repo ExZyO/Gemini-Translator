@@ -703,7 +703,98 @@ public class NativeAndroidBridgePlugin extends Plugin {
     }
 
 
-        private TextToSpeech nativeTts = null;
+            @PluginMethod
+    public void fetchNative(PluginCall call) {
+        String urlStr = call.getString("url");
+        if (urlStr == null || urlStr.isEmpty()) {
+            call.reject("Missing URL");
+            return;
+        }
+
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(20000);
+                conn.setReadTimeout(20000);
+                conn.setInstanceFollowRedirects(true);
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+                conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
+
+                int status = conn.getResponseCode();
+                if (status >= 300 && status < 400) {
+                    String loc = conn.getHeaderField("Location");
+                    if (loc != null) {
+                        conn.disconnect();
+                        url = new URL(loc);
+                        conn = (HttpURLConnection) url.openConnection();
+                        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                    }
+                }
+
+                InputStream is = conn.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+                reader.close();
+
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("status", status);
+                ret.put("data", sb.toString());
+                call.resolve(ret);
+            } catch (Exception e) {
+                Log.e(TAG, "Native fetch error: " + e.getMessage(), e);
+                call.reject("Native fetch error: " + e.getMessage());
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public void shareFile(PluginCall call) {
+        try {
+            Context context = getContext();
+            String fileName = call.getString("fileName", "book.epub");
+            String path = call.getString("path", "");
+            String mimeType = call.getString("mimeType", "application/epub+zip");
+
+            File targetFile = null;
+            if (path != null && !path.isEmpty()) targetFile = new File(path);
+            if (targetFile == null || !targetFile.exists()) targetFile = new File(context.getCacheDir(), fileName);
+
+            if (!targetFile.exists()) {
+                call.reject("File not found to share: " + fileName);
+                return;
+            }
+
+            Uri contentUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", targetFile);
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType(mimeType);
+            shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            Intent chooser = Intent.createChooser(shareIntent, "Save or Send " + fileName + " with...");
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(chooser);
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Share error: " + e.getMessage());
+        }
+    }
+
+    private TextToSpeech nativeTts = null;
     private boolean isNativeTtsReady = false;
 
     private void ensureNativeTts() {

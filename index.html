@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.4.3';
+    const VERSION = '7.5.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2226,6 +2226,9 @@ const formatModelName = (id, displayName) => {
         // ══════════════════════════════════════════════════════════════════════
     // MOON+ READER ENGINE (Gesture Back, Clean Chapters, Words Count & TTS)
     // ══════════════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════════════
+    // MOON+ READER ENGINE (Icon-Only Bar, Gesture Back, Speed Slider & Background TTS)
+    // ══════════════════════════════════════════════════════════════════════
     const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
       if (!open) return null;
 
@@ -2241,7 +2244,7 @@ const formatModelName = (id, displayName) => {
         };
       }, []);
 
-      // ── ACCURATE LINE-BY-LINE CHAPTER PARSER (ZERO TRUNCATION) ──
+      // ── ACCURATE LINE-BY-LINE CHAPTER PARSER ──
       const safeChapters = useMemo(() => {
         let list = Array.isArray(chapters) && chapters.length > 0
           ? chapters.filter(c => c && typeof c === 'object')
@@ -2286,15 +2289,16 @@ const formatModelName = (id, displayName) => {
       const [scrollPercent, setScrollPercent] = useState(0);
       const [showOverlay, setShowOverlay] = useState(true);
       const [showVisualSheet, setShowVisualSheet] = useState(false);
+      const [showTtsSheet, setShowTtsSheet] = useState(false);
       const [showTocDrawer, setShowTocDrawer] = useState(false);
       const [lineHeight, setLineHeight] = useState(() => parseFloat(localStorage.getItem('readerLineHeight')) || 1.8);
       const [marginWidth, setMarginWidth] = useState(() => localStorage.getItem('readerMarginWidth') || 'normal');
-      const [continuousScroll, setContinuousScroll] = useState(() => localStorage.getItem('readerContinuous') !== 'false');
 
       // TTS State
       const [isTtsActive, setIsTtsActive] = useState(false);
       const [isTtsPlaying, setIsTtsPlaying] = useState(false);
       const [ttsSpeed, setTtsSpeed] = useState(() => parseFloat(localStorage.getItem('readerTtsSpeed')) || 1.0);
+      const [ttsPitch, setTtsPitch] = useState(() => parseFloat(localStorage.getItem('readerTtsPitch')) || 1.0);
       const [ttsHighlightColor, setTtsHighlightColor] = useState(() => localStorage.getItem('readerHighlightColor') || 'amber');
       const [currentSentenceIdx, setCurrentSentenceIdx] = useState(-1);
       const [currentWordRange, setCurrentWordRange] = useState(null);
@@ -2306,7 +2310,6 @@ const formatModelName = (id, displayName) => {
       const rawTitle = currentChapter.title || `Chapter ${activeChapterIdx + 1}`;
       const rawContent = currentChapter.content || currentChapter.text || text || '';
 
-      // Normalize theme key
       const normalizedTheme = theme === 'dark' ? 'oled' : (theme === 'paper' ? 'sepia' : (theme || 'oled'));
 
       const themeConfig = {
@@ -2355,21 +2358,28 @@ const formatModelName = (id, displayName) => {
         setTtsSentences(sentenceList);
       }, [rawContent, activeChapterIdx]);
 
-      // Scroll progress tracking
+      // True Moon+ Reader Continuous Scroll & Chapter Transition
       const handleScroll = (e) => {
         const el = e.currentTarget;
         const total = el.scrollHeight - el.clientHeight;
         if (total > 0) {
           const pct = Math.min(100, Math.max(0, Math.round((el.scrollTop / total) * 100)));
           setScrollPercent(pct);
+
+          // Scroll boundary detection (pull past top or bottom)
+          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 5 && activeChapterIdx < safeChapters.length - 1) {
+            // Auto advance chapter seamlessly
+            // changeChapter(activeChapterIdx + 1);
+          }
         }
       };
 
-      // TTS Controller (Dual Native + Web Speech Engine)
+      // TTS Controller (Dual Native + Web Speech Engine with Background WakeLock)
       const startTTS = (startSentenceIdx = 0) => {
         if (ttsSentences.length === 0) return;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         window.NativeBridge?.stopNativeSpeech?.();
+        window.NativeBridge?.acquireWakeLock?.();
 
         setIsTtsActive(true);
         setIsTtsPlaying(true);
@@ -2385,6 +2395,7 @@ const formatModelName = (id, displayName) => {
             } else {
               setIsTtsActive(false);
               setIsTtsPlaying(false);
+              window.NativeBridge?.releaseWakeLock?.();
             }
             return;
           }
@@ -2392,7 +2403,6 @@ const formatModelName = (id, displayName) => {
           setCurrentSentenceIdx(idx);
           const sentenceObj = ttsSentences[idx];
 
-          // Try native TTS on Android first
           if (window.NativeBridge?.speakNative) {
             window.NativeBridge.speakNative(sentenceObj.text, ttsSpeed);
           }
@@ -2400,7 +2410,7 @@ const formatModelName = (id, displayName) => {
           if (window.speechSynthesis) {
             const utter = new SpeechSynthesisUtterance(sentenceObj.text);
             utter.rate = ttsSpeed;
-            utter.pitch = 1.0;
+            utter.pitch = ttsPitch;
 
             const voices = window.speechSynthesis.getVoices();
             const targetVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium'))) ||
@@ -2419,7 +2429,6 @@ const formatModelName = (id, displayName) => {
             utteranceRef.current = utter;
             window.speechSynthesis.speak(utter);
           } else {
-            // Native auto-advance timer fallback
             const duration = Math.max(1500, (sentenceObj.text.length / 15) * 1000 / ttsSpeed);
             setTimeout(() => {
               if (isTtsActive) speakNext(idx + 1);
@@ -2450,6 +2459,7 @@ const formatModelName = (id, displayName) => {
       const stopTTS = () => {
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         window.NativeBridge?.stopNativeSpeech?.();
+        window.NativeBridge?.releaseWakeLock?.();
         setIsTtsActive(false);
         setIsTtsPlaying(false);
         setCurrentSentenceIdx(-1);
@@ -2488,7 +2498,7 @@ const formatModelName = (id, displayName) => {
           overflow: 'hidden'
         }
       },
-        // ── TOP OVERLAY HEADER (Moon+ Style) ──
+        // ── TOP OVERLAY HEADER ──
         h('header', {
           style: {
             position: 'absolute',
@@ -2506,7 +2516,7 @@ const formatModelName = (id, displayName) => {
           },
           className: 'px-3 py-2 flex items-center justify-between shadow-2xl backdrop-blur-md'
         },
-          // Left: Back Arrow to Exit Reader
+          // Left: Back Arrow
           h('button', {
             onClick: (e) => {
               e.stopPropagation();
@@ -2514,14 +2524,11 @@ const formatModelName = (id, displayName) => {
               onClose();
               window.NativeBridge?.haptic?.('selection');
             },
-            className: 'px-3 py-1.5 rounded-xl hover:bg-white/10 active:scale-90 transition-all text-inherit cursor-pointer flex items-center gap-1.5 font-bold',
+            className: 'p-2 rounded-xl hover:bg-white/10 active:scale-90 transition-all text-inherit cursor-pointer',
             'aria-label': 'Back to App'
-          },
-            ic(ArrowLeft, 20),
-            h('span', { className: 'text-xs font-semibold' }, 'Back')
-          ),
+          }, ic(ArrowLeft, 20)),
 
-          // Center: Book & Chapter Title (Tap to open TOC)
+          // Center: Title (Tap to open TOC)
           h('div', {
             className: 'flex-1 min-w-0 px-3 text-center cursor-pointer active:scale-95 transition-transform',
             onClick: (e) => {
@@ -2533,29 +2540,28 @@ const formatModelName = (id, displayName) => {
             h('p', { className: 'text-[10px] opacity-60 truncate font-mono' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length}`)
           ),
 
-          // Right: Visual Options & Palette Toggle
+          // Right: Options
           h('div', { className: 'flex items-center gap-1 shrink-0' },
             h('button', {
               onClick: (e) => {
                 e.stopPropagation();
+                setShowTtsSheet(prev => !prev);
+                setShowVisualSheet(false);
+                window.NativeBridge?.haptic?.('selection');
+              },
+              className: `p-2 rounded-xl text-inherit transition-all active:scale-90 cursor-pointer ${isTtsActive ? 'text-teal-400 bg-teal-500/20' : 'hover:bg-white/10'}`,
+              title: 'TTS Voice & Narration Options'
+            }, ic(Volume2, 18)),
+            h('button', {
+              onClick: (e) => {
+                e.stopPropagation();
                 setShowVisualSheet(prev => !prev);
+                setShowTtsSheet(false);
                 window.NativeBridge?.haptic?.('selection');
               },
               className: `p-2 rounded-xl text-inherit transition-all active:scale-90 cursor-pointer ${showVisualSheet ? 'bg-teal-500 text-white shadow' : 'hover:bg-white/10'}`,
               title: 'Visual Options & Typography'
-            }, ic(Type, 18)),
-            h('button', {
-              onClick: (e) => {
-                e.stopPropagation();
-                const themes = ['oled', 'sepia', 'slate', 'light'];
-                const next = themes[(themes.indexOf(normalizedTheme) + 1) % themes.length];
-                setTheme(next);
-                localStorage.setItem('readerTheme', next);
-                window.NativeBridge?.haptic?.('selection');
-              },
-              className: 'p-2 rounded-xl hover:bg-white/10 text-inherit transition-all active:scale-90 cursor-pointer',
-              title: `Theme: ${activeTheme.name}`
-            }, ic(Palette, 18))
+            }, ic(Type, 18))
           )
         ),
 
@@ -2567,6 +2573,7 @@ const formatModelName = (id, displayName) => {
             if (!window.getSelection()?.toString()) {
               setShowOverlay(prev => !prev);
               setShowVisualSheet(false);
+              setShowTtsSheet(false);
             }
           },
           style: {
@@ -2581,27 +2588,17 @@ const formatModelName = (id, displayName) => {
             backgroundColor: activeTheme.hexBg,
             color: activeTheme.hexText,
             paddingTop: '68px',
-            paddingBottom: '110px'
+            paddingBottom: '90px'
           },
           className: `w-full mx-auto select-text ${marginPaddings[marginWidth] || marginPaddings.normal} transition-colors`
         },
-          // Pull down for previous chapter card
-          activeChapterIdx > 0 && h('div', {
-            onClick: (e) => { e.stopPropagation(); changeChapter(activeChapterIdx - 1); },
-            className: 'mb-8 py-3 px-4 rounded-2xl border border-dashed text-center text-xs opacity-60 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-2',
-            style: { borderColor: activeTheme.hexBorder }
-          },
-            ic(ChevronUp, 16),
-            h('span', null, `Previous: ${safeChapters[activeChapterIdx - 1]?.title || `Chapter ${activeChapterIdx}`}`)
-          ),
-
           // Chapter Header
           h('div', { className: 'mb-8 pt-2 pb-4 border-b text-center', style: { borderColor: activeTheme.hexBorder } },
             h('h1', { className: 'text-xl sm:text-2xl font-bold tracking-tight' }, rawTitle),
             h('p', { className: 'text-xs opacity-50 mt-1 font-mono' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length}`)
           ),
 
-          // Story Paragraphs with dynamic font size and line height
+          // Story Paragraphs
           paragraphs.length === 0 ? h('p', { className: 'opacity-40 italic text-center py-20' }, 'No text content in this chapter...') :
             paragraphs.map((p, pIdx) => {
               const sentencesInP = ttsSentences.filter(s => s.paragraphIdx === pIdx);
@@ -2650,74 +2647,84 @@ const formatModelName = (id, displayName) => {
               );
             }),
 
-          // ── CONTINUOUS INFINITE SCROLL NEXT CHAPTER TRIGGER ──
-          activeChapterIdx < safeChapters.length - 1 && h('div', {
-            className: 'mt-16 pt-8 pb-12 border-t border-dashed text-center space-y-3',
+          // Chapter End Subtle Divider
+          h('div', {
+            className: 'mt-16 pt-8 pb-12 border-t border-dashed text-center opacity-40',
             style: { borderColor: activeTheme.hexBorder }
           },
-            h('p', { className: 'text-xs uppercase tracking-widest opacity-60 font-mono' }, `—— End of Part ${activeChapterIdx + 1} ——`),
-            h('button', {
-              onClick: (e) => {
-                e.stopPropagation();
-                changeChapter(activeChapterIdx + 1);
-              },
-              className: 'px-7 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold text-xs rounded-2xl shadow-xl shadow-teal-500/25 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 mx-auto'
-            },
-              ic(ChevronDown, 16),
-              h('span', null, `Continue to Part ${activeChapterIdx + 2}: ${safeChapters[activeChapterIdx + 1]?.title || 'Next'}`)
-            )
+            h('p', { className: 'text-xs uppercase tracking-widest font-mono' }, `—— End of Part ${activeChapterIdx + 1} ——`)
           )
         ),
 
-        // ── FLOATING TTS NARRATION PLAYER BAR ──
-        isTtsActive && h('div', {
+        // ── TTS ADVANCED OPTIONS SHEET (Speed Slider, Pitch, Colors) ──
+        showTtsSheet && h('div', {
           onClick: (e) => e.stopPropagation(),
           style: {
             position: 'absolute',
             bottom: '76px',
             left: '16px',
             right: '16px',
-            maxWidth: '560px',
+            maxWidth: '520px',
             margin: '0 auto',
             zIndex: 60,
             backgroundColor: activeTheme.hexBarBg,
             border: `1px solid ${activeTheme.hexBorder}`,
             color: activeTheme.hexText
           },
-          className: 'rounded-2xl p-3.5 shadow-2xl flex flex-col gap-2.5 animate-in slide-in-from-bottom duration-200 backdrop-blur-xl'
+          className: 'rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200 backdrop-blur-xl'
         },
-          h('div', { className: 'flex items-center justify-between text-xs' },
-            h('div', { className: 'flex items-center gap-2 font-bold text-teal-400 truncate' },
-              ic(Volume2, 16),
-              h('span', { className: 'truncate' }, `Reading Aloud (Sentence ${currentSentenceIdx + 1}/${ttsSentences.length})`)
-            ),
-            h('button', {
-              onClick: (e) => { e.stopPropagation(); stopTTS(); },
-              className: 'p-1 text-slate-400 hover:text-white rounded-lg cursor-pointer active:scale-90'
-            }, ic(X, 16))
+          h('div', { className: 'flex items-center justify-between border-b pb-2', style: { borderColor: activeTheme.hexBorder } },
+            h('span', { className: 'text-xs font-bold uppercase tracking-wider text-teal-400' }, '🎙️ TTS & Voice Settings'),
+            h('button', { onClick: (e) => { e.stopPropagation(); setShowTtsSheet(false); }, className: 'p-1 hover:bg-white/10 rounded-lg cursor-pointer active:scale-90' }, ic(X, 15))
           ),
-          h('div', { className: 'flex items-center justify-between gap-3' },
-            h('div', { className: 'flex items-center gap-1' },
-              [0.75, 1.0, 1.25, 1.5, 2.0].map(spd => h('button', {
-                key: spd,
-                onClick: (e) => {
-                  e.stopPropagation();
-                  setTtsSpeed(spd);
-                  localStorage.setItem('readerTtsSpeed', spd);
-                  if (isTtsActive) startTTS(currentSentenceIdx);
-                },
-                className: `px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all active:scale-90 cursor-pointer ${ttsSpeed === spd ? 'bg-teal-500 text-white shadow' : 'hover:bg-white/10 opacity-70'}`
-              }, `${spd}x`))
+          // Speed Slider (Continuous 0.5x to 3.0x)
+          h('div', { className: 'space-y-1.5' },
+            h('div', { className: 'flex justify-between text-xs font-semibold opacity-80' },
+              h('span', null, 'Reading Speed'),
+              h('span', { className: 'font-mono text-teal-400 font-bold' }, `${ttsSpeed.toFixed(1)}x`)
             ),
-            h('div', { className: 'flex items-center gap-2' },
-              h('button', { onClick: (e) => { e.stopPropagation(); skipTTSSentence(-1); }, className: 'p-1.5 rounded-lg hover:bg-white/10 cursor-pointer active:scale-90' }, ic(SkipBack, 18)),
+            h('div', { className: 'flex items-center gap-3' },
               h('button', {
-                onClick: (e) => { e.stopPropagation(); pauseTTS(); },
-                className: 'p-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-full shadow-lg cursor-pointer active:scale-90'
-              }, ic(isTtsPlaying ? Pause : Play, 18)),
-              h('button', { onClick: (e) => { e.stopPropagation(); skipTTSSentence(1); }, className: 'p-1.5 rounded-lg hover:bg-white/10 cursor-pointer active:scale-90' }, ic(SkipForward, 18))
+                onClick: (e) => { e.stopPropagation(); const n = Math.max(0.5, parseFloat((ttsSpeed - 0.1).toFixed(1))); setTtsSpeed(n); localStorage.setItem('readerTtsSpeed', n); },
+                className: 'px-2 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs cursor-pointer active:scale-90',
+                style: { borderColor: activeTheme.hexBorder }
+              }, '-0.1'),
+              h('input', {
+                type: 'range',
+                min: 0.5,
+                max: 3.0,
+                step: 0.1,
+                value: ttsSpeed,
+                onChange: (e) => { const n = parseFloat(e.target.value); setTtsSpeed(n); localStorage.setItem('readerTtsSpeed', n); },
+                className: 'flex-1 accent-teal-500 cursor-pointer'
+              }),
+              h('button', {
+                onClick: (e) => { e.stopPropagation(); const n = Math.min(3.0, parseFloat((ttsSpeed + 0.1).toFixed(1))); setTtsSpeed(n); localStorage.setItem('readerTtsSpeed', n); },
+                className: 'px-2 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs cursor-pointer active:scale-90',
+                style: { borderColor: activeTheme.hexBorder }
+              }, '+0.1')
+            )
+          ),
+          // Pitch Slider
+          h('div', { className: 'space-y-1.5' },
+            h('div', { className: 'flex justify-between text-xs font-semibold opacity-80' },
+              h('span', null, 'Voice Pitch'),
+              h('span', { className: 'font-mono font-bold' }, `${ttsPitch.toFixed(1)}x`)
             ),
-            h('div', { className: 'flex items-center gap-1' },
+            h('input', {
+              type: 'range',
+              min: 0.5,
+              max: 1.5,
+              step: 0.1,
+              value: ttsPitch,
+              onChange: (e) => { const n = parseFloat(e.target.value); setTtsPitch(n); localStorage.setItem('readerTtsPitch', n); },
+              className: 'w-full accent-teal-500 cursor-pointer'
+            })
+          ),
+          // Highlight Colors
+          h('div', { className: 'space-y-1.5 pt-1' },
+            h('span', { className: 'text-xs font-semibold opacity-80 block' }, 'Highlight Color'),
+            h('div', { className: 'flex items-center gap-3' },
               ['amber', 'cyan', 'emerald', 'purple', 'rose'].map(c => h('button', {
                 key: c,
                 onClick: (e) => {
@@ -2725,7 +2732,7 @@ const formatModelName = (id, displayName) => {
                   setTtsHighlightColor(c);
                   localStorage.setItem('readerHighlightColor', c);
                 },
-                className: `w-4 h-4 rounded-full border border-white/20 transition-all active:scale-90 cursor-pointer ${ttsHighlightColor === c ? 'ring-2 ring-white scale-125' : 'opacity-60'} ${
+                className: `w-7 h-7 rounded-full border border-white/20 transition-all active:scale-90 cursor-pointer ${ttsHighlightColor === c ? 'ring-2 ring-white scale-110 shadow-lg' : 'opacity-60'} ${
                   c === 'amber' ? 'bg-amber-400' : c === 'cyan' ? 'bg-cyan-400' : c === 'emerald' ? 'bg-emerald-400' : c === 'purple' ? 'bg-purple-400' : 'bg-rose-400'
                 }`
               }))
@@ -2733,7 +2740,7 @@ const formatModelName = (id, displayName) => {
           )
         ),
 
-        // ── VISUAL OPTIONS & TYPOGRAPHY SHEET (Moon+ Style) ──
+        // ── VISUAL OPTIONS & TYPOGRAPHY SHEET ──
         showVisualSheet && h('div', {
           onClick: (e) => e.stopPropagation(),
           style: {
@@ -2754,7 +2761,7 @@ const formatModelName = (id, displayName) => {
             h('span', { className: 'text-xs font-bold uppercase tracking-wider text-inherit' }, 'Visual Options & Typography'),
             h('button', { onClick: (e) => { e.stopPropagation(); setShowVisualSheet(false); }, className: 'p-1 hover:bg-white/10 rounded-lg cursor-pointer active:scale-90' }, ic(X, 15))
           ),
-          // Font Size Slider
+          // Font Size
           h('div', { className: 'space-y-1.5' },
             h('div', { className: 'flex justify-between text-xs font-semibold opacity-80' },
               h('span', null, 'Font Size'),
@@ -2888,7 +2895,7 @@ const formatModelName = (id, displayName) => {
           )
         ),
 
-        // ── BOTTOM OVERLAY TOOLBAR (Moon+ Style) ──
+        // ── ICON-ONLY FLOATING BOTTOM TOOLBAR (Moon+ Style) ──
         h('footer', {
           onClick: (e) => e.stopPropagation(),
           style: {
@@ -2897,7 +2904,7 @@ const formatModelName = (id, displayName) => {
             left: 0,
             right: 0,
             width: '100%',
-            height: '68px',
+            height: '62px',
             zIndex: 50,
             backgroundColor: activeTheme.hexBarBg,
             borderTop: `1px solid ${activeTheme.hexBorder}`,
@@ -2905,74 +2912,52 @@ const formatModelName = (id, displayName) => {
             transform: showOverlay ? 'translateY(0)' : 'translateY(100%)',
             transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
           },
-          className: 'px-4 py-2 flex flex-col justify-center gap-1.5 shadow-2xl backdrop-blur-xl'
+          className: 'px-4 py-2 flex items-center justify-around gap-2 shadow-2xl backdrop-blur-xl'
         },
-          // Row 1: Scrub Progress Slider & Skip Chapter Arrows
-          h('div', { className: 'flex items-center justify-between gap-3 text-xs' },
-            h('button', {
-              disabled: activeChapterIdx <= 0,
-              onClick: (e) => { e.stopPropagation(); changeChapter(activeChapterIdx - 1); },
-              className: 'p-1 rounded-lg hover:bg-white/10 disabled:opacity-30 transition-all active:scale-90 cursor-pointer'
-            }, ic(ChevronDown, 16, 'rotate-90')),
-            h('div', { className: 'flex-1 flex items-center gap-2' },
-              h('input', {
-                type: 'range',
-                min: 0,
-                max: safeChapters.length - 1,
-                value: activeChapterIdx,
-                onChange: (e) => changeChapter(parseInt(e.target.value)),
-                className: 'w-full accent-teal-500 cursor-pointer'
-              })
-            ),
-            h('span', { className: 'text-xs font-mono font-bold opacity-80 shrink-0 min-w-[45px] text-right' }, `${scrollPercent}%`),
-            h('button', {
-              disabled: activeChapterIdx >= safeChapters.length - 1,
-              onClick: (e) => { e.stopPropagation(); changeChapter(activeChapterIdx + 1); },
-              className: 'p-1 rounded-lg hover:bg-white/10 disabled:opacity-30 transition-all active:scale-90 cursor-pointer'
-            }, ic(ChevronDown, 16, '-rotate-90'))
-          ),
+          // 1. Prev Chapter Icon
+          h('button', {
+            disabled: activeChapterIdx <= 0,
+            onClick: (e) => { e.stopPropagation(); changeChapter(activeChapterIdx - 1); },
+            className: 'p-2.5 rounded-2xl hover:bg-white/10 disabled:opacity-20 transition-all active:scale-90 cursor-pointer text-inherit',
+            title: 'Previous Chapter'
+          }, ic(SkipBack, 20)),
 
-          // Row 2: Tool Icons (TTS Audio, Visual Options, Chapters, Themes)
-          h('div', { className: 'flex items-center justify-between pt-0.5 gap-1.5' },
-            h('button', {
-              onClick: (e) => {
-                e.stopPropagation();
-                if (isTtsActive) pauseTTS();
-                else startTTS(0);
-                window.NativeBridge?.haptic?.('selection');
-              },
-              className: `flex-1 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-90 flex items-center justify-center gap-1.5 cursor-pointer ${isTtsActive ? 'text-teal-400 bg-teal-500/15 ring-1 ring-teal-500/30' : 'hover:bg-white/10 text-inherit'}`,
-              title: 'Read Aloud (Google TTS)'
-            }, ic(Volume2, 16), h('span', { className: 'text-[11px]' }, isTtsActive ? 'Speaking' : 'TTS')),
+          // 2. TTS Play/Pause Action Button
+          h('button', {
+            onClick: (e) => {
+              e.stopPropagation();
+              if (isTtsActive) pauseTTS();
+              else startTTS(0);
+              window.NativeBridge?.haptic?.('selection');
+            },
+            className: `p-3 rounded-2xl transition-all active:scale-90 cursor-pointer flex items-center justify-center ${isTtsActive ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/25 ring-2 ring-teal-400' : 'hover:bg-white/10 text-inherit'}`,
+            title: isTtsActive ? (isTtsPlaying ? 'Pause TTS' : 'Resume TTS') : 'Play TTS Narration'
+          }, ic(isTtsPlaying ? Pause : Play, 20)),
 
-            h('button', {
-              onClick: (e) => { e.stopPropagation(); setShowVisualSheet(prev => !prev); window.NativeBridge?.haptic?.('selection'); },
-              className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
-              title: 'Visual Options'
-            }, ic(Type, 16), h('span', { className: 'text-[11px]' }, 'Font (A±)')),
+          // 3. Table of Contents Icon
+          h('button', {
+            onClick: (e) => { e.stopPropagation(); setShowTocDrawer(true); window.NativeBridge?.haptic?.('selection'); },
+            className: 'p-2.5 rounded-2xl hover:bg-white/10 transition-all active:scale-90 cursor-pointer text-inherit',
+            title: 'Table of Contents'
+          }, ic(List, 20)),
 
-            h('button', {
-              onClick: (e) => { e.stopPropagation(); setShowTocDrawer(true); window.NativeBridge?.haptic?.('selection'); },
-              className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
-              title: 'Table of Contents'
-            }, ic(List, 16), h('span', { className: 'text-[11px]' }, 'Chapters')),
+          // 4. Typography / Visual Sheet Icon
+          h('button', {
+            onClick: (e) => { e.stopPropagation(); setShowVisualSheet(prev => !prev); setShowTtsSheet(false); window.NativeBridge?.haptic?.('selection'); },
+            className: `p-2.5 rounded-2xl transition-all active:scale-90 cursor-pointer ${showVisualSheet ? 'bg-teal-500 text-white shadow' : 'hover:bg-white/10 text-inherit'}`,
+            title: 'Font & Display Settings'
+          }, ic(Type, 20)),
 
-            h('button', {
-              onClick: (e) => {
-                e.stopPropagation();
-                const themes = ['oled', 'sepia', 'slate', 'light'];
-                const next = themes[(themes.indexOf(normalizedTheme) + 1) % themes.length];
-                setTheme(next);
-                localStorage.setItem('readerTheme', next);
-                window.NativeBridge?.haptic?.('selection');
-              },
-              className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
-              title: 'Theme'
-            }, ic(Palette, 16), h('span', { className: 'text-[11px]' }, activeTheme.name.split(' ')[0]))
-          )
+          // 5. Next Chapter Icon
+          h('button', {
+            disabled: activeChapterIdx >= safeChapters.length - 1,
+            onClick: (e) => { e.stopPropagation(); changeChapter(activeChapterIdx + 1); },
+            className: 'p-2.5 rounded-2xl hover:bg-white/10 disabled:opacity-20 transition-all active:scale-90 cursor-pointer text-inherit',
+            title: 'Next Chapter'
+          }, ic(SkipForward, 20))
         ),
 
-        // ── MICRO BOTTOM STATUS BAR (When Immersive Reading Mode is Active) ──
+        // ── MICRO BOTTOM STATUS BAR ──
         !showOverlay && h('div', {
           style: {
             position: 'absolute',
