@@ -126,7 +126,8 @@ function handleMergeFiles(files) {
 
 async function extractCoverFromEpub(file) {
     try {
-        const zip = await new JSZip().loadAsync(file);
+        const buf = await file.arrayBuffer();
+        const zip = await new JSZip().loadAsync(buf);
         const containerXml = await zip.file("META-INF/container.xml").async("text");
         const parser = new DOMParser();
         const opfPath = parser.parseFromString(containerXml, "text/xml").querySelector("rootfile").getAttribute("full-path");
@@ -170,7 +171,8 @@ async function extractEpubStats(files) {
     const parser = new DOMParser();
     for (const file of files) {
         try {
-            const zip = await new JSZip().loadAsync(file);
+            const buf = await file.arrayBuffer();
+            const zip = await new JSZip().loadAsync(buf);
             const containerXml = await zip.file("META-INF/container.xml").async("text");
             const opfPath = parser.parseFromString(containerXml, "text/xml").querySelector("rootfile").getAttribute("full-path");
             const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : "";
@@ -365,10 +367,20 @@ btnExecuteMerge?.addEventListener('click', async () => {
         const parser = new DOMParser();
         const serializer = new XMLSerializer();
 
-        updateParsingProgress(1, mergeFiles.length, `Parsing Master Book (1/${mergeFiles.length})...`);
+        updateParsingProgress(1, mergeFiles.length, `Reading Master Book Buffer (1/${mergeFiles.length})...`);
 
-        const masterZip = await new JSZip().loadAsync(mergeFiles[0]);
-        const newZip = masterZip;
+        const masterBuffer = await mergeFiles[0].arrayBuffer();
+        const masterZip = await new JSZip().loadAsync(masterBuffer);
+
+        const newZip = new JSZip();
+        newZip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+
+        // Clone master entries cleanly as in-memory Uint8Arrays to prevent detached stream errors
+        for (let p in masterZip.files) {
+            if (p === "mimetype" || masterZip.files[p].dir) continue;
+            const data = await masterZip.files[p].async("uint8array");
+            newZip.file(p, data);
+        }
 
         const containerXml = await masterZip.file("META-INF/container.xml").async("text");
         const masterOpfPath = parser.parseFromString(containerXml, "text/xml").querySelector("rootfile").getAttribute("full-path");
@@ -498,7 +510,8 @@ btnExecuteMerge?.addEventListener('click', async () => {
         for (let i = 1; i < mergeFiles.length; i++) {
             updateParsingProgress(i + 1, mergeFiles.length, `Merging Book ${i + 1} of ${mergeFiles.length} (${mergeFiles[i].name})...`);
 
-            const subZip = await new JSZip().loadAsync(mergeFiles[i]);
+            const subBuffer = await mergeFiles[i].arrayBuffer();
+            const subZip = await new JSZip().loadAsync(subBuffer);
             const subContainerXml = await subZip.file("META-INF/container.xml").async("text");
             const subOpfPath = parser.parseFromString(subContainerXml, "text/xml").querySelector("rootfile").getAttribute("full-path");
             const subOpfDir = subOpfPath.includes("/") ? subOpfPath.substring(0, subOpfPath.lastIndexOf('/') + 1) : "";
@@ -543,7 +556,7 @@ btnExecuteMerge?.addEventListener('click', async () => {
                         });
                         newZip.file(masterOpfDir + newHref, txt);
                     } else {
-                        newZip.file(masterOpfDir + newHref, await subZip.file(fullPath).async("blob"));
+                        newZip.file(masterOpfDir + newHref, await subZip.file(fullPath).async("uint8array"));
                     }
 
                     const ni = masterOpfDoc.createElement("item");
