@@ -370,6 +370,54 @@
                 }
             }
             throw new Error('Could not download binary file across network.');
+        },
+
+        checkForUpdate: async (currentVersion) => {
+            try {
+                const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest', {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+                if (!res.ok) return null;
+                const release = await res.json();
+                const latestTag = (release.tag_name || '').replace(/^v/, '').trim();
+                const curVer = (currentVersion || '0.0.0').replace(/^v/, '').trim();
+
+                const semverCompare = (v1, v2) => {
+                    const p1 = v1.split('.').map(n => parseInt(n, 10) || 0);
+                    const p2 = v2.split('.').map(n => parseInt(n, 10) || 0);
+                    for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+                        const n1 = p1[i] || 0;
+                        const n2 = p2[i] || 0;
+                        if (n1 > n2) return 1;
+                        if (n1 < n2) return -1;
+                    }
+                    return 0;
+                };
+
+                const isNewer = semverCompare(latestTag, curVer) > 0;
+                const apkAsset = release.assets?.find(a => a.name.endsWith('.apk'));
+                const apkUrl = apkAsset?.browser_download_url || 'https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk';
+
+                return {
+                    isNewer,
+                    currentVersion: curVer,
+                    latestVersion: latestTag,
+                    releaseNotes: release.body || '',
+                    apkUrl,
+                    releasePage: release.html_url || 'https://github.com/ExZyO/Gemini-Translator/releases/tag/latest'
+                };
+            } catch (e) {
+                console.warn('Update check error:', e);
+                return null;
+            }
+        },
+
+        installApk: async (apkUrl) => {
+            const bridge = getBridge();
+            if (bridge && bridge.installApk) {
+                return await bridge.installApk({ url: apkUrl });
+            }
+            window.open(apkUrl, '_blank');
         }
     };
 
