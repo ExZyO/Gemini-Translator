@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.1.0';
+    const VERSION = '7.1.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2214,9 +2214,13 @@ const formatModelName = (id, displayName) => {
         // ══════════════════════════════════════════════════════════════════════
     // MOON+ READER ENGINE (OLED Black, Infinite Scroll, TTS Word Highlighter)
     // ══════════════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════════════
+    // MOON+ READER ENGINE (OLED Black, Infinite Scroll, TTS Word Highlighter)
+    // ══════════════════════════════════════════════════════════════════════
     const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
       if (!open) return null;
 
+      // Safe normalization of chapters
       const safeChapters = Array.isArray(chapters) && chapters.length > 0
         ? chapters.filter(c => c && typeof c === 'object')
         : [{ title: 'Document', text: text || '' }];
@@ -2235,44 +2239,47 @@ const formatModelName = (id, displayName) => {
       const [isTtsActive, setIsTtsActive] = useState(false);
       const [isTtsPlaying, setIsTtsPlaying] = useState(false);
       const [ttsSpeed, setTtsSpeed] = useState(() => parseFloat(localStorage.getItem('readerTtsSpeed')) || 1.0);
-      const [ttsHighlightColor, setTtsHighlightColor] = useState(() => localStorage.getItem('readerHighlightColor') || 'amber'); // amber, cyan, emerald, purple, rose
+      const [ttsHighlightColor, setTtsHighlightColor] = useState(() => localStorage.getItem('readerHighlightColor') || 'amber');
       const [currentSentenceIdx, setCurrentSentenceIdx] = useState(-1);
       const [currentWordRange, setCurrentWordRange] = useState(null);
       const [ttsSentences, setTtsSentences] = useState([]);
       const utteranceRef = useRef(null);
       const contentContainerRef = useRef(null);
 
+      // Current Chapter Data
       const currentChapter = safeChapters[activeChapterIdx] || safeChapters[0] || { title: 'Document', text: '' };
       const rawTitle = currentChapter.title || `Chapter ${activeChapterIdx + 1}`;
       const rawContent = currentChapter.content || currentChapter.text || text || '';
 
-      // Themes matching Moon+ Reader
-      const themeConfig = {
-        oled: { bg: 'bg-[#000000]', text: 'text-[#EDEDED]', border: 'border-white/10', barBg: 'bg-[#0a0a0a]/95', accent: 'text-teal-400', name: 'OLED Black' },
-        sepia: { bg: 'bg-[#FBF0D9]', text: 'text-[#433422]', border: 'border-[#433422]/15', barBg: 'bg-[#F4E6C8]/95', accent: 'text-amber-800', name: 'Warm Paper' },
-        slate: { bg: 'bg-[#0F172A]', text: 'text-[#CBD5E1]', border: 'border-slate-700', barBg: 'bg-[#1E293B]/95', accent: 'text-indigo-400', name: 'Midnight' },
-        light: { bg: 'bg-[#FFFFFF]', text: 'text-[#18181B]', border: 'border-gray-200', barBg: 'bg-[#FAFAFA]/95', accent: 'text-indigo-600', name: 'Clean White' }
-      };
-      const activeTheme = themeConfig[theme] || themeConfig.oled;
+      // Normalize theme key
+      const normalizedTheme = theme === 'dark' ? 'oled' : (theme === 'paper' ? 'sepia' : (theme || 'oled'));
 
-      const fontClasses = {
-        serif: 'font-serif',
-        sans: 'font-sans',
-        mono: 'font-mono'
+      const themeConfig = {
+        oled: { hexBg: '#000000', hexText: '#EDEDED', hexBarBg: '#0C0C0C', hexBorder: '#222222', accent: '#2DD4BF', name: 'OLED Black' },
+        sepia: { hexBg: '#FBF0D9', hexText: '#433422', hexBarBg: '#F4E6C8', hexBorder: '#E5D3B3', accent: '#92400E', name: 'Warm Paper' },
+        slate: { hexBg: '#0F172A', hexText: '#CBD5E1', hexBarBg: '#1E293B', hexBorder: '#334155', accent: '#818CF8', name: 'Midnight' },
+        light: { hexBg: '#FFFFFF', hexText: '#18181B', hexBarBg: '#F4F4F5', hexBorder: '#E4E4E7', accent: '#4F46E5', name: 'Clean White' }
+      };
+      const activeTheme = themeConfig[normalizedTheme] || themeConfig.oled;
+
+      const fontFamilies = {
+        serif: 'Georgia, Cambria, "Times New Roman", serif',
+        sans: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        mono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
       };
 
       const marginClasses = {
-        tight: 'px-4 sm:px-6 max-w-4xl',
-        normal: 'px-6 sm:px-12 max-w-3xl',
-        wide: 'px-8 sm:px-16 max-w-2xl'
+        tight: 'max-w-4xl px-4 sm:px-8',
+        normal: 'max-w-3xl px-6 sm:px-12',
+        wide: 'max-w-2xl px-8 sm:px-16'
       };
 
       const highlightColors = {
-        amber: { sentence: 'bg-amber-400/25 dark:bg-amber-400/20 text-amber-950 dark:text-amber-100', word: 'bg-amber-400 text-black font-bold px-0.5 rounded' },
-        cyan: { sentence: 'bg-cyan-400/25 dark:bg-cyan-400/20 text-cyan-950 dark:text-cyan-100', word: 'bg-cyan-400 text-black font-bold px-0.5 rounded' },
-        emerald: { sentence: 'bg-emerald-400/25 dark:bg-emerald-400/20 text-emerald-950 dark:text-emerald-100', word: 'bg-emerald-400 text-black font-bold px-0.5 rounded' },
-        purple: { sentence: 'bg-purple-400/25 dark:bg-purple-400/20 text-purple-950 dark:text-purple-100', word: 'bg-purple-400 text-white font-bold px-0.5 rounded' },
-        rose: { sentence: 'bg-rose-400/25 dark:bg-rose-400/20 text-rose-950 dark:text-rose-100', word: 'bg-rose-400 text-white font-bold px-0.5 rounded' }
+        amber: { sentenceStyle: { backgroundColor: 'rgba(251, 191, 36, 0.25)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#FBBF24', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
+        cyan: { sentenceStyle: { backgroundColor: 'rgba(34, 211, 238, 0.25)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#22D3EE', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
+        emerald: { sentenceStyle: { backgroundColor: 'rgba(52, 211, 153, 0.25)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#34D399', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
+        purple: { sentenceStyle: { backgroundColor: 'rgba(192, 132, 252, 0.25)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#C084FC', color: '#FFFFFF', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
+        rose: { sentenceStyle: { backgroundColor: 'rgba(251, 113, 133, 0.25)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#FB7185', color: '#FFFFFF', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } }
       };
       const activeHighlight = highlightColors[ttsHighlightColor] || highlightColors.amber;
 
@@ -2314,7 +2321,6 @@ const formatModelName = (id, displayName) => {
 
         const speakNext = (idx) => {
           if (idx >= ttsSentences.length) {
-            // Chapter complete: move to next chapter if continuous
             if (activeChapterIdx < safeChapters.length - 1) {
               const nextChap = activeChapterIdx + 1;
               setActiveChapterIdx(nextChap);
@@ -2333,7 +2339,6 @@ const formatModelName = (id, displayName) => {
           utter.rate = ttsSpeed;
           utter.pitch = 1.0;
 
-          // Auto-select natural language voice
           const voices = window.speechSynthesis.getVoices();
           const targetVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium'))) ||
                              voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || voices[0];
@@ -2345,19 +2350,12 @@ const formatModelName = (id, displayName) => {
             }
           };
 
-          utter.onend = () => {
-            speakNext(idx + 1);
-          };
-
-          utter.onerror = (err) => {
-            console.warn('TTS Speech error:', err);
-            speakNext(idx + 1);
-          };
+          utter.onend = () => speakNext(idx + 1);
+          utter.onerror = () => speakNext(idx + 1);
 
           utteranceRef.current = utter;
           window.speechSynthesis.speak(utter);
 
-          // Auto scroll to active sentence
           const sentenceEl = document.getElementById(sentenceObj.fullId);
           if (sentenceEl) {
             sentenceEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2406,12 +2404,21 @@ const formatModelName = (id, displayName) => {
       const paragraphs = rawContent.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
 
       return h('div', {
-        className: `fixed inset-0 z-50 overflow-hidden flex flex-col select-none transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text}`,
-        style: { fontSize: `${fontSize}px` }
+        className: 'fixed inset-0 z-[9999] overflow-hidden flex flex-col select-none transition-colors duration-300',
+        style: {
+          backgroundColor: activeTheme.hexBg,
+          color: activeTheme.hexText,
+          fontFamily: fontFamilies[font] || fontFamilies.serif
+        }
       },
         // ── TOP OVERLAY HEADER (Moon+ Style) ──
         h('header', {
-          className: `fixed top-0 inset-x-0 z-30 transition-all duration-300 border-b ${activeTheme.barBg} ${activeTheme.border} backdrop-blur-md px-3 py-2.5 flex items-center justify-between shadow-md ${showOverlay ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`
+          className: `fixed top-0 inset-x-0 z-30 transition-all duration-300 px-3 py-3 flex items-center justify-between shadow-lg ${showOverlay ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`,
+          style: {
+            backgroundColor: activeTheme.hexBarBg,
+            borderBottom: `1px solid ${activeTheme.hexBorder}`,
+            color: activeTheme.hexText
+          }
         },
           // Left: Back Arrow to Exit Reader
           h('button', {
@@ -2420,40 +2427,40 @@ const formatModelName = (id, displayName) => {
               onClose();
               window.NativeBridge?.haptic?.('selection');
             },
-            className: 'p-2 rounded-full hover:bg-white/10 active:scale-95 transition-all text-inherit cursor-pointer flex items-center gap-1.5 font-bold',
+            className: 'p-2 rounded-xl hover:bg-white/10 active:scale-95 transition-all text-inherit cursor-pointer flex items-center gap-1.5 font-bold',
             'aria-label': 'Back to App'
           },
             ic(ArrowLeft, 22),
-            h('span', { className: 'text-xs font-semibold hidden sm:inline' }, 'Back')
+            h('span', { className: 'text-xs font-semibold' }, 'Back')
           ),
 
           // Center: Book & Chapter Title
           h('div', { className: 'flex-1 min-w-0 px-3 text-center cursor-pointer', onClick: () => setShowTocDrawer(true) },
             h('p', { className: 'text-xs sm:text-sm font-bold truncate tracking-tight text-inherit' }, rawTitle),
-            h('p', { className: 'text-[10px] opacity-60 truncate font-mono mt-0.5' }, `Chapter ${activeChapterIdx + 1} of ${safeChapters.length}`)
+            h('p', { className: 'text-[10px] opacity-60 truncate font-mono mt-0.5' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length}`)
           ),
 
           // Right: Visual Options & Overflow Menu
           h('div', { className: 'flex items-center gap-1 shrink-0' },
             h('button', {
               onClick: () => { setShowVisualSheet(!showVisualSheet); window.NativeBridge?.haptic?.('selection'); },
-              className: `p-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${showVisualSheet ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-white/10'}`,
+              className: 'p-2 rounded-xl hover:bg-white/10 text-inherit transition-all cursor-pointer',
               title: 'Visual Options & Typography'
             }, ic(Type, 18)),
             h('button', {
               onClick: () => {
                 const themes = ['oled', 'sepia', 'slate', 'light'];
-                const next = themes[(themes.indexOf(theme) + 1) % themes.length];
+                const next = themes[(themes.indexOf(normalizedTheme) + 1) % themes.length];
                 setTheme(next);
                 localStorage.setItem('readerTheme', next);
                 window.NativeBridge?.haptic?.('selection');
               },
-              className: 'p-2 rounded-xl hover:bg-white/10 transition-all cursor-pointer',
+              className: 'p-2 rounded-xl hover:bg-white/10 text-inherit transition-all cursor-pointer',
               title: `Theme: ${activeTheme.name}`
             }, ic(Palette, 18)),
             h('button', {
               onClick: () => setShowMoreMenu(!showMoreMenu),
-              className: 'p-2 rounded-xl hover:bg-white/10 transition-all cursor-pointer',
+              className: 'p-2 rounded-xl hover:bg-white/10 text-inherit transition-all cursor-pointer',
               title: 'More Operations'
             }, ic(MoreVertical, 18))
           )
@@ -2461,7 +2468,12 @@ const formatModelName = (id, displayName) => {
 
         // ── OVERFLOW MENU DROPDOWN ──
         showMoreMenu && h('div', {
-          className: `fixed top-14 right-3 z-40 w-56 rounded-2xl border p-2 shadow-2xl backdrop-blur-xl ${activeTheme.barBg} ${activeTheme.border} text-xs font-medium space-y-1`
+          className: 'fixed top-14 right-3 z-40 w-56 rounded-2xl p-2 shadow-2xl backdrop-blur-xl text-xs font-medium space-y-1',
+          style: {
+            backgroundColor: activeTheme.hexBarBg,
+            border: `1px solid ${activeTheme.hexBorder}`,
+            color: activeTheme.hexText
+          }
         },
           h('button', {
             onClick: () => { setShowTocDrawer(true); setShowMoreMenu(false); },
@@ -2469,8 +2481,8 @@ const formatModelName = (id, displayName) => {
           }, ic(List, 15), 'Table of Contents'),
           h('button', {
             onClick: () => { startTTS(0); setShowMoreMenu(false); },
-            className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer text-teal-400'
-          }, ic(Volume2, 15), 'Read Aloud (TTS)'),
+            className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer text-teal-400 font-bold'
+          }, ic(Volume2, 15), 'Read Aloud (Google TTS)'),
           h('button', {
             onClick: () => {
               setContinuousScroll(!continuousScroll);
@@ -2479,16 +2491,7 @@ const formatModelName = (id, displayName) => {
               toast(continuousScroll ? 'Paged Reading Mode' : 'Continuous Infinite Scroll', 'info');
             },
             className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer'
-          }, ic(Compass, 15), continuousScroll ? 'Switch to Paged View' : 'Switch to Infinite Scroll'),
-          h('div', { className: 'border-t border-white/10 my-1' }),
-          h('button', {
-            onClick: () => {
-              if (document.fullscreenElement) document.exitFullscreen();
-              else document.documentElement.requestFullscreen?.();
-              setShowMoreMenu(false);
-            },
-            className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer'
-          }, ic(Maximize, 15), 'Toggle Device Fullscreen')
+          }, ic(Compass, 15), continuousScroll ? 'Switch to Paged View' : 'Switch to Infinite Scroll')
         ),
 
         // ── READING BODY (Tap center to toggle overlays) ──
@@ -2496,24 +2499,28 @@ const formatModelName = (id, displayName) => {
           ref: contentContainerRef,
           onScroll: handleScroll,
           onClick: (e) => {
-            // Only toggle if not clicking interactive elements or text selection
             if (!window.getSelection()?.toString()) {
               setShowOverlay(!showOverlay);
               setShowVisualSheet(false);
               setShowMoreMenu(false);
             }
           },
-          className: `flex-1 overflow-y-auto w-full mx-auto select-text ${fontClasses[font] || fontClasses.serif} ${marginClasses[marginWidth] || marginClasses.normal} py-14 sm:py-20 transition-all`,
-          style: { lineHeight: lineHeight }
+          className: `flex-1 overflow-y-auto w-full mx-auto select-text ${marginClasses[marginWidth] || marginClasses.normal} pt-16 pb-24 sm:py-24 transition-all`,
+          style: {
+            fontSize: `${fontSize}px`,
+            lineHeight: lineHeight,
+            backgroundColor: activeTheme.hexBg,
+            color: activeTheme.hexText
+          }
         },
           // Chapter Header
-          h('div', { className: 'mb-8 pt-4 pb-4 border-b border-inherit/15 text-center' },
+          h('div', { className: 'mb-8 pt-4 pb-4 border-b text-center', style: { borderColor: activeTheme.hexBorder } },
             h('h1', { className: 'text-xl sm:text-2xl font-bold tracking-tight' }, rawTitle),
-            h('p', { className: 'text-xs opacity-50 mt-1' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length}`)
+            h('p', { className: 'text-xs opacity-50 mt-1 font-mono' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length}`)
           ),
 
           // Story Paragraphs with real-time sentence and word highlighter
-          paragraphs.length === 0 ? h('p', { className: 'opacity-40 italic text-center py-20' }, 'No text content available in reader...') :
+          paragraphs.length === 0 ? h('p', { className: 'opacity-40 italic text-center py-20' }, 'No translated text available to display...') :
             paragraphs.map((p, pIdx) => {
               const sentencesInP = ttsSentences.filter(s => s.paragraphIdx === pIdx);
               return h('p', {
@@ -2534,9 +2541,9 @@ const formatModelName = (id, displayName) => {
                           startTTS(globalSentenceIdx);
                         }
                       },
-                      className: `transition-colors duration-150 rounded px-0.5 cursor-pointer ${isSentenceActive ? activeHighlight.sentence : 'hover:bg-white/5'}`
+                      style: isSentenceActive ? activeHighlight.sentenceStyle : {},
+                      className: 'transition-colors duration-150 rounded px-0.5 cursor-pointer hover:opacity-90'
                     },
-                      // If sentence is active and TTS word range is known, highlight word
                       isSentenceActive && currentWordRange ? (() => {
                         const str = sObj.text;
                         const wStart = currentWordRange.start || 0;
@@ -2546,7 +2553,7 @@ const formatModelName = (id, displayName) => {
                         const after = str.substring(wStart + wLen);
                         return h(React.Fragment, null,
                           before,
-                          h('span', { className: activeHighlight.word }, word),
+                          h('span', { style: activeHighlight.wordStyle }, word),
                           after,
                           ' '
                         );
@@ -2559,7 +2566,8 @@ const formatModelName = (id, displayName) => {
 
           // ── CONTINUOUS INFINITE SCROLL NEXT CHAPTER TRIGGER ──
           continuousScroll && activeChapterIdx < safeChapters.length - 1 && h('div', {
-            className: 'mt-16 pt-8 pb-12 border-t border-dashed border-inherit/20 text-center space-y-3'
+            className: 'mt-16 pt-8 pb-12 border-t border-dashed text-center space-y-3',
+            style: { borderColor: activeTheme.hexBorder }
           },
             h('p', { className: 'text-xs uppercase tracking-widest opacity-60 font-mono' }, `—— End of Chapter ${activeChapterIdx + 1} ——`),
             h('button', {
@@ -2574,7 +2582,12 @@ const formatModelName = (id, displayName) => {
 
         // ── FLOATING TTS NARRATION PLAYER BAR ──
         isTtsActive && h('div', {
-          className: `fixed bottom-20 inset-x-4 max-w-xl mx-auto z-40 rounded-2xl border p-3.5 shadow-2xl backdrop-blur-xl ${activeTheme.barBg} ${activeTheme.border} flex flex-col gap-2.5 animate-in slide-in-from-bottom duration-200`
+          className: 'fixed bottom-20 inset-x-4 max-w-xl mx-auto z-40 rounded-2xl p-3.5 shadow-2xl flex flex-col gap-2.5 animate-in slide-in-from-bottom duration-200',
+          style: {
+            backgroundColor: activeTheme.hexBarBg,
+            border: `1px solid ${activeTheme.hexBorder}`,
+            color: activeTheme.hexText
+          }
         },
           h('div', { className: 'flex items-center justify-between text-xs' },
             h('div', { className: 'flex items-center gap-2 font-bold text-teal-400 truncate' },
@@ -2587,7 +2600,6 @@ const formatModelName = (id, displayName) => {
             }, ic(X, 16))
           ),
           h('div', { className: 'flex items-center justify-between gap-3' },
-            // Speed Controls
             h('div', { className: 'flex items-center gap-1' },
               [0.75, 1.0, 1.25, 1.5, 2.0].map(spd => h('button', {
                 key: spd,
@@ -2599,7 +2611,6 @@ const formatModelName = (id, displayName) => {
                 className: `px-2 py-1 text-[10px] font-bold rounded-lg transition-all ${ttsSpeed === spd ? 'bg-teal-500 text-white' : 'hover:bg-white/10 opacity-70'}`
               }, `${spd}x`))
             ),
-            // Playback controls
             h('div', { className: 'flex items-center gap-2' },
               h('button', { onClick: () => skipTTSSentence(-1), className: 'p-1.5 rounded-lg hover:bg-white/10' }, ic(SkipBack, 18)),
               h('button', {
@@ -2608,7 +2619,6 @@ const formatModelName = (id, displayName) => {
               }, ic(isTtsPlaying ? Pause : Play, 18)),
               h('button', { onClick: () => skipTTSSentence(1), className: 'p-1.5 rounded-lg hover:bg-white/10' }, ic(SkipForward, 18))
             ),
-            // Highlight color picker
             h('div', { className: 'flex items-center gap-1' },
               ['amber', 'cyan', 'emerald', 'purple', 'rose'].map(c => h('button', {
                 key: c,
@@ -2626,10 +2636,15 @@ const formatModelName = (id, displayName) => {
 
         // ── VISUAL OPTIONS & TYPOGRAPHY SHEET (Moon+ Style) ──
         showVisualSheet && h('div', {
-          className: `fixed bottom-16 inset-x-4 max-w-lg mx-auto z-40 rounded-3xl border p-5 shadow-2xl backdrop-blur-2xl ${activeTheme.barBg} ${activeTheme.border} space-y-4 animate-in slide-in-from-bottom duration-200`
+          className: 'fixed bottom-16 inset-x-4 max-w-lg mx-auto z-40 rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200',
+          style: {
+            backgroundColor: activeTheme.hexBarBg,
+            border: `1px solid ${activeTheme.hexBorder}`,
+            color: activeTheme.hexText
+          }
         },
-          h('div', { className: 'flex items-center justify-between border-b border-inherit/15 pb-2' },
-            h('span', { className: 'text-xs font-bold uppercase tracking-wider text-inherit' }, 'Visual Options & Font'),
+          h('div', { className: 'flex items-center justify-between border-b pb-2', style: { borderColor: activeTheme.hexBorder } },
+            h('span', { className: 'text-xs font-bold uppercase tracking-wider text-inherit' }, 'Visual Options & Typography'),
             h('button', { onClick: () => setShowVisualSheet(false), className: 'p-1 hover:bg-white/10 rounded-lg' }, ic(X, 15))
           ),
           // Font Size Slider
@@ -2641,7 +2656,8 @@ const formatModelName = (id, displayName) => {
             h('div', { className: 'flex items-center gap-3' },
               h('button', {
                 onClick: () => { const n = Math.max(12, fontSize - 1); setFontSize(n); localStorage.setItem('readerFontSize', n); },
-                className: 'px-2.5 py-1 rounded-lg border border-inherit/20 hover:bg-white/10 font-bold text-xs'
+                className: 'px-2.5 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs',
+                style: { borderColor: activeTheme.hexBorder }
               }, 'A-'),
               h('input', {
                 type: 'range',
@@ -2653,7 +2669,8 @@ const formatModelName = (id, displayName) => {
               }),
               h('button', {
                 onClick: () => { const n = Math.min(38, fontSize + 1); setFontSize(n); localStorage.setItem('readerFontSize', n); },
-                className: 'px-2.5 py-1 rounded-lg border border-inherit/20 hover:bg-white/10 font-bold text-xs'
+                className: 'px-2.5 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs',
+                style: { borderColor: activeTheme.hexBorder }
               }, 'A+')
             )
           ),
@@ -2662,13 +2679,14 @@ const formatModelName = (id, displayName) => {
             h('span', { className: 'text-xs font-semibold opacity-80 block' }, 'Font Family'),
             h('div', { className: 'grid grid-cols-3 gap-2' },
               [
-                { id: 'serif', label: 'Serif (Literata)' },
-                { id: 'sans', label: 'Sans (Inter)' },
-                { id: 'mono', label: 'Mono (Clean)' }
+                { id: 'serif', label: 'Serif' },
+                { id: 'sans', label: 'Sans' },
+                { id: 'mono', label: 'Mono' }
               ].map(f => h('button', {
                 key: f.id,
                 onClick: () => { setFont(f.id); localStorage.setItem('readerFont', f.id); },
-                className: `p-2 rounded-xl text-xs font-bold border transition-all ${font === f.id ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'border-inherit/15 hover:bg-white/10 opacity-70'}`
+                className: `p-2 rounded-xl text-xs font-bold border transition-all ${font === f.id ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'hover:bg-white/10 opacity-70'}`,
+                style: { borderColor: activeTheme.hexBorder }
               }, f.label))
             )
           ),
@@ -2684,7 +2702,8 @@ const formatModelName = (id, displayName) => {
               ].map(t => h('button', {
                 key: t.id,
                 onClick: () => { setTheme(t.id); localStorage.setItem('readerTheme', t.id); },
-                className: `p-2 rounded-xl text-xs font-bold border ${t.bg} transition-all ${theme === t.id ? 'ring-2 ring-teal-500 scale-105 shadow-md' : 'opacity-80 border-inherit/20'}`
+                className: `p-2 rounded-xl text-xs font-bold border ${t.bg} transition-all ${normalizedTheme === t.id ? 'ring-2 ring-teal-500 scale-105 shadow-md' : 'opacity-80'}`,
+                style: { borderColor: activeTheme.hexBorder }
               }, t.label))
             )
           ),
@@ -2692,7 +2711,7 @@ const formatModelName = (id, displayName) => {
           h('div', { className: 'grid grid-cols-2 gap-3 pt-1' },
             h('div', { className: 'space-y-1' },
               h('span', { className: 'text-[11px] font-semibold opacity-80' }, 'Line Spacing'),
-              h('div', { className: 'flex rounded-xl overflow-hidden border border-inherit/20' },
+              h('div', { className: 'flex rounded-xl overflow-hidden border', style: { borderColor: activeTheme.hexBorder } },
                 [1.4, 1.8, 2.2].map(lh => h('button', {
                   key: lh,
                   onClick: () => { setLineHeight(lh); localStorage.setItem('readerLineHeight', lh); },
@@ -2702,7 +2721,7 @@ const formatModelName = (id, displayName) => {
             ),
             h('div', { className: 'space-y-1' },
               h('span', { className: 'text-[11px] font-semibold opacity-80' }, 'Margins'),
-              h('div', { className: 'flex rounded-xl overflow-hidden border border-inherit/20' },
+              h('div', { className: 'flex rounded-xl overflow-hidden border', style: { borderColor: activeTheme.hexBorder } },
                 ['tight', 'normal', 'wide'].map(m => h('button', {
                   key: m,
                   onClick: () => { setMarginWidth(m); localStorage.setItem('readerMarginWidth', m); },
@@ -2715,14 +2734,19 @@ const formatModelName = (id, displayName) => {
 
         // ── TABLE OF CONTENTS DRAWER ──
         showTocDrawer && h('div', {
-          className: 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-start',
+          className: 'fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-start',
           onClick: () => setShowTocDrawer(false)
         },
           h('div', {
-            className: `w-4/5 max-w-sm h-full ${activeTheme.bg} ${activeTheme.text} border-r ${activeTheme.border} p-5 flex flex-col shadow-2xl animate-in slide-in-from-left duration-200`,
+            className: 'w-4/5 max-w-sm h-full p-5 flex flex-col shadow-2xl animate-in slide-in-from-left duration-200',
+            style: {
+              backgroundColor: activeTheme.hexBg,
+              borderRight: `1px solid ${activeTheme.hexBorder}`,
+              color: activeTheme.hexText
+            },
             onClick: (e) => e.stopPropagation()
           },
-            h('div', { className: 'flex items-center justify-between border-b border-inherit/15 pb-3' },
+            h('div', { className: 'flex items-center justify-between border-b pb-3', style: { borderColor: activeTheme.hexBorder } },
               h('div', null,
                 h('h3', { className: 'text-sm font-bold truncate' }, 'Table of Contents'),
                 h('p', { className: 'text-[11px] opacity-60' }, `${safeChapters.length} chapters available`)
@@ -2746,7 +2770,12 @@ const formatModelName = (id, displayName) => {
 
         // ── BOTTOM OVERLAY TOOLBAR (Moon+ Style) ──
         h('footer', {
-          className: `fixed bottom-0 inset-x-0 z-30 transition-all duration-300 border-t ${activeTheme.barBg} ${activeTheme.border} backdrop-blur-md px-4 py-2.5 flex flex-col gap-2 shadow-2xl ${showOverlay ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`
+          className: `fixed bottom-0 inset-x-0 z-30 transition-all duration-300 px-4 py-2.5 flex flex-col gap-2 shadow-2xl ${showOverlay ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`,
+          style: {
+            backgroundColor: activeTheme.hexBarBg,
+            borderTop: `1px solid ${activeTheme.hexBorder}`,
+            color: activeTheme.hexText
+          }
         },
           // Row 1: Scrub Progress Slider & Skip Chapter Arrows
           h('div', { className: 'flex items-center justify-between gap-3 text-xs' },
@@ -2774,7 +2803,7 @@ const formatModelName = (id, displayName) => {
           ),
 
           // Row 2: Tool Icons (Audio, Visual Options, Chapters, Themes)
-          h('div', { className: 'flex items-center justify-between pt-1 border-t border-inherit/10' },
+          h('div', { className: 'flex items-center justify-between pt-1 border-t', style: { borderColor: activeTheme.hexBorder } },
             h('button', {
               onClick: () => {
                 if (isTtsActive) pauseTTS();
@@ -2800,7 +2829,7 @@ const formatModelName = (id, displayName) => {
             h('button', {
               onClick: () => {
                 const themes = ['oled', 'sepia', 'slate', 'light'];
-                const next = themes[(themes.indexOf(theme) + 1) % themes.length];
+                const next = themes[(themes.indexOf(normalizedTheme) + 1) % themes.length];
                 setTheme(next);
                 localStorage.setItem('readerTheme', next);
                 window.NativeBridge?.haptic?.('selection');
