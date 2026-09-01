@@ -273,7 +273,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.8.2';
+    const VERSION = '6.8.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -9028,6 +9028,41 @@ p {
             isFetchingUrl && h('div', { className: 'p-3 bg-teal-50 dark:bg-teal-950/60 rounded-xl border border-teal-200/80 dark:border-teal-800/60 flex items-center gap-2 text-xs font-semibold text-teal-700 dark:text-teal-300' },
               ic(Loader2, 14),
               h('span', null, webImportStatus || 'Crawling and extracting chapters...')
+            ),
+
+            // Direct EPUB / File Dropzone Alternative
+            h('div', { className: 'pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3' },
+              h('div', { className: 'flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400' },
+                ic(FileDown, 16),
+                h('span', null, 'Or import downloaded AO3 EPUB file directly:')
+              ),
+              h('label', { className: 'px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1.5' },
+                ic(Upload, 14),
+                'Choose AO3 .epub File',
+                h('input', {
+                  type: 'file',
+                  accept: '.epub,.zip',
+                  className: 'hidden',
+                  onChange: async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setIsFetchingUrl(true);
+                    setWebImportStatus('Reading EPUB package...');
+                    try {
+                      const buffer = await file.arrayBuffer();
+                      const data = await window.WebNovelImporter.importEpubBuffer(buffer, file.name, (s) => setWebImportStatus(s));
+                      setWebImportData(data);
+                      toast(`✨ Loaded "${data.title}" with ${data.chapters.length} chapters!`, 'success');
+                    } catch (err) {
+                      console.error('File import error:', err);
+                      toast('Failed to load EPUB: ' + err.message, 'error');
+                    } finally {
+                      setIsFetchingUrl(false);
+                      setWebImportStatus('');
+                    }
+                  }
+                })
+              )
             )
           ),
 

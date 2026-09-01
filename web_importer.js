@@ -295,7 +295,73 @@
     // ══════════════════════════════════════════════════════════════════════
     // GLOBAL ROUTER DISPATCHER
     // ══════════════════════════════════════════════════════════════════════
+    
+    async function importEpubBuffer(buffer, fileName = "AO3_Work.epub", progressCb) {
+        progressCb?.('Parsing EPUB package...', 30);
+        const zip = await (window.JSZip ? window.JSZip.loadAsync(buffer) : (new JSZip()).loadAsync(buffer));
+        
+        const containerXml = await zip.file('META-INF/container.xml')?.async('text');
+        let opfPath = 'OEBPS/content.opf';
+        if (containerXml) {
+            const parser = new DOMParser();
+            const cDoc = parser.parseFromString(containerXml, 'text/xml');
+            opfPath = cDoc.querySelector('rootfile')?.getAttribute('full-path') || opfPath;
+        }
+
+        const opfDoc = new DOMParser().parseFromString(await zip.file(opfPath).async('text'), 'text/xml');
+        const title = opfDoc.querySelector('title')?.textContent?.trim() || fileName.replace(/\.epub$/i, '');
+        const author = opfDoc.querySelector('creator')?.textContent?.trim() || 'Author';
+        const description = opfDoc.querySelector('description')?.textContent?.trim() || '';
+
+        const spineItems = Array.from(opfDoc.querySelectorAll('spine itemref'));
+        const manifestMap = {};
+        opfDoc.querySelectorAll('manifest item').forEach(it => {
+            manifestMap[it.getAttribute('id')] = it.getAttribute('href');
+        });
+
+        const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+        const chapters = [];
+
+        for (let i = 0; i < spineItems.length; i++) {
+            const idref = spineItems[i].getAttribute('idref');
+            const href = manifestMap[idref];
+            if (!href) continue;
+            
+            const filePath = opfDir + href;
+            const chFile = zip.file(filePath);
+            if (!chFile) continue;
+
+            const chHtml = await chFile.async('text');
+            const chDoc = new DOMParser().parseFromString(chHtml, 'application/xhtml+xml');
+            const heading = chDoc.querySelector('h1, h2, h3, .heading')?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
+            const bodyText = chDoc.body?.textContent?.trim() || '';
+
+            if (bodyText.length > 50) {
+                chapters.push({
+                    title: heading,
+                    text: bodyText,
+                    doc: chDoc,
+                    zipPath: filePath
+                });
+            }
+        }
+
+        progressCb?.(`Successfully loaded ${chapters.length} chapters!`, 100);
+        return {
+            title,
+            author,
+            summary: description || `Imported from ${fileName}`,
+            tags: ['AO3 / EPUB', author],
+            chapters,
+            rawZip: zip,
+            isEpub: true,
+            sourceUrl: fileName
+        };
+    }
+
     window.WebNovelImporter = {
+        importEpubBuffer,
+
         detectType: detectUrlType,
         
         importUrl: async (url, progressCb) => {
