@@ -78,6 +78,19 @@
             }
         },
 
+        
+        // ══════════════════════════════════════════════════════════════════════
+        // TACHIYOMI / MIHON IN-APP CLOUDFLARE RESOLVER BRIDGE
+        // ══════════════════════════════════════════════════════════════════════
+        resolveCloudflare: async (url) => {
+            const bridge = getBridge();
+            if (bridge && bridge.resolveCloudflare) {
+                const res = await bridge.resolveCloudflare({ url });
+                return res;
+            }
+            throw new Error('Cloudflare Resolver requires the Native Android App.');
+        },
+
         // ══════════════════════════════════════════════════════════════════════
         // NATIVE CORS-FREE WEB CRAWLER & MULTI-PROXY ENGINE
         // ══════════════════════════════════════════════════════════════════════

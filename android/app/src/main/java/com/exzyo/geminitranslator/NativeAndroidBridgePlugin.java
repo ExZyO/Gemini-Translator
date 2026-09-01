@@ -1,18 +1,34 @@
 package com.exzyo.geminitranslator;
 
+import android.app.AlertDialog;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Base64;
 import android.util.Log;
+import android.view.ViewGroup;
+import android.webkit.CookieManager;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.FileProvider;
@@ -32,7 +48,6 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.CookieHandler;
-import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -48,17 +63,11 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private static final String CHANNEL_ID = "gemini_translator_progress";
     private static final int NOTIFICATION_ID = 1001;
     private static final int COMPLETE_NOTIFICATION_ID = 1002;
-    private static final String DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+    private static final String DEFAULT_UA = "Mozilla/5.0 (Linux; Android 14; Mobile; rv:125.0) Gecko/125.0 Firefox/125.0";
 
     private PowerManager.WakeLock wakeLock = null;
     private NotificationManager notificationManager = null;
     private boolean isChannelCreated = false;
-
-    static {
-        CookieManager cookieManager = new CookieManager();
-        cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
-        CookieHandler.setDefault(cookieManager);
-    }
 
     private void ensureNotificationChannel() {
         if (isChannelCreated || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
@@ -229,7 +238,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GeminiTranslator::WorkLock");
                 }
                 if (!wakeLock.isHeld()) {
-                    wakeLock.acquire(2 * 60 * 60 * 1000L); // Max 2 hours safety limit
+                    wakeLock.acquire(2 * 60 * 60 * 1000L);
                     Log.d(TAG, "🔋 WakeLock Acquired - Background execution locked active!");
                 }
             }
@@ -288,7 +297,116 @@ public class NativeAndroidBridgePlugin extends Plugin {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // NATIVE CORS-FREE HTTP CRAWLER & NOVEL FETCHER ENGINE
+    // TACHIYOMI / MIHON STYLE IN-APP CLOUDFLARE TURNSTILE RESOLVER WEBVIEW
+    // ══════════════════════════════════════════════════════════════════════
+    @PluginMethod
+    public void resolveCloudflare(PluginCall call) {
+        String targetUrl = call.getString("url");
+        if (targetUrl == null || targetUrl.isEmpty()) {
+            call.reject("Missing target URL");
+            return;
+        }
+
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+        mainHandler.post(() -> {
+            try {
+                Context context = getActivity();
+                if (context == null) {
+                    call.reject("Activity context not available");
+                    return;
+                }
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                builder.setTitle("🛡️ Cloudflare Security Verification");
+
+                LinearLayout layout = new LinearLayout(context);
+                layout.setOrientation(LinearLayout.VERTICAL);
+                layout.setPadding(20, 20, 20, 20);
+
+                TextView tvInfo = new TextView(context);
+                tvInfo.setText("Verifying with website... If a checkbox appears, tap it.");
+                tvInfo.setTextSize(13);
+                layout.addView(tvInfo);
+
+                ProgressBar progressBar = new ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal);
+                progressBar.setIndeterminate(true);
+                layout.addView(progressBar);
+
+                WebView webView = new WebView(context);
+                WebSettings settings = webView.getSettings();
+                settings.setJavaScriptEnabled(true);
+                settings.setDomStorageEnabled(true);
+                settings.setDatabaseEnabled(true);
+                settings.setUserAgentString(DEFAULT_UA);
+
+                CookieManager cookieManager = CookieManager.getInstance();
+                cookieManager.setAcceptCookie(true);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    cookieManager.setAcceptThirdPartyCookies(webView, true);
+                }
+
+                LinearLayout.LayoutParams wvParams = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, 800
+                );
+                webView.setLayoutParams(wvParams);
+                layout.addView(webView);
+
+                builder.setView(layout);
+                builder.setNegativeButton("Cancel", (dialog, which) -> {
+                    call.reject("Verification cancelled by user.");
+                });
+
+                AlertDialog dialog = builder.create();
+                dialog.setCanceledOnTouchOutside(false);
+
+                webView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        super.onPageFinished(view, url);
+                        
+                        // Check if Cloudflare clearance or valid content is reached
+                        String cookies = cookieManager.getCookie(url);
+                        view.evaluateJavascript("document.documentElement.outerHTML", html -> {
+                            if (html != null && html.length() > 500 && !html.contains("cf-browser-verification") && !html.contains("Shields are up!")) {
+                                try {
+                                    // Parse clean JSON string from JS eval
+                                    String cleanHtml = html;
+                                    if (cleanHtml.startsWith(""") && cleanHtml.endsWith(""")) {
+                                        cleanHtml = cleanHtml.substring(1, cleanHtml.length() - 1)
+                                                .replace("\\n", "\n")
+                                                .replace("\\"", "\"")
+                                                .replace("\\t", "\t");
+                                    }
+                                    
+                                    JSObject ret = new JSObject();
+                                    ret.put("success", true);
+                                    ret.put("cookies", cookies != null ? cookies : "");
+                                    ret.put("html", cleanHtml);
+                                    ret.put("url", url);
+
+                                    if (dialog.isShowing()) {
+                                        dialog.dismiss();
+                                    }
+                                    call.resolve(ret);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Extraction error: " + e.getMessage());
+                                }
+                            }
+                        });
+                    }
+                });
+
+                webView.loadUrl(targetUrl);
+                dialog.show();
+            } catch (Exception e) {
+                Log.e(TAG, "Resolver error: " + e.getMessage(), e);
+                call.reject("Resolver error: " + e.getMessage());
+            }
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // NATIVE CORS-FREE HTTP CRAWLER
     // ══════════════════════════════════════════════════════════════════════
     @PluginMethod
     public void fetchUrlNative(PluginCall call) {
@@ -336,7 +454,6 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                     statusCode = conn.getResponseCode();
 
-                    // Accumulate cookies
                     List<String> setCookies = conn.getHeaderFields().get("Set-Cookie");
                     if (setCookies != null) {
                         for (String sc : setCookies) {
