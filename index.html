@@ -9191,6 +9191,21 @@ p {
                 h('div', { className: 'flex items-center gap-1.5' },
                   btn({
                     onClick: () => {
+                      if (webImportData.rawChapters && webImportData.rawChapters.length > 0) {
+                        setWebImportData({ ...webImportData, chapters: [...webImportData.rawChapters] });
+                        toast('📅 Restored Author Release Order (as published)!', 'success');
+                      } else {
+                        toast('Already in original order', 'info');
+                      }
+                    },
+                    className: 'px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer',
+                    title: 'Keep author release timeline order (default)'
+                  }, ic(Calendar, 12), '📅 Release Order'),
+                  btn({
+                    onClick: () => {
+                      if (!webImportData.rawChapters) {
+                        webImportData.rawChapters = [...webImportData.chapters];
+                      }
                       const sorted = [...webImportData.chapters].sort((a, b) => {
                         const titleA = a.title || '';
                         const titleB = b.title || '';
@@ -9208,10 +9223,14 @@ p {
                       setWebImportData({ ...webImportData, chapters: sorted });
                       toast('🔀 Smart Sorted: Main story in order, Extras at the end!', 'success');
                     },
-                    className: 'px-2.5 py-1 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-700 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer'
+                    className: 'px-2.5 py-1 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-700 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer',
+                    title: 'Group chapters 1..N first and move Extras/Side Stories to the end'
                   }, ic(ArrowUpDown, 12), '🔀 Extras at End'),
                   btn({
                     onClick: () => {
+                      if (!webImportData.rawChapters) {
+                        webImportData.rawChapters = [...webImportData.chapters];
+                      }
                       const reversed = [...webImportData.chapters].reverse();
                       setWebImportData({ ...webImportData, chapters: reversed });
                       toast('🔄 Inverted chapter order', 'info');
