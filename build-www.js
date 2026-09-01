@@ -11,15 +11,23 @@ if (!fs.existsSync(destDir)) {
 const copyExts = ['.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.svg', '.json', '.txt'];
 const excludeFiles = ['package.json', 'package-lock.json', 'capacitor.config.json', 'build-www.js', 'tailwind.config.js'];
 
-const files = fs.readdirSync(srcDir);
-files.forEach(f => {
-    const ext = path.extname(f);
-    const srcFile = path.join(srcDir, f);
-    const destFile = path.join(destDir, f);
-    
-    if (fs.statSync(srcFile).isFile() && copyExts.includes(ext) && !excludeFiles.includes(f)) {
-        fs.copyFileSync(srcFile, destFile);
+function copyRecursive(src, dest) {
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.name === 'node_modules' || entry.name === 'android' || entry.name === 'ios' || entry.name === 'www' || entry.name === '.git') continue;
+        if (entry.isDirectory()) {
+            copyRecursive(srcPath, destPath);
+        } else if (entry.isFile()) {
+            const ext = path.extname(entry.name);
+            if (copyExts.includes(ext) && !excludeFiles.includes(entry.name)) {
+                fs.copyFileSync(srcPath, destPath);
+            }
+        }
     }
-});
+}
 
-console.log('✅ Synced web assets to ./www directory for native mobile builds');
+copyRecursive(srcDir, destDir);
+console.log('✅ Recursively synced all web assets (including vendor/) to ./www directory');

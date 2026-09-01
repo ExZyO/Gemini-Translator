@@ -17,14 +17,14 @@
   <meta name="apple-mobile-web-app-title" content="Translator">
   <link rel="stylesheet" href="./styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jepub/dist/jepub.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.9/ejs.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="./vendor/jspdf.umd.min.js"></script>
+  <script src="./vendor/jszip.min.js"></script>
+  <script src="./vendor/jepub.min.js"></script>
+  <script src="./vendor/ejs.min.js"></script>
+  <script src="./vendor/pdf.min.js"></script>
+  <script src="./vendor/docx.umd.min.js"></script>
+  <script src="./vendor/react.production.min.js"></script>
+  <script src="./vendor/react-dom.production.min.js"></script>
   <script src="./icons.js"></script>
   <style>
     body {
@@ -3147,50 +3147,98 @@ ${bodyHtml.join('\n  ')}
       });
       const [historySearchQuery, setHistorySearchQuery] = useState('');
 
-      const saveNovelToHistory = (novelData) => {
+      const saveNovelToHistory = async (novelData) => {
         if (!novelData || !novelData.chapters || novelData.chapters.length === 0) return;
+        const totalWords = novelData.chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)), 0);
+        const novelId = 'novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+        const novelRecord = {
+          id: novelId,
+          title: novelData.title || 'Untitled Novel',
+          author: novelData.author || 'Author',
+          summary: (novelData.summary || '').substring(0, 300),
+          tags: novelData.tags || [],
+          chapterCount: novelData.chapters.length,
+          wordCount: totalWords,
+          timestamp: new Date().toISOString(),
+          isEpub: !!novelData.isEpub,
+          sourceUrl: novelData.sourceUrl || '',
+          rawChapters: novelData.chapters
+        };
+
+        if (window.GeminiNovelDB) {
+          await window.GeminiNovelDB.saveNovel(novelRecord);
+        }
+
         setWebImportHistory(prev => {
-          const filtered = prev.filter(item => item.title !== novelData.title && item.sourceUrl !== novelData.sourceUrl);
-          const entry = {
-            id: genId(),
-            title: novelData.title || 'Untitled Novel',
-            author: novelData.author || 'Unknown',
-            summary: novelData.summary || '',
-            tags: novelData.tags || [],
-            chapterCount: novelData.chapters.length,
-            wordCount: novelData.chapters.reduce((acc, c) => acc + (c.words || (c.text || '').split(/\s+/).filter(Boolean).length), 0),
-            sourceUrl: novelData.sourceUrl || '',
-            isEpub: !!novelData.isEpub,
-            rawChapters: novelData.chapters,
-            timestamp: Date.now()
-          };
-          const updated = [entry, ...filtered].slice(0, 15);
+          const updated = [novelRecord, ...prev.filter(n => n.title !== novelData.title && n.id !== novelRecord.id)].slice(0, 30);
           try {
-            localStorage.setItem('gemini_web_import_history', JSON.stringify(updated));
-          } catch (storageErr) {
-            console.warn('Storage quota exceeded, storing recent 5:', storageErr);
-            const trimmed = updated.slice(0, 5);
-            try { localStorage.setItem('gemini_web_import_history', JSON.stringify(trimmed)); } catch (e) {}
-          }
+            const metaList = updated.map(u => ({
+              id: u.id,
+              title: u.title,
+              author: u.author,
+              chapterCount: u.chapterCount,
+              wordCount: u.wordCount,
+              timestamp: u.timestamp,
+              isEpub: u.isEpub,
+              sourceUrl: u.sourceUrl
+            }));
+            localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(metaList));
+          } catch (e) {}
           return updated;
         });
       };
 
-      const deleteNovelFromHistory = (id) => {
+      const deleteNovelFromHistory = async (id) => {
+        if (window.GeminiNovelDB) {
+          await window.GeminiNovelDB.deleteNovel(id);
+        }
         setWebImportHistory(prev => {
           const updated = prev.filter(item => item.id !== id);
-          try { localStorage.setItem('gemini_web_import_history', JSON.stringify(updated)); } catch (e) {}
+          try {
+            localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updated.map(u => ({
+              id: u.id,
+              title: u.title,
+              author: u.author,
+              chapterCount: u.chapterCount,
+              wordCount: u.wordCount,
+              timestamp: u.timestamp,
+              isEpub: u.isEpub,
+              sourceUrl: u.sourceUrl
+            }))));
+          } catch (e) {}
           return updated;
         });
         toast('Removed novel from library', 'info');
       };
 
-      const clearAllNovelHistory = () => {
+      const clearAllNovelHistory = async () => {
+        if (window.GeminiNovelDB) {
+          await window.GeminiNovelDB.clearAll();
+        }
         setWebImportHistory([]);
-        localStorage.removeItem('gemini_web_import_history');
+        localStorage.removeItem('gemini_web_import_history_meta');
         toast('Cleared all novel history', 'info');
       };
-      const [studioSubTab, setStudioSubTab] = useState(() => localStorage.getItem('studioSubTab') || 'split');
+
+      // Load persistent IndexedDB novels on mount
+      useEffect(() => {
+        (async () => {
+          try {
+            if (window.GeminiNovelDB) {
+              const dbNovels = await window.GeminiNovelDB.getAllNovels();
+              if (dbNovels && dbNovels.length > 0) {
+                setWebImportHistory(dbNovels.reverse());
+                return;
+              }
+            }
+            const metaStr = localStorage.getItem('gemini_web_import_history_meta') || localStorage.getItem('gemini_web_import_history');
+            if (metaStr) setWebImportHistory(JSON.parse(metaStr));
+          } catch (e) {
+            console.warn('Novel history load error:', e);
+          }
+        })();
+      }, []);
+const [studioSubTab, setStudioSubTab] = useState(() => localStorage.getItem('studioSubTab') || 'split');
       const [error, setError] = useState('');
 
       // --- Translation State ---
