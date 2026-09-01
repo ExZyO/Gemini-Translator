@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.3.0';
+    const VERSION = '8.3.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2837,7 +2837,10 @@ ${bodyHtml.join('\n ')}
 
       const safeChapters = useMemo(() => {
         let list = Array.isArray(chapters) && chapters.length > 0
-          ? chapters.filter(c => c && typeof c === 'object')
+          ? chapters.filter(c => c && typeof c === 'object').map(c => ({
+              title: c.title || 'Chapter',
+              text: c.content || c.text || ''
+            }))
           : [];
 
         if (list.length === 0 && text && typeof text === 'string') {
@@ -9206,7 +9209,9 @@ FORMATTING & STRUCTURE RULES:
             }
           });
           const pdfBlob = doc.output('blob');
-          const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.pdf`;
+          const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
+          const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, '_') : `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}`;
+          const fileName = `${cleanDocName}.pdf`;
           await saveUniversalBlob(pdfBlob, fileName, 'application/pdf');
         } catch (e) { setError(`PDF error: ${e.message}`) } finally { setDownloadingPdf(false) }
       };
@@ -9232,8 +9237,10 @@ FORMATTING & STRUCTURE RULES:
           });
           setEpubPackagingModal(null);
           toast(' EPUB downloaded successfully!', 'success');
-          const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.epub`;
-          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+          const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, '_') : `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}`;
+          const fileName = `${cleanDocName}.epub`;
+          const res = await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+          return { blob, fileName, path: res?.path };
         } catch (e) {
           setError(`EPUB error: ${e.message}`);
           toast(`EPUB error: ${e.message}`, 'error');
@@ -9302,7 +9309,9 @@ FORMATTING & STRUCTURE RULES:
             }
           });
           const blob = await Packer.toBlob(doc);
-          const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.docx`;
+          const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
+          const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, '_') : `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}`;
+          const fileName = `${cleanDocName}.docx`;
           await saveUniversalBlob(blob, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         } catch (e) {
           setError(`DOCX error: ${e.message}`);
@@ -10820,7 +10829,7 @@ FORMATTING & STRUCTURE RULES:
           open: readerOpen,
           onClose: () => setReaderOpen(false),
           text: assembledText,
-          chapters: (translatedChapters && translatedChapters.length > 0 ? translatedChapters : chapters),
+          chapters: getExportChapters(),
           currentIdx: readerChapterIdx,
           onChapterChange: setReaderChapterIdx,
           theme: readerTheme,
