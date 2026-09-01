@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.9.6';
+    const VERSION = '7.9.7';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2262,18 +2262,27 @@ const formatModelName = (id, displayName) => {
       const zip = new JSZipClass();
       const uuid = 'urn:uuid:' + (crypto.randomUUID ? crypto.randomUUID() : ('uuid_' + Date.now()));
 
-      zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
-      zip.file('META-INF/container.xml', `<?xml version="1.0" encoding="UTF-8"?>
+      let wakeLockObj = null;
+      try {
+        window.NativeBridge?.acquireWakeLock?.();
+        if (typeof navigator !== 'undefined' && navigator.wakeLock) {
+          try { wakeLockObj = await navigator.wakeLock.request('screen'); } catch(e) {}
+        }
+      } catch(e) {}
+
+      try {
+        zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+        zip.file('META-INF/container.xml', `<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
     <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
 </container>`);
 
-      const oebps = zip.folder('OEBPS');
-      const imgFolder = oebps.folder('images');
+        const oebps = zip.folder('OEBPS');
+        const imgFolder = oebps.folder('images');
 
-      const cssContent = `body {
+        const cssContent = `body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.85;
   margin: 1.5em;
@@ -2318,127 +2327,136 @@ p.divider {
   border-radius: 8px;
 }
 `;
-      oebps.file('style.css', cssContent);
+        oebps.file('style.css', cssContent);
 
-      const manifestItems = [
-        '<item id="css" href="style.css" media-type="text/css"/>',
-        '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>'
-      ];
-      const spineItems = [];
-      const tocNavPoints = [];
+        const manifestItems = [
+          '<item id="css" href="style.css" media-type="text/css"/>',
+          '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>'
+        ];
+        const spineItems = [];
+        const tocNavPoints = [];
 
-      // Step 1: Scan all chapters for unique illustration URLs
-      const uniqueImgUrls = new Set();
-      for (const ch of chaptersList) {
-        const rawLines = (ch.text || ch.content || '').split(/\r?\n/);
-        for (const line of rawLines) {
-          const imgMatch = line.trim().match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
-          if (imgMatch && imgMatch[2]) {
-            uniqueImgUrls.add(imgMatch[2]);
+        // Step 1: Scan all chapters for unique illustration URLs
+        const uniqueImgUrls = new Set();
+        for (const ch of chaptersList) {
+          const rawLines = (ch.text || ch.content || '').split(/\r?\n/);
+          for (const line of rawLines) {
+            const imgMatch = line.trim().match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
+            if (imgMatch && imgMatch[2]) {
+              uniqueImgUrls.add(imgMatch[2]);
+            }
           }
         }
-      }
 
-      const imageCache = new Map();
-      let imgSeq = 0;
+        const imageCache = new Map();
+        let imgSeq = 0;
 
-      // Step 2: Download unique illustrations in parallel (concurrency=8, 4s timeout)
-      const imgUrlList = Array.from(uniqueImgUrls);
-      if (imgUrlList.length > 0) {
-        onProgress?.(`\u{1F5BC}\uFE0F Pre-caching ${imgUrlList.length} illustration(s) in parallel...`, 5);
-        let downloadedCount = 0;
-        const downloadWorker = async (url) => {
-          try {
-            let buffer = null;
-            const imgTimeout = 4000;
-            const AC = typeof AbortController !== 'undefined' ? AbortController : (typeof window !== 'undefined' ? window.AbortController : null);
-            const controller = AC ? new AC() : null;
-            const timer = controller ? setTimeout(() => controller.abort(), imgTimeout) : null;
+        // Step 2: Download unique illustrations in parallel (concurrency = 8, 4s timeout)
+        const imgUrlList = Array.from(uniqueImgUrls);
+        if (imgUrlList.length > 0) {
+          onProgress?.(`🖼️ Pre-caching ${imgUrlList.length} illustration(s)...`, 5);
+          window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-caching ${imgUrlList.length} illustrations...`, 5, true);
+          let downloadedCount = 0;
+          let lastReportedImg = 0;
+
+          const downloadWorker = async (url) => {
             try {
-              if (window.NativeBridge && window.NativeBridge.downloadBinary) {
-                buffer = await Promise.race([
-                  window.NativeBridge.downloadBinary(url),
-                  new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), imgTimeout))
-                ]);
-              } else {
-                const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-                const res = await fetch(proxy, controller ? { signal: controller.signal } : {});
-                if (res.ok) buffer = await res.arrayBuffer();
+              let buffer = null;
+              const imgTimeout = 4000;
+              const AC = typeof AbortController !== 'undefined' ? AbortController : (typeof window !== 'undefined' ? window.AbortController : null);
+              const controller = AC ? new AC() : null;
+              const timer = controller ? setTimeout(() => controller.abort(), imgTimeout) : null;
+              try {
+                if (window.NativeBridge && window.NativeBridge.downloadBinary) {
+                  buffer = await Promise.race([
+                    window.NativeBridge.downloadBinary(url),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), imgTimeout))
+                  ]);
+                } else {
+                  const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+                  const res = await fetch(proxy, controller ? { signal: controller.signal } : {});
+                  if (res.ok) buffer = await res.arrayBuffer();
+                }
+              } finally {
+                if (timer) clearTimeout(timer);
               }
-            } finally {
-              if (timer) clearTimeout(timer);
-            }
 
-            if (buffer && buffer.byteLength > 500) {
-              imgSeq++;
-              const ext = url.includes('.png') ? 'png' : (url.includes('.webp') ? 'webp' : (url.includes('.gif') ? 'gif' : 'jpg'));
-              const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : 'image/jpeg'));
-              const imgFilename = `img_${imgSeq}.${ext}`;
-              const manifestId = `img_${imgSeq}`;
-              imgFolder.file(imgFilename, buffer);
-              manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="${mime}"/>`);
-              imageCache.set(url, { localHref: `images/${imgFilename}`, manifestId });
+              if (buffer && buffer.byteLength > 500) {
+                imgSeq++;
+                const ext = url.includes('.png') ? 'png' : (url.includes('.webp') ? 'webp' : (url.includes('.gif') ? 'gif' : 'jpg'));
+                const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : 'image/jpeg'));
+                const imgFilename = `img_${imgSeq}.${ext}`;
+                const manifestId = `img_${imgSeq}`;
+                imgFolder.file(imgFilename, buffer);
+                manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="${mime}"/>`);
+                imageCache.set(url, { localHref: `images/${imgFilename}`, manifestId });
+              }
+            } catch (e) {
+              // Gracefully proceed
             }
-          } catch (e) {
-            // Gracefully skip failed images
+            downloadedCount++;
+            if (downloadedCount - lastReportedImg >= 5 || downloadedCount === imgUrlList.length) {
+              lastReportedImg = downloadedCount;
+              const pct = Math.min(30, Math.round(5 + (downloadedCount / imgUrlList.length) * 25));
+              onProgress?.(`🖼️ Pre-caching illustrations (${downloadedCount}/${imgUrlList.length})...`, pct);
+              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-cached ${downloadedCount}/${imgUrlList.length} images`, pct, true);
+            }
+          };
+
+          const concurrency = 8;
+          for (let i = 0; i < imgUrlList.length; i += concurrency) {
+            const chunk = imgUrlList.slice(i, i + concurrency);
+            await Promise.all(chunk.map(u => downloadWorker(u)));
           }
-          downloadedCount++;
-          const pct = Math.min(30, Math.round(5 + (downloadedCount / imgUrlList.length) * 25));
-          onProgress?.(`\u{1F5BC}\uFE0F Pre-cached ${downloadedCount}/${imgUrlList.length} illustrations...`, pct);
-        };
-
-        const concurrency = 8;
-        for (let i = 0; i < imgUrlList.length; i += concurrency) {
-          const chunk = imgUrlList.slice(i, i + concurrency);
-          await Promise.all(chunk.map(u => downloadWorker(u)));
         }
-      }
 
-      // Step 3: Fast In-Memory Chapter Assembly
-      onProgress?.(`\u26A1 Assembling ${chaptersList.length} chapter(s)...`, 35);
-      for (let idx = 0; idx < chaptersList.length; idx++) {
-        const ch = chaptersList[idx];
-        const chId = `chapter_${idx + 1}`;
-        const chFilename = `${chId}.xhtml`;
-        const chTitle = ch.title ? ch.title.trim() : `Chapter ${idx + 1}`;
+        // Step 3: Fast In-Memory Chapter Assembly
+        onProgress?.(`⚡ Assembling ${chaptersList.length} chapter(s)...`, 35);
+        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Assembling ${chaptersList.length} chapters...`, 35, true);
 
-        manifestItems.push(`<item id="${chId}" href="${chFilename}" media-type="application/xhtml+xml"/>`);
-        spineItems.push(`<itemref idref="${chId}"/>`);
-        tocNavPoints.push(`
+        for (let idx = 0; idx < chaptersList.length; idx++) {
+          const ch = chaptersList[idx];
+          const chId = `chapter_${idx + 1}`;
+          const chFilename = `${chId}.xhtml`;
+          const chTitle = ch.title ? ch.title.trim() : `Chapter ${idx + 1}`;
+
+          manifestItems.push(`<item id="${chId}" href="${chFilename}" media-type="application/xhtml+xml"/>`);
+          spineItems.push(`<itemref idref="${chId}"/>`);
+          tocNavPoints.push(`
   <navPoint id="nav_${chId}" playOrder="${idx + 1}">
     <navLabel><text>${escapeXml(chTitle)}</text></navLabel>
     <content src="${chFilename}"/>
   </navPoint>`);
 
-        const rawLines = (ch.text || ch.content || '').split(/\r?\n/);
-        const bodyHtml = [];
-        bodyHtml.push(`<h1>${escapeXml(chTitle)}</h1>`);
+          const rawLines = (ch.text || ch.content || '').split(/\r?\n/);
+          const bodyHtml = [];
+          bodyHtml.push(`<h1>${escapeXml(chTitle)}</h1>`);
 
-        for (const line of rawLines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
+          for (const line of rawLines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
 
-          const imgMatch = trimmed.match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
-          if (imgMatch) {
-            const altText = imgMatch[1] || 'Illustration';
-            const imgUrl = imgMatch[2];
-            const cached = imageCache.get(imgUrl);
-            if (cached) {
-              bodyHtml.push(`<div class="illustration-wrap"><img src="${cached.localHref}" alt="${escapeXml(altText)}" class="illustration"/></div>`);
-            } else {
-              bodyHtml.push(`<div class="illustration-wrap"><img src="${imgUrl}" alt="${escapeXml(altText)}" class="illustration"/></div>`);
+            const imgMatch = trimmed.match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
+            if (imgMatch) {
+              const altText = imgMatch[1] || 'Illustration';
+              const imgUrl = imgMatch[2];
+              const cached = imageCache.get(imgUrl);
+              if (cached) {
+                bodyHtml.push(`<div class="illustration-wrap"><img src="${cached.localHref}" alt="${escapeXml(altText)}" class="illustration"/></div>`);
+              } else {
+                bodyHtml.push(`<div class="illustration-wrap"><img src="${imgUrl}" alt="${escapeXml(altText)}" class="illustration"/></div>`);
+              }
+              continue;
             }
-            continue;
+
+            if (/^(?:\*|\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(trimmed)) {
+              bodyHtml.push(`<p class="divider">${escapeXml(trimmed)}</p>`);
+            } else {
+              bodyHtml.push(`<p>${escapeXml(trimmed)}</p>`);
+            }
           }
 
-          if (/^(?:\*|\*{3,}|\.{3,}|\u2014{2,}|-{3,})$/.test(trimmed)) {
-            bodyHtml.push(`<p class="divider">${escapeXml(trimmed)}</p>`);
-          } else {
-            bodyHtml.push(`<p>${escapeXml(trimmed)}</p>`);
-          }
-        }
-
-        const xhtmlContent = `<?xml version="1.0" encoding="utf-8"?>
+          const xhtmlContent = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${bookLang}">
 <head>
@@ -2451,10 +2469,10 @@ ${bodyHtml.join('\n  ')}
 </body>
 </html>`;
 
-        oebps.file(chFilename, xhtmlContent);
-      }
+          oebps.file(chFilename, xhtmlContent);
+        }
 
-      const opfContent = `<?xml version="1.0" encoding="UTF-8"?>
+        const opfContent = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="3.0">
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
   <dc:title>${escapeXml(bookTitle)}</dc:title>
@@ -2470,9 +2488,9 @@ ${bodyHtml.join('\n  ')}
   ${spineItems.join('\n    ')}
 </spine>
 </package>`;
-      oebps.file('content.opf', opfContent);
+        oebps.file('content.opf', opfContent);
 
-      const ncxContent = `<?xml version="1.0" encoding="UTF-8"?>
+        const ncxContent = `<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
 <head>
   <meta name="dtb:uid" content="${uuid}"/>
@@ -2485,16 +2503,32 @@ ${bodyHtml.join('\n  ')}
   ${tocNavPoints.join('')}
 </navMap>
 </ncx>`;
-      oebps.file('toc.ncx', ncxContent);
+        oebps.file('toc.ncx', ncxContent);
 
-      onProgress?.('\u{1F4E6} Compressing EPUB archive...', 60);
-      return await zip.generateAsync(
-        { type: 'blob', mimeType: 'application/epub+zip', compression: 'DEFLATE', compressionOptions: { level: 3 } },
-        (meta) => {
-          const pct = Math.min(99, Math.round(60 + (meta.percent * 0.39)));
-          onProgress?.(`\u{1F4E6} Compressing EPUB archive (${Math.round(meta.percent)}%)...`, pct);
-        }
-      );
+        onProgress?.('📦 Compressing EPUB archive...', 60);
+        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', 'Compressing archive...', 60, true);
+
+        let lastReportedPct = 0;
+        const blob = await zip.generateAsync(
+          { type: 'blob', mimeType: 'application/epub+zip', compression: 'DEFLATE', compressionOptions: { level: 3 } },
+          (meta) => {
+            const pct = Math.min(99, Math.round(60 + (meta.percent * 0.39)));
+            if (pct - lastReportedPct >= 5 || meta.percent === 100) {
+              lastReportedPct = pct;
+              onProgress?.(`📦 Compressing EPUB archive (${Math.round(meta.percent)}%)...`, pct);
+              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive (${Math.round(meta.percent)}%)`, pct, true);
+            }
+          }
+        );
+
+        return blob;
+      } finally {
+        try {
+          if (wakeLockObj) wakeLockObj.release().catch(() => {});
+          window.NativeBridge?.releaseWakeLock?.();
+          window.NativeBridge?.clearProgressNotification?.(true, 'EPUB Packaging Complete! ✨', `"${bookTitle}" is ready.`);
+        } catch(e) {}
+      }
     };
 
     // ══════════════════════════════════════════════════════════════════════
@@ -3562,6 +3596,7 @@ ${bodyHtml.join('\n  ')}
       const [toasts, setToasts] = useState([]);
       const [availableUpdate, setAvailableUpdate] = useState(null);
       const [downloadSuccessModal, setDownloadSuccessModal] = useState(null);
+      const [epubPackagingModal, setEpubPackagingModal] = useState(null);
       const [isUpdating, setIsUpdating] = useState(false);
       const [sideBySide, setSideBySide] = useState(false);
       const [showModal, setShowModal] = useState(false);
@@ -10242,6 +10277,72 @@ FORMATTING & STRUCTURE RULES:
             })()
           )
 
+        ),
+
+        // ── LIVE EPUB PACKAGING PROGRESS MODAL ──
+        epubPackagingModal && h('div', {
+          className: 'fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200'
+        },
+          h('div', {
+            className: 'bg-white dark:bg-slate-900 border border-teal-500/40 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 text-center'
+          },
+            h('div', { className: 'w-14 h-14 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800/60 rounded-2xl flex items-center justify-center mx-auto text-teal-600 dark:text-teal-400' },
+              ic(Loader2, 28, 'animate-spin')
+            ),
+            h('div', { className: 'space-y-1' },
+              h('h3', { className: 'text-base font-bold text-slate-900 dark:text-white line-clamp-1' }, epubPackagingModal.title || 'Compiling EPUB...'),
+              h('p', { className: 'text-xs text-teal-600 dark:text-teal-400 font-semibold' }, epubPackagingModal.status || 'Packaging chapters...')
+            ),
+            h('div', { className: 'space-y-1.5' },
+              h('div', { className: 'w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden' },
+                h('div', {
+                  className: 'bg-gradient-to-r from-teal-500 to-emerald-500 h-full rounded-full transition-all duration-300',
+                  style: { width: `${epubPackagingModal.pct || 10}%` }
+                })
+              ),
+              h('div', { className: 'flex justify-between text-[11px] text-slate-400 font-mono' },
+                h('span', null, 'Packaging Progress'),
+                h('span', null, `${epubPackagingModal.pct || 0}%`)
+              )
+            ),
+            h('p', { className: 'text-[11px] text-slate-400' }, 'High-speed parallel worker • Zero app stalls')
+          )
+        ),
+
+        // ── DOWNLOAD SUCCESS ACTION MODAL ──
+        downloadSuccessModal && h('div', {
+          className: 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4',
+          onClick: () => setDownloadSuccessModal(null)
+        },
+          h('div', {
+            className: 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 text-center',
+            onClick: (e) => e.stopPropagation()
+          },
+            h('div', { className: 'w-14 h-14 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800/60 rounded-2xl flex items-center justify-center mx-auto text-teal-600 dark:text-teal-400' },
+              ic(FileDown, 28)
+            ),
+            h('div', { className: 'space-y-1' },
+              h('h3', { className: 'text-base font-bold text-slate-900 dark:text-white' }, 'File Saved Successfully! ✨'),
+              h('p', { className: 'text-xs text-slate-600 dark:text-slate-400 break-all font-semibold' }, downloadSuccessModal.fileName),
+              h('div', { className: 'p-2.5 bg-slate-100 dark:bg-slate-800/70 rounded-xl text-[11px] text-slate-500 dark:text-slate-400 font-mono text-left' },
+                h('p', null, '📁 Folder: Download/GeminiTranslator/'),
+                h('p', { className: 'opacity-70 text-[10px] truncate' }, '📍 Path: ' + (downloadSuccessModal.path || 'Internal Storage/Download/GeminiTranslator'))
+              )
+            ),
+            h('div', { className: 'space-y-2 pt-2' },
+              h('button', {
+                onClick: () => {
+                  window.NativeBridge?.openWithReader(downloadSuccessModal.fileName, downloadSuccessModal.path);
+                  setDownloadSuccessModal(null);
+                },
+                className: 'w-full py-3 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-teal-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer'
+              }, ic(BookOpen, 16), 'Open in Moon+ Reader / ReadEra'),
+              h('button', {
+                onClick: () => setDownloadSuccessModal(null),
+                className: 'w-full py-2.5 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all cursor-pointer'
+              }, 'Done')
+            )
+          )
         ),
 
         // TAB: HISTORY

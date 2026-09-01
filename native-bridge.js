@@ -136,7 +136,7 @@
             return false;
         },
 
-        saveBlob: async (blob, fileName, mimeType = "application/epub+zip") => {
+        saveBlob: async (blob, fileName, mimeType = "application/epub+zip", openChooser = false) => {
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.saveAndOpenFile) {
@@ -146,7 +146,7 @@
                         reader.onloadend = async () => {
                             try {
                                 const base64 = (reader.result || '').split(',')[1];
-                                const res = await bridge.saveAndOpenFile({ fileName, base64, mimeType });
+                                const res = await bridge.saveAndOpenFile({ fileName, base64, mimeType, openChooser });
                                 resolve(res);
                             } catch (err) {
                                 console.warn('Native save fallback:', err);

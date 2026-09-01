@@ -929,19 +929,22 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 Toast.makeText(context, "💾 Saved: " + fileName + "\n📁 Folder: Download/GeminiTranslator", Toast.LENGTH_LONG).show();
             });
 
-            // Trigger System "Open With" Chooser
-            try {
-                Uri contentUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", cacheFile);
-                Intent viewIntent = new Intent(Intent.ACTION_VIEW);
-                viewIntent.setDataAndType(contentUri, mimeType);
-                viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            // Trigger System "Open With" Chooser only if explicitly requested
+            boolean openChooser = call.getBoolean("openChooser", false);
+            if (openChooser) {
+                try {
+                    Uri contentUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", cacheFile);
+                    Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+                    viewIntent.setDataAndType(contentUri, mimeType);
+                    viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-                Intent chooser = Intent.createChooser(viewIntent, "Open " + fileName + " with (Moon+ Reader / ReadEra)...");
-                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(chooser);
-            } catch (Exception launchErr) {
-                Log.w(TAG, "Chooser launch optional notice: " + launchErr.getMessage());
+                    Intent chooser = Intent.createChooser(viewIntent, "Open " + fileName + " with (Moon+ Reader / ReadEra)...");
+                    chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    context.startActivity(chooser);
+                } catch (Exception launchErr) {
+                    Log.w(TAG, "Chooser launch optional notice: " + launchErr.getMessage());
+                }
             }
 
             JSObject ret = new JSObject();

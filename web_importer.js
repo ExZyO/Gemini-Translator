@@ -168,12 +168,24 @@
     // ══════════════════════════════════════════════════════════════════════
     // 4. PARALLEL WORKER POOL ENGINE (LNCRAWL STREAMING)
     // ══════════════════════════════════════════════════════════════════════
+    // 4. PARALLEL WORKER POOL ENGINE (LNCRAWL STREAMING)
+    // ══════════════════════════════════════════════════════════════════════
     async function crawlChapterPool(chapterList, extractContentFn, concurrency = 12, progressCb) {
         let nextIndex = 0;
         let completedCount = 0;
         const chapters = [];
         let totalWordsEstimate = 0;
         let totalImagesCount = 0;
+        let wakeLockObj = null;
+
+        try {
+            window.NativeBridge?.acquireWakeLock?.();
+            if (typeof navigator !== 'undefined' && navigator.wakeLock) {
+                try { wakeLockObj = await navigator.wakeLock.request('screen'); } catch(e) {}
+            }
+        } catch(e) {}
+
+        let lastNotifTime = 0;
 
         const worker = async () => {
             while (nextIndex < chapterList.length) {
@@ -200,11 +212,25 @@
                 completedCount++;
                 const pct = Math.min(99, Math.round(15 + ((completedCount / chapterList.length) * 84)));
                 progressCb?.(`⚡ Ingested ${chapters.length}/${chapterList.length} chapters (~${totalWordsEstimate.toLocaleString()} words, ${totalImagesCount} illustrations)...`, pct);
+
+                const now = Date.now();
+                if (now - lastNotifTime > 2000 || completedCount === chapterList.length) {
+                    lastNotifTime = now;
+                    window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Ingesting novel: ${chapters.length}/${chapterList.length} chapters (${pct}%)`, pct, true);
+                }
             }
         };
 
-        const workers = Array.from({ length: Math.min(concurrency, chapterList.length) }, () => worker());
-        await Promise.all(workers);
+        try {
+            const workers = Array.from({ length: Math.min(concurrency, chapterList.length) }, () => worker());
+            await Promise.all(workers);
+        } finally {
+            try {
+                if (wakeLockObj) { wakeLockObj.release().catch(() => {}); }
+                window.NativeBridge?.releaseWakeLock?.();
+                window.NativeBridge?.clearProgressNotification?.(true, 'Novel Ingestion Complete! ✨', `${chapters.length} chapters downloaded and saved.`);
+            } catch(e) {}
+        }
 
         chapters.sort((a, b) => a.idx - b.idx);
         return { chapters, totalWords: totalWordsEstimate, totalImages: totalImagesCount };

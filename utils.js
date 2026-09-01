@@ -92,11 +92,11 @@ function addExportEntry(title, type, details) {
 
 
 // Universal Native & Browser Blob Saver
-async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zip') {
+async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zip', openChooser = false) {
     try {
         // 1. Native Android Bridge (Downloads folder via MediaStore)
         if (window.NativeBridge && window.NativeBridge.saveBlob) {
-            const res = await window.NativeBridge.saveBlob(blob, fileName, mimeType);
+            const res = await window.NativeBridge.saveBlob(blob, fileName, mimeType, openChooser);
             if (window.__setDownloadModal) {
                 window.__setDownloadModal({ fileName, path: res?.path || ('Download/GeminiTranslator/' + fileName), mimeType });
             }
