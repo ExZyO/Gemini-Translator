@@ -1300,7 +1300,7 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
     btnApply.disabled = true;
 
     // Use 200 chapters per batch to minimize request frequency and stay comfortably within free-tier RPM limits
-    const batchSize = 200;
+    const batchSize = 75;
     const totalChapters = storyChapters.length;
     const totalBatches = Math.ceil(totalChapters / batchSize);
     let suggestedBookTitle = splitTitleInput.value.trim() || baseBookTitle;
