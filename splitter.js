@@ -163,29 +163,29 @@ function cleanChapterTitleString(raw, fallbackIndex) {
     // Normalize whitespace
     s = s.replace(/\s+/g, ' ').trim();
 
-    // 1. Clean up "Image2", "Image 2" -> "Illustration 2"
+    // Preserve official Light Novel sub-chapter format: "1.1", "7.1", "7.2"
+    if (/^\d+\.\d+$/.test(s)) {
+        return s;
+    }
+
+    // Preserve official Light Novel epilogue sub-chapter format: "E.1", "E.2", "E.3"
+    if (/^E\.?\s*(\d+)$/i.test(s)) {
+        const num = s.match(/^E\.?\s*(\d+)/i)[1];
+        return 'E.' + num;
+    }
+
+    // Clean up "Image2", "Image 2" -> "Illustration 2"
     if (/^Image\s*(\d+)(?:[-_]?(\d+))?$/i.test(s)) {
         return s.replace(/^Image\s*(\d+)(?:[-_]?(\d+))?/i, (m, p1, p2) => p2 ? `Illustration ${p1}-${p2}` : `Illustration ${p1}`);
     }
 
-    // 2. Clean up "insert1", "insert 12" -> "Illustration 1", "Illustration 12"
+    // Clean up "insert1", "insert 12" -> "Illustration 1", "Illustration 12"
     if (/^insert\s*(\d+)$/i.test(s)) {
         const num = s.match(/^insert\s*(\d+)/i)[1];
         return 'Illustration ' + num;
     }
 
-    // 3. Clean up "E.1", "E.2", "e1" -> "Epilogue - Part 1", "Epilogue - Part 2"
-    if (/^E\.?\s*(\d+)$/i.test(s)) {
-        const num = s.match(/^E\.?\s*(\d+)/i)[1];
-        return 'Epilogue - Part ' + num;
-    }
-
-    // 4. Clean up "1.1", "7.1", "7.2" -> "Chapter 1.1", "Chapter 7.1"
-    if (/^(\d+\.\d+)$/.test(s)) {
-        return 'Chapter ' + s;
-    }
-
-    // 5. Clean up "part0001" -> "Part 1"
+    // Clean up "part0001" -> "Part 1"
     if (/^part\d+$/i.test(s)) {
         const num = parseInt(s.replace(/\D/g, ''), 10);
         return 'Part ' + (isNaN(num) ? fallbackIndex : num);
@@ -194,7 +194,7 @@ function cleanChapterTitleString(raw, fallbackIndex) {
         return 'Chapter ' + fallbackIndex;
     }
 
-    // 6. Check for special Light Novel / Anthology structures (Volumes, Years, Arcs, Prologues, etc.)
+    // Check for special Light Novel / Anthology structures (Volumes, Years, Arcs, Prologues, etc.)
     const isSpecialSection = /^(?:year\s*\d+|volume\s*\d+|vol\s*\d+|book\s*\d+|arc\s*\d+|prologue|epilogue|interlude|monologue|afterword|synopsis|illustration|illustrations|side\s*story|\bss\b|part\s*\d+|extra|character\s*intro|short\s*story)/i.test(s);
 
     if (isSpecialSection) {
@@ -209,7 +209,7 @@ function cleanChapterTitleString(raw, fallbackIndex) {
         return s;
     }
 
-    // 7. Strip leading scrape numbers like "0003 4 Chapter 4" or "0000 1 Chapter 1"
+    // Strip leading scrape numbers like "0003 4 Chapter 4" or "0000 1 Chapter 1"
     s = s.replace(/^(?:\d+[\s\.\-_]+)+(?:Chapter|\bCh\b)/i, 'Chapter');
 
     // Pattern: "136: Chapter 136 - 136: Clash of brawn and brain"
