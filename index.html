@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.6.3';
+    const VERSION = '5.6.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1523,7 +1523,7 @@
     // ═══════════════════════════════════════════════════════════════
     // AI TABLE OF CONTENTS & METADATA POLISHER ENGINE
     // ═══════════════════════════════════════════════════════════════
-        window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus) {
+            window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus) {
       const provider = localStorage.getItem('translationProvider') || 'gemini';
       
       let allKeys = [];
@@ -1558,10 +1558,12 @@ Return strictly a JSON object with this exact format:
   ]
 }`;
 
-      const geminiModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.6-flash'];
+      // Official stable GA models
+      const preferredModel = localStorage.getItem('geminiModel') || 'gemini-2.0-flash';
+      const geminiModels = Array.from(new Set([preferredModel, 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-pro'])).filter(m => !m.includes('2.5-flash'));
       let modelIdx = 0;
-      const maxAttempts = 8;
-      let backoffDelay = 2000;
+      const maxAttempts = 10;
+      let backoffDelay = 1500;
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const currentKey = getActiveKey();
@@ -1578,26 +1580,36 @@ Return strictly a JSON object with this exact format:
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 generationConfig: {
                   temperature: 0.1,
-                  responseMimeType: 'application/json',
-                  thinkingConfig: { thinkingBudget: 0 }
+                  responseMimeType: 'application/json'
                 }
               })
             });
 
             if (!res.ok) {
               const errTxt = await res.text().catch(() => '');
+              const is404 = res.status === 404 || errTxt.includes('no longer available') || errTxt.includes('not found') || errTxt.includes('is not supported');
               const is429 = res.status === 429 || errTxt.includes('quota') || errTxt.includes('RESOURCE_EXHAUSTED');
+
+              if (is404) {
+                modelIdx++;
+                const nextModel = geminiModels[modelIdx % geminiModels.length];
+                if (typeof onRetryStatus === 'function') onRetryStatus(`Model ${currentModel} unavailable. Auto-switched to ${nextModel}...`);
+                await new Promise(r => setTimeout(r, 200));
+                continue;
+              }
+
               if (is429) {
                 if (allKeys.length > 1) {
-                  const nKey = rotateKey();
+                  rotateKey();
                   if (typeof onRetryStatus === 'function') onRetryStatus(`Quota hit. Switched to key ${(keyIndex % allKeys.length) + 1}/${allKeys.length}...`);
                   await new Promise(r => setTimeout(r, 600));
                   continue;
                 } else {
                   modelIdx++;
-                  if (typeof onRetryStatus === 'function') onRetryStatus(`Rate limit cooldown pause (${(backoffDelay / 1000).toFixed(1)}s)... Fallback model: ${geminiModels[modelIdx % geminiModels.length]}`);
+                  const nextModel = geminiModels[modelIdx % geminiModels.length];
+                  if (typeof onRetryStatus === 'function') onRetryStatus(`Rate limit cooldown pause (${(backoffDelay / 1000).toFixed(1)}s)... Switched to ${nextModel}`);
                   await new Promise(r => setTimeout(r, backoffDelay));
-                  backoffDelay = Math.min(backoffDelay * 1.5, 12000);
+                  backoffDelay = Math.min(backoffDelay * 1.5, 10000);
                   continue;
                 }
               }
@@ -1674,8 +1686,10 @@ Return strictly a JSON object with this exact format:
           return JSON.parse(clean);
         } catch (err) {
           const is429 = (err.message || '').includes('429') || (err.message || '').includes('quota');
-          if (is429 && attempt < maxAttempts - 1) {
-            rotateKey();
+          const is404 = (err.message || '').includes('404') || (err.message || '').includes('no longer available') || (err.message || '').includes('not found');
+          if ((is429 || is404) && attempt < maxAttempts - 1) {
+            if (is404) modelIdx++;
+            else rotateKey();
             await new Promise(r => setTimeout(r, backoffDelay));
             backoffDelay = Math.min(backoffDelay * 1.5, 10000);
             continue;
