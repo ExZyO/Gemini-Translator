@@ -6,7 +6,6 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -19,13 +18,9 @@ import android.util.Base64;
 import android.util.Log;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -39,12 +34,9 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-import org.json.JSONObject;
-
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.CookieHandler;
@@ -52,10 +44,8 @@ import java.net.CookiePolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 @CapacitorPlugin(name = "NativeAndroidBridge")
 public class NativeAndroidBridgePlugin extends Plugin {
@@ -297,7 +287,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // TACHIYOMI / MIHON STYLE IN-APP CLOUDFLARE TURNSTILE RESOLVER WEBVIEW
+    // TACHIYOMI / MIHON IN-APP CLOUDFLARE TURNSTILE RESOLVER WEBVIEW
     // ══════════════════════════════════════════════════════════════════════
     @PluginMethod
     public void resolveCloudflare(PluginCall call) {
@@ -364,18 +354,16 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     public void onPageFinished(WebView view, String url) {
                         super.onPageFinished(view, url);
                         
-                        // Check if Cloudflare clearance or valid content is reached
                         String cookies = cookieManager.getCookie(url);
                         view.evaluateJavascript("document.documentElement.outerHTML", html -> {
                             if (html != null && html.length() > 500 && !html.contains("cf-browser-verification") && !html.contains("Shields are up!")) {
                                 try {
-                                    // Parse clean JSON string from JS eval
                                     String cleanHtml = html;
-                                    if (cleanHtml.startsWith(""") && cleanHtml.endsWith(""")) {
+                                    if (cleanHtml.startsWith("\"") && cleanHtml.endsWith("\"")) {
                                         cleanHtml = cleanHtml.substring(1, cleanHtml.length() - 1)
-                                                .replace("\\n", "\n")
-                                                .replace("\\"", "\"")
-                                                .replace("\\t", "\t");
+                                                .replace("\\\\n", "\n")
+                                                .replace("\\\\"", "\"")
+                                                .replace("\\\\t", "\t");
                                     }
                                     
                                     JSObject ret = new JSObject();
