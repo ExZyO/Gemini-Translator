@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.8.0';
+    const VERSION = '7.8.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2310,10 +2310,40 @@ const formatModelName = (id, displayName) => {
 
       const oebps = zip.folder('OEBPS');
       oebps.file('style.css', `
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Georgia, serif; line-height: 1.65; margin: 5% 8%; color: #1a1a1a; }
-h1 { font-size: 1.5em; font-weight: bold; margin-top: 1em; margin-bottom: 1.2em; border-bottom: 1px solid #ddd; padding-bottom: 0.3em; text-align: center; }
-p { margin-top: 0; margin-bottom: 0.85em; text-align: left; line-height: 1.65; }
-.divider { text-align: center; margin: 1.5em 0; letter-spacing: 0.2em; font-weight: bold; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Georgia, serif;
+  line-height: 1.85;
+  margin: 4% 6%;
+  color: #111827;
+  font-size: 1.05em;
+  font-weight: 400;
+}
+h1, h2 {
+  font-size: 1.4em;
+  font-weight: 700;
+  margin-top: 1.4em;
+  margin-bottom: 1.2em;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.4em;
+  text-align: center;
+  line-height: 1.3;
+  color: #0f172a;
+}
+p {
+  margin-top: 0;
+  margin-bottom: 1.15em;
+  line-height: 1.85;
+  font-weight: 400;
+  text-align: justify;
+  text-indent: 0;
+}
+.divider {
+  text-align: center;
+  margin: 1.8em 0;
+  letter-spacing: 0.25em;
+  font-weight: bold;
+  color: #64748b;
+}
 `);
 
       const manifestItems = [
@@ -3143,6 +3173,59 @@ ${bodyHtml.join('\n  ')}
       const [isFetchingUrl, setIsFetchingUrl] = useState(false);
       const [webImportStatus, setWebImportStatus] = useState('');
       const [webImportData, setWebImportData] = useState(null);
+      const [webImportHistory, setWebImportHistory] = useState(() => {
+        try {
+          const saved = localStorage.getItem('gemini_web_import_history');
+          return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+          return [];
+        }
+      });
+      const [historySearchQuery, setHistorySearchQuery] = useState('');
+
+      const saveNovelToHistory = (novelData) => {
+        if (!novelData || !novelData.chapters || novelData.chapters.length === 0) return;
+        setWebImportHistory(prev => {
+          const filtered = prev.filter(item => item.title !== novelData.title && item.sourceUrl !== novelData.sourceUrl);
+          const entry = {
+            id: genId(),
+            title: novelData.title || 'Untitled Novel',
+            author: novelData.author || 'Unknown',
+            summary: novelData.summary || '',
+            tags: novelData.tags || [],
+            chapterCount: novelData.chapters.length,
+            wordCount: novelData.chapters.reduce((acc, c) => acc + (c.words || (c.text || '').split(/\s+/).filter(Boolean).length), 0),
+            sourceUrl: novelData.sourceUrl || '',
+            isEpub: !!novelData.isEpub,
+            rawChapters: novelData.chapters,
+            timestamp: Date.now()
+          };
+          const updated = [entry, ...filtered].slice(0, 15);
+          try {
+            localStorage.setItem('gemini_web_import_history', JSON.stringify(updated));
+          } catch (storageErr) {
+            console.warn('Storage quota exceeded, storing recent 5:', storageErr);
+            const trimmed = updated.slice(0, 5);
+            try { localStorage.setItem('gemini_web_import_history', JSON.stringify(trimmed)); } catch (e) {}
+          }
+          return updated;
+        });
+      };
+
+      const deleteNovelFromHistory = (id) => {
+        setWebImportHistory(prev => {
+          const updated = prev.filter(item => item.id !== id);
+          try { localStorage.setItem('gemini_web_import_history', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
+        toast('Removed novel from library', 'info');
+      };
+
+      const clearAllNovelHistory = () => {
+        setWebImportHistory([]);
+        localStorage.removeItem('gemini_web_import_history');
+        toast('Cleared all novel history', 'info');
+      };
       const [studioSubTab, setStudioSubTab] = useState(() => localStorage.getItem('studioSubTab') || 'split');
       const [error, setError] = useState('');
 
@@ -8489,10 +8572,15 @@ FORMATTING & STRUCTURE RULES:
               if (title && ch.doc.querySelector('title')) ch.doc.querySelector('title').textContent = title;
               
               // Format clean HTML paragraphs into the EPUB chapter body
-              const rawParagraphs = content.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
-              if (rawParagraphs.length > 0) {
+              const lines = content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+              if (lines.length > 0) {
                 const titleHeading = (title && !isGenericTitle(title)) ? `<h2>${escapeXml(title)}</h2>\n` : '';
-                const bodyParagraphs = rawParagraphs.map(p => `<p>${escapeXml(p)}</p>`).join('\n');
+                const bodyParagraphs = lines.map(line => {
+                  if (/^(\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(line)) {
+                    return `<p class="divider">${escapeXml(line)}</p>`;
+                  }
+                  return `<p>${escapeXml(line)}</p>`;
+                }).join('\n');
                 ch.doc.body.innerHTML = `${titleHeading}${bodyParagraphs}`;
               }
               
@@ -8833,159 +8921,14 @@ FORMATTING & STRUCTURE RULES:
         setDownloadingEpub(true);
         setError('');
         try {
-          if (window.currentTranslatedZip && currentIsEpub) {
-            const blob = await window.currentTranslatedZip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
-            const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.epub`;
-            await saveUniversalBlob(blob, fileName, 'application/epub+zip');
-            return;
-          }
-
-          if (!window.JSZip) throw new Error('JSZip library is not available.');
-
-          const zip = new window.JSZip();
           const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title)
             ? chaptersToExport[0].title.trim()
             : `Translated Novel (${tgtLang})`;
           const author = 'Gemini Translator';
           const lang = tgtLang.split(/[-_ ]/)[0].toLowerCase() || 'en';
-          const uuid = 'urn:uuid:' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ (typeof crypto !== 'undefined' ? crypto.getRandomValues(new Uint8Array(1))[0] : Math.floor(Math.random() * 16)) & 15 >> c / 4).toString(16)));
 
-          // 1. mimetype (first file, uncompressed)
-          zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
-
-          // 2. META-INF/container.xml
-          zip.folder('META-INF').file('container.xml', `<?xml version="1.0" encoding="UTF-8"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-  <rootfiles>
-    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
-  </rootfiles>
-</container>`);
-
-          const oebps = zip.folder('OEBPS');
-
-          // 3. OEBPS/style.css
-          oebps.file('style.css', `
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Georgia, serif;
-  line-height: 1.65;
-  margin: 5% 8%;
-  color: #1a1a1a;
-}
-h1 {
-  font-size: 1.5em;
-  font-weight: bold;
-  margin-top: 1em;
-  margin-bottom: 1.2em;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 0.3em;
-  text-align: center;
-}
-p {
-  margin-top: 0;
-  margin-bottom: 0.85em;
-  text-align: left;
-  line-height: 1.65;
-}
-.divider {
-  text-align: center;
-  margin: 1.5em 0;
-  letter-spacing: 0.2em;
-  font-weight: bold;
-}
-`);
-
-          // 4. XHTML Chapters
-          const manifestItems = [
-            '<item id="css" href="style.css" media-type="text/css"/>',
-            '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>'
-          ];
-          const spineItems = [];
-          const tocNavPoints = [];
-
-          chaptersToExport.forEach((ch, idx) => {
-            const chId = `chapter_${idx + 1}`;
-            const chFilename = `${chId}.xhtml`;
-            const chTitle = ch.title && !isGenericTitle(ch.title) ? ch.title.trim() : `Chapter ${idx + 1}`;
-
-            manifestItems.push(`<item id="${chId}" href="${chFilename}" media-type="application/xhtml+xml"/>`);
-            spineItems.push(`<itemref idref="${chId}"/>`);
-            tocNavPoints.push(`
-    <navPoint id="nav_${chId}" playOrder="${idx + 1}">
-      <navLabel><text>${escapeXml(chTitle)}</text></navLabel>
-      <content src="${chFilename}"/>
-    </navPoint>`);
-
-            const rawLines = (ch.content || '').split(/\r?\n/);
-            const bodyHtml = [];
-
-            if (ch.title && !isGenericTitle(ch.title)) {
-              bodyHtml.push(`<h1>${escapeXml(ch.title.trim())}</h1>`);
-            }
-
-            for (const line of rawLines) {
-              const trimmed = line.trim();
-              if (!trimmed) continue;
-              if (/^(\*|\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(trimmed)) {
-                bodyHtml.push(`<p class="divider">${escapeXml(trimmed)}</p>`);
-              } else {
-                bodyHtml.push(`<p>${escapeXml(trimmed)}</p>`);
-              }
-            }
-
-            const xhtmlContent = `<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${lang}">
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeXml(chTitle)}</title>
-  <link rel="stylesheet" type="text/css" href="style.css" />
-</head>
-<body>
-  ${bodyHtml.join('\n  ')}
-</body>
-</html>`;
-
-            oebps.file(chFilename, xhtmlContent);
-          });
-
-          // 5. OEBPS/content.opf
-          const opfContent = `<?xml version="1.0" encoding="UTF-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="3.0">
-  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-    <dc:title>${escapeXml(docTitle)}</dc:title>
-    <dc:creator>${escapeXml(author)}</dc:creator>
-    <dc:language>${lang}</dc:language>
-    <dc:identifier id="BookID">${uuid}</dc:identifier>
-    <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
-  </metadata>
-  <manifest>
-    ${manifestItems.join('\n    ')}
-  </manifest>
-  <spine toc="ncx">
-    ${spineItems.join('\n    ')}
-  </spine>
-</package>`;
-
-          oebps.file('content.opf', opfContent);
-
-          // 6. OEBPS/toc.ncx
-          const ncxContent = `<?xml version="1.0" encoding="UTF-8"?>
-<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
-  <head>
-    <meta name="dtb:uid" content="${uuid}"/>
-    <meta name="dtb:depth" content="1"/>
-    <meta name="dtb:totalPageCount" content="0"/>
-    <meta name="dtb:maxPageNumber" content="0"/>
-  </head>
-  <docTitle><text>${escapeXml(docTitle)}</text></docTitle>
-  <navMap>
-    ${tocNavPoints.join('')}
-  </navMap>
-</ncx>`;
-
-          oebps.file('toc.ncx', ncxContent);
-
-          const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
+          // Always compile a clean, standardized EPUB with translated TOC and proper paragraph spacing
+          const blob = await generateEpubFromChapters(chaptersToExport, docTitle, author, lang);
           const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.epub`;
           await saveUniversalBlob(blob, fileName, 'application/epub+zip');
         } catch (e) {
