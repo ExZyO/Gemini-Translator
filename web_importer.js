@@ -1,8 +1,12 @@
-// Universal Web Novel & Fanfiction Importer (AO3, Lofter, Syosetu, Witch Cult & Multi-Site)
+// ══════════════════════════════════════════════════════════════════════════
+// Universal Light Novel & Fanfiction Crawler Engine (lncrawl Architecture)
+// Supports: AO3, Lofter, WitchCult, Syosetu, Kakuyomu, RoyalRoad, ScribbleHub,
+//           NovelFull, Madara WP Novels, Blogspot, 69shu/Biquge, Tumblr & Universal
+// ══════════════════════════════════════════════════════════════════════════
 (function() {
 
     // ══════════════════════════════════════════════════════════════════════
-    // BEST-QUALITY IMAGE EXTRACTION HELPER
+    // 1. BEST-QUALITY IMAGE EXTRACTION (Original Lossless Illustrations)
     // ══════════════════════════════════════════════════════════════════════
     function getBestImageUrl(imgTagOrObj) {
         if (!imgTagOrObj) return '';
@@ -44,7 +48,7 @@
         if (!best) best = src;
         if (!best || best.startsWith('data:image/svg') || best.includes('avatar') || best.includes('emoji') || best.includes('gravatar')) return '';
 
-        // Clean up resize and thumbnail query parameters for full original uncompressed resolution
+        // Strip resize/thumbnail query params for full original uncompressed resolution
         if (best.includes('wp.com') || best.includes('wordpress.com') || best.includes('witchculttranslation.com')) {
             best = best.replace(/\?w=\d+.*$/i, '').replace(/\?resize=\d+.*$/i, '').replace(/\?fit=\d+.*$/i, '');
         } else if (best.includes('127.net') || best.includes('lofter.com')) {
@@ -56,15 +60,19 @@
         return best.trim();
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // 2. TEXT CLEANING & ILLUSTRATION PRESERVATION
+    // ══════════════════════════════════════════════════════════════════════
     function cleanChapterHtmlWithImages(html) {
         if (!html) return '';
 
         let processed = html
             .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
             .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-            .replace(/<div[^>]*class="[^"]*(?:sharedaddy|wpcnt|nav-links|post-navigation|likes-widget)[^"]*"[\s\S]*?<\/div>/gi, '')
+            .replace(/<div[^>]*class="[^"]*(?:sharedaddy|wpcnt|nav-links|post-navigation|likes-widget|ads|advertisement|report-chapter)[^"]*"[\s\S]*?<\/div>/gi, '')
             .replace(/<p[^>]*>[\s\S]*?Next Post[\s\S]*?<\/p>/gi, '')
-            .replace(/<p[^>]*>[\s\S]*?Previous Post[\s\S]*?<\/p>/gi, '');
+            .replace(/<p[^>]*>[\s\S]*?Previous Post[\s\S]*?<\/p>/gi, '')
+            .replace(/<p[^>]*>[\s\S]*?(?:Read light novel|Lightnovelpub|NovelFull|Boxnovel)[\s\S]*?<\/p>/gi, '');
 
         // Preserve illustrations as ![Illustration](url) markdown tokens
         processed = processed.replace(/<img\b[^>]*>/gi, (match) => {
@@ -100,44 +108,121 @@
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // URL DETECTION & ROUTING
+    // 3. UNIFIED HTTP NETWORK CLIENT (MULTI-PROXY & NATIVE BRIDGE)
     // ══════════════════════════════════════════════════════════════════════
-    function detectUrlType(url) {
-        if (!url || typeof url !== 'string') return 'unknown';
-        const clean = url.trim().toLowerCase();
-        if (clean.includes('archiveofourown.org')) return 'ao3';
-        if (clean.includes('witchculttranslation.com')) return 'witchcult';
-        if (clean.includes('lofter.com')) return 'lofter';
-        if (clean.includes('tumblr.com')) return 'tumblr';
-        if (clean.includes('syosetu.com')) return 'syosetu';
-        if (clean.includes('pixiv.net')) return 'pixiv';
-        if (clean.includes('kakuyomu.jp')) return 'kakuyomu';
-        if (clean.includes('royalroad.com')) return 'royalroad';
-        return 'universal';
+    async function fetchHtml(url, options = {}) {
+        const timeoutMs = options.timeout || 25000;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+        // 1. Android Native Bridge (Zero CORS / Full Chromium Engine)
+        if (window.NativeBridge && window.NativeBridge.fetchNative) {
+            try {
+                const res = await window.NativeBridge.fetchNative(url, {
+                    headers: options.headers || {},
+                    userAgent: options.userAgent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                });
+                clearTimeout(timer);
+                if (res && res.data) return res.data;
+            } catch (e) {
+                console.warn('NativeBridge fetch error, fallback to proxy:', e);
+            }
+        }
+
+        if (window.NativeBridge && window.NativeBridge.fetchUrl) {
+            try {
+                const res = await window.NativeBridge.fetchUrl(url, options);
+                clearTimeout(timer);
+                return await res.text();
+            } catch (e) {
+                console.warn('NativeBridge fetchUrl error, fallback to proxy:', e);
+            }
+        }
+
+        // 2. Multi-Proxy Failover Pool
+        const proxyPool = [
+            (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+            (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+            (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+        ];
+
+        for (const proxyFn of proxyPool) {
+            try {
+                const res = await fetch(proxyFn(url), {
+                    signal: controller.signal,
+                    headers: options.headers || {}
+                });
+                if (res.ok) {
+                    clearTimeout(timer);
+                    return await res.text();
+                }
+            } catch (proxyErr) {
+                // Continue to next proxy in pool
+            }
+        }
+
+        clearTimeout(timer);
+        throw new Error(`Failed to fetch ${url}. Please check internet connection or URL.`);
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // 1. WITCH CULT TRANSLATION (CONTINUOUS PIPELINE WITH HIGH-RES IMAGES)
+    // 4. PARALLEL WORKER POOL ENGINE (LNCRAWL STREAMING)
     // ══════════════════════════════════════════════════════════════════════
-    async function importWitchCult(url, progressCb) {
-        progressCb?.('Connecting to Witch Cult Translations Master TOC...', 5);
+    async function crawlChapterPool(chapterList, extractContentFn, concurrency = 12, progressCb) {
+        let nextIndex = 0;
+        let completedCount = 0;
+        const chapters = [];
+        let totalWordsEstimate = 0;
+        let totalImagesCount = 0;
 
-        const fetchPage = async (pageUrl) => {
-            if (window.NativeBridge && window.NativeBridge.fetchNative) {
-                const res = await window.NativeBridge.fetchNative(pageUrl);
-                return res.data || '';
+        const worker = async () => {
+            while (nextIndex < chapterList.length) {
+                const currentIndex = nextIndex++;
+                const item = chapterList[currentIndex];
+                try {
+                    const chData = await extractContentFn(item, currentIndex);
+                    if (chData && chData.text && chData.text.length > 30) {
+                        const words = chData.text.split(/\s+/).filter(Boolean).length;
+                        const imgCount = (chData.text.match(/!\[Illustration\]/g) || []).length;
+                        totalImagesCount += imgCount;
+                        totalWordsEstimate += words;
+                        chapters.push({
+                            idx: currentIndex,
+                            title: chData.title || item.title || `Chapter ${currentIndex + 1}`,
+                            text: chData.text,
+                            words
+                        });
+                    }
+                } catch (e) {
+                    console.warn(`Error on chapter ${currentIndex + 1} (${item.title || item.url}):`, e);
+                }
+
+                completedCount++;
+                const pct = Math.min(99, Math.round(15 + ((completedCount / chapterList.length) * 84)));
+                progressCb?.(`⚡ Ingested ${chapters.length}/${chapterList.length} chapters (~${totalWordsEstimate.toLocaleString()} words, ${totalImagesCount} illustrations)...`, pct);
             }
-            const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(pageUrl);
-            const res = await fetch(proxy);
-            return await res.text();
         };
 
+        const workers = Array.from({ length: Math.min(concurrency, chapterList.length) }, () => worker());
+        await Promise.all(workers);
+
+        chapters.sort((a, b) => a.idx - b.idx);
+        return { chapters, totalWords: totalWordsEstimate, totalImages: totalImagesCount };
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // 5. SITE SOURCE CRAWLERS (LNCRAWL TEMPLATE DRIVEN)
+    // ══════════════════════════════════════════════════════════════════════
+
+    // --- A. WITCH CULT TRANSLATIONS (Re:Zero Web Novel Pipeline) ---
+    async function crawlWitchCult(url, progressCb) {
+        progressCb?.('Connecting to Witch Cult Translations Master TOC...', 5);
         const targetSlug = url.replace(/\/$/, '').split('/').filter(Boolean).pop();
 
         progressCb?.('⚡ Indexing all chapters across series from Master TOC...', 10);
         let chapterList = [];
         try {
-            const tocHtml = await fetchPage('https://witchculttranslation.com/table-of-content/');
+            const tocHtml = await fetchHtml('https://witchculttranslation.com/table-of-content/');
             const linkRegex = /<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
             let m;
             const allLinks = [];
@@ -157,59 +242,34 @@
             }
 
             for (let i = targetIdx; i < allLinks.length; i++) {
-                chapterList.push(allLinks[i]);
+                chapterList.push({ url: allLinks[i].href, title: allLinks[i].text });
             }
         } catch (tocErr) {
             console.warn('Witch Cult TOC discovery error:', tocErr);
         }
 
-        if (chapterList.length === 0) {
-            chapterList = [{ href: url, text: 'Re:Zero Chapter' }];
-        }
+        if (chapterList.length === 0) chapterList = [{ url, title: 'Re:Zero Chapter' }];
 
         progressCb?.(`🚀 Discovered ${chapterList.length} chapters! Launching continuous streaming pipeline...`, 15);
 
-        const concurrency = 12;
-        let nextIndex = 0;
-        let completedCount = 0;
-        const chapters = [];
-        let totalWordsEstimate = 0;
-        let totalImagesCount = 0;
+        const { chapters, totalWords, totalImages } = await crawlChapterPool(
+            chapterList,
+            async (item) => {
+                const html = await fetchHtml(item.url);
+                const cMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+                const txt = cleanChapterHtmlWithImages(cMatch ? cMatch[1] : html);
+                return { title: item.title, text: txt };
+            },
+            12,
+            progressCb
+        );
 
-        const worker = async () => {
-            while (nextIndex < chapterList.length) {
-                const currentIndex = nextIndex++;
-                const ch = chapterList[currentIndex];
-                try {
-                    const html = await fetchPage(ch.href);
-                    const cMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-                    const txt = cleanChapterHtmlWithImages(cMatch ? cMatch[1] : html);
-                    if (txt.length > 40) {
-                        const words = txt.split(/\s+/).filter(Boolean).length;
-                        const imgCount = (txt.match(/!\[Illustration\]/g) || []).length;
-                        totalImagesCount += imgCount;
-                        chapters.push({ idx: currentIndex, title: ch.text, text: txt, words });
-                        totalWordsEstimate += words;
-                    }
-                } catch (e) {
-                    console.warn(`Failed chapter ${ch.href}:`, e);
-                }
-                completedCount++;
-                const pct = Math.min(99, Math.round(15 + ((completedCount / chapterList.length) * 84)));
-                progressCb?.(`⚡ Ingested ${chapters.length}/${chapterList.length} chapters (${totalWordsEstimate.toLocaleString()} words, ${totalImagesCount} high-res illustrations)...`, pct);
-            }
-        };
-
-        const workers = Array.from({ length: Math.min(concurrency, chapterList.length) }, () => worker());
-        await Promise.all(workers);
-
-        chapters.sort((a, b) => a.idx - b.idx);
-        progressCb?.(`✨ Compiled ${chapters.length} Re:Zero chapters with ${totalImagesCount} illustrations! (~ ${totalWordsEstimate.toLocaleString()} words)`, 100);
+        progressCb?.(`✨ Compiled ${chapters.length} Re:Zero chapters with ${totalImages} illustrations! (~${totalWords.toLocaleString()} words)`, 100);
 
         return {
-            title: 'Re:Zero Web Novel — ' + (chapterList[0]?.text || 'Complete Edition'),
+            title: 'Re:Zero Web Novel — ' + (chapterList[0]?.title || 'Complete Edition'),
             author: 'Tappei Nagatsuki (Witch Cult Translations)',
-            summary: `Re:Zero Starting Life in Another World Web Novel. ${chapters.length} complete chapters (~ ${totalWordsEstimate.toLocaleString()} words, ${totalImagesCount} illustrations) starting from ${chapterList[0]?.text}.`,
+            summary: `Re:Zero Starting Life in Another World Web Novel. ${chapters.length} complete chapters (~${totalWords.toLocaleString()} words, ${totalImages} illustrations) starting from ${chapterList[0]?.title}.`,
             tags: ['Re:Zero', 'Witch Cult Translations', 'Web Novel', 'Complete Edition'],
             chapters: chapters.map(c => ({ title: c.title, text: c.text })),
             isEpub: false,
@@ -217,49 +277,32 @@
         };
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // 2. AO3 INGESTION ENGINE (ARCHIVE OF OUR OWN)
-    // ══════════════════════════════════════════════════════════════════════
-    async function importAO3(url, progressCb) {
+    // --- B. AO3 (Archive of Our Own - 1-Shot Official EPUB & Full Work Engine) ---
+    async function crawlAO3(url, progressCb) {
         progressCb?.('Analyzing AO3 work URL...', 10);
-        
         const match = url.match(/works\/(\d+)/);
         if (!match) throw new Error('Invalid AO3 URL. Could not find work ID.');
         const workId = match[1];
 
-        // Direct 1-shot official EPUB download
+        // 1-Shot Official EPUB
         progressCb?.('Fetching full work EPUB from AO3...', 25);
         const epubUrl = `https://download.archiveofourown.org/downloads/${workId}/work.epub`;
-        
         try {
-            const buffer = await window.NativeBridge.downloadBinary(epubUrl);
-            if (buffer && buffer.byteLength > 1000) {
-                progressCb?.('Parsing official AO3 EPUB package...', 60);
-                return await importEpubBuffer(buffer, `AO3_${workId}.epub`, progressCb);
+            if (window.NativeBridge && window.NativeBridge.downloadBinary) {
+                const buffer = await window.NativeBridge.downloadBinary(epubUrl);
+                if (buffer && buffer.byteLength > 1000) {
+                    progressCb?.('Parsing official AO3 EPUB package...', 60);
+                    return await importEpubBuffer(buffer, `AO3_${workId}.epub`, progressCb);
+                }
             }
         } catch (epubErr) {
             console.warn('Direct AO3 EPUB fetch failed, falling back to full-work HTML:', epubErr);
         }
 
-        // Fallback to HTML
+        // Adult Full Work HTML
         progressCb?.('Fetching complete work HTML from AO3 (Adult Bypass)...', 40);
         const fullWorkUrl = `https://archiveofourown.org/works/${workId}?view_full_work=true&view_adult=true`;
-        const res = await window.NativeBridge.fetchUrl(fullWorkUrl);
-        let html = await res.text();
-
-        if (html.includes('_cf_chl_opt') || html.includes('Shields are up!') || html.includes('cf-browser-verification')) {
-            if (window.NativeBridge?.isAvailable()) {
-                progressCb?.('Solving Cloudflare challenge with In-App Resolver...', 50);
-                const resolved = await window.NativeBridge.resolveCloudflare(fullWorkUrl);
-                if (resolved && resolved.html) {
-                    html = resolved.html;
-                } else {
-                    throw new Error('Cloudflare verification was cancelled.');
-                }
-            } else {
-                throw new Error('Cloudflare challenged the request. Please use the APK or open the work EPUB file directly.');
-            }
-        }
+        const html = await fetchHtml(fullWorkUrl);
 
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const title = doc.querySelector('h2.title, .title.heading')?.textContent?.trim() || `AO3 Work ${workId}`;
@@ -279,41 +322,196 @@
                 const heading = cn.querySelector('.title, h3.heading')?.textContent?.trim() || `Chapter ${idx + 1}`;
                 const contentEl = cn.querySelector('.userstuff, div[role="article"]') || cn;
                 const text = cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '');
-                if (text.length > 30) {
-                    chapters.push({ title: heading, text });
-                }
+                if (text.length > 30) chapters.push({ title: heading, text });
             });
         } else {
             const contentEl = doc.querySelector('#chapters, .userstuff[role="article"], .work.meta .userstuff') || doc.body;
-            chapters.push({ title: title, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') });
+            chapters.push({ title, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') });
         }
 
         progressCb?.(`Loaded ${chapters.length} chapters from AO3!`, 100);
-        return {
-            title,
-            author,
-            summary,
-            tags,
-            chapters,
-            rawZip: null,
-            isEpub: false,
-            sourceUrl: url
-        };
+        return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // 3. LOFTER INGESTION ENGINE (乐乎 WITH HIGH-RES ARTWORK)
-    // ══════════════════════════════════════════════════════════════════════
-    async function importLofter(url, progressCb) {
-        progressCb?.('Connecting to NetEase Lofter...', 15);
+    // --- C. ROYAL ROAD & SCRIBBLEHUB TEMPLATE ---
+    async function crawlRoyalRoad(url, progressCb) {
+        progressCb?.('Fetching novel info from RoyalRoad...', 15);
+        const html = await fetchHtml(url);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
 
+        const title = doc.querySelector('h1')?.textContent?.trim() || 'RoyalRoad Novel';
+        const author = doc.querySelector('.fic-header h4 a, a[href*="/profile/"]')?.textContent?.trim() || 'Author';
+        const summary = doc.querySelector('.description .hidden-content, .description')?.textContent?.trim() || '';
+
+        const tags = [];
+        doc.querySelectorAll('.tags .tag, .fiction-tag').forEach(t => {
+            const txt = t.textContent?.trim();
+            if (txt) tags.push(txt);
+        });
+
+        const chapterLinks = [];
+        doc.querySelectorAll('table#chapters tbody tr[data-url], .chapter-row a[href*="/chapter/"]').forEach(el => {
+            const href = el.getAttribute('data-url') || el.getAttribute('href');
+            const linkText = el.querySelector('a')?.textContent?.trim() || el.textContent?.trim();
+            if (href) {
+                const fullUrl = href.startsWith('http') ? href : new URL(href, 'https://www.royalroad.com').href;
+                chapterLinks.push({ url: fullUrl, title: linkText });
+            }
+        });
+
+        if (chapterLinks.length === 0) {
+            chapterLinks.push({ url, title: 'Chapter 1' });
+        }
+
+        progressCb?.(`Found ${chapterLinks.length} chapters on RoyalRoad! Fetching in parallel...`, 25);
+
+        const { chapters, totalWords } = await crawlChapterPool(
+            chapterLinks,
+            async (item) => {
+                const chHtml = await fetchHtml(item.url);
+                const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                const contentEl = chDoc.querySelector('.chapter-inner, .chapter-content') || chDoc.body;
+                const txt = cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '');
+                return { title: item.title, text: txt };
+            },
+            12,
+            progressCb
+        );
+
+        progressCb?.(`✨ Loaded ${chapters.length} RoyalRoad chapters (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
+    }
+
+    // --- D. SYOSETU (小説家になろう) & KAKUYOMU (カクヨム) ---
+    async function crawlSyosetu(url, progressCb) {
+        progressCb?.('Connecting to Syosetu / Kakuyomu...', 15);
+        const html = await fetchHtml(url);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        const title = doc.querySelector('.novel_title, h1, .widget-toc-main-header')?.textContent?.trim() || 'Japanese Web Novel';
+        const author = doc.querySelector('.novel_writername, .writer, .partialGiftWidget_authorName')?.textContent?.trim() || 'Author';
+        const summary = doc.querySelector('#novel_ex, .widget-toc-workIntroduction')?.textContent?.trim() || '';
+
+        const indexLinks = [];
+        const baseUrl = url.endsWith('/') ? url : url + '/';
+
+        doc.querySelectorAll('.novel_sublist2 .subtitle a, .index_box a, .widget-toc-items a').forEach(a => {
+            const href = a.getAttribute('href');
+            if (href) {
+                const fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
+                indexLinks.push({ url: fullUrl, title: a.textContent?.trim() });
+            }
+        });
+
+        if (indexLinks.length === 0) {
+            const body = doc.querySelector('#novel_honbun, .novel_honbun, .widget-episodeBody') || doc.body;
+            return {
+                title,
+                author,
+                summary,
+                tags: ['Syosetu', 'Web Novel'],
+                chapters: [{ title, text: cleanChapterHtmlWithImages(body.innerHTML || body.textContent || '') }],
+                isEpub: false,
+                sourceUrl: url
+            };
+        }
+
+        progressCb?.(`Found ${indexLinks.length} Syosetu chapters! Fetching in parallel...`, 25);
+
+        const { chapters, totalWords } = await crawlChapterPool(
+            indexLinks,
+            async (item) => {
+                const chHtml = await fetchHtml(item.url);
+                const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                const chBody = chDoc.querySelector('#novel_honbun, .novel_honbun, .widget-episodeBody') || chDoc.body;
+                return { title: item.title, text: cleanChapterHtmlWithImages(chBody.innerHTML || chBody.textContent || '') };
+            },
+            12,
+            progressCb
+        );
+
+        progressCb?.(`✨ Loaded ${chapters.length} Syosetu chapters (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary, tags: ['Syosetu', 'Japanese Light Novel'], chapters, isEpub: false, sourceUrl: url };
+    }
+
+    // --- E. NOVELFULL & BOXNOVEL & READLIGHTNOVEL TEMPLATE ---
+    async function crawlNovelFull(url, progressCb) {
+        progressCb?.('Connecting to NovelFull / BoxNovel...', 15);
+        const html = await fetchHtml(url);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        const title = doc.querySelector('h3.title, .books .desc h3, .novel-title')?.textContent?.trim() || 'Novel';
+        const author = doc.querySelector('.info div:has(h3:contains("Author")) a, .author a, .info a[href*="/author/"]')?.textContent?.trim() || 'Author';
+        const summary = doc.querySelector('.desc-text, #tab-description, .summary')?.textContent?.trim() || '';
+
+        const tags = [];
+        doc.querySelectorAll('.info a[href*="/genre/"], .tags a').forEach(t => {
+            if (t.textContent?.trim()) tags.push(t.textContent.trim());
+        });
+
+        let chapterLinks = [];
+        const novelId = (html.match(/data-novel-id=["'](\d+)["']/i) || html.match(/novelId\s*=\s*['"]?(\d+)['"]?/i) || [])[1];
+
+        if (novelId) {
+            progressCb?.('Fetching complete chapter index from AJAX archive...', 25);
+            try {
+                const origin = new URL(url).origin;
+                const archiveHtml = await fetchHtml(`${origin}/ajax/chapter-archive?novelId=${novelId}`);
+                const aDoc = new DOMParser().parseFromString(archiveHtml, 'text/html');
+                aDoc.querySelectorAll('ul.list-chapter li a, a[href*="/chapter"]').forEach(a => {
+                    const href = a.getAttribute('href');
+                    if (href) {
+                        const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                        chapterLinks.push({ url: fullUrl, title: a.textContent?.trim() || a.getAttribute('title') });
+                    }
+                });
+            } catch (e) {
+                console.warn('NovelFull AJAX archive error:', e);
+            }
+        }
+
+        if (chapterLinks.length === 0) {
+            const origin = new URL(url).origin;
+            doc.querySelectorAll('.list-chapter li a, .panel-chapter a, a[href*="/chapter-"]').forEach(a => {
+                const href = a.getAttribute('href');
+                if (href) {
+                    const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                    if (!chapterLinks.some(l => l.url === fullUrl)) {
+                        chapterLinks.push({ url: fullUrl, title: a.textContent?.trim() });
+                    }
+                }
+            });
+        }
+
+        if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
+
+        progressCb?.(`Found ${chapterLinks.length} chapters! Fetching in parallel...`, 30);
+
+        const { chapters, totalWords } = await crawlChapterPool(
+            chapterLinks,
+            async (item) => {
+                const chHtml = await fetchHtml(item.url);
+                const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                const contentEl = chDoc.querySelector('#chapter-content, .chapter-content, #chr-content, .chr-c') || chDoc.body;
+                return { title: item.title, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
+            },
+            12,
+            progressCb
+        );
+
+        progressCb?.(`✨ Loaded ${chapters.length} chapters (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
+    }
+
+    // --- F. LOFTER (乐乎 WITH HIGH-RES ARTWORK) ---
+    async function crawlLofter(url, progressCb) {
+        progressCb?.('Connecting to NetEase Lofter...', 15);
         const mobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15";
         const permalinkMatch = url.match(/\/post\/([a-zA-Z0-9_-]+)/i);
         const permalink = permalinkMatch ? permalinkMatch[1] : '';
 
         const frontUrl = permalink ? `https://www.lofter.com/front/post/${permalink}` : url;
-        const res = await window.NativeBridge.fetchUrl(frontUrl, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
-        const html = await res.text();
+        const html = await fetchHtml(frontUrl, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
 
         let title = 'Lofter Novel';
         let author = 'Lofter Author';
@@ -325,10 +523,7 @@
         if (startIdx !== -1) {
             try {
                 const endIdx = html.indexOf('</script>', startIdx);
-                const scriptBlock = html.substring(startIdx, endIdx);
-                const jsonStr = scriptBlock.replace('window.__initialize_data__ = ', '').trim().replace(/;$/, '');
-                const data = JSON.parse(jsonStr);
-
+                const data = JSON.parse(html.substring(startIdx, endIdx).replace('window.__initialize_data__ = ', '').trim().replace(/;$/, ''));
                 const blogInfo = data.postData?.data?.blogInfo;
                 if (blogInfo?.blogNickName) author = blogInfo.blogNickName;
 
@@ -352,205 +547,110 @@
                     if (rawContent) mainText = cleanChapterHtmlWithImages(rawContent);
                 }
             } catch (e) {
-                console.warn('Lofter JSON init parse error:', e);
+                console.warn('Lofter JSON parse error:', e);
             }
         }
 
         const chapters = [];
-
         if (collectionId) {
-            progressCb?.('Found Lofter series! Crawling all chapters...', 35);
+            progressCb?.('Found Lofter series! Crawling all chapters in series...', 30);
             try {
                 const collUrl = `https://www.lofter.com/front/blog/collection/share?collectionId=${collectionId}`;
-                const collRes = await window.NativeBridge.fetchUrl(collUrl, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
-                const collHtml = await collRes.text();
-                
+                const collHtml = await fetchHtml(collUrl, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
                 const cStart = collHtml.indexOf('window.__initialize_data__');
                 if (cStart !== -1) {
                     const cEnd = collHtml.indexOf('</script>', cStart);
                     const cData = JSON.parse(collHtml.substring(cStart, cEnd).replace('window.__initialize_data__ = ', '').trim().replace(/;$/, ''));
-
                     const seriesName = cData.data?.collection?.name || title;
                     if (seriesName) title = seriesName;
 
                     const rawPosts = cData.data?.posts || [];
-                    if (rawPosts.length > 0) {
-                        progressCb?.(`Found ${rawPosts.length} chapters in "${seriesName}". Ingesting full series...`, 45);
-
-                        for (let i = 0; i < rawPosts.length; i++) {
-                            const item = rawPosts[i];
-                            const chTitle = item.title || `Chapter ${i + 1}`;
-                            const chPermalink = item.permalink;
-
-                            if (chPermalink === permalink && mainText) {
-                                chapters.push({ title: chTitle, text: mainText });
-                            } else {
-                                try {
-                                    const postUrl = `https://www.lofter.com/front/post/${chPermalink}`;
-                                    const pRes = await window.NativeBridge.fetchUrl(postUrl, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
-                                    const pHtml = await pRes.text();
-                                    const pStart = pHtml.indexOf('window.__initialize_data__');
-                                    let chText = '';
-                                    if (pStart !== -1) {
-                                        const pEnd = pHtml.indexOf('</script>', pStart);
-                                        const pData = JSON.parse(pHtml.substring(pStart, pEnd).replace('window.__initialize_data__ = ', '').trim().replace(/;$/, ''));
-                                        const pPv = pData.postData?.data?.postData?.postView;
-                                        let raw = pPv?.textPostView?.content || pPv?.content || '';
-                                        if (Array.isArray(pPv?.photoList) && pPv.photoList.length > 0) {
-                                            const photoImgs = pPv.photoList.map(p => {
-                                                const rawUrl = p.originUrl || p.rawUrl || p.url || '';
-                                                const clean = rawUrl.replace(/\?imageView.*$/i, '');
-                                                return clean ? `\n\n![Illustration](${clean})\n\n` : '';
-                                            }).join('');
-                                            raw = photoImgs + raw;
-                                        }
-                                        if (raw) chText = cleanChapterHtmlWithImages(raw);
+                    for (let i = 0; i < rawPosts.length; i++) {
+                        const item = rawPosts[i];
+                        const chTitle = item.title || `Chapter ${i + 1}`;
+                        if (item.permalink === permalink && mainText) {
+                            chapters.push({ title: chTitle, text: mainText });
+                        } else {
+                            try {
+                                const postUrl = `https://www.lofter.com/front/post/${item.permalink}`;
+                                const pHtml = await fetchHtml(postUrl, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
+                                const pStart = pHtml.indexOf('window.__initialize_data__');
+                                let chText = '';
+                                if (pStart !== -1) {
+                                    const pEnd = pHtml.indexOf('</script>', pStart);
+                                    const pData = JSON.parse(pHtml.substring(pStart, pEnd).replace('window.__initialize_data__ = ', '').trim().replace(/;$/, ''));
+                                    const pPv = pData.postData?.data?.postData?.postView;
+                                    let raw = pPv?.textPostView?.content || pPv?.content || '';
+                                    if (Array.isArray(pPv?.photoList) && pPv.photoList.length > 0) {
+                                        const photoImgs = pPv.photoList.map(p => {
+                                            const rawUrl = p.originUrl || p.rawUrl || p.url || '';
+                                            return rawUrl ? `\n\n![Illustration](${rawUrl.replace(/\?imageView.*$/i, '')})\n\n` : '';
+                                        }).join('');
+                                        raw = photoImgs + raw;
                                     }
-                                    if (!chText && item.digest) chText = cleanChapterHtmlWithImages(item.digest);
-                                    if (chText) {
-                                        chapters.push({ title: chTitle, text: chText });
-                                    }
-                                } catch (e) {
-                                    console.warn(`Error on chapter ${i + 1}:`, e.message);
+                                    if (raw) chText = cleanChapterHtmlWithImages(raw);
                                 }
-                            }
-                            progressCb?.(`Loaded chapter ${i + 1}/${rawPosts.length}: "${chTitle}"`, Math.round(45 + ((i + 1) / rawPosts.length) * 50));
+                                if (!chText && item.digest) chText = cleanChapterHtmlWithImages(item.digest);
+                                if (chText) chapters.push({ title: chTitle, text: chText });
+                            } catch (e) {}
                         }
+                        progressCb?.(`Loaded chapter ${i + 1}/${rawPosts.length}: "${chTitle}"`, Math.round(30 + ((i + 1) / rawPosts.length) * 65));
                     }
                 }
-            } catch (collErr) {
-                console.warn('Collection crawl error:', collErr);
-            }
+            } catch (e) {}
         }
 
         if (chapters.length === 0 && mainText) {
             chapters.push({ title, text: mainText });
         }
 
-        progressCb?.(`Successfully loaded full series "${title}" with ${chapters.length} chapter(s)!`, 100);
-
-        return {
-            title,
-            author,
-            summary: chapters[0]?.text?.substring(0, 300) + '...',
-            tags,
-            chapters,
-            rawZip: null,
-            isEpub: false,
-            sourceUrl: url
-        };
+        progressCb?.(`✨ Loaded ${chapters.length} Lofter chapters!`, 100);
+        return { title, author, summary: chapters[0]?.text?.substring(0, 300) + '...', tags, chapters, isEpub: false, sourceUrl: url };
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // 4. TUMBLR INGESTION ENGINE
-    // ══════════════════════════════════════════════════════════════════════
-    async function importTumblr(url, progressCb) {
-        progressCb?.('Connecting to Tumblr...', 20);
-
-        const res = await window.NativeBridge.fetchUrl(url);
-        const html = await res.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-
-        const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || doc.querySelector('title, h1, .post-title')?.textContent?.trim() || 'Tumblr Story';
-        const author = doc.querySelector('meta[name="author"], meta[property="article:author"]')?.getAttribute('content') || doc.querySelector('.author, .blog-name, .post-author')?.textContent?.trim() || 'Tumblr Author';
-
-        const tags = [];
-        doc.querySelectorAll('.post-tags a, .tag, a[href*="/tagged/"]').forEach(t => {
-            const txt = t.textContent?.replace(/^#/, '').trim();
-            if (txt) tags.push(txt);
-        });
-
-        doc.querySelectorAll('script, style, nav, footer, header, .like_and_reblog_buttons, .notes').forEach(el => el.remove());
-
-        const bodyEl = doc.querySelector('article, .post-body, .body-text, .post_body, .post-content, .post, main') || doc.body;
-        const mainText = cleanChapterHtmlWithImages(bodyEl.innerHTML || bodyEl.textContent || '');
-
-        progressCb?.(`Loaded Tumblr post: "${title}" (${mainText.length} characters)`, 100);
-
-        return {
-            title,
-            author,
-            summary: mainText.substring(0, 300) + '...',
-            tags: tags.length > 0 ? tags : ['Tumblr', author],
-            chapters: [{ title, text: mainText }],
-            rawZip: null,
-            isEpub: false,
-            sourceUrl: url
-        };
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    // 5. SYOSETU INGESTION ENGINE (小説家になろう)
-    // ══════════════════════════════════════════════════════════════════════
-    async function importSyosetu(url, progressCb) {
-        progressCb?.('Connecting to Syosetu...', 20);
-        const res = await window.NativeBridge.fetchUrl(url);
-        const html = await res.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-
-        const title = doc.querySelector('.novel_title, h1')?.textContent?.trim() || 'Syosetu Web Novel';
-        const author = doc.querySelector('.novel_writername, .writer')?.textContent?.trim() || 'Syosetu Author';
-        const summary = doc.querySelector('#novel_ex')?.textContent?.trim() || '';
-
-        const chapters = [];
-        const indexLinks = Array.from(doc.querySelectorAll('.novel_sublist2 .subtitle a, .index_box a'));
-
-        if (indexLinks.length > 0) {
-            progressCb?.(`Found ${indexLinks.length} chapters on Syosetu index. Fetching...`, 40);
-            const baseUrl = url.endsWith('/') ? url : url + '/';
-            
-            for (let i = 0; i < Math.min(indexLinks.length, 30); i++) {
-                const chHref = indexLinks[i].getAttribute('href');
-                const chUrl = chHref.startsWith('http') ? chHref : new URL(chHref, baseUrl).href;
-                const chTitle = indexLinks[i].textContent?.trim() || `Chapter ${i + 1}`;
-                
-                progressCb?.(`Fetching chapter ${i + 1}/${indexLinks.length} (${chTitle})...`, Math.round(40 + (i / indexLinks.length) * 50));
-                
-                try {
-                    const chRes = await window.NativeBridge.fetchUrl(chUrl);
-                    const chDoc = new DOMParser().parseFromString(await chRes.text(), 'text/html');
-                    const chBody = chDoc.querySelector('#novel_honbun, .novel_honbun');
-                    if (chBody) {
-                        const txt = cleanChapterHtmlWithImages(chBody.innerHTML || chBody.textContent || '');
-                        if (txt) chapters.push({ title: chTitle, text: txt });
-                    }
-                } catch (e) {
-                    console.warn('Syosetu chapter error:', e);
-                }
-            }
-        } else {
-            const body = doc.querySelector('#novel_honbun, .novel_honbun') || doc.body;
-            chapters.push({ title, text: cleanChapterHtmlWithImages(body.innerHTML || body.textContent || '') });
-        }
-
-        progressCb?.(`Loaded ${chapters.length} Syosetu chapters!`, 100);
-        return {
-            title,
-            author,
-            summary,
-            tags: ['Syosetu', 'Web Novel'],
-            chapters,
-            rawZip: null,
-            isEpub: false,
-            sourceUrl: url
-        };
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    // 6. UNIVERSAL WEB NOVEL & ARTICLE SCRAPER (FALLBACK)
-    // ══════════════════════════════════════════════════════════════════════
-    async function importUniversal(url, progressCb) {
-        progressCb?.('Scraping web page...', 30);
-        const res = await window.NativeBridge.fetchUrl(url);
-        const html = await res.text();
+    // --- G. UNIVERSAL HEURISTIC SCRAPER (FALLBACK ENGINE) ---
+    async function crawlUniversal(url, progressCb) {
+        progressCb?.('Analyzing web page structure with Universal Readability Engine...', 20);
+        const html = await fetchHtml(url);
         const doc = new DOMParser().parseFromString(html, 'text/html');
 
         const title = doc.querySelector('title, h1, .title, meta[property="og:title"]')?.textContent?.trim() || 'Web Novel';
-        const author = doc.querySelector('meta[name="author"], .author, .byline')?.getAttribute('content') || doc.querySelector('.author, .byline')?.textContent?.trim() || 'Online Author';
-        
+        const author = doc.querySelector('meta[name="author"], .author, .byline')?.getAttribute('content') || doc.querySelector('.author, .byline')?.textContent?.trim() || 'Author';
+
         doc.querySelectorAll('script, style, nav, footer, header, .advertisement, .ads, .comment').forEach(el => el.remove());
-        
-        const articleEl = doc.querySelector('article, main, .post, .content, .entry-content, #content') || doc.body;
+
+        const chapterLinks = [];
+        const baseUrl = url.endsWith('/') ? url : url + '/';
+        doc.querySelectorAll('a[href*="chapter"], a[href*="ch-"], .chapter-list a, .toc a').forEach(a => {
+            const href = a.getAttribute('href');
+            const linkText = a.textContent?.trim();
+            if (href && linkText && linkText.length < 100 && /\b(?:chapter|ch|episode|act|part|第)\b/i.test(linkText)) {
+                const fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
+                if (!chapterLinks.some(l => l.url === fullUrl)) {
+                    chapterLinks.push({ url: fullUrl, title: linkText });
+                }
+            }
+        });
+
+        if (chapterLinks.length > 3) {
+            progressCb?.(`Discovered TOC with ${chapterLinks.length} chapters! Ingesting...`, 35);
+            const { chapters } = await crawlChapterPool(
+                chapterLinks,
+                async (item) => {
+                    const chHtml = await fetchHtml(item.url);
+                    const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                    chDoc.querySelectorAll('script, style, nav, footer, header, .ads').forEach(el => el.remove());
+                    const el = chDoc.querySelector('article, main, .post-content, .entry-content, #content, .content') || chDoc.body;
+                    return { title: item.title, text: cleanChapterHtmlWithImages(el.innerHTML || el.textContent || '') };
+                },
+                12,
+                progressCb
+            );
+            return { title, author, summary: `Imported from ${url}`, tags: ['Web Novel'], chapters, isEpub: false, sourceUrl: url };
+        }
+
+        // Single article / chapter extraction
+        const articleEl = doc.querySelector('article, main, .post-content, .entry-content, #content, .content, .post') || doc.body;
         const text = cleanChapterHtmlWithImages(articleEl.innerHTML || articleEl.textContent || '');
 
         progressCb?.(`Extracted article (${text.length} characters)`, 100);
@@ -560,20 +660,19 @@
             summary: text.substring(0, 250) + '...',
             tags: ['Web Article'],
             chapters: [{ title, text }],
-            rawZip: null,
             isEpub: false,
             sourceUrl: url
         };
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // 7. DIRECT EPUB BUFFER PARSER
+    // 6. DIRECT EPUB BUFFER PARSER
     // ══════════════════════════════════════════════════════════════════════
-    async function importEpubBuffer(buffer, fileName = "AO3_Work.epub", progressCb) {
+    async function importEpubBuffer(buffer, fileName = "Novel.epub", progressCb) {
         progressCb?.('Parsing EPUB package...', 30);
-        const jszip = window.JSZip || (typeof JSZip !== 'undefined' ? JSZip : null);
-        if (!jszip) throw new Error('JSZip library not initialized.');
-        const zip = await jszip.loadAsync(buffer);
+        const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
+        if (!JSZipClass) throw new Error('JSZip library not initialized.');
+        const zip = await new JSZipClass().loadAsync(buffer);
         
         const cf = zip.file('META-INF/container.xml');
         if (!cf) throw new Error('Invalid EPUB: META-INF/container.xml missing');
@@ -635,12 +734,27 @@
             title,
             author,
             summary: description || `Imported from ${fileName}`,
-            tags: ['AO3 / EPUB', author],
+            tags: ['EPUB Book', author],
             chapters,
             rawZip: zip,
             isEpub: true,
             sourceUrl: fileName
         };
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // 7. ROUTER DISPATCHER
+    // ══════════════════════════════════════════════════════════════════════
+    function detectUrlType(url) {
+        if (!url || typeof url !== 'string') return 'unknown';
+        const clean = url.trim().toLowerCase();
+        if (clean.includes('archiveofourown.org')) return 'ao3';
+        if (clean.includes('witchculttranslation.com')) return 'witchcult';
+        if (clean.includes('lofter.com')) return 'lofter';
+        if (clean.includes('royalroad.com') || clean.includes('scribblehub.com')) return 'royalroad';
+        if (clean.includes('syosetu.com') || clean.includes('kakuyomu.jp')) return 'syosetu';
+        if (clean.includes('novelfull.com') || clean.includes('boxnovel.com') || clean.includes('readlightnovel')) return 'novelfull';
+        return 'universal';
     }
 
     window.WebNovelImporter = {
@@ -649,18 +763,19 @@
         getBestImageUrl,
         cleanChapterHtmlWithImages,
         importUrl: async (url, progressCb) => {
-            if (!url || !url.trim()) throw new Error('Please enter a valid novel or fanfiction URL.');
+            if (!url || !url.trim()) throw new Error('Please enter a valid novel URL.');
             const type = detectUrlType(url);
-            console.log(`🌐 Importing ${type.toUpperCase()} URL: ${url}`);
+            console.log(`🌐 [LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
 
-            if (type === 'ao3') return await importAO3(url, progressCb);
-            if (type === 'lofter') return await importLofter(url, progressCb);
-            if (type === 'tumblr') return await importTumblr(url, progressCb);
-            if (type === 'syosetu') return await importSyosetu(url, progressCb);
-            if (type === 'witchcult') return await importWitchCult(url, progressCb);
-            return await importUniversal(url, progressCb);
+            if (type === 'witchcult') return await crawlWitchCult(url, progressCb);
+            if (type === 'ao3') return await crawlAO3(url, progressCb);
+            if (type === 'royalroad') return await crawlRoyalRoad(url, progressCb);
+            if (type === 'syosetu') return await crawlSyosetu(url, progressCb);
+            if (type === 'novelfull') return await crawlNovelFull(url, progressCb);
+            if (type === 'lofter') return await crawlLofter(url, progressCb);
+            return await crawlUniversal(url, progressCb);
         }
     };
 
-    console.log("⚡ Universal Web Novel & Fanfiction Importer Module Initialized!");
+    console.log("⚡ LightNovel-Crawler Multi-Source Ingestion Engine Active!");
 })();

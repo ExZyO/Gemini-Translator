@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.9.3';
+    const VERSION = '7.9.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2335,12 +2335,22 @@ p.divider {
         if (imageCache.has(imgUrl)) return imageCache.get(imgUrl);
         try {
           let buffer = null;
-          if (window.NativeBridge && window.NativeBridge.downloadBinary) {
-            buffer = await window.NativeBridge.downloadBinary(imgUrl);
-          } else {
-            const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(imgUrl);
-            const res = await fetch(proxy);
-            buffer = await res.arrayBuffer();
+          const imgTimeout = 8000; // 8 second timeout per image
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), imgTimeout);
+          try {
+            if (window.NativeBridge && window.NativeBridge.downloadBinary) {
+              buffer = await Promise.race([
+                window.NativeBridge.downloadBinary(imgUrl),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Image timeout')), imgTimeout))
+              ]);
+            } else {
+              const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(imgUrl);
+              const res = await fetch(proxy, { signal: controller.signal });
+              buffer = await res.arrayBuffer();
+            }
+          } finally {
+            clearTimeout(timer);
           }
           if (buffer && buffer.byteLength > 500) {
             imgSeq++;
