@@ -359,11 +359,10 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             if (html != null && html.length() > 500 && !html.contains("cf-browser-verification") && !html.contains("Shields are up!")) {
                                 try {
                                     String cleanHtml = html;
-                                    if (cleanHtml.startsWith("\"") && cleanHtml.endsWith("\"")) {
-                                        cleanHtml = cleanHtml.substring(1, cleanHtml.length() - 1)
-                                                .replace("\\\\n", "\n")
-                                                .replace("\\\\"", "\"")
-                                                .replace("\\\\t", "\t");
+                                    try {
+                                        cleanHtml = new org.json.JSONTokener(html).nextValue().toString();
+                                    } catch (Exception parseErr) {
+                                        Log.w(TAG, "HTML tokener parse fallback");
                                     }
                                     
                                     JSObject ret = new JSObject();
