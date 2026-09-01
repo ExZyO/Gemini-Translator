@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.3.1';
+    const VERSION = '6.3.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -7467,7 +7467,7 @@ FORMATTING & STRUCTURE RULES:
           }
 
           setProgress(Math.floor((done / totalChunks) * 100));
-          setProgressLabel(`Resuming ${chapterItems.length} remaining chapter(s) with ${${Math.min(effectiveConcurrency, chapterItems.length)} parallel multi-key stream(s)${useContext ? ' (intra-chapter context)' : ''}...`);
+          setProgressLabel(`Resuming ${chapterItems.length} remaining chapter(s) with ${Math.min(effectiveConcurrency, chapterItems.length)} parallel multi-key stream(s)${useContext ? ' (intra-chapter context)' : ''}...`);
 
           const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
           const effectiveConcurrency = Math.max(concurrency, availableKeys.length > 1 ? availableKeys.length : 1);
