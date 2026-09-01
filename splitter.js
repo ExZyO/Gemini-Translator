@@ -139,6 +139,13 @@ function calcTocCost(pTok, oTok, model, prov) {
     return cost < 0.0001 && cost > 0 ? '$0.0001' : '$' + cost.toFixed(4);
 }
 
+function isMachineFilename(s) {
+    if (!s) return true;
+    const clean = s.trim().toLowerCase();
+    return /^(?:b\d+_)?(?:part\d+|section[-_]?\d+|page[-_]?\d+|split[-_]?\d+|text[-_]?\d+|item[-_]?\d+|ch\d+|chapter[-_]?\d+)\.(?:xhtml|html)$/i.test(clean) ||
+           /^(?:b\d+_)?(?:part\d+|section[-_]?\d+|page[-_]?\d+|split[-_]?\d+|text[-_]?\d+|item[-_]?\d+)$/i.test(clean);
+}
+
 function cleanChapterTitleString(raw, fallbackIndex) {
     if (!raw) return 'Chapter ' + fallbackIndex;
     let s = raw.trim();
@@ -147,11 +154,23 @@ function cleanChapterTitleString(raw, fallbackIndex) {
     s = s.replace(/^.*[\\\/]/, '');
     s = s.replace(/\.(?:xhtml|html|xml)$/i, '');
 
+    // Strip b1_, b2_ prefixes from previous merges
+    s = s.replace(/^b\d+_/i, '');
+
     // Replace underscores with spaces if it looks like a filename
     if (s.includes('_')) s = s.replace(/_/g, ' ');
 
     // Normalize whitespace
     s = s.replace(/\s+/g, ' ').trim();
+
+    // If it's a machine filename like part0001 -> Part 1
+    if (/^part\d+$/i.test(s)) {
+        const num = parseInt(s.replace(/\D/g, ''), 10);
+        return 'Part ' + (isNaN(num) ? fallbackIndex : num);
+    }
+    if (/^section[-_]?\d+$/i.test(s) || /^page[-_]?\d+$/i.test(s)) {
+        return 'Chapter ' + fallbackIndex;
+    }
 
     // Check for special Light Novel / Anthology structures (Volumes, Years, Arcs, Prologues, etc.)
     const isSpecialSection = /^(?:year\s*\d+|volume\s*\d+|vol\s*\d+|book\s*\d+|arc\s*\d+|prologue|epilogue|interlude|monologue|afterword|synopsis|illustration|illustrations|side\s*story|\bss\b|part\s*\d+|extra|character\s*intro)/i.test(s);
@@ -195,30 +214,46 @@ function cleanChapterTitleString(raw, fallbackIndex) {
     return s || ('Chapter ' + fallbackIndex);
 }
 
-function extractHeadingFromXhtml(html, fallbackIndex) {
+function extractHeadingFromXhtml(html, fallbackIndex, tocTitle = '') {
+    if (tocTitle && !isMachineFilename(tocTitle)) {
+        return cleanChapterTitleString(tocTitle, fallbackIndex);
+    }
     if (!html) return 'Chapter ' + fallbackIndex;
-    
-    // 1. Look for h1, h2, h3
-    const hMatch = html.match(/<(?:h1|h2|h3)[^>]*>([\s\S]*?)<\/(?:h1|h2|h3)>/i);
+
+    // 1. Look for h1, h2, h3, h4
+    const hMatch = html.match(/<(?:h1|h2|h3|h4)[^>]*>([\s\S]*?)<\/(?:h1|h2|h3|h4)>/i);
     if (hMatch) {
         const clean = hMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        if (clean.length > 1 && clean.length < 140) return cleanChapterTitleString(clean, fallbackIndex);
-    }
-
-    // 2. Look for title tag (if not just a file path)
-    const tMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    if (tMatch) {
-        const clean = tMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        if (clean.length > 1 && clean.length < 140 && !clean.toLowerCase().endsWith('.xhtml') && !clean.toLowerCase().endsWith('.html')) {
+        if (clean.length > 1 && clean.length < 140 && !isMachineFilename(clean)) {
             return cleanChapterTitleString(clean, fallbackIndex);
         }
     }
 
-    // 3. Look for class containing title/chapter/heading
-    const pMatch = html.match(/<p[^>]*class="[^"]*(?:title|chapter|head)[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
+    // 2. Look for class containing title/chapter/heading/calibre
+    const pMatch = html.match(/<p[^>]*class="[^"]*(?:title|chapter|head|calibre_title|heading)[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
     if (pMatch) {
         const clean = pMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        if (clean.length > 1 && clean.length < 140) return cleanChapterTitleString(clean, fallbackIndex);
+        if (clean.length > 1 && clean.length < 140 && !isMachineFilename(clean)) {
+            return cleanChapterTitleString(clean, fallbackIndex);
+        }
+    }
+
+    // 3. Look for bold/strong at top of body
+    const bMatch = html.match(/<(?:b|strong)[^>]*>([\s\S]*?)<\/(?:b|strong)>/i);
+    if (bMatch) {
+        const clean = bMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (clean.length > 2 && clean.length < 100 && !isMachineFilename(clean) && !clean.includes('http')) {
+            return cleanChapterTitleString(clean, fallbackIndex);
+        }
+    }
+
+    // 4. Look for title tag if meaningful
+    const tMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if (tMatch) {
+        const clean = tMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (clean.length > 1 && clean.length < 140 && !isMachineFilename(clean)) {
+            return cleanChapterTitleString(clean, fallbackIndex);
+        }
     }
 
     return 'Chapter ' + fallbackIndex;
