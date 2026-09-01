@@ -653,7 +653,8 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
         }
 
         setSmartTitle(newOpfDoc, finalTitle);
-        forceNewIdentifier(newOpfDoc);
+        const preserveBookId = document.getElementById('preserve-book-id')?.checked ?? true;
+        if (!preserveBookId) forceNewIdentifier(newOpfDoc);
 
         if (splitCustomCoverFile) {
             try {
@@ -1479,7 +1480,8 @@ async function buildSingleVolumeBlob(selectedIdrefs, rangeSuffix) {
     let currentTitle = splitTitleInput.value.trim() || baseBookTitle;
     let finalTitle = `${currentTitle} (${rangeSuffix})`;
     setSmartTitle(newOpfDoc, finalTitle);
-    forceNewIdentifier(newOpfDoc);
+    const preserveBookIdVol = document.getElementById('preserve-book-id')?.checked ?? true;
+    if (!preserveBookIdVol) forceNewIdentifier(newOpfDoc);
 
     const volChapters = storyChapters.filter(c => allowedIdrefs.has(c.idref));
     await applyCleanTitlesToZip(newZip, newOpfDoc, volChapters, splitOpfDir);

@@ -154,10 +154,17 @@ const splitHtml = `<div id="epub-split-tab" class="w-full overflow-hidden transi
                             </label>
 
                             <!-- Asset Tree-Shaking Toggle -->
-                            <label class="flex items-center gap-2 cursor-pointer mb-4 select-none">
+                            <label class="flex items-center gap-2 cursor-pointer mb-3 select-none">
                                 <input type="checkbox" id="asset-tree-shake" checked
                                     class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 accent-indigo-600">
                                 <span class="text-xs font-semibold text-slate-600 dark:text-slate-400" title="Only packages images/assets referenced in selected chapters">Asset Tree-Shaking (Compact Volume Size)</span>
+                            </label>
+
+                            <!-- Preserve Book Identifier Toggle -->
+                            <label class="flex items-center gap-2 cursor-pointer mb-4 select-none">
+                                <input type="checkbox" id="preserve-book-id" checked
+                                    class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 accent-indigo-600">
+                                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400" title="Preserves original EPUB unique identifier (UUID) so Moon+ Reader / Kindle retain your bookmarks, notes, and highlights">Preserve Book ID (Links Reader Bookmarks)</span>
                             </label>
 
                             <!-- CSS Theme Injection -->
