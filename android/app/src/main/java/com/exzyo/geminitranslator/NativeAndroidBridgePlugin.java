@@ -11,6 +11,7 @@ import android.os.Environment;
 import android.os.PowerManager;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.util.Base64;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
@@ -22,7 +23,20 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 @CapacitorPlugin(name = "NativeAndroidBridge")
 public class NativeAndroidBridgePlugin extends Plugin {
@@ -30,6 +44,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private static final String CHANNEL_ID = "gemini_translator_progress";
     private static final int NOTIFICATION_ID = 1001;
     private static final int COMPLETE_NOTIFICATION_ID = 1002;
+    private static final String DEFAULT_UA = "Mozilla/5.0 (Linux; Android 14; Mobile; rv:125.0) Gecko/125.0 Firefox/125.0";
 
     private PowerManager.WakeLock wakeLock = null;
     private NotificationManager notificationManager = null;
@@ -242,15 +257,12 @@ public class NativeAndroidBridgePlugin extends Plugin {
             if (vibrator != null && vibrator.hasVibrator()) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     if ("success".equalsIgnoreCase(type)) {
-                        // Double celebratory tap
                         long[] timings = {0, 40, 60, 40};
                         int[] amplitudes = {0, 200, 0, 255};
                         vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1));
                     } else if ("error".equalsIgnoreCase(type)) {
-                        // Heavy warning buzz
                         vibrator.vibrate(VibrationEffect.createOneShot(120, VibrationEffect.DEFAULT_AMPLITUDE));
                     } else {
-                        // Subtle milestone click
                         vibrator.vibrate(VibrationEffect.createOneShot(25, 120));
                     }
                 } else {
@@ -263,5 +275,144 @@ public class NativeAndroidBridgePlugin extends Plugin {
         } catch (Exception e) {
             call.reject("Haptic Error: " + e.getMessage());
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // NATIVE CORS-FREE HTTP CRAWLER & NOVEL FETCHER ENGINE
+    // ══════════════════════════════════════════════════════════════════════
+    @PluginMethod
+    public void fetchUrlNative(PluginCall call) {
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                String targetUrl = call.getString("url");
+                if (targetUrl == null || targetUrl.isEmpty()) {
+                    call.reject("Missing target URL parameter");
+                    return;
+                }
+
+                URL url = new URL(targetUrl);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(20000);
+                conn.setReadTimeout(30000);
+                conn.setInstanceFollowRedirects(true);
+
+                // Set standard browser headers to prevent anti-bot blocks
+                conn.setRequestProperty("User-Agent", call.getString("userAgent", DEFAULT_UA));
+                conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
+                conn.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7,ja;q=0.6");
+                conn.setRequestProperty("Cache-Control", "no-cache");
+                conn.setRequestProperty("Pragma", "no-cache");
+
+                JSObject customHeaders = call.getObject("headers");
+                if (customHeaders != null) {
+                    Iterator<String> keys = customHeaders.keys();
+                    while (keys.hasNext()) {
+                        String k = keys.next();
+                        conn.setRequestProperty(k, customHeaders.getString(k));
+                    }
+                }
+
+                int statusCode = conn.getResponseCode();
+                
+                // Handle manual redirects if needed
+                if (statusCode == HttpURLConnection.HTTP_MOVED_TEMP || statusCode == HttpURLConnection.HTTP_MOVED_PERM || statusCode == 307 || statusCode == 308) {
+                    String newUrl = conn.getHeaderField("Location");
+                    if (newUrl != null && !newUrl.isEmpty()) {
+                        conn.disconnect();
+                        url = new URL(newUrl);
+                        conn = (HttpURLConnection) url.openConnection();
+                        conn.setRequestProperty("User-Agent", call.getString("userAgent", DEFAULT_UA));
+                        statusCode = conn.getResponseCode();
+                    }
+                }
+
+                InputStream is = (statusCode >= 200 && statusCode < 400) ? conn.getInputStream() : conn.getErrorStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line).append("\n");
+                }
+                reader.close();
+
+                JSObject ret = new JSObject();
+                ret.put("status", statusCode);
+                ret.put("data", response.toString());
+                ret.put("url", conn.getURL().toString());
+                
+                // Extract response cookies
+                Map<String, List<String>> headerFields = conn.getHeaderFields();
+                if (headerFields != null && headerFields.containsKey("Set-Cookie")) {
+                    List<String> cookies = headerFields.get("Set-Cookie");
+                    if (cookies != null && !cookies.isEmpty()) {
+                        ret.put("cookies", String.join("; ", cookies));
+                    }
+                }
+
+                call.resolve(ret);
+            } catch (Exception e) {
+                Log.e(TAG, "Native HTTP fetch failed: " + e.getMessage(), e);
+                call.reject("Native HTTP Fetch Error: " + e.getMessage());
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public void downloadBinaryNative(PluginCall call) {
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                String targetUrl = call.getString("url");
+                if (targetUrl == null || targetUrl.isEmpty()) {
+                    call.reject("Missing target URL parameter");
+                    return;
+                }
+
+                URL url = new URL(targetUrl);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(25000);
+                conn.setReadTimeout(45000);
+                conn.setInstanceFollowRedirects(true);
+                conn.setRequestProperty("User-Agent", call.getString("userAgent", DEFAULT_UA));
+                conn.setRequestProperty("Accept", "*/*");
+
+                int statusCode = conn.getResponseCode();
+                if (statusCode >= 400) {
+                    call.reject("HTTP Error " + statusCode + " while downloading binary.");
+                    return;
+                }
+
+                InputStream is = conn.getInputStream();
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                byte[] buffer = new byte[32768];
+                int len;
+                while ((len = is.read(buffer)) > 0) {
+                    baos.write(buffer, 0, len);
+                }
+                is.close();
+
+                byte[] binaryData = baos.toByteArray();
+                String base64 = Base64.encodeToString(binaryData, Base64.NO_WRAP);
+
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("status", statusCode);
+                ret.put("size", binaryData.length);
+                ret.put("base64", base64);
+                call.resolve(ret);
+            } catch (Exception e) {
+                Log.e(TAG, "Native binary download failed: " + e.getMessage(), e);
+                call.reject("Native Binary Download Error: " + e.getMessage());
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            }
+        }).start();
     }
 }
