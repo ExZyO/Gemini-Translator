@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.6.2';
+    const VERSION = '5.6.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1523,15 +1523,27 @@
     // ═══════════════════════════════════════════════════════════════
     // AI TABLE OF CONTENTS & METADATA POLISHER ENGINE
     // ═══════════════════════════════════════════════════════════════
-    window.aiPolishEpubToc = async function(sampleChapters, bookTitle) {
+        window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus) {
       const provider = localStorage.getItem('translationProvider') || 'gemini';
-      const geminiKey = localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey') || '';
-      const deepseekKey = localStorage.getItem('deepseekApiKey') || '';
-      const openaiKey = localStorage.getItem('openaiApiKey') || '';
-      const claudeKey = localStorage.getItem('claudeApiKey') || '';
+      
+      let allKeys = [];
+      try {
+        const stored = JSON.parse(localStorage.getItem('apiKeysByProvider') || '{}');
+        allKeys = (stored[provider] || []).map(p => p.key).filter(Boolean);
+      } catch (e) {}
+
+      if (allKeys.length === 0) {
+        const single = localStorage.getItem(`${provider}ApiKey`) || (provider === 'gemini' ? (localStorage.getItem('apiKey') || '') : '');
+        if (single) allKeys.push(single);
+      }
+
+      if (allKeys.length === 0) throw new Error(`${provider.toUpperCase()} API key required. Please configure your key in Settings ⚙️.`);
+
+      let keyIndex = 0;
+      const getActiveKey = () => allKeys[keyIndex % allKeys.length];
+      const rotateKey = () => { keyIndex++; return getActiveKey(); };
 
       const compactLines = sampleChapters.map(c => `${c.index}. ${c.rawName || ''}`).join('\n');
-
       const prompt = `You are an expert digital eBook editor. Standardize raw/scraped chapter names into clean, readable chapter titles (e.g. "Chapter 1: The Awakening", "Chapter 2: ..."). Strip .xhtml, web tags, or duplicated prefixes.
 Book Title: ${bookTitle || 'Unknown'}
 
@@ -1546,75 +1558,130 @@ Return strictly a JSON object with this exact format:
   ]
 }`;
 
-      let rawJson = '';
+      const geminiModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.6-flash'];
+      let modelIdx = 0;
+      const maxAttempts = 8;
+      let backoffDelay = 2000;
 
-      if (provider === 'gemini' || !provider) {
-        if (!geminiKey) throw new Error('Gemini API key required. Please add your key in Settings ⚙️.');
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.1,
-              responseMimeType: 'application/json',
-              thinkingConfig: { thinkingBudget: 0 } // Fast sub-second response without reasoning delay
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const currentKey = getActiveKey();
+        try {
+          let rawJson = '';
+
+          if (provider === 'gemini' || !provider) {
+            const currentModel = geminiModels[modelIdx % geminiModels.length];
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${currentKey}`;
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: {
+                  temperature: 0.1,
+                  responseMimeType: 'application/json',
+                  thinkingConfig: { thinkingBudget: 0 }
+                }
+              })
+            });
+
+            if (!res.ok) {
+              const errTxt = await res.text().catch(() => '');
+              const is429 = res.status === 429 || errTxt.includes('quota') || errTxt.includes('RESOURCE_EXHAUSTED');
+              if (is429) {
+                if (allKeys.length > 1) {
+                  const nKey = rotateKey();
+                  if (typeof onRetryStatus === 'function') onRetryStatus(`Quota hit. Switched to key ${(keyIndex % allKeys.length) + 1}/${allKeys.length}...`);
+                  await new Promise(r => setTimeout(r, 600));
+                  continue;
+                } else {
+                  modelIdx++;
+                  if (typeof onRetryStatus === 'function') onRetryStatus(`Rate limit cooldown pause (${(backoffDelay / 1000).toFixed(1)}s)... Fallback model: ${geminiModels[modelIdx % geminiModels.length]}`);
+                  await new Promise(r => setTimeout(r, backoffDelay));
+                  backoffDelay = Math.min(backoffDelay * 1.5, 12000);
+                  continue;
+                }
+              }
+              throw new Error(`Gemini Error ${res.status}: ${errTxt.substring(0, 150)}`);
             }
-          })
-        });
-        if (!res.ok) {
-          const errTxt = await res.text().catch(() => '');
-          throw new Error(`Gemini Error ${res.status}: ${errTxt.substring(0, 150)}`);
-        }
-        const data = await res.json();
-        rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      } else if (provider === 'deepseek') {
-        if (!deepseekKey) throw new Error('DeepSeek API key required.');
-        const res = await fetch('https://api.deepseek.com/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekKey}` },
-          body: JSON.stringify({
-            model: 'deepseek-chat',
-            messages: [{ role: 'user', content: prompt }],
-            response_format: { type: 'json_object' }
-          })
-        });
-        const data = await res.json();
-        rawJson = data.choices?.[0]?.message?.content || '';
-      } else if (provider === 'openai') {
-        if (!openaiKey) throw new Error('OpenAI API key required.');
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: prompt }],
-            response_format: { type: 'json_object' }
-          })
-        });
-        const data = await res.json();
-        rawJson = data.choices?.[0]?.message?.content || '';
-      } else if (provider === 'claude') {
-        if (!claudeKey) throw new Error('Claude API key required.');
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': claudeKey, 'anthropic-version': '2023-06-01', 'dangerously-allow-browser': 'true' },
-          body: JSON.stringify({
-            model: 'claude-3-5-haiku-20241022',
-            max_tokens: 4096,
-            messages: [{ role: 'user', content: prompt }]
-          })
-        });
-        const data = await res.json();
-        rawJson = data.content?.[0]?.text || '';
-      }
+            const data = await res.json();
+            rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          } else if (provider === 'deepseek') {
+            const res = await fetch('https://api.deepseek.com/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentKey}` },
+              body: JSON.stringify({
+                model: 'deepseek-chat',
+                messages: [{ role: 'user', content: prompt }],
+                response_format: { type: 'json_object' }
+              })
+            });
+            if (!res.ok) {
+              const errTxt = await res.text().catch(() => '');
+              if (res.status === 429) {
+                await new Promise(r => setTimeout(r, backoffDelay));
+                backoffDelay = Math.min(backoffDelay * 1.5, 10000);
+                continue;
+              }
+              throw new Error(`DeepSeek Error ${res.status}: ${errTxt.substring(0, 150)}`);
+            }
+            const data = await res.json();
+            rawJson = data.choices?.[0]?.message?.content || '';
+          } else if (provider === 'openai') {
+            const res = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentKey}` },
+              body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [{ role: 'user', content: prompt }],
+                response_format: { type: 'json_object' }
+              })
+            });
+            if (!res.ok) {
+              const errTxt = await res.text().catch(() => '');
+              if (res.status === 429) {
+                await new Promise(r => setTimeout(r, backoffDelay));
+                backoffDelay = Math.min(backoffDelay * 1.5, 10000);
+                continue;
+              }
+              throw new Error(`OpenAI Error ${res.status}: ${errTxt.substring(0, 150)}`);
+            }
+            const data = await res.json();
+            rawJson = data.choices?.[0]?.message?.content || '';
+          } else if (provider === 'claude') {
+            const res = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-api-key': currentKey, 'anthropic-version': '2023-06-01', 'dangerously-allow-browser': 'true' },
+              body: JSON.stringify({
+                model: 'claude-3-5-haiku-20241022',
+                max_tokens: 4096,
+                messages: [{ role: 'user', content: prompt }]
+              })
+            });
+            if (!res.ok) {
+              const errTxt = await res.text().catch(() => '');
+              if (res.status === 429) {
+                await new Promise(r => setTimeout(r, backoffDelay));
+                backoffDelay = Math.min(backoffDelay * 1.5, 10000);
+                continue;
+              }
+              throw new Error(`Claude Error ${res.status}: ${errTxt.substring(0, 150)}`);
+            }
+            const data = await res.json();
+            rawJson = data.content?.[0]?.text || '';
+          }
 
-      try {
-        const clean = rawJson.replace(/^\`\`\`json\s*/i, '').replace(/\s*\`\`\`$/i, '').trim();
-        return JSON.parse(clean);
-      } catch (e) {
-        throw new Error('Failed to parse AI response: ' + rawJson.substring(0, 200));
+          const clean = rawJson.replace(/^\`\`\`json\s*/i, '').replace(/\s*\`\`\`$/i, '').trim();
+          return JSON.parse(clean);
+        } catch (err) {
+          const is429 = (err.message || '').includes('429') || (err.message || '').includes('quota');
+          if (is429 && attempt < maxAttempts - 1) {
+            rotateKey();
+            await new Promise(r => setTimeout(r, backoffDelay));
+            backoffDelay = Math.min(backoffDelay * 1.5, 10000);
+            continue;
+          }
+          if (attempt === maxAttempts - 1) throw err;
+        }
       }
     };
 
