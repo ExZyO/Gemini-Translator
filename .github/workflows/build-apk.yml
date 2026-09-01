@@ -57,17 +57,21 @@ jobs:
       - name: 📱 Rename APK for Direct Download
         run: cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/GeminiTranslator.apk
 
+      - name: 🏷️ Read Version from package.json
+        id: pkg_version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
       - name: 🚀 Publish Direct APK Download (GitHub Release)
         uses: softprops/action-gh-release@v2
         with:
           files: android/app/build/outputs/apk/release/GeminiTranslator.apk
           tag_name: latest
-          name: "📱 Gemini Translator — Latest Android APK"
+          name: "📱 Gemini Translator v${{ steps.pkg_version.outputs.version }} — Latest Android APK"
           body: |
-            ## 📱 Direct APK Download
+            ## 📱 Direct APK Download (v${{ steps.pkg_version.outputs.version }})
             Tap **GeminiTranslator.apk** below to download directly — no unzipping needed!
 
-            Build #${{ github.run_number }} • ${{ github.sha }}
+            Version: v${{ steps.pkg_version.outputs.version }} • Build #${{ github.run_number }} • ${{ github.sha }}
           draft: false
           prerelease: false
           make_latest: true

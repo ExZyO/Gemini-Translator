@@ -14,14 +14,14 @@
             }
         },
 
-        checkForUpdate: async (currentVersion = "7.0.0") => {
+        checkForUpdate: async (currentVersion = "7.0.2") => {
             try {
                 let remoteVersion = null;
                 let releaseNotes = '';
                 let isApkReady = false;
                 let apkDownloadUrl = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
 
-                // Check GitHub Releases API
+                // Step 1: Check GitHub Releases API to verify APK asset is published
                 try {
                     const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest', {
                         headers: { 'Accept': 'application/vnd.github.v3+json' }
@@ -30,7 +30,6 @@
                         const data = await res.json();
                         releaseNotes = data.body || '';
 
-                        // CRITICAL: Only consider release ready if the APK asset is fully uploaded and verified
                         const apkAsset = Array.isArray(data.assets) && data.assets.find(a => 
                             (a.name === 'GeminiTranslator.apk' || a.name.endsWith('.apk')) && 
                             a.state === 'uploaded' && 
@@ -42,15 +41,30 @@
                             if (apkAsset.browser_download_url) {
                                 apkDownloadUrl = apkAsset.browser_download_url;
                             }
-                            const titleMatch = (data.name || '').match(/v?(\d+\.\d+\.\d+)/i) || (data.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
-                            if (titleMatch) remoteVersion = titleMatch[1];
+                            const verMatch = (data.name || '').match(/v?(\d+\.\d+\.\d+)/i) || 
+                                             (data.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i) ||
+                                             (data.body || '').match(/v?(\d+\.\d+\.\d+)/i);
+                            if (verMatch) remoteVersion = verMatch[1];
                         }
                     }
                 } catch (re) {
                     console.warn('GitHub Releases check error:', re);
                 }
 
-                // If the new build is still compiling on CI and has not uploaded the APK, do not show update prompt
+                // Step 2: Fallback to package.json if release title was generic, but only if APK is ready
+                if (!remoteVersion && isApkReady) {
+                    try {
+                        const pkgRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now());
+                        if (pkgRes.ok) {
+                            const pkgData = await pkgRes.json();
+                            if (pkgData.version && pkgData.version !== '1.0.0') {
+                                remoteVersion = pkgData.version;
+                            }
+                        }
+                    } catch (pe) {}
+                }
+
+                // If no APK asset is ready on GitHub, do not show update
                 if (!remoteVersion || !isApkReady) return null;
 
                 // Strict Semver Math: remote > current
