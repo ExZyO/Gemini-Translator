@@ -42,6 +42,8 @@
       const [showMenu, setShowMenu] = useState(false);
       const [showVisual, setShowVisual] = useState(false);
       const [showTtsBar, setShowTtsBar] = useState(false);
+      const [justify, setJustify] = useState(() => { try { return localStorage.getItem('readerJustify') !== 'false'; } catch (e) { return false; } });
+      useEffect(() => { try { localStorage.setItem('readerJustify', String(justify)); } catch (e) {} }, [justify]);
       const [endReached, setEndReached] = useState(false);
 
       // TTS State — Moon+ follow-along
@@ -335,7 +337,7 @@
         // Chapter content (scroll flow)
         h('div', {
           ref: containerRef,
-          className: `reader-body ${themeClasses} ${fontClasses}`,
+          className: `reader-body ${themeClasses} ${fontClasses}${justify ? ' justify' : ''}`,
           style: { fontSize: `${fontSize || 18}px` },
           onScroll: handleScroll
         },
@@ -393,6 +395,10 @@
             h('button', { type: 'button', className: 'tts-btn', onClick: () => setFontSize?.(Math.max(12, (fontSize || 18) - 2)) }, '−'),
             h('span', { className: 'mono', style: { fontSize: 12, color: '#E8E4DA', minWidth: 28, textAlign: 'center' } }, fontSize || 18),
             h('button', { type: 'button', className: 'tts-btn', onClick: () => setFontSize?.(Math.min(36, (fontSize || 18) + 2)) }, '+')
+          ),
+          h('div', { className: 'row' },
+            h('span', { className: 'cap' }, 'Alignment'),
+            h('button', { type: 'button', className: `seg-btn ${justify ? 'on' : ''}`, onClick: () => setJustify(!justify) }, 'Justify Text')
           ),
           h('button', { type: 'button', className: 'mini-btn ghost', style: { alignSelf: 'flex-start' }, onClick: () => setShowVisual(false) }, 'Done')
         ),

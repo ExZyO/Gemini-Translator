@@ -319,6 +319,16 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 .seg-wide span { flex: 1; text-align: center; padding: 12px 6px; font-size: 12px; font-weight: 700; color: var(--slate); cursor: pointer; }
 .seg-wide span.on { color: var(--iris); background: rgba(124,135,255,.12); }
 .studio-host { border: 1px solid var(--hairline); border-radius: 16px; background: var(--ember); padding: 14px 16px; min-height: 300px; }
+/* ── Studio injected UI harmonization (old slate classes → Two Lights) ── */
+.studio-host [class*="bg-white"], .studio-host [class*="bg-slate-50"], .studio-host [class*="bg-slate-100"] { background-color: var(--ember) !important; color: var(--paper-dim) !important; }
+.studio-host [class*="bg-slate-200"], .studio-host [class*="bg-slate-300"] { background-color: var(--ember-2) !important; }
+.studio-host [class*="text-slate-900"], .studio-host [class*="text-gray-900"], .studio-host [class*="text-black"] { color: var(--paper) !important; }
+.studio-host [class*="text-slate-400"], .studio-host [class*="text-slate-500"], .studio-host [class*="text-gray-400"], .studio-host [class*="text-gray-500"] { color: var(--slate) !important; }
+.studio-host [class*="text-slate-600"], .studio-host [class*="text-slate-700"], .studio-host [class*="text-slate-800"] { color: var(--paper-dim) !important; }
+.studio-host [class*="border-slate-200"], .studio-host [class*="border-slate-300"], .studio-host [class*="border-gray-200"], .studio-host [class*="border-gray-300"] { border-color: var(--hairline) !important; }
+.studio-host [class*="bg-indigo-600"] { background-color: var(--iris-deep) !important; }
+.studio-host input[type="text"], .studio-host input:not([type]), .studio-host textarea, .studio-host select { background-color: var(--ember-2) !important; color: var(--paper-dim) !important; border-color: var(--hairline) !important; }
+.studio-host button[class*="text-white"] { color: #E6E9FF !important; }
 
 /* ── Glossary editor ── */
 .gloss-overlay { position: fixed; inset: 0; z-index: 95; background: var(--void); display: flex; flex-direction: column; }
@@ -346,6 +356,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 .reader-theme-sepia h3, .reader-theme-sepia .first-para::first-letter { color: #4A3A26; }
 .reader-theme-light { background: #FFFFFF; color: #3A3A40; }
 .reader-theme-light h3, .reader-theme-light .first-para::first-letter { color: #17171C; }
+.reader-body.justify p { text-align: justify; text-justify: inter-word; }
 .next-ch { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--slate); border-top: 1px solid var(--hairline); margin: 22px 0 10px; padding-top: 10px; display: flex; justify-content: space-between; cursor: pointer; }
 .next-ch b { color: var(--lamp-deep); font-weight: 500; }
 .statsline { display: flex; justify-content: space-between; gap: 10px; padding: 10px 24px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: var(--slate); background: rgba(14,15,18,.96); border-top: 1px solid var(--hairline); }
@@ -490,7 +501,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.1';
+    const VERSION = '8.4.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1228,8 +1239,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     const parseTranslationOutput = (rawText, context, usage = null) => {
       let text = cleanNovelProse(rawText || '');
       let newContext = context;
-      if (context !== undefined && text.includes('---CONTEXT_UPDATE---')) {
-        const parts = text.split(/\n*---CONTEXT_UPDATE---\n*/i);
+      const ctxMarker = /[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\n\r]*/i;
+      if (context !== undefined && ctxMarker.test(text)) {
+        const parts = text.split(ctxMarker);
         const mainBody = parts[0].trim();
         if (mainBody.length > 0) {
           text = cleanNovelProse(mainBody);
@@ -1242,6 +1254,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       }
       return { text, newContext, usage };
     };
+
+    // Strips any leaked CONTEXT_UPDATE section (model echo with any dash variant)
+    const stripContextLeak = (t) => (t || '').split(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\s\S]*$/i)[0].trim();
 
     const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
@@ -1421,7 +1436,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
                       finalContext += t;
                     } else {
                       slidingWindow += t;
-                      const splitMatch = slidingWindow.match(/\n*---CONTEXT_UPDATE---\n*/i);
+                      const splitMatch = slidingWindow.match(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\n\r]*/i);
                       if (splitMatch) {
                         const idx = splitMatch.index;
                         const textPart = slidingWindow.substring(0, idx);
@@ -1599,7 +1614,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
                     finalContext += t;
                   } else {
                     slidingWindow += t;
-                    const splitMatch = slidingWindow.match(/\n*---CONTEXT_UPDATE---\n*/i);
+                    const splitMatch = slidingWindow.match(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\n\r]*/i);
                     if (splitMatch) {
                       const idx = splitMatch.index;
                       const textPart = slidingWindow.substring(0, idx);
@@ -2901,6 +2916,8 @@ ${bodyHtml.join('\n ')}
       const [showMenu, setShowMenu] = useState(false);
       const [showVisual, setShowVisual] = useState(false);
       const [showTtsBar, setShowTtsBar] = useState(false);
+      const [justify, setJustify] = useState(() => { try { return localStorage.getItem('readerJustify') !== 'false'; } catch (e) { return false; } });
+      useEffect(() => { try { localStorage.setItem('readerJustify', String(justify)); } catch (e) {} }, [justify]);
       const [endReached, setEndReached] = useState(false);
 
       // TTS State — Moon+ follow-along
@@ -3194,7 +3211,7 @@ ${bodyHtml.join('\n ')}
         // Chapter content (scroll flow)
         h('div', {
           ref: containerRef,
-          className: `reader-body ${themeClasses} ${fontClasses}`,
+          className: `reader-body ${themeClasses} ${fontClasses}${justify ? ' justify' : ''}`,
           style: { fontSize: `${fontSize || 18}px` },
           onScroll: handleScroll
         },
@@ -3252,6 +3269,10 @@ ${bodyHtml.join('\n ')}
             h('button', { type: 'button', className: 'tts-btn', onClick: () => setFontSize?.(Math.max(12, (fontSize || 18) - 2)) }, '−'),
             h('span', { className: 'mono', style: { fontSize: 12, color: '#E8E4DA', minWidth: 28, textAlign: 'center' } }, fontSize || 18),
             h('button', { type: 'button', className: 'tts-btn', onClick: () => setFontSize?.(Math.min(36, (fontSize || 18) + 2)) }, '+')
+          ),
+          h('div', { className: 'row' },
+            h('span', { className: 'cap' }, 'Alignment'),
+            h('button', { type: 'button', className: `seg-btn ${justify ? 'on' : ''}`, onClick: () => setJustify(!justify) }, 'Justify Text')
           ),
           h('button', { type: 'button', className: 'mini-btn ghost', style: { alignSelf: 'flex-start' }, onClick: () => setShowVisual(false) }, 'Done')
         ),
@@ -3444,10 +3465,20 @@ ${bodyHtml.join('\n ')}
         setWebImportHistory([]);
 
       const loadFullNovel = async (meta) => {
-        if (window.GeminiNovelDB) {
-          const full = await window.GeminiNovelDB.getNovel(meta.id);
-          if (full && full.rawChapters && full.rawChapters.length) return full;
-        }
+        try {
+          if (window.GeminiNovelDB) {
+            const full = await window.GeminiNovelDB.getNovel(meta.id);
+            if (full && full.rawChapters && full.rawChapters.length) return full;
+          }
+        } catch (e) { console.warn('GeminiNovelDB load error:', e); }
+        // Fallback: older records stored full chapters in localStorage
+        try {
+          const old = JSON.parse(localStorage.getItem('gemini_web_import_history') || '[]');
+          const found = (old || []).find(n => n.id === (meta.id || '')) || (old || []).find(n => n.title === meta.title);
+          if (found && found.chapters && found.chapters.length) {
+            return { title: found.title, author: found.author, rawChapters: found.chapters };
+          }
+        } catch (e) {}
         return null;
       };
         localStorage.removeItem('gemini_web_import_history_meta');
@@ -8592,6 +8623,7 @@ FORMATTING & STRUCTURE RULES:
               setProgress(Math.floor(((i + 1) / chunks.length) * 100));
               saveState(result, ctx, i + 1);
             }
+            result = stripContextLeak(result);
             if (!(result || '').trim()) throw new Error('Provider returned an empty stream. Check the selected model in Settings · Engine.');
             setTranslatedChapters([{ title: 'Translated Document', content: result }]);
             localStorage.removeItem(jobId); setActiveSession(null);
@@ -8620,7 +8652,7 @@ FORMATTING & STRUCTURE RULES:
               setProgress(Math.floor(((i + 1) / chunks.length) * 100));
               saveState(result, ctx, i + 1);
             }
-            const final = result.replace(/\r\n/g, '\n').trim();
+            const final = stripContextLeak(result).replace(/\r\n/g, '\n').trim();
             if (!final) throw new Error('Provider returned an empty response. Check the selected model in Settings · Engine.');
             setAssembledText(final); setTranslatedChapters([{ title: 'Translated Document', content: final }]);
             localStorage.removeItem(jobId); setActiveSession(null);
@@ -8651,7 +8683,7 @@ FORMATTING & STRUCTURE RULES:
 
             const translated = results.map(r => typeof r === 'string' ? r : (r?.text ? r.text : (r?.error ? `\n\n[Error: ${r.error}]\n\n` : '')));
             const combinedNew = translated.join('').replace(/\r\n/g, '\n').trim();
-            result = result ? result + '\n\n' + combinedNew : combinedNew;
+            result = stripContextLeak(result ? result + '\n\n' + combinedNew : combinedNew);
 
             setAssembledText(result); setTranslatedChapters([{ title: 'Translated Document', content: result }]);
             localStorage.removeItem(jobId); setActiveSession(null);
@@ -8827,7 +8859,7 @@ FORMATTING & STRUCTURE RULES:
               done++; setProgress(Math.floor((done / totalChunks) * 100));
             }
 
-            const content = parts.join('').replace(/\r\n/g, '\n').trim();
+            const content = stripContextLeak(parts.join('')).replace(/\r\n/g, '\n').trim();
 
             let docHtml = null;
             if (isEpub && ch.doc) {
@@ -8863,7 +8895,7 @@ FORMATTING & STRUCTURE RULES:
           if (isEpub && originalZip) {
             window.currentTranslatedZip = originalZip;
           }
-          setTranslatedChapters(newChapters); const final = allParts.join('\n\n\n').trim(); setAssembledText(final);
+          setTranslatedChapters(newChapters); const final = stripContextLeak(allParts.join('\n\n\n')).trim(); setAssembledText(final);
           
           const elapsedMs = performance.now() - startTime;
           const durationStr = formatDuration(elapsedMs);
@@ -9232,6 +9264,18 @@ FORMATTING & STRUCTURE RULES:
           const author = 'Gemini Translator';
           const lang = tgtLang.split(/[-_ ]/)[0].toLowerCase() || 'en';
 
+          // Preserve the ORIGINAL EPUB structure (OPF/TOC/format) when translating from an EPUB file
+          if (currentIsEpub && currentOriginalZip && typeof currentOriginalZip.generateAsync === 'function') {
+            setEpubPackagingModal({ title: docTitle, status: ' Packaging original EPUB structure…', pct: 40 });
+            const zipBlob = await currentOriginalZip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
+            setEpubPackagingModal(null);
+            const cleanDocName = sanitizeFilename(docTitle).replace(/\s+/g, '_');
+            const fileName = `${cleanDocName}.epub`;
+            const res = await saveUniversalBlob(zipBlob, fileName, 'application/epub+zip');
+            toast(' EPUB downloaded with the original structure!', 'success');
+            return { blob: zipBlob, fileName, path: res?.path };
+          }
+
           // Always compile a clean, standardized EPUB with translated TOC and proper paragraph spacing
           setEpubPackagingModal({ title: docTitle, status: ' Assembling translated EPUB archive...', pct: 10 });
           const blob = await generateEpubFromChapters(chaptersToExport, docTitle, author, lang, (status, pct, elapsed) => {
@@ -9571,7 +9615,7 @@ FORMATTING & STRUCTURE RULES:
               }),
               webImportData && h('div', { className: 'book-card' },
                 h('div', { className: 't' }, webImportData.title || 'Untitled Web Novel'),
-                h('div', { className: 'm' }, `By ${webImportData.author || 'Unknown'} · ${webImportData.chapters.length} chapter(s)`),
+                h('div', { className: 'm' }, `By ${webImportData.author || 'Unknown'} · ${webImportData.chapters.length} chapter(s) · ${webImportData.chapters.reduce((a, c) => a + ((c.text || c.content || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
                 h('div', { className: 'book-acts' },
                   h('button', { type: 'button', className: 'mini-btn', onClick: () => {
                     const fullText = webImportData.chapters.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
@@ -9589,6 +9633,14 @@ FORMATTING & STRUCTURE RULES:
                     } catch (e) { toast('EPUB export error: ' + e.message, 'error'); }
                   } }, 'Download Raw EPUB')
                 )
+              ),
+              webImportData.chapters && webImportData.chapters.length > 0 && h('div', { className: 'card' },
+                h('div', { className: 'card-title' }, h('span', null, `Chapters (${webImportData.chapters.length})`)),
+                webImportData.chapters.slice(0, 12).map((c, i) => h('div', { key: i, className: 'set-row' },
+                  h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, c.title || `Chapter ${i + 1}`),
+                  h('span', { className: 'count' }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()} words`)
+                )),
+                webImportData.chapters.length > 12 && h('div', { className: 'count', style: { paddingTop: 8 } }, `+ ${webImportData.chapters.length - 12} more chapters`)
               )
             ),
 
@@ -9637,7 +9689,20 @@ FORMATTING & STRUCTURE RULES:
                         } }, 'EPUB')
                       )
                     ))
+                  ),
+              h('div', { className: 'card-title', style: { marginTop: 12 } },
+                h('span', null, `Translation History (${history.length})`),
+                history.length > 0 && h('button', { type: 'button', className: 'mini-btn danger', onClick: clearHistory }, 'Clear')
+              ),
+              history.length > 0 && h(React.Fragment, null,
+                history.slice(0, 25).map(entry => h('div', { key: entry.id, className: 'set-row' },
+                  h('span', { className: 'l', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${new Date(entry.ts).toLocaleDateString()} · ${entry.srcLang || 'Auto'} → ${entry.tgtLang} · ${(entry.outputPreview || '').substring(0, 60)}`),
+                  h('div', { className: 'pane-acts' },
+                    h('button', { type: 'button', className: 'chip-act', onClick: () => loadFromHistory(entry) }, 'Load'),
+                    h('button', { type: 'button', className: 'chip-act', onClick: () => deleteHistoryItem(entry.id) }, '✕')
                   )
+                ))
+              )
             ),
 
             // ═══ TAB 5: SETTINGS ═══
@@ -9705,6 +9770,25 @@ FORMATTING & STRUCTURE RULES:
                   h('button', { type: 'button', className: 'mini-btn', onClick: () => setGlossaryEditorOpen(true) }, 'Open Full Editor'),
                   h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => { setTerminology(''); localStorage.removeItem('terminology'); } }, 'Clear'),
                   switchRow('Smart Glossary Filter', smartGlossary, (v) => { setSmartGlossary(v); localStorage.setItem('smartGlossary', v); })
+                ),
+                h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
+                  h('input', { type: 'text', value: newGlossaryName, onChange: e => setNewGlossaryName(e.target.value), placeholder: 'Profile name…', style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '8px 10px', fontSize: 12, color: 'var(--paper-dim)', outline: 'none', flex: 1, minWidth: 120 } }),
+                  h('button', { type: 'button', className: 'mini-btn', onClick: handleSaveGlossary }, 'Save'),
+                  activeGlossaryId && h('button', { type: 'button', className: 'mini-btn ghost', onClick: handleUnloadGlossary }, 'Unload')
+                ),
+                savedGlossaries.length > 0 && h(React.Fragment, null,
+                  h('div', { className: 'card-title', style: { marginTop: 10 } }, h('span', null, 'Saved Profiles')),
+                  savedGlossaries.map(g => h('div', { key: g.name, className: 'set-row' },
+                    h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${g.name}${activeGlossaryId === g.name ? ' · active' : ''}${defaultGlossaryName === g.name ? ' · default' : ''}`),
+                    h('div', { className: 'pane-acts' },
+                      h('button', { type: 'button', className: 'chip-act', onClick: () => handleLoadGlossary(g) }, 'Load'),
+                      h('button', { type: 'button', className: 'chip-act', onClick: () => { localStorage.setItem('defaultGlossaryName', g.name); setDefaultGlossaryName(g.name); } }, 'Default'),
+                      h('button', { type: 'button', className: 'chip-act', onClick: () => handleDeleteGlossary(g.name) }, '✕')
+                    )
+                  )),
+                  defaultGlossaryName && h('div', { style: { marginTop: 8 } },
+                    h('button', { type: 'button', className: 'mini-btn danger', onClick: clearDefaultGloss }, 'Clear Default Profile')
+                  )
                 )
               ),
 
@@ -9802,6 +9886,7 @@ FORMATTING & STRUCTURE RULES:
             h('div', { className: 'sheet-lbl' }, 'Tools'),
             h('button', { type: 'button', className: 'sheet-row', onClick: () => { setSheetOpen(false); handleAutoDetectSplit(); } }, h('span', { className: 'ic' }, '✂'), 'Split Chapters', h('span', { className: 'chev' }, '›')),
             h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'auto'); setBoxPreset('output', 'auto'); setSheetOpen(false); } }, h('span', { className: 'ic' }, '↕'), 'Fit Text Height', h('span', { className: 'chev' }, '›')),
+            h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'S'); setBoxPreset('output', 'S'); setSheetOpen(false); } }, h('span', { className: 'ic' }, '↺'), 'Reset Box Heights', h('span', { className: 'chev' }, '›')),
             h('button', { type: 'button', className: 'sheet-row', onClick: () => { setSheetOpen(false); setGlossaryEditorOpen(true); } }, h('span', { className: 'ic' }, '📖'), 'Glossary Editor', h('span', { className: 'chev' }, '›'))
           )
         ),

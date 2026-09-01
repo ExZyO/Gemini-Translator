@@ -234,7 +234,7 @@
               }),
               webImportData && h('div', { className: 'book-card' },
                 h('div', { className: 't' }, webImportData.title || 'Untitled Web Novel'),
-                h('div', { className: 'm' }, `By ${webImportData.author || 'Unknown'} · ${webImportData.chapters.length} chapter(s)`),
+                h('div', { className: 'm' }, `By ${webImportData.author || 'Unknown'} · ${webImportData.chapters.length} chapter(s) · ${webImportData.chapters.reduce((a, c) => a + ((c.text || c.content || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
                 h('div', { className: 'book-acts' },
                   h('button', { type: 'button', className: 'mini-btn', onClick: () => {
                     const fullText = webImportData.chapters.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
@@ -252,6 +252,14 @@
                     } catch (e) { toast('EPUB export error: ' + e.message, 'error'); }
                   } }, 'Download Raw EPUB')
                 )
+              ),
+              webImportData.chapters && webImportData.chapters.length > 0 && h('div', { className: 'card' },
+                h('div', { className: 'card-title' }, h('span', null, `Chapters (${webImportData.chapters.length})`)),
+                webImportData.chapters.slice(0, 12).map((c, i) => h('div', { key: i, className: 'set-row' },
+                  h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, c.title || `Chapter ${i + 1}`),
+                  h('span', { className: 'count' }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()} words`)
+                )),
+                webImportData.chapters.length > 12 && h('div', { className: 'count', style: { paddingTop: 8 } }, `+ ${webImportData.chapters.length - 12} more chapters`)
               )
             ),
 
@@ -300,7 +308,20 @@
                         } }, 'EPUB')
                       )
                     ))
+                  ),
+              h('div', { className: 'card-title', style: { marginTop: 12 } },
+                h('span', null, `Translation History (${history.length})`),
+                history.length > 0 && h('button', { type: 'button', className: 'mini-btn danger', onClick: clearHistory }, 'Clear')
+              ),
+              history.length > 0 && h(React.Fragment, null,
+                history.slice(0, 25).map(entry => h('div', { key: entry.id, className: 'set-row' },
+                  h('span', { className: 'l', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${new Date(entry.ts).toLocaleDateString()} · ${entry.srcLang || 'Auto'} → ${entry.tgtLang} · ${(entry.outputPreview || '').substring(0, 60)}`),
+                  h('div', { className: 'pane-acts' },
+                    h('button', { type: 'button', className: 'chip-act', onClick: () => loadFromHistory(entry) }, 'Load'),
+                    h('button', { type: 'button', className: 'chip-act', onClick: () => deleteHistoryItem(entry.id) }, '✕')
                   )
+                ))
+              )
             ),
 
             // ═══ TAB 5: SETTINGS ═══
@@ -368,6 +389,25 @@
                   h('button', { type: 'button', className: 'mini-btn', onClick: () => setGlossaryEditorOpen(true) }, 'Open Full Editor'),
                   h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => { setTerminology(''); localStorage.removeItem('terminology'); } }, 'Clear'),
                   switchRow('Smart Glossary Filter', smartGlossary, (v) => { setSmartGlossary(v); localStorage.setItem('smartGlossary', v); })
+                ),
+                h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
+                  h('input', { type: 'text', value: newGlossaryName, onChange: e => setNewGlossaryName(e.target.value), placeholder: 'Profile name…', style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '8px 10px', fontSize: 12, color: 'var(--paper-dim)', outline: 'none', flex: 1, minWidth: 120 } }),
+                  h('button', { type: 'button', className: 'mini-btn', onClick: handleSaveGlossary }, 'Save'),
+                  activeGlossaryId && h('button', { type: 'button', className: 'mini-btn ghost', onClick: handleUnloadGlossary }, 'Unload')
+                ),
+                savedGlossaries.length > 0 && h(React.Fragment, null,
+                  h('div', { className: 'card-title', style: { marginTop: 10 } }, h('span', null, 'Saved Profiles')),
+                  savedGlossaries.map(g => h('div', { key: g.name, className: 'set-row' },
+                    h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${g.name}${activeGlossaryId === g.name ? ' · active' : ''}${defaultGlossaryName === g.name ? ' · default' : ''}`),
+                    h('div', { className: 'pane-acts' },
+                      h('button', { type: 'button', className: 'chip-act', onClick: () => handleLoadGlossary(g) }, 'Load'),
+                      h('button', { type: 'button', className: 'chip-act', onClick: () => { localStorage.setItem('defaultGlossaryName', g.name); setDefaultGlossaryName(g.name); } }, 'Default'),
+                      h('button', { type: 'button', className: 'chip-act', onClick: () => handleDeleteGlossary(g.name) }, '✕')
+                    )
+                  )),
+                  defaultGlossaryName && h('div', { style: { marginTop: 8 } },
+                    h('button', { type: 'button', className: 'mini-btn danger', onClick: clearDefaultGloss }, 'Clear Default Profile')
+                  )
                 )
               ),
 
@@ -465,6 +505,7 @@
             h('div', { className: 'sheet-lbl' }, 'Tools'),
             h('button', { type: 'button', className: 'sheet-row', onClick: () => { setSheetOpen(false); handleAutoDetectSplit(); } }, h('span', { className: 'ic' }, '✂'), 'Split Chapters', h('span', { className: 'chev' }, '›')),
             h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'auto'); setBoxPreset('output', 'auto'); setSheetOpen(false); } }, h('span', { className: 'ic' }, '↕'), 'Fit Text Height', h('span', { className: 'chev' }, '›')),
+            h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'S'); setBoxPreset('output', 'S'); setSheetOpen(false); } }, h('span', { className: 'ic' }, '↺'), 'Reset Box Heights', h('span', { className: 'chev' }, '›')),
             h('button', { type: 'button', className: 'sheet-row', onClick: () => { setSheetOpen(false); setGlossaryEditorOpen(true); } }, h('span', { className: 'ic' }, '📖'), 'Glossary Editor', h('span', { className: 'chev' }, '›'))
           )
         ),
