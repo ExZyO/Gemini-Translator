@@ -992,13 +992,7 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
         // Store for share button
         lastExportBlob = blob;
 
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${sanitizeFilename(finalDisplayName)}.epub`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        await (window.saveUniversalBlob || saveUniversalBlob)(blob, `${sanitizeFilename(finalDisplayName)}.epub`, 'application/epub+zip');
 
         logMsg(`Success.`);
         showToast(`Exported`, "success");

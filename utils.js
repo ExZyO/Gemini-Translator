@@ -76,3 +76,67 @@ function addExportEntry(title, type, details) {
     }
 }
 
+
+
+// Universal Native & Browser Blob Saver
+async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zip') {
+    try {
+        // 1. Native Android Bridge (Downloads folder via MediaStore)
+        if (window.NativeBridge && window.NativeBridge.saveBlob) {
+            const res = await window.NativeBridge.saveBlob(blob, fileName, mimeType);
+            if (window.__setDownloadModal) {
+                window.__setDownloadModal({ fileName, path: res?.path || ('Download/GeminiTranslator/' + fileName), mimeType });
+            }
+            if (typeof showToast === 'function') {
+                showToast(`💾 Saved "${fileName}" to Downloads!`, 'success');
+            }
+            return res;
+        }
+
+        // 2. Desktop Browser Native File System Access API
+        if (typeof window !== 'undefined' && window.showSaveFilePicker) {
+            try {
+                const ext = fileName.split('.').pop();
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: fileName,
+                    types: [{
+                        description: `${ext.toUpperCase()} File`,
+                        accept: { [mimeType]: ['.' + ext] }
+                    }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                if (typeof showToast === 'function') {
+                    showToast(`💾 Saved "${fileName}"!`, 'success');
+                }
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                console.warn('showSaveFilePicker fallback:', err);
+            }
+        }
+
+        // 3. Standard Browser Blob Anchor Download
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        }, 2000);
+        if (typeof showToast === 'function') {
+            showToast(`💾 Downloading "${fileName}"...`, 'success');
+        }
+    } catch (e) {
+        console.error('saveUniversalBlob failed:', e);
+        if (typeof showToast === 'function') {
+            showToast('Download error: ' + e.message, 'error');
+        }
+    }
+}
+window.saveUniversalBlob = saveUniversalBlob;

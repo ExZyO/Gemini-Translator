@@ -2296,12 +2296,11 @@ const formatModelName = (id, displayName) => {
     };
 
     const generateEpubFromChapters = async (chaptersList, bookTitle = 'Web Novel', bookAuthor = 'Author', bookLang = 'en') => {
-      if (!window.JSZip) throw new Error('JSZip library is not available.');
-      const zip = new window.JSZip();
-      const uuid = 'urn:uuid:' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ (typeof crypto !== 'undefined' ? crypto.getRandomValues(new Uint8Array(1))[0] : Math.floor(Math.random() * 16)) & 15 >> c / 4).toString(16)));
+      const zip = new JSZip();
+      const uuid = 'urn:uuid:' + (crypto.randomUUID ? crypto.randomUUID() : ('uuid_' + Date.now()));
 
       zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
-      zip.folder('META-INF').file('container.xml', `<?xml version="1.0" encoding="UTF-8"?>
+      zip.file('META-INF/container.xml', `<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
     <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
@@ -2309,42 +2308,54 @@ const formatModelName = (id, displayName) => {
 </container>`);
 
       const oebps = zip.folder('OEBPS');
-      oebps.file('style.css', `
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Georgia, serif;
+      const imgFolder = oebps.folder('images');
+
+      const cssContent = `body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.85;
-  margin: 4% 6%;
-  color: #111827;
-  font-size: 1.05em;
-  font-weight: 400;
+  margin: 1.5em;
+  padding: 0;
+  color: #1a1a1a;
+  background-color: #ffffff;
 }
-h1, h2 {
-  font-size: 1.4em;
-  font-weight: 700;
-  margin-top: 1.4em;
-  margin-bottom: 1.2em;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 0.4em;
-  text-align: center;
+h1, h2, h3, h4 {
+  font-family: inherit;
+  font-weight: 800;
   line-height: 1.3;
+  margin-top: 1.5em;
+  margin-bottom: 0.8em;
   color: #0f172a;
+  text-align: center;
 }
 p {
   margin-top: 0;
   margin-bottom: 1.15em;
-  line-height: 1.85;
-  font-weight: 400;
-  text-align: justify;
   text-indent: 0;
+  text-align: justify;
+  font-size: 1.05em;
+  font-weight: 400;
 }
-.divider {
+p.divider {
   text-align: center;
-  margin: 1.8em 0;
-  letter-spacing: 0.25em;
-  font-weight: bold;
+  margin: 2em 0;
+  letter-spacing: 0.2em;
   color: #64748b;
+  font-weight: bold;
 }
-`);
+.illustration-wrap {
+  text-align: center;
+  margin: 2em auto;
+  page-break-inside: avoid;
+}
+.illustration {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  border-radius: 8px;
+}
+`;
+      oebps.file('style.css', cssContent);
 
       const manifestItems = [
         '<item id="css" href="style.css" media-type="text/css"/>',
@@ -2353,7 +2364,41 @@ p {
       const spineItems = [];
       const tocNavPoints = [];
 
-      chaptersList.forEach((ch, idx) => {
+      // Download and cache high-resolution illustrations for offline EPUB bundling
+      const imageCache = new Map();
+      let imgSeq = 0;
+
+      const fetchImageBinary = async (imgUrl) => {
+        if (imageCache.has(imgUrl)) return imageCache.get(imgUrl);
+        try {
+          let buffer = null;
+          if (window.NativeBridge && window.NativeBridge.downloadBinary) {
+            buffer = await window.NativeBridge.downloadBinary(imgUrl);
+          } else {
+            const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(imgUrl);
+            const res = await fetch(proxy);
+            buffer = await res.arrayBuffer();
+          }
+          if (buffer && buffer.byteLength > 500) {
+            imgSeq++;
+            const ext = imgUrl.includes('.png') ? 'png' : (imgUrl.includes('.webp') ? 'webp' : (imgUrl.includes('.gif') ? 'gif' : 'jpg'));
+            const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : 'image/jpeg'));
+            const imgFilename = `img_${imgSeq}.${ext}`;
+            const manifestId = `img_${imgSeq}`;
+            imgFolder.file(imgFilename, buffer);
+            manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="${mime}"/>`);
+            const entry = { localHref: `images/${imgFilename}`, manifestId };
+            imageCache.set(imgUrl, entry);
+            return entry;
+          }
+        } catch (e) {
+          console.warn('Image fetch failed for EPUB:', imgUrl, e);
+        }
+        return null;
+      };
+
+      for (let idx = 0; idx < chaptersList.length; idx++) {
+        const ch = chaptersList[idx];
         const chId = `chapter_${idx + 1}`;
         const chFilename = `${chId}.xhtml`;
         const chTitle = ch.title ? ch.title.trim() : `Chapter ${idx + 1}`;
@@ -2373,6 +2418,21 @@ p {
         for (const line of rawLines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
+
+          // Check if line is an illustration image
+          const imgMatch = trimmed.match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
+          if (imgMatch) {
+            const altText = imgMatch[1] || 'Illustration';
+            const imgUrl = imgMatch[2];
+            const cached = await fetchImageBinary(imgUrl);
+            if (cached) {
+              bodyHtml.push(`<div class="illustration-wrap"><img src="${cached.localHref}" alt="${escapeXml(altText)}" class="illustration"/></div>`);
+            } else {
+              bodyHtml.push(`<div class="illustration-wrap"><img src="${imgUrl}" alt="${escapeXml(altText)}" class="illustration"/></div>`);
+            }
+            continue;
+          }
+
           if (/^(?:\*|\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(trimmed)) {
             bodyHtml.push(`<p class="divider">${escapeXml(trimmed)}</p>`);
           } else {
@@ -2394,7 +2454,7 @@ ${bodyHtml.join('\n  ')}
 </html>`;
 
         oebps.file(chFilename, xhtmlContent);
-      });
+      }
 
       const opfContent = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="3.0">
@@ -2435,10 +2495,116 @@ ${bodyHtml.join('\n  ')}
     // ══════════════════════════════════════════════════════════════════════
     // MOON+ READER PRO ENGINE (Virtual Windowed Preloading, Visible Crisp UI)
     // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════════
+    // PERSISTENT INDEXEDDB NOVEL LIBRARY STORE (Unlimited 500MB+ Storage)
+    // ══════════════════════════════════════════════════════════════════════
+    window.GeminiNovelDB = {
+      dbPromise: null,
+      getDB() {
+        if (!this.dbPromise) {
+          this.dbPromise = new Promise((resolve) => {
+            if (typeof indexedDB === 'undefined') return resolve(null);
+            const req = indexedDB.open('GeminiTranslatorNovelDB', 1);
+            req.onupgradeneeded = (e) => {
+              const db = e.target.result;
+              if (!db.objectStoreNames.contains('novels')) {
+                db.createObjectStore('novels', { keyPath: 'id' });
+              }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => { console.warn('IndexedDB open error:', req.error); resolve(null); };
+          });
+        }
+        return this.dbPromise;
+      },
+      async saveNovel(novel) {
+        try {
+          const db = await this.getDB();
+          if (!db) return false;
+          return new Promise((resolve) => {
+            const tx = db.transaction('novels', 'readwrite');
+            const store = tx.objectStore('novels');
+            store.put(novel);
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+          });
+        } catch (e) {
+          console.warn('IndexedDB save failed:', e);
+          return false;
+        }
+      },
+      async getNovel(id) {
+        try {
+          const db = await this.getDB();
+          if (!db) return null;
+          return new Promise((resolve) => {
+            const tx = db.transaction('novels', 'readonly');
+            const store = tx.objectStore('novels');
+            const req = store.get(id);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => resolve(null);
+          });
+        } catch (e) {
+          console.warn('IndexedDB get failed:', e);
+          return null;
+        }
+      },
+      async getAllNovels() {
+        try {
+          const db = await this.getDB();
+          if (!db) return [];
+          return new Promise((resolve) => {
+            const tx = db.transaction('novels', 'readonly');
+            const store = tx.objectStore('novels');
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => resolve([]);
+          });
+        } catch (e) {
+          console.warn('IndexedDB getAll failed:', e);
+          return [];
+        }
+      },
+      async deleteNovel(id) {
+        try {
+          const db = await this.getDB();
+          if (!db) return false;
+          return new Promise((resolve) => {
+            const tx = db.transaction('novels', 'readwrite');
+            const store = tx.objectStore('novels');
+            store.delete(id);
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+          });
+        } catch (e) {
+          console.warn('IndexedDB delete failed:', e);
+          return false;
+        }
+      },
+      async clearAll() {
+        try {
+          const db = await this.getDB();
+          if (!db) return false;
+          return new Promise((resolve) => {
+            const tx = db.transaction('novels', 'readwrite');
+            const store = tx.objectStore('novels');
+            store.clear();
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+          });
+        } catch (e) {
+          console.warn('IndexedDB clear failed:', e);
+          return false;
+        }
+      }
+    };
+
+    // ══════════════════════════════════════════════════════════════════════
+    // PRO MOON+ READER ENGINE (Virtual Windowing, High-Res Art & Pro TTS Player)
+    // ══════════════════════════════════════════════════════════════════════
     const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
       if (!open) return null;
 
-      // ── ACCURATE LINE-BY-LINE CHAPTER PARSER ──
       const safeChapters = useMemo(() => {
         let list = Array.isArray(chapters) && chapters.length > 0
           ? chapters.filter(c => c && typeof c === 'object')
@@ -2448,702 +2614,500 @@ ${bodyHtml.join('\n  ')}
           const lines = text.split(/\r?\n/);
           const isHeading = (l) => {
             const trimmed = l.trim();
-            if (trimmed.length < 2 || trimmed.length > 120) return false;
-            return /^(?:(?:Chapter|第[0-9零一二三四五六七八九十百千万]+[章节回节卷集部]|Section|Volume|Part|Book|Arc)\s*[\d\w\s:—\-–]+|[【\[(]?(?:Preface|Prologue|Epilogue|Side Story|Extra|序章|前言|楔子|后记|番外)[\]】)]?.*)/i.test(trimmed);
+            return /^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|Chapter\s*\d+|CHAPTER\s*\d+|\d+[\.\s]+|\#+\s+)/i.test(trimmed);
           };
-
-          const parsed = [];
-          let curTitle = 'Prologue / Preface';
+          let curTitle = 'Chapter 1';
           let curLines = [];
-
-          for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            if (isHeading(line)) {
-              if (curLines.length > 0) {
-                parsed.push({ title: curTitle, content: curLines.join('\n').trim() });
-                curLines = [];
-              }
+          for (const line of lines) {
+            if (isHeading(line) && curLines.length > 0) {
+              list.push({ title: curTitle, text: curLines.join('\n') });
               curTitle = line.trim();
+              curLines = [];
             } else {
               curLines.push(line);
             }
           }
-
           if (curLines.length > 0) {
-            parsed.push({ title: curTitle, content: curLines.join('\n').trim() });
+            list.push({ title: curTitle, text: curLines.join('\n') });
           }
-
-          if (parsed.length > 1) list = parsed;
         }
 
-        return list.length > 0 ? list : [{ title: 'Document', content: text || '' }];
+        if (list.length === 0) {
+          list = [{ title: 'Chapter 1', text: text || 'No text loaded.' }];
+        }
+        return list;
       }, [chapters, text]);
 
-      // ── ALL HOOKS DECLARED AT THE VERY TOP (ZERO TDZ ERRORS) ──
-      const [activeChapterIdx, setActiveChapterIdx] = useState(() => Math.min(Math.max(0, currentIdx || 0), safeChapters.length - 1));
-      const [scrollPercent, setScrollPercent] = useState(0);
-      const [showOverlay, setShowOverlay] = useState(true);
-      const [showVisualSheet, setShowVisualSheet] = useState(false);
-      const [showTtsSheet, setShowTtsSheet] = useState(false);
-      const [showTocDrawer, setShowTocDrawer] = useState(false);
-      const [lineHeight, setLineHeight] = useState(() => parseFloat(localStorage.getItem('readerLineHeight')) || 1.8);
-      const [marginWidth, setMarginWidth] = useState(() => localStorage.getItem('readerMarginWidth') || 'normal');
+      const [activeIdx, setActiveIdx] = useState(typeof currentIdx === 'number' && currentIdx >= 0 ? currentIdx : 0);
+      const [showToc, setShowToc] = useState(false);
+      const [showSettings, setShowSettings] = useState(false);
+      const [showTtsBar, setShowTtsBar] = useState(false);
 
-      // TTS State
-      const [isTtsActive, setIsTtsActive] = useState(false);
-      const [isTtsPlaying, setIsTtsPlaying] = useState(false);
-      const [ttsSpeed, setTtsSpeed] = useState(() => parseFloat(localStorage.getItem('readerTtsSpeed')) || 1.0);
-      const [ttsPitch, setTtsPitch] = useState(() => parseFloat(localStorage.getItem('readerTtsPitch')) || 1.0);
-      const [ttsHighlightColor, setTtsHighlightColor] = useState(() => localStorage.getItem('readerHighlightColor') || 'amber');
-      const [currentSentenceIdx, setCurrentSentenceIdx] = useState(-1);
-      const [currentWordRange, setCurrentWordRange] = useState(null);
-      const [ttsSentences, setTtsSentences] = useState([]);
-      const utteranceRef = useRef(null);
-      const contentContainerRef = useRef(null);
+      // TTS Player State
+      const [ttsPlaying, setTtsPlaying] = useState(false);
+      const [ttsPaused, setTtsPaused] = useState(false);
+      const [ttsSpeed, setTtsSpeed] = useState(1.0);
+      const [ttsVoices, setTtsVoices] = useState([]);
+      const [selectedVoice, setSelectedVoice] = useState('');
+      const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
 
-      // ── ANDROID BACK BUTTON & DESKTOP KEYBOARD SHORTCUTS ──
+      const activeUtteranceRef = useRef(null);
+      const sentencesRef = useRef([]);
+      const containerRef = useRef(null);
+      const sentenceIdxRef = useRef(0);
+      const activeIdxRef = useRef(activeIdx);
+      activeIdxRef.current = activeIdx;
+
       useEffect(() => {
-        window.history.pushState({ readerModalOpen: true }, '');
-        const handlePopState = () => {
-          onClose();
-        };
-        const handleKeyDown = (e) => {
-          if (e.key === 'Escape') {
-            stopTTS();
-            onClose();
-          } else if (e.key === ' ' && e.target.tagName !== 'INPUT') {
-            e.preventDefault();
-            pauseTTS();
-          } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
-            if (activeChapterIdx < safeChapters.length - 1) scrollToChapter(activeChapterIdx + 1);
-          } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-            if (activeChapterIdx > 0) scrollToChapter(activeChapterIdx - 1);
-          } else if (e.key === 'm' || e.key === 'M') {
-            setShowOverlay(prev => !prev);
+        if (typeof currentIdx === 'number' && currentIdx >= 0 && currentIdx !== activeIdx) {
+          setActiveIdx(currentIdx);
+        }
+      }, [currentIdx]);
+
+      // Load Speech Synthesis Voices
+      useEffect(() => {
+        const updateVoices = () => {
+          if (typeof window !== 'undefined' && window.speechSynthesis) {
+            const vList = window.speechSynthesis.getVoices() || [];
+            setTtsVoices(vList);
+            if (vList.length > 0 && !selectedVoice) {
+              const langCode = (tgtLang || 'en').toLowerCase().substring(0, 2);
+              const matched = vList.find(v => v.lang.toLowerCase().startsWith(langCode)) || vList[0];
+              if (matched) setSelectedVoice(matched.name);
+            }
           }
         };
-
-        window.addEventListener('popstate', handlePopState);
-        window.addEventListener('keydown', handleKeyDown);
+        updateVoices();
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.onvoiceschanged = updateVoices;
+        }
         return () => {
-          window.removeEventListener('popstate', handlePopState);
-          window.removeEventListener('keydown', handleKeyDown);
+          if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = null;
+          }
         };
-      }, [activeChapterIdx, safeChapters]);
+      }, [tgtLang]);
 
-      const currentChapter = safeChapters[activeChapterIdx] || safeChapters[0] || { title: 'Document', content: '' };
-      const rawTitle = currentChapter.title || `Chapter ${activeChapterIdx + 1}`;
-
-      const normalizedTheme = theme === 'dark' ? 'oled' : (theme === 'paper' ? 'sepia' : (theme || 'oled'));
-
-      const themeConfig = {
-        oled: { hexBg: '#000000', hexText: '#FFFFFF', hexBarBg: '#121215', hexBorder: '#2E2E38', accent: '#14B8A6', name: 'OLED Black' },
-        sepia: { hexBg: '#FBF0D9', hexText: '#2D1F10', hexBarBg: '#EFE0BE', hexBorder: '#DFC898', accent: '#B45309', name: 'Warm Paper' },
-        slate: { hexBg: '#0B0F19', hexText: '#F1F5F9', hexBarBg: '#131B2E', hexBorder: '#23304B', accent: '#6366F1', name: 'Midnight' },
-        light: { hexBg: '#FFFFFF', hexText: '#0F172A', hexBarBg: '#F1F5F9', hexBorder: '#CBD5E1', accent: '#4F46E5', name: 'Clean White' }
-      };
-      const activeTheme = themeConfig[normalizedTheme] || themeConfig.oled;
-
-      const fontFamilies = {
-        serif: 'Georgia, Cambria, "Times New Roman", serif',
-        sans: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        mono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
-      };
-
-      const marginPaddings = {
-        tight: 'max-w-5xl px-4 sm:px-8',
-        normal: 'max-w-4xl px-6 sm:px-12',
-        wide: 'max-w-3xl px-8 sm:px-16'
-      };
-
-      const highlightColors = {
-        amber: { sentenceStyle: { backgroundColor: 'rgba(251, 191, 36, 0.35)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#FBBF24', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
-        cyan: { sentenceStyle: { backgroundColor: 'rgba(34, 211, 238, 0.35)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#22D3EE', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
-        emerald: { sentenceStyle: { backgroundColor: 'rgba(52, 211, 153, 0.35)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#34D399', color: '#000000', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
-        purple: { sentenceStyle: { backgroundColor: 'rgba(192, 132, 252, 0.35)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#C084FC', color: '#FFFFFF', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } },
-        rose: { sentenceStyle: { backgroundColor: 'rgba(251, 113, 133, 0.35)', borderRadius: '4px', padding: '2px 4px' }, wordStyle: { backgroundColor: '#FB7185', color: '#FFFFFF', fontWeight: 'bold', borderRadius: '3px', padding: '0 2px' } }
-      };
-      const activeHighlight = highlightColors[ttsHighlightColor] || highlightColors.amber;
-
-      // Tokenize paragraphs into sentences for TTS
-      useEffect(() => {
-        const content = currentChapter.content || currentChapter.text || text || '';
-        if (!content) return;
-        const paragraphs = content.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
-        const sentenceList = [];
-        paragraphs.forEach((p, pIdx) => {
-          const matched = p.match(/[^.!?。！？]+[.!?。！？]*/g) || [p];
-          matched.forEach((s, sIdx) => {
-            const trimmed = s.trim();
-            if (trimmed) {
-              sentenceList.push({ text: trimmed, paragraphIdx: pIdx, sentenceIdx: sIdx, fullId: `s-${activeChapterIdx}-${pIdx}-${sIdx}` });
-            }
-          });
+      // Clean Paragraphs & Illustrations
+      const currentChapter = safeChapters[activeIdx] || safeChapters[0];
+      const parsedParagraphs = useMemo(() => {
+        const rawText = currentChapter?.text || '';
+        const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        return lines.map((line, pIdx) => {
+          const imgMatch = line.match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
+          if (imgMatch) {
+            return { isImage: true, alt: imgMatch[1] || 'Illustration', url: imgMatch[2], pIdx };
+          }
+          return { isImage: false, text: line, pIdx };
         });
-        setTtsSentences(sentenceList);
-      }, [currentChapter, activeChapterIdx, text]);
+      }, [currentChapter]);
 
-      // ── VIRTUAL WINDOWING (Renders active - 1, active, active + 1 for ZERO LAG) ──
-      const windowStart = Math.max(0, activeChapterIdx - 1);
-      const windowEnd = Math.min(safeChapters.length - 1, activeChapterIdx + 1);
-      const visibleChapters = safeChapters.slice(windowStart, windowEnd + 1).map((ch, relIdx) => ({
-        ...ch,
-        realIdx: windowStart + relIdx
-      }));
-
-      // Scroll Progress & Auto Next-Chapter Threshold
-      const handleScroll = (e) => {
-        const el = e.currentTarget;
-        const total = el.scrollHeight - el.clientHeight;
-        if (total > 0) {
-          const pct = Math.min(100, Math.max(0, Math.round((el.scrollTop / total) * 100)));
-          setScrollPercent(pct);
-        }
-      };
-
-      const scrollToChapter = (idx) => {
-        const target = Math.max(0, Math.min(idx, safeChapters.length - 1));
-        setActiveChapterIdx(target);
-        onChapterChange?.(target);
-        stopTTS();
-        if (contentContainerRef.current) {
-          contentContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        window.NativeBridge?.haptic?.('selection');
-      };
-
-      // TTS Controller
-      const startTTS = (startSentenceIdx = 0) => {
-        if (ttsSentences.length === 0) return;
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
-        window.NativeBridge?.stopNativeSpeech?.();
-        window.NativeBridge?.acquireWakeLock?.();
-
-        setIsTtsActive(true);
-        setIsTtsPlaying(true);
-        let sIdx = Math.max(0, Math.min(startSentenceIdx, ttsSentences.length - 1));
-
-        const speakNext = (idx) => {
-          if (idx >= ttsSentences.length) {
-            if (activeChapterIdx < safeChapters.length - 1) {
-              scrollToChapter(activeChapterIdx + 1);
-              setTimeout(() => startTTS(0), 600);
-            } else {
-              setIsTtsActive(false);
-              setIsTtsPlaying(false);
-              window.NativeBridge?.releaseWakeLock?.();
+      // Build Sentence Tokens for TTS
+      useEffect(() => {
+        const textOnly = parsedParagraphs
+          .filter(p => !p.isImage)
+          .map(p => p.text)
+          .join('\n');
+        
+        const rawSentences = textOnly
+          .split(/([。！？!?\n]+)/)
+          .reduce((acc, cur, i, arr) => {
+            if (i % 2 === 0 && cur.trim()) {
+              const punct = arr[i + 1] || '';
+              acc.push((cur + punct).trim());
             }
+            return acc;
+          }, [])
+          .filter(s => s.length > 1 && !s.startsWith('![Illustration]'));
+
+        sentencesRef.current = rawSentences.length > 0 ? rawSentences : [currentChapter?.title || ''];
+      }, [parsedParagraphs, currentChapter]);
+
+      // Non-intrusive auto scroll to active reading sentence
+      const scrollToSentence = (idx) => {
+        if (!containerRef.current) return;
+        const el = containerRef.current.querySelector(`[data-sentence-idx="${idx}"]`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const containerRect = containerRef.current.getBoundingClientRect();
+          if (rect.top < containerRect.top + 80 || rect.bottom > containerRect.bottom - 120) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      };
+
+      // TTS Engine Play Controller with Android GC Pinning
+      const speakSentence = (idx) => {
+        if (typeof window === 'undefined' || !window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+
+        const sList = sentencesRef.current;
+        if (idx < 0 || idx >= sList.length) {
+          if (activeIdxRef.current < safeChapters.length - 1) {
+            const nextCh = activeIdxRef.current + 1;
+            setActiveIdx(nextCh);
+            onChapterChange?.(nextCh);
+            sentenceIdxRef.current = 0;
+            setActiveSentenceIdx(0);
+            setTimeout(() => speakSentence(0), 400);
+            return;
+          } else {
+            setTtsPlaying(false);
+            setTtsPaused(false);
+            setActiveSentenceIdx(-1);
             return;
           }
+        }
 
-          setCurrentSentenceIdx(idx);
-          const sentenceObj = ttsSentences[idx];
+        sentenceIdxRef.current = idx;
+        setActiveSentenceIdx(idx);
+        scrollToSentence(idx);
 
-          if (window.NativeBridge?.speakNative) {
-            window.NativeBridge.speakNative(sentenceObj.text, ttsSpeed);
-          }
+        const sentenceText = sList[idx];
+        const utter = new SpeechSynthesisUtterance(sentenceText);
+        utter.rate = ttsSpeed;
 
-          if (window.speechSynthesis) {
-            const utter = new SpeechSynthesisUtterance(sentenceObj.text);
-            utter.rate = ttsSpeed;
-            utter.pitch = ttsPitch;
+        if (selectedVoice && ttsVoices.length > 0) {
+          const vObj = ttsVoices.find(v => v.name === selectedVoice);
+          if (vObj) utter.voice = vObj;
+        }
 
-            const voices = window.speechSynthesis.getVoices();
-            const targetVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium'))) ||
-                               voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || voices[0];
-            if (targetVoice) utter.voice = targetVoice;
-
-            utter.onboundary = (event) => {
-              if (event.name === 'word') {
-                setCurrentWordRange({ start: event.charIndex, length: event.charLength || 5 });
-              }
-            };
-
-            utter.onend = () => speakNext(idx + 1);
-            utter.onerror = () => speakNext(idx + 1);
-
-            utteranceRef.current = utter;
-            window.speechSynthesis.speak(utter);
-          } else {
-            const duration = Math.max(1500, (sentenceObj.text.length / 15) * 1000 / ttsSpeed);
-            setTimeout(() => {
-              if (isTtsActive) speakNext(idx + 1);
-            }, duration);
-          }
-
-          const sentenceEl = document.getElementById(sentenceObj.fullId);
-          if (sentenceEl) {
-            sentenceEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        utter.onend = () => {
+          if (sentenceIdxRef.current === idx) {
+            speakSentence(idx + 1);
           }
         };
 
-        speakNext(sIdx);
+        utter.onerror = (e) => {
+          if (e.error !== 'canceled') {
+            console.warn('TTS Speech Error:', e);
+            speakSentence(idx + 1);
+          }
+        };
+
+        // Pin to global window to prevent Android Chromium garbage collection
+        window.__activeTtsUtterance = utter;
+        activeUtteranceRef.current = utter;
+
+        window.speechSynthesis.speak(utter);
+        setTtsPlaying(true);
+        setTtsPaused(false);
       };
 
-      const pauseTTS = () => {
-        if (isTtsPlaying) {
-          if (window.speechSynthesis) window.speechSynthesis.pause();
-          window.NativeBridge?.stopNativeSpeech?.();
-          setIsTtsPlaying(false);
+      const handlePlayPause = () => {
+        if (typeof window === 'undefined' || !window.speechSynthesis) return;
+        if (ttsPlaying && !ttsPaused) {
+          window.speechSynthesis.pause();
+          setTtsPaused(true);
+        } else if (ttsPaused) {
+          window.speechSynthesis.resume();
+          setTtsPaused(false);
         } else {
-          if (window.speechSynthesis) window.speechSynthesis.resume();
-          else startTTS(currentSentenceIdx >= 0 ? currentSentenceIdx : 0);
-          setIsTtsPlaying(true);
+          setShowTtsBar(true);
+          const startIdx = activeSentenceIdx >= 0 ? activeSentenceIdx : 0;
+          speakSentence(startIdx);
         }
       };
 
-      const stopTTS = () => {
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
-        window.NativeBridge?.stopNativeSpeech?.();
-        window.NativeBridge?.releaseWakeLock?.();
-        setIsTtsActive(false);
-        setIsTtsPlaying(false);
-        setCurrentSentenceIdx(-1);
-        setCurrentWordRange(null);
+      const handleStopTts = () => {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+        window.__activeTtsUtterance = null;
+        setTtsPlaying(false);
+        setTtsPaused(false);
+        setActiveSentenceIdx(-1);
       };
+
+      const handlePrevSentence = () => {
+        const prev = Math.max(0, sentenceIdxRef.current - 1);
+        speakSentence(prev);
+      };
+
+      const handleNextSentence = () => {
+        const next = sentenceIdxRef.current + 1;
+        speakSentence(next);
+      };
+
+      // Cleanup TTS on Modal Close
+      useEffect(() => {
+        return () => {
+          if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+          }
+          window.__activeTtsUtterance = null;
+        };
+      }, []);
+
+      const themeClasses = {
+        light: 'bg-white text-slate-900',
+        sepia: 'bg-[#fbf0d9] text-[#5f4b32]',
+        dark: 'bg-[#121212] text-[#e0e0e0]',
+        black: 'bg-black text-[#888888]'
+      }[theme || 'dark'] || 'bg-[#121212] text-[#e0e0e0]';
+
+      const fontClasses = {
+        sans: 'font-sans',
+        serif: 'font-serif',
+        mono: 'font-mono'
+      }[font || 'serif'] || 'font-serif';
 
       return h('div', {
-        style: {
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          zIndex: 99999,
-          backgroundColor: activeTheme.hexBg,
-          color: activeTheme.hexText,
-          fontFamily: fontFamilies[font] || fontFamilies.serif,
-          overflow: 'hidden'
-        }
+        className: 'fixed inset-0 z-50 flex flex-col bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200 select-none'
       },
-        // ── TOP HEADER (CRISP & HIGH-CONTRAST) ──
-        h('header', {
-          style: {
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            width: '100%',
-            height: '60px',
-            zIndex: 50,
-            backgroundColor: activeTheme.hexBarBg,
-            borderBottom: `1px solid ${activeTheme.hexBorder}`,
-            color: activeTheme.hexText,
-            transform: showOverlay ? 'translateY(0)' : 'translateY(-100%)',
-            transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
-          },
-          className: 'px-3 sm:px-4 py-2 flex items-center justify-between shadow-2xl backdrop-blur-xl'
-        },
-          // Left: Back Button
-          h('button', {
-            onClick: (e) => {
-              e.stopPropagation();
-              stopTTS();
-              onClose();
-              window.NativeBridge?.haptic?.('selection');
-            },
-            style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
-            className: 'px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 transition-all font-bold text-xs flex items-center gap-1.5 cursor-pointer border'
-          },
-            ic(ArrowLeft, 16),
-            h('span', null, 'Back')
+        // Top Header Action Bar
+        h('div', { className: 'flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 text-white shrink-0 z-10 shadow-md' },
+          h('div', { className: 'flex items-center gap-2 overflow-hidden mr-2' },
+            btn({
+              onClick: () => setShowToc(!showToc),
+              className: 'p-2 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0',
+              title: 'Table of Contents'
+            }, ic(List, 20)),
+            h('div', { className: 'truncate' },
+              h('h3', { className: 'text-sm font-bold truncate text-slate-100' }, currentChapter?.title || 'Chapter'),
+              h('span', { className: 'text-[11px] text-slate-400 font-mono' }, `${activeIdx + 1} / ${safeChapters.length}`)
+            )
           ),
-
-          // Center: Title (Tap to open Table of Contents)
-          h('div', {
-            className: 'flex-1 min-w-0 px-2 text-center cursor-pointer active:scale-95 transition-transform',
-            onClick: (e) => {
-              e.stopPropagation();
-              setShowTocDrawer(true);
-            }
-          },
-            h('p', { className: 'text-xs sm:text-sm font-extrabold truncate' }, rawTitle),
-            h('p', { className: 'text-[11px] opacity-70 font-mono text-teal-400 font-semibold' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length} (Tap for TOC)`)
-          ),
-
-          // Right: Action Buttons (TTS + Display + Close)
           h('div', { className: 'flex items-center gap-1.5 shrink-0' },
-            // TTS Action Pill Button
-            h('button', {
-              onClick: (e) => {
-                e.stopPropagation();
-                if (isTtsActive) {
-                  pauseTTS();
-                } else {
-                  startTTS(0);
-                }
-                window.NativeBridge?.haptic?.('selection');
+            // TTS Dock Toggle Button
+            btn({
+              onClick: () => {
+                setShowTtsBar(!showTtsBar);
+                if (!ttsPlaying && !showTtsBar) handlePlayPause();
               },
-              className: `px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-90 cursor-pointer flex items-center gap-1 border ${
-                isTtsActive ? 'bg-teal-500 text-white border-teal-400 shadow-md shadow-teal-500/30' : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
-              }`,
-              title: isTtsActive ? (isTtsPlaying ? 'Pause TTS' : 'Resume TTS') : 'Start TTS'
-            },
-              ic(isTtsPlaying ? Pause : Volume2, 16),
-              h('span', { className: 'hidden sm:inline' }, isTtsActive ? (isTtsPlaying ? 'Pause' : 'Resume') : 'TTS')
-            ),
+              className: `p-2 rounded-xl border transition-all cursor-pointer ${ttsPlaying ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-500/20' : 'bg-slate-800/80 text-slate-300 hover:text-white border-slate-700'}`,
+              title: 'Audio Read Aloud (Pro TTS)'
+            }, ic(Volume2, 18)),
 
-            // Display / Font Options
-            h('button', {
-              onClick: (e) => {
-                e.stopPropagation();
-                setShowVisualSheet(prev => !prev);
-                setShowTtsSheet(false);
-                window.NativeBridge?.haptic?.('selection');
-              },
-              style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
-              className: `p-2 rounded-xl border transition-all active:scale-90 cursor-pointer ${showVisualSheet ? 'bg-teal-500 text-white border-teal-400' : 'bg-white/10 hover:bg-white/20'}`,
-              title: 'Visual Options & Typography'
-            }, ic(Type, 17)),
+            // Reader Settings
+            btn({
+              onClick: () => setShowSettings(!showSettings),
+              className: 'p-2 bg-slate-800/80 hover:bg-slate-800 rounded-xl border border-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer',
+              title: 'Appearance Settings'
+            }, ic(Sliders, 18)),
 
             // Close
-            h('button', {
-              onClick: (e) => {
-                e.stopPropagation();
-                stopTTS();
+            btn({
+              onClick: () => {
+                handleStopTts();
                 onClose();
               },
-              style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
-              className: 'p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 transition-all cursor-pointer border',
+              className: 'p-2 bg-slate-800/80 hover:bg-rose-900/40 hover:text-rose-400 rounded-xl border border-slate-700 text-slate-300 transition-colors cursor-pointer ml-1',
               title: 'Close Reader'
-            }, ic(X, 17))
+            }, ic(X, 18))
           )
         ),
 
-        // ── READING BODY: VIRTUAL WINDOWED MULTI-CHAPTER SCROLL (0% LAG) ──
-        h('main', {
-          ref: contentContainerRef,
-          onScroll: handleScroll,
-          onClick: () => {
-            if (!window.getSelection()?.toString()) {
-              setShowOverlay(prev => !prev);
-              setShowVisualSheet(false);
-              setShowTtsSheet(false);
-            }
+        // Main Reading Window
+        h('div', { className: 'flex-1 relative flex overflow-hidden' },
+          // Slide-over Table of Contents
+          showToc && h('div', {
+            className: 'absolute inset-y-0 left-0 w-80 max-w-[85vw] bg-slate-900 border-r border-slate-800 z-30 shadow-2xl flex flex-col animate-in slide-in-from-left duration-200'
           },
-          style: {
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            overflowY: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            zIndex: 10,
-            backgroundColor: activeTheme.hexBg,
-            color: activeTheme.hexText,
-            paddingTop: '74px',
-            paddingBottom: '90px'
-          },
-          className: `w-full mx-auto select-text ${marginPaddings[marginWidth] || marginPaddings.normal} transition-colors`
-        },
-          visibleChapters.map((ch) => {
-            const chTitle = ch.title || `Chapter ${ch.realIdx + 1}`;
-            const chContent = ch.content || ch.text || '';
-            const chParagraphs = chContent.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
-            const isCurrentActive = ch.realIdx === activeChapterIdx;
-
-            return h('section', {
-              key: ch.realIdx,
-              className: 'mb-16'
-            },
-              // Chapter Header
-              h('div', { className: 'mb-8 pt-4 pb-4 border-b text-center', style: { borderColor: activeTheme.hexBorder } },
-                h('h1', { className: 'text-xl sm:text-2xl font-extrabold tracking-tight' }, chTitle),
-                h('p', { className: 'text-xs opacity-60 mt-1 font-mono text-teal-400 font-bold' }, `Part ${ch.realIdx + 1} of ${safeChapters.length}`)
-              ),
-
-              // Chapter Paragraphs
-              chParagraphs.length === 0 ? h('p', { className: 'opacity-40 italic text-center py-10' }, 'No text content in this chapter...') :
-                chParagraphs.map((p, pIdx) => {
-                  const sentencesInP = isCurrentActive ? ttsSentences.filter(s => s.paragraphIdx === pIdx) : [];
-
-                  return h('p', {
-                    key: pIdx,
-                    className: 'mb-6 text-left tracking-normal text-justify break-words',
-                    style: {
-                      fontSize: `${fontSize}px`,
-                      lineHeight: `${lineHeight}`
+            h('div', { className: 'p-4 border-b border-slate-800 flex items-center justify-between' },
+              h('h4', { className: 'text-sm font-bold text-slate-200 flex items-center gap-2' }, ic(List, 16), `TOC (${safeChapters.length})`),
+              btn({
+                onClick: () => setShowToc(false),
+                className: 'p-1 text-slate-400 hover:text-white rounded-lg cursor-pointer'
+              }, ic(X, 16))
+            ),
+            h('div', { className: 'flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1' },
+              safeChapters.map((ch, idx) => {
+                const isActive = idx === activeIdx;
+                return h('div', {
+                  key: idx,
+                  onClick: () => {
+                    setActiveIdx(idx);
+                    onChapterChange?.(idx);
+                    setShowToc(false);
+                    if (ttsPlaying) {
+                      setTimeout(() => speakSentence(0), 200);
                     }
                   },
-                    sentencesInP.length > 0 ?
-                      sentencesInP.map((sObj, sIdx) => {
-                        const globalSentenceIdx = ttsSentences.indexOf(sObj);
-                        const isSentenceActive = isTtsActive && isCurrentActive && currentSentenceIdx === globalSentenceIdx;
-
-                        return h('span', {
-                          key: sIdx,
-                          id: sObj.fullId,
-                          onClick: (e) => {
-                            if (isTtsActive) {
-                              e.stopPropagation();
-                              startTTS(globalSentenceIdx);
-                            }
-                          },
-                          style: isSentenceActive ? activeHighlight.sentenceStyle : {},
-                          className: 'transition-colors duration-150 rounded px-0.5'
-                        },
-                          isSentenceActive && currentWordRange ? (() => {
-                            const str = sObj.text;
-                            const wStart = currentWordRange.start || 0;
-                            const wLen = currentWordRange.length || 5;
-                            const before = str.substring(0, wStart);
-                            const word = str.substring(wStart, wStart + wLen);
-                            const after = str.substring(wStart + wLen);
-                            return h(React.Fragment, null,
-                              before,
-                              h('span', { style: activeHighlight.wordStyle }, word),
-                              after,
-                              ' '
-                            );
-                          })() : sObj.text + ' '
-                        );
-                      })
-                    : p
-                  );
-                }),
-
-              // Seamless Next Chapter Transition Trigger
-              isCurrentActive && activeChapterIdx < safeChapters.length - 1 && h('div', {
-                className: 'mt-12 pt-8 pb-6 border-t border-dashed text-center',
-                style: { borderColor: activeTheme.hexBorder }
-              },
-                h('button', {
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    scrollToChapter(activeChapterIdx + 1);
-                  },
-                  style: { backgroundColor: activeTheme.hexBarBg, borderColor: activeTheme.hexBorder, color: activeTheme.hexText },
-                  className: 'px-5 py-2.5 rounded-2xl border text-xs font-bold shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto cursor-pointer'
+                  className: `p-3 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center justify-between ${isActive ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`
                 },
-                  ic(ChevronDown, 16),
-                  h('span', null, `Continue to Part ${activeChapterIdx + 2}: ${(safeChapters[activeChapterIdx + 1]?.title || '').substring(0, 30)}...`),
-                  ic(ArrowRight, 16)
-                )
-              )
-            );
-          })
-        ),
-
-        // ── VISUAL OPTIONS & TYPOGRAPHY SHEET ──
-        showVisualSheet && h('div', {
-          onClick: (e) => e.stopPropagation(),
-          style: {
-            position: 'absolute',
-            bottom: '76px',
-            left: '16px',
-            right: '16px',
-            maxWidth: '520px',
-            margin: '0 auto',
-            zIndex: 60,
-            backgroundColor: activeTheme.hexBarBg,
-            border: `1px solid ${activeTheme.hexBorder}`,
-            color: activeTheme.hexText
-          },
-          className: 'rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200 backdrop-blur-xl'
-        },
-          h('div', { className: 'flex items-center justify-between border-b pb-2', style: { borderColor: activeTheme.hexBorder } },
-            h('span', { className: 'text-xs font-bold uppercase tracking-wider text-inherit' }, 'Visual Options & Typography'),
-            h('button', { onClick: (e) => { e.stopPropagation(); setShowVisualSheet(false); }, className: 'p-1 hover:bg-white/10 rounded-lg cursor-pointer active:scale-90' }, ic(X, 15))
-          ),
-          // Font Size
-          h('div', { className: 'space-y-1.5' },
-            h('div', { className: 'flex justify-between text-xs font-semibold opacity-80' },
-              h('span', null, 'Font Size'),
-              h('span', { className: 'font-mono text-teal-400 font-bold' }, `${fontSize}px`)
-            ),
-            h('div', { className: 'flex items-center gap-3' },
-              h('button', {
-                onClick: (e) => { e.stopPropagation(); const n = Math.max(12, fontSize - 1); setFontSize(n); localStorage.setItem('readerFontSize', n); },
-                className: 'px-2.5 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs cursor-pointer active:scale-90',
-                style: { borderColor: activeTheme.hexBorder }
-              }, 'A-'),
-              h('input', {
-                type: 'range',
-                min: 12,
-                max: 38,
-                value: fontSize,
-                onChange: (e) => { const n = parseInt(e.target.value); setFontSize(n); localStorage.setItem('readerFontSize', n); },
-                className: 'flex-1 accent-teal-500 cursor-pointer'
-              }),
-              h('button', {
-                onClick: (e) => { e.stopPropagation(); const n = Math.min(38, fontSize + 1); setFontSize(n); localStorage.setItem('readerFontSize', n); },
-                className: 'px-2.5 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs cursor-pointer active:scale-90',
-                style: { borderColor: activeTheme.hexBorder }
-              }, 'A+')
-            )
-          ),
-          // Font Family
-          h('div', { className: 'space-y-1.5' },
-            h('span', { className: 'text-xs font-semibold opacity-80 block' }, 'Font Family'),
-            h('div', { className: 'grid grid-cols-3 gap-2' },
-              [
-                { id: 'serif', label: 'Serif' },
-                { id: 'sans', label: 'Sans' },
-                { id: 'mono', label: 'Mono' }
-              ].map(f => h('button', {
-                key: f.id,
-                onClick: (e) => { e.stopPropagation(); setFont(f.id); localStorage.setItem('readerFont', f.id); },
-                className: `p-2 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer ${font === f.id ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'hover:bg-white/10 opacity-70'}`,
-                style: { borderColor: activeTheme.hexBorder }
-              }, f.label))
-            )
-          ),
-          // Theme Presets
-          h('div', { className: 'space-y-1.5' },
-            h('span', { className: 'text-xs font-semibold opacity-80 block' }, 'Theme Preset'),
-            h('div', { className: 'grid grid-cols-4 gap-2' },
-              [
-                { id: 'oled', label: 'OLED', bg: 'bg-black text-white' },
-                { id: 'sepia', label: 'Paper', bg: 'bg-[#FBF0D9] text-[#433422]' },
-                { id: 'slate', label: 'Midnight', bg: 'bg-[#0B0F19] text-[#E2E8F0]' },
-                { id: 'light', label: 'White', bg: 'bg-white text-black' }
-              ].map(t => h('button', {
-                key: t.id,
-                onClick: (e) => { e.stopPropagation(); setTheme(t.id); localStorage.setItem('readerTheme', t.id); },
-                className: `p-2 rounded-xl text-xs font-bold border ${t.bg} transition-all active:scale-95 cursor-pointer ${normalizedTheme === t.id ? 'ring-2 ring-teal-500 scale-105 shadow-md' : 'opacity-80'}`,
-                style: { borderColor: activeTheme.hexBorder }
-              }, t.label))
-            )
-          )
-        ),
-
-        // ── TABLE OF CONTENTS DRAWER ──
-        showTocDrawer && h('div', {
-          style: {
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 70,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(6px)'
-          },
-          onClick: () => setShowTocDrawer(false)
-        },
-          h('div', {
-            style: {
-              width: '85%',
-              maxWidth: '380px',
-              height: '100%',
-              backgroundColor: activeTheme.hexBg,
-              borderRight: `1px solid ${activeTheme.hexBorder}`,
-              color: activeTheme.hexText
-            },
-            className: 'p-5 flex flex-col shadow-2xl animate-in slide-in-from-left duration-200',
-            onClick: (e) => e.stopPropagation()
-          },
-            h('div', { className: 'flex items-center justify-between border-b pb-3', style: { borderColor: activeTheme.hexBorder } },
-              h('div', null,
-                h('h3', { className: 'text-sm font-bold truncate' }, 'Table of Contents'),
-                h('p', { className: 'text-[11px] opacity-60 font-mono text-teal-400' }, `${safeChapters.length} chapters available`)
-              ),
-              h('button', { onClick: () => setShowTocDrawer(false), className: 'p-1 hover:bg-white/10 rounded-lg cursor-pointer active:scale-90' }, ic(X, 18))
-            ),
-            h('div', { className: 'flex-1 overflow-y-auto py-3 space-y-1.5' },
-              safeChapters.map((ch, idx) => {
-                const words = (ch.content || ch.text || '').split(/\s+/).filter(Boolean).length;
-                return h('button', {
-                  key: idx,
-                  onClick: () => { scrollToChapter(idx); setShowTocDrawer(false); },
-                  className: `w-full text-left p-3 rounded-2xl text-xs font-semibold transition-all flex items-center justify-between gap-2 active:scale-95 cursor-pointer ${activeChapterIdx === idx ? 'bg-teal-500 text-white shadow-md' : 'hover:bg-white/5 opacity-80'}`
-                },
-                  h('span', { className: 'truncate flex-1' }, `${idx + 1}. ${ch.title || `Chapter ${idx + 1}`}`),
-                  h('span', { className: 'text-[10px] opacity-60 font-mono shrink-0' }, `~${words.toLocaleString()} words`)
+                  h('span', { className: 'truncate flex-1 pr-2' }, ch.title || `Chapter ${idx + 1}`),
+                  h('span', { className: `text-[10px] font-mono shrink-0 ${isActive ? 'text-indigo-200' : 'text-slate-500'}` }, `#${idx + 1}`)
                 );
               })
             )
+          ),
+
+          // Scrollable Chapter Content
+          h('div', {
+            ref: containerRef,
+            className: `flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-12 md:px-24 py-8 ${themeClasses} ${fontClasses} transition-colors select-text`,
+            style: { fontSize: `${fontSize || 18}px` }
+          },
+            h('div', { className: 'max-w-3xl mx-auto space-y-6 pb-24' },
+              h('h1', { className: 'text-2xl sm:text-3xl font-extrabold text-center mb-8 tracking-tight border-b pb-4 opacity-90' }, currentChapter?.title || 'Chapter'),
+              
+              parsedParagraphs.map((item, pIdx) => {
+                if (item.isImage) {
+                  return h('div', { key: pIdx, className: 'my-6 flex flex-col items-center justify-center' },
+                    h('img', {
+                      src: item.url,
+                      alt: item.alt,
+                      loading: 'lazy',
+                      className: 'max-w-full max-h-[75vh] object-contain rounded-2xl shadow-xl border border-slate-500/20 hover:scale-[1.01] transition-all'
+                    }),
+                    item.alt && item.alt !== 'Illustration' && h('span', { className: 'text-xs text-slate-400 mt-2 italic font-sans' }, item.alt)
+                  );
+                }
+
+                const isSpeaking = activeSentenceIdx >= 0 && sentencesRef.current[activeSentenceIdx] && item.text.includes(sentencesRef.current[activeSentenceIdx].substring(0, 15));
+
+                return h('p', {
+                  key: pIdx,
+                  'data-sentence-idx': pIdx,
+                  onClick: () => {
+                    const matchIdx = sentencesRef.current.findIndex(s => item.text.includes(s.substring(0, 15)));
+                    if (matchIdx !== -1) {
+                      setShowTtsBar(true);
+                      speakSentence(matchIdx);
+                    }
+                  },
+                  className: `leading-relaxed cursor-pointer transition-all rounded-lg p-1.5 ${isSpeaking ? 'bg-indigo-500/25 ring-2 ring-indigo-500/50 text-indigo-200' : 'hover:bg-slate-500/10'}`
+                }, item.text);
+              }),
+
+              // Next / Prev Chapter Navigation Footer
+              h('div', { className: 'flex items-center justify-between gap-4 pt-10 mt-10 border-t border-slate-700/50' },
+                btn({
+                  disabled: activeIdx === 0,
+                  onClick: () => {
+                    const prev = Math.max(0, activeIdx - 1);
+                    setActiveIdx(prev);
+                    onChapterChange?.(prev);
+                    if (ttsPlaying) setTimeout(() => speakSentence(0), 200);
+                  },
+                  className: 'px-5 py-3 bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm font-bold rounded-xl disabled:opacity-30 transition-all flex items-center gap-2 cursor-pointer'
+                }, ic(ArrowLeft, 16), 'Previous Chapter'),
+
+                btn({
+                  disabled: activeIdx >= safeChapters.length - 1,
+                  onClick: () => {
+                    const next = Math.min(safeChapters.length - 1, activeIdx + 1);
+                    setActiveIdx(next);
+                    onChapterChange?.(next);
+                    if (ttsPlaying) setTimeout(() => speakSentence(0), 200);
+                  },
+                  className: 'px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold rounded-xl disabled:opacity-30 shadow-md shadow-indigo-500/20 transition-all flex items-center gap-2 cursor-pointer'
+                }, 'Next Chapter', ic(ArrowRight, 16))
+              )
+            )
           )
         ),
 
-        // ── CRISP HIGH-CONTRAST FLOATING BOTTOM TOOLBAR ──
-        h('footer', {
-          onClick: (e) => e.stopPropagation(),
-          style: {
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            width: '100%',
-            height: '64px',
-            zIndex: 50,
-            backgroundColor: activeTheme.hexBarBg,
-            borderTop: `1px solid ${activeTheme.hexBorder}`,
-            color: activeTheme.hexText,
-            transform: showOverlay ? 'translateY(0)' : 'translateY(100%)',
-            transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
-          },
-          className: 'px-3 sm:px-6 py-2 flex items-center justify-between gap-2 shadow-2xl backdrop-blur-xl'
+        // Floating Pro TTS Player Dock Bar
+        showTtsBar && h('div', {
+          className: 'bg-slate-900/95 border-t border-slate-800 px-4 py-3 text-white flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xl z-20 animate-in slide-in-from-bottom duration-200'
         },
-          // 1. Prev Chapter Button
-          h('button', {
-            disabled: activeChapterIdx <= 0,
-            onClick: (e) => { e.stopPropagation(); scrollToChapter(activeChapterIdx - 1); },
-            style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
-            className: 'px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all active:scale-90 cursor-pointer border flex items-center gap-1 text-xs font-bold',
-            title: 'Previous Chapter'
-          }, ic(SkipBack, 16), h('span', { className: 'hidden sm:inline' }, 'Prev')),
+          h('div', { className: 'flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start' },
+            h('div', { className: 'flex items-center gap-1.5' },
+              btn({
+                onClick: handlePrevSentence,
+                className: 'p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer',
+                title: 'Previous Sentence'
+              }, ic(SkipBack, 16)),
 
-          // 2. TTS Narration Play/Pause Button
-          h('button', {
-            onClick: (e) => {
-              e.stopPropagation();
-              if (isTtsActive) pauseTTS();
-              else startTTS(0);
-              window.NativeBridge?.haptic?.('selection');
-            },
-            className: `px-4 py-2 rounded-xl font-extrabold text-xs transition-all active:scale-90 cursor-pointer flex items-center gap-1.5 shadow-lg ${
-              isTtsActive ? 'bg-teal-500 text-white shadow-teal-500/30 ring-2 ring-teal-400' : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
-            }`,
-            title: isTtsActive ? (isTtsPlaying ? 'Pause TTS' : 'Resume TTS') : 'Play TTS Narration'
-          },
-            ic(isTtsPlaying ? Pause : Play, 16),
-            h('span', null, isTtsActive ? (isTtsPlaying ? 'Pause' : 'Resume') : 'Narrate')
+              btn({
+                onClick: handlePlayPause,
+                className: 'p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-md shadow-indigo-500/20 transition-all cursor-pointer',
+                title: ttsPlaying && !ttsPaused ? 'Pause' : 'Play'
+              }, ttsPlaying && !ttsPaused ? ic(Pause, 18) : ic(Play, 18)),
+
+              btn({
+                onClick: handleNextSentence,
+                className: 'p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer',
+                title: 'Next Sentence'
+              }, ic(SkipForward, 16)),
+
+              btn({
+                onClick: handleStopTts,
+                className: 'p-2 bg-slate-800 hover:bg-rose-900/50 hover:text-rose-400 rounded-xl text-slate-400 transition-colors cursor-pointer ml-1',
+                title: 'Stop Reading'
+              }, ic(Square, 16))
+            ),
+
+            h('div', { className: 'text-xs text-slate-400 font-mono pl-2' },
+              activeSentenceIdx >= 0
+                ? `Sentence ${activeSentenceIdx + 1} / ${sentencesRef.current.length}`
+                : 'Tap text or play'
+            )
           ),
 
-          // 3. Table of Contents Button
-          h('button', {
-            onClick: (e) => { e.stopPropagation(); setShowTocDrawer(true); window.NativeBridge?.haptic?.('selection'); },
-            style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
-            className: 'px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-90 cursor-pointer border flex items-center gap-1 text-xs font-bold',
-            title: 'Table of Contents'
-          }, ic(List, 16), h('span', { className: 'hidden sm:inline' }, 'TOC')),
+          // Speed & Voice Selector
+          h('div', { className: 'flex items-center gap-3 w-full sm:w-auto justify-end' },
+            // Speed Slider
+            h('div', { className: 'flex items-center gap-2' },
+              h('span', { className: 'text-[11px] font-bold text-slate-400 font-mono' }, `${ttsSpeed.toFixed(1)}x`),
+              h('input', {
+                type: 'range',
+                min: '0.5',
+                max: '3.0',
+                step: '0.1',
+                value: ttsSpeed,
+                onChange: (e) => {
+                  const spd = parseFloat(e.target.value);
+                  setTtsSpeed(spd);
+                  if (ttsPlaying) speakSentence(sentenceIdxRef.current);
+                },
+                className: 'w-20 sm:w-24 accent-indigo-500 cursor-pointer'
+              })
+            ),
 
-          // 4. Visual / Font Settings Button
-          h('button', {
-            onClick: (e) => { e.stopPropagation(); setShowVisualSheet(prev => !prev); setShowTtsSheet(false); window.NativeBridge?.haptic?.('selection'); },
-            style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
-            className: `px-3 py-2 rounded-xl border transition-all active:scale-90 cursor-pointer flex items-center gap-1 text-xs font-bold ${
-              showVisualSheet ? 'bg-teal-500 text-white border-teal-400' : 'bg-white/10 hover:bg-white/20'
-            }`,
-            title: 'Font & Display Settings'
-          }, ic(Type, 16), h('span', { className: 'hidden sm:inline' }, 'Font')),
-
-          // 5. Next Chapter Button
-          h('button', {
-            disabled: activeChapterIdx >= safeChapters.length - 1,
-            onClick: (e) => { e.stopPropagation(); scrollToChapter(activeChapterIdx + 1); },
-            style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
-            className: 'px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all active:scale-90 cursor-pointer border flex items-center gap-1 text-xs font-bold',
-            title: 'Next Chapter'
-          }, h('span', { className: 'hidden sm:inline' }, 'Next'), ic(SkipForward, 16))
+            // Voice Selector Dropdown
+            ttsVoices.length > 0 && h('select', {
+              value: selectedVoice,
+              onChange: (e) => {
+                setSelectedVoice(e.target.value);
+                if (ttsPlaying) speakSentence(sentenceIdxRef.current);
+              },
+              className: 'px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs font-semibold text-slate-200 max-w-[140px] truncate focus:outline-none'
+            },
+              ttsVoices.map(v => h('option', { key: v.name, value: v.name }, `${v.name} (${v.lang})`))
+            )
+          )
         ),
 
-        // ── MICRO BOTTOM STATUS BAR (When overlay is hidden) ──
-        !showOverlay && h('div', {
-          style: {
-            position: 'absolute',
-            bottom: '6px',
-            left: '16px',
-            right: '16px',
-            zIndex: 40,
-            pointerEvents: 'none'
-          },
-          className: 'flex items-center justify-between text-[11px] font-mono opacity-50 bg-black/40 px-3 py-1 rounded-full backdrop-blur-md text-white'
+        // Settings Drawer Modal
+        showSettings && h('div', {
+          className: 'bg-slate-900 border-t border-slate-800 p-4 text-white flex flex-wrap items-center justify-between gap-4 z-20 animate-in slide-in-from-bottom duration-150'
         },
-          h('span', { className: 'truncate max-w-[65%]' }, `${rawTitle} (${activeChapterIdx + 1}/${safeChapters.length})`),
-          h('span', null, `${scrollPercent}%`)
+          // Theme Picker
+          h('div', { className: 'flex items-center gap-2' },
+            h('span', { className: 'text-xs font-bold text-slate-400 uppercase tracking-wider' }, 'Theme:'),
+            ['dark', 'black', 'sepia', 'light'].map(t => btn({
+              key: t,
+              onClick: () => setTheme?.(t),
+              className: `px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${(theme || 'dark') === t ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`
+            }, t))
+          ),
+
+          // Font Picker
+          h('div', { className: 'flex items-center gap-2' },
+            h('span', { className: 'text-xs font-bold text-slate-400 uppercase tracking-wider' }, 'Font:'),
+            ['serif', 'sans', 'mono'].map(f => btn({
+              key: f,
+              onClick: () => setFont?.(f),
+              className: `px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${(font || 'serif') === f ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`
+            }, f))
+          ),
+
+          // Font Size
+          h('div', { className: 'flex items-center gap-2' },
+            h('span', { className: 'text-xs font-bold text-slate-400 uppercase tracking-wider' }, 'Size:'),
+            btn({
+              onClick: () => setFontSize?.(Math.max(12, (fontSize || 18) - 2)),
+              className: 'p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg cursor-pointer'
+            }, ic(Minus, 14)),
+            h('span', { className: 'text-xs font-mono font-bold text-slate-200 w-6 text-center' }, fontSize || 18),
+            btn({
+              onClick: () => setFontSize?.(Math.min(36, (fontSize || 18) + 2)),
+              className: 'p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg cursor-pointer'
+            }, ic(Plus, 14))
+          )
         )
       );
     };
@@ -9822,100 +9786,6 @@ FORMATTING & STRUCTURE RULES:
               h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200/80 dark:border-purple-800/60' }, '🔮 Tumblr (Posts & Fics)'),
               h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/60' }, '📖 Syosetu (小説家になろう)'),
               h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60' }, '⚡ Zero CORS Blocks')
-            )
-          ),
-
-                    // 📚 NOVEL LIBRARY & RECENT IMPORTS HISTORY SECTION
-          webImportHistory.length > 0 && h('div', { className: 'p-5 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4' },
-            h('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3' },
-              h('div', { className: 'flex items-center gap-2' },
-                h('div', { className: 'w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center' }, ic(BookOpen, 16)),
-                h('div', null,
-                  h('h3', { className: 'text-sm font-bold text-slate-900 dark:text-slate-100' }, `📚 My Novel Library & History (${webImportHistory.length})`),
-                  h('p', { className: 'text-[11px] text-slate-500 dark:text-slate-400' }, 'Saved web novels & EPUBs ready to load, read, or export instantly without re-fetching')
-                )
-              ),
-              h('div', { className: 'flex items-center gap-2' },
-                webImportHistory.length > 3 && h('input', {
-                  type: 'text',
-                  placeholder: 'Filter library...',
-                  value: historySearchQuery,
-                  onChange: e => setHistorySearchQuery(e.target.value),
-                  className: 'px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200'
-                }),
-                btn({
-                  onClick: clearAllNovelHistory,
-                  className: 'px-2.5 py-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 rounded-lg text-[11px] font-bold cursor-pointer transition-all'
-                }, ic(Trash2, 12), 'Clear All')
-              )
-            ),
-            h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1' },
-              webImportHistory
-                .filter(item => !historySearchQuery || (item.title || '').toLowerCase().includes(historySearchQuery.toLowerCase()) || (item.author || '').toLowerCase().includes(historySearchQuery.toLowerCase()))
-                .map(item => {
-                  return h('div', {
-                    key: item.id,
-                    className: 'p-3.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between gap-3 group hover:border-indigo-500/40 transition-all'
-                  },
-                    h('div', null,
-                      h('div', { className: 'flex items-start justify-between gap-2' },
-                        h('h4', { className: 'text-xs font-bold text-slate-900 dark:text-slate-100 line-clamp-1' }, item.title),
-                        btn({
-                          onClick: () => deleteNovelFromHistory(item.id),
-                          className: 'p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer transition-colors shrink-0',
-                          title: 'Delete from library'
-                        }, ic(Trash2, 13))
-                      ),
-                      h('p', { className: 'text-[11px] text-slate-500 dark:text-slate-400 mt-0.5' }, `By ${item.author} · ${item.chapterCount} chapters · ~${(item.wordCount || 0).toLocaleString()} words`),
-                      h('div', { className: 'flex flex-wrap items-center gap-1.5 mt-2' },
-                        h('span', { className: 'px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300' }, item.isEpub ? '📁 EPUB' : '🌐 Web Novel'),
-                        h('span', { className: 'text-[10px] text-slate-400 font-mono' }, new Date(item.timestamp).toLocaleDateString())
-                      )
-                    ),
-                    h('div', { className: 'flex items-center gap-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/60' },
-                      // 1. Load into preview
-                      btn({
-                        onClick: () => {
-                          setWebImportData({
-                            title: item.title,
-                            author: item.author,
-                            summary: item.summary,
-                            tags: item.tags,
-                            chapters: item.rawChapters,
-                            isEpub: item.isEpub,
-                            sourceUrl: item.sourceUrl
-                          });
-                          toast(`Loaded "${item.title}" into active workspace!`, 'success');
-                        },
-                        className: 'flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer'
-                      }, ic(Sparkles, 12), '⚡ Load'),
-
-                      // 2. Read in Moon Reader
-                      btn({
-                        onClick: () => {
-                          setChapters(item.rawChapters);
-                          setReaderOpen(true);
-                        },
-                        className: 'px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-teal-400 text-[11px] font-bold rounded-lg border border-teal-500/30 transition-all flex items-center gap-1 cursor-pointer'
-                      }, ic(BookOpen, 12), '📖 Read'),
-
-                      // 3. Download EPUB directly
-                      btn({
-                        onClick: async () => {
-                          try {
-                            toast('📦 Compiling EPUB package...', 'info');
-                            const blob = await generateEpubFromChapters(item.rawChapters, item.title, item.author, 'en');
-                            const safeName = (item.title || 'novel').toLowerCase().replace(/[^a-z0-9_-]/g, '_') + '.epub';
-                            await saveUniversalBlob(blob, safeName, 'application/epub+zip');
-                          } catch (e) {
-                            toast('EPUB export failed: ' + e.message, 'error');
-                          }
-                        },
-                        className: 'px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer'
-                      }, ic(Download, 12), '📥 EPUB')
-                    )
-                  );
-                })
             )
           ),
 

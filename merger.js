@@ -776,10 +776,7 @@ btnExecuteMerge?.addEventListener('click', async () => {
             if (pPercent) pPercent.textContent = metadata.percent.toFixed(0) + '%';
         });
 
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(mergedBlob);
-        a.download = `${cleanTitle}.epub`;
-        a.click();
+        await (window.saveUniversalBlob || saveUniversalBlob)(mergedBlob, `${cleanTitle}.epub`, 'application/epub+zip');
         showToast("✨ Books merged successfully!", "success");
         window.NativeBridge?.releaseWakeLock();
         window.NativeBridge?.clearProgressNotification(true, 'EPUB Merge Complete! ✨', `${cleanTitle}.epub is ready.`);
