@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.7.2';
+    const VERSION = '5.7.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1523,7 +1523,7 @@
     // ═══════════════════════════════════════════════════════════════
     // AI TABLE OF CONTENTS & METADATA POLISHER ENGINE
     // ═══════════════════════════════════════════════════════════════
-                    window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus, customProvider) {
+                        window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus, customProvider) {
       const provider = customProvider || localStorage.getItem('translationProvider') || 'gemini';
       
       let allKeys = [];
@@ -1559,40 +1559,51 @@ Return strictly a JSON object with this exact format:
 }`;
 
       // Diverse Gemini 3 lineup with independent rate limit buckets
-      const preferredModel = localStorage.getItem('geminiModel') || 'gemini-3.7-flash';
+      const preferredModel = localStorage.getItem('geminiModel') || 'gemini-3.5-flash-lite';
       const geminiModels = Array.from(new Set([
         preferredModel,
-        'gemini-3.7-flash',
-        'gemini-3.6-flash',
-        'gemini-3.5-flash',
         'gemini-3.5-flash-lite',
-        'gemini-3.7-pro',
-        'gemini-3.5-pro'
+        'gemini-3.5-flash',
+        'gemini-3.6-flash',
+        'gemini-3.7-flash',
+        'gemini-3.7-pro'
       ])).filter(m => m.startsWith('gemini-3'));
 
       let modelIdx = 0;
       const maxAttempts = 30; // High resilience
-      let backoffDelay = 2500;
+      let backoffDelay = 2000;
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const currentKey = getActiveKey();
         try {
           let rawJson = '';
+          let data = null;
 
           if (provider === 'gemini' || !provider) {
             const currentModel = geminiModels[modelIdx % geminiModels.length];
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${currentKey}`;
-            const res = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: {
-                  temperature: 0.1,
-                  responseMimeType: 'application/json'
-                }
-              })
-            });
+            
+            const ctrl = new AbortController();
+            const timeoutId = setTimeout(() => ctrl.abort(), 14000);
+
+            let res;
+            try {
+              res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: ctrl.signal,
+                body: JSON.stringify({
+                  contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                  generationConfig: {
+                    temperature: 0.1,
+                    responseMimeType: 'application/json',
+                    thinkingConfig: { thinkingBudget: 0 } // Disable reasoning tokens for instant sub-second response
+                  }
+                })
+              });
+            } finally {
+              clearTimeout(timeoutId);
+            }
 
             if (!res.ok) {
               const errTxt = await res.text().catch(() => '');
@@ -1614,7 +1625,6 @@ Return strictly a JSON object with this exact format:
                 const nextModel = geminiModels[modelIdx % geminiModels.length];
                 const keyNum = (keyIndex % allKeys.length) + 1;
                 
-                // Count down backoff visually
                 const waitSec = Math.round(backoffDelay / 1000);
                 for (let s = waitSec; s > 0; s--) {
                   if (typeof onRetryStatus === 'function') {
@@ -1628,18 +1638,26 @@ Return strictly a JSON object with this exact format:
               }
               throw new Error(`Gemini Error ${res.status}: ${errTxt.substring(0, 150)}`);
             }
-            const data = await res.json();
+            data = await res.json();
             rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
           } else if (provider === 'deepseek') {
-            const res = await fetch('https://api.deepseek.com/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentKey}` },
-              body: JSON.stringify({
-                model: 'deepseek-chat',
-                messages: [{ role: 'user', content: prompt }],
-                response_format: { type: 'json_object' }
-              })
-            });
+            const ctrl = new AbortController();
+            const timeoutId = setTimeout(() => ctrl.abort(), 15000);
+            let res;
+            try {
+              res = await fetch('https://api.deepseek.com/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentKey}` },
+                signal: ctrl.signal,
+                body: JSON.stringify({
+                  model: 'deepseek-chat',
+                  messages: [{ role: 'user', content: prompt }],
+                  response_format: { type: 'json_object' }
+                })
+              });
+            } finally {
+              clearTimeout(timeoutId);
+            }
             if (!res.ok) {
               const errTxt = await res.text().catch(() => '');
               if (res.status === 429 || res.status === 503) {
@@ -1649,18 +1667,26 @@ Return strictly a JSON object with this exact format:
               }
               throw new Error(`DeepSeek Error ${res.status}: ${errTxt.substring(0, 150)}`);
             }
-            const data = await res.json();
+            data = await res.json();
             rawJson = data.choices?.[0]?.message?.content || '';
           } else if (provider === 'openai') {
-            const res = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentKey}` },
-              body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [{ role: 'user', content: prompt }],
-                response_format: { type: 'json_object' }
-              })
-            });
+            const ctrl = new AbortController();
+            const timeoutId = setTimeout(() => ctrl.abort(), 15000);
+            let res;
+            try {
+              res = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentKey}` },
+                signal: ctrl.signal,
+                body: JSON.stringify({
+                  model: 'gpt-4o-mini',
+                  messages: [{ role: 'user', content: prompt }],
+                  response_format: { type: 'json_object' }
+                })
+              });
+            } finally {
+              clearTimeout(timeoutId);
+            }
             if (!res.ok) {
               const errTxt = await res.text().catch(() => '');
               if (res.status === 429 || res.status === 503) {
@@ -1670,18 +1696,26 @@ Return strictly a JSON object with this exact format:
               }
               throw new Error(`OpenAI Error ${res.status}: ${errTxt.substring(0, 150)}`);
             }
-            const data = await res.json();
+            data = await res.json();
             rawJson = data.choices?.[0]?.message?.content || '';
           } else if (provider === 'claude') {
-            const res = await fetch('https://api.anthropic.com/v1/messages', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-api-key': currentKey, 'anthropic-version': '2023-06-01', 'dangerously-allow-browser': 'true' },
-              body: JSON.stringify({
-                model: 'claude-3-5-haiku-20241022',
-                max_tokens: 4096,
-                messages: [{ role: 'user', content: prompt }]
-              })
-            });
+            const ctrl = new AbortController();
+            const timeoutId = setTimeout(() => ctrl.abort(), 15000);
+            let res;
+            try {
+              res = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': currentKey, 'anthropic-version': '2023-06-01', 'dangerously-allow-browser': 'true' },
+                signal: ctrl.signal,
+                body: JSON.stringify({
+                  model: 'claude-3-5-haiku-20241022',
+                  max_tokens: 4096,
+                  messages: [{ role: 'user', content: prompt }]
+                })
+              });
+            } finally {
+              clearTimeout(timeoutId);
+            }
             if (!res.ok) {
               const errTxt = await res.text().catch(() => '');
               if (res.status === 429 || res.status === 503) {
@@ -1691,7 +1725,7 @@ Return strictly a JSON object with this exact format:
               }
               throw new Error(`Claude Error ${res.status}: ${errTxt.substring(0, 150)}`);
             }
-            const data = await res.json();
+            data = await res.json();
             rawJson = data.content?.[0]?.text || '';
           }
 
@@ -1721,12 +1755,15 @@ Return strictly a JSON object with this exact format:
             }
           };
         } catch (err) {
-          const isTransient = (err.message || '').includes('429') || (err.message || '').includes('503') || (err.message || '').includes('quota') || (err.message || '').includes('demand') || (err.message || '').includes('404');
+          const isTimeout = err.name === 'AbortError';
+          const isTransient = isTimeout || (err.message || '').includes('429') || (err.message || '').includes('503') || (err.message || '').includes('quota') || (err.message || '').includes('demand') || (err.message || '').includes('404');
           if (isTransient && attempt < maxAttempts - 1) {
             modelIdx++;
             rotateKey();
-            await new Promise(r => setTimeout(r, backoffDelay));
-            backoffDelay = Math.min(backoffDelay * 1.3, 8000);
+            if (typeof onRetryStatus === 'function') {
+              onRetryStatus(isTimeout ? 'Request timed out (14s). Switched to next key/model...' : `Transient error (${err.message.substring(0, 40)}). Retrying...`);
+            }
+            await new Promise(r => setTimeout(r, 1000));
             continue;
           }
           if (attempt === maxAttempts - 1) throw err;

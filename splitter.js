@@ -1519,7 +1519,7 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
     btn.disabled = true;
     btnApply.disabled = true;
 
-    const batchSize = 75;
+    const batchSize = 50;
     const totalChapters = storyChapters.length;
     const totalBatches = Math.ceil(totalChapters / batchSize);
     let suggestedBookTitle = splitTitleInput.value.trim() || baseBookTitle;
