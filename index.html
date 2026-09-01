@@ -246,7 +246,7 @@
       'CheckCircle2', 'AlertCircle', 'Info', 'Search', 'Trash2', 'RotateCcw',
       'Square', 'FileDown', 'Settings', 'Globe', 'Sparkles', 'Brain', 'Languages',
       'Check', 'ArrowRightLeft', 'Star', 'Clock', 'Layers', 'Scissors', 'Sliders',
-      'Plus', 'Minus', 'Maximize2', 'Minimize2', 'BookOpen', 'Key', 'Shield', 'Lock', 'Unlock',
+      'Plus', 'Minus', 'Maximize2', 'Minimize2', 'BookOpen', 'Library', 'Key', 'Shield', 'Lock', 'Unlock',
       'Calendar', 'ArrowUpDown', 'CalendarDays', 'Volume2', 'VolumeX', 'Play', 'Pause',
       'SkipForward', 'SkipBack', 'MoreVertical', 'Type', 'Palette', 'List', 'Compass',
       'Bookmark', 'Menu', 'ArrowLeft', 'ArrowRight', 'Maximize', 'Minimize', 'ChevronsUp', 'ChevronsDown'
@@ -274,7 +274,7 @@
       if (typeof Icon === 'string') {
         comp = LucideIcons[Icon] || window[Icon] || createLucideIcon(Icon);
       } else if (!comp) {
-        comp = LucideIcons['FileText'] || 'span';
+        comp = LucideIcons['FileText'] || LucideIcons['BookText'] || 'span';
       }
       return h(comp || 'span', { size, className });
     };
@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.9.5';
+    const VERSION = '7.9.6';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -9070,7 +9070,10 @@ FORMATTING & STRUCTURE RULES:
 
       // --- Helpers for render ---
       const btn = (props, ...ch) => h('button', props, ...ch);
-      const ic = (Icon, size = 18) => h(Icon, { size, className: 'shrink-0' });
+      const ic = (Icon, size = 18) => {
+        const comp = Icon || LucideIcons?.['BookText'] || LucideIcons?.['FileText'] || 'span';
+        return h(comp, { size, className: 'shrink-0' });
+      };
       const disabled = isTranslating || uploadingFile;
       const activeModel = useCustomModel && customModel ? customModel : geminiModel;
 
@@ -10130,7 +10133,7 @@ FORMATTING & STRUCTURE RULES:
           h('div', { className: 'mt-6 p-5 sm:p-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4' },
             h('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3' },
               h('div', { className: 'flex items-center gap-2.5' },
-                h('div', { className: 'p-2 bg-teal-50 dark:bg-teal-950/60 rounded-xl text-teal-600 dark:text-teal-400 border border-teal-200/80 dark:border-teal-800/60' }, ic(Library, 18)),
+                h('div', { className: 'p-2 bg-teal-50 dark:bg-teal-950/60 rounded-xl text-teal-600 dark:text-teal-400 border border-teal-200/80 dark:border-teal-800/60' }, ic(window.Library || BookOpen || BookText, 18)),
                 h('div', null,
                   h('h3', { className: 'text-base font-bold text-slate-800 dark:text-slate-200' }, 'Imported Novels & Fanfiction Library'),
                   h('p', { className: 'text-xs text-slate-500 dark:text-slate-400' }, `${webImportHistory.length} saved novel(s) cached offline in IndexedDB`)
