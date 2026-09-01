@@ -2336,8 +2336,9 @@ p.divider {
         try {
           let buffer = null;
           const imgTimeout = 8000; // 8 second timeout per image
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), imgTimeout);
+          const AC = typeof AbortController !== 'undefined' ? AbortController : (typeof window !== 'undefined' ? window.AbortController : null);
+          const controller = AC ? new AC() : null;
+          const timer = controller ? setTimeout(() => controller.abort(), imgTimeout) : null;
           try {
             if (window.NativeBridge && window.NativeBridge.downloadBinary) {
               buffer = await Promise.race([
@@ -2346,11 +2347,12 @@ p.divider {
               ]);
             } else {
               const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(imgUrl);
-              const res = await fetch(proxy, { signal: controller.signal });
+              const fetchOpts = controller ? { signal: controller.signal } : {};
+              const res = await fetch(proxy, fetchOpts);
               buffer = await res.arrayBuffer();
             }
           } finally {
-            clearTimeout(timer);
+            if (timer) clearTimeout(timer);
           }
           if (buffer && buffer.byteLength > 500) {
             imgSeq++;
