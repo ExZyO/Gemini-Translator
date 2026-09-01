@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.5.2';
+    const VERSION = '5.5.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6460,7 +6460,7 @@ FORMATTING & STRUCTURE RULES:
       };
 
       // --- Full App Backup & Restore ---
-      const exportFullBackup = (forceIncludeKeys = null) => {
+      const exportFullBackup = async (forceIncludeKeys = null) => {
         const shouldIncludeKeys = forceIncludeKeys !== null ? forceIncludeKeys : includeApiKeysInBackup;
         const currentSavedGlossaries = (savedGlossaries && savedGlossaries.length > 0)
           ? savedGlossaries
@@ -6474,14 +6474,19 @@ FORMATTING & STRUCTURE RULES:
           ? customInstructions
           : (localStorage.getItem('customInstructions') || '');
 
+        let fullHistory = await dbGetAll('history');
+        if (!fullHistory || fullHistory.length === 0) {
+          fullHistory = (history && history.length > 0) ? history : (() => {
+            try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
+          })();
+        }
+
         const backup = {
           version: VERSION,
           timestamp: new Date().toISOString(),
           includesApiKeys: shouldIncludeKeys,
           savedGlossaries: currentSavedGlossaries,
-          translationHistory: (history && history.length > 0) ? history : (() => {
-            try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
-          })(),
+          translationHistory: fullHistory,
           customInstructions: currentInstructions,
           terminology: currentTerminology,
           smartGlossary,
@@ -8459,11 +8464,15 @@ p {
                     btn({
                       onClick: () => exportFullBackup(true),
                       className: 'px-3.5 sm:px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 hover:shadow-amber-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
-                    }, ic(Key, 14), 'Export Backup (+ API Keys)'),
+                    }, ic(Key, 14), 'Export Full Backup (+ Keys)'),
                     btn({
                       onClick: () => exportFullBackup(false),
                       className: 'px-3.5 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
                     }, ic(Shield, 14), 'Export (No Keys)'),
+                    btn({
+                      onClick: exportHistoryJSON,
+                      className: 'px-3.5 sm:px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold rounded-xl shadow-md shadow-teal-500/20 hover:shadow-teal-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
+                    }, ic(Download, 14), 'Export History (JSON)'),
                     h('label', {
                       className: 'px-3.5 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
                     },
@@ -8490,20 +8499,20 @@ p {
 
         // TAB: HISTORY
         activeTab === 'history' && h('div', { className: 'space-y-4' },
-          h('div', { className: 'flex flex-wrap items-center justify-between gap-3' },
+          h('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm' },
             h('div', { className: 'flex items-center gap-2' },
-              h('h2', { className: 'text-xl font-bold text-slate-800 dark:text-slate-200' }, 'Translation History'),
-              history.length > 0 && h('span', { className: 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60' }, `${history.length} items`)
+              h('h2', { className: 'text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2' }, ic(History, 20), 'Translation History'),
+              h('span', { className: 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60' }, `${history.length} items`)
             ),
             h('div', { className: 'flex flex-wrap items-center gap-2' },
-              history.length > 0 && btn({
+              btn({
                 onClick: exportHistoryJSON,
-                className: 'px-3.5 py-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer',
+                className: 'px-3.5 sm:px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer',
                 title: 'Export full history as a downloadable JSON file'
               }, ic(Download, 14), 'Export History (JSON)'),
               history.length > 0 && btn({
                 onClick: clearHistory,
-                className: 'px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1 cursor-pointer'
+                className: 'px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 text-xs font-semibold rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer'
               }, ic(Trash2, 14), 'Clear All')
             )
           ),
@@ -8517,7 +8526,7 @@ p {
             }),
             h('span', { className: 'absolute left-3 top-1/2 -translate-y-1/2 text-gray-400' }, ic(Search, 15))
           ),
-          history.length === 0 ? h('p', { className: 'text-gray-500 dark:text-gray-400 text-center py-8' }, 'No translation history yet.') :
+          history.length === 0 ? h('p', { className: 'text-gray-500 dark:text-gray-400 text-center py-8 bg-white dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800' }, 'No translation history yet. Translate your first chapter to see it saved here!') :
             (() => {
               const filtered = history.filter(h => {
                 if (!historySearch.trim()) return true;
