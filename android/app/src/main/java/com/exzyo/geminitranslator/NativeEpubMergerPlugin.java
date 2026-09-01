@@ -109,7 +109,7 @@ public class NativeEpubMergerPlugin extends Plugin {
                 call.resolve(ret);
 
             } catch (Exception e) {
-                Log.error(TAG, "Native merge failed: " + e.getMessage(), e);
+                Log.e(TAG, "Native merge failed: " + e.getMessage(), e);
                 call.reject("Native Disk Merge Error: " + e.getMessage());
             } finally {
                 if (tempOutputFile != null && tempOutputFile.exists()) {
@@ -169,7 +169,7 @@ public class NativeEpubMergerPlugin extends Plugin {
                 return Uri.fromFile(destFile);
             }
         } catch (Exception e) {
-            Log.error(TAG, "Failed to save to downloads: " + e.getMessage(), e);
+            Log.e(TAG, "Failed to save to downloads: " + e.getMessage(), e);
         }
         return null;
     }
