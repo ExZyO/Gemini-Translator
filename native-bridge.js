@@ -14,12 +14,14 @@
             }
         },
 
-        checkForUpdate: async (currentVersion = "6.9.5") => {
+        checkForUpdate: async (currentVersion = "7.0.0") => {
             try {
                 let remoteVersion = null;
                 let releaseNotes = '';
+                let isApkReady = false;
+                let apkDownloadUrl = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
 
-                // Source 1: Check GitHub Releases metadata
+                // Check GitHub Releases API
                 try {
                     const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest', {
                         headers: { 'Accept': 'application/vnd.github.v3+json' }
@@ -27,25 +29,29 @@
                     if (res.ok) {
                         const data = await res.json();
                         releaseNotes = data.body || '';
-                        const titleMatch = (data.name || '').match(/v?(\d+\.\d+\.\d+)/i);
-                        if (titleMatch) remoteVersion = titleMatch[1];
-                    }
-                } catch (re) {}
 
-                // Source 2: Check raw package.json (no rate limits)
-                if (!remoteVersion) {
-                    try {
-                        const pkgRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now());
-                        if (pkgRes.ok) {
-                            const pkgData = await pkgRes.json();
-                            if (pkgData.version && pkgData.version !== '1.0.0') {
-                                remoteVersion = pkgData.version;
+                        // CRITICAL: Only consider release ready if the APK asset is fully uploaded and verified
+                        const apkAsset = Array.isArray(data.assets) && data.assets.find(a => 
+                            (a.name === 'GeminiTranslator.apk' || a.name.endsWith('.apk')) && 
+                            a.state === 'uploaded' && 
+                            a.size > 1000000
+                        );
+
+                        if (apkAsset) {
+                            isApkReady = true;
+                            if (apkAsset.browser_download_url) {
+                                apkDownloadUrl = apkAsset.browser_download_url;
                             }
+                            const titleMatch = (data.name || '').match(/v?(\d+\.\d+\.\d+)/i) || (data.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
+                            if (titleMatch) remoteVersion = titleMatch[1];
                         }
-                    } catch (pe) {}
+                    }
+                } catch (re) {
+                    console.warn('GitHub Releases check error:', re);
                 }
 
-                if (!remoteVersion) return null;
+                // If the new build is still compiling on CI and has not uploaded the APK, do not show update prompt
+                if (!remoteVersion || !isApkReady) return null;
 
                 // Strict Semver Math: remote > current
                 const parseVer = (v) => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
@@ -57,12 +63,14 @@
                 else if (rMajor === cMajor && rMinor > cMinor) isNewer = true;
                 else if (rMajor === cMajor && rMinor === cMinor && rPatch > cPatch) isNewer = true;
 
+                if (!isNewer) return null;
+
                 return {
                     isNewer,
                     latestVersion: 'v' + [rMajor, rMinor, rPatch].join('.'),
                     currentVersion: 'v' + [cMajor, cMinor, cPatch].join('.'),
                     releaseNotes,
-                    apkUrl: "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
+                    apkUrl: apkDownloadUrl,
                     releasePage: "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest"
                 };
             } catch (e) {
