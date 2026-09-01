@@ -82,6 +82,32 @@
 
         isAvailable: () => isCapacitor() && !!getBridge(),
 
+        speakNative: async (text, rate = 1.0) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.speakNativeTts) {
+                    await bridge.speakNativeTts({ text, rate });
+                    return true;
+                }
+            } catch (e) {
+                console.warn('Native TTS speak error:', e);
+            }
+            return false;
+        },
+
+        stopNativeSpeech: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.stopNativeTts) {
+                    await bridge.stopNativeTts();
+                    return true;
+                }
+            } catch (e) {
+                console.warn('Native TTS stop error:', e);
+            }
+            return false;
+        },
+
         saveBlob: async (blob, fileName, mimeType = "application/epub+zip") => {
             try {
                 const bridge = getBridge();

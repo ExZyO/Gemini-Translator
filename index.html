@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.3.3';
+    const VERSION = '7.4.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2223,33 +2223,63 @@ const formatModelName = (id, displayName) => {
         // ══════════════════════════════════════════════════════════════════════
     // MOON+ READER ENGINE (Absolute Containment, OLED Black, TTS & TOC)
     // ══════════════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════════════
+    // MOON+ READER ENGINE (Gesture Back, Clean Chapters, Words Count & TTS)
+    // ══════════════════════════════════════════════════════════════════════
     const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
       if (!open) return null;
 
-      // Extract / Normalize Chapters
+      // ── ANDROID GESTURE / BACK BUTTON LISTENER ──
+      useEffect(() => {
+        window.history.pushState({ readerModalOpen: true }, '');
+        const handlePopState = () => {
+          onClose();
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => {
+          window.removeEventListener('popstate', handlePopState);
+        };
+      }, []);
+
+      // ── ACCURATE LINE-BY-LINE CHAPTER PARSER (ZERO TRUNCATION) ──
       const safeChapters = useMemo(() => {
         let list = Array.isArray(chapters) && chapters.length > 0
           ? chapters.filter(c => c && typeof c === 'object')
           : [];
 
-        // If no structured chapters, auto-split text by chapter headings
         if (list.length === 0 && text && typeof text === 'string') {
-          const headingRegex = /(?:^|\n\n)(?:(?:Chapter|第[0-9零一二三四五六七八九十百千万]+[章节回节卷集部]|Section|Volume|Part|Book)\s*[\d\w\s:—\-–]+|[【\[(]?(?:Preface|Prologue|Epilogue|Side Story|Extra|序章|前言|楔子|后记|番外)[\]】)]?[^\n]*)/gi;
-          const matches = Array.from(text.matchAll(headingRegex));
-          if (matches.length > 1) {
-            const parsed = [];
-            for (let i = 0; i < matches.length; i++) {
-              const start = matches[i].index + (matches[i][0].startsWith('\n\n') ? 2 : 0);
-              const end = i < matches.length - 1 ? matches[i + 1].index : text.length;
-              const heading = matches[i][0].trim();
-              const body = text.substring(start + matches[i][0].length, end).trim();
-              parsed.push({ title: heading, content: body });
+          const lines = text.split(/\r?\n/);
+          const isHeading = (l) => {
+            const trimmed = l.trim();
+            if (trimmed.length < 2 || trimmed.length > 120) return false;
+            return /^(?:(?:Chapter|第[0-9零一二三四五六七八九十百千万]+[章节回节卷集部]|Section|Volume|Part|Book|Arc)\s*[\d\w\s:—\-–]+|[【\[(]?(?:Preface|Prologue|Epilogue|Side Story|Extra|序章|前言|楔子|后记|番外)[\]】)]?.*)/i.test(trimmed);
+          };
+
+          const parsed = [];
+          let curTitle = 'Prologue / Preface';
+          let curLines = [];
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (isHeading(line)) {
+              if (curLines.length > 0) {
+                parsed.push({ title: curTitle, content: curLines.join('\n').trim() });
+                curLines = [];
+              }
+              curTitle = line.trim();
+            } else {
+              curLines.push(line);
             }
-            if (parsed.length > 0) list = parsed;
           }
+
+          if (curLines.length > 0) {
+            parsed.push({ title: curTitle, content: curLines.join('\n').trim() });
+          }
+
+          if (parsed.length > 1) list = parsed;
         }
 
-        return list.length > 0 ? list : [{ title: 'Novel Text', content: text || '' }];
+        return list.length > 0 ? list : [{ title: 'Document', content: text || '' }];
       }, [chapters, text]);
 
       const [activeChapterIdx, setActiveChapterIdx] = useState(() => Math.min(Math.max(0, currentIdx || 0), safeChapters.length - 1));
@@ -2280,10 +2310,10 @@ const formatModelName = (id, displayName) => {
       const normalizedTheme = theme === 'dark' ? 'oled' : (theme === 'paper' ? 'sepia' : (theme || 'oled'));
 
       const themeConfig = {
-        oled: { hexBg: '#000000', hexText: '#EDEDED', hexBarBg: '#0D0D0D', hexBorder: '#262626', accent: '#2DD4BF', name: 'OLED Black' },
-        sepia: { hexBg: '#FBF0D9', hexText: '#433422', hexBarBg: '#F4E6C8', hexBorder: '#E5D3B3', accent: '#92400E', name: 'Warm Paper' },
-        slate: { hexBg: '#0F172A', hexText: '#CBD5E1', hexBarBg: '#1E293B', hexBorder: '#334155', accent: '#818CF8', name: 'Midnight' },
-        light: { hexBg: '#FFFFFF', hexText: '#18181B', hexBarBg: '#F4F4F5', hexBorder: '#E4E4E7', accent: '#4F46E5', name: 'Clean White' }
+        oled: { hexBg: '#000000', hexText: '#F3F4F6', hexBarBg: '#0F0F11', hexBorder: '#27272A', accent: '#14B8A6', name: 'OLED Black' },
+        sepia: { hexBg: '#FBF0D9', hexText: '#382816', hexBarBg: '#F4E5C4', hexBorder: '#E6D3AF', accent: '#B45309', name: 'Warm Paper' },
+        slate: { hexBg: '#0B0F19', hexText: '#E2E8F0', hexBarBg: '#131B2E', hexBorder: '#1E293B', accent: '#6366F1', name: 'Midnight' },
+        light: { hexBg: '#FFFFFF', hexText: '#0F172A', hexBarBg: '#F8FAFC', hexBorder: '#E2E8F0', accent: '#4F46E5', name: 'Clean White' }
       };
       const activeTheme = themeConfig[normalizedTheme] || themeConfig.oled;
 
@@ -2335,10 +2365,11 @@ const formatModelName = (id, displayName) => {
         }
       };
 
-      // TTS Controller
+      // TTS Controller (Dual Native + Web Speech Engine)
       const startTTS = (startSentenceIdx = 0) => {
-        if (!('speechSynthesis' in window) || ttsSentences.length === 0) return;
-        window.speechSynthesis.cancel();
+        if (ttsSentences.length === 0) return;
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        window.NativeBridge?.stopNativeSpeech?.();
 
         setIsTtsActive(true);
         setIsTtsPlaying(true);
@@ -2360,26 +2391,40 @@ const formatModelName = (id, displayName) => {
 
           setCurrentSentenceIdx(idx);
           const sentenceObj = ttsSentences[idx];
-          const utter = new SpeechSynthesisUtterance(sentenceObj.text);
-          utter.rate = ttsSpeed;
-          utter.pitch = 1.0;
 
-          const voices = window.speechSynthesis.getVoices();
-          const targetVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium'))) ||
-                             voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || voices[0];
-          if (targetVoice) utter.voice = targetVoice;
+          // Try native TTS on Android first
+          if (window.NativeBridge?.speakNative) {
+            window.NativeBridge.speakNative(sentenceObj.text, ttsSpeed);
+          }
 
-          utter.onboundary = (event) => {
-            if (event.name === 'word') {
-              setCurrentWordRange({ start: event.charIndex, length: event.charLength || 5 });
-            }
-          };
+          if (window.speechSynthesis) {
+            const utter = new SpeechSynthesisUtterance(sentenceObj.text);
+            utter.rate = ttsSpeed;
+            utter.pitch = 1.0;
 
-          utter.onend = () => speakNext(idx + 1);
-          utter.onerror = () => speakNext(idx + 1);
+            const voices = window.speechSynthesis.getVoices();
+            const targetVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium'))) ||
+                               voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || voices[0];
+            if (targetVoice) utter.voice = targetVoice;
 
-          utteranceRef.current = utter;
-          window.speechSynthesis.speak(utter);
+            utter.onboundary = (event) => {
+              if (event.name === 'word') {
+                setCurrentWordRange({ start: event.charIndex, length: event.charLength || 5 });
+              }
+            };
+
+            utter.onend = () => speakNext(idx + 1);
+            utter.onerror = () => speakNext(idx + 1);
+
+            utteranceRef.current = utter;
+            window.speechSynthesis.speak(utter);
+          } else {
+            // Native auto-advance timer fallback
+            const duration = Math.max(1500, (sentenceObj.text.length / 15) * 1000 / ttsSpeed);
+            setTimeout(() => {
+              if (isTtsActive) speakNext(idx + 1);
+            }, duration);
+          }
 
           const sentenceEl = document.getElementById(sentenceObj.fullId);
           if (sentenceEl) {
@@ -2391,19 +2436,20 @@ const formatModelName = (id, displayName) => {
       };
 
       const pauseTTS = () => {
-        if ('speechSynthesis' in window) {
-          if (isTtsPlaying) {
-            window.speechSynthesis.pause();
-            setIsTtsPlaying(false);
-          } else {
-            window.speechSynthesis.resume();
-            setIsTtsPlaying(true);
-          }
+        if (isTtsPlaying) {
+          if (window.speechSynthesis) window.speechSynthesis.pause();
+          window.NativeBridge?.stopNativeSpeech?.();
+          setIsTtsPlaying(false);
+        } else {
+          if (window.speechSynthesis) window.speechSynthesis.resume();
+          else startTTS(currentSentenceIdx >= 0 ? currentSentenceIdx : 0);
+          setIsTtsPlaying(true);
         }
       };
 
       const stopTTS = () => {
-        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        window.NativeBridge?.stopNativeSpeech?.();
         setIsTtsActive(false);
         setIsTtsPlaying(false);
         setCurrentSentenceIdx(-1);
@@ -2458,7 +2504,7 @@ const formatModelName = (id, displayName) => {
             transform: showOverlay ? 'translateY(0)' : 'translateY(-100%)',
             transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
           },
-          className: 'px-3 py-2 flex items-center justify-between shadow-2xl'
+          className: 'px-3 py-2 flex items-center justify-between shadow-2xl backdrop-blur-md'
         },
           // Left: Back Arrow to Exit Reader
           h('button', {
@@ -2468,10 +2514,10 @@ const formatModelName = (id, displayName) => {
               onClose();
               window.NativeBridge?.haptic?.('selection');
             },
-            className: 'p-2 rounded-xl hover:bg-white/10 active:scale-90 transition-all text-inherit cursor-pointer flex items-center gap-1.5 font-bold',
+            className: 'px-3 py-1.5 rounded-xl hover:bg-white/10 active:scale-90 transition-all text-inherit cursor-pointer flex items-center gap-1.5 font-bold',
             'aria-label': 'Back to App'
           },
-            ic(ArrowLeft, 22),
+            ic(ArrowLeft, 20),
             h('span', { className: 'text-xs font-semibold' }, 'Back')
           ),
 
@@ -2495,7 +2541,7 @@ const formatModelName = (id, displayName) => {
                 setShowVisualSheet(prev => !prev);
                 window.NativeBridge?.haptic?.('selection');
               },
-              className: `p-2 rounded-xl text-inherit transition-all active:scale-90 cursor-pointer ${showVisualSheet ? 'bg-teal-500 text-white' : 'hover:bg-white/10'}`,
+              className: `p-2 rounded-xl text-inherit transition-all active:scale-90 cursor-pointer ${showVisualSheet ? 'bg-teal-500 text-white shadow' : 'hover:bg-white/10'}`,
               title: 'Visual Options & Typography'
             }, ic(Type, 18)),
             h('button', {
@@ -2534,13 +2580,23 @@ const formatModelName = (id, displayName) => {
             zIndex: 10,
             backgroundColor: activeTheme.hexBg,
             color: activeTheme.hexText,
-            paddingTop: '64px',
-            paddingBottom: '96px'
+            paddingTop: '68px',
+            paddingBottom: '110px'
           },
           className: `w-full mx-auto select-text ${marginPaddings[marginWidth] || marginPaddings.normal} transition-colors`
         },
+          // Pull down for previous chapter card
+          activeChapterIdx > 0 && h('div', {
+            onClick: (e) => { e.stopPropagation(); changeChapter(activeChapterIdx - 1); },
+            className: 'mb-8 py-3 px-4 rounded-2xl border border-dashed text-center text-xs opacity-60 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-2',
+            style: { borderColor: activeTheme.hexBorder }
+          },
+            ic(ChevronUp, 16),
+            h('span', null, `Previous: ${safeChapters[activeChapterIdx - 1]?.title || `Chapter ${activeChapterIdx}`}`)
+          ),
+
           // Chapter Header
-          h('div', { className: 'mb-8 pt-4 pb-4 border-b text-center', style: { borderColor: activeTheme.hexBorder } },
+          h('div', { className: 'mb-8 pt-2 pb-4 border-b text-center', style: { borderColor: activeTheme.hexBorder } },
             h('h1', { className: 'text-xl sm:text-2xl font-bold tracking-tight' }, rawTitle),
             h('p', { className: 'text-xs opacity-50 mt-1 font-mono' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length}`)
           ),
@@ -2595,18 +2651,21 @@ const formatModelName = (id, displayName) => {
             }),
 
           // ── CONTINUOUS INFINITE SCROLL NEXT CHAPTER TRIGGER ──
-          continuousScroll && activeChapterIdx < safeChapters.length - 1 && h('div', {
+          activeChapterIdx < safeChapters.length - 1 && h('div', {
             className: 'mt-16 pt-8 pb-12 border-t border-dashed text-center space-y-3',
             style: { borderColor: activeTheme.hexBorder }
           },
-            h('p', { className: 'text-xs uppercase tracking-widest opacity-60 font-mono' }, `—— End of Chapter ${activeChapterIdx + 1} ——`),
+            h('p', { className: 'text-xs uppercase tracking-widest opacity-60 font-mono' }, `—— End of Part ${activeChapterIdx + 1} ——`),
             h('button', {
               onClick: (e) => {
                 e.stopPropagation();
                 changeChapter(activeChapterIdx + 1);
               },
-              className: 'px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-2xl shadow-lg shadow-teal-500/20 active:scale-95 transition-all cursor-pointer'
-            }, `Continue to Chapter ${activeChapterIdx + 2}: ${safeChapters[activeChapterIdx + 1]?.title || 'Next'}`)
+              className: 'px-7 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold text-xs rounded-2xl shadow-xl shadow-teal-500/25 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 mx-auto'
+            },
+              ic(ChevronDown, 16),
+              h('span', null, `Continue to Part ${activeChapterIdx + 2}: ${safeChapters[activeChapterIdx + 1]?.title || 'Next'}`)
+            )
           )
         ),
 
@@ -2615,7 +2674,7 @@ const formatModelName = (id, displayName) => {
           onClick: (e) => e.stopPropagation(),
           style: {
             position: 'absolute',
-            bottom: '72px',
+            bottom: '76px',
             left: '16px',
             right: '16px',
             maxWidth: '560px',
@@ -2625,7 +2684,7 @@ const formatModelName = (id, displayName) => {
             border: `1px solid ${activeTheme.hexBorder}`,
             color: activeTheme.hexText
           },
-          className: 'rounded-2xl p-3.5 shadow-2xl flex flex-col gap-2.5 animate-in slide-in-from-bottom duration-200'
+          className: 'rounded-2xl p-3.5 shadow-2xl flex flex-col gap-2.5 animate-in slide-in-from-bottom duration-200 backdrop-blur-xl'
         },
           h('div', { className: 'flex items-center justify-between text-xs' },
             h('div', { className: 'flex items-center gap-2 font-bold text-teal-400 truncate' },
@@ -2647,14 +2706,14 @@ const formatModelName = (id, displayName) => {
                   localStorage.setItem('readerTtsSpeed', spd);
                   if (isTtsActive) startTTS(currentSentenceIdx);
                 },
-                className: `px-2 py-1 text-[10px] font-bold rounded-lg transition-all active:scale-90 cursor-pointer ${ttsSpeed === spd ? 'bg-teal-500 text-white' : 'hover:bg-white/10 opacity-70'}`
+                className: `px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all active:scale-90 cursor-pointer ${ttsSpeed === spd ? 'bg-teal-500 text-white shadow' : 'hover:bg-white/10 opacity-70'}`
               }, `${spd}x`))
             ),
             h('div', { className: 'flex items-center gap-2' },
               h('button', { onClick: (e) => { e.stopPropagation(); skipTTSSentence(-1); }, className: 'p-1.5 rounded-lg hover:bg-white/10 cursor-pointer active:scale-90' }, ic(SkipBack, 18)),
               h('button', {
                 onClick: (e) => { e.stopPropagation(); pauseTTS(); },
-                className: 'p-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-full shadow-md cursor-pointer active:scale-90'
+                className: 'p-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-full shadow-lg cursor-pointer active:scale-90'
               }, ic(isTtsPlaying ? Pause : Play, 18)),
               h('button', { onClick: (e) => { e.stopPropagation(); skipTTSSentence(1); }, className: 'p-1.5 rounded-lg hover:bg-white/10 cursor-pointer active:scale-90' }, ic(SkipForward, 18))
             ),
@@ -2679,7 +2738,7 @@ const formatModelName = (id, displayName) => {
           onClick: (e) => e.stopPropagation(),
           style: {
             position: 'absolute',
-            bottom: '72px',
+            bottom: '76px',
             left: '16px',
             right: '16px',
             maxWidth: '520px',
@@ -2689,7 +2748,7 @@ const formatModelName = (id, displayName) => {
             border: `1px solid ${activeTheme.hexBorder}`,
             color: activeTheme.hexText
           },
-          className: 'rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200'
+          className: 'rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200 backdrop-blur-xl'
         },
           h('div', { className: 'flex items-center justify-between border-b pb-2', style: { borderColor: activeTheme.hexBorder } },
             h('span', { className: 'text-xs font-bold uppercase tracking-wider text-inherit' }, 'Visual Options & Typography'),
@@ -2745,7 +2804,7 @@ const formatModelName = (id, displayName) => {
               [
                 { id: 'oled', label: 'OLED', bg: 'bg-black text-white' },
                 { id: 'sepia', label: 'Paper', bg: 'bg-[#FBF0D9] text-[#433422]' },
-                { id: 'slate', label: 'Midnight', bg: 'bg-[#0F172A] text-[#CBD5E1]' },
+                { id: 'slate', label: 'Midnight', bg: 'bg-[#0B0F19] text-[#E2E8F0]' },
                 { id: 'light', label: 'White', bg: 'bg-white text-black' }
               ].map(t => h('button', {
                 key: t.id,
@@ -2790,14 +2849,14 @@ const formatModelName = (id, displayName) => {
             right: 0,
             zIndex: 70,
             backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(4px)'
+            backdropFilter: 'blur(6px)'
           },
           onClick: () => setShowTocDrawer(false)
         },
           h('div', {
             style: {
               width: '85%',
-              maxWidth: '360px',
+              maxWidth: '380px',
               height: '100%',
               backgroundColor: activeTheme.hexBg,
               borderRight: `1px solid ${activeTheme.hexBorder}`,
@@ -2813,17 +2872,18 @@ const formatModelName = (id, displayName) => {
               ),
               h('button', { onClick: () => setShowTocDrawer(false), className: 'p-1 hover:bg-white/10 rounded-lg cursor-pointer active:scale-90' }, ic(X, 18))
             ),
-            h('div', { className: 'flex-1 overflow-y-auto py-3 space-y-1' },
-              safeChapters.map((ch, idx) =>
-                h('button', {
+            h('div', { className: 'flex-1 overflow-y-auto py-3 space-y-1.5' },
+              safeChapters.map((ch, idx) => {
+                const words = (ch.content || ch.text || '').split(/\s+/).filter(Boolean).length;
+                return h('button', {
                   key: idx,
                   onClick: () => { changeChapter(idx); setShowTocDrawer(false); },
-                  className: `w-full text-left p-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-between gap-2 active:scale-95 cursor-pointer ${activeChapterIdx === idx ? 'bg-teal-500 text-white shadow-md' : 'hover:bg-white/5 opacity-80'}`
+                  className: `w-full text-left p-3 rounded-2xl text-xs font-semibold transition-all flex items-center justify-between gap-2 active:scale-95 cursor-pointer ${activeChapterIdx === idx ? 'bg-teal-500 text-white shadow-md' : 'hover:bg-white/5 opacity-80'}`
                 },
                   h('span', { className: 'truncate flex-1' }, `${idx + 1}. ${ch.title || `Chapter ${idx + 1}`}`),
-                  h('span', { className: 'text-[10px] opacity-60 font-mono shrink-0' }, `${(ch.text || ch.content || '').length}c`)
-                )
-              )
+                  h('span', { className: 'text-[10px] opacity-60 font-mono shrink-0' }, `~${words.toLocaleString()} words`)
+                );
+              })
             )
           )
         ),
@@ -2837,7 +2897,7 @@ const formatModelName = (id, displayName) => {
             left: 0,
             right: 0,
             width: '100%',
-            height: '64px',
+            height: '68px',
             zIndex: 50,
             backgroundColor: activeTheme.hexBarBg,
             borderTop: `1px solid ${activeTheme.hexBorder}`,
@@ -2845,7 +2905,7 @@ const formatModelName = (id, displayName) => {
             transform: showOverlay ? 'translateY(0)' : 'translateY(100%)',
             transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
           },
-          className: 'px-4 py-2 flex flex-col justify-center gap-1.5 shadow-2xl'
+          className: 'px-4 py-2 flex flex-col justify-center gap-1.5 shadow-2xl backdrop-blur-xl'
         },
           // Row 1: Scrub Progress Slider & Skip Chapter Arrows
           h('div', { className: 'flex items-center justify-between gap-3 text-xs' },
@@ -2873,7 +2933,7 @@ const formatModelName = (id, displayName) => {
           ),
 
           // Row 2: Tool Icons (TTS Audio, Visual Options, Chapters, Themes)
-          h('div', { className: 'flex items-center justify-between pt-0.5' },
+          h('div', { className: 'flex items-center justify-between pt-0.5 gap-1.5' },
             h('button', {
               onClick: (e) => {
                 e.stopPropagation();
@@ -2881,19 +2941,19 @@ const formatModelName = (id, displayName) => {
                 else startTTS(0);
                 window.NativeBridge?.haptic?.('selection');
               },
-              className: `flex-1 py-1 rounded-xl text-xs font-bold transition-all active:scale-90 flex items-center justify-center gap-1.5 cursor-pointer ${isTtsActive ? 'text-teal-400 bg-teal-500/10' : 'hover:bg-white/10 text-inherit'}`,
+              className: `flex-1 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-90 flex items-center justify-center gap-1.5 cursor-pointer ${isTtsActive ? 'text-teal-400 bg-teal-500/15 ring-1 ring-teal-500/30' : 'hover:bg-white/10 text-inherit'}`,
               title: 'Read Aloud (Google TTS)'
             }, ic(Volume2, 16), h('span', { className: 'text-[11px]' }, isTtsActive ? 'Speaking' : 'TTS')),
 
             h('button', {
               onClick: (e) => { e.stopPropagation(); setShowVisualSheet(prev => !prev); window.NativeBridge?.haptic?.('selection'); },
-              className: 'flex-1 py-1 rounded-xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
+              className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
               title: 'Visual Options'
             }, ic(Type, 16), h('span', { className: 'text-[11px]' }, 'Font (A±)')),
 
             h('button', {
               onClick: (e) => { e.stopPropagation(); setShowTocDrawer(true); window.NativeBridge?.haptic?.('selection'); },
-              className: 'flex-1 py-1 rounded-xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
+              className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
               title: 'Table of Contents'
             }, ic(List, 16), h('span', { className: 'text-[11px]' }, 'Chapters')),
 
@@ -2906,7 +2966,7 @@ const formatModelName = (id, displayName) => {
                 localStorage.setItem('readerTheme', next);
                 window.NativeBridge?.haptic?.('selection');
               },
-              className: 'flex-1 py-1 rounded-xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
+              className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
               title: 'Theme'
             }, ic(Palette, 16), h('span', { className: 'text-[11px]' }, activeTheme.name.split(' ')[0]))
           )

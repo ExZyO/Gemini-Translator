@@ -4,7 +4,11 @@ import android.app.AlertDialog;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ContentValues;
 import android.content.Context;
+import android.provider.MediaStore;
+import android.speech.tts.TextToSpeech;
+import java.util.Locale;
 import android.content.Intent;
 import android.net.Uri;
 import android.media.MediaScannerConnection;
@@ -699,6 +703,56 @@ public class NativeAndroidBridgePlugin extends Plugin {
     }
 
 
+        private TextToSpeech nativeTts = null;
+    private boolean isNativeTtsReady = false;
+
+    private void ensureNativeTts() {
+        if (nativeTts == null) {
+            nativeTts = new TextToSpeech(getContext(), status -> {
+                if (status == TextToSpeech.SUCCESS) {
+                    nativeTts.setLanguage(Locale.US);
+                    isNativeTtsReady = true;
+                    Log.d(TAG, "🎙️ Native Android TextToSpeech initialized successfully!");
+                }
+            });
+        }
+    }
+
+    @PluginMethod
+    public void speakNativeTts(PluginCall call) {
+        try {
+            ensureNativeTts();
+            String text = call.getString("text", "");
+            float rate = (float) call.getDouble("rate", 1.0);
+            
+            if (nativeTts != null && isNativeTtsReady && text != null && !text.isEmpty()) {
+                nativeTts.setSpeechRate(rate);
+                nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "gemini_reader_tts");
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                call.resolve(ret);
+            } else {
+                call.reject("Native TTS not ready");
+            }
+        } catch (Exception e) {
+            call.reject("Native TTS error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void stopNativeTts(PluginCall call) {
+        try {
+            if (nativeTts != null) {
+                nativeTts.stop();
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Stop TTS error: " + e.getMessage());
+        }
+    }
+
     @PluginMethod
     public void saveAndOpenFile(PluginCall call) {
         try {
@@ -711,6 +765,104 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 call.reject("No file data provided");
                 return;
             }
+
+            byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
+            String savedPath = "";
+            Uri fileUri = null;
+
+            // 1. Android 10+ (API 29+) Scoped Storage via MediaStore
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
+                    values.put(MediaStore.Downloads.MIME_TYPE, mimeType);
+                    values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/GeminiTranslator");
+                    values.put(MediaStore.Downloads.IS_PENDING, 1);
+
+                    Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (uri != null) {
+                        OutputStream os = context.getContentResolver().openOutputStream(uri);
+                        if (os != null) {
+                            os.write(bytes);
+                            os.flush();
+                            os.close();
+                        }
+                        values.clear();
+                        values.put(MediaStore.Downloads.IS_PENDING, 0);
+                        context.getContentResolver().update(uri, values, null, null);
+                        fileUri = uri;
+                        savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
+                        Log.d(TAG, "💾 Saved file via MediaStore to: " + savedPath);
+                    }
+                } catch (Exception msErr) {
+                    Log.w(TAG, "MediaStore save fallback: " + msErr.getMessage());
+                }
+            }
+
+            // 2. Direct File System write (for Android 9 or app cache backup)
+            File cacheFile = new File(context.getCacheDir(), fileName);
+            try (FileOutputStream fos = new FileOutputStream(cacheFile)) {
+                fos.write(bytes);
+                fos.flush();
+            }
+
+            File appDownloads = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
+            try (FileOutputStream fos = new FileOutputStream(appDownloads)) {
+                fos.write(bytes);
+                fos.flush();
+            }
+
+            // 3. Public Download dir if accessible
+            try {
+                File pubDownloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "GeminiTranslator");
+                if (pubDownloads.exists() || pubDownloads.mkdirs()) {
+                    File dest = new File(pubDownloads, fileName);
+                    try (FileOutputStream fos = new FileOutputStream(dest)) {
+                        fos.write(bytes);
+                        fos.flush();
+                    }
+                    MediaScannerConnection.scanFile(context, new String[]{dest.getAbsolutePath()}, new String[]{mimeType}, null);
+                    savedPath = dest.getAbsolutePath();
+                }
+            } catch (Exception pubErr) {
+                Log.w(TAG, "Public downloads direct write ignored: " + pubErr.getMessage());
+            }
+
+            if (savedPath.isEmpty()) {
+                savedPath = cacheFile.getAbsolutePath();
+            }
+
+            // Show Native Android Toast
+            final String toastPath = savedPath;
+            new Handler(Looper.getMainLooper()).post(() -> {
+                Toast.makeText(context, "💾 Saved: " + fileName + "\n📁 Folder: Download/GeminiTranslator", Toast.LENGTH_LONG).show();
+            });
+
+            // Trigger System "Open With" Chooser
+            try {
+                Uri contentUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", cacheFile);
+                Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+                viewIntent.setDataAndType(contentUri, mimeType);
+                viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                Intent chooser = Intent.createChooser(viewIntent, "Open " + fileName + " with (Moon+ Reader / ReadEra)...");
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(chooser);
+            } catch (Exception launchErr) {
+                Log.w(TAG, "Chooser launch optional notice: " + launchErr.getMessage());
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("path", savedPath);
+            ret.put("fileName", fileName);
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "Save file error: " + e.getMessage(), e);
+            call.reject("Failed to save file: " + e.getMessage());
+        }
+    }
 
             byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
 
