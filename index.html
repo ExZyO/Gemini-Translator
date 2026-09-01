@@ -272,7 +272,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.7.0';
+    const VERSION = '6.7.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -658,10 +658,19 @@
       return `job_${Math.abs(hash)}`;
     };
 
-    const splitChunks = (text, glossaryLen = 0, smartGlossary = true) => {
-      const effectiveGlossaryLen = smartGlossary ? Math.min(glossaryLen, 1200) : glossaryLen;
-      let max = MAX_PAYLOAD - PROMPT_OVERHEAD - effectiveGlossaryLen;
-      if (max <= 0) max = 1500;
+    const CHUNK_PAYLOAD_MAP = {
+      turbo: 28000,
+      large: 16000,
+      medium: 8500,
+      small: 4200
+    };
+
+    const splitChunks = (text, glossaryLen = 0, smartGlossary = true, preset = null) => {
+      const activePreset = preset || (typeof localStorage !== 'undefined' ? localStorage.getItem('chunkSizePreset') : null) || 'turbo';
+      const basePayload = CHUNK_PAYLOAD_MAP[activePreset] || 28000;
+      const effectiveGlossaryLen = smartGlossary ? Math.min(glossaryLen, 1500) : glossaryLen;
+      let max = basePayload - PROMPT_OVERHEAD - effectiveGlossaryLen;
+      if (max <= 0) max = 2500;
       const chunks = []; let rem = text;
       while (rem.length > 0) {
         if (rem.length <= max) { chunks.push(rem); break; }
@@ -2551,6 +2560,7 @@ const formatModelName = (id, displayName) => {
       const [enableThinking, setEnableThinking] = useState(() => localStorage.getItem('enableThinking') === 'true');
       const [concurrency, setConcurrency] = useState(() => parseInt(localStorage.getItem('concurrency')) || DEFAULT_CONCURRENCY);
       const [contextAware, setContextAware] = useState(() => localStorage.getItem('contextAware') !== 'false');
+      const [chunkSizePreset, setChunkSizePreset] = useState(() => localStorage.getItem('chunkSizePreset') || 'turbo');
 
       // --- Language State ---
       const [srcLang, setSrcLang] = useState('Auto-detect');
@@ -2790,6 +2800,7 @@ const formatModelName = (id, displayName) => {
       useEffect(() => { localStorage.setItem('translationProvider', provider) }, [provider]);
       useEffect(() => { localStorage.setItem('concurrency', String(concurrency)) }, [concurrency]);
       useEffect(() => { localStorage.setItem('contextAware', String(contextAware)) }, [contextAware]);
+      useEffect(() => { localStorage.setItem('chunkSizePreset', chunkSizePreset) }, [chunkSizePreset]);
 
       useEffect(() => {
         if (!inputText && !currentFileHash) { setActiveSession(null); return; }
