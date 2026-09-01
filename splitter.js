@@ -1,4 +1,125 @@
 
+function escapeXml(unsafe) {
+    if (!unsafe) return '';
+    return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
+// Rewrites TOC (toc.ncx / nav.xhtml) and internal Chapter XHTML headings (<title> and <h1>)
+async function applyCleanTitlesToZip(newZip, newOpfDoc, survivingChapters, splitOpfDir) {
+    const parser = new DOMParser();
+    const serializer = new XMLSerializer();
+
+    const chapMapByOriginal = new Map();
+    const chapMapByFilename = new Map();
+
+    survivingChapters.forEach(c => {
+        const clean = (c.customName || c.originalName || '').trim();
+        if (clean) {
+            chapMapByOriginal.set(c.originalName, clean);
+            const fname = (c.originalName || '').split('/').pop();
+            chapMapByFilename.set(fname, clean);
+        }
+    });
+
+    // 1. Rewrite Chapter Headings inside every surviving Chapter XHTML file
+    for (let c of survivingChapters) {
+        const fullPath = splitOpfDir + c.originalName;
+        const cleanTitle = (c.customName || '').trim();
+        if (!cleanTitle) continue;
+
+        if (newZip.files[fullPath]) {
+            try {
+                let html = await newZip.files[fullPath].async('text');
+                
+                // A. Update or inject <title> tag
+                if (/<title[^>]*>[\s\S]*?<\/title>/i.test(html)) {
+                    html = html.replace(/<title[^>]*>[\s\S]*?<\/title>/i, `<title>${escapeXml(cleanTitle)}</title>`);
+                } else if (html.includes('<head>')) {
+                    html = html.replace('<head>', `<head><title>${escapeXml(cleanTitle)}</title>`);
+                }
+
+                // B. Update top <h1>, <h2>, <h3> or <p class="chapter-title">
+                if (/<h1[^>]*>[\s\S]*?<\/h1>/i.test(html)) {
+                    html = html.replace(/<h1[^>]*>[\s\S]*?<\/h1>/i, `<h1>${escapeXml(cleanTitle)}</h1>`);
+                } else if (/<h2[^>]*>[\s\S]*?<\/h2>/i.test(html)) {
+                    html = html.replace(/<h2[^>]*>[\s\S]*?<\/h2>/i, `<h2>${escapeXml(cleanTitle)}</h2>`);
+                } else if (/<p[^>]*class="[^"]*(?:title|chapter|head)[^"]*"[^>]*>[\s\S]*?<\/p>/i.test(html)) {
+                    html = html.replace(/<p([^>]*class="[^"]*(?:title|chapter|head)[^"]*"[^>]*)>[\s\S]*?<\/p>/i, `<p$1>${escapeXml(cleanTitle)}</p>`);
+                }
+
+                newZip.file(fullPath, html);
+            } catch (e) { console.warn('Failed to rewrite chapter html title:', e); }
+        }
+    }
+
+    // 2. Rewrite EPUB 2 NCX Table of Contents (toc.ncx)
+    const ncxItem = newOpfDoc.querySelector('item[media-type="application/x-dtbncx+xml"]');
+    if (ncxItem) {
+        const ncxHref = ncxItem.getAttribute('href');
+        const ncxFullPath = splitOpfDir + ncxHref;
+        if (newZip.files[ncxFullPath]) {
+            try {
+                const ncxXml = await newZip.files[ncxFullPath].async('text');
+                const ncxDoc = parser.parseFromString(ncxXml, 'application/xml');
+                const navPoints = Array.from(ncxDoc.querySelectorAll('navPoint'));
+                let playOrder = 1;
+
+                navPoints.forEach(np => {
+                    const src = np.querySelector('content')?.getAttribute('src') || '';
+                    const cleanSrc = src.split('#')[0].trim();
+                    const fname = cleanSrc.split('/').pop();
+
+                    let cleanTitle = chapMapByFilename.get(fname) || chapMapByOriginal.get(cleanSrc);
+                    if (cleanTitle) {
+                        const textNode = np.querySelector('navLabel > text');
+                        if (textNode) textNode.textContent = cleanTitle;
+                        np.setAttribute('playOrder', String(playOrder++));
+                    } else {
+                        // If not in surviving chapters, remove navPoint from TOC
+                        np.parentNode?.removeChild(np);
+                    }
+                });
+
+                newZip.file(ncxFullPath, serializer.serializeToString(ncxDoc));
+            } catch (e) { console.warn('Failed to rewrite toc.ncx:', e); }
+        }
+    }
+
+    // 3. Rewrite EPUB 3 Navigation Document (nav.xhtml / toc.xhtml)
+    const navItem = newOpfDoc.querySelector('item[properties~="nav"]') || newOpfDoc.querySelector('item[id*="nav"]') || newOpfDoc.querySelector('item[id*="toc"]');
+    if (navItem) {
+        const navHref = navItem.getAttribute('href');
+        const navFullPath = splitOpfDir + navHref;
+        if (newZip.files[navFullPath]) {
+            try {
+                const navXml = await newZip.files[navFullPath].async('text');
+                const navDoc = parser.parseFromString(navXml, 'application/xml');
+                const links = Array.from(navDoc.querySelectorAll('a[href]'));
+
+                links.forEach(a => {
+                    const href = (a.getAttribute('href') || '').split('#')[0].trim();
+                    const fname = href.split('/').pop();
+                    let cleanTitle = chapMapByFilename.get(fname) || chapMapByOriginal.get(href);
+                    if (cleanTitle) {
+                        a.textContent = cleanTitle;
+                    } else {
+                        const li = a.closest('li');
+                        if (li) li.parentNode?.removeChild(li);
+                    }
+                });
+
+                newZip.file(navFullPath, serializer.serializeToString(navDoc));
+            } catch (e) { console.warn('Failed to rewrite nav.xhtml:', e); }
+        }
+    }
+}
+
+
 function formatTelemetryDuration(ms) {
     if (!ms || ms < 0) return '0s';
     const totalSec = ms / 1000;
@@ -570,6 +691,8 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
             }
         }
 
+        const survivingChapters = storyChapters.filter(c => allowedIdrefs.has(c.idref));
+        await applyCleanTitlesToZip(newZip, newOpfDoc, survivingChapters, splitOpfDir);
         logMsg(`Compressing & Zipping...`);
 
         let blob;
@@ -1317,6 +1440,8 @@ async function buildSingleVolumeBlob(selectedIdrefs, rangeSuffix) {
     setSmartTitle(newOpfDoc, finalTitle);
     forceNewIdentifier(newOpfDoc);
 
+    const volChapters = storyChapters.filter(c => allowedIdrefs.has(c.idref));
+    await applyCleanTitlesToZip(newZip, newOpfDoc, volChapters, splitOpfDir);
     newZip.file(splitOpfPath, new XMLSerializer().serializeToString(newOpfDoc));
     return await newZip.generateAsync({ type: "blob", compression: "DEFLATE", mimeType: "application/epub+zip" });
 }
