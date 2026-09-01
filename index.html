@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.6.1';
+    const VERSION = '5.6.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1530,30 +1530,26 @@
       const openaiKey = localStorage.getItem('openaiApiKey') || '';
       const claudeKey = localStorage.getItem('claudeApiKey') || '';
 
-      const prompt = `You are an expert digital eBook editor and Table of Contents specialist.
-You are given a book title and a list of chapter entries with their current raw/scraped titles.
-Task:
-1. Clean, fix, and standardize every chapter title into a clean, professional title (e.g. "Chapter 1: The Beginning", "Chapter 2: ...").
-2. Remove ugly web scrape artifacts, strange hashes, file extensions (.xhtml, .html), or duplicated prefix numbers.
-3. Suggest a clean, official Book Title.
-4. Detect Arcs/Volumes if they exist in the names.
+      const compactLines = sampleChapters.map(c => `${c.index}. ${c.rawName || ''}`).join('\n');
 
-Input Book Title: ${bookTitle || 'Unknown'}
-Chapters:
-${JSON.stringify(sampleChapters, null, 2)}
+      const prompt = `You are an expert digital eBook editor. Standardize raw/scraped chapter names into clean, readable chapter titles (e.g. "Chapter 1: The Awakening", "Chapter 2: ..."). Strip .xhtml, web tags, or duplicated prefixes.
+Book Title: ${bookTitle || 'Unknown'}
 
-Strictly respond with ONLY a valid JSON object matching this schema (no markdown, no backticks):
+Chapters to clean:
+${compactLines}
+
+Return strictly a JSON object with this exact format:
 {
-  "cleanedTitle": "Official Clean Title",
+  "cleanedTitle": "Official Book Title",
   "chapters": [
-    { "index": 1, "cleanedName": "Chapter 1: Clean Title", "volume": "Volume 1" }
+    { "index": 1, "cleanedName": "Chapter 1: Title" }
   ]
 }`;
 
       let rawJson = '';
 
       if (provider === 'gemini' || !provider) {
-        if (!geminiKey) throw new Error('Gemini API key is required. Please add your key in Settings ⚙️.');
+        if (!geminiKey) throw new Error('Gemini API key required. Please add your key in Settings ⚙️.');
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
         const res = await fetch(url, {
           method: 'POST',
@@ -1561,8 +1557,9 @@ Strictly respond with ONLY a valid JSON object matching this schema (no markdown
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             generationConfig: {
-              temperature: 0.2,
-              responseMimeType: 'application/json'
+              temperature: 0.1,
+              responseMimeType: 'application/json',
+              thinkingConfig: { thinkingBudget: 0 } // Fast sub-second response without reasoning delay
             }
           })
         });
@@ -1573,7 +1570,7 @@ Strictly respond with ONLY a valid JSON object matching this schema (no markdown
         const data = await res.json();
         rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       } else if (provider === 'deepseek') {
-        if (!deepseekKey) throw new Error('DeepSeek API key required. Set it in Settings ⚙️.');
+        if (!deepseekKey) throw new Error('DeepSeek API key required.');
         const res = await fetch('https://api.deepseek.com/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekKey}` },
@@ -1586,7 +1583,7 @@ Strictly respond with ONLY a valid JSON object matching this schema (no markdown
         const data = await res.json();
         rawJson = data.choices?.[0]?.message?.content || '';
       } else if (provider === 'openai') {
-        if (!openaiKey) throw new Error('OpenAI API key required. Set it in Settings ⚙️.');
+        if (!openaiKey) throw new Error('OpenAI API key required.');
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
@@ -1599,7 +1596,7 @@ Strictly respond with ONLY a valid JSON object matching this schema (no markdown
         const data = await res.json();
         rawJson = data.choices?.[0]?.message?.content || '';
       } else if (provider === 'claude') {
-        if (!claudeKey) throw new Error('Claude API key required. Set it in Settings ⚙️.');
+        if (!claudeKey) throw new Error('Claude API key required.');
         const res = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': claudeKey, 'anthropic-version': '2023-06-01', 'dangerously-allow-browser': 'true' },

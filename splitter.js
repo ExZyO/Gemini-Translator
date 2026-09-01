@@ -1300,21 +1300,38 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
     btnApply.disabled = true;
     aiPolishedResults = [];
 
-    const batchSize = 100;
+    const batchSize = 150; // High-density batching
     const totalChapters = storyChapters.length;
     const totalBatches = Math.ceil(totalChapters / batchSize);
     let suggestedBookTitle = splitTitleInput.value.trim() || baseBookTitle;
 
+    // Render persistent live progress card
     container.innerHTML = `
-        <div class="p-4 bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl text-center space-y-2">
-            <p id="ai-batch-status-text" class="text-xs font-bold text-indigo-700 dark:text-indigo-300">Starting AI Polish for ${totalChapters} chapters across ${totalBatches} batch${totalBatches > 1 ? 'es' : ''}...</p>
-            <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                <div id="ai-batch-progress-bar" class="bg-gradient-to-r from-purple-600 to-indigo-600 h-2 transition-all duration-200" style="width: 0%"></div>
+        <div class="space-y-3">
+            <div class="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-200 dark:border-purple-800/60 rounded-2xl shadow-sm space-y-2.5">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+                    <span id="ai-batch-status-text" class="flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-purple-500 animate-ping"></span>
+                        Polishing 0 / ${totalChapters} chapters...
+                    </span>
+                    <span id="ai-batch-pct" class="font-mono text-purple-600 dark:text-purple-400">0%</span>
+                </div>
+                <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden p-0.5">
+                    <div id="ai-batch-progress-bar" class="bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-500 h-full rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                </div>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">Processing ${totalBatches} turbo batch${totalBatches > 1 ? 'es' : ''} in parallel...</p>
             </div>
+            <div id="ai-live-feed" class="space-y-1.5 max-h-[36vh] overflow-y-auto custom-scrollbar pr-1"></div>
         </div>
     `;
 
+    const liveFeed = document.getElementById('ai-live-feed');
+
     try {
+        let completedChaptersCount = 0;
+
+        // Build all batch payloads
+        const batches = [];
         for (let b = 0; b < totalBatches; b++) {
             const startIdx = b * batchSize;
             const endIdx = Math.min(startIdx + batchSize, totalChapters);
@@ -1323,71 +1340,74 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
                 idref: c.idref,
                 rawName: c.customName || c.originalName
             }));
+            batches.push({ b, startIdx, endIdx, batchChapters });
+        }
 
-            const pct = Math.round(((b) / totalBatches) * 100);
-            const pBar = document.getElementById('ai-batch-progress-bar');
-            const pText = document.getElementById('ai-batch-status-text');
-            if (pBar) pBar.style.width = `${pct}%`;
-            if (pText) pText.textContent = `Polishing Batch ${b + 1}/${totalBatches}: Chapters ${startIdx + 1} to ${endIdx}...`;
-            btnText.textContent = `Processing ${startIdx + 1}–${endIdx} / ${totalChapters}...`;
+        // Concurrency limiter: process up to 2 batches concurrently for max speed
+        const concurrency = 2;
+        let batchIndex = 0;
 
-            const res = await window.aiPolishEpubToc(batchChapters, suggestedBookTitle);
-            if (res.cleanedTitle && b === 0) suggestedBookTitle = res.cleanedTitle;
+        async function processNextBatch() {
+            while (batchIndex < batches.length) {
+                const current = batches[batchIndex++];
+                const pText = document.getElementById('ai-batch-status-text');
+                if (pText) pText.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full bg-purple-500 animate-ping"></span> Polishing Batch ${current.b + 1}/${totalBatches} (Ch ${current.startIdx + 1}–${current.endIdx})...`;
 
-            if (Array.isArray(res.chapters)) {
-                aiPolishedResults.push(...res.chapters);
-            } else if (res.chapters && typeof res.chapters === 'object') {
-                aiPolishedResults.push(...Object.values(res.chapters));
+                const res = await window.aiPolishEpubToc(current.batchChapters, suggestedBookTitle);
+                if (res.cleanedTitle && current.b === 0) suggestedBookTitle = res.cleanedTitle;
+
+                let items = [];
+                if (Array.isArray(res.chapters)) items = res.chapters;
+                else if (res.chapters && typeof res.chapters === 'object') items = Object.values(res.chapters);
+
+                aiPolishedResults.push(...items);
+                completedChaptersCount += items.length;
+
+                // Update Progress Bar
+                const pct = Math.min(100, Math.round((completedChaptersCount / totalChapters) * 100));
+                const pBar = document.getElementById('ai-batch-progress-bar');
+                const pPct = document.getElementById('ai-batch-pct');
+                if (pBar) pBar.style.width = `${pct}%`;
+                if (pPct) pPct.textContent = `${pct}%`;
+
+                // Stream live result items into the view
+                if (liveFeed) {
+                    items.forEach(item => {
+                        const orig = storyChapters.find(c => c.displayIndex === item.index);
+                        const row = document.createElement('div');
+                        row.className = 'ai-row p-2 bg-white/90 dark:bg-slate-800/90 rounded-lg flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700/70 text-xs shadow-2xs';
+                        row.innerHTML = `
+                            <span class="text-purple-600 dark:text-purple-400 shrink-0 font-bold">#${item.index}</span>
+                            <span class="text-slate-400 line-through truncate max-w-[35%]" title="${orig ? (orig.customName || orig.originalName) : ''}">${orig ? (orig.customName || orig.originalName) : ''}</span>
+                            <span class="text-indigo-500 font-bold shrink-0">&rarr;</span>
+                            <span class="text-emerald-600 dark:text-emerald-400 font-semibold truncate flex-1">${item.cleanedName}</span>
+                        `;
+                        liveFeed.appendChild(row);
+                    });
+                    liveFeed.scrollTop = liveFeed.scrollHeight;
+                }
             }
         }
 
+        const workers = Array.from({ length: Math.min(concurrency, batches.length) }, () => processNextBatch());
+        await Promise.all(workers);
+
+        // Sort results by index
+        aiPolishedResults.sort((a, b) => (a.index || 0) - (b.index || 0));
+
+        // Finish state
         const pBar = document.getElementById('ai-batch-progress-bar');
         const pText = document.getElementById('ai-batch-status-text');
+        const pPct = document.getElementById('ai-batch-pct');
         if (pBar) pBar.style.width = '100%';
-        if (pText) pText.textContent = `✅ Complete! Polished ${aiPolishedResults.length} / ${totalChapters} chapters.`;
-
-        if (aiPolishedResults.length === 0) {
-            container.innerHTML = '<p class="text-rose-400 text-center py-6">AI did not return cleaned titles. Please check your API key and try again.</p>';
-            return;
-        }
-
-        // Render full comparison table with search filter
-        let html = `
-            <div class="mb-3 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-800 dark:text-emerald-300 flex items-center justify-between gap-2 flex-wrap">
-                <div><span class="font-bold">Suggested Book Title:</span> ${suggestedBookTitle}</div>
-                <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-200/60 dark:bg-emerald-900/60 font-bold">${aiPolishedResults.length} chapters polished</span>
-            </div>
-            <input type="text" id="ai-modal-filter" placeholder="Filter polished chapters..." class="w-full mb-3 bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500/30">
-            <div id="ai-toc-table-rows" class="space-y-1.5 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1">
-        `;
-
-        aiPolishedResults.forEach(item => {
-            const orig = storyChapters.find(c => c.displayIndex === item.index);
-            html += `
-                <div class="ai-row p-2 bg-slate-100/80 dark:bg-slate-800/80 rounded-lg flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700/70 text-xs">
-                    <span class="text-slate-400 shrink-0 font-bold">#${item.index}</span>
-                    <span class="text-slate-500 line-through truncate max-w-[35%]" title="${orig ? (orig.customName || orig.originalName) : ''}">${orig ? (orig.customName || orig.originalName) : ''}</span>
-                    <span class="text-indigo-500 font-bold shrink-0">&rarr;</span>
-                    <span class="text-emerald-600 dark:text-emerald-400 font-semibold truncate flex-1">${item.cleanedName}</span>
-                </div>
-            `;
-        });
-        html += '</div>';
-        container.innerHTML = html;
-
-        // Hook search filter inside modal
-        document.getElementById('ai-modal-filter')?.addEventListener('input', (e) => {
-            const q = e.target.value.toLowerCase();
-            document.querySelectorAll('#ai-toc-table-rows .ai-row').forEach(row => {
-                row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-            });
-        });
+        if (pPct) pPct.textContent = '100%';
+        if (pText) pText.innerHTML = `✅ Complete! Polished ${aiPolishedResults.length} / ${totalChapters} chapters.`;
 
         btnApply.disabled = false;
-        showToast(`AI polished ${aiPolishedResults.length} chapters successfully!`, 'success');
+        showToast(`✨ Finished polishing ${aiPolishedResults.length} chapters!`, 'success');
     } catch (err) {
         console.error('AI TOC polish failed:', err);
-        container.innerHTML = `<div class="text-rose-400 p-4 bg-rose-950/20 rounded-xl border border-rose-800/50">Error: ${err.message}</div>`;
+        container.innerHTML = `<div class="text-rose-400 p-4 bg-rose-950/20 rounded-xl border border-rose-800/50 text-xs"><strong>Error:</strong> ${err.message}</div>`;
         showToast('AI Polish failed: ' + err.message, 'error');
     } finally {
         btn.disabled = false;
