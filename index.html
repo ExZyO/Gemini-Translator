@@ -260,10 +260,18 @@
     const mergeHtml = window.mergeHtml || '';
     const modalHtml = window.modalHtml || '';
 
+    // Global PWA install prompt handler to catch event before React renders
+    let globalDeferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      globalDeferredPrompt = e;
+      window.dispatchEvent(new CustomEvent('pwa-prompt-ready'));
+    });
+
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.5.1';
+    const VERSION = '5.5.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2039,29 +2047,44 @@
       const [customClaudeModel, setCustomClaudeModel] = useState('');
       const [useCustomClaudeModel, setUseCustomClaudeModel] = useState(false);
       const isStandalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
-      const [deferredPrompt, setDeferredPrompt] = useState(null);
+      const [deferredPrompt, setDeferredPrompt] = useState(globalDeferredPrompt);
 
       useEffect(() => {
         const handlePrompt = (e) => {
           e.preventDefault();
+          globalDeferredPrompt = e;
           setDeferredPrompt(e);
         };
+        const handleReady = () => {
+          if (globalDeferredPrompt) setDeferredPrompt(globalDeferredPrompt);
+        };
         window.addEventListener('beforeinstallprompt', handlePrompt);
-        return () => window.removeEventListener('beforeinstallprompt', handlePrompt);
+        window.addEventListener('pwa-prompt-ready', handleReady);
+        window.addEventListener('appinstalled', () => {
+          globalDeferredPrompt = null;
+          setDeferredPrompt(null);
+          toast('Gemini Translator installed successfully!', 'success');
+        });
+        return () => {
+          window.removeEventListener('beforeinstallprompt', handlePrompt);
+          window.removeEventListener('pwa-prompt-ready', handleReady);
+        };
       }, []);
 
       const handleInstallPWA = async () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
+        const promptEvent = deferredPrompt || globalDeferredPrompt;
+        if (promptEvent) {
+          promptEvent.prompt();
           try {
-            const choice = await deferredPrompt.userChoice;
+            const choice = await promptEvent.userChoice;
             if (choice && choice.outcome === 'accepted') {
-              toast('Gemini Translator installed successfully!');
+              toast('Gemini Translator installed successfully!', 'success');
             }
           } catch (e) {}
+          globalDeferredPrompt = null;
           setDeferredPrompt(null);
         } else {
-          alert('📱 How to install as a full App:\n\n• Microsoft Edge (Android):\n  1. Tap the "..." menu at the bottom.\n  2. Tap "Add to phone" (or "...") and select "Install app". (Make sure to choose "Install app", NOT "Add shortcut")\n\n• Google Chrome (Android):\n  1. Tap the 3 dots (top right) -> "Install app".\n\n• Samsung Internet:\n  1. Tap the install icon in the URL bar (or menu -> "Add page to" -> "App screen").');
+          alert('📱 How to install Gemini Translator on Samsung S24 / Microsoft Edge:\n\n1. Tap the "..." menu at the bottom.\n2. Look for "Install app" or tap "Add to phone" -> "Install app".\n   ⚠️ (Make sure to select "Install app", NOT "Add shortcut")\n\n💡 If you previously added a web shortcut, delete that shortcut from your home screen first, then reload this page.');
         }
       };
 

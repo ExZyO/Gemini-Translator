@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gemini-translator-v5.5.1';
+const CACHE_NAME = 'gemini-translator-v5.5.2';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -7,7 +7,9 @@ const ASSETS_TO_CACHE = [
     './icons.js',
     './manifest.json',
     './icon-192.png',
+    './icon-maskable-192.png',
     './icon-512.png',
+    './icon-maskable-512.png',
     './apple-touch-icon.png',
     './favicon.png',
     './splitter.js',
@@ -17,7 +19,7 @@ const ASSETS_TO_CACHE = [
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
     'https://cdn.jsdelivr.net/npm/jepub/dist/jepub.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/ejs/3.1.9/ejs.min.js',
+    'https://cdn.jsdelivr.net/npm/ejs@3.1.9/ejs.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js',
     'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',

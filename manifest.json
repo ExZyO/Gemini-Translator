@@ -1,11 +1,12 @@
 {
-  "id": "gemini-translator-pwa",
+  "id": "gemini-translator-app",
   "name": "Gemini Translator",
   "short_name": "Translator",
   "description": "AI-powered novel and document translation with Gemini, DeepSeek, DeepL, and LibreTranslate.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#030712",
   "theme_color": "#4f46e5",
@@ -19,7 +20,7 @@
       "purpose": "any"
     },
     {
-      "src": "./icon-192.png",
+      "src": "./icon-maskable-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
@@ -31,7 +32,7 @@
       "purpose": "any"
     },
     {
-      "src": "./icon-512.png",
+      "src": "./icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
