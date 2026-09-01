@@ -32,6 +32,9 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.io.BufferedInputStream;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.BufferedReader;
@@ -588,6 +591,25 @@ public class NativeAndroidBridgePlugin extends Plugin {
         }).start();
     }
 
+        private void updateNotification(String title, String message, int progress, boolean ongoing) {
+        try {
+            Context context = getContext();
+            NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager != null) {
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                        .setSmallIcon(android.R.drawable.stat_sys_download)
+                        .setContentTitle(title)
+                        .setContentText(message)
+                        .setOngoing(ongoing)
+                        .setProgress(100, progress, progress == 0 && ongoing)
+                        .setPriority(NotificationCompat.PRIORITY_LOW);
+                manager.notify(NOTIFICATION_ID, builder.build());
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Notification error: " + e.getMessage());
+        }
+    }
+
     @PluginMethod
     public void installApk(PluginCall call) {
         String downloadUrl = call.getString("url", "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk");
@@ -595,7 +617,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
         new Thread(() -> {
             try {
-                showProgressNotification("Gemini Translator Updater", "Downloading update...", 0, true);
+                updateNotification("Gemini Translator Updater", "Downloading update...", 0, true);
 
                 File cacheFile = new File(context.getCacheDir(), "GeminiTranslator_update.apk");
                 if (cacheFile.exists()) {
@@ -631,7 +653,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     out.write(buf, 0, count);
                     if (totalLength > 0) {
                         int progress = (int) ((total * 100) / totalLength);
-                        showProgressNotification("Gemini Translator Updater", "Downloading update (" + progress + "%)...", progress, true);
+                        updateNotification("Gemini Translator Updater", "Downloading update (" + progress + "%)...", progress, true);
                     }
                 }
 
@@ -640,7 +662,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 in.close();
                 conn.disconnect();
 
-                showProgressNotification("Gemini Translator Updater", "Download complete. Starting installation...", 100, false);
+                updateNotification("Gemini Translator Updater", "Download complete. Starting installation...", 100, false);
 
                 // Trigger Android Package Installer
                 Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", cacheFile);
@@ -658,7 +680,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
             } catch (Exception e) {
                 Log.e(TAG, "APK Auto-install error: " + e.getMessage(), e);
-                showProgressNotification("Gemini Translator Updater", "Update failed: " + e.getMessage(), 0, false);
+                updateNotification("Gemini Translator Updater", "Update failed: " + e.getMessage(), 0, false);
                 call.reject("Failed to install update: " + e.getMessage());
             }
         }).start();
