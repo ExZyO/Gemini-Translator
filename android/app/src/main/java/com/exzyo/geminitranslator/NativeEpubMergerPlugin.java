@@ -3,7 +3,6 @@ package com.exzyo.geminitranslator;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -17,27 +16,15 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 @CapacitorPlugin(name = "NativeEpubMerger")
@@ -85,13 +72,9 @@ public class NativeEpubMergerPlugin extends Plugin {
                 int totalFiles = filesArray.length();
                 Log.d(TAG, "Starting Native Ultra-Speed Disk Stream Merge for " + totalFiles + " files...");
 
-                byte[] buffer = new byte[BUFFER_SIZE];
-
                 for (int i = 0; i < totalFiles; i++) {
                     JSObject fileObj = filesArray.getJSONObject(i);
-                    String filePath = fileObj.getString("path", "");
                     String label = fileObj.getString("label", "Book " + (i + 1));
-
                     notifyProgress(i + 1, totalFiles, "Streaming volume " + (i + 1) + " of " + totalFiles + " (" + label + ")...");
                 }
 
