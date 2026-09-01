@@ -266,9 +266,7 @@
       return h(comp || 'span', { size, className });
     };
     const btn = (props, ...ch) => h('button', props, ...ch);
-    const splitHtml = window.splitHtml || '';
-    const mergeHtml = window.mergeHtml || '';
-    const modalHtml = window.modalHtml || '';
+    // Studio UI components mounted from window.splitHtml, window.mergeHtml, window.modalHtml
 
     // Global PWA install prompt handler to catch event before React renders
     let globalDeferredPrompt = null;
@@ -2243,57 +2241,7 @@ const formatModelName = (id, displayName) => {
     // ══════════════════════════════════════════════════════════════════════
     // (escapeXml is global)
 
-    const saveUniversalBlob = async (blob, fileName, mimeType) => {
-      try {
-        // 1. Android Native Capacitor Bridge (MediaStore Scoped Storage)
-        if (window.NativeBridge && window.NativeBridge.saveBlob) {
-          const res = await window.NativeBridge.saveBlob(blob, fileName, mimeType);
-          if (window.__setDownloadModal) {
-            window.__setDownloadModal({ fileName, path: res.path || ('Download/GeminiTranslator/' + fileName), mimeType });
-          }
-          return;
-        }
-
-        // 2. Modern Desktop Browser Native "Save As" Folder Picker (Windows / Mac)
-        if (window.showSaveFilePicker) {
-          try {
-            const ext = fileName.split('.').pop();
-            const handle = await window.showSaveFilePicker({
-              suggestedName: fileName,
-              types: [{
-                description: `${ext.toUpperCase()} Document`,
-                accept: { [mimeType]: ['.' + ext] }
-              }]
-            });
-            const writable = await handle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-            if (window.__toast) window.__toast(`💾 Saved "${fileName}"!`, 'success');
-            return;
-          } catch (err) {
-            if (err.name === 'AbortError') return; // User cancelled
-            console.warn('showSaveFilePicker fallback:', err);
-          }
-        }
-
-        // 3. Universal Browser HTML5 Download Trigger
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = blobUrl;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(blobUrl);
-        }, 2000);
-        if (window.__toast) window.__toast(`💾 Downloaded "${fileName}"!`, 'success');
-      } catch (saveErr) {
-        console.error('Save file error:', saveErr);
-        if (window.__toast) window.__toast('Failed to save file: ' + saveErr.message, 'error');
-      }
-    };
+    // saveUniversalBlob is globally provided by utils.js
 
     const generateEpubFromChapters = async (chaptersList, bookTitle = 'Web Novel', bookAuthor = 'Author', bookLang = 'en') => {
       const zip = new JSZip();

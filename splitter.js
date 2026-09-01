@@ -1,3 +1,4 @@
+(function() {
 
 function extractTocEntriesFromXml(xmlText) {
     const map = new Map();
@@ -2025,3 +2026,5 @@ document.getElementById('btn-apply-ai-toc')?.addEventListener('click', () => {
 });
 
 };
+
+})();

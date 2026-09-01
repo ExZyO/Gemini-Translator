@@ -1,3 +1,4 @@
+(function() {
 
 // Check for Android Native Disk-Streaming Plugin (Unlimited Multi-Gigabyte Support)
 let isNativeMergerAvailable = false;
@@ -807,3 +808,5 @@ btnExecuteMerge?.addEventListener('click', async () => {
 });
 
 };
+
+})();

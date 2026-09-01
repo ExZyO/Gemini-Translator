@@ -1,3 +1,4 @@
+(function() {
 // Utility functions for Gemini Translator & EPUB Studio
 
 function sanitizeFilename(name) {
@@ -140,3 +141,14 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
     }
 }
 window.saveUniversalBlob = saveUniversalBlob;
+
+
+window.sanitizeFilename = sanitizeFilename;
+window.sanitize = sanitize;
+window.setSmartTitle = setSmartTitle;
+window.forceNewIdentifier = forceNewIdentifier;
+window.logMsg = logMsg;
+window.showToast = showToast;
+window.addExportEntry = addExportEntry;
+window.saveUniversalBlob = saveUniversalBlob;
+})();
