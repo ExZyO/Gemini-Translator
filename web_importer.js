@@ -106,6 +106,12 @@
         const fullWorkUrl = `https://archiveofourown.org/works/${workId}?view_full_work=true&view_adult=true`;
         const res = await window.NativeBridge.fetchUrl(fullWorkUrl);
         const html = await res.text();
+
+        // Check if Cloudflare challenged the request (happens on public web proxies)
+        if (html.includes('_cf_chl_opt') || html.includes('Shields are up!') || html.includes('cf-browser-verification')) {
+            throw new Error('Cloudflare challenged the web proxy. Please install the GeminiTranslator.apk on Android for direct 100% bypass without proxy blocks, or paste the text directly into the Text tab.');
+        }
+
         const doc = new DOMParser().parseFromString(html, 'text/html');
 
         const title = doc.querySelector('h2.title, .title.heading')?.textContent?.trim() || `AO3 Work ${workId}`;
