@@ -3,7 +3,40 @@ function extractTocEntriesFromXml(xmlText) {
     const map = new Map();
     if (!xmlText) return map;
 
-    // 1. Robust NCX regex parser (immune to XML namespace bugs)
+    // 1. Robust NCX tree parser preserving chapter hierarchy (4 -> 1, 2, 3 -> 4.1, 4.2, 4.3)
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlText, 'application/xml');
+        const navPoints = Array.from(doc.getElementsByTagName('navPoint'));
+
+        navPoints.forEach(np => {
+            const contentEl = Array.from(np.children).find(c => c.tagName.toLowerCase() === 'content') || np.querySelector('content');
+            const textEl = np.querySelector('navLabel > text');
+            if (contentEl && textEl) {
+                const src = (contentEl.getAttribute('src') || '').split('#')[0].trim();
+                let label = textEl.textContent.trim();
+
+                // If label is just "1", "2", "3", check parent chapter for decimal notation (e.g. Chapter 4 -> 4.1, 4.2)
+                if (/^\d+$/.test(label) || /^Part\s*\d+$/i.test(label)) {
+                    const parentNp = np.parentElement?.closest('navPoint');
+                    const parentLabel = parentNp?.querySelector('navLabel > text')?.textContent || '';
+                    const pMatch = parentLabel.match(/(?:Chapter|Ch\.?)\s*(\d+)/i);
+                    if (pMatch) {
+                        const num = label.replace(/\D/g, '');
+                        label = `${pMatch[1]}.${num}`;
+                    }
+                }
+
+                if (src && label && !isMachineFilename(label)) {
+                    const fname = src.split('/').pop();
+                    map.set(src, label);
+                    map.set(fname, label);
+                }
+            }
+        });
+    } catch (e) {}
+
+    // Fallback regex scan for anything missed
     const itemRegex = /<navPoint[^>]*>[\s\S]*?<navLabel>[\s\S]*?<text>([\s\S]*?)<\/text>[\s\S]*?<\/navLabel>[\s\S]*?<content[^>]*src="([^"]*)"/gi;
     let match;
     while ((match = itemRegex.exec(xmlText)) !== null) {
@@ -11,12 +44,11 @@ function extractTocEntriesFromXml(xmlText) {
         const src = match[2].split('#')[0].trim();
         if (src && label && !isMachineFilename(label)) {
             const fname = src.split('/').pop();
-            map.set(src, label);
-            map.set(fname, label);
+            if (!map.has(src)) map.set(src, label);
+            if (!map.has(fname)) map.set(fname, label);
         }
     }
 
-    // 2. Robust EPUB 3 nav.xhtml regex parser
     const navLinkRegex = /<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
     while ((match = navLinkRegex.exec(xmlText)) !== null) {
         const src = match[1].split('#')[0].trim();
