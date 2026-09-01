@@ -171,34 +171,77 @@
     async function importLofter(url, progressCb) {
         progressCb?.('Connecting to NetEase Lofter...', 15);
 
-        const mobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1";
-        const res = await window.NativeBridge.fetchUrl(url, { userAgent: mobileUA });
+        const mobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+        const res = await window.NativeBridge.fetchUrl(url, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
         const html = await res.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
 
-        const title = doc.querySelector('.title, h2.tit, .posttitle, h1')?.textContent?.trim() || 'Lofter Novel';
-        const author = doc.querySelector('.author, .name, .blogtitle, .user-name')?.textContent?.trim() || 'Lofter Author';
-        
-        const tags = [];
-        doc.querySelectorAll('.tag a, .opt-tag a, a[href*="/tag/"]').forEach(t => {
-            const txt = t.textContent?.replace(/^#/, '').trim();
-            if (txt) tags.push(txt);
-        });
+        let title = 'Lofter Novel';
+        let author = 'Lofter Author';
+        let tags = [];
+        let mainText = '';
 
-        const chapters = [];
+        // Priority 1: Extract from high-fidelity window.__initialize_data__
+        const startIdx = html.indexOf('window.__initialize_data__');
+        if (startIdx !== -1) {
+            try {
+                const endIdx = html.indexOf('</script>', startIdx);
+                const scriptBlock = html.substring(startIdx, endIdx);
+                const jsonStr = scriptBlock.replace('window.__initialize_data__ = ', '').trim().replace(/;$/, '');
+                const data = JSON.parse(jsonStr);
 
-        // Extract primary chapter body
-        const bodyEl = doc.querySelector('.post-ctc, .text, .content, .post-text, .detail, .article-content') || doc.body;
-        const mainText = bodyEl.textContent?.trim() || '';
+                const blogInfo = data.postData?.data?.blogInfo;
+                if (blogInfo?.blogNickName) author = blogInfo.blogNickName;
 
-        chapters.push({
+                const pv = data.postData?.data?.postData?.postView;
+                if (pv) {
+                    if (pv.title && pv.title.trim()) title = pv.title.trim();
+                    else if (pv.digest) title = pv.digest.substring(0, 40);
+
+                    if (Array.isArray(pv.tagList)) tags = pv.tagList;
+
+                    const rawContent = pv.textPostView?.content || pv.content || '';
+                    if (rawContent) {
+                        mainText = rawContent
+                            .replace(/<br\s*\/?>/gi, '\n')
+                            .replace(/<\/p>/gi, '\n\n')
+                            .replace(/<[^>]+>/g, '')
+                            .replace(/&nbsp;/gi, ' ')
+                            .replace(/&lt;/gi, '<')
+                            .replace(/&gt;/gi, '>')
+                            .replace(/&amp;/gi, '&')
+                            .replace(/\n{3,}/g, '\n\n')
+                            .trim();
+                    }
+                }
+            } catch (e) {
+                console.warn('Lofter JSON init parse warning:', e);
+            }
+        }
+
+        // Priority 2: Fallback to DOM parsing
+        if (!mainText || mainText.length < 50) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            if (title === 'Lofter Novel') {
+                title = doc.querySelector('.title, h2.tit, .posttitle, h1')?.textContent?.trim() || 'Lofter Novel';
+            }
+            if (author === 'Lofter Author') {
+                author = doc.querySelector('.author, .name, .blogtitle, .user-name')?.textContent?.trim() || 'Lofter Author';
+            }
+            if (tags.length === 0) {
+                doc.querySelectorAll('.tag a, .opt-tag a, a[href*="/tag/"]').forEach(t => {
+                    const txt = t.textContent?.replace(/^#/, '').trim();
+                    if (txt) tags.push(txt);
+                });
+            }
+            const bodyEl = doc.querySelector('.post-ctc, .text, .content, .post-text, .detail, .article-content') || doc.body;
+            mainText = bodyEl.textContent?.trim() || '';
+        }
+
+        const chapters = [{
             title: title,
             text: mainText
-        });
+        }];
 
-        // Check if there are next chapter links (Series / Collection)
-        const nextLink = doc.querySelector('a.next, a.nextpost, a.w-opt-next, a:has-text("下一篇"), a:has-text("下一章")')?.getAttribute('href');
-        
         progressCb?.(`Loaded Lofter post: "${title}" (${mainText.length} characters)`, 100);
 
         return {
@@ -209,8 +252,7 @@
             chapters,
             rawZip: null,
             isEpub: false,
-            sourceUrl: url,
-            hasNext: !!nextLink
+            sourceUrl: url
         };
     }
 
