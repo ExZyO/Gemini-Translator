@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.0.0';
+    const VERSION = '6.0.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1475,6 +1475,39 @@
       return parseTranslationOutput(output);
     };
 
+    
+    const streamWithRotation = async (text, opts) => {
+      let currentOpts = { ...opts };
+      const rotateFn = opts?.rotateApiKey || (typeof window !== 'undefined' ? window.rotateApiKey : null);
+      const maxAttempts = 10;
+      let backoffDelay = 1500;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          const streamFn = currentOpts.provider === 'deepseek' ? streamDeepSeek : streamGemini;
+          return await streamFn(text, currentOpts);
+        } catch (err) {
+          if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
+          const errMsg = (err.message || '').toLowerCase();
+          const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
+          if (isRateLimit) {
+            if (typeof rotateFn === 'function') {
+              const nextKey = rotateFn(currentOpts.apiKey);
+              if (nextKey && nextKey !== currentOpts.apiKey) {
+                console.warn(`Streaming rate limit (429) → Auto-switched to next key (attempt ${attempt + 1}/${maxAttempts})`);
+                currentOpts.apiKey = nextKey;
+                await new Promise(r => setTimeout(r, 500));
+                continue;
+              }
+            }
+            await new Promise(r => setTimeout(r, backoffDelay));
+            backoffDelay = Math.min(backoffDelay * 1.5, 10000);
+            continue;
+          }
+          throw err;
+        }
+      }
+    };
+
     const translateWithRotation = async (text, opts) => {
       let currentOpts = { ...opts };
       const rotateFn = opts?.rotateApiKey || (typeof window !== 'undefined' ? window.rotateApiKey : null);
@@ -1491,11 +1524,11 @@
           const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
           if (isRateLimit) {
             if (typeof rotateFn === 'function') {
-              const nextKey = rotateFn();
+              const nextKey = rotateFn(currentOpts.apiKey);
               if (nextKey && nextKey !== currentOpts.apiKey) {
-                console.warn(`Rate limit encountered → Rotated to next key (attempt ${attempt + 1}/${maxAttempts})`);
+                console.warn(`Rate limit (429) encountered → Auto-switched to key ${nextKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
                 currentOpts.apiKey = nextKey;
-                await new Promise(r => setTimeout(r, 600));
+                await new Promise(r => setTimeout(r, 500));
                 continue;
               }
             }
@@ -2460,19 +2493,25 @@ const formatModelName = (id, displayName) => {
       const activeKeyIdsRef = useRef(activeKeyIds);
       useEffect(() => { activeKeyIdsRef.current = activeKeyIds; }, [activeKeyIds]);
 
-      const rotateApiKey = () => {
+      const rotateApiKey = (failingKey) => {
         const keys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
         if (keys.length <= 1) return null;
         
-        let currentId = activeKeyIdsRef.current ? activeKeyIdsRef.current[provider] : null;
-        if (!currentId) {
-          try {
-            const saved = JSON.parse(localStorage.getItem('activeKeyIds') || '{}');
-            currentId = saved[provider];
-          } catch(e) {}
+        let currentIdx = -1;
+        if (failingKey) {
+          currentIdx = keys.findIndex(k => k.key === failingKey);
+        }
+        if (currentIdx === -1) {
+          let currentId = activeKeyIdsRef.current ? activeKeyIdsRef.current[provider] : null;
+          if (!currentId) {
+            try {
+              const saved = JSON.parse(localStorage.getItem('activeKeyIds') || '{}');
+              currentId = saved[provider];
+            } catch(e) {}
+          }
+          currentIdx = Math.max(0, keys.findIndex(k => k.id === currentId));
         }
 
-        const currentIdx = Math.max(0, keys.findIndex(k => k.id === currentId));
         const nextIdx = (currentIdx + 1) % keys.length;
         const nextKey = keys[nextIdx];
 
@@ -7230,8 +7269,7 @@ FORMATTING & STRUCTURE RULES:
             for (let i = startIndex; i < chunks.length; i++) {
               setProgressLabel(`Streaming chunk ${i + 1}/${chunks.length}${useContext ? ' (with context)' : ''}...`);
               let chunkResult = '';
-              const streamFn = provider === 'deepseek' ? streamDeepSeek : streamGemini;
-              const streamRes = await streamFn(chunks[i], {
+              const streamRes = await streamWithRotation(chunks[i], {
                 ...opts,
                 context: useContext ? ctx : undefined,
                 onChunk: t => {
