@@ -1,3 +1,32 @@
+function extractHeadingFromXhtml(html, fallbackIndex) {
+    if (!html) return 'Chapter ' + fallbackIndex;
+    
+    // 1. Look for h1, h2, h3
+    const hMatch = html.match(/<(?:h1|h2|h3)[^>]*>([\s\S]*?)<\/(?:h1|h2|h3)>/i);
+    if (hMatch) {
+        const clean = hMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (clean.length > 1 && clean.length < 140) return clean;
+    }
+
+    // 2. Look for title tag (if not just a file path)
+    const tMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if (tMatch) {
+        const clean = tMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (clean.length > 1 && clean.length < 140 && !clean.toLowerCase().endsWith('.xhtml') && !clean.toLowerCase().endsWith('.html')) {
+            return clean;
+        }
+    }
+
+    // 3. Look for class containing title/chapter/heading
+    const pMatch = html.match(/<p[^>]*class="[^"]*(?:title|chapter|head)[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
+    if (pMatch) {
+        const clean = pMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (clean.length > 1 && clean.length < 140) return clean;
+    }
+
+    return 'Chapter ' + fallbackIndex;
+}
+
 function formatWordStat(count) {
     if (!count || count <= 0) return '0 words';
     if (count >= 1000000) {
@@ -181,6 +210,15 @@ async function processSplitFile(file) {
                     const nonCjk = (stripped.replace(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\b\w+\b/g) || []).length;
                     chap.wordCount = cjk + nonCjk;
                     totalSplitWords += chap.wordCount;
+
+                    // Auto-extract real chapter heading if raw name is a filename
+                    const isRawFilename = /^(?:text\/|ch|chapter|page|section|part|insert|\d+).*?\.(?:xhtml|html)$/i.test(chap.originalName || '');
+                    if (isRawFilename && !chap.customName) {
+                        const extracted = extractHeadingFromXhtml(txt, chap.displayIndex);
+                        if (extracted && extracted !== chap.originalName) {
+                            chap.customName = extracted;
+                        }
+                    }
                 } catch (e) { /* skip */ }
             }
         }
@@ -1274,17 +1312,54 @@ document.getElementById('btn-ai-polish-toc')?.addEventListener('click', () => {
     const modal = document.getElementById('ai-toc-polish-modal');
     if (!modal) return;
     
-    // Update model name label
-    const modelLabel = document.getElementById('ai-polish-model-name');
-    if (modelLabel) {
-        const prov = localStorage.getItem('translationProvider') || 'gemini';
-        modelLabel.textContent = (prov === 'gemini' || !prov) ? 'Gemini 3.5 Flash-Lite' : prov.toUpperCase();
+    const provSelect = document.getElementById('ai-polish-provider-select');
+    if (provSelect) {
+        provSelect.value = localStorage.getItem('translationProvider') || 'gemini';
     }
 
     const statsEl = document.getElementById('ai-toc-stats');
     if (statsEl) statsEl.textContent = `${storyChapters.length} chapters loaded`;
 
     modal.classList.remove('hidden');
+});
+
+
+// ⚡ Instant Auto-Extract (Offline / 0s)
+document.getElementById('btn-instant-extract-toc')?.addEventListener('click', async () => {
+    if (!splitMasterZip || storyChapters.length === 0) return;
+    const container = document.getElementById('ai-toc-results-container');
+    const btnApply = document.getElementById('btn-apply-ai-toc');
+
+    container.innerHTML = '<div class="text-center py-6 text-indigo-500 font-bold animate-pulse">⚡ Scanning internal chapter headings across all ' + storyChapters.length + ' chapters...</div>';
+    
+    aiPolishedResults = [];
+    let html = '<div class="space-y-1.5 max-h-[42vh] overflow-y-auto custom-scrollbar pr-1">';
+
+    for (let chap of storyChapters) {
+        const fullPath = splitOpfDir + chap.originalName;
+        const f = splitMasterZip.files[fullPath];
+        let heading = 'Chapter ' + chap.displayIndex;
+        if (f) {
+            try {
+                const txt = await f.async('text');
+                heading = extractHeadingFromXhtml(txt, chap.displayIndex);
+            } catch (e) {}
+        }
+        aiPolishedResults.push({ index: chap.displayIndex, idref: chap.idref, cleanedName: heading });
+        
+        html += `
+            <div class="p-2 bg-white/90 dark:bg-slate-800/90 rounded-lg flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700/70 text-xs shadow-2xs">
+                <span class="text-purple-600 dark:text-purple-400 shrink-0 font-bold">#${chap.displayIndex}</span>
+                <span class="text-slate-400 line-through truncate max-w-[35%]">${chap.originalName}</span>
+                <span class="text-indigo-500 font-bold shrink-0">&rarr;</span>
+                <span class="text-emerald-600 dark:text-emerald-400 font-semibold truncate flex-1">${heading}</span>
+            </div>
+        `;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+    btnApply.disabled = false;
+    showToast(`⚡ Extracted ${aiPolishedResults.length} chapter titles instantly!`, 'success');
 });
 
 document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', async () => {
@@ -1352,7 +1427,8 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
                 if (pSub) pSub.textContent = `⚠️ ${msg}`;
             };
 
-            const res = await window.aiPolishEpubToc(batchChapters, suggestedBookTitle, onRetry);
+            const selectedProv = document.getElementById('ai-polish-provider-select')?.value || localStorage.getItem('translationProvider') || 'gemini';
+            const res = await window.aiPolishEpubToc(batchChapters, suggestedBookTitle, onRetry, selectedProv);
             if (res.cleanedTitle && b === 0) suggestedBookTitle = res.cleanedTitle;
 
             let items = [];

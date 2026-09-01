@@ -524,10 +524,23 @@ const modalHtml = `<!-- Chapter Preview Modal -->
             </div>
 
             <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 bg-indigo-50/40 dark:bg-indigo-950/20 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between gap-3 flex-wrap">
-                <span>🤖 Powered by your configured AI model (<span id="ai-polish-model-name" class="font-bold text-indigo-600 dark:text-indigo-400">AI</span>)</span>
-                <button id="btn-run-ai-toc-polish" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer">
-                    <span id="ai-polish-btn-text">Generate AI Cleaned TOC</span>
-                </button>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <label class="font-bold text-slate-700 dark:text-slate-300">Provider:</label>
+                    <select id="ai-polish-provider-select" class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-purple-500/30">
+                        <option value="gemini">Google Gemini</option>
+                        <option value="deepseek">DeepSeek (Zero Quota Limits)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="claude">Anthropic Claude</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" id="btn-instant-extract-toc" class="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer" title="Extract real chapter headings directly from XHTML without using any API">
+                        <span>⚡ Instant Extract (Offline)</span>
+                    </button>
+                    <button type="button" id="btn-run-ai-toc-polish" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer">
+                        <span id="ai-polish-btn-text">Generate AI Cleaned TOC</span>
+                    </button>
+                </div>
             </div>
 
             <div id="ai-toc-results-container" class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3 font-mono text-xs max-h-[50vh]">
