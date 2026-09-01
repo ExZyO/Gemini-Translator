@@ -1707,6 +1707,9 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
     const container = document.getElementById('ai-toc-results-container');
     const btnApply = document.getElementById('btn-apply-ai-toc');
 
+    // Reset results so Regenerate Cleaned TOC always re-runs fresh
+    aiPolishedResults = [];
+
     btn.disabled = true;
     btnApply.disabled = true;
 
