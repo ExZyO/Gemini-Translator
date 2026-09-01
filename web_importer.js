@@ -350,45 +350,54 @@
     
     async function importEpubBuffer(buffer, fileName = "AO3_Work.epub", progressCb) {
         progressCb?.('Parsing EPUB package...', 30);
-        const zip = await (window.JSZip ? window.JSZip.loadAsync(buffer) : (new JSZip()).loadAsync(buffer));
+        const jszip = window.JSZip || (typeof JSZip !== 'undefined' ? JSZip : null);
+        if (!jszip) throw new Error('JSZip library not initialized.');
+        const zip = await jszip.loadAsync(buffer);
         
-        const containerXml = await zip.file('META-INF/container.xml')?.async('text');
-        let opfPath = 'OEBPS/content.opf';
-        if (containerXml) {
-            const parser = new DOMParser();
-            const cDoc = parser.parseFromString(containerXml, 'text/xml');
-            opfPath = cDoc.querySelector('rootfile')?.getAttribute('full-path') || opfPath;
+        // Find container.xml
+        const cf = zip.file('META-INF/container.xml');
+        if (!cf) throw new Error('Invalid EPUB: META-INF/container.xml missing');
+        const cc = await cf.async('text');
+        const cd = new DOMParser().parseFromString(cc, 'text/xml');
+        const rp = cd.querySelector('rootfile')?.getAttribute('full-path') || 'OEBPS/content.opf';
+        const od = rp.includes('/') ? rp.substring(0, rp.lastIndexOf('/') + 1) : '';
+        
+        let of2 = zip.file(rp);
+        if (!of2) {
+            // Try fallback paths for OPF
+            const opfCandidates = Object.keys(zip.files).filter(k => k.endsWith('.opf'));
+            if (opfCandidates.length > 0) of2 = zip.file(opfCandidates[0]);
         }
+        if (!of2) throw new Error('Package OPF file not found in EPUB');
 
-        const opfDoc = new DOMParser().parseFromString(await zip.file(opfPath).async('text'), 'text/xml');
-        const title = opfDoc.querySelector('title')?.textContent?.trim() || fileName.replace(/\.epub$/i, '');
-        const author = opfDoc.querySelector('creator')?.textContent?.trim() || 'Author';
-        const description = opfDoc.querySelector('description')?.textContent?.trim() || '';
+        const oc = await of2.async('text');
+        const opf = new DOMParser().parseFromString(oc, 'text/xml');
+        const title = opf.querySelector('title')?.textContent?.trim() || fileName.replace(/\.epub$/i, '');
+        const author = opf.querySelector('creator')?.textContent?.trim() || 'Author';
+        const description = opf.querySelector('description')?.textContent?.trim() || '';
 
-        const spineItems = Array.from(opfDoc.querySelectorAll('spine itemref'));
+        const spineItems = Array.from(opf.querySelectorAll('spine itemref'));
         const manifestMap = {};
-        opfDoc.querySelectorAll('manifest item').forEach(it => {
+        opf.querySelectorAll('manifest item').forEach(it => {
             manifestMap[it.getAttribute('id')] = it.getAttribute('href');
         });
 
-        const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
         const chapters = [];
-
         for (let i = 0; i < spineItems.length; i++) {
-            const idref = spineItems[i].getAttribute('idref');
-            const href = manifestMap[idref];
+            const id = spineItems[i].getAttribute('idref');
+            const href = manifestMap[id];
             if (!href) continue;
             
-            const filePath = opfDir + href;
-            const chFile = zip.file(filePath);
+            const filePath = od ? (od + href) : href;
+            let chFile = zip.file(filePath) || zip.file(href);
             if (!chFile) continue;
 
             const chHtml = await chFile.async('text');
-            const chDoc = new DOMParser().parseFromString(chHtml, 'application/xhtml+xml');
-            const heading = chDoc.querySelector('h1, h2, h3, .heading')?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
-            const bodyText = chDoc.body?.textContent?.trim() || '';
+            const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+            const heading = chDoc.querySelector('h1, h2, h3, h4, [class*="title"], [class*="heading"]')?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
+            const bodyText = chDoc.body?.textContent?.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim() || '';
 
-            if (bodyText.length > 50) {
+            if (bodyText.length > 30) {
                 chapters.push({
                     title: heading,
                     text: bodyText,
@@ -398,7 +407,11 @@
             }
         }
 
-        progressCb?.(`Successfully loaded ${chapters.length} chapters!`, 100);
+        if (chapters.length === 0) {
+            throw new Error('No readable chapters found in this EPUB file.');
+        }
+
+        progressCb?.(`Successfully loaded ${chapters.length} chapter(s)!`, 100);
         return {
             title,
             author,
