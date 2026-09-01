@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.7.3';
+    const VERSION = '5.7.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -286,8 +286,7 @@
       { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Stable 2026)' },
       { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash (Ultra Fast)' },
       { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite (Highest Free Quota)' },
-      { id: 'gemini-3.7-pro', name: 'Gemini 3.7 Pro (Flagship Reasoning & Literary)' },
-      { id: 'gemini-3.5-pro', name: 'Gemini 3.5 Pro (Deep Literary Quality)' },
+            { id: 'gemini-3.5-pro', name: 'Gemini 3.5 Pro (Deep Literary Quality)' },
       { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro' }
     ];
 
@@ -1847,8 +1846,7 @@ const formatModelName = (id, displayName) => {
           if (id.startsWith('gemini-3.6-flash')) return -39;
           if (id.startsWith('gemini-3.5-flash-lite')) return -38;
           if (id.startsWith('gemini-3.5-flash')) return -37;
-          if (id.startsWith('gemini-3.7-pro')) return -36;
-          if (id.startsWith('gemini-3.5-pro')) return -35;
+                    if (id.startsWith('gemini-3.5-pro')) return -35;
           if (id.startsWith('gemini-3.1-pro')) return -34;
           return 0;
         };
