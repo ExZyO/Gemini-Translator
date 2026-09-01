@@ -883,6 +883,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 } catch (Exception ignored) {}
                 chunkStreams.remove(transferId);
 
+                boolean mediaStoreSaved = false;
                 String savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     try {
@@ -902,27 +903,30 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             values.clear();
                             values.put(MediaStore.MediaColumns.IS_PENDING, 0);
                             context.getContentResolver().update(uri, values, null, null);
+                            mediaStoreSaved = true;
                         }
                     } catch (Exception msErr) {
-                        Log.w(TAG, "Chunked MediaStore save: " + msErr.getMessage());
+                        Log.w(TAG, "Chunked MediaStore save fallback: " + msErr.getMessage());
                     }
                 }
 
-                try {
-                    File pubDownloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "GeminiTranslator");
-                    if (pubDownloads.exists() || pubDownloads.mkdirs()) {
-                        File dest = new File(pubDownloads, fileName);
-                        try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = new FileOutputStream(dest)) {
-                            byte[] buf = new byte[65536];
-                            int len;
-                            while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
-                            out.flush();
+                if (!mediaStoreSaved) {
+                    try {
+                        File pubDownloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "GeminiTranslator");
+                        if (pubDownloads.exists() || pubDownloads.mkdirs()) {
+                            File dest = new File(pubDownloads, fileName);
+                            try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = new FileOutputStream(dest)) {
+                                byte[] buf = new byte[65536];
+                                int len;
+                                while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                                out.flush();
+                            }
+                            MediaScannerConnection.scanFile(context, new String[]{dest.getAbsolutePath()}, new String[]{mimeType}, null);
+                            savedPath = dest.getAbsolutePath();
                         }
-                        MediaScannerConnection.scanFile(context, new String[]{dest.getAbsolutePath()}, new String[]{mimeType}, null);
-                        savedPath = dest.getAbsolutePath();
+                    } catch (Exception pubErr) {
+                        Log.w(TAG, "Chunked public download save: " + pubErr.getMessage());
                     }
-                } catch (Exception pubErr) {
-                    Log.w(TAG, "Chunked public download save: " + pubErr.getMessage());
                 }
 
                 final String finalToastPath = savedPath;
@@ -976,6 +980,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
             byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
             String savedPath = "";
             Uri fileUri = null;
+            boolean mediaStoreSaved = false;
 
             // 1. Android 10+ (API 29+) Scoped Storage via MediaStore
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -999,6 +1004,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         context.getContentResolver().update(uri, values, null, null);
                         fileUri = uri;
                         savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
+                        mediaStoreSaved = true;
                         Log.d(TAG, " Saved file via MediaStore to: " + savedPath);
                     }
                 } catch (Exception msErr) {
@@ -1006,33 +1012,29 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
             }
 
-            // 2. Direct File System write (for Android 9 or app cache backup)
+            // 2. Direct File System cache write (for in-app reader & file provider)
             File cacheFile = new File(context.getCacheDir(), fileName);
             try (FileOutputStream fos = new FileOutputStream(cacheFile)) {
                 fos.write(bytes);
                 fos.flush();
             }
 
-            File appDownloads = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
-            try (FileOutputStream fos = new FileOutputStream(appDownloads)) {
-                fos.write(bytes);
-                fos.flush();
-            }
-
-            // 3. Public Download dir if accessible
-            try {
-                File pubDownloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "GeminiTranslator");
-                if (pubDownloads.exists() || pubDownloads.mkdirs()) {
-                    File dest = new File(pubDownloads, fileName);
-                    try (FileOutputStream fos = new FileOutputStream(dest)) {
-                        fos.write(bytes);
-                        fos.flush();
+            // 3. Fallback to public Download directory only if MediaStore wasn't used
+            if (!mediaStoreSaved) {
+                try {
+                    File pubDownloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "GeminiTranslator");
+                    if (pubDownloads.exists() || pubDownloads.mkdirs()) {
+                        File dest = new File(pubDownloads, fileName);
+                        try (FileOutputStream fos = new FileOutputStream(dest)) {
+                            fos.write(bytes);
+                            fos.flush();
+                        }
+                        MediaScannerConnection.scanFile(context, new String[]{dest.getAbsolutePath()}, new String[]{mimeType}, null);
+                        savedPath = dest.getAbsolutePath();
                     }
-                    MediaScannerConnection.scanFile(context, new String[]{dest.getAbsolutePath()}, new String[]{mimeType}, null);
-                    savedPath = dest.getAbsolutePath();
+                } catch (Exception pubErr) {
+                    Log.w(TAG, "Public downloads direct write ignored: " + pubErr.getMessage());
                 }
-            } catch (Exception pubErr) {
-                Log.w(TAG, "Public downloads direct write ignored: " + pubErr.getMessage());
             }
 
             if (savedPath.isEmpty()) {
