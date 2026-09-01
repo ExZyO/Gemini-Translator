@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.1.0';
+    const VERSION = '6.2.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -617,31 +617,33 @@
     const charCount = t => t.length;
     const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
-    // Parallel batch executor: runs tasks in batches of `concurrency` with abort checking
+    // Work-Stealing Multi-Key Parallel Worker Pool: Zero-idle queue dispatcher
     const batchParallel = async (items, fn, concurrency = 3, signal = null) => {
+      if (!items || items.length === 0) return [];
       const results = new Array(items.length);
-      for (let i = 0; i < items.length; i += concurrency) {
-        if (signal?.aborted) {
-          const err = new Error('Translation paused.');
-          err.name = 'AbortError';
-          throw err;
-        }
-        const batch = items.slice(i, i + concurrency);
-        const batchResults = await Promise.allSettled(batch.map((item, idx) => fn(item, i + idx)));
-        if (signal?.aborted) {
-          const err = new Error('Translation paused.');
-          err.name = 'AbortError';
-          throw err;
-        }
-        batchResults.forEach((r, idx) => {
-          if (r.status === 'rejected' && (r.reason?.name === 'AbortError' || r.reason?.message?.includes('aborted') || signal?.aborted)) {
+      let nextIndex = 0;
+      const numWorkers = Math.max(1, Math.min(concurrency, items.length));
+
+      const workers = Array.from({ length: numWorkers }, async (_, workerId) => {
+        while (nextIndex < items.length) {
+          if (signal?.aborted) {
             const err = new Error('Translation paused.');
             err.name = 'AbortError';
             throw err;
           }
-          results[i + idx] = r.status === 'fulfilled' ? r.value : { error: r.reason?.message || 'Unknown error' };
-        });
-      }
+          const currentIndex = nextIndex++;
+          const item = items[currentIndex];
+          try {
+            const res = await fn(item, currentIndex, workerId);
+            results[currentIndex] = res;
+          } catch (err) {
+            if (signal?.aborted || err.name === 'AbortError') throw err;
+            results[currentIndex] = { error: err.message || 'Unknown error' };
+          }
+        }
+      });
+
+      await Promise.all(workers);
       return results;
     };
     const cleanText = t => { let c = t.replace(/\r\n|\r/g, '\n'); c = c.replace(/[ \t]{2,}/g, ' '); c = c.replace(/(\n\s*){2,}/g, '\n\n'); return c.trim() };
@@ -7336,15 +7338,16 @@ FORMATTING & STRUCTURE RULES:
             let completed = startIndex;
             const remainingChunks = chunks.slice(startIndex);
             const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
-            const results = await batchParallel(remainingChunks, async (chunk, idx) => {
-              const workerKey = availableKeys.length > 0 ? availableKeys[idx % availableKeys.length].key : opts.apiKey;
+            const effectiveConcurrency = Math.max(concurrency, availableKeys.length > 1 ? availableKeys.length : 1);
+            const results = await batchParallel(remainingChunks, async (chunk, idx, workerId = 0) => {
+              const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
               const workerOpts = { ...opts, apiKey: workerKey };
               const translated = await translateWithRotation(chunk, workerOpts);
               completed++; setProgress(Math.floor((completed / chunks.length) * 100));
               setProgressLabel(`Completed ${completed}/${chunks.length} chunks`);
               saveState(result + (result ? '\n' : '') + '[Partial Parallel Completion]', '', completed);
               return translated;
-            }, concurrency, opts.signal);
+            }, effectiveConcurrency, opts.signal);
 
             results.forEach(r => {
               if (r?.usage) {
@@ -7464,12 +7467,13 @@ FORMATTING & STRUCTURE RULES:
           }
 
           setProgress(Math.floor((done / totalChunks) * 100));
-          setProgressLabel(`Resuming ${chapterItems.length} remaining chapter(s) with ${Math.min(concurrency, chapterItems.length)} parallel worker(s)${useContext ? ' (intra-chapter context)' : ''}...`);
+          setProgressLabel(`Resuming ${chapterItems.length} remaining chapter(s) with ${${Math.min(effectiveConcurrency, chapterItems.length)} parallel multi-key stream(s)${useContext ? ' (intra-chapter context)' : ''}...`);
 
           const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
+          const effectiveConcurrency = Math.max(concurrency, availableKeys.length > 1 ? availableKeys.length : 1);
 
-          await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx) => {
-            const workerKey = availableKeys.length > 0 ? availableKeys[itemIdx % availableKeys.length].key : opts.apiKey;
+          await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx, workerId = 0) => {
+            const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
             const workerOpts = { ...opts, apiKey: workerKey };
             let title = ch.title;
             const chunks = ch.chunks;
@@ -7553,7 +7557,7 @@ FORMATTING & STRUCTURE RULES:
             setAssembledText(currentAssembled);
             setTranslatedChapters([...newChapters]);
             saveState(chapterCtx, done, i + 1, 0, allParts, newChapters);
-          }, concurrency, opts.signal);
+          }, effectiveConcurrency, opts.signal);
 
           if (isEpub && originalZip) {
             window.currentTranslatedZip = originalZip;
