@@ -1,6 +1,6 @@
 {
   "name": "gemini-epub-website-2026-september",
-  "version": "8.0.0",
+  "version": "8.0.1",
   "description": "> **Version:** 4.1.0   > **Repository:** [ExZyO/Gemini-Translator](https://github.com/ExZyO/Gemini-Translator)   > **Tech Stack:** Vanilla JavaScript (ES Modules), React 18, Tailwind CSS, JSZip, PDF.js, jsPDF, jEpub, docx, Service Worker (PWA)   > **Runtime Environment:** 100% Client-side (Zero backend server required)",
   "main": "epub_studio_ui.js",
   "scripts": {

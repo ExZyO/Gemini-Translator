@@ -205,6 +205,7 @@
         } catch(e) {}
 
         let lastNotifTime = 0;
+        const startTime = Date.now();
 
         const worker = async () => {
             while (nextIndex < chapterList.length) {
@@ -230,12 +231,18 @@
 
                 completedCount++;
                 const pct = Math.min(99, Math.round(15 + ((completedCount / chapterList.length) * 84)));
-                progressCb?.(`⚡ Ingested ${chapters.length}/${chapterList.length} chapters (~${totalWordsEstimate.toLocaleString()} words, ${totalImagesCount} illustrations)...`, pct);
+                const elapsedSec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
+                const min = Math.floor(elapsedSec / 60);
+                const sec = elapsedSec % 60;
+                const timeStr = (min > 0 ? `${min}m ` : '') + `${sec}s`;
+                const speed = (completedCount / elapsedSec).toFixed(1);
+
+                progressCb?.(`⚡ Ingested: ${chapters.length}/${chapterList.length} ch (${pct}%) • ⏱️ ${timeStr} (${speed} ch/s) • ~${totalWordsEstimate.toLocaleString()} words`, pct);
 
                 const now = Date.now();
                 if (now - lastNotifTime > 2000 || completedCount === chapterList.length) {
                     lastNotifTime = now;
-                    window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Ingesting novel: ${chapters.length}/${chapterList.length} chapters (${pct}%)`, pct, true);
+                    window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Ingesting novel: ${chapters.length}/${chapterList.length} ch (${pct}%) • ⏱️ ${timeStr}`, pct, true);
                 }
             }
         };

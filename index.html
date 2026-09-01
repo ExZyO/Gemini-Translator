@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.0.0';
+    const VERSION = '8.0.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2261,6 +2261,14 @@ const formatModelName = (id, displayName) => {
       if (!JSZipClass) throw new Error('JSZip library not loaded');
       const zip = new JSZipClass();
       const uuid = 'urn:uuid:' + (crypto.randomUUID ? crypto.randomUUID() : ('uuid_' + Date.now()));
+      const startTime = Date.now();
+
+      const getElapsed = () => {
+        const sec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return (m > 0 ? `${m}m ` : '') + `${s}s`;
+      };
 
       let wakeLockObj = null;
       try {
@@ -2359,12 +2367,12 @@ p.divider {
         const imageCache = new Map();
         let imgSeq = 0;
 
-        // Step 2: Download all unique illustrations with chunked streaming save safety
+        // Step 2: Download all unique illustrations
         const imgUrlList = Array.from(uniqueImgUrls);
 
         if (imgUrlList.length > 0) {
-          onProgress?.(`🖼️ Pre-caching ${imgUrlList.length} illustration(s)...`, 5);
-          window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-caching ${imgUrlList.length} illustrations...`, 5, true);
+          onProgress?.(`🖼️ Pre-caching ${imgUrlList.length} illustration(s) • ⏱️ ${getElapsed()}...`, 5, getElapsed());
+          window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-caching ${imgUrlList.length} images • ⏱️ ${getElapsed()}`, 5, true);
           let downloadedCount = 0;
           let lastReportedImg = 0;
 
@@ -2396,20 +2404,17 @@ p.divider {
                 const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : 'image/jpeg'));
                 const imgFilename = `img_${imgSeq}.${ext}`;
                 const manifestId = `img_${imgSeq}`;
-                // Store image with STORE (no re-compression, 100x faster, zero CPU burn)
                 imgFolder.file(imgFilename, buffer, { compression: 'STORE' });
                 manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="${mime}"/>`);
                 imageCache.set(url, { localHref: `images/${imgFilename}`, manifestId });
               }
-            } catch (e) {
-              // Proceed gracefully
-            }
+            } catch (e) {}
             downloadedCount++;
             if (downloadedCount - lastReportedImg >= 5 || downloadedCount === imgUrlList.length) {
               lastReportedImg = downloadedCount;
               const pct = Math.min(30, Math.round(5 + (downloadedCount / imgUrlList.length) * 25));
-              onProgress?.(`🖼️ Pre-caching illustrations (${downloadedCount}/${imgUrlList.length})...`, pct);
-              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-cached ${downloadedCount}/${imgUrlList.length} images`, pct, true);
+              onProgress?.(`🖼️ Pre-caching illustrations (${downloadedCount}/${imgUrlList.length}) • ⏱️ ${getElapsed()}...`, pct, getElapsed());
+              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-cached ${downloadedCount}/${imgUrlList.length} images • ⏱️ ${getElapsed()}`, pct, true);
             }
           };
 
@@ -2421,8 +2426,8 @@ p.divider {
         }
 
         // Step 3: Fast In-Memory Chapter Assembly
-        onProgress?.(`⚡ Assembling ${chaptersList.length} chapter(s)...`, 35);
-        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Assembling ${chaptersList.length} chapters...`, 35, true);
+        onProgress?.(`⚡ Assembling ${chaptersList.length} chapter(s) • ⏱️ ${getElapsed()}...`, 35, getElapsed());
+        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Assembling ${chaptersList.length} chapters • ⏱️ ${getElapsed()}`, 35, true);
 
         for (let idx = 0; idx < chaptersList.length; idx++) {
           const ch = chaptersList[idx];
@@ -2515,8 +2520,8 @@ ${bodyHtml.join('\n  ')}
 </ncx>`;
         oebps.file('toc.ncx', ncxContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
 
-        onProgress?.('📦 Compiling EPUB archive...', 60);
-        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', 'Compressing archive...', 60, true);
+        onProgress?.(`📦 Compressing EPUB archive • ⏱️ ${getElapsed()}...`, 60, getElapsed());
+        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive • ⏱️ ${getElapsed()}`, 60, true);
 
         let lastReportedPct = 0;
         const blob = await zip.generateAsync(
@@ -2525,8 +2530,8 @@ ${bodyHtml.join('\n  ')}
             const pct = Math.min(99, Math.round(60 + (meta.percent * 0.39)));
             if (pct - lastReportedPct >= 5 || meta.percent === 100) {
               lastReportedPct = pct;
-              onProgress?.(`📦 Compressing EPUB archive (${Math.round(meta.percent)}%)...`, pct);
-              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive (${Math.round(meta.percent)}%)`, pct, true);
+              onProgress?.(`📦 Compressing EPUB archive (${Math.round(meta.percent)}%) • ⏱️ ${getElapsed()}...`, pct, getElapsed());
+              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive (${Math.round(meta.percent)}%) • ⏱️ ${getElapsed()}`, pct, true);
             }
           }
         );
@@ -9033,8 +9038,8 @@ FORMATTING & STRUCTURE RULES:
 
           // Always compile a clean, standardized EPUB with translated TOC and proper paragraph spacing
           setEpubPackagingModal({ title: docTitle, status: '⚡ Assembling translated EPUB archive...', pct: 10 });
-          const blob = await generateEpubFromChapters(chaptersToExport, docTitle, author, lang, (status, pct) => {
-            setEpubPackagingModal({ title: docTitle, status, pct });
+          const blob = await generateEpubFromChapters(chaptersToExport, docTitle, author, lang, (status, pct, elapsed) => {
+            setEpubPackagingModal({ title: docTitle, status, pct, elapsed });
           });
           setEpubPackagingModal(null);
           toast('✨ EPUB downloaded successfully!', 'success');
@@ -10028,8 +10033,8 @@ FORMATTING & STRUCTURE RULES:
                   onClick: async () => {
                     try {
                       setEpubPackagingModal({ title: webImportData.title || 'Web Novel', status: '⚡ Assembling EPUB archive...', pct: 5 });
-                      const blob = await generateEpubFromChapters(webImportData.chapters, webImportData.title, webImportData.author, 'en', (status, pct) => {
-                        setEpubPackagingModal({ title: webImportData.title || 'Web Novel', status, pct });
+                      const blob = await generateEpubFromChapters(webImportData.chapters, webImportData.title, webImportData.author, 'en', (status, pct, elapsed) => {
+                        setEpubPackagingModal({ title: webImportData.title || 'Web Novel', status, pct, elapsed });
                       });
                       setEpubPackagingModal(null);
                       const safeName = (webImportData.title || 'novel').toLowerCase().replace(/[^a-z0-9_-]/g, '_') + '.epub';
@@ -10261,8 +10266,8 @@ FORMATTING & STRUCTURE RULES:
                             const chaptersToBuild = full?.rawChapters || [];
                             if (chaptersToBuild.length === 0) throw new Error('No chapters stored');
                             setEpubPackagingModal({ title: item.title, status: '⚡ Assembling EPUB archive...', pct: 15 });
-                            const blob = await generateEpubFromChapters(chaptersToBuild, item.title, item.author, 'en', (status, pct) => {
-                              setEpubPackagingModal({ title: item.title, status, pct });
+                            const blob = await generateEpubFromChapters(chaptersToBuild, item.title, item.author, 'en', (status, pct, elapsed) => {
+                              setEpubPackagingModal({ title: item.title, status, pct, elapsed });
                             });
                             setEpubPackagingModal(null);
                             const safeName = (item.title || 'novel').toLowerCase().replace(/[^a-z0-9_-]/g, '_') + '.epub';
@@ -10321,8 +10326,8 @@ FORMATTING & STRUCTURE RULES:
                 })
               ),
               h('div', { className: 'flex justify-between text-[11px] text-slate-400 font-mono' },
-                h('span', null, 'Packaging Progress'),
-                h('span', null, `${epubPackagingModal.pct || 0}%`)
+                h('span', { className: 'flex items-center gap-1 text-teal-400' }, ic(Clock, 12), epubPackagingModal.elapsed ? `${epubPackagingModal.elapsed} elapsed` : 'Active'),
+                h('span', { className: 'font-bold text-slate-300' }, `${epubPackagingModal.pct || 0}%`)
               )
             ),
             h('p', { className: 'text-[11px] text-slate-400' }, 'High-speed parallel worker • Zero app stalls')
