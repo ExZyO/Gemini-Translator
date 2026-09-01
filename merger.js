@@ -1,4 +1,18 @@
 
+// Check for Android Native Disk-Streaming Plugin (Unlimited Multi-Gigabyte Support)
+let isNativeMergerAvailable = false;
+if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.NativeEpubMerger) {
+    window.Capacitor.Plugins.NativeEpubMerger.isNativeAvailable()
+        .then(res => {
+            if (res && res.available) {
+                isNativeMergerAvailable = true;
+                console.log("⚡ Android Native Disk-Streaming EPUB Merger Engine Active!");
+            }
+        })
+        .catch(() => {});
+}
+
+
 function validateZipHeader(buffer, filename) {
     if (!buffer || buffer.byteLength < 22) {
         throw new Error(`"${filename}" is too small or empty (${buffer ? buffer.byteLength : 0} bytes). If stored in OneDrive/cloud, please make sure it is downloaded locally.`);
