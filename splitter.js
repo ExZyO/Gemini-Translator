@@ -243,7 +243,30 @@ function extractHeadingFromXhtml(html, fallbackIndex, tocTitle = '') {
     }
     if (!html) return 'Chapter ' + fallbackIndex;
 
-    // 1. Look for h1, h2, h3, h4
+    const lower = html.toLowerCase();
+
+    // 1. Check for Image / Illustration pages
+    if (lower.includes('<img') || lower.includes('<image')) {
+        const textOnly = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (textOnly.length < 60) {
+            if (/cover/i.test(html)) return 'Cover';
+            if (/title/i.test(html)) return 'Title Page';
+            if (/color|gallery|insert|illust|plate/i.test(html)) return 'Illustrations';
+            return 'Illustration';
+        }
+    }
+
+    // 2. Check for Copyright / Credits pages
+    if (lower.includes('all rights reserved') || lower.includes('isbn') || (lower.includes('copyright') && lower.includes('published'))) {
+        return 'Credits and Copyright';
+    }
+
+    // 3. Check for Table of Contents page
+    if (/<(?:h1|h2|h3|p)[^>]*>\s*(?:Table of Contents|Contents)\s*<\//i.test(html)) {
+        return 'Table of Contents';
+    }
+
+    // 4. Look for h1, h2, h3, h4 tags
     const hMatch = html.match(/<(?:h1|h2|h3|h4)[^>]*>([\s\S]*?)<\/(?:h1|h2|h3|h4)>/i);
     if (hMatch) {
         const clean = hMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -252,8 +275,19 @@ function extractHeadingFromXhtml(html, fallbackIndex, tocTitle = '') {
         }
     }
 
-    // 2. Look for class containing title/chapter/heading/calibre
-    const pMatch = html.match(/<p[^>]*class="[^"]*(?:title|chapter|head|calibre_title|heading)[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
+    // 5. Look for multi-line chapter headings: e.g. <p class="chapter-number">Chapter 1</p><p class="chapter-title">Title</p>
+    const multiMatch = html.match(/<p[^>]*class="[^"]*(?:chapter[-_]?num|c[-_]?num)[^"]*"[^>]*>([\s\S]*?)<\/p>\s*<p[^>]*class="[^"]*(?:chapter[-_]?title|c[-_]?title)[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
+    if (multiMatch) {
+        const numPart = multiMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        const titlePart = multiMatch[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (numPart || titlePart) {
+            const combined = numPart && titlePart ? `${numPart} - ${titlePart}` : (numPart || titlePart);
+            return cleanChapterTitleString(combined, fallbackIndex);
+        }
+    }
+
+    // 6. Look for class containing title/chapter/heading/c-title/calibre
+    const pMatch = html.match(/<(?:p|div|span)[^>]*class="[^"]*(?:title|chapter|head|calibre_title|heading|c-title|c-head)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div|span)>/i);
     if (pMatch) {
         const clean = pMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
         if (clean.length > 1 && clean.length < 140 && !isMachineFilename(clean)) {
@@ -261,7 +295,7 @@ function extractHeadingFromXhtml(html, fallbackIndex, tocTitle = '') {
         }
     }
 
-    // 3. Look for bold/strong at top of body
+    // 7. Look for bold/strong at top of body
     const bMatch = html.match(/<(?:b|strong)[^>]*>([\s\S]*?)<\/(?:b|strong)>/i);
     if (bMatch) {
         const clean = bMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -270,7 +304,7 @@ function extractHeadingFromXhtml(html, fallbackIndex, tocTitle = '') {
         }
     }
 
-    // 4. Look for title tag if meaningful
+    // 8. Look for title tag if meaningful
     const tMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     if (tMatch) {
         const clean = tMatch[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
