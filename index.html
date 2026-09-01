@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.1.1';
+    const VERSION = '8.2.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -974,7 +974,14 @@
         ` - Direct Emotional Weight & Punchy Power: Translate poems into evocative, rhythmically resonant English verse prioritizing direct emotional weight, heroic clarity, and poetic meter rather than overly literal obscure nature metaphors (e.g. render "早岁已知世事艰...千磨万击心铸铁...炼蛊炼人还炼天" as "In my youth I knew the hardships of the world... A heart of steel forged from countless setbacks... Refine Gu! Refine Human! Refine Heaven!!").\n` +
         ` - Exclamatory Battle-Cry Climaxes: Use sharp, punchy imperative and exclamatory phrasing for climactic poem endings rather than passive/participle forms.\n` +
         ` - In <<The Legends of Ren Zu>> and mythic parables, preserve strict anaphoric repetition (e.g. repeating "On what basis... / If such... / Then let me...") and word-for-word identical refrains across allegorical birds, beasts, and fishes to maintain the sacred, liturgical fable cadence.\n` +
-        `12. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n\n`;
+        `12. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n` +
+        `13. Premium Typography & Formatting:\n` +
+        ` - Use proper typographic punctuation: curly/smart quotes (\u201c...\u201d and \u2018...\u2019), em-dashes (\u2014) instead of double hyphens (--), and proper ellipsis (\u2026) instead of three dots (...).\n` +
+        ` - Use clean scene breaks: output a single line containing only *** between scene transitions. Do not use random symbols, decorative ASCII art, or inconsistent break markers.\n` +
+        ` - Ensure clean paragraph separation: each paragraph should be on its own line with a blank line between paragraphs. Do not merge multiple paragraphs into a single block.\n` +
+        ` - For poems, songs, or recited verses embedded in narrative, prefix each line with > to mark them as blockquotes.\n` +
+        ` - Mark emphasized or internally-thought text with *single asterisks* for italic emphasis.\n` +
+        ` - Remove all residual web artifacts: navigation links, "Previous Chapter / Next Chapter" buttons, donation appeals, social media links, WordPress widget text, and any HTML tags.\n\n`;
 
       let p = `${promptHeader}RAW TEXT TO TRANSLATE:\n${text}\n\n`;
 
@@ -998,8 +1005,26 @@
 
     const cleanNovelProse = (text) => {
       if (!text) return '';
+      let t = text;
       // Clean standalone markdown italic sound effects like *Rip!*, *Crack!*, *Whoosh!*
-      return text.replace(/^(\s*)\*([A-Za-z0-9!?,.\s'-]{1,30})\*(\s*)$/gm, '$1$2$3');
+      t = t.replace(/^(\s*)\*([A-Za-z0-9!?,.\s'-]{1,30})\*(\s*)$/gm, '$1$2$3');
+      // Strip residual web navigation artifacts
+      t = t.replace(/^\s*(?:Previous Chapter|Next Chapter|Table of Contents|Prev|Next|TOC|Back to Top|Share this:?|Like this:?|Related|Loading\.\.\.|Leave a (?:Reply|Comment)|Click here to .+)\s*$/gim, '');
+      // Strip residual WordPress / Tumblr / social widget lines
+      t = t.replace(/^\s*(?:Advertisements?|Sponsored|Share on (?:Facebook|Twitter|Reddit)|Follow us on .+|Join our Discord.+|Support (?:us|me) on .+|Donate .+|Patreon .+|Buy me a coffee.+)\s*$/gim, '');
+      // Strip orphaned HTML tags
+      t = t.replace(/<\/?(?:div|span|br|a|img|script|style|iframe|button|input|form|nav|header|footer|aside|section|figure|figcaption)[^>]*>/gi, '');
+      // Normalize double+ blank lines into single blank line
+      t = t.replace(/\n{3,}/g, '\n\n');
+      // Fix broken hyphenation from OCR/web scrape (e.g. "trans-\nlation" -> "translation")
+      t = t.replace(/(\w)-\s*\n\s*(\w)/g, '$1$2');
+      // Normalize straight quotes to smart quotes
+      t = t.replace(/"([^"]*?)"/g, '\u201c$1\u201d');
+      t = t.replace(/(\w)'(\w)/g, '$1\u2019$2');
+      // Normalize dashes and ellipsis
+      t = t.replace(/---?/g, '\u2014');
+      t = t.replace(/\.{3,}/g, '\u2026');
+      return t.trim();
     };
 
     const parseTranslationOutput = (rawText, context, usage = null) => {
@@ -2290,49 +2315,183 @@ const formatModelName = (id, displayName) => {
         const oebps = zip.folder('OEBPS');
         const imgFolder = oebps.folder('images');
 
-        const cssContent = `body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        const cssContent = `@charset "UTF-8";
+
+/* ═══════════════════════════════════════════════════════
+   GEMINI TRANSLATOR — PREMIUM EPUB STYLESHEET v8.2
+   Publisher-grade typography for all EPUB readers
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Base Typography ── */
+body {
+  font-family: "Literata", "Georgia", "Palatino Linotype", "Book Antiqua", "Palatino", "Times New Roman", serif;
+  font-size: 1.05em;
   line-height: 1.85;
-  margin: 1.5em;
+  margin: 1.2em 1.5em;
   padding: 0;
   color: #1a1a1a;
   background-color: #ffffff;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  orphans: 2;
+  widows: 2;
 }
+
+/* ── Headings ── */
 h1, h2, h3, h4 {
-  font-family: inherit;
-  font-weight: 800;
-  line-height: 1.3;
-  margin-top: 1.5em;
-  margin-bottom: 0.8em;
+  font-family: "Literata", "Georgia", "Palatino Linotype", serif;
+  font-weight: 700;
+  line-height: 1.25;
   color: #0f172a;
   text-align: center;
+  letter-spacing: -0.01em;
+  page-break-after: avoid;
+  page-break-inside: avoid;
+  margin-bottom: 0.6em;
 }
+h1 {
+  font-size: 1.65em;
+  margin-top: 2em;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid #e2e8f0;
+}
+h2 { font-size: 1.35em; margin-top: 1.8em; }
+h3 { font-size: 1.15em; margin-top: 1.5em; }
+
+/* ── Paragraphs ── */
 p {
   margin-top: 0;
-  margin-bottom: 1.15em;
-  text-indent: 0;
+  margin-bottom: 0.85em;
+  text-indent: 1.5em;
   text-align: justify;
-  font-size: 1.05em;
+  font-size: 1em;
   font-weight: 400;
 }
+h1 + p, h2 + p, h3 + p,
+.illustration-wrap + p,
+p.divider + p,
+p.first {
+  text-indent: 0;
+}
+
+/* ── Drop Cap (first paragraph after chapter heading) ── */
+h1 + p::first-letter {
+  font-size: 3.2em;
+  float: left;
+  line-height: 0.8;
+  margin-right: 0.08em;
+  margin-top: 0.05em;
+  font-weight: 700;
+  color: #334155;
+  font-family: "Literata", "Georgia", serif;
+}
+
+/* ── Scene Break Dividers ── */
 p.divider {
   text-align: center;
-  margin: 2em 0;
-  letter-spacing: 0.2em;
-  color: #64748b;
-  font-weight: bold;
+  text-indent: 0;
+  margin: 2.5em 0;
+  letter-spacing: 0.35em;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.85em;
+  page-break-inside: avoid;
 }
+
+/* ── Dialogue & Emphasis ── */
+em, i { font-style: italic; }
+strong, b { font-weight: 700; }
+
+/* ── Blockquote (poems, letters, system messages) ── */
+blockquote {
+  margin: 1.8em 2em;
+  padding: 1em 1.5em;
+  border-left: 3px solid #cbd5e1;
+  font-style: italic;
+  color: #475569;
+  background-color: #f8fafc;
+  page-break-inside: avoid;
+}
+blockquote p {
+  text-indent: 0;
+  margin-bottom: 0.5em;
+}
+blockquote p:last-child { margin-bottom: 0; }
+
+/* ── Poetry & Verse Blocks ── */
+.verse {
+  margin: 2em 3em;
+  padding: 0.8em 0;
+  text-align: center;
+  font-style: italic;
+  color: #334155;
+  line-height: 2;
+  page-break-inside: avoid;
+}
+.verse p {
+  text-indent: 0;
+  text-align: center;
+  margin-bottom: 0.3em;
+}
+
+/* ── Illustrations ── */
 .illustration-wrap {
   text-align: center;
-  margin: 2em auto;
+  margin: 2.5em auto;
   page-break-inside: avoid;
+  page-break-before: auto;
 }
 .illustration {
   max-width: 100%;
   height: auto;
   display: block;
   margin: 0 auto;
-  border-radius: 8px;
+  border-radius: 4px;
+}
+
+/* ── Horizontal Rule ── */
+hr {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 2.5em 4em;
+}
+
+/* ── Footnotes & Small Text ── */
+.footnote, .note {
+  font-size: 0.85em;
+  color: #64748b;
+  line-height: 1.5;
+  margin-top: 2em;
+  padding-top: 0.5em;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* ── Links ── */
+a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+/* ── Night / Dark Mode Compatibility ── */
+@media (prefers-color-scheme: dark) {
+  body { color: #e2e8f0; background-color: #0f172a; }
+  h1, h2, h3, h4 { color: #f1f5f9; }
+  h1 { border-bottom-color: #334155; }
+  h1 + p::first-letter { color: #94a3b8; }
+  p.divider { color: #475569; }
+  blockquote {
+    border-left-color: #475569;
+    color: #94a3b8;
+    background-color: #1e293b;
+  }
+  .verse { color: #cbd5e1; }
+  hr { border-top-color: #334155; }
 }
 `;
         oebps.file('style.css', cssContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
@@ -2447,10 +2606,34 @@ p.divider {
           const bodyHtml = [];
           bodyHtml.push(`<h1>${escapeXml(chTitle)}</h1>`);
 
-          for (const line of rawLines) {
-            const trimmed = line.trim();
+          // Smart typographic formatter
+          const smartFormat = (raw) => {
+            let s = escapeXml(raw);
+            // Smart quotes: "..." -> curly double quotes
+            s = s.replace(/&quot;([^&]*?)&quot;/g, '\u201c$1\u201d');
+            // Straight double quotes fallback
+            s = s.replace(/"([^"]*?)"/g, '\u201c$1\u201d');
+            // Smart single quotes / apostrophes
+            s = s.replace(/(\w)&apos;(\w)/g, '$1\u2019$2'); // it's, don't
+            s = s.replace(/&apos;([^&]*?)&apos;/g, '\u2018$1\u2019');
+            // Normalize dashes: -- or --- to em-dash
+            s = s.replace(/---?/g, '\u2014');
+            // Normalize triple dots to proper ellipsis
+            s = s.replace(/\.{3,}/g, '\u2026');
+            // Bold: **text** or __text__
+            s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+            // Italic: *text* or _text_ (single, not inside words)
+            s = s.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '<em>$1</em>');
+            s = s.replace(/(?<!\w)_([^_]+)_(?!\w)/g, '<em>$1</em>');
+            return s;
+          };
+
+          for (let li = 0; li < rawLines.length; li++) {
+            const trimmed = rawLines[li].trim();
             if (!trimmed) continue;
 
+            // Illustration
             const imgMatch = trimmed.match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
             if (imgMatch) {
               const altText = imgMatch[1] || 'Illustration';
@@ -2464,11 +2647,31 @@ p.divider {
               continue;
             }
 
-            if (/^(?:\*|\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(trimmed)) {
-              bodyHtml.push(`<p class="divider">${escapeXml(trimmed)}</p>`);
-            } else {
-              bodyHtml.push(`<p>${escapeXml(trimmed)}</p>`);
+            // Scene break dividers: ***, ---, ===, ~~~, * * *, etc.
+            if (/^(?:\*\s*\*\s*\*|\*{3,}|\.{3,}|\u2026{2,}|\u2014{2,}|-{3,}|={3,}|~{3,}|#\s*#\s*#)$/.test(trimmed)) {
+              bodyHtml.push('<hr/>');
+              continue;
             }
+
+            // Horizontal rule markdown
+            if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+              bodyHtml.push('<hr/>');
+              continue;
+            }
+
+            // Blockquote lines starting with >
+            if (trimmed.startsWith('>')) {
+              const bqLines = [trimmed.replace(/^>\s*/, '')];
+              while (li + 1 < rawLines.length && rawLines[li + 1].trim().startsWith('>')) {
+                li++;
+                bqLines.push(rawLines[li].trim().replace(/^>\s*/, ''));
+              }
+              bodyHtml.push('<blockquote>' + bqLines.map(l => `<p>${smartFormat(l)}</p>`).join('\n') + '</blockquote>');
+              continue;
+            }
+
+            // Normal paragraph with smart formatting
+            bodyHtml.push(`<p>${smartFormat(trimmed)}</p>`);
           }
 
           const xhtmlContent = `<?xml version="1.0" encoding="utf-8"?>
