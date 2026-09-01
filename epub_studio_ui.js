@@ -84,7 +84,10 @@ const splitHtml = `<div id="epub-split-tab" class="w-full overflow-hidden transi
                     <div class="space-y-5 sm:space-y-6">
                         <div
                             class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl shadow-sm sm:backdrop-blur-md">
-                            <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 mb-3">1. Extract Range</h3>
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">1. Extract Range</h3>
+                                <button type="button" id="btn-quick-range-preset" class="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline cursor-pointer">Select Range in List</button>
+                            </div>
                             <div class="flex flex-col sm:flex-row items-center gap-3 mb-4">
                                 <div class="w-full">
                                     <label
@@ -100,8 +103,13 @@ const splitHtml = `<div id="epub-split-tab" class="w-full overflow-hidden transi
                                         class="w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
                                 </div>
                             </div>
-                            <button id="btn-export-range"
-                                class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-xs sm:text-sm">Download Range</button>
+                            <div class="flex gap-2">
+                                <button id="btn-export-range"
+                                    class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-xs sm:text-sm">Download Range</button>
+                                <button id="btn-apply-range-selection"
+                                    class="px-4 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-300 dark:border-slate-700 font-bold py-2.5 sm:py-3 rounded-xl transition-all text-xs cursor-pointer"
+                                    title="Check these chapters in the selection list">Select in List</button>
+                            </div>
                         </div>
 
                         <div
@@ -139,10 +147,17 @@ const splitHtml = `<div id="epub-split-tab" class="w-full overflow-hidden transi
                             </div>
 
                             <!-- Keep Only Text Toggle -->
-                            <label class="flex items-center gap-2 cursor-pointer mb-4 select-none">
+                            <label class="flex items-center gap-2 cursor-pointer mb-3 select-none">
                                 <input type="checkbox" id="keep-only-text"
                                     class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 accent-indigo-600">
                                 <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">Keep Only Text (strip images, fonts, CSS)</span>
+                            </label>
+
+                            <!-- Asset Tree-Shaking Toggle -->
+                            <label class="flex items-center gap-2 cursor-pointer mb-4 select-none">
+                                <input type="checkbox" id="asset-tree-shake" checked
+                                    class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 accent-indigo-600">
+                                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400" title="Only packages images/assets referenced in selected chapters">Asset Tree-Shaking (Compact Volume Size)</span>
                             </label>
 
                             <!-- CSS Theme Injection -->
@@ -174,6 +189,10 @@ const splitHtml = `<div id="epub-split-tab" class="w-full overflow-hidden transi
 
                             <button id="btn-export-chunks"
                                 class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-xs sm:text-sm">Download All Parts</button>
+                            <button id="btn-export-batch-zip"
+                                class="mt-2 w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 text-xs sm:text-sm disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5">
+                                <span>📦 Download All Volumes as Single .ZIP</span>
+                            </button>
                             <button id="btn-export-zip"
                                 class="mt-2 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 sm:py-2.5 rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 text-xs disabled:opacity-50 cursor-pointer">Export as Plain ZIP</button>
                         </div>
@@ -206,18 +225,26 @@ const splitHtml = `<div id="epub-split-tab" class="w-full overflow-hidden transi
 
                         <div
                             class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl shadow-sm sm:backdrop-blur-md flex-1 flex flex-col min-h-[350px] sm:min-h-[400px]">
-                            <div class="flex items-center justify-between mb-3 sm:mb-4">
-                                <div>
+                            <div class="flex items-center justify-between mb-3 sm:mb-4 gap-2 flex-wrap">
+                                <div class="flex items-center gap-2">
                                     <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">Chapter Selection</h3>
+                                    <button type="button" id="btn-ai-polish-toc" class="px-2.5 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg text-[11px] font-bold shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1 cursor-pointer" title="AI automatically standardizes and cleans chapter names & TOC">
+                                        <span>✨ AI Polish TOC</span>
+                                    </button>
                                 </div>
                                 <span id="preview-count"
                                     class="text-xs font-mono font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full whitespace-nowrap shadow-2xs">0 selected</span>
                             </div>
 
-                            <div class="flex gap-2 mb-3 sm:mb-4">
+                            <div class="flex flex-wrap gap-2 mb-3 sm:mb-4">
                                 <button id="btn-export-custom"
-                                    class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-xs sm:text-sm">
+                                    class="flex-1 min-w-[130px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer text-xs sm:text-sm">
                                     Download Checked
+                                </button>
+                                <button id="btn-send-to-translator"
+                                    class="px-3.5 sm:px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 text-xs cursor-pointer flex items-center gap-1.5"
+                                    title="Load selected chapters directly into the Translator text workbench">
+                                    <span>⚡ Translate Selected</span>
                                 </button>
                                 <button id="btn-share-export"
                                     class="px-3.5 sm:px-4 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 sm:py-3 rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 text-xs cursor-pointer"
@@ -232,15 +259,18 @@ const splitHtml = `<div id="epub-split-tab" class="w-full overflow-hidden transi
                                 Estimated output: <span id="estimated-size-value" class="font-bold text-slate-800 dark:text-slate-200">0</span> MB
                             </div>
 
-                            <div class="flex items-center gap-2 mb-3 flex-wrap">
+                            <div class="flex items-center gap-2 mb-3 flex-wrap text-xs">
                                 <button id="btn-select-all"
-                                    class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">Select All</button>
+                                    class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">Select All</button>
                                 <span class="text-slate-300 dark:text-slate-600">|</span>
                                 <button id="btn-deselect-all"
-                                    class="text-xs font-bold text-slate-500 hover:underline cursor-pointer">Deselect All</button>
+                                    class="font-bold text-slate-500 hover:underline cursor-pointer">Deselect All</button>
+                                <span class="text-slate-300 dark:text-slate-600">|</span>
+                                <button id="btn-invert-select"
+                                    class="font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Invert</button>
                                 <span class="text-slate-300 dark:text-slate-600">|</span>
                                 <button id="btn-batch-rename"
-                                    class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">Batch Rename</button>
+                                    class="font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">Batch Rename</button>
                             </div>
 
                             <!-- Chapter Search -->
@@ -292,9 +322,14 @@ const mergeHtml = `<div id="epub-merge-tab" class="w-full overflow-hidden transi
                     </div>
 
                     <div id="merge-list-container" class="hidden space-y-4">
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
                             <h3 class="font-bold text-sm text-slate-800 dark:text-slate-200">Files to Merge:</h3>
-                            <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+                                <button id="btn-sort-merge-natural" type="button"
+                                    class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer" title="Sort files by natural number ordering (Book 1, Book 2... Book 10)">
+                                    <span>🔤 Sort A–Z (Natural)</span>
+                                </button>
+                                <span class="text-slate-300 dark:text-slate-700">|</span>
                                 <button id="btn-clear-all-merge"
                                     class="hidden text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -362,7 +397,7 @@ const mergeHtml = `<div id="epub-merge-tab" class="w-full overflow-hidden transi
                                 class="mb-6 group bg-slate-50/60 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all">
                                 <summary
                                     class="cursor-pointer p-4 font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between select-none">
-                                    <span>Advanced Metadata & Compression</span>
+                                    <span>Advanced Options, TOC Hierarchy & Compression</span>
                                     <svg class="w-4 h-4 text-slate-400 transition-transform group-open:rotate-180"
                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                         <path fill-rule="evenodd"
@@ -371,33 +406,48 @@ const mergeHtml = `<div id="epub-merge-tab" class="w-full overflow-hidden transi
                                     </svg>
                                 </summary>
                                 <div
-                                    class="p-4 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200/80 dark:border-slate-800/80">
-                                    <div>
-                                        <label
-                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Author / Creator</label>
-                                        <input type="text" id="merge-author"
-                                            class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all">
+                                    class="p-4 pt-1 space-y-4 border-t border-slate-200/80 dark:border-slate-800/80">
+                                    
+                                    <!-- Merging toggles -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                        <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                            <input type="checkbox" id="merge-nested-toc" checked class="w-4 h-4 text-fuchsia-600 rounded border-slate-300 focus:ring-fuchsia-500 accent-fuchsia-600">
+                                            <span>Multi-Level Hierarchical TOC (Volume &gt; Chapters)</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                            <input type="checkbox" id="merge-strip-dupes" checked class="w-4 h-4 text-fuchsia-600 rounded border-slate-300 focus:ring-fuchsia-500 accent-fuchsia-600">
+                                            <span>Strip Redundant Covers / Front-Matter from Book 2+</span>
+                                        </label>
                                     </div>
-                                    <div>
-                                        <label
-                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Publisher</label>
-                                        <input type="text" id="merge-publisher"
-                                            class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all">
-                                    </div>
-                                    <div>
-                                        <label
-                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Language</label>
-                                        <input type="text" id="merge-language" value="en"
-                                            class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all">
-                                    </div>
-                                    <div>
-                                        <label
-                                            class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Compression</label>
-                                        <select id="merge-compression"
-                                            class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all h-[36px]">
-                                            <option value="DEFLATE">Small File (DEFLATE max)</option>
-                                            <option value="STORE" selected>Fast Speed (STORE uncompressed)</option>
-                                        </select>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                        <div>
+                                            <label
+                                                class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Author / Creator</label>
+                                            <input type="text" id="merge-author"
+                                                class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all">
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Publisher</label>
+                                            <input type="text" id="merge-publisher"
+                                                class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all">
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Language</label>
+                                            <input type="text" id="merge-language" value="en"
+                                                class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all">
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Compression</label>
+                                            <select id="merge-compression"
+                                                class="w-full bg-white dark:bg-slate-900 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500 transition-all h-[36px]">
+                                                <option value="DEFLATE">Small File (DEFLATE max)</option>
+                                                <option value="STORE" selected>Fast Speed (STORE uncompressed)</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             </details>
@@ -445,6 +495,47 @@ const modalHtml = `<!-- Chapter Preview Modal -->
             </div>
             <div id="preview-modal-body"
                 class="p-6 overflow-y-auto custom-scrollbar text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-serif">
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Polish TOC Modal -->
+    <div id="ai-toc-polish-modal"
+        class="hidden fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4"
+        onclick="if(event.target===this)this.classList.add('hidden')">
+        <div
+            class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-3xl w-full max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div class="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center text-sm font-black">✨</span>
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 dark:text-slate-100 text-base sm:text-lg">AI Table of Contents & Title Polisher</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Standardize chapter numbering, clean scraped tags, and organize arcs</p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('ai-toc-polish-modal').classList.add('hidden')"
+                    class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-bold">✕</button>
+            </div>
+
+            <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 bg-indigo-50/40 dark:bg-indigo-950/20 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between gap-3 flex-wrap">
+                <span>🤖 Powered by your configured AI model (<span id="ai-polish-model-name" class="font-bold text-indigo-600 dark:text-indigo-400">AI</span>)</span>
+                <button id="btn-run-ai-toc-polish" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer">
+                    <span id="ai-polish-btn-text">Generate AI Cleaned TOC</span>
+                </button>
+            </div>
+
+            <div id="ai-toc-results-container" class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3 font-mono text-xs max-h-[50vh]">
+                <p class="text-slate-400 dark:text-slate-500 italic text-center py-8">Click "Generate AI Cleaned TOC" above to start analyzing and standardizing chapter titles.</p>
+            </div>
+
+            <div class="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 flex items-center justify-between gap-3">
+                <span id="ai-toc-stats" class="text-xs text-slate-500 font-medium">0 chapters ready</span>
+                <div class="flex gap-2">
+                    <button onclick="document.getElementById('ai-toc-polish-modal').classList.add('hidden')" class="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition-all">Cancel</button>
+                    <button id="btn-apply-ai-toc" disabled class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-bold rounded-xl shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer">
+                        <span>Apply Cleaned Titles & TOC</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

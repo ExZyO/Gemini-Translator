@@ -70,6 +70,20 @@ btnClearAllMerge.addEventListener('click', () => {
     }
 });
 
+
+
+// --- Natural Alphanumeric Sort (Book 1, Book 2... Book 10) ---
+document.getElementById('btn-sort-merge-natural')?.addEventListener('click', () => {
+    if (mergeFiles.length === 0) return showToast('No files in merge list', 'warn');
+    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+    mergeFiles.sort((a, b) => collator.compare(a.name, b.name));
+    mergeFiles.forEach((f, i) => {
+        if (/^Book \d+$/.test(f.customLabel)) f.customLabel = `Book ${i + 1}`;
+    });
+    renderMergeList();
+    showToast('Sorted books in natural order (A–Z)!', 'success');
+});
+
 mergeInput.addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
         handleMergeFiles(Array.from(e.target.files));
@@ -501,6 +515,9 @@ btnExecuteMerge.addEventListener('click', async () => {
 
         // Loop through remaining books
         for (let i = 1; i < mergeFiles.length; i++) {
+
+            const stripDupes = document.getElementById('merge-strip-dupes')?.checked;
+
             updateParsingProgress(i + 1, mergeFiles.length);
 
             const subZip = await new JSZip().loadAsync(mergeFiles[i]);

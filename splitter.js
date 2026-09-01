@@ -345,6 +345,33 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
         // If "Keep Only Text" is checked, strip non-HTML assets
         const keepOnlyText = document.getElementById('keep-only-text')?.checked;
 
+        
+        // --- Asset Tree-Shaking ---
+        const treeShakeEnabled = document.getElementById('asset-tree-shake')?.checked;
+        const referencedAssets = new Set();
+        if (treeShakeEnabled && !keepOnlyText) {
+            for (let chap of storyChapters) {
+                if (allowedIdrefs.has(chap.idref)) {
+                    const fullPath = splitOpfDir + chap.originalName;
+                    const f = splitMasterZip.files[fullPath];
+                    if (f) {
+                        try {
+                            const content = await f.async('text');
+                            const matches = content.match(/(?:src|href|xlink:href)\s*=\s*["']([^"']+)["']/gi) || [];
+                            matches.forEach(m => {
+                                const clean = m.replace(/^(?:src|href|xlink:href)\s*=\s*["']|["']$/gi, '').trim();
+                                if (clean && !clean.startsWith('http:') && !clean.startsWith('https:') && !clean.startsWith('#') && !clean.startsWith('data:')) {
+                                    const filename = clean.split('/').pop().split('?')[0];
+                                    referencedAssets.add(filename);
+                                    referencedAssets.add(clean);
+                                }
+                            });
+                        } catch (e) { /* skip */ }
+                    }
+                }
+            }
+        }
+
         for (let path in splitMasterZip.files) {
             if (path === "mimetype" || splitMasterZip.files[path].dir) continue;
             let shouldInclude = true;
@@ -361,6 +388,20 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
                 if (lp.endsWith('.ttf') || lp.endsWith('.otf') || lp.endsWith('.woff') || lp.endsWith('.woff2')) shouldInclude = false;
                 if (lp.endsWith('.css')) shouldInclude = false;
             }
+            
+            // Asset Tree-Shaking: Exclude images/media not referenced in surviving chapters
+            if (treeShakeEnabled && !keepOnlyText && shouldInclude) {
+                const lp = path.toLowerCase();
+                const isImage = lp.endsWith('.jpg') || lp.endsWith('.jpeg') || lp.endsWith('.png') || lp.endsWith('.webp') || lp.endsWith('.gif') || lp.endsWith('.svg');
+                if (isImage) {
+                    const fname = path.split('/').pop();
+                    const isCover = lp.includes('cover');
+                    if (!isCover && !referencedAssets.has(fname) && !referencedAssets.has(path)) {
+                        shouldInclude = false;
+                    }
+                }
+            }
+
             if (shouldInclude || path.includes("META-INF") || path.endsWith(".opf") || path.endsWith(".ncx")) {
                 newZip.file(path, await splitMasterZip.files[path].async("arraybuffer"));
             }
@@ -982,5 +1023,355 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-};
+// ═══════════════════════════════════════════════════════════════
+// NEW ADVANCED FEATURES: RANGE SELECT, BATCH ZIP, AI TOC, TRANSLATE
+// ═══════════════════════════════════════════════════════════════
 
+// --- Apply Range Selection in Checkbox List ---
+document.getElementById('btn-apply-range-selection')?.addEventListener('click', () => {
+    const start = parseInt(document.getElementById('range-start')?.value);
+    const end = parseInt(document.getElementById('range-end')?.value);
+    if (isNaN(start) || isNaN(end) || start < 1 || end < start) {
+        return showToast('Please enter a valid Start and End chapter number', 'warn');
+    }
+    storyChapters.forEach(chap => {
+        const cb = document.querySelector(`.chap-checkbox[value="${chap.idref}"]`);
+        if (cb) {
+            cb.checked = (chap.displayIndex >= start && chap.displayIndex <= end);
+        }
+    });
+    const checkedCount = document.querySelectorAll('.chap-checkbox:checked').length;
+    const previewEl = document.getElementById('preview-count');
+    if (previewEl) previewEl.textContent = `${checkedCount} / ${storyChapters.length} selected`;
+    updateEstimatedSize();
+    showToast(`Selected Chapters ${start} to ${end} (${checkedCount} total)`, 'success');
+});
+
+document.getElementById('btn-quick-range-preset')?.addEventListener('click', () => {
+    const startEl = document.getElementById('range-start');
+    const endEl = document.getElementById('range-end');
+    if (!startEl.value) startEl.value = '1';
+    if (!endEl.value) endEl.value = Math.min(storyChapters.length, 100).toString();
+    document.getElementById('btn-apply-range-selection')?.click();
+});
+
+// --- Invert Selection ---
+document.getElementById('btn-invert-select')?.addEventListener('click', () => {
+    document.querySelectorAll('.chap-checkbox').forEach(cb => {
+        cb.checked = !cb.checked;
+    });
+    const checkedCount = document.querySelectorAll('.chap-checkbox:checked').length;
+    const previewEl = document.getElementById('preview-count');
+    if (previewEl) previewEl.textContent = `${checkedCount} / ${storyChapters.length} selected`;
+    updateEstimatedSize();
+    showToast(`Inverted selection (${checkedCount} selected)`, 'info');
+});
+
+// --- Send Selected Chapters to Translator ---
+document.getElementById('btn-send-to-translator')?.addEventListener('click', async () => {
+    if (!splitMasterZip || storyChapters.length === 0) return showToast('No EPUB loaded', 'warn');
+    const checked = Array.from(document.querySelectorAll('.chap-checkbox:checked')).map(cb => cb.value);
+    if (checked.length === 0) return showToast('Please select at least 1 chapter first', 'warn');
+
+    showToast('Extracting selected chapter text...', 'info');
+    let extractedText = '';
+    const parser = new DOMParser();
+
+    for (let i = 0; i < checked.length; i++) {
+        const idref = checked[i];
+        const chap = storyChapters.find(c => c.idref === idref);
+        if (!chap) continue;
+        const fullPath = splitOpfDir + chap.originalName;
+        const f = splitMasterZip.files[fullPath];
+        if (f) {
+            try {
+                const html = await f.async('text');
+                const doc = parser.parseFromString(html, 'text/html');
+                const title = chap.customName || (doc.querySelector('h1, h2, h3, title')?.textContent.trim()) || `Chapter ${chap.displayIndex}`;
+                
+                // Strip scripts and styles
+                doc.querySelectorAll('script, style').forEach(el => el.remove());
+                const bodyText = (doc.body ? doc.body.innerText || doc.body.textContent : doc.documentElement.textContent).trim();
+                
+                extractedText += `=== ${title} ===\n\n${bodyText}\n\n\n`;
+            } catch (e) { console.warn('Failed to parse chapter text for translator:', e); }
+        }
+    }
+
+    if (!extractedText.trim()) return showToast('No readable text found in selected chapters', 'error');
+
+    if (window.loadExtractedChaptersIntoTranslator) {
+        window.loadExtractedChaptersIntoTranslator({
+            title: `${splitTitleInput.value.trim() || baseBookTitle} (${checked.length} Ch)`,
+            text: extractedText.trim(),
+            count: checked.length
+        });
+        showToast(`Loaded ${checked.length} chapters into Translator!`, 'success');
+    } else {
+        showToast('Translator bridge ready. Switch to Text tab to view.', 'info');
+    }
+});
+
+// --- Download All Volumes as Single .ZIP ---
+document.getElementById('btn-export-batch-zip')?.addEventListener('click', async () => {
+    if (!splitMasterZip || storyChapters.length === 0) return showToast('No EPUB loaded', 'warn');
+    const chunkSize = parseInt(document.getElementById('chunk-size')?.value) || 100;
+    if (chunkSize <= 0) return showToast('Invalid chunk size', 'warn');
+
+    const totalVolumes = Math.ceil(storyChapters.length / chunkSize);
+    if (!confirm(`Generate ${totalVolumes} split EPUB volumes (every ${chunkSize} chapters) and pack them into a single .ZIP bundle?`)) return;
+
+    logMsg(`Starting Batch Volume Export (${totalVolumes} volumes)...`);
+    const masterZip = new JSZip();
+    const btnBatch = document.getElementById('btn-export-batch-zip');
+    btnBatch.disabled = true;
+
+    try {
+        for (let v = 0; v < totalVolumes; v++) {
+            const startIdx = v * chunkSize;
+            const endIdx = Math.min(startIdx + chunkSize, storyChapters.length);
+            const volChapters = storyChapters.slice(startIdx, endIdx);
+            const volIdrefs = volChapters.map(c => c.idref);
+            const rangeSuffix = `Vol ${v + 1} (Ch ${startIdx + 1}-${endIdx})`;
+
+            logMsg(`Building ${rangeSuffix}...`);
+            
+            // Build single volume zip in memory
+            const volBlob = await buildSingleVolumeBlob(volIdrefs, rangeSuffix);
+            if (volBlob) {
+                const bookTitle = sanitizeFilename(splitTitleInput.value.trim() || baseBookTitle);
+                const volFileName = `${bookTitle}_${sanitizeFilename(rangeSuffix)}.epub`;
+                masterZip.file(volFileName, volBlob);
+            }
+        }
+
+        logMsg('Compressing master .ZIP archive...');
+        const zipBlob = await masterZip.generateAsync({ type: 'blob', compression: 'STORE' }, (meta) => {
+            const pWrapper = document.getElementById('split-progress-wrapper');
+            const pBar = document.getElementById('split-progress-bar');
+            const pPercent = document.getElementById('split-progress-percent');
+            if (pWrapper) pWrapper.classList.remove('hidden');
+            if (pBar) pBar.style.width = meta.percent.toFixed(0) + '%';
+            if (pPercent) pPercent.textContent = meta.percent.toFixed(0) + '%';
+        });
+
+        const bookTitle = sanitizeFilename(splitTitleInput.value.trim() || baseBookTitle);
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${bookTitle}_All_Volumes.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        logMsg('✅ Batch Volume ZIP exported successfully!');
+        showToast(`Exported ${totalVolumes} volumes in 1 ZIP bundle!`, 'success');
+        addExportEntry(`${bookTitle} (${totalVolumes} Volumes)`, 'split', `Batch ${chunkSize} ch/vol`);
+    } catch (err) {
+        console.error('Batch export failed:', err);
+        showToast('Batch export failed: ' + err.message, 'error');
+    } finally {
+        btnBatch.disabled = false;
+        document.getElementById('split-progress-wrapper')?.classList.add('hidden');
+    }
+});
+
+// Helper: build a single volume blob in memory without triggering automatic download
+async function buildSingleVolumeBlob(selectedIdrefs, rangeSuffix) {
+    const newZip = new JSZip();
+    newZip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+
+    const allowedIdrefs = new Set([...frontMatter.map(f => f.idref), ...selectedIdrefs]);
+    const allowedHrefs = new Set();
+
+    allItems.forEach(item => {
+        if (allowedIdrefs.has(item.id)) allowedHrefs.add(item.href);
+        else if (!item.mediaType.includes('html')) allowedHrefs.add(item.href);
+    });
+
+    const keepOnlyText = document.getElementById('keep-only-text')?.checked;
+    const treeShakeEnabled = document.getElementById('asset-tree-shake')?.checked;
+    const referencedAssets = new Set();
+
+    if (treeShakeEnabled && !keepOnlyText) {
+        for (let chap of storyChapters) {
+            if (allowedIdrefs.has(chap.idref)) {
+                const fullPath = splitOpfDir + chap.originalName;
+                const f = splitMasterZip.files[fullPath];
+                if (f) {
+                    try {
+                        const content = await f.async('text');
+                        const matches = content.match(/(?:src|href|xlink:href)\s*=\s*["']([^"']+)["']/gi) || [];
+                        matches.forEach(m => {
+                            const clean = m.replace(/^(?:src|href|xlink:href)\s*=\s*["']|["']$/gi, '').trim();
+                            if (clean && !clean.startsWith('http:') && !clean.startsWith('https:') && !clean.startsWith('#') && !clean.startsWith('data:')) {
+                                referencedAssets.add(clean.split('/').pop().split('?')[0]);
+                                referencedAssets.add(clean);
+                            }
+                        });
+                    } catch (e) {}
+                }
+            }
+        }
+    }
+
+    for (let path in splitMasterZip.files) {
+        if (path === "mimetype" || splitMasterZip.files[path].dir) continue;
+        let shouldInclude = true;
+        if (path.endsWith('.html') || path.endsWith('.xhtml')) {
+            shouldInclude = false;
+            for (let href of allowedHrefs) {
+                if (path.endsWith(href)) { shouldInclude = true; break; }
+            }
+        }
+        if (keepOnlyText && shouldInclude) {
+            const lp = path.toLowerCase();
+            if (lp.endsWith('.jpg') || lp.endsWith('.jpeg') || lp.endsWith('.png') || lp.endsWith('.gif') || lp.endsWith('.webp') || lp.endsWith('.svg') || lp.endsWith('.ttf') || lp.endsWith('.otf') || lp.endsWith('.woff') || lp.endsWith('.css')) shouldInclude = false;
+        }
+        if (treeShakeEnabled && !keepOnlyText && shouldInclude) {
+            const lp = path.toLowerCase();
+            const isImage = lp.endsWith('.jpg') || lp.endsWith('.jpeg') || lp.endsWith('.png') || lp.endsWith('.webp') || lp.endsWith('.gif') || lp.endsWith('.svg');
+            if (isImage && !lp.includes('cover')) {
+                const fname = path.split('/').pop();
+                if (!referencedAssets.has(fname) && !referencedAssets.has(path)) shouldInclude = false;
+            }
+        }
+        if (shouldInclude || path.includes("META-INF") || path.endsWith(".opf") || path.endsWith(".ncx")) {
+            newZip.file(path, await splitMasterZip.files[path].async("arraybuffer"));
+        }
+    }
+
+    const newOpfDoc = splitOpfDoc.cloneNode(true);
+    const spine = newOpfDoc.querySelector("spine");
+    const manifest = newOpfDoc.querySelector("manifest");
+
+    Array.from(spine.querySelectorAll("itemref")).forEach(ref => {
+        if (!allowedIdrefs.has(ref.getAttribute("idref"))) spine.removeChild(ref);
+    });
+
+    Array.from(manifest.querySelectorAll("item")).forEach(item => {
+        if (item.getAttribute("media-type").includes("html") && !allowedIdrefs.has(item.getAttribute("id"))) {
+            manifest.removeChild(item);
+        }
+    });
+
+    let currentTitle = splitTitleInput.value.trim() || baseBookTitle;
+    let finalTitle = `${currentTitle} (${rangeSuffix})`;
+    setSmartTitle(newOpfDoc, finalTitle);
+    forceNewIdentifier(newOpfDoc);
+
+    newZip.file(splitOpfPath, new XMLSerializer().serializeToString(newOpfDoc));
+    return await newZip.generateAsync({ type: "blob", compression: "DEFLATE", mimeType: "application/epub+zip" });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AI TABLE OF CONTENTS & CHAPTER TITLE POLISHER
+// ═══════════════════════════════════════════════════════════════
+
+let aiPolishedResults = [];
+
+document.getElementById('btn-ai-polish-toc')?.addEventListener('click', () => {
+    if (!splitMasterZip || storyChapters.length === 0) return showToast('Please load an EPUB first', 'warn');
+    const modal = document.getElementById('ai-toc-polish-modal');
+    if (!modal) return;
+    
+    // Update model name label
+    const modelLabel = document.getElementById('ai-polish-model-name');
+    if (modelLabel) {
+        const prov = localStorage.getItem('translationProvider') || 'gemini';
+        modelLabel.textContent = prov.toUpperCase();
+    }
+
+    const statsEl = document.getElementById('ai-toc-stats');
+    if (statsEl) statsEl.textContent = `${storyChapters.length} chapters loaded`;
+
+    modal.classList.remove('hidden');
+});
+
+document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', async () => {
+    if (!splitMasterZip || storyChapters.length === 0) return;
+    if (!window.aiPolishEpubToc) return showToast('AI engine not loaded yet. Please wait...', 'warn');
+
+    const btn = document.getElementById('btn-run-ai-toc-polish');
+    const btnText = document.getElementById('ai-polish-btn-text');
+    const container = document.getElementById('ai-toc-results-container');
+    const btnApply = document.getElementById('btn-apply-ai-toc');
+
+    btn.disabled = true;
+    btnText.textContent = 'Analyzing & Polishing...';
+    container.innerHTML = '<div class="text-center py-8 text-indigo-400 font-semibold animate-pulse">Analyzing chapter structure and generating clean standardized titles...</div>';
+
+    try {
+        // Extract chapter samples
+        const sampleChapters = storyChapters.slice(0, 150).map((c, i) => ({
+            index: c.displayIndex,
+            idref: c.idref,
+            rawName: c.customName || c.originalName
+        }));
+
+        const result = await window.aiPolishEpubToc(sampleChapters, splitTitleInput.value.trim() || baseBookTitle);
+        aiPolishedResults = result.chapters || [];
+
+        if (aiPolishedResults.length === 0) {
+            container.innerHTML = '<p class="text-rose-400 text-center py-6">AI did not return cleaned titles. Please try again.</p>';
+            return;
+        }
+
+        // Render clean comparison table
+        let html = `
+            <div class="mb-3 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-800 dark:text-emerald-300">
+                <span class="font-bold">Suggested Book Title:</span> ${result.cleanedTitle || baseBookTitle}
+            </div>
+            <div class="space-y-1.5">
+        `;
+
+        aiPolishedResults.forEach(item => {
+            const orig = sampleChapters.find(c => c.index === item.index);
+            html += `
+                <div class="p-2 bg-slate-100/80 dark:bg-slate-800/80 rounded-lg flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700/70">
+                    <span class="text-slate-400 shrink-0 font-bold">#${item.index}</span>
+                    <span class="text-slate-500 line-through truncate max-w-[40%]" title="${orig ? orig.rawName : ''}">${orig ? orig.rawName : ''}</span>
+                    <span class="text-indigo-500 font-bold shrink-0">&rarr;</span>
+                    <span class="text-emerald-600 dark:text-emerald-400 font-semibold truncate flex-1">${item.cleanedName}</span>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+        btnApply.disabled = false;
+        showToast('AI Table of Contents polished successfully!', 'success');
+    } catch (err) {
+        console.error('AI TOC polish failed:', err);
+        container.innerHTML = `<div class="text-rose-400 p-4 bg-rose-950/20 rounded-xl border border-rose-800/50">Error: ${err.message}</div>`;
+        showToast('AI Polish failed: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btnText.textContent = 'Regenerate AI Cleaned TOC';
+    }
+});
+
+// Apply Cleaned AI Titles
+document.getElementById('btn-apply-ai-toc')?.addEventListener('click', () => {
+    if (!aiPolishedResults || aiPolishedResults.length === 0) return;
+    let appliedCount = 0;
+
+    aiPolishedResults.forEach(item => {
+        const chap = storyChapters.find(c => c.displayIndex === item.index);
+        if (chap && item.cleanedName) {
+            chap.customName = item.cleanedName;
+            appliedCount++;
+        }
+    });
+
+    // Update DOM chapter list
+    document.querySelectorAll('#chapter-list .chap-name').forEach(span => {
+        const idref = span.getAttribute('data-idref');
+        const chap = storyChapters.find(c => c.idref === idref);
+        if (chap) span.textContent = chap.customName || chap.originalName;
+    });
+
+    document.getElementById('ai-toc-polish-modal')?.classList.add('hidden');
+    showToast(`✨ Applied clean titles to ${appliedCount} chapters!`, 'success');
+    logMsg(`AI Polish applied: standardized ${appliedCount} chapter titles.`);
+});
+
+};

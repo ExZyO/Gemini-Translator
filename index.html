@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.5.3';
+    const VERSION = '5.6.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1518,7 +1518,110 @@
       }
     };
 
-    const formatModelName = (id, displayName) => {
+    
+
+    // ═══════════════════════════════════════════════════════════════
+    // AI TABLE OF CONTENTS & METADATA POLISHER ENGINE
+    // ═══════════════════════════════════════════════════════════════
+    window.aiPolishEpubToc = async function(sampleChapters, bookTitle) {
+      const provider = localStorage.getItem('translationProvider') || 'gemini';
+      const geminiKey = localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey') || '';
+      const deepseekKey = localStorage.getItem('deepseekApiKey') || '';
+      const openaiKey = localStorage.getItem('openaiApiKey') || '';
+      const claudeKey = localStorage.getItem('claudeApiKey') || '';
+
+      const prompt = `You are an expert digital eBook editor and Table of Contents specialist.
+You are given a book title and a list of chapter entries with their current raw/scraped titles.
+Task:
+1. Clean, fix, and standardize every chapter title into a clean, professional title (e.g. "Chapter 1: The Beginning", "Chapter 2: ...").
+2. Remove ugly web scrape artifacts, strange hashes, file extensions (.xhtml, .html), or duplicated prefix numbers.
+3. Suggest a clean, official Book Title.
+4. Detect Arcs/Volumes if they exist in the names.
+
+Input Book Title: ${bookTitle || 'Unknown'}
+Chapters:
+${JSON.stringify(sampleChapters, null, 2)}
+
+Strictly respond with ONLY a valid JSON object matching this schema (no markdown, no backticks):
+{
+  "cleanedTitle": "Official Clean Title",
+  "chapters": [
+    { "index": 1, "cleanedName": "Chapter 1: Clean Title", "volume": "Volume 1" }
+  ]
+}`;
+
+      let rawJson = '';
+
+      if (provider === 'gemini' || !provider) {
+        if (!geminiKey) throw new Error('Gemini API key is required. Please add your key in Settings ⚙️.');
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.2,
+              responseMimeType: 'application/json'
+            }
+          })
+        });
+        if (!res.ok) {
+          const errTxt = await res.text().catch(() => '');
+          throw new Error(`Gemini Error ${res.status}: ${errTxt.substring(0, 150)}`);
+        }
+        const data = await res.json();
+        rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      } else if (provider === 'deepseek') {
+        if (!deepseekKey) throw new Error('DeepSeek API key required. Set it in Settings ⚙️.');
+        const res = await fetch('https://api.deepseek.com/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekKey}` },
+          body: JSON.stringify({
+            model: 'deepseek-chat',
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' }
+          })
+        });
+        const data = await res.json();
+        rawJson = data.choices?.[0]?.message?.content || '';
+      } else if (provider === 'openai') {
+        if (!openaiKey) throw new Error('OpenAI API key required. Set it in Settings ⚙️.');
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' }
+          })
+        });
+        const data = await res.json();
+        rawJson = data.choices?.[0]?.message?.content || '';
+      } else if (provider === 'claude') {
+        if (!claudeKey) throw new Error('Claude API key required. Set it in Settings ⚙️.');
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': claudeKey, 'anthropic-version': '2023-06-01', 'dangerously-allow-browser': 'true' },
+          body: JSON.stringify({
+            model: 'claude-3-5-haiku-20241022',
+            max_tokens: 4096,
+            messages: [{ role: 'user', content: prompt }]
+          })
+        });
+        const data = await res.json();
+        rawJson = data.content?.[0]?.text || '';
+      }
+
+      try {
+        const clean = rawJson.replace(/^\`\`\`json\s*/i, '').replace(/\s*\`\`\`$/i, '').trim();
+        return JSON.parse(clean);
+      } catch (e) {
+        throw new Error('Failed to parse AI response: ' + rawJson.substring(0, 200));
+      }
+    };
+
+const formatModelName = (id, displayName) => {
       if (displayName && displayName !== id && !displayName.startsWith('models/')) return displayName;
       if (id.startsWith('gemini-')) {
         return id
@@ -2070,6 +2173,20 @@
           window.removeEventListener('pwa-prompt-ready', handleReady);
         };
       }, []);
+
+      useEffect(() => {
+        const handleLoadExtractedText = (e) => {
+          const { title, text, count } = e.detail || {};
+          if (text) {
+            setInputText(text);
+            setActiveTab('text');
+            toast(`Loaded ${count ? count + ' ' : ''}chapters from EPUB Studio into Translator!`, 'success');
+          }
+        };
+        window.addEventListener('load-extracted-text', handleLoadExtractedText);
+        return () => window.removeEventListener('load-extracted-text', handleLoadExtractedText);
+      }, []);
+
 
       const handleInstallPWA = async () => {
         const promptEvent = deferredPrompt || globalDeferredPrompt;
