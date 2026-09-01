@@ -1,3 +1,14 @@
+
+function validateZipHeader(buffer, filename) {
+    if (!buffer || buffer.byteLength < 22) {
+        throw new Error(`"${filename}" is too small or empty (${buffer ? buffer.byteLength : 0} bytes). If stored in OneDrive/cloud, please make sure it is downloaded locally.`);
+    }
+    const bytes = new Uint8Array(buffer.slice(0, 4));
+    if (bytes[0] !== 0x50 || bytes[1] !== 0x4B) {
+        throw new Error(`"${filename}" is not a valid EPUB/ZIP file (missing PK signature). The file may be corrupted.`);
+    }
+}
+
 function formatWordStat(count) {
     if (!count || count <= 0) return '0 words';
     if (count >= 1000000) {
@@ -93,7 +104,12 @@ window.handleMergeFiles = handleMergeFiles;
 function handleMergeFiles(files) {
     const validFiles = files.filter(f => {
         const n = (f.name || '').toLowerCase();
-        return n.endsWith('.epub') || n.endsWith('.zip') || f.type === 'application/epub+zip';
+        const isEpub = n.endsWith('.epub') || n.endsWith('.zip') || f.type === 'application/epub+zip';
+        const hasSize = (f.size || 0) > 0;
+        if (isEpub && !hasSize) {
+            showToast(`Skipped empty/0-byte file: ${f.name}`, 'warn');
+        }
+        return isEpub && hasSize;
     });
     if (validFiles.length === 0) return;
 
@@ -370,6 +386,7 @@ btnExecuteMerge?.addEventListener('click', async () => {
         updateParsingProgress(1, mergeFiles.length, `Reading Master Book Buffer (1/${mergeFiles.length})...`);
 
         const masterBuffer = await mergeFiles[0].arrayBuffer();
+        validateZipHeader(masterBuffer, mergeFiles[0].name);
         const masterZip = await new JSZip().loadAsync(masterBuffer);
 
         const newZip = new JSZip();
@@ -511,6 +528,7 @@ btnExecuteMerge?.addEventListener('click', async () => {
             updateParsingProgress(i + 1, mergeFiles.length, `Merging Book ${i + 1} of ${mergeFiles.length} (${mergeFiles[i].name})...`);
 
             const subBuffer = await mergeFiles[i].arrayBuffer();
+            validateZipHeader(subBuffer, mergeFiles[i].name);
             const subZip = await new JSZip().loadAsync(subBuffer);
             const subContainerXml = await subZip.file("META-INF/container.xml").async("text");
             const subOpfPath = parser.parseFromString(subContainerXml, "text/xml").querySelector("rootfile").getAttribute("full-path");
