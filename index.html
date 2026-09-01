@@ -344,6 +344,8 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 .studio-host .tl-list { border: 1px solid var(--hairline); border-radius: 12px; background: rgba(14,15,18,.6); }
 .studio-host .ring-4 { box-shadow: 0 0 0 3px rgba(124,135,255,.5) !important; }
 .studio-host .ring-indigo-400 { border-color: var(--iris) !important; }
+.studio-host .stu-sec { padding: 16px 0; border-bottom: 1px solid var(--hairline); }
+.studio-host .stu-sec:first-of-type { padding-top: 8px; }
 
 /* ── Glossary editor ── */
 .gloss-overlay { position: fixed; inset: 0; z-index: 95; background: var(--void); display: flex; flex-direction: column; }
@@ -516,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.4';
+    const VERSION = '8.4.5';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -8611,18 +8613,24 @@ FORMATTING & STRUCTURE RULES:
               window.NativeBridge?.showProgressNotification('Gemini Translator', `Chunk ${i + 1}/${chunks.length} (${pct}%)`, pct);
               window.NativeBridge?.haptic('milestone');
               let chunkResult = '';
-              const streamRes = await streamWithRotation(chunks[i], {
+              const onChunkStream = t => {
+                if (chunkResult === '' && result !== '' && !result.endsWith('\n')) {
+                  result += '\n\n';
+                }
+                chunkResult += t;
+                result += t;
+                setAssembledText(result);
+              };
+              let streamRes = await streamWithRotation(chunks[i], {
                 ...opts,
                 context: useContext ? ctx : undefined,
-                onChunk: t => {
-                  if (chunkResult === '' && result !== '' && !result.endsWith('\n')) {
-                    result += '\n\n';
-                  }
-                  chunkResult += t;
-                  result += t;
-                  setAssembledText(result);
-                }
+                onChunk: onChunkStream
               });
+              // Fallback: if the context-memory pass returned no translation body, retry once without context
+              if (!chunkResult.trim() && useContext) {
+                chunkResult = '';
+                streamRes = await streamWithRotation(chunks[i], { ...opts, context: undefined, onChunk: onChunkStream });
+              }
               if (useContext) { ctx = streamRes.newContext || ctx; }
               if (streamRes?.usage) {
                 totalPromptTokens += streamRes.usage.promptTokens || 0;
@@ -9394,6 +9402,11 @@ FORMATTING & STRUCTURE RULES:
       const [sheetOpen, setSheetOpen] = useState(false);
       const [glossaryEditorOpen, setGlossaryEditorOpen] = useState(false);
       const [elapsedSec, setElapsedSec] = useState(0);
+      const [libCollapsed, setLibCollapsed] = useState({ books: false, history: false });
+      const [libQuery, setLibQuery] = useState('');
+      const libQ = libQuery.trim().toLowerCase();
+      const filteredBooks = libQ ? webImportHistory.filter(item => `${item.title || ''} ${item.chapterCount || ''} ${new Date(item.timestamp || 0).toLocaleDateString()} ${new Date(item.timestamp || 0).toLocaleString()}`.toLowerCase().includes(libQ)) : webImportHistory;
+      const filteredHistory = libQ ? history.filter(entry => `${new Date(entry.ts).toLocaleDateString()} ${new Date(entry.ts).toLocaleString()} ${entry.srcLang || ''} ${entry.tgtLang || ''} ${entry.outputPreview || ''}`.toLowerCase().includes(libQ)) : history;
       useEffect(() => {
         if (!isTranslating) { setElapsedSec(0); return; }
         const t = setInterval(() => setElapsedSec(s => s + 1), 1000);
@@ -9695,17 +9708,18 @@ FORMATTING & STRUCTURE RULES:
 
             // ═══ TAB 4: LIBRARY ═══
             activeTab === 'history' && h(React.Fragment, null,
-              h('div', { className: 'card-title', style: { marginTop: 4, marginBottom: 12 } },
-                h('span', null, `Saved Books (${webImportHistory.length})`),
+              h('input', { type: 'text', className: 'url-input', placeholder: 'Search library by title, date, language, chapters…', value: libQuery, onChange: e => setLibQuery(e.target.value) }),
+              h('div', { className: 'card-title', style: { marginTop: 12, marginBottom: 12, cursor: 'pointer' }, onClick: () => setLibCollapsed(s => ({ ...s, books: !s.books })) },
+                h('span', null, `${libCollapsed.books ? '▸' : '▾'} Saved Books (${filteredBooks.length})`),
                 webImportHistory.length > 0 && h('button', { type: 'button', className: 'mini-btn danger', onClick: () => confirmAction('Clear all library history?', async () => { await clearAllNovelHistory(); toast('Library history cleared.'); }) }, 'Clear All')
               ),
-              webImportHistory.length === 0
+              !libCollapsed.books && (filteredBooks.length === 0
                 ? h('div', { className: 'card', style: { textAlign: 'center', padding: '44px 16px' } },
-                    h('p', { style: { fontSize: 13, color: 'var(--slate)' } }, 'Your library is empty.'),
-                    h('p', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 6 } }, 'Translated books and scraped novels will appear here automatically.')
+                    h('p', { style: { fontSize: 13, color: 'var(--slate)' } }, libQuery ? 'No saved books match your search.' : 'Your library is empty.'),
+                    h('p', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 6 } }, libQuery ? 'Try a different search.' : 'Translated books and scraped novels will appear here automatically.')
                   )
                 : h(React.Fragment, null,
-                    webImportHistory.map((item, idx) => h('div', { key: item.id || idx, className: 'book-card' },
+                    filteredBooks.map((item, idx) => h('div', { key: item.id || idx, className: 'book-card' },
                       h('div', { className: 't' }, item.title || 'Untitled Book'),
                       h('div', { className: 'm' }, `${item.chapterCount || 0} chapters · ${new Date(item.timestamp || Date.now()).toLocaleDateString()}`),
                       h('div', { className: 'book-acts' },
@@ -9727,13 +9741,13 @@ FORMATTING & STRUCTURE RULES:
                         h('button', { type: 'button', className: 'mini-btn danger', onClick: () => confirmAction(`Remove "${item.title}" from the library?`, async () => { await deleteNovelFromHistory(item.id); }) }, 'Remove')
                       )
                     ))
-                  ),
-              h('div', { className: 'card-title', style: { marginTop: 12 } },
-                h('span', null, `Translation History (${history.length})`),
+                  )),
+              h('div', { className: 'card-title', style: { marginTop: 12, cursor: 'pointer' }, onClick: () => setLibCollapsed(s => ({ ...s, history: !s.history })) },
+                h('span', null, `${libCollapsed.history ? '▸' : '▾'} Translation History (${filteredHistory.length})`),
                 history.length > 0 && h('button', { type: 'button', className: 'mini-btn danger', onClick: clearHistory }, 'Clear')
               ),
-              history.length > 0 && h(React.Fragment, null,
-                history.slice(0, 50).map(entry => h('div', { key: entry.id, className: 'book-card' },
+              !libCollapsed.history && filteredHistory.length > 0 && h(React.Fragment, null,
+                filteredHistory.map(entry => h('div', { key: entry.id, className: 'book-card' },
                   h('div', { className: 't' }, `Translation · ${new Date(entry.ts).toLocaleString()}`),
                   h('div', { className: 'm' }, `${entry.srcLang || 'Auto'} → ${entry.tgtLang}${entry.outputPreview ? ' · ' + (entry.outputPreview.length > 140 ? entry.outputPreview.substring(0, 140) + '…' : entry.outputPreview) : ''}`),
                   h('div', { className: 'book-acts' },
