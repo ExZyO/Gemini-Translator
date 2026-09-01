@@ -1,3 +1,4 @@
+let splitTocMap = new Map();
 
 function escapeXml(unsafe) {
     if (!unsafe) return '';
@@ -465,13 +466,12 @@ async function processSplitFile(file) {
                     chap.wordCount = cjk + nonCjk;
                     totalSplitWords += chap.wordCount;
 
-                    // Auto-extract real chapter heading if raw name is a filename
-                    const isRawFilename = /^(?:text\/|ch|chapter|page|section|part|insert|\d+).*?\.(?:xhtml|html)$/i.test(chap.originalName || '');
-                    if (isRawFilename && !chap.customName) {
-                        const extracted = extractHeadingFromXhtml(txt, chap.displayIndex);
-                        if (extracted && extracted !== chap.originalName) {
-                            chap.customName = extracted;
-                        }
+                    // Auto-extract real chapter heading using original TOC map or internal XHTML
+                    const fname = (chap.originalName || '').split('/').pop();
+                    const tocTitle = splitTocMap.get(chap.originalName) || splitTocMap.get(fname) || '';
+                    const extracted = extractHeadingFromXhtml(txt, chap.displayIndex, tocTitle);
+                    if (extracted && extracted !== chap.originalName && !isMachineFilename(extracted)) {
+                        chap.customName = extracted;
                     }
                 } catch (e) { /* skip */ }
             }
@@ -1598,15 +1598,17 @@ document.getElementById('btn-instant-extract-toc')?.addEventListener('click', as
     for (let chap of storyChapters) {
         const fullPath = splitOpfDir + chap.originalName;
         const f = splitMasterZip.files[fullPath];
+        const fname = (chap.originalName || '').split('/').pop();
+        const tocTitle = splitTocMap.get(chap.originalName) || splitTocMap.get(fname) || '';
         let heading = 'Chapter ' + chap.displayIndex;
         if (f) {
             try {
                 const txt = await f.async('text');
-                heading = extractHeadingFromXhtml(txt, chap.displayIndex);
+                heading = extractHeadingFromXhtml(txt, chap.displayIndex, tocTitle);
             } catch (e) {}
         }
         if (!heading || heading === 'Chapter ' + chap.displayIndex) {
-            heading = cleanChapterTitleString(chap.customName || chap.originalName, chap.displayIndex);
+            heading = cleanChapterTitleString(chap.customName || tocTitle || chap.originalName, chap.displayIndex);
         }
         aiPolishedResults.push({ index: chap.displayIndex, idref: chap.idref, cleanedName: heading });
         
