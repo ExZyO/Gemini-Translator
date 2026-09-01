@@ -18,10 +18,19 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    signingConfigs {
+        // Persistent signing key — same key every CI build so users can update without uninstalling
+        release {
+            storeFile file("${rootProject.projectDir}/gemini-release.keystore")
+            storePassword "GeminiTranslator2026"
+            keyAlias "gemini-release"
+            keyPassword "GeminiTranslator2026"
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.debug // Auto-signs release APK for instant 1-tap installation
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }

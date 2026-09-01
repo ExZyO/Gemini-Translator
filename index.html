@@ -273,7 +273,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.8.0';
+    const VERSION = '6.8.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6902,10 +6902,45 @@ FORMATTING & STRUCTURE RULES:
           backup.deeplApiKey = exportKeys.deepl?.[0]?.key || localStorage.getItem('deeplApiKey') || '';
           backup.libreUrl = libreUrl;
         }
-        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+        const jsonStr = JSON.stringify(backup, null, 2);
+        const fileName = `gemini_translator_backup_${shouldIncludeKeys ? 'with_keys_' : ''}${new Date().toISOString().slice(0, 10)}.json`;
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const file = new File([blob], fileName, { type: 'application/json' });
+
+        // Android & Mobile: Use Share Sheet so user can pick save location (Files, Drive, etc.)
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: 'Gemini Translator Backup', text: 'Full app backup' });
+            toast(shouldIncludeKeys ? 'Backup shared (+ API Keys)!' : 'Backup shared (No Keys)!');
+            return;
+          } catch (shareErr) {
+            if (shareErr.name === 'AbortError') return; // user cancelled
+            console.warn('Share API failed, falling back to download:', shareErr);
+          }
+        }
+
+        // Desktop: Try native file picker (Save As dialog)
+        if (window.showSaveFilePicker) {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: fileName,
+              types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            toast(shouldIncludeKeys ? 'Full backup saved (+ API Keys)!' : 'Full backup saved (No Keys)!');
+            return;
+          } catch (pickerErr) {
+            if (pickerErr.name === 'AbortError') return;
+            console.warn('File picker failed, falling back to download:', pickerErr);
+          }
+        }
+
+        // Fallback: classic invisible anchor download
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `gemini_translator_backup_${shouldIncludeKeys ? 'with_keys_' : ''}${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = fileName;
         a.click();
         URL.revokeObjectURL(a.href);
         toast(shouldIncludeKeys ? 'Full backup (+ API Keys) downloaded!' : 'Full backup (No Keys) downloaded!');
