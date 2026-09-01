@@ -217,7 +217,7 @@
             }
         },
 
-        clearProgressNotification: async (notifyDone = false, title = "Completed! ✨", message = "Tap to view in reader.") => {
+        clearProgressNotification: async (notifyDone = false, title = "Completed! ", message = "Tap to view in reader.") => {
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.clearProgressNotification) {
@@ -373,5 +373,5 @@
         }
     };
 
-    console.log("⚡ Native Android Superpowers Bridge Initialized (with Multi-Proxy Redundancy)!");
+    console.log(" Native Android Superpowers Bridge Initialized (with Multi-Proxy Redundancy)!");
 })();

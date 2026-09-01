@@ -101,7 +101,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
                 window.__setDownloadModal({ fileName, path: res?.path || ('Download/GeminiTranslator/' + fileName), mimeType });
             }
             if (typeof showToast === 'function') {
-                showToast(`💾 Saved "${fileName}" to Downloads!`, 'success');
+                showToast(` Saved "${fileName}" to Downloads!`, 'success');
             }
             return res;
         }
@@ -121,7 +121,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
                 await writable.write(blob);
                 await writable.close();
                 if (typeof showToast === 'function') {
-                    showToast(`💾 Saved "${fileName}"!`, 'success');
+                    showToast(` Saved "${fileName}"!`, 'success');
                 }
                 return;
             } catch (err) {
@@ -143,7 +143,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
             URL.revokeObjectURL(blobUrl);
         }, 2000);
         if (typeof showToast === 'function') {
-            showToast(`💾 Downloading "${fileName}"...`, 'success');
+            showToast(` Downloading "${fileName}"...`, 'success');
         }
     } catch (e) {
         console.error('saveUniversalBlob failed:', e);

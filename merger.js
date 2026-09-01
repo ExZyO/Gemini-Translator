@@ -7,7 +7,7 @@ if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Nat
         .then(res => {
             if (res && res.available) {
                 isNativeMergerAvailable = true;
-                console.log("⚡ Android Native Disk-Streaming EPUB Merger Engine Active!");
+                console.log(" Android Native Disk-Streaming EPUB Merger Engine Active!");
             }
         })
         .catch(() => {});
@@ -258,11 +258,11 @@ function renderMergeList() {
 
     if (memoryWarning) {
         if (totalBytes > 1800 * 1024 * 1024) {
-            memoryWarning.innerHTML = `⚠️ <strong>Massive Anthology (${totalGB} GB):</strong> Web browsers have a hard 2.0 GB memory limit for single ZIP files. For optimal performance in Moon+ Reader and to prevent browser memory crashes, we recommend merging in 2 batches (e.g. Vol 1–15 & Vol 16–30).`;
+            memoryWarning.innerHTML = ` <strong>Massive Anthology (${totalGB} GB):</strong> Web browsers have a hard 2.0 GB memory limit for single ZIP files. For optimal performance in Moon+ Reader and to prevent browser memory crashes, we recommend merging in 2 batches (e.g. Vol 1–15 & Vol 16–30).`;
             memoryWarning.className = "p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/70 text-amber-800 dark:text-amber-200 text-xs font-medium space-y-1";
             memoryWarning.classList.remove('hidden');
         } else if (totalBytes > 300 * 1024 * 1024) {
-            memoryWarning.innerHTML = `ℹ️ Large payload (${totalMB} MB). In-memory streaming is active for smooth merging.`;
+            memoryWarning.innerHTML = `ℹ Large payload (${totalMB} MB). In-memory streaming is active for smooth merging.`;
             memoryWarning.className = "p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/70 text-indigo-700 dark:text-indigo-300 text-xs font-medium";
             memoryWarning.classList.remove('hidden');
         } else {
@@ -326,7 +326,7 @@ function renderMergeList() {
             <div class="flex items-center gap-1.5 shrink-0">
                 <button type="button" class="btn-up w-8 h-8 flex items-center justify-center text-slate-500 hover:text-fuchsia-600 bg-slate-100 dark:bg-slate-800 rounded-lg disabled:opacity-30 transition-all cursor-pointer font-bold" ${idx === 0 ? 'disabled' : ''}>↑</button>
                 <button type="button" class="btn-down w-8 h-8 flex items-center justify-center text-slate-500 hover:text-fuchsia-600 bg-slate-100 dark:bg-slate-800 rounded-lg disabled:opacity-30 transition-all cursor-pointer font-bold" ${idx === mergeFiles.length - 1 ? 'disabled' : ''}>↓</button>
-                <button type="button" class="btn-remove w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg text-sm font-bold transition-all cursor-pointer" aria-label="Remove">✕</button>
+                <button type="button" class="btn-remove w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg text-sm font-bold transition-all cursor-pointer" aria-label="Remove"></button>
             </div>
         `;
 
@@ -778,9 +778,9 @@ btnExecuteMerge?.addEventListener('click', async () => {
         });
 
         await (window.saveUniversalBlob || saveUniversalBlob)(mergedBlob, `${cleanTitle}.epub`, 'application/epub+zip');
-        showToast("✨ Books merged successfully!", "success");
+        showToast(" Books merged successfully!", "success");
         window.NativeBridge?.releaseWakeLock();
-        window.NativeBridge?.clearProgressNotification(true, 'EPUB Merge Complete! ✨', `${cleanTitle}.epub is ready.`);
+        window.NativeBridge?.clearProgressNotification(true, 'EPUB Merge Complete! ', `${cleanTitle}.epub is ready.`);
         window.NativeBridge?.haptic('success');
         if (typeof addExportEntry === 'function') {
             addExportEntry(cleanTitle, 'merge', `${mergeFiles.length} books`);
@@ -790,7 +790,7 @@ btnExecuteMerge?.addEventListener('click', async () => {
         console.error("Merge error:", err);
         const errMsg = (err.message || '').toLowerCase();
         if (errMsg.includes('array buffer') || errMsg.includes('allocation failed') || errMsg.includes('out of memory') || errMsg.includes('maximum call stack')) {
-            showToast("⚠️ Browser Memory Limit: This merge payload exceeds the 2 GB single-file limit of web browsers. Please merge in 2 smaller volumes.", "error", 8000);
+            showToast(" Browser Memory Limit: This merge payload exceeds the 2 GB single-file limit of web browsers. Please merge in 2 smaller volumes.", "error", 8000);
         } else {
             showToast("Merge failed: " + err.message, "error");
         }

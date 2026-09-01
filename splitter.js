@@ -1024,7 +1024,7 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
                 }
             }
             if (valIssues.length === 0) {
-                logMsg('\u2705 Validation passed. EPUB looks healthy!');
+                logMsg(' Validation passed. EPUB looks healthy!');
             } else {
                 valIssues.forEach(issue => logMsg(`\u26a0\ufe0f ${issue}`));
                 showToast(`${valIssues.length} validation warning(s)`, 'warn');
@@ -1559,7 +1559,7 @@ document.getElementById('btn-export-batch-zip')?.addEventListener('click', async
         a.click();
         URL.revokeObjectURL(url);
 
-        logMsg('✅ Batch Volume ZIP exported successfully!');
+        logMsg(' Batch Volume ZIP exported successfully!');
         showToast(`Exported ${totalVolumes} volumes in 1 ZIP bundle!`, 'success');
         addExportEntry(`${bookTitle} (${totalVolumes} Volumes)`, 'split', `Batch ${chunkSize} ch/vol`);
     } catch (err) {
@@ -1685,13 +1685,13 @@ document.getElementById('btn-ai-polish-toc')?.addEventListener('click', () => {
 });
 
 
-// ⚡ Instant Auto-Extract (Offline / 0s)
+//  Instant Auto-Extract (Offline / 0s)
 document.getElementById('btn-instant-extract-toc')?.addEventListener('click', async () => {
     if (!splitMasterZip || storyChapters.length === 0) return;
     const container = document.getElementById('ai-toc-results-container');
     const btnApply = document.getElementById('btn-apply-ai-toc');
 
-    container.innerHTML = '<div class="text-center py-6 text-indigo-500 font-bold animate-pulse">⚡ Scanning internal chapter headings across all ' + storyChapters.length + ' chapters...</div>';
+    container.innerHTML = '<div class="text-center py-6 text-indigo-500 font-bold animate-pulse"> Scanning internal chapter headings across all ' + storyChapters.length + ' chapters...</div>';
     
     aiPolishedResults = [];
     let html = '<div class="space-y-1.5 max-h-[42vh] overflow-y-auto custom-scrollbar pr-1">';
@@ -1734,7 +1734,7 @@ document.getElementById('btn-instant-extract-toc')?.addEventListener('click', as
     html += '</div>';
     container.innerHTML = html;
     btnApply.disabled = false;
-    showToast(`⚡ Extracted ${aiPolishedResults.length} chapter titles instantly!`, 'success');
+    showToast(` Extracted ${aiPolishedResults.length} chapter titles instantly!`, 'success');
 });
 
 document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', async () => {
@@ -1916,7 +1916,7 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
             if (pText) pText.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full bg-purple-500 animate-ping"></span> Polishing Batch ${b + 1}/${totalBatches} (Chapters ${startIdx + 1}–${endIdx})...`;
 
             const onRetry = (msg) => {
-                if (pSub) pSub.textContent = `⚠️ ${msg}`;
+                if (pSub) pSub.textContent = ` ${msg}`;
             };
 
             const customInstruction = document.getElementById('ai-toc-custom-instruction')?.value.trim() || '';
@@ -1978,12 +1978,12 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
         const pSub = document.getElementById('ai-batch-substatus');
         if (pBar) pBar.style.width = '100%';
         if (pPct) pPct.textContent = '100%';
-        if (pText) pText.innerHTML = `✅ Complete! Polished ${aiPolishedResults.length} / ${totalChapters} chapters.`;
+        if (pText) pText.innerHTML = ` Complete! Polished ${aiPolishedResults.length} / ${totalChapters} chapters.`;
         if (pSub) pSub.textContent = 'All chapters standardized and ready to apply!';
 
         updateTelemetryUI();
         btnApply.disabled = false;
-        showToast(`✨ Finished polishing ${aiPolishedResults.length} chapters!`, 'success');
+        showToast(` Finished polishing ${aiPolishedResults.length} chapters!`, 'success');
     } catch (err) {
         console.error('AI TOC polish error:', err);
         const pSub = document.getElementById('ai-batch-substatus');
@@ -2021,7 +2021,7 @@ document.getElementById('btn-apply-ai-toc')?.addEventListener('click', () => {
     });
 
     document.getElementById('ai-toc-polish-modal')?.classList.add('hidden');
-    showToast(`✨ Applied clean titles to ${appliedCount} chapters!`, 'success');
+    showToast(` Applied clean titles to ${appliedCount} chapters!`, 'success');
     logMsg(`AI Polish applied: standardized ${appliedCount} chapter titles.`);
 });
 

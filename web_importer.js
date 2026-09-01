@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════════════════
 // Universal Light Novel & Fanfiction Crawler Engine (lncrawl Architecture)
 // Supports: AO3, Lofter, WitchCult, Syosetu, Kakuyomu, RoyalRoad, ScribbleHub,
-//           NovelFull, Madara WP Novels, Blogspot, 69shu/Biquge, Tumblr & Universal
+// NovelFull, Madara WP Novels, Blogspot, 69shu/Biquge, Tumblr & Universal
 // ══════════════════════════════════════════════════════════════════════════
 (function() {
 
@@ -237,12 +237,12 @@
                 const timeStr = (min > 0 ? `${min}m ` : '') + `${sec}s`;
                 const speed = (completedCount / elapsedSec).toFixed(1);
 
-                progressCb?.(`⚡ Ingested: ${chapters.length}/${chapterList.length} ch (${pct}%) • ⏱️ ${timeStr} (${speed} ch/s) • ~${totalWordsEstimate.toLocaleString()} words`, pct);
+                progressCb?.(` Ingested: ${chapters.length}/${chapterList.length} ch (${pct}%) • ${timeStr} (${speed} ch/s) • ~${totalWordsEstimate.toLocaleString()} words`, pct);
 
                 const now = Date.now();
                 if (now - lastNotifTime > 2000 || completedCount === chapterList.length) {
                     lastNotifTime = now;
-                    window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Ingesting novel: ${chapters.length}/${chapterList.length} ch (${pct}%) • ⏱️ ${timeStr}`, pct, true);
+                    window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Ingesting novel: ${chapters.length}/${chapterList.length} ch (${pct}%) • ${timeStr}`, pct, true);
                 }
             }
         };
@@ -254,7 +254,7 @@
             try {
                 if (wakeLockObj) { wakeLockObj.release().catch(() => {}); }
                 window.NativeBridge?.releaseWakeLock?.();
-                window.NativeBridge?.clearProgressNotification?.(true, 'Novel Ingestion Complete! ✨', `${chapters.length} chapters downloaded and saved.`);
+                window.NativeBridge?.clearProgressNotification?.(true, 'Novel Ingestion Complete! ', `${chapters.length} chapters downloaded and saved.`);
             } catch(e) {}
         }
 
@@ -271,7 +271,7 @@
         progressCb?.('Connecting to Witch Cult Translations...', 5);
         const targetSlug = url.replace(/\/$/, '').split('/').filter(Boolean).pop();
 
-        progressCb?.('⚡ Indexing chapters from Witch Cult Translations...', 10);
+        progressCb?.(' Indexing chapters from Witch Cult Translations...', 10);
         let chapterList = [];
         try {
             const isArcPage = url.includes('/arc-') || url.includes('witchculttranslation.com/arc');
@@ -312,7 +312,7 @@
 
         if (chapterList.length === 0) chapterList = [{ url, title: 'Re:Zero Chapter' }];
 
-        progressCb?.(`🚀 Discovered ${chapterList.length} chapters! Launching continuous streaming pipeline...`, 15);
+        progressCb?.(` Discovered ${chapterList.length} chapters! Launching continuous streaming pipeline...`, 15);
 
         const { chapters, totalWords, totalImages } = await crawlChapterPool(
             chapterList,
@@ -326,7 +326,7 @@
             progressCb
         );
 
-        progressCb?.(`✨ Compiled ${chapters.length} Re:Zero chapters with ${totalImages} illustrations! (~${totalWords.toLocaleString()} words)`, 100);
+        progressCb?.(` Compiled ${chapters.length} Re:Zero chapters with ${totalImages} illustrations! (~${totalWords.toLocaleString()} words)`, 100);
 
         return {
             title: 'Re:Zero Web Novel — ' + (chapterList[0]?.title || 'Complete Edition'),
@@ -440,7 +440,7 @@
             progressCb
         );
 
-        progressCb?.(`✨ Loaded ${chapters.length} RoyalRoad chapters (~${totalWords.toLocaleString()} words)!`, 100);
+        progressCb?.(` Loaded ${chapters.length} RoyalRoad chapters (~${totalWords.toLocaleString()} words)!`, 100);
         return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
     }
 
@@ -492,7 +492,7 @@
             progressCb
         );
 
-        progressCb?.(`✨ Loaded ${chapters.length} Syosetu chapters (~${totalWords.toLocaleString()} words)!`, 100);
+        progressCb?.(` Loaded ${chapters.length} Syosetu chapters (~${totalWords.toLocaleString()} words)!`, 100);
         return { title, author, summary, tags: ['Syosetu', 'Japanese Light Novel'], chapters, isEpub: false, sourceUrl: url };
     }
 
@@ -561,7 +561,7 @@
             progressCb
         );
 
-        progressCb?.(`✨ Loaded ${chapters.length} chapters (~${totalWords.toLocaleString()} words)!`, 100);
+        progressCb?.(` Loaded ${chapters.length} chapters (~${totalWords.toLocaleString()} words)!`, 100);
         return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
     }
 
@@ -666,7 +666,7 @@
             chapters.push({ title, text: mainText });
         }
 
-        progressCb?.(`✨ Loaded ${chapters.length} Lofter chapters!`, 100);
+        progressCb?.(` Loaded ${chapters.length} Lofter chapters!`, 100);
         return { title, author, summary: chapters[0]?.text?.substring(0, 300) + '...', tags, chapters, isEpub: false, sourceUrl: url };
     }
 
@@ -827,7 +827,7 @@
         importUrl: async (url, progressCb) => {
             if (!url || !url.trim()) throw new Error('Please enter a valid novel URL.');
             const type = detectUrlType(url);
-            console.log(`🌐 [LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
+            console.log(` [LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
 
             if (type === 'witchcult') return await crawlWitchCult(url, progressCb);
             if (type === 'ao3') return await crawlAO3(url, progressCb);
@@ -839,5 +839,5 @@
         }
     };
 
-    console.log("⚡ LightNovel-Crawler Multi-Source Ingestion Engine Active!");
+    console.log(" LightNovel-Crawler Multi-Source Ingestion Engine Active!");
 })();

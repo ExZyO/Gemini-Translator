@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.0.1';
+    const VERSION = '8.1.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -971,9 +971,9 @@
         `9. Dignified Literary Translation of Classical Metaphors: In Chinese literature, descriptions of characters (e.g. "莲藕般双腿", "少女娇躯", "嫩肉") are poetic classical tropes. In combat, injury, or dark fantasy scenes, localize these into serious, dignified, non-suggestive English prose (e.g. "her pale, slender legs", "her fragile body", "her flesh") to maintain solemn, high-register dark fantasy without tripping automated filters.\n` +
         `10. Dignified Translation for Demonic Rituals & Sacrificial Preparations: When translating demonic cultivation rituals, blood sacrifices, or Gu refining preparations (such as removing a sacrifice's outer robes/garments, binding victims to boulders, or beast feeding), translate the action with solemn, serious, and matter-of-fact narrative English (e.g. "he stripped away her robes to prepare the sacrifice", "severing her outer garments"). Strictly avoid lurid, gratuitous, or sexually suggestive phrasing that could trigger automated content filters, ensuring clean literary prose while preserving 100% of the narrative actions, dialogue, and plot progression.\n` +
         `11. Classical Poetry, Chanted Songs & Mythic Parables: When characters recite classical Chinese poems, sing martial ballads (e.g. Feng Jiu Ge's songs, Fang Yuan's verses), or when narrating excerpts from <<The Legends of Ren Zu>> (人祖传):\n` +
-        `    - Direct Emotional Weight & Punchy Power: Translate poems into evocative, rhythmically resonant English verse prioritizing direct emotional weight, heroic clarity, and poetic meter rather than overly literal obscure nature metaphors (e.g. render "早岁已知世事艰...千磨万击心铸铁...炼蛊炼人还炼天" as "In my youth I knew the hardships of the world... A heart of steel forged from countless setbacks... Refine Gu! Refine Human! Refine Heaven!!").\n` +
-        `    - Exclamatory Battle-Cry Climaxes: Use sharp, punchy imperative and exclamatory phrasing for climactic poem endings rather than passive/participle forms.\n` +
-        `    - In <<The Legends of Ren Zu>> and mythic parables, preserve strict anaphoric repetition (e.g. repeating "On what basis... / If such... / Then let me...") and word-for-word identical refrains across allegorical birds, beasts, and fishes to maintain the sacred, liturgical fable cadence.\n` +
+        ` - Direct Emotional Weight & Punchy Power: Translate poems into evocative, rhythmically resonant English verse prioritizing direct emotional weight, heroic clarity, and poetic meter rather than overly literal obscure nature metaphors (e.g. render "早岁已知世事艰...千磨万击心铸铁...炼蛊炼人还炼天" as "In my youth I knew the hardships of the world... A heart of steel forged from countless setbacks... Refine Gu! Refine Human! Refine Heaven!!").\n` +
+        ` - Exclamatory Battle-Cry Climaxes: Use sharp, punchy imperative and exclamatory phrasing for climactic poem endings rather than passive/participle forms.\n` +
+        ` - In <<The Legends of Ren Zu>> and mythic parables, preserve strict anaphoric repetition (e.g. repeating "On what basis... / If such... / Then let me...") and word-for-word identical refrains across allegorical birds, beasts, and fishes to maintain the sacred, liturgical fable cadence.\n` +
         `12. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n\n`;
 
       let p = `${promptHeader}RAW TEXT TO TRANSLATE:\n${text}\n\n`;
@@ -1617,7 +1617,7 @@
         if (single) allKeys.push(single);
       }
 
-      if (allKeys.length === 0) throw new Error(`${provider.toUpperCase()} API key required. Please configure your key in Settings ⚙️.`);
+      if (allKeys.length === 0) throw new Error(`${provider.toUpperCase()} API key required. Please configure your key in Settings .`);
 
       let keyIndex = 0;
       const getActiveKey = () => allKeys[keyIndex % allKeys.length];
@@ -1920,10 +1920,10 @@ const formatModelName = (id, displayName) => {
 
     const groupModelsByCompany = (models) => {
       const groups = {
-        '⭐ RECOMMENDED FREE TIER': [],
-        '👑 FLAGSHIP & DEEP REASONING': [],
-        '⚡ ULTRA FAST & LITE': [],
-        '🧪 OTHER & OPEN WEIGHTS': []
+        ' RECOMMENDED FREE TIER': [],
+        ' FLAGSHIP & DEEP REASONING': [],
+        ' ULTRA FAST & LITE': [],
+        ' OTHER & OPEN WEIGHTS': []
       };
 
       for (const m of models) {
@@ -1931,13 +1931,13 @@ const formatModelName = (id, displayName) => {
         const name = (m.name || '').toLowerCase();
 
         if (id === 'gemini-2.5-flash' || id === 'gemini-2.0-flash' || id === 'gemini-1.5-flash' || name.includes('recommended free tier') || name.includes('fast & stable') || name.includes('highest free quota')) {
-          groups['⭐ RECOMMENDED FREE TIER'].push(m);
+          groups[' RECOMMENDED FREE TIER'].push(m);
         } else if (id.includes('pro') || id.startsWith('gemini-3.7') || (id.startsWith('gemini-3.5-flash') && !id.includes('lite')) || name.includes('flagship') || name.includes('literary')) {
-          groups['👑 FLAGSHIP & DEEP REASONING'].push(m);
+          groups[' FLAGSHIP & DEEP REASONING'].push(m);
         } else if (id.includes('lite') || id.includes('8b') || id.includes('nano') || name.includes('lite') || name.includes('lowest cost') || name.includes('high speed')) {
-          groups['⚡ ULTRA FAST & LITE'].push(m);
+          groups[' ULTRA FAST & LITE'].push(m);
         } else {
-          groups['🧪 OTHER & OPEN WEIGHTS'].push(m);
+          groups[' OTHER & OPEN WEIGHTS'].push(m);
         }
       }
 
@@ -2371,8 +2371,8 @@ p.divider {
         const imgUrlList = Array.from(uniqueImgUrls);
 
         if (imgUrlList.length > 0) {
-          onProgress?.(`🖼️ Pre-caching ${imgUrlList.length} illustration(s) • ⏱️ ${getElapsed()}...`, 5, getElapsed());
-          window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-caching ${imgUrlList.length} images • ⏱️ ${getElapsed()}`, 5, true);
+          onProgress?.(` Pre-caching ${imgUrlList.length} illustration(s) • ${getElapsed()}...`, 5, getElapsed());
+          window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-caching ${imgUrlList.length} images • ${getElapsed()}`, 5, true);
           let downloadedCount = 0;
           let lastReportedImg = 0;
 
@@ -2413,8 +2413,8 @@ p.divider {
             if (downloadedCount - lastReportedImg >= 5 || downloadedCount === imgUrlList.length) {
               lastReportedImg = downloadedCount;
               const pct = Math.min(30, Math.round(5 + (downloadedCount / imgUrlList.length) * 25));
-              onProgress?.(`🖼️ Pre-caching illustrations (${downloadedCount}/${imgUrlList.length}) • ⏱️ ${getElapsed()}...`, pct, getElapsed());
-              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-cached ${downloadedCount}/${imgUrlList.length} images • ⏱️ ${getElapsed()}`, pct, true);
+              onProgress?.(` Pre-caching illustrations (${downloadedCount}/${imgUrlList.length}) • ${getElapsed()}...`, pct, getElapsed());
+              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-cached ${downloadedCount}/${imgUrlList.length} images • ${getElapsed()}`, pct, true);
             }
           };
 
@@ -2426,8 +2426,8 @@ p.divider {
         }
 
         // Step 3: Fast In-Memory Chapter Assembly
-        onProgress?.(`⚡ Assembling ${chaptersList.length} chapter(s) • ⏱️ ${getElapsed()}...`, 35, getElapsed());
-        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Assembling ${chaptersList.length} chapters • ⏱️ ${getElapsed()}`, 35, true);
+        onProgress?.(` Assembling ${chaptersList.length} chapter(s) • ${getElapsed()}...`, 35, getElapsed());
+        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Assembling ${chaptersList.length} chapters • ${getElapsed()}`, 35, true);
 
         for (let idx = 0; idx < chaptersList.length; idx++) {
           const ch = chaptersList[idx];
@@ -2480,7 +2480,7 @@ p.divider {
 <link rel="stylesheet" type="text/css" href="style.css" />
 </head>
 <body>
-${bodyHtml.join('\n  ')}
+${bodyHtml.join('\n ')}
 </body>
 </html>`;
 
@@ -2497,10 +2497,10 @@ ${bodyHtml.join('\n  ')}
   <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
 </metadata>
 <manifest>
-  ${manifestItems.join('\n    ')}
+  ${manifestItems.join('\n ')}
 </manifest>
 <spine toc="ncx">
-  ${spineItems.join('\n    ')}
+  ${spineItems.join('\n ')}
 </spine>
 </package>`;
         oebps.file('content.opf', opfContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
@@ -2520,8 +2520,8 @@ ${bodyHtml.join('\n  ')}
 </ncx>`;
         oebps.file('toc.ncx', ncxContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
 
-        onProgress?.(`📦 Compressing EPUB archive • ⏱️ ${getElapsed()}...`, 60, getElapsed());
-        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive • ⏱️ ${getElapsed()}`, 60, true);
+        onProgress?.(` Compressing EPUB archive • ${getElapsed()}...`, 60, getElapsed());
+        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive • ${getElapsed()}`, 60, true);
 
         let lastReportedPct = 0;
         const blob = await zip.generateAsync(
@@ -2530,8 +2530,8 @@ ${bodyHtml.join('\n  ')}
             const pct = Math.min(99, Math.round(60 + (meta.percent * 0.39)));
             if (pct - lastReportedPct >= 5 || meta.percent === 100) {
               lastReportedPct = pct;
-              onProgress?.(`📦 Compressing EPUB archive (${Math.round(meta.percent)}%) • ⏱️ ${getElapsed()}...`, pct, getElapsed());
-              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive (${Math.round(meta.percent)}%) • ⏱️ ${getElapsed()}`, pct, true);
+              onProgress?.(` Compressing EPUB archive (${Math.round(meta.percent)}%) • ${getElapsed()}...`, pct, getElapsed());
+              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive (${Math.round(meta.percent)}%) • ${getElapsed()}`, pct, true);
             }
           }
         );
@@ -2541,7 +2541,7 @@ ${bodyHtml.join('\n  ')}
         try {
           if (wakeLockObj) wakeLockObj.release().catch(() => {});
           window.NativeBridge?.releaseWakeLock?.();
-          window.NativeBridge?.clearProgressNotification?.(true, 'EPUB Packaging Complete! ✨', `"${bookTitle}" is ready.`);
+          window.NativeBridge?.clearProgressNotification?.(true, 'EPUB Packaging Complete! ', `"${bookTitle}" is ready.`);
         } catch(e) {}
       }
     };
@@ -3252,7 +3252,7 @@ ${bodyHtml.join('\n  ')}
 
       const loadNovelFromHistory = async (meta) => {
         try {
-          toast(`📖 Loading "${meta.title}" from library...`, 'info');
+          toast(` Loading "${meta.title}" from library...`, 'info');
           let fullNovel = null;
           if (window.GeminiNovelDB) {
             fullNovel = await window.GeminiNovelDB.getNovel(meta.id);
@@ -3271,7 +3271,7 @@ ${bodyHtml.join('\n  ')}
             sourceUrl: fullNovel.sourceUrl
           };
           setWebImportData(loadedData);
-          toast(`✨ Loaded "${loadedData.title}" (${loadedData.chapters.length} chapters)!`, 'success');
+          toast(` Loaded "${loadedData.title}" (${loadedData.chapters.length} chapters)!`, 'success');
         } catch (err) {
           console.error('Failed to load novel from library:', err);
           toast('Failed to load: ' + err.message, 'error');
@@ -3455,7 +3455,7 @@ ${bodyHtml.join('\n  ')}
           globalDeferredPrompt = null;
           setDeferredPrompt(null);
         } else {
-          alert('📱 How to install Gemini Translator on Samsung S24 / Microsoft Edge:\n\n1. Tap the "..." menu at the bottom.\n2. Look for "Install app" or tap "Add to phone" -> "Install app".\n   ⚠️ (Make sure to select "Install app", NOT "Add shortcut")\n\n💡 If you previously added a web shortcut, delete that shortcut from your home screen first, then reload this page.');
+          alert(' How to install Gemini Translator on Samsung S24 / Microsoft Edge:\n\n1. Tap the "..." menu at the bottom.\n2. Look for "Install app" or tap "Add to phone" -> "Install app".\n (Make sure to select "Install app", NOT "Add shortcut")\n\n If you previously added a web shortcut, delete that shortcut from your home screen first, then reload this page.');
         }
       };
 
@@ -3663,10 +3663,10 @@ ${bodyHtml.join('\n  ')}
 
       const handlePerformUpdate = async () => {
         setIsUpdating(true);
-        toast('🚀 Starting update download...', 'info');
+        toast(' Starting update download...', 'info');
         try {
           await window.NativeBridge?.installApk(availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk");
-          toast('⚡ Download complete. Opening package installer...', 'success');
+          toast(' Download complete. Opening package installer...', 'success');
         } catch (err) {
           console.error('Update error:', err);
           toast('Failed to download update: ' + err.message, 'error');
@@ -4656,7 +4656,7 @@ Do NOT use people’s full names unless it’s like that in the original, like �
 and 克莱恩·莫雷蒂 = Klein Moretti (even if it’s slightly different, based on context use the correct one)
 Instead of “the Sefirah Castle” use “Sefirah Castle” it’s more natural, don’t use “the”
 
-Some more words/names (you don’t need to use capital letters unless it’s in the original text too): Avatar, marionette, Worm of Spirit, Spirit Worm, placated, Great Old One, Pillar, Pillar of The Universe, mysticism, Danitz, Nighthawk, Honorific Name, Loen, Loen Kingdom, Intis, Intis Republic, Feysac Empire, Feynapotter Kingdom, Tingen, Tingen City, Lenburg, Masin, Segar, East Balam, West Balam, Highlands Kingdom, grayish-white fog, characteristics, Beyonder Characteristics, Uniqueness, Apocalypse, Hexes, Queen Mystic, King of Angels, King of Kings of Angels, True God, Arrodes, the Hall of Truth, The Great Smog of Backlund, Flegrea, Admiral of Blood, Justice Audrey, Miss Audrey, Miss Justice, the Evernight Goddess, The Fool’s Gambit, the magic mirror, Arrodes, Above the Sequences, the River of Eternal Darkness, Bansy Harbour, Sonia Sea, Binsy Town, Binsy, the Chaos Sea, the Lord of The Mysteries, Lord of The Mysteries, Phoenix Ancestor, Phoenix Ancestor Gregrace, Gregrace, the Primordial One, Forsaken Land of the Gods, Forsaken Land of God, the Giant King’s Court, ruins of the battle of the gods, battle of the god’s ruin, The Revelation of Evernight, divine revelation, Berserk Sea, City of Silver, Moon City, Chernobyl, Poto Harbour, Waypoint Island, Hanth Island, Sonia Island, Rosted Archipelago, Bayam, Gargas Archipelago, Fog Sea, Fog Sea Archipelago, Farim, Banamo Island, Primitive Island, Polar Sea, North Sea, Spirit World, Astral World, Underworld, Mind World, Mirror World, Abyss, Cosmos, Grounded Angels, Grounded Angel, Parasitizing, Pirate Kings, Pirate King, King of the Five Seas, Queen of Stars, King of Immortality, Queen of Ailment, King of Dusk, King of the Black Throne, Pirate Admiral, Pirate Admirals, copper whistle, Vice Admiral Hurricane, Lanevus, Tudor Empire, Solomon Empire, Tudor-Trunsoest United Empire, Tudor-Trunsoest Underground Ruins, Balam Empire, Trissy, Tracy, Helene, Jimmy Necker, tycoon, daze, dazed expression, Southern Contient, Northen Continent, Western Continent, Tiana Port, Pritz Harbour, the New City of Silver, Foggy Town, Blazing Danitz, King of the North, Ulyssan, Nation of Frost, quasi-demigod, Siatas, Groselle, Elven Songster Siatas, Mobet Zoroast, Frunziar Edward, Queen of Calamity Cohinem, Elf King Soniathrym, Cohinem, Soniathrym, Dragon of Imagination, Ankewelt, Livesyd, City of Miracles Livesyd, Quill of Alzuhood, Frunziar Edward, Adol, corruption, Temperance Faction, Indulgence Faction, Machinery Hivermind, Fertility Order, Mandated Punishers, Inquisition, Khoy University, spirituality, long bronze table, bronze table, mottled long bronze table, ancient mottled bronze table, the Eternal Blazing Sun, the True Creator, self-awareness, Megose, Zouteland Street, Iron Cross Street, Besik Street, Champagne Street, Pelican Street, Daffodil Street, True Creator’s child, Blessed, Giant King Aurmir, God of Dawn, Badheil, Wind Angel, Leodero, Sanguine Ancestor, Earth Mother, God of Craftsmanship, God of Steam and Machinery, Dragon of Betrayal, Herabergen, Heraberg, God of Glory, Bladel, Cataclysm, bluish-black door, Pale Era  The Dark Epoch, Pre-Epoch, The Cataclysm, The Cataclysm Epoch, the Epoch of The Gods, The Iron Age, Early Era of Fire, Dual Era, Warring Era, First Solomon Empire, War of The Four Emperors, the Black Emperor Card, the Black Emperor Card of Blasphemy, Calderón City, Miss Messenger, Chained God, Primordial Moon Faction, Angel of Mercury, Angel of Death, Angel of Redemption, Angel of Life, Angel of Retribution, Angel of the Holy Spirit, Angel of Time, Angel of Stars, Mahmosi, Tirié, Belltaine City, Midseashire, gray fog, Suah, Abomination, Abomination Suah, convergence, Enuni, Winner Enuni, Enzo, Hornacis, Belltaine, Biles, Roy, Phil, Pasha, Weber, Dragon of Nightmare, God Almighty, Twilight Sword, “eternal daytime”, theft, “Theft”, “Fooling”, “Fooling” authority, The Annihilation Demonic Wolf, half-crazy, half-mad, divinity, godhood, Angel of Imagination, Dark Angel, White Angel, Wisdom Angel, Dark Side of The Universe, Devil Monarch Farbauti, Farbauti, Primordial God Almighty, Blessed, Mythical Creature, Child of God, Vice Admiral Hurricane, Church of the God of Combat, Church of the Earth Mother, Church of the Lord of Storms, the Tyrant’s Church, Church of the God of Knowledge, Church of the Eternal Blazing Sun, Church of Steam, Church of the God of Steam and Machinery, Church of The Fool, doll, dolls, spiritual intuition
+Some more words/names (you don’t need to use capital letters unless it’s in the original text too): Avatar, marionette, Worm of Spirit, Spirit Worm, placated, Great Old One, Pillar, Pillar of The Universe, mysticism, Danitz, Nighthawk, Honorific Name, Loen, Loen Kingdom, Intis, Intis Republic, Feysac Empire, Feynapotter Kingdom, Tingen, Tingen City, Lenburg, Masin, Segar, East Balam, West Balam, Highlands Kingdom, grayish-white fog, characteristics, Beyonder Characteristics, Uniqueness, Apocalypse, Hexes, Queen Mystic, King of Angels, King of Kings of Angels, True God, Arrodes, the Hall of Truth, The Great Smog of Backlund, Flegrea, Admiral of Blood, Justice Audrey, Miss Audrey, Miss Justice, the Evernight Goddess, The Fool’s Gambit, the magic mirror, Arrodes, Above the Sequences, the River of Eternal Darkness, Bansy Harbour, Sonia Sea, Binsy Town, Binsy, the Chaos Sea, the Lord of The Mysteries, Lord of The Mysteries, Phoenix Ancestor, Phoenix Ancestor Gregrace, Gregrace, the Primordial One, Forsaken Land of the Gods, Forsaken Land of God, the Giant King’s Court, ruins of the battle of the gods, battle of the god’s ruin, The Revelation of Evernight, divine revelation, Berserk Sea, City of Silver, Moon City, Chernobyl, Poto Harbour, Waypoint Island, Hanth Island, Sonia Island, Rosted Archipelago, Bayam, Gargas Archipelago, Fog Sea, Fog Sea Archipelago, Farim, Banamo Island, Primitive Island, Polar Sea, North Sea, Spirit World, Astral World, Underworld, Mind World, Mirror World, Abyss, Cosmos, Grounded Angels, Grounded Angel, Parasitizing, Pirate Kings, Pirate King, King of the Five Seas, Queen of Stars, King of Immortality, Queen of Ailment, King of Dusk, King of the Black Throne, Pirate Admiral, Pirate Admirals, copper whistle, Vice Admiral Hurricane, Lanevus, Tudor Empire, Solomon Empire, Tudor-Trunsoest United Empire, Tudor-Trunsoest Underground Ruins, Balam Empire, Trissy, Tracy, Helene, Jimmy Necker, tycoon, daze, dazed expression, Southern Contient, Northen Continent, Western Continent, Tiana Port, Pritz Harbour, the New City of Silver, Foggy Town, Blazing Danitz, King of the North, Ulyssan, Nation of Frost, quasi-demigod, Siatas, Groselle, Elven Songster Siatas, Mobet Zoroast, Frunziar Edward, Queen of Calamity Cohinem, Elf King Soniathrym, Cohinem, Soniathrym, Dragon of Imagination, Ankewelt, Livesyd, City of Miracles Livesyd, Quill of Alzuhood, Frunziar Edward, Adol, corruption, Temperance Faction, Indulgence Faction, Machinery Hivermind, Fertility Order, Mandated Punishers, Inquisition, Khoy University, spirituality, long bronze table, bronze table, mottled long bronze table, ancient mottled bronze table, the Eternal Blazing Sun, the True Creator, self-awareness, Megose, Zouteland Street, Iron Cross Street, Besik Street, Champagne Street, Pelican Street, Daffodil Street, True Creator’s child, Blessed, Giant King Aurmir, God of Dawn, Badheil, Wind Angel, Leodero, Sanguine Ancestor, Earth Mother, God of Craftsmanship, God of Steam and Machinery, Dragon of Betrayal, Herabergen, Heraberg, God of Glory, Bladel, Cataclysm, bluish-black door, Pale Era The Dark Epoch, Pre-Epoch, The Cataclysm, The Cataclysm Epoch, the Epoch of The Gods, The Iron Age, Early Era of Fire, Dual Era, Warring Era, First Solomon Empire, War of The Four Emperors, the Black Emperor Card, the Black Emperor Card of Blasphemy, Calderón City, Miss Messenger, Chained God, Primordial Moon Faction, Angel of Mercury, Angel of Death, Angel of Redemption, Angel of Life, Angel of Retribution, Angel of the Holy Spirit, Angel of Time, Angel of Stars, Mahmosi, Tirié, Belltaine City, Midseashire, gray fog, Suah, Abomination, Abomination Suah, convergence, Enuni, Winner Enuni, Enzo, Hornacis, Belltaine, Biles, Roy, Phil, Pasha, Weber, Dragon of Nightmare, God Almighty, Twilight Sword, “eternal daytime”, theft, “Theft”, “Fooling”, “Fooling” authority, The Annihilation Demonic Wolf, half-crazy, half-mad, divinity, godhood, Angel of Imagination, Dark Angel, White Angel, Wisdom Angel, Dark Side of The Universe, Devil Monarch Farbauti, Farbauti, Primordial God Almighty, Blessed, Mythical Creature, Child of God, Vice Admiral Hurricane, Church of the God of Combat, Church of the Earth Mother, Church of the Lord of Storms, the Tyrant’s Church, Church of the God of Knowledge, Church of the Eternal Blazing Sun, Church of Steam, Church of the God of Steam and Machinery, Church of The Fool, doll, dolls, spiritual intuition
 
 Cattleya is from The Hermit Pathway, Sequence 4 Mysticologist, Sequence 3 - Clairvoyant, Sequence 2 - Sage, Sequence 1 - Knowledge Emperor
 
@@ -5752,7 +5752,7 @@ Honorific Names
 Abilities (so you know what word to use when someone uses their abilities):
 Pillar/Great Old One/Above The Sequence: Lord of The Mysteries 
 
-Fool,  Error, and  Door Pathways.
+Fool, Error, and Door Pathways.
 
 This Great Old One is one of the three Pillars.
 
@@ -6576,7 +6576,7 @@ Sequence 0: Twilight Giant
    * Decay
 
 
-Calamity of Destruction is the title of the Great Old One of the  Demoness, and  Red Priest Pathways.
+Calamity of Destruction is the title of the Great Old One of the Demoness, and Red Priest Pathways.
 
 This Great Old One is one half of the Fourth Pillar, with the other half being the Eternal Darkness. Because of this, Pathways of the Eternal Darkness and the Calamity of Destruction groups are exchangeable. But in that case, there's no way to become a Great Old One, unless one can separate the Beyonder Characteristics from before.
 
@@ -6607,8 +6607,8 @@ Authorities & Symbolisms
 
 
 - "They" possess full authority over the Red Priest, and Demoness pathways, and the corresponding symbolisms, which include but are not limited to the following:
-    -  Demoness: Authorities over Apocalypseand Catastrophe. And the Symbols of Catastrophe and Chaos.
-    -  Red Priest: Authorities over War and Conquest. And the Symbols of War and Destruction.
+    - Demoness: Authorities over Apocalypseand Catastrophe. And the Symbols of Catastrophe and Chaos.
+    - Red Priest: Authorities over War and Conquest. And the Symbols of War and Destruction.
     - The two Pathways represent Disasters of all kinds, both natural and man-made.
 
 Pathways of the Demoness & Calamity of Destruction
@@ -8163,7 +8163,7 @@ FORMATTING & STRUCTURE RULES:
         if (glossaryCount > 0) parts.push(`${glossaryCount} glossary profile(s)`);
         else if (data.terminology && data.terminology.trim()) parts.push('active glossary');
         parts.push('settings');
-        toast(`✅ Restored ${parts.join(', ')} successfully!`);
+        toast(` Restored ${parts.join(', ')} successfully!`);
       };
 
       const readFileContentAsText = (file) => {
@@ -8739,7 +8739,7 @@ FORMATTING & STRUCTURE RULES:
           localStorage.removeItem(jobId); setActiveSession(null);
           toast(`Ebook translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
           window.NativeBridge?.releaseWakeLock();
-          window.NativeBridge?.clearProgressNotification(true, 'Book Translation Complete! ✨', `${chapters.length} chapters translated in ${durationStr}.`);
+          window.NativeBridge?.clearProgressNotification(true, 'Book Translation Complete! ', `${chapters.length} chapters translated in ${durationStr}.`);
           window.NativeBridge?.haptic('success');
         } catch (e) {
           if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error') } else toast('Translation paused.', 'info')
@@ -9037,12 +9037,12 @@ FORMATTING & STRUCTURE RULES:
           const lang = tgtLang.split(/[-_ ]/)[0].toLowerCase() || 'en';
 
           // Always compile a clean, standardized EPUB with translated TOC and proper paragraph spacing
-          setEpubPackagingModal({ title: docTitle, status: '⚡ Assembling translated EPUB archive...', pct: 10 });
+          setEpubPackagingModal({ title: docTitle, status: ' Assembling translated EPUB archive...', pct: 10 });
           const blob = await generateEpubFromChapters(chaptersToExport, docTitle, author, lang, (status, pct, elapsed) => {
             setEpubPackagingModal({ title: docTitle, status, pct, elapsed });
           });
           setEpubPackagingModal(null);
-          toast('✨ EPUB downloaded successfully!', 'success');
+          toast(' EPUB downloaded successfully!', 'success');
           const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.epub`;
           await saveUniversalBlob(blob, fileName, 'application/epub+zip');
         } catch (e) {
@@ -9167,7 +9167,7 @@ FORMATTING & STRUCTURE RULES:
           // IN-APP AUTO-UPDATER BANNER
           availableUpdate && h('div', { className: 'p-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in' },
             h('div', { className: 'flex items-center gap-3' },
-              h('div', { className: 'p-2.5 bg-white/20 rounded-xl backdrop-blur-md text-xl' }, '🚀'),
+              h('div', { className: 'p-2.5 bg-white/20 rounded-xl backdrop-blur-md text-xl' }, ''),
               h('div', null,
                 h('div', { className: 'font-bold text-sm sm:text-base flex items-center gap-2' },
                   `Update Available: ${availableUpdate.latestVersion}`,
@@ -9181,17 +9181,17 @@ FORMATTING & STRUCTURE RULES:
                 onClick: handlePerformUpdate,
                 disabled: isUpdating,
                 className: 'flex-1 sm:flex-initial px-4 py-2 bg-white text-purple-700 hover:bg-white/90 active:scale-95 font-bold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer'
-              }, isUpdating ? '⏳ Downloading...' : '⚡ Update Now (1-Tap)'),
+              }, isUpdating ? ' Downloading...' : ' Update Now (1-Tap)'),
               h('button', {
                 onClick: () => setAvailableUpdate(null),
                 className: 'p-2 hover:bg-white/10 rounded-xl text-white/80 hover:text-white transition-colors cursor-pointer text-xs'
-              }, '✕')
+              }, '')
             )
           ),
 
           // TABS
           h('div', { className: 'flex border-b border-gray-200 dark:border-gray-700 gap-1 overflow-x-auto custom-scrollbar pb-0.5 -mx-3 px-3 sm:mx-0 sm:px-0' },
-            [['text', 'Text & File', Clipboard], ['web_importer', '🌐 Web Import', Globe], ['studio', 'EPUB Studio', Layers], ['history', 'History', History]].map(([key, label, Icon]) =>
+            [['text', 'Text & File', Clipboard], ['web_importer', ' Web Import', Globe], ['studio', 'EPUB Studio', Layers], ['history', 'History', History]].map(([key, label, Icon]) =>
               h('button', { key, onClick: () => setActiveTab(key), className: `py-2 px-3.5 sm:py-2.5 sm:px-4 text-xs sm:text-sm font-semibold rounded-t-lg transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer ${activeTab === key ? (key === 'web_importer' ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md' : 'bg-indigo-600 text-white shadow-md') : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}` }, ic(Icon, 16), label)
             )
           ),
@@ -9349,7 +9349,7 @@ FORMATTING & STRUCTURE RULES:
                     })
                   ),
                   h('span', { className: 'text-xs font-semibold text-slate-500 dark:text-slate-400' },
-                    concurrency === 1 ? '1 worker (Safe)' : concurrency >= 15 ? `${concurrency} streams (🔥 20x Insane Speed)` : concurrency >= 8 ? `${concurrency} streams (🚀 High Speed)` : `${concurrency} parallel streams`
+                    concurrency === 1 ? '1 worker (Safe)' : concurrency >= 15 ? `${concurrency} streams ( 20x Insane Speed)` : concurrency >= 8 ? `${concurrency} streams ( High Speed)` : `${concurrency} parallel streams`
                   )
                 ),
                 h('div', { className: 'flex items-center gap-3' },
@@ -9370,7 +9370,7 @@ FORMATTING & STRUCTURE RULES:
                           type: 'button',
                           onClick: () => setConcurrency(val),
                           className: `px-2 py-0.5 text-[11px] font-bold rounded-md transition-all cursor-pointer ${concurrency === val ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`
-                        }, val === 20 ? '🔥 20x' : val === 10 ? '🚀 10x' : val === 5 ? '⚡ 5x' : `${val}x`)
+                        }, val === 20 ? ' 20x' : val === 10 ? ' 10x' : val === 5 ? ' 5x' : `${val}x`)
                       )
                     )
                   )
@@ -9929,16 +9929,16 @@ FORMATTING & STRUCTURE RULES:
             h('div', { className: 'flex items-center gap-3 mb-2' },
               h('div', { className: 'w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center text-teal-400' }, ic(Globe, 22)),
               h('div', null,
-                h('h2', { className: 'text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100' }, '🌐 Web Novel & Fanfiction Importer'),
+                h('h2', { className: 'text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100' }, ' Web Novel & Fanfiction Importer'),
                 h('p', { className: 'text-xs text-slate-500 dark:text-slate-400' }, 'Paste any AO3, Lofter, or Syosetu link to auto-extract chapters and translate directly to EPUB!')
               )
             ),
             h('div', { className: 'flex flex-wrap gap-2 pt-2' },
-              h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/60' }, '🅰️ AO3 (Full Works)'),
-              h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60' }, '🐉 Lofter (乐乎 Fanfics)'),
-              h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200/80 dark:border-purple-800/60' }, '🔮 Tumblr (Posts & Fics)'),
-              h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/60' }, '📖 Syosetu (小説家になろう)'),
-              h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60' }, '⚡ Zero CORS Blocks')
+              h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/60' }, '🅰 AO3 (Full Works)'),
+              h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60' }, ' Lofter (乐乎 Fanfics)'),
+              h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200/80 dark:border-purple-800/60' }, ' Tumblr (Posts & Fics)'),
+              h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/60' }, ' Syosetu (小説家になろう)'),
+              h('span', { className: 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60' }, ' Zero CORS Blocks')
             )
           ),
 
@@ -9965,7 +9965,7 @@ FORMATTING & STRUCTURE RULES:
                     });
                     setWebImportData(data);
                     saveNovelToHistory(data);
-                    toast(`✨ Successfully imported "${data.title}" with ${data.chapters.length} chapter(s)!`, 'success');
+                    toast(` Successfully imported "${data.title}" with ${data.chapters.length} chapter(s)!`, 'success');
                   } catch (err) {
                     console.error('Web Import Error:', err);
                     toast('Failed to fetch URL: ' + err.message, 'error');
@@ -10006,7 +10006,7 @@ FORMATTING & STRUCTURE RULES:
                       const data = await window.WebNovelImporter.importEpubBuffer(buffer, file.name, (s) => setWebImportStatus(s));
                       setWebImportData(data);
                       saveNovelToHistory(data);
-                      toast(`✨ Loaded "${data.title}" with ${data.chapters.length} chapters!`, 'success');
+                      toast(` Loaded "${data.title}" with ${data.chapters.length} chapters!`, 'success');
                     } catch (err) {
                       console.error('File import error:', err);
                       toast('Failed to load EPUB: ' + err.message, 'error');
@@ -10032,21 +10032,21 @@ FORMATTING & STRUCTURE RULES:
                 btn({
                   onClick: async () => {
                     try {
-                      setEpubPackagingModal({ title: webImportData.title || 'Web Novel', status: '⚡ Assembling EPUB archive...', pct: 5 });
+                      setEpubPackagingModal({ title: webImportData.title || 'Web Novel', status: ' Assembling EPUB archive...', pct: 5 });
                       const blob = await generateEpubFromChapters(webImportData.chapters, webImportData.title, webImportData.author, 'en', (status, pct, elapsed) => {
                         setEpubPackagingModal({ title: webImportData.title || 'Web Novel', status, pct, elapsed });
                       });
                       setEpubPackagingModal(null);
                       const safeName = (webImportData.title || 'novel').toLowerCase().replace(/[^a-z0-9_-]/g, '_') + '.epub';
                       await saveUniversalBlob(blob, safeName, 'application/epub+zip', false);
-                      toast('✨ EPUB downloaded successfully!', 'success');
+                      toast(' EPUB downloaded successfully!', 'success');
                     } catch (e) {
                       setEpubPackagingModal(null);
                       toast('EPUB export failed: ' + e.message, 'error');
                     }
                   },
                   className: 'px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer'
-                }, ic(Download, 15), '📥 Download EPUB'),
+                }, ic(Download, 15), ' Download EPUB'),
 
                 // 2. Direct Read in Moon Reader Button
                 btn({
@@ -10055,7 +10055,7 @@ FORMATTING & STRUCTURE RULES:
                     setReaderOpen(true);
                   },
                   className: 'px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-teal-400 text-xs font-bold rounded-xl border border-teal-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer'
-                }, ic(BookOpen, 15), '📖 Read in Reader'),
+                }, ic(BookOpen, 15), ' Read in Reader'),
 
                 // 3. Translate to another language
                 btn({
@@ -10068,10 +10068,10 @@ FORMATTING & STRUCTURE RULES:
                     }
                     setActiveTab('text');
                     handleTranslateEbook(webImportData.chapters, false, webImportData.isEpub, webImportData.rawZip);
-                    toast(`⚡ Starting 20x Turbo translation for "${webImportData.title}"!`, 'success');
+                    toast(` Starting 20x Turbo translation for "${webImportData.title}"!`, 'success');
                   },
                   className: 'px-4 py-2.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer'
-                }, ic(Sparkles, 15), '⚡ Translate (20x)')
+                }, ic(Sparkles, 15), ' Translate (20x)')
               )
             ),
 
@@ -10094,14 +10094,14 @@ FORMATTING & STRUCTURE RULES:
                     onClick: () => {
                       if (webImportData.rawChapters && webImportData.rawChapters.length > 0) {
                         setWebImportData({ ...webImportData, chapters: [...webImportData.rawChapters] });
-                        toast('📅 Restored Author Release Order (as published)!', 'success');
+                        toast(' Restored Author Release Order (as published)!', 'success');
                       } else {
                         toast('Already in original order', 'info');
                       }
                     },
                     className: 'px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer',
                     title: 'Keep author release timeline order (default)'
-                  }, ic(Calendar, 12), '📅 Release Order'),
+                  }, ic(Calendar, 12), ' Release Order'),
                   btn({
                     onClick: () => {
                       if (!webImportData.rawChapters) {
@@ -10122,11 +10122,11 @@ FORMATTING & STRUCTURE RULES:
                         return 0;
                       });
                       setWebImportData({ ...webImportData, chapters: sorted });
-                      toast('🔀 Smart Sorted: Main story in order, Extras at the end!', 'success');
+                      toast(' Smart Sorted: Main story in order, Extras at the end!', 'success');
                     },
                     className: 'px-2.5 py-1 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-700 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer',
                     title: 'Group chapters 1..N first and move Extras/Side Stories to the end'
-                  }, ic(ArrowUpDown, 12), '🔀 Extras at End'),
+                  }, ic(ArrowUpDown, 12), ' Extras at End'),
                   btn({
                     onClick: () => {
                       if (!webImportData.rawChapters) {
@@ -10134,10 +10134,10 @@ FORMATTING & STRUCTURE RULES:
                       }
                       const reversed = [...webImportData.chapters].reverse();
                       setWebImportData({ ...webImportData, chapters: reversed });
-                      toast('🔄 Inverted chapter order', 'info');
+                      toast(' Inverted chapter order', 'info');
                     },
                     className: 'px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-[11px] font-semibold transition-all cursor-pointer'
-                  }, '🔄 Reverse')
+                  }, ' Reverse')
                 )
               ),
               h('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1' },
@@ -10260,19 +10260,19 @@ FORMATTING & STRUCTURE RULES:
                       btn({
                         onClick: async () => {
                           try {
-                            setEpubPackagingModal({ title: item.title, status: '📦 Loading chapters from IndexedDB...', pct: 5 });
+                            setEpubPackagingModal({ title: item.title, status: ' Loading chapters from IndexedDB...', pct: 5 });
                             let full = null;
                             if (window.GeminiNovelDB) full = await window.GeminiNovelDB.getNovel(item.id);
                             const chaptersToBuild = full?.rawChapters || [];
                             if (chaptersToBuild.length === 0) throw new Error('No chapters stored');
-                            setEpubPackagingModal({ title: item.title, status: '⚡ Assembling EPUB archive...', pct: 15 });
+                            setEpubPackagingModal({ title: item.title, status: ' Assembling EPUB archive...', pct: 15 });
                             const blob = await generateEpubFromChapters(chaptersToBuild, item.title, item.author, 'en', (status, pct, elapsed) => {
                               setEpubPackagingModal({ title: item.title, status, pct, elapsed });
                             });
                             setEpubPackagingModal(null);
                             const safeName = (item.title || 'novel').toLowerCase().replace(/[^a-z0-9_-]/g, '_') + '.epub';
                             await saveUniversalBlob(blob, safeName, 'application/epub+zip', false);
-                            toast('✨ EPUB downloaded successfully!', 'success');
+                            toast(' EPUB downloaded successfully!', 'success');
                           } catch (e) {
                             setEpubPackagingModal(null);
                             toast('EPUB build failed: ' + e.message, 'error');
@@ -10347,11 +10347,11 @@ FORMATTING & STRUCTURE RULES:
               ic(FileDown, 28)
             ),
             h('div', { className: 'space-y-1' },
-              h('h3', { className: 'text-base font-bold text-slate-900 dark:text-white' }, 'File Saved Successfully! ✨'),
+              h('h3', { className: 'text-base font-bold text-slate-900 dark:text-white' }, 'File Saved Successfully! '),
               h('p', { className: 'text-xs text-slate-600 dark:text-slate-400 break-all font-semibold' }, downloadSuccessModal.fileName),
               h('div', { className: 'p-2.5 bg-slate-100 dark:bg-slate-800/70 rounded-xl text-[11px] text-slate-500 dark:text-slate-400 font-mono text-left' },
-                h('p', null, '📁 Folder: Download/GeminiTranslator/'),
-                h('p', { className: 'opacity-70 text-[10px] truncate' }, '📍 Path: ' + (downloadSuccessModal.path || 'Internal Storage/Download/GeminiTranslator'))
+                h('p', null, ' Folder: Download/GeminiTranslator/'),
+                h('p', { className: 'opacity-70 text-[10px] truncate' }, ' Path: ' + (downloadSuccessModal.path || 'Internal Storage/Download/GeminiTranslator'))
               )
             ),
             h('div', { className: 'space-y-2 pt-2' },
@@ -10515,11 +10515,11 @@ FORMATTING & STRUCTURE RULES:
               ic(FileDown, 28)
             ),
             h('div', { className: 'space-y-1' },
-              h('h3', { className: 'text-base font-bold text-slate-900 dark:text-white' }, 'File Saved Successfully! ✨'),
+              h('h3', { className: 'text-base font-bold text-slate-900 dark:text-white' }, 'File Saved Successfully! '),
               h('p', { className: 'text-xs text-slate-600 dark:text-slate-400 break-all font-semibold' }, downloadSuccessModal.fileName),
               h('div', { className: 'p-2.5 bg-slate-100 dark:bg-slate-800/70 rounded-xl text-[11px] text-slate-500 dark:text-slate-400 font-mono text-left' },
-                h('p', null, '📁 Folder: Download/GeminiTranslator/'),
-                h('p', { className: 'opacity-70 text-[10px] truncate' }, '📍 Path: ' + (downloadSuccessModal.path || 'Internal Storage/Download/GeminiTranslator'))
+                h('p', null, ' Folder: Download/GeminiTranslator/'),
+                h('p', { className: 'opacity-70 text-[10px] truncate' }, ' Path: ' + (downloadSuccessModal.path || 'Internal Storage/Download/GeminiTranslator'))
               )
             ),
             h('div', { className: 'space-y-2 pt-2' },

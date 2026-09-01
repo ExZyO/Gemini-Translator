@@ -149,7 +149,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
             boolean notifyDone = call.getBoolean("notifyDone", false);
             if (notifyDone) {
-                String title = call.getString("title", "Book Completed! ✨");
+                String title = call.getString("title", "Book Completed! ");
                 String message = call.getString("message", "Translation completed successfully. Tap to open.");
                 
                 Intent launchIntent = new Intent(context, MainActivity.class);
@@ -239,7 +239,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
                 if (!wakeLock.isHeld()) {
                     wakeLock.acquire(2 * 60 * 60 * 1000L);
-                    Log.d(TAG, "🔋 WakeLock Acquired - Background execution locked active!");
+                    Log.d(TAG, " WakeLock Acquired - Background execution locked active!");
                 }
             }
             JSObject ret = new JSObject();
@@ -256,7 +256,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
         try {
             if (wakeLock != null && wakeLock.isHeld()) {
                 wakeLock.release();
-                Log.d(TAG, "🔋 WakeLock Released.");
+                Log.d(TAG, " WakeLock Released.");
             }
             JSObject ret = new JSObject();
             ret.put("success", true);
@@ -317,7 +317,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
 
                 AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setTitle("🛡️ Cloudflare Security Verification");
+                builder.setTitle(" Cloudflare Security Verification");
 
                 LinearLayout layout = new LinearLayout(context);
                 layout.setOrientation(LinearLayout.VERTICAL);
@@ -803,7 +803,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 if (status == TextToSpeech.SUCCESS) {
                     nativeTts.setLanguage(Locale.US);
                     isNativeTtsReady = true;
-                    Log.d(TAG, "🎙️ Native Android TextToSpeech initialized successfully!");
+                    Log.d(TAG, " Native Android TextToSpeech initialized successfully!");
                 }
             });
         }
@@ -927,7 +927,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                 final String finalToastPath = savedPath;
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    Toast.makeText(context, "💾 Saved: " + fileName + "\n📁 Download/GeminiTranslator", Toast.LENGTH_LONG).show();
+                    Toast.makeText(context, " Saved: " + fileName + "\n Download/GeminiTranslator", Toast.LENGTH_LONG).show();
                 });
 
                 if (openChooser) {
@@ -999,7 +999,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         context.getContentResolver().update(uri, values, null, null);
                         fileUri = uri;
                         savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
-                        Log.d(TAG, "💾 Saved file via MediaStore to: " + savedPath);
+                        Log.d(TAG, " Saved file via MediaStore to: " + savedPath);
                     }
                 } catch (Exception msErr) {
                     Log.w(TAG, "MediaStore save fallback: " + msErr.getMessage());
@@ -1042,7 +1042,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
             // Show Native Android Toast
             final String toastPath = savedPath;
             new Handler(Looper.getMainLooper()).post(() -> {
-                Toast.makeText(context, "💾 Saved: " + fileName + "\n📁 Folder: Download/GeminiTranslator", Toast.LENGTH_LONG).show();
+                Toast.makeText(context, " Saved: " + fileName + "\n Folder: Download/GeminiTranslator", Toast.LENGTH_LONG).show();
             });
 
             // Trigger System "Open With" Chooser only if explicitly requested
