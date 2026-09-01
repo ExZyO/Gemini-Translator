@@ -273,7 +273,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.9.3';
+    const VERSION = '6.9.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2610,6 +2610,44 @@ const formatModelName = (id, displayName) => {
       // --- UI State ---
       const [darkMode, setDarkMode] = useState(() => { const s = localStorage.getItem('darkMode'); return s !== null ? s === 'true' : window.matchMedia('(prefers-color-scheme:dark)').matches });
       const [toasts, setToasts] = useState([]);
+      const [availableUpdate, setAvailableUpdate] = useState(null);
+      const [isUpdating, setIsUpdating] = useState(false);
+
+      const checkForAppUpdate = async (isManual = false) => {
+        if (isManual) toast('Checking for updates...', 'info');
+        try {
+          const update = await window.NativeBridge?.checkForUpdate(VERSION);
+          if (update && update.isNewer) {
+            setAvailableUpdate(update);
+            if (isManual) toast(`New version ${update.latestVersion} available!`, 'success');
+          } else {
+            setAvailableUpdate(null);
+            if (isManual) toast(`You are on the latest version (v${VERSION})!`, 'success');
+          }
+        } catch (e) {
+          if (isManual) toast('Failed to check for updates: ' + e.message, 'error');
+        }
+      };
+
+      const handlePerformUpdate = async () => {
+        setIsUpdating(true);
+        toast('🚀 Starting update download...', 'info');
+        try {
+          await window.NativeBridge?.installApk(availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk");
+          toast('⚡ Download complete. Opening package installer...', 'success');
+        } catch (err) {
+          console.error('Update error:', err);
+          toast('Failed to download update: ' + err.message, 'error');
+          // Fallback open release page
+          window.open(availableUpdate?.releasePage || "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest", '_blank');
+        } finally {
+          setIsUpdating(false);
+        }
+      };
+
+      useEffect(() => {
+        checkForAppUpdate(false);
+      }, []);
       const [sideBySide, setSideBySide] = useState(false);
       const [showModal, setShowModal] = useState(false);
       const [modalMessage, setModalMessage] = useState('');
@@ -8239,7 +8277,11 @@ p {
           h('div', { className: 'max-w-5xl mx-auto flex items-center justify-between' },
             h('div', { className: 'flex items-center gap-2.5 sm:gap-3' },
               h('h1', { className: 'text-xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent' }, 'Gemini Translator'),
-              h('span', { className: 'text-[11px] sm:text-xs font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full' }, `v${VERSION}`)
+              h('button', {
+                onClick: () => checkForAppUpdate(true),
+                title: 'Click to check for updates',
+                className: 'text-[11px] sm:text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 px-2.5 py-0.5 rounded-full transition-colors flex items-center gap-1 cursor-pointer'
+              }, `v${VERSION}`, availableUpdate ? h('span', { className: 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse' }) : null)
             ),
             h('div', { className: 'flex items-center gap-2' },
               !isStandalone && h('button', {
@@ -8254,6 +8296,31 @@ p {
 
         // MAIN
         h('main', { className: 'w-full max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6 overflow-hidden' },
+
+          // IN-APP AUTO-UPDATER BANNER
+          availableUpdate && h('div', { className: 'p-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in' },
+            h('div', { className: 'flex items-center gap-3' },
+              h('div', { className: 'p-2.5 bg-white/20 rounded-xl backdrop-blur-md text-xl' }, '🚀'),
+              h('div', null,
+                h('div', { className: 'font-bold text-sm sm:text-base flex items-center gap-2' },
+                  `Update Available: ${availableUpdate.latestVersion}`,
+                  h('span', { className: 'text-[10px] uppercase font-extrabold bg-white text-purple-700 px-2 py-0.5 rounded-full' }, 'New')
+                ),
+                h('div', { className: 'text-xs text-white/80' }, 'Tap to install the latest features, speed boosts, and fixes in 1 tap.')
+              )
+            ),
+            h('div', { className: 'flex items-center gap-2 w-full sm:w-auto' },
+              h('button', {
+                onClick: handlePerformUpdate,
+                disabled: isUpdating,
+                className: 'flex-1 sm:flex-initial px-4 py-2 bg-white text-purple-700 hover:bg-white/90 active:scale-95 font-bold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer'
+              }, isUpdating ? '⏳ Downloading...' : '⚡ Update Now (1-Tap)'),
+              h('button', {
+                onClick: () => setAvailableUpdate(null),
+                className: 'p-2 hover:bg-white/10 rounded-xl text-white/80 hover:text-white transition-colors cursor-pointer text-xs'
+              }, '✕')
+            )
+          ),
 
           // TABS
           h('div', { className: 'flex border-b border-gray-200 dark:border-gray-700 gap-1 overflow-x-auto custom-scrollbar pb-0.5 -mx-3 px-3 sm:mx-0 sm:px-0' },

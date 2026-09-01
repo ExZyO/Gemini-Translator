@@ -4,6 +4,41 @@
     const getBridge = () => window.Capacitor?.Plugins?.NativeAndroidBridge;
 
     window.NativeBridge = {
+        installApk: async (url = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk") => {
+            const bridge = getBridge();
+            if (bridge && bridge.installApk) {
+                return await bridge.installApk({ url });
+            } else {
+                // Browser fallback: trigger direct download
+                window.open(url, '_blank');
+            }
+        },
+
+        checkForUpdate: async (currentVersion = "6.9.4") => {
+            try {
+                const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest', {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+                if (!res.ok) return null;
+                const data = await res.json();
+                const latestTag = (data.tag_name || '').replace(/^v/i, '').trim();
+                const current = currentVersion.replace(/^v/i, '').trim();
+                
+                const isNewer = latestTag && (latestTag !== current);
+                return {
+                    isNewer,
+                    latestVersion: 'v' + latestTag,
+                    currentVersion: 'v' + current,
+                    releaseNotes: data.body || '',
+                    apkUrl: "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
+                    releasePage: data.html_url || "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest"
+                };
+            } catch (e) {
+                console.warn('Update check failed:', e);
+                return null;
+            }
+        },
+
         isAvailable: () => isCapacitor() && !!getBridge(),
 
         showProgressNotification: async (title, message, progress = 0, ongoing = true) => {

@@ -587,4 +587,81 @@ public class NativeAndroidBridgePlugin extends Plugin {
             }
         }).start();
     }
+
+    @PluginMethod
+    public void installApk(PluginCall call) {
+        String downloadUrl = call.getString("url", "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk");
+        Context context = getContext();
+
+        new Thread(() -> {
+            try {
+                showProgressNotification("Gemini Translator Updater", "Downloading update...", 0, true);
+
+                File cacheFile = new File(context.getCacheDir(), "GeminiTranslator_update.apk");
+                if (cacheFile.exists()) {
+                    cacheFile.delete();
+                }
+
+                URL url = new URL(downloadUrl);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setInstanceFollowRedirects(true);
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) GeminiTranslator/6.9");
+                conn.connect();
+
+                // Follow redirects manually if needed
+                int status = conn.getResponseCode();
+                if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM || status == 307 || status == 308) {
+                    String newUrl = conn.getHeaderField("Location");
+                    conn.disconnect();
+                    url = new URL(newUrl);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) GeminiTranslator/6.9");
+                    conn.connect();
+                }
+
+                int totalLength = conn.getContentLength();
+                InputStream in = new BufferedInputStream(conn.getInputStream());
+                OutputStream out = new FileOutputStream(cacheFile);
+
+                byte[] buf = new byte[8192];
+                int count;
+                long total = 0;
+                while ((count = in.read(buf)) != -1) {
+                    total += count;
+                    out.write(buf, 0, count);
+                    if (totalLength > 0) {
+                        int progress = (int) ((total * 100) / totalLength);
+                        showProgressNotification("Gemini Translator Updater", "Downloading update (" + progress + "%)...", progress, true);
+                    }
+                }
+
+                out.flush();
+                out.close();
+                in.close();
+                conn.disconnect();
+
+                showProgressNotification("Gemini Translator Updater", "Download complete. Starting installation...", 100, false);
+
+                // Trigger Android Package Installer
+                Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", cacheFile);
+                Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                context.startActivity(installIntent);
+
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("message", "Package installer launched");
+                call.resolve(ret);
+
+            } catch (Exception e) {
+                Log.e(TAG, "APK Auto-install error: " + e.getMessage(), e);
+                showProgressNotification("Gemini Translator Updater", "Update failed: " + e.getMessage(), 0, false);
+                call.reject("Failed to install update: " + e.getMessage());
+            }
+        }).start();
+    }
+
 }
