@@ -723,7 +723,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
         try {
             ensureNativeTts();
             String text = call.getString("text", "");
-            float rate = (float) call.getDouble("rate", 1.0);
+            Double dRate = call.getDouble("rate", 1.0); float rate = dRate != null ? dRate.floatValue() : 1.0f;
             
             if (nativeTts != null && isNativeTtsReady && text != null && !text.isEmpty()) {
                 nativeTts.setSpeechRate(rate);
@@ -774,10 +774,10 @@ public class NativeAndroidBridgePlugin extends Plugin {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 try {
                     ContentValues values = new ContentValues();
-                    values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
-                    values.put(MediaStore.Downloads.MIME_TYPE, mimeType);
-                    values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/GeminiTranslator");
-                    values.put(MediaStore.Downloads.IS_PENDING, 1);
+                    values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                    values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/GeminiTranslator");
+                    values.put(MediaStore.MediaColumns.IS_PENDING, 1);
 
                     Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
                     if (uri != null) {
@@ -788,7 +788,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             os.close();
                         }
                         values.clear();
-                        values.put(MediaStore.Downloads.IS_PENDING, 0);
+                        values.put(MediaStore.MediaColumns.IS_PENDING, 0);
                         context.getContentResolver().update(uri, values, null, null);
                         fileUri = uri;
                         savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
