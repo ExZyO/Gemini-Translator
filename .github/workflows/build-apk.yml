@@ -54,15 +54,22 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: 🚀 Publish Automatic APK Release
+      - name: 📱 Rename APK for Direct Download
+        run: cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/GeminiTranslator.apk
+
+      - name: 🚀 Publish Direct APK Download (GitHub Release)
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
-          files: android/app/build/outputs/apk/release/app-release.apk
-          tag_name: android-v${{ github.run_number }}
-          name: "🤖 Gemini Translator Android Release APK (v${{ github.run_number }})"
-          body: "Official optimized high-speed standalone Android Release APK build."
+          files: android/app/build/outputs/apk/release/GeminiTranslator.apk
+          tag_name: latest
+          name: "📱 Gemini Translator — Latest Android APK"
+          body: |
+            ## 📱 Direct APK Download
+            Tap **GeminiTranslator.apk** below to download directly — no unzipping needed!
+
+            Build #${{ github.run_number }} • ${{ github.sha }}
           draft: false
           prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
