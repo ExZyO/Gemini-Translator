@@ -273,7 +273,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.9.8';
+    const VERSION = '6.9.9';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -9359,14 +9359,22 @@ p {
     if (root) ReactDOM.createRoot(root).render(h(ErrorBoundary, null, h(App)));
   </script>
   <script>
-    if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then(registration => {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        }).catch(err => {
-          console.log('ServiceWorker registration failed: ', err);
+    if ('serviceWorker' in navigator) {
+      if (window.Capacitor || window.NativeAndroidBridge) {
+        // In native Android app, unregister service worker to prevent stale caching
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          for (const reg of regs) reg.unregister();
         });
-      });
+      } else if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').then(registration => {
+            registration.update();
+            console.log('ServiceWorker registration active: ', registration.scope);
+          }).catch(err => {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+        });
+      }
     }
   </script>
 </body>
