@@ -1,3 +1,23 @@
+
+function formatTelemetryDuration(ms) {
+    if (!ms || ms < 0) return '0s';
+    const totalSec = ms / 1000;
+    if (totalSec < 60) return totalSec.toFixed(1) + 's';
+    const mins = Math.floor(totalSec / 60);
+    const secs = Math.round(totalSec % 60);
+    return mins + 'm ' + (secs > 0 ? secs + 's' : '');
+}
+
+function calcTocCost(pTok, oTok, model, prov) {
+    if (window.calculateRealCost) return window.calculateRealCost(pTok, oTok, model, prov);
+    let inM = 0.075, outM = 0.30;
+    if (prov === 'deepseek') { inM = 0.14; outM = 0.28; }
+    else if (model.includes('flash-lite') || model.includes('8b')) { inM = 0.0375; outM = 0.15; }
+    else if (model.includes('pro')) { inM = 1.25; outM = 5.00; }
+    const cost = ((pTok / 1e6) * inM) + ((oTok / 1e6) * outM);
+    return cost < 0.0001 && cost > 0 ? '$0.0001' : '$' + cost.toFixed(4);
+}
+
 function extractHeadingFromXhtml(html, fallbackIndex) {
     if (!html) return 'Chapter ' + fallbackIndex;
     
@@ -1374,13 +1394,18 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
     btn.disabled = true;
     btnApply.disabled = true;
 
-    // Use 200 chapters per batch to minimize request frequency and stay comfortably within free-tier RPM limits
     const batchSize = 75;
     const totalChapters = storyChapters.length;
     const totalBatches = Math.ceil(totalChapters / batchSize);
     let suggestedBookTitle = splitTitleInput.value.trim() || baseBookTitle;
 
-    // Render persistent live progress card
+    let totalPromptTok = 0;
+    let totalOutputTok = 0;
+    let activeModel = 'gemini-3.5-flash-lite';
+    let activeProvider = document.getElementById('ai-polish-provider-select')?.value || localStorage.getItem('translationProvider') || 'gemini';
+    const startTime = performance.now();
+
+    // Render live progress & telemetry header
     container.innerHTML = `
         <div class="space-y-3">
             <div class="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-200 dark:border-purple-800/60 rounded-2xl shadow-sm space-y-2.5">
@@ -1396,14 +1421,91 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
                 </div>
                 <p id="ai-batch-substatus" class="text-[11px] text-slate-500 dark:text-slate-400">Paced requests with auto-retry and multi-key quota rotation...</p>
             </div>
-            <div id="ai-live-feed" class="space-y-1.5 max-h-[36vh] overflow-y-auto custom-scrollbar pr-1"></div>
+
+            <!-- LIVE TELEMETRY CARD -->
+            <div id="ai-toc-telemetry-card" class="p-3.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    <span class="inline-flex items-center gap-1">
+                        <strong class="text-emerald-600 dark:text-emerald-400 font-semibold">Input:</strong>
+                        <span id="ai-tele-in">0 tokens</span>
+                        <span class="text-slate-400 text-[11px]">(text + prompt)</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                        <strong class="text-teal-600 dark:text-teal-400 font-semibold">Output:</strong>
+                        <span id="ai-tele-out">0 tokens</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                        <strong class="text-indigo-600 dark:text-indigo-400 font-semibold">Total:</strong>
+                        <span id="ai-tele-tot">0 tokens</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/50">
+                        <strong class="text-purple-600 dark:text-purple-400 font-semibold">Time:</strong>
+                        <span id="ai-tele-time" class="font-bold text-purple-700 dark:text-purple-300">0.0s</span>
+                        <span id="ai-tele-speed" class="text-slate-400 text-[11px]">(~0 tok/s)</span>
+                    </span>
+                </div>
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-semibold text-slate-900 dark:text-slate-100 shadow-2xs">
+                    <span class="text-slate-500 dark:text-slate-400">Cost:</span>
+                    <span id="ai-tele-cost" class="text-emerald-600 dark:text-emerald-400 font-bold">$0.0000</span>
+                    <span id="ai-tele-model" class="text-slate-400 text-[11px] font-normal ml-0.5">(${activeModel})</span>
+                </div>
+            </div>
+
+            <!-- Top Summary Badges -->
+            <div id="ai-toc-telemetry-pills" class="flex items-center justify-between gap-2 flex-wrap text-xs px-1">
+                <div class="inline-flex items-center gap-2 flex-wrap">
+                    <span id="ai-pill-summary" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-300/80 dark:border-indigo-800/60 shadow-2xs">0 tok · $0.0000</span>
+                    <span id="ai-pill-time" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-300/80 dark:border-purple-800/60 shadow-2xs">0.0s</span>
+                </div>
+                <span id="ai-pill-words" class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shrink-0">0 words · 0 chars</span>
+            </div>
+
+            <div id="ai-live-feed" class="space-y-1.5 max-h-[32vh] overflow-y-auto custom-scrollbar pr-1"></div>
         </div>
     `;
 
     const liveFeed = document.getElementById('ai-live-feed');
 
+    function updateTelemetryUI() {
+        const elapsed = performance.now() - startTime;
+        const durStr = formatTelemetryDuration(elapsed);
+        const totTok = totalPromptTok + totalOutputTok;
+        const speed = elapsed > 0 && totTok > 0 ? Math.round(totTok / (elapsed / 1000)) : 0;
+        const costStr = calcTocCost(totalPromptTok, totalOutputTok, activeModel, activeProvider);
+
+        const elIn = document.getElementById('ai-tele-in');
+        const elOut = document.getElementById('ai-tele-out');
+        const elTot = document.getElementById('ai-tele-tot');
+        const elTime = document.getElementById('ai-tele-time');
+        const elSpeed = document.getElementById('ai-tele-speed');
+        const elCost = document.getElementById('ai-tele-cost');
+        const elModel = document.getElementById('ai-tele-model');
+
+        if (elIn) elIn.textContent = totalPromptTok.toLocaleString() + ' tokens';
+        if (elOut) elOut.textContent = totalOutputTok.toLocaleString() + ' tokens';
+        if (elTot) elTot.textContent = totTok.toLocaleString() + ' tokens';
+        if (elTime) elTime.textContent = durStr;
+        if (elSpeed) elSpeed.textContent = speed > 0 ? '(~' + speed + ' tok/s)' : '';
+        if (elCost) elCost.textContent = costStr;
+        if (elModel) elModel.textContent = '(' + activeModel + ')';
+
+        const pSum = document.getElementById('ai-pill-summary');
+        const pTime = document.getElementById('ai-pill-time');
+        const pWords = document.getElementById('ai-pill-words');
+        if (pSum) pSum.textContent = totTok.toLocaleString() + ' tok · ' + costStr;
+        if (pTime) pTime.textContent = durStr;
+
+        let totalChars = 0;
+        let totalWords = 0;
+        aiPolishedResults.forEach(r => {
+            const name = r.cleanedName || '';
+            totalChars += name.length;
+            totalWords += (name.trim().split(/\s+/).filter(Boolean)).length;
+        });
+        if (pWords) pWords.textContent = totalWords + ' words · ' + totalChars + ' chars';
+    }
+
     try {
-        // Resume from where we left off if some are already polished
         const alreadyDoneIndices = new Set(aiPolishedResults.map(r => r.index));
 
         for (let b = 0; b < totalBatches; b++) {
@@ -1427,9 +1529,15 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
                 if (pSub) pSub.textContent = `⚠️ ${msg}`;
             };
 
-            const selectedProv = document.getElementById('ai-polish-provider-select')?.value || localStorage.getItem('translationProvider') || 'gemini';
-            const res = await window.aiPolishEpubToc(batchChapters, suggestedBookTitle, onRetry, selectedProv);
+            const res = await window.aiPolishEpubToc(batchChapters, suggestedBookTitle, onRetry, activeProvider);
             if (res.cleanedTitle && b === 0) suggestedBookTitle = res.cleanedTitle;
+
+            if (res.usage) {
+                totalPromptTok += (res.usage.promptTokens || 0);
+                totalOutputTok += (res.usage.outputTokens || 0);
+                if (res.usage.model) activeModel = res.usage.model;
+                if (res.usage.provider) activeProvider = res.usage.provider;
+            }
 
             let items = [];
             if (Array.isArray(res.chapters)) items = res.chapters;
@@ -1438,13 +1546,15 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
             aiPolishedResults.push(...items);
             items.forEach(it => alreadyDoneIndices.add(it.index));
 
-            // Update Progress Bar
+            // Update Progress Bar & Telemetry UI
             const pct = Math.min(100, Math.round((aiPolishedResults.length / totalChapters) * 100));
             const pBar = document.getElementById('ai-batch-progress-bar');
             const pPct = document.getElementById('ai-batch-pct');
             if (pBar) pBar.style.width = `${pct}%`;
             if (pPct) pPct.textContent = `${pct}%`;
             if (pSub) pSub.textContent = `Successfully cleaned ${aiPolishedResults.length} chapters so far.`;
+
+            updateTelemetryUI();
 
             // Stream live result items into the view
             if (liveFeed) {
@@ -1463,11 +1573,9 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
                 liveFeed.scrollTop = liveFeed.scrollHeight;
             }
 
-            // Gentle pacing pause to avoid free tier burst rate limit
             await new Promise(r => setTimeout(r, 400));
         }
 
-        // Sort results by index
         aiPolishedResults.sort((a, b) => (a.index || 0) - (b.index || 0));
 
         // Finish state
@@ -1480,6 +1588,7 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
         if (pText) pText.innerHTML = `✅ Complete! Polished ${aiPolishedResults.length} / ${totalChapters} chapters.`;
         if (pSub) pSub.textContent = 'All chapters standardized and ready to apply!';
 
+        updateTelemetryUI();
         btnApply.disabled = false;
         showToast(`✨ Finished polishing ${aiPolishedResults.length} chapters!`, 'success');
     } catch (err) {

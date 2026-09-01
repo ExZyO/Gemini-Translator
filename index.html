@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.7.0';
+    const VERSION = '5.7.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -318,6 +318,7 @@
     };
 
     const calculateRealCost = (promptTokens, outputTokens, modelId = 'gemini-3.7-flash', provider = 'gemini') => {
+      window.calculateRealCost = calculateRealCost;
       let inPerM = 0.075;
       let outPerM = 0.30;
       if (provider === 'deepseek') {
@@ -1695,7 +1696,30 @@ Return strictly a JSON object with this exact format:
           }
 
           const clean = rawJson.replace(/^\`\`\`json\s*/i, '').replace(/\s*\`\`\`$/i, '').trim();
-          return JSON.parse(clean);
+          const parsed = JSON.parse(clean);
+          
+          let pTok = Math.ceil(prompt.length / 4);
+          let oTok = Math.ceil(rawJson.length / 4);
+          if (data?.usageMetadata) {
+            pTok = data.usageMetadata.promptTokenCount || pTok;
+            oTok = data.usageMetadata.candidatesTokenCount || oTok;
+          } else if (data?.usage) {
+            pTok = data.usage.prompt_tokens || data.usage.input_tokens || pTok;
+            oTok = data.usage.completion_tokens || data.usage.output_tokens || oTok;
+          }
+
+          const activeModelName = provider === 'gemini' || !provider ? geminiModels[modelIdx % geminiModels.length] : (provider === 'deepseek' ? 'deepseek-chat' : (provider === 'openai' ? 'gpt-4o-mini' : 'claude-3-5-haiku'));
+
+          return {
+            ...parsed,
+            usage: {
+              promptTokens: pTok,
+              outputTokens: oTok,
+              totalTokens: pTok + oTok,
+              model: activeModelName,
+              provider
+            }
+          };
         } catch (err) {
           const isTransient = (err.message || '').includes('429') || (err.message || '').includes('503') || (err.message || '').includes('quota') || (err.message || '').includes('demand') || (err.message || '').includes('404');
           if (isTransient && attempt < maxAttempts - 1) {
