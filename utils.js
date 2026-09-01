@@ -1,4 +1,16 @@
 (function() {
+
+function escapeXml(unsafe) {
+    if (unsafe === null || unsafe === undefined) return '';
+    return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+window.escapeXml = escapeXml;
+
 // Utility functions for Gemini Translator & EPUB Studio
 
 function sanitizeFilename(name) {
@@ -141,6 +153,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
     }
 }
 window.saveUniversalBlob = saveUniversalBlob;
+window.escapeXml = escapeXml;
 
 
 window.sanitizeFilename = sanitizeFilename;

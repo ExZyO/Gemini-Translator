@@ -256,6 +256,19 @@
     });
 
     const { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload, Sun, Moon, Columns2, Rows2, History, ChevronDown, ChevronUp, Zap, X, CheckCircle2, AlertCircle, Info, Search, Trash2, RotateCcw, Square, FileDown, Settings, Globe, Sparkles, Brain, Languages, Check, ArrowRightLeft, Star, Clock, Layers, Scissors, Sliders, Plus, Minus, Maximize2, Minimize2, BookOpen, Key, Shield, Lock, Unlock, Calendar, ArrowUpDown, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, MoreVertical, Type, Palette, List, Compass, Bookmark, Menu, ArrowLeft, ArrowRight, Maximize, Minimize } = window;
+
+    // XML Escaper for EPUB Packaging
+    function escapeXml(unsafe) {
+      if (unsafe === null || unsafe === undefined) return '';
+      return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
+    window.escapeXml = escapeXml;
+
     const ic = (Icon, size = 18, className = 'shrink-0') => {
       let comp = Icon;
       if (typeof Icon === 'string') {
@@ -279,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.8.2';
+    const VERSION = '7.9.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2244,7 +2257,9 @@ const formatModelName = (id, displayName) => {
     // saveUniversalBlob is globally provided by utils.js
 
     const generateEpubFromChapters = async (chaptersList, bookTitle = 'Web Novel', bookAuthor = 'Author', bookLang = 'en') => {
-      const zip = new JSZip();
+      const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
+      if (!JSZipClass) throw new Error('JSZip library not loaded');
+      const zip = new JSZipClass();
       const uuid = 'urn:uuid:' + (crypto.randomUUID ? crypto.randomUUID() : ('uuid_' + Date.now()));
 
       zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
@@ -2733,7 +2748,6 @@ ${bodyHtml.join('\n  ')}
           }
         };
 
-        // Pin to global window to prevent Android Chromium garbage collection
         window.__activeTtsUtterance = utter;
         activeUtteranceRef.current = utter;
 
@@ -2777,7 +2791,6 @@ ${bodyHtml.join('\n  ')}
         speakSentence(next);
       };
 
-      // Cleanup TTS on Modal Close
       useEffect(() => {
         return () => {
           if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -2787,12 +2800,15 @@ ${bodyHtml.join('\n  ')}
         };
       }, []);
 
+      const activeTheme = theme || 'dark';
+      const isBlack = activeTheme === 'black';
+
       const themeClasses = {
         light: 'bg-white text-slate-900',
         sepia: 'bg-[#fbf0d9] text-[#5f4b32]',
         dark: 'bg-[#121212] text-[#e0e0e0]',
-        black: 'bg-black text-[#888888]'
-      }[theme || 'dark'] || 'bg-[#121212] text-[#e0e0e0]';
+        black: 'bg-black text-[#e2e8f0]'
+      }[activeTheme] || 'bg-[#121212] text-[#e0e0e0]';
 
       const fontClasses = {
         sans: 'font-sans',
@@ -2801,14 +2817,14 @@ ${bodyHtml.join('\n  ')}
       }[font || 'serif'] || 'font-serif';
 
       return h('div', {
-        className: 'fixed inset-0 z-50 flex flex-col bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200 select-none'
+        className: `fixed inset-0 z-50 flex flex-col ${isBlack ? 'bg-black' : 'bg-slate-950'} select-none transition-colors`
       },
         // Top Header Action Bar
-        h('div', { className: 'flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 text-white shrink-0 z-10 shadow-md' },
+        h('div', { className: `flex items-center justify-between px-4 py-3 ${isBlack ? 'bg-black border-neutral-900 text-white' : 'bg-slate-900 border-slate-800 text-white'} border-b shrink-0 z-10 shadow-md` },
           h('div', { className: 'flex items-center gap-2 overflow-hidden mr-2' },
             btn({
               onClick: () => setShowToc(!showToc),
-              className: 'p-2 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0',
+              className: `p-2 ${isBlack ? 'hover:bg-neutral-900' : 'hover:bg-slate-800'} rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0`,
               title: 'Table of Contents'
             }, ic(List, 20)),
             h('div', { className: 'truncate' },
@@ -2823,14 +2839,14 @@ ${bodyHtml.join('\n  ')}
                 setShowTtsBar(!showTtsBar);
                 if (!ttsPlaying && !showTtsBar) handlePlayPause();
               },
-              className: `p-2 rounded-xl border transition-all cursor-pointer ${ttsPlaying ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-500/20' : 'bg-slate-800/80 text-slate-300 hover:text-white border-slate-700'}`,
+              className: `p-2 rounded-xl border transition-all cursor-pointer ${ttsPlaying ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-500/20' : isBlack ? 'bg-neutral-900 text-slate-300 hover:text-white border-neutral-800' : 'bg-slate-800 text-slate-300 hover:text-white border-slate-700'}`,
               title: 'Audio Read Aloud (Pro TTS)'
             }, ic(Volume2, 18)),
 
             // Reader Settings
             btn({
               onClick: () => setShowSettings(!showSettings),
-              className: 'p-2 bg-slate-800/80 hover:bg-slate-800 rounded-xl border border-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer',
+              className: `p-2 ${isBlack ? 'bg-neutral-900 hover:bg-neutral-800 border-neutral-800' : 'bg-slate-800 hover:bg-slate-700 border-slate-700'} rounded-xl border text-slate-300 hover:text-white transition-colors cursor-pointer`,
               title: 'Appearance Settings'
             }, ic(Sliders, 18)),
 
@@ -2840,7 +2856,7 @@ ${bodyHtml.join('\n  ')}
                 handleStopTts();
                 onClose();
               },
-              className: 'p-2 bg-slate-800/80 hover:bg-rose-900/40 hover:text-rose-400 rounded-xl border border-slate-700 text-slate-300 transition-colors cursor-pointer ml-1',
+              className: `p-2 ${isBlack ? 'bg-neutral-900 border-neutral-800' : 'bg-slate-800 border-slate-700'} hover:bg-rose-900/40 hover:text-rose-400 rounded-xl border text-slate-300 transition-colors cursor-pointer ml-1`,
               title: 'Close Reader'
             }, ic(X, 18))
           )
@@ -2850,9 +2866,9 @@ ${bodyHtml.join('\n  ')}
         h('div', { className: 'flex-1 relative flex overflow-hidden' },
           // Slide-over Table of Contents
           showToc && h('div', {
-            className: 'absolute inset-y-0 left-0 w-80 max-w-[85vw] bg-slate-900 border-r border-slate-800 z-30 shadow-2xl flex flex-col animate-in slide-in-from-left duration-200'
+            className: `absolute inset-y-0 left-0 w-80 max-w-[85vw] ${isBlack ? 'bg-black border-neutral-900' : 'bg-slate-900 border-slate-800'} border-r z-30 shadow-2xl flex flex-col animate-in slide-in-from-left duration-200`
           },
-            h('div', { className: 'p-4 border-b border-slate-800 flex items-center justify-between' },
+            h('div', { className: `p-4 border-b ${isBlack ? 'border-neutral-900' : 'border-slate-800'} flex items-center justify-between` },
               h('h4', { className: 'text-sm font-bold text-slate-200 flex items-center gap-2' }, ic(List, 16), `TOC (${safeChapters.length})`),
               btn({
                 onClick: () => setShowToc(false),
@@ -2872,7 +2888,7 @@ ${bodyHtml.join('\n  ')}
                       setTimeout(() => speakSentence(0), 200);
                     }
                   },
-                  className: `p-3 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center justify-between ${isActive ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`
+                  className: `p-3 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center justify-between ${isActive ? 'bg-indigo-600 text-white font-bold shadow-sm' : isBlack ? 'text-slate-300 hover:bg-neutral-900' : 'text-slate-300 hover:bg-slate-800'}`
                 },
                   h('span', { className: 'truncate flex-1 pr-2' }, ch.title || `Chapter ${idx + 1}`),
                   h('span', { className: `text-[10px] font-mono shrink-0 ${isActive ? 'text-indigo-200' : 'text-slate-500'}` }, `#${idx + 1}`)
@@ -2881,14 +2897,14 @@ ${bodyHtml.join('\n  ')}
             )
           ),
 
-          // Scrollable Chapter Content
+          // Scrollable Chapter Content (Pure OLED Black Background in OLED theme)
           h('div', {
             ref: containerRef,
             className: `flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-12 md:px-24 py-8 ${themeClasses} ${fontClasses} transition-colors select-text`,
             style: { fontSize: `${fontSize || 18}px` }
           },
             h('div', { className: 'max-w-3xl mx-auto space-y-6 pb-24' },
-              h('h1', { className: 'text-2xl sm:text-3xl font-extrabold text-center mb-8 tracking-tight border-b pb-4 opacity-90' }, currentChapter?.title || 'Chapter'),
+              h('h1', { className: `text-2xl sm:text-3xl font-extrabold text-center mb-8 tracking-tight border-b ${isBlack ? 'border-neutral-900' : 'border-slate-800/80'} pb-4 opacity-90` }, currentChapter?.title || 'Chapter'),
               
               parsedParagraphs.map((item, pIdx) => {
                 if (item.isImage) {
@@ -2915,12 +2931,12 @@ ${bodyHtml.join('\n  ')}
                       speakSentence(matchIdx);
                     }
                   },
-                  className: `leading-relaxed cursor-pointer transition-all rounded-lg p-1.5 ${isSpeaking ? 'bg-indigo-500/25 ring-2 ring-indigo-500/50 text-indigo-200' : 'hover:bg-slate-500/10'}`
+                  className: `leading-relaxed cursor-pointer transition-all rounded-lg p-1.5 ${isSpeaking ? 'bg-indigo-500/25 ring-2 ring-indigo-500/50 text-indigo-200' : isBlack ? 'hover:bg-neutral-900/50' : 'hover:bg-slate-500/10'}`
                 }, item.text);
               }),
 
               // Next / Prev Chapter Navigation Footer
-              h('div', { className: 'flex items-center justify-between gap-4 pt-10 mt-10 border-t border-slate-700/50' },
+              h('div', { className: `flex items-center justify-between gap-4 pt-10 mt-10 border-t ${isBlack ? 'border-neutral-900' : 'border-slate-800/60'}` },
                 btn({
                   disabled: activeIdx === 0,
                   onClick: () => {
@@ -2929,7 +2945,7 @@ ${bodyHtml.join('\n  ')}
                     onChapterChange?.(prev);
                     if (ttsPlaying) setTimeout(() => speakSentence(0), 200);
                   },
-                  className: 'px-5 py-3 bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm font-bold rounded-xl disabled:opacity-30 transition-all flex items-center gap-2 cursor-pointer'
+                  className: `px-5 py-3 ${isBlack ? 'bg-neutral-900 hover:bg-neutral-800' : 'bg-slate-800 hover:bg-slate-700'} text-white text-xs sm:text-sm font-bold rounded-xl disabled:opacity-30 transition-all flex items-center gap-2 cursor-pointer`
                 }, ic(ArrowLeft, 16), 'Previous Chapter'),
 
                 btn({
@@ -2949,13 +2965,13 @@ ${bodyHtml.join('\n  ')}
 
         // Floating Pro TTS Player Dock Bar
         showTtsBar && h('div', {
-          className: 'bg-slate-900/95 border-t border-slate-800 px-4 py-3 text-white flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xl z-20 animate-in slide-in-from-bottom duration-200'
+          className: `${isBlack ? 'bg-black border-neutral-900' : 'bg-slate-900 border-slate-800'} border-t px-4 py-3 text-white flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xl z-20 animate-in slide-in-from-bottom duration-200`
         },
           h('div', { className: 'flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start' },
             h('div', { className: 'flex items-center gap-1.5' },
               btn({
                 onClick: handlePrevSentence,
-                className: 'p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer',
+                className: `p-2 ${isBlack ? 'bg-neutral-900 hover:bg-neutral-800' : 'bg-slate-800 hover:bg-slate-700'} rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer`,
                 title: 'Previous Sentence'
               }, ic(SkipBack, 16)),
 
@@ -2967,13 +2983,13 @@ ${bodyHtml.join('\n  ')}
 
               btn({
                 onClick: handleNextSentence,
-                className: 'p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer',
+                className: `p-2 ${isBlack ? 'bg-neutral-900 hover:bg-neutral-800' : 'bg-slate-800 hover:bg-slate-700'} rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer`,
                 title: 'Next Sentence'
               }, ic(SkipForward, 16)),
 
               btn({
                 onClick: handleStopTts,
-                className: 'p-2 bg-slate-800 hover:bg-rose-900/50 hover:text-rose-400 rounded-xl text-slate-400 transition-colors cursor-pointer ml-1',
+                className: `p-2 ${isBlack ? 'bg-neutral-900' : 'bg-slate-800'} hover:bg-rose-900/50 hover:text-rose-400 rounded-xl text-slate-400 transition-colors cursor-pointer ml-1`,
                 title: 'Stop Reading'
               }, ic(Square, 16))
             ),
@@ -3012,7 +3028,7 @@ ${bodyHtml.join('\n  ')}
                 setSelectedVoice(e.target.value);
                 if (ttsPlaying) speakSentence(sentenceIdxRef.current);
               },
-              className: 'px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs font-semibold text-slate-200 max-w-[140px] truncate focus:outline-none'
+              className: `px-2.5 py-1.5 ${isBlack ? 'bg-neutral-900 border-neutral-800' : 'bg-slate-800 border-slate-700'} border rounded-xl text-xs font-semibold text-slate-200 max-w-[140px] truncate focus:outline-none`
             },
               ttsVoices.map(v => h('option', { key: v.name, value: v.name }, `${v.name} (${v.lang})`))
             )
@@ -3021,7 +3037,7 @@ ${bodyHtml.join('\n  ')}
 
         // Settings Drawer Modal
         showSettings && h('div', {
-          className: 'bg-slate-900 border-t border-slate-800 p-4 text-white flex flex-wrap items-center justify-between gap-4 z-20 animate-in slide-in-from-bottom duration-150'
+          className: `${isBlack ? 'bg-black border-neutral-900' : 'bg-slate-900 border-slate-800'} border-t p-4 text-white flex flex-wrap items-center justify-between gap-4 z-20 animate-in slide-in-from-bottom duration-150`
         },
           // Theme Picker
           h('div', { className: 'flex items-center gap-2' },
@@ -3029,8 +3045,8 @@ ${bodyHtml.join('\n  ')}
             ['dark', 'black', 'sepia', 'light'].map(t => btn({
               key: t,
               onClick: () => setTheme?.(t),
-              className: `px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${(theme || 'dark') === t ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`
-            }, t))
+              className: `px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${activeTheme === t ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : isBlack ? 'bg-neutral-900 text-slate-300 hover:text-white' : 'bg-slate-800 text-slate-300 hover:text-white'}`
+            }, t === 'black' ? 'OLED' : t))
           ),
 
           // Font Picker
@@ -3039,7 +3055,7 @@ ${bodyHtml.join('\n  ')}
             ['serif', 'sans', 'mono'].map(f => btn({
               key: f,
               onClick: () => setFont?.(f),
-              className: `px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${(font || 'serif') === f ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`
+              className: `px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${(font || 'serif') === f ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : isBlack ? 'bg-neutral-900 text-slate-300 hover:text-white' : 'bg-slate-800 text-slate-300 hover:text-white'}`
             }, f))
           ),
 
@@ -3048,12 +3064,12 @@ ${bodyHtml.join('\n  ')}
             h('span', { className: 'text-xs font-bold text-slate-400 uppercase tracking-wider' }, 'Size:'),
             btn({
               onClick: () => setFontSize?.(Math.max(12, (fontSize || 18) - 2)),
-              className: 'p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg cursor-pointer'
+              className: `p-1.5 ${isBlack ? 'bg-neutral-900 hover:bg-neutral-800' : 'bg-slate-800 hover:bg-slate-700'} text-slate-200 rounded-lg cursor-pointer`
             }, ic(Minus, 14)),
             h('span', { className: 'text-xs font-mono font-bold text-slate-200 w-6 text-center' }, fontSize || 18),
             btn({
               onClick: () => setFontSize?.(Math.min(36, (fontSize || 18) + 2)),
-              className: 'p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg cursor-pointer'
+              className: `p-1.5 ${isBlack ? 'bg-neutral-900 hover:bg-neutral-800' : 'bg-slate-800 hover:bg-slate-700'} text-slate-200 rounded-lg cursor-pointer`
             }, ic(Plus, 14))
           )
         )
