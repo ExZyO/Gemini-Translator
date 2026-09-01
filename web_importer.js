@@ -216,33 +216,43 @@
 
     // --- A. WITCH CULT TRANSLATIONS (Re:Zero Web Novel Pipeline) ---
     async function crawlWitchCult(url, progressCb) {
-        progressCb?.('Connecting to Witch Cult Translations Master TOC...', 5);
+        progressCb?.('Connecting to Witch Cult Translations...', 5);
         const targetSlug = url.replace(/\/$/, '').split('/').filter(Boolean).pop();
 
-        progressCb?.('⚡ Indexing all chapters across series from Master TOC...', 10);
+        progressCb?.('⚡ Indexing chapters from Witch Cult Translations...', 10);
         let chapterList = [];
         try {
-            const tocHtml = await fetchHtml('https://witchculttranslation.com/table-of-content/');
+            const isArcPage = url.includes('/arc-') || url.includes('witchculttranslation.com/arc');
+            let targetHtml = '';
+            if (isArcPage) {
+                try {
+                    targetHtml = await fetchHtml(url);
+                } catch(e) {}
+            }
+            if (!targetHtml) {
+                targetHtml = await fetchHtml('https://witchculttranslation.com/table-of-content/');
+            }
+
             const linkRegex = /<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
             let m;
             const allLinks = [];
-            while ((m = linkRegex.exec(tocHtml)) !== null) {
+            while ((m = linkRegex.exec(targetHtml)) !== null) {
                 const href = m[1].replace(/\/$/, '') + '/';
                 const text = m[2].replace(/<[^>]+>/g, '').trim()
                     .replace(/&#8220;/g, '"').replace(/&#8221;/g, '"').replace(/&#8211;/g, '–').replace(/&#8217;/g, "'").replace(/&amp;/g, '&');
-                if (href.includes('witchculttranslation.com/20') && !allLinks.some(l => l.href === href)) {
+                if ((href.includes('witchculttranslation.com/20') || href.includes('witchculttranslation.com/arc-')) && !allLinks.some(l => l.href === href)) {
                     allLinks.push({ href, text });
                 }
             }
 
             let targetIdx = 0;
-            if (targetSlug && targetSlug !== 'table-of-content') {
+            if (targetSlug && targetSlug !== 'table-of-content' && !isArcPage) {
                 const foundIdx = allLinks.findIndex(l => l.href.includes(targetSlug));
                 if (foundIdx !== -1) targetIdx = foundIdx;
             }
 
             for (let i = targetIdx; i < allLinks.length; i++) {
-                chapterList.push({ url: allLinks[i].href, title: allLinks[i].text });
+                chapterList.push({ url: allLinks[i].href, title: allLinks[i].text || `Chapter ${i + 1}` });
             }
         } catch (tocErr) {
             console.warn('Witch Cult TOC discovery error:', tocErr);
