@@ -273,7 +273,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.9.0';
+    const VERSION = '6.9.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -986,10 +986,15 @@
     const parseTranslationOutput = (rawText, context, usage = null) => {
       let text = cleanNovelProse(rawText || '');
       let newContext = context;
-      if (context !== undefined) {
+      if (context !== undefined && text.includes('---CONTEXT_UPDATE---')) {
         const parts = text.split(/\n*---CONTEXT_UPDATE---\n*/i);
-        text = cleanNovelProse(parts[0].trim());
-        newContext = parts.length > 1 ? parts[1].trim() : context;
+        const mainBody = parts[0].trim();
+        if (mainBody.length > 0) {
+          text = cleanNovelProse(mainBody);
+          newContext = parts.slice(1).join('\n').trim();
+        } else if (parts.length > 1 && parts[1].trim().length > 0) {
+          text = cleanNovelProse(parts.slice(1).join('\n').trim());
+        }
       } else {
         text = text.trim();
       }
@@ -1047,7 +1052,28 @@
       let t = actualParts.length > 0
         ? actualParts.map(p => p.text || '').join('')
         : (candidateParts.map(p => p.text || '').join(''));
-      if (!t) throw new Error('Unexpected Gemini response format.');
+      
+      // If model returned a blank or near-empty response on a large chunk, attempt direct recovery prompt
+      if ((!t || t.trim().length < 15) && text.length > 100) {
+        console.warn('Gemini returned minimal text. Retrying with direct translation prompt...');
+        const directPayload = {
+          contents: [{ role: 'user', parts: [{ text: `Translate this entire fiction chapter from ${srcLang || 'Chinese'} into publication-quality ${tgtLang || 'English'}. Translate 100% of all paragraphs without summarizing:\n\n${text}` }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+          safetySettings
+        };
+        const recoveryRes = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(directPayload), signal });
+        if (recoveryRes && recoveryRes.ok) {
+          const recJson = await recoveryRes.json();
+          const recParts = recJson?.candidates?.[0]?.content?.parts || [];
+          const recActual = recParts.filter(p => !p.thought);
+          const recText = recActual.length > 0 ? recActual.map(p => p.text || '').join('') : recParts.map(p => p.text || '').join('');
+          if (recText && recText.trim().length > 0) {
+            t = recText;
+          }
+        }
+      }
+
+      if (!t || t.trim().length === 0) throw new Error('Empty response from translation model. Please try Gemini 2.5 Flash.');
       
       const finishReason = j?.candidates?.[0]?.finishReason;
       if (finishReason === 'SAFETY' && t.trim().length > 0) {
