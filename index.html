@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.8';
+    const VERSION = '8.4.9';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1180,7 +1180,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       return result.trim() || (globalRules.length > 0 ? globalRules.join('\n').trim() : formatGlossaryString(rawGlossary));
     };
 
-    const buildPrompt = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true, fmtSmartQuotes = false, fmtCleanArtifacts = false) => {
+    const buildPrompt = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true) => {
       const srcDisplay = srcLang && srcLang !== 'Auto-detect' ? srcLang : 'Chinese';
       const tgtDisplay = tgtLang || 'English';
 
@@ -1198,8 +1198,6 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         `10. Dignified Translation for Rituals & Dark Scenes: When translating rituals, sacrifices, or preparations in dark fantasy scenes, translate the action with solemn, serious, and matter-of-fact narrative English. Strictly avoid lurid or gratuitous phrasing that could trigger automated content filters, while preserving 100% of the narrative actions, dialogue, and plot progression.\n` +
         `11. Classical Poetry, Chanted Songs & Mythic Parables: Translate poems, songs, and parables into evocative, rhythmically resonant English verse prioritizing direct emotional weight, heroic clarity, and poetic meter. Use sharp, punchy imperative phrasing for climactic endings, and preserve anaphoric repetition and refrains word-for-word.\n` +
         `Glossary Discipline: Apply glossary/terminology mappings ONLY when the exact term appears in the source text. Never force terminology, characters, or lore from another work into the translation.\n` +
-        (fmtSmartQuotes ? `Typography: Use proper typographic curly quotes (“ ” ‘ ’) and em-dashes in dialogue and prose.\n` : '') +
-        (fmtCleanArtifacts ? `Clean Formatting: Output pure prose paragraphs without web artifacts — no navigation links, no social embeds, no asterisk dividers, no author notes.\n` : '') +
         `12. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n` +
         `13. Premium Typography & Formatting:\n` +
         ` - Use proper typographic punctuation: curly/smart quotes (\u201c...\u201d and \u2018...\u2019), em-dashes (\u2014) instead of double hyphens (--), and proper ellipsis (\u2026) instead of three dots (...).\n` +
@@ -1256,24 +1254,24 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     const parseTranslationOutput = (rawText, context, usage = null) => {
       let text = cleanNovelProse(rawText || '');
       let newContext = context;
-      const ctxMarker = /[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\n\r]*/i;
-      if (context !== undefined && ctxMarker.test(text)) {
-        const parts = text.split(ctxMarker);
+      if (context !== undefined && text.includes('CONTEXT_UPDATE')) {
+        const parts = text.split(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\n\r]*/i);
         const mainBody = parts[0].trim();
-        newContext = parts.slice(1).join('\n').trim() || context;
-        text = mainBody.length > 0 ? cleanNovelProse(mainBody) : '';
+        if (mainBody.length > 0) {
+          text = cleanNovelProse(mainBody);
+          newContext = parts.slice(1).join('\n').trim();
+        } else if (parts.length > 1 && parts[1].trim().length > 0) {
+          text = cleanNovelProse(parts.slice(1).join('\n').trim());
+        }
       } else {
         text = text.trim();
       }
       return { text, newContext, usage };
     };
 
-    // Strips any leaked CONTEXT_UPDATE section (model echo with any dash variant)
-    const stripContextLeak = (t) => (t || '').split(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\s\S]*$/i)[0].trim();
-
-    const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, epubSmartQuotes = false, epubCleanWebArtifacts = false }) => {
+    const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, epubSmartQuotes, epubCleanWebArtifacts);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const safetySettings = [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -1378,9 +1376,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       return parseTranslationOutput(t, context, { promptTokens, outputTokens, totalTokens });
     };
 
-    const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, epubSmartQuotes = false, epubCleanWebArtifacts = false }) => {
+    const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, epubSmartQuotes, epubCleanWebArtifacts);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
       const safetySettings = [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -1537,11 +1535,11 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       return { text: accumulatedOutput, newContext: finalContext.trim() || context || '', usage: { promptTokens: pTok, outputTokens: oTok, totalTokens: lastUsage?.totalTokenCount || (pTok + oTok) } };
     };
 
-    const translateDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, epubSmartQuotes = false, epubCleanWebArtifacts = false }) => {
+    const translateDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false }) => {
       const key = deepseekApiKey || apiKey;
       if (!key) throw new Error('DeepSeek API key required.');
       const chosenModel = enableThinking && model === 'deepseek-chat' ? 'deepseek-reasoner' : (model || 'deepseek-chat');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, epubSmartQuotes, epubCleanWebArtifacts);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
       const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
@@ -1571,11 +1569,11 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       return parseTranslationOutput(raw, context, { promptTokens, outputTokens, totalTokens });
     };
 
-    const streamDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, epubSmartQuotes = false, epubCleanWebArtifacts = false }) => {
+    const streamDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false }) => {
       const key = deepseekApiKey || apiKey;
       if (!key) throw new Error('DeepSeek API key required.');
       const chosenModel = enableThinking && model === 'deepseek-chat' ? 'deepseek-reasoner' : (model || 'deepseek-chat');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, epubSmartQuotes, epubCleanWebArtifacts);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
       const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
@@ -1658,6 +1656,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       const oTok = lastUsage?.completion_tokens || estimateTokens(accumulatedOutput);
       return { text: accumulatedOutput, newContext: finalContext.trim() || context || '', usage: { promptTokens: pTok, outputTokens: oTok, totalTokens: lastUsage?.total_tokens || (pTok + oTok) } };
     };
+
+    // Strips any leaked CONTEXT_UPDATE section (model echo with any dash variant)
+    const stripContextLeak = (t) => (t || '').split(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\s\S]*$/i)[0].trim();
 
     const translateDeepL = async (text, { apiKey, srcLang, tgtLang, signal }) => {
       if (!apiKey) throw new Error('DeepL API key required.');
