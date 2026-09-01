@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.5.1';
+    const VERSION = '7.5.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2232,38 +2232,11 @@ const formatModelName = (id, displayName) => {
         // ══════════════════════════════════════════════════════════════════════
     // MOON+ READER ENGINE (Desktop & Mobile Optimized, Keyboard Nav, Hover Reveal)
     // ══════════════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════════════
+    // MOON+ READER ENGINE (Desktop & Mobile Optimized, Clean TDZ, Keyboard Nav)
+    // ══════════════════════════════════════════════════════════════════════
     const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
       if (!open) return null;
-
-      // ── ANDROID GESTURE / BACK BUTTON & KEYBOARD SHORTCUTS ──
-      useEffect(() => {
-        window.history.pushState({ readerModalOpen: true }, '');
-        const handlePopState = () => {
-          onClose();
-        };
-        const handleKeyDown = (e) => {
-          if (e.key === 'Escape') {
-            stopTTS();
-            onClose();
-          } else if (e.key === ' ' && e.target.tagName !== 'INPUT') {
-            e.preventDefault();
-            pauseTTS();
-          } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
-            if (activeChapterIdx < safeChapters.length - 1) changeChapter(activeChapterIdx + 1);
-          } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-            if (activeChapterIdx > 0) changeChapter(activeChapterIdx - 1);
-          } else if (e.key === 'm' || e.key === 'M') {
-            setShowOverlay(prev => !prev);
-          }
-        };
-
-        window.addEventListener('popstate', handlePopState);
-        window.addEventListener('keydown', handleKeyDown);
-        return () => {
-          window.removeEventListener('popstate', handlePopState);
-          window.removeEventListener('keydown', handleKeyDown);
-        };
-      }, [activeChapterIdx, safeChapters]);
 
       // ── ACCURATE LINE-BY-LINE CHAPTER PARSER ──
       const safeChapters = useMemo(() => {
@@ -2306,6 +2279,7 @@ const formatModelName = (id, displayName) => {
         return list.length > 0 ? list : [{ title: 'Document', content: text || '' }];
       }, [chapters, text]);
 
+      // ── ALL HOOKS DECLARED AT THE VERY TOP (ZERO TDZ ERRORS) ──
       const [activeChapterIdx, setActiveChapterIdx] = useState(() => Math.min(Math.max(0, currentIdx || 0), safeChapters.length - 1));
       const [scrollPercent, setScrollPercent] = useState(0);
       const [showOverlay, setShowOverlay] = useState(true);
@@ -2326,6 +2300,36 @@ const formatModelName = (id, displayName) => {
       const [ttsSentences, setTtsSentences] = useState([]);
       const utteranceRef = useRef(null);
       const contentContainerRef = useRef(null);
+
+      // ── ANDROID GESTURE / BACK BUTTON & KEYBOARD SHORTCUTS ──
+      useEffect(() => {
+        window.history.pushState({ readerModalOpen: true }, '');
+        const handlePopState = () => {
+          onClose();
+        };
+        const handleKeyDown = (e) => {
+          if (e.key === 'Escape') {
+            stopTTS();
+            onClose();
+          } else if (e.key === ' ' && e.target.tagName !== 'INPUT') {
+            e.preventDefault();
+            pauseTTS();
+          } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+            if (activeChapterIdx < safeChapters.length - 1) changeChapter(activeChapterIdx + 1);
+          } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+            if (activeChapterIdx > 0) changeChapter(activeChapterIdx - 1);
+          } else if (e.key === 'm' || e.key === 'M') {
+            setShowOverlay(prev => !prev);
+          }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+          window.removeEventListener('popstate', handlePopState);
+          window.removeEventListener('keydown', handleKeyDown);
+        };
+      }, [activeChapterIdx, safeChapters]);
 
       const currentChapter = safeChapters[activeChapterIdx] || safeChapters[0] || { title: 'Document', content: '' };
       const rawTitle = currentChapter.title || `Chapter ${activeChapterIdx + 1}`;
@@ -8744,15 +8748,8 @@ FORMATTING & STRUCTURE RULES:
         try {
           if (window.currentTranslatedZip && currentIsEpub) {
             const blob = await window.currentTranslatedZip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
-            const a = document.createElement('a');
-            const blobUrl = URL.createObjectURL(blob);
-            a.href = blobUrl;
-            a.download = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.epub`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
-            toast(`EPUB downloaded! (${chaptersToExport.length} chapters · ${(blob.size / 1024).toFixed(1)} KB)`, 'success');
+            const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.epub`;
+            await saveUniversalBlob(blob, fileName, 'application/epub+zip');
             return;
           }
 
@@ -8902,15 +8899,8 @@ p {
           oebps.file('toc.ncx', ncxContent);
 
           const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
-          const a = document.createElement('a');
-          const blobUrl = URL.createObjectURL(blob);
-          a.href = blobUrl;
-          a.download = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.epub`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
-          toast(`EPUB downloaded! (${chaptersToExport.length} chapters · ${(blob.size / 1024).toFixed(1)} KB)`, 'success');
+          const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.epub`;
+          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
         } catch (e) {
           setError(`EPUB error: ${e.message}`);
           toast(`EPUB error: ${e.message}`, 'error');
@@ -8979,15 +8969,8 @@ p {
             }
           });
           const blob = await Packer.toBlob(doc);
-          const a = document.createElement('a');
-          const blobUrl = URL.createObjectURL(blob);
-          a.href = blobUrl;
-          a.download = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.docx`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
-          toast(`DOCX downloaded! (${chaptersToExport.length} chapters · ${(blob.size / 1024).toFixed(1)} KB)`, 'success');
+          const fileName = `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}.docx`;
+          await saveUniversalBlob(blob, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         } catch (e) {
           setError(`DOCX error: ${e.message}`);
           toast(`DOCX error: ${e.message}`, 'error');

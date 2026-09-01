@@ -653,6 +653,7 @@
             if (type === 'lofter') return await importLofter(url, progressCb);
             if (type === 'tumblr') return await importTumblr(url, progressCb);
             if (type === 'syosetu') return await importSyosetu(url, progressCb);
+            if (type === 'witchcult') return await importWitchCult(url, progressCb);
             return await importUniversal(url, progressCb);
         }
     };
