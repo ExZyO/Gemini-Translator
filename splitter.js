@@ -1827,16 +1827,48 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
     try {
         const alreadyDoneIndices = new Set(aiPolishedResults.map(r => r.index));
 
+        // Save previous offline extraction map if available
+        const offlineLookup = new Map();
+        aiPolishedResults.forEach(r => {
+            if (r.index && r.cleanedName) offlineLookup.set(r.index, r.cleanedName);
+        });
+
         for (let b = 0; b < totalBatches; b++) {
             const startIdx = b * batchSize;
             const endIdx = Math.min(startIdx + batchSize, totalChapters);
-            const batchChapters = storyChapters.slice(startIdx, endIdx)
-                .filter(c => !alreadyDoneIndices.has(c.displayIndex))
-                .map(c => ({
+            const batchSlice = storyChapters.slice(startIdx, endIdx);
+            const batchChapters = [];
+
+            for (let c of batchSlice) {
+                const fname = (c.originalName || '').split('/').pop();
+                const tocTitle = splitTocMap.get(c.originalName) || splitTocMap.get(fname) || '';
+                let internalTitle = '';
+                const fullPath = splitOpfDir + c.originalName;
+                const f = splitMasterZip.files[fullPath];
+                if (f) {
+                    try {
+                        const txt = await f.async('text');
+                        const h = extractHeadingFromXhtml(txt, c.displayIndex, tocTitle);
+                        if (h && h !== 'Chapter ' + c.displayIndex && !isMachineFilename(h)) {
+                            internalTitle = h;
+                        }
+                    } catch (e) {}
+                }
+                if (!internalTitle && tocTitle && !isMachineFilename(tocTitle)) {
+                    internalTitle = cleanChapterTitleString(tocTitle, c.displayIndex);
+                }
+
+                // If user did offline extraction first, give AI the offline title to verify
+                const prevOffline = offlineLookup.get(c.displayIndex) || c.customName || '';
+                const bestTitle = internalTitle || prevOffline || '';
+
+                batchChapters.push({
                     index: c.displayIndex,
                     idref: c.idref,
-                    rawName: c.customName || c.originalName
-                }));
+                    rawName: c.originalName,
+                    internalTitle: bestTitle
+                });
+            }
 
             if (batchChapters.length === 0) continue;
 
@@ -1848,7 +1880,8 @@ document.getElementById('btn-run-ai-toc-polish')?.addEventListener('click', asyn
                 if (pSub) pSub.textContent = `⚠️ ${msg}`;
             };
 
-            const res = await window.aiPolishEpubToc(batchChapters, suggestedBookTitle, onRetry, activeProvider);
+            const customInstruction = document.getElementById('ai-toc-custom-instruction')?.value.trim() || '';
+            const res = await window.aiPolishEpubToc(batchChapters, suggestedBookTitle, onRetry, activeProvider, customInstruction);
             if (res.cleanedTitle && b === 0) suggestedBookTitle = res.cleanedTitle;
 
             if (res.usage) {
