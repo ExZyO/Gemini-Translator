@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.1.1';
+    const VERSION = '7.1.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -8327,7 +8327,30 @@ FORMATTING & STRUCTURE RULES:
         if (ncxH) { const nf = zip.file(ncxH); if (nf) { const nc = await nf.async('text'); const nd = new DOMParser().parseFromString(nc, 'text/xml'); nd.querySelectorAll('navPoint').forEach(np => { const l = np.querySelector('navLabel text')?.textContent; const s = np.querySelector('content')?.getAttribute('src'); if (l && s) titles.set(s.split('#')[0], l.trim()) }) } }
 
         // Only extract raw text for the history preview. We keep `doc` and `zipPath` for True EPUB translation.
-        const extractText = n => { let t = ''; const blocks = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote', 'tr', 'section', 'article']; if (n.nodeType === 3) t += n.textContent; else if (n.nodeType === 1) { if (n.tagName.toLowerCase() === 'br') t += '\n'; for (const c of n.childNodes) t += extractText(c); if (blocks.includes(n.tagName.toLowerCase())) t = t.trimEnd() + '\n\n' } return t };
+        const extractText = n => {
+          let t = '';
+          const blocks = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote', 'tr', 'section', 'article', 'pre'];
+          if (n.nodeType === 3) {
+            t += (n.textContent || '');
+          } else if (n.nodeType === 1) {
+            const tag = n.tagName.toLowerCase();
+            if (tag === 'br') return '\n';
+            for (const c of n.childNodes) {
+              const childTxt = extractText(c);
+              if (childTxt) {
+                if (t && !t.endsWith(' ') && !t.endsWith('\n') && !childTxt.startsWith(' ') && !childTxt.startsWith('\n') && !/[，。！？、,.!?\s]/.test(t.slice(-1))) {
+                  t += ' ';
+                }
+                t += childTxt;
+              }
+            }
+            if (blocks.includes(tag)) {
+              t = t.trimEnd() + '\n\n';
+            }
+          }
+          // Clean missing spaces after english punctuation
+          return t.replace(/([.!?])([A-Z])/g, '$1 $2');
+        };
 
         for (const ir of opf.querySelectorAll('spine itemref')) {
           const id = ir.getAttribute('idref'); const mi = opf.querySelector(`manifest item[id="${id}"]`); const href = mi?.getAttribute('href'); if (!href) continue;

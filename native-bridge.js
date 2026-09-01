@@ -95,6 +95,39 @@
 
         isAvailable: () => isCapacitor() && !!getBridge(),
 
+        saveBlob: async (blob, fileName, mimeType = "application/epub+zip") => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.saveAndOpenFile) {
+                    return new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.readAsDataURL(blob);
+                        reader.onloadend = async () => {
+                            try {
+                                const base64 = (reader.result || '').split(',')[1];
+                                const res = await bridge.saveAndOpenFile({ fileName, base64, mimeType });
+                                resolve(res);
+                            } catch (err) {
+                                console.warn('Native save fallback:', err);
+                                resolve(null);
+                            }
+                        };
+                    });
+                }
+            } catch (e) {
+                console.warn('NativeBridge saveBlob error:', e);
+            }
+            // Standard Browser Fallback
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        },
+
         showProgressNotification: async (title, message, progress = 0, ongoing = true) => {
             try {
                 const bridge = getBridge();

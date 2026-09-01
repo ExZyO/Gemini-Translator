@@ -696,4 +696,66 @@ public class NativeAndroidBridgePlugin extends Plugin {
         }).start();
     }
 
+
+    @PluginMethod
+    public void saveAndOpenFile(PluginCall call) {
+        try {
+            Context context = getContext();
+            String fileName = call.getString("fileName", "translated_book.epub");
+            String base64Data = call.getString("base64", "");
+            String mimeType = call.getString("mimeType", "application/epub+zip");
+
+            if (base64Data == null || base64Data.isEmpty()) {
+                call.reject("No file data provided");
+                return;
+            }
+
+            byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
+
+            // Save to Public Downloads/GeminiTranslator
+            File downloadsDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "GeminiTranslator");
+            if (!downloadsDir.exists()) {
+                downloadsDir.mkdirs();
+            }
+
+            File destFile = new File(downloadsDir, fileName);
+            FileOutputStream fos = new FileOutputStream(destFile);
+            fos.write(bytes);
+            fos.flush();
+            fos.close();
+
+            // Refresh Android Media Scanner so it appears in Files/Downloads immediately
+            MediaScannerConnection.scanFile(context, new String[]{destFile.getAbsolutePath()}, new String[]{mimeType}, null);
+
+            // Show Toast
+            new Handler(Looper.getMainLooper()).post(() -> {
+                Toast.makeText(context, "💾 Saved to Downloads: " + fileName, Toast.LENGTH_LONG).show();
+            });
+
+            // Open System File Chooser / Reader Intent
+            try {
+                Uri contentUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", destFile);
+                Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+                viewIntent.setDataAndType(contentUri, mimeType);
+                viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                Intent chooser = Intent.createChooser(viewIntent, "Open " + fileName + " with...");
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(chooser);
+            } catch (Exception launchErr) {
+                Log.w(TAG, "Chooser launch optional notice: " + launchErr.getMessage());
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("path", destFile.getAbsolutePath());
+            ret.put("fileName", fileName);
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "Save file error: " + e.getMessage(), e);
+            call.reject("Failed to save file: " + e.getMessage());
+        }
+    }
+
 }
