@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.6';
+    const VERSION = '8.4.7';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1180,7 +1180,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       return result.trim() || (globalRules.length > 0 ? globalRules.join('\n').trim() : formatGlossaryString(rawGlossary));
     };
 
-    const buildPrompt = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true) => {
+    const buildPrompt = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true, fmtSmartQuotes = false, fmtCleanArtifacts = false) => {
       const srcDisplay = srcLang && srcLang !== 'Auto-detect' ? srcLang : 'Chinese';
       const tgtDisplay = tgtLang || 'English';
 
@@ -1198,6 +1198,8 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         `10. Dignified Translation for Rituals & Dark Scenes: When translating rituals, sacrifices, or preparations in dark fantasy scenes, translate the action with solemn, serious, and matter-of-fact narrative English. Strictly avoid lurid or gratuitous phrasing that could trigger automated content filters, while preserving 100% of the narrative actions, dialogue, and plot progression.\n` +
         `11. Classical Poetry, Chanted Songs & Mythic Parables: Translate poems, songs, and parables into evocative, rhythmically resonant English verse prioritizing direct emotional weight, heroic clarity, and poetic meter. Use sharp, punchy imperative phrasing for climactic endings, and preserve anaphoric repetition and refrains word-for-word.\n` +
         `Glossary Discipline: Apply glossary/terminology mappings ONLY when the exact term appears in the source text. Never force terminology, characters, or lore from another work into the translation.\n` +
+        (fmtSmartQuotes ? `Typography: Use proper typographic curly quotes (“ ” ‘ ’) and em-dashes in dialogue and prose.\n` : '') +
+        (fmtCleanArtifacts ? `Clean Formatting: Output pure prose paragraphs without web artifacts — no navigation links, no social embeds, no asterisk dividers, no author notes.\n` : '') +
         `12. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n` +
         `13. Premium Typography & Formatting:\n` +
         ` - Use proper typographic punctuation: curly/smart quotes (\u201c...\u201d and \u2018...\u2019), em-dashes (\u2014) instead of double hyphens (--), and proper ellipsis (\u2026) instead of three dots (...).\n` +
@@ -1271,7 +1273,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 
     const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, opts?.epubSmartQuotes, opts?.epubCleanWebArtifacts);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const safetySettings = [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -1378,7 +1380,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 
     const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, opts?.epubSmartQuotes, opts?.epubCleanWebArtifacts);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
       const safetySettings = [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -1539,7 +1541,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       const key = deepseekApiKey || apiKey;
       if (!key) throw new Error('DeepSeek API key required.');
       const chosenModel = enableThinking && model === 'deepseek-chat' ? 'deepseek-reasoner' : (model || 'deepseek-chat');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, opts?.epubSmartQuotes, opts?.epubCleanWebArtifacts);
       const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
@@ -1573,7 +1575,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       const key = deepseekApiKey || apiKey;
       if (!key) throw new Error('DeepSeek API key required.');
       const chosenModel = enableThinking && model === 'deepseek-chat' ? 'deepseek-reasoner' : (model || 'deepseek-chat');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, opts?.epubSmartQuotes, opts?.epubCleanWebArtifacts);
       const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
@@ -8549,6 +8551,8 @@ FORMATTING & STRUCTURE RULES:
         glossary: terminology,
         instructions: customInstructions,
         smartGlossary,
+        epubSmartQuotes,
+        epubCleanWebArtifacts,
         enableThinking,
         signal,
         provider,
