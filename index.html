@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.6.2';
+    const VERSION = '6.6.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6984,18 +6984,21 @@ FORMATTING & STRUCTURE RULES:
           localStorage.setItem('contextAware', data.contextAware);
         }
 
-        // Restore API Key Profiles
+        // Restore API Key Profiles (Robust Multi-Format Parsing)
         if (data.apiKeysByProvider && typeof data.apiKeysByProvider === 'object') {
           ['gemini', 'deepseek', 'openai', 'claude', 'deepl', 'libre'].forEach(prov => {
             const list = data.apiKeysByProvider[prov];
             if (Array.isArray(list) && list.length > 0) {
-              restoredKeys[prov] = list;
-              list.forEach(k => {
+              restoredKeys[prov] = list.filter(k => k && (k.key || typeof k === 'string')).map((k, idx) => {
+                if (typeof k === 'string') return { id: `${prov}-${Date.now()}-${idx}`, name: `${prov.toUpperCase()} Key ${idx + 1}`, key: k.trim() };
+                return k;
+              });
+              restoredKeys[prov].forEach(k => {
                 if (k.key && k.key.trim()) keyCount++;
               });
-              if (list[0]?.key) {
-                localStorage.setItem(`${prov}ApiKey`, list[0].key);
-                if (prov === 'gemini') localStorage.setItem('apiKey', list[0].key);
+              if (restoredKeys[prov][0]?.key) {
+                localStorage.setItem(`${prov}ApiKey`, restoredKeys[prov][0].key);
+                if (prov === 'gemini') localStorage.setItem('apiKey', restoredKeys[prov][0].key);
               }
             }
           });
@@ -7051,14 +7054,33 @@ FORMATTING & STRUCTURE RULES:
         toast(`✅ Restored ${parts.join(', ')} successfully!`);
       };
 
+      const readFileContentAsText = (file) => {
+        return new Promise((resolve, reject) => {
+          if (file.text) {
+            file.text().then(resolve).catch(() => {
+              const reader = new FileReader();
+              reader.onload = (evt) => resolve(evt.target.result);
+              reader.onerror = (err) => reject(err);
+              reader.readAsText(file);
+            });
+          } else {
+            const reader = new FileReader();
+            reader.onload = (evt) => resolve(evt.target.result);
+            reader.onerror = (err) => reject(err);
+            reader.readAsText(file);
+          }
+        });
+      };
+
       const importFullBackup = async (e) => {
         const f = e.target?.files?.[0];
         if (!f) return;
         try {
-          const txt = await f.text();
+          const txt = await readFileContentAsText(f);
           const data = JSON.parse(txt);
           applyRestoredData(data);
         } catch (err) {
+          console.error("Backup import error:", err);
           setError('Failed to restore backup: ' + err.message);
           toast('Failed to restore backup: ' + err.message, 'error');
         }
@@ -8837,18 +8859,20 @@ p {
                       onClick: exportHistoryJSON,
                       className: 'px-3.5 sm:px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold rounded-xl shadow-md shadow-teal-500/20 hover:shadow-teal-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
                     }, ic(Download, 14), 'Export History (JSON)'),
-                    h('label', {
+                    btn({
+                      onClick: () => backupFileInputRef.current?.click(),
                       className: 'px-3.5 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-md shadow-purple-500/20 hover:shadow-purple-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
                     },
                       ic(Upload, 14),
-                      'Restore From File',
-                      h('input', {
-                        type: 'file',
-                        onChange: importFullBackup,
-                        className: 'hidden',
-                        accept: '.json,application/json,text/plain,text/json,application/octet-stream,*/*'
-                      })
+                      'Restore From File'
                     ),
+                    h('input', {
+                      type: 'file',
+                      ref: backupFileInputRef,
+                      onChange: importFullBackup,
+                      className: 'hidden',
+                      accept: '.json,application/json,text/plain,text/json,application/octet-stream,*/*'
+                    }),
                     btn({
                       onClick: pasteAndRestoreBackup,
                       className: 'px-3.5 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold rounded-xl shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-1.5 cursor-pointer'
