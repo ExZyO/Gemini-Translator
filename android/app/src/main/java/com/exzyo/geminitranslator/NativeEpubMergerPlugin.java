@@ -9,7 +9,9 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 
-import com.getcapacitor.JSArray;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -46,7 +48,7 @@ public class NativeEpubMergerPlugin extends Plugin {
             File tempOutputFile = null;
             try {
                 String title = call.getString("title", "Merged_Anthology");
-                JSArray filesArray = call.getArray("files");
+                JSONArray filesArray = call.getArray("files");
                 if (filesArray == null || filesArray.length() == 0) {
                     call.reject("No input files provided for merge.");
                     return;
@@ -73,8 +75,8 @@ public class NativeEpubMergerPlugin extends Plugin {
                 Log.d(TAG, "Starting Native Ultra-Speed Disk Stream Merge for " + totalFiles + " files...");
 
                 for (int i = 0; i < totalFiles; i++) {
-                    JSObject fileObj = filesArray.getJSONObject(i);
-                    String label = fileObj.getString("label", "Book " + (i + 1));
+                    JSONObject fileObj = filesArray.getJSONObject(i);
+                    String label = fileObj.optString("label", "Book " + (i + 1));
                     notifyProgress(i + 1, totalFiles, "Streaming volume " + (i + 1) + " of " + totalFiles + " (" + label + ")...");
                 }
 
