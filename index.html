@@ -490,7 +490,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.0';
+    const VERSION = '8.4.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1776,6 +1776,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
           throw err;
         }
       }
+      throw new Error('Rate-limited across all keys after ' + maxAttempts + ' attempts. Try another model in Settings · Engine, or wait a few minutes.');
     };
 
     const translateWithRotation = async (text, opts) => {
@@ -1810,6 +1811,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
           throw err;
         }
       }
+      throw new Error('Rate-limited across all keys after ' + maxAttempts + ' attempts. Try another model in Settings · Engine, or wait a few minutes.');
     };
 
     const translateChunk = async (text, opts) => {
@@ -8590,6 +8592,7 @@ FORMATTING & STRUCTURE RULES:
               setProgress(Math.floor(((i + 1) / chunks.length) * 100));
               saveState(result, ctx, i + 1);
             }
+            if (!(result || '').trim()) throw new Error('Provider returned an empty stream. Check the selected model in Settings · Engine.');
             setTranslatedChapters([{ title: 'Translated Document', content: result }]);
             localStorage.removeItem(jobId); setActiveSession(null);
           } else if (useContext) {
@@ -8618,6 +8621,7 @@ FORMATTING & STRUCTURE RULES:
               saveState(result, ctx, i + 1);
             }
             const final = result.replace(/\r\n/g, '\n').trim();
+            if (!final) throw new Error('Provider returned an empty response. Check the selected model in Settings · Engine.');
             setAssembledText(final); setTranslatedChapters([{ title: 'Translated Document', content: final }]);
             localStorage.removeItem(jobId); setActiveSession(null);
           } else {
@@ -9336,6 +9340,12 @@ FORMATTING & STRUCTURE RULES:
       // ═══════════════════════════════════
       const [sheetOpen, setSheetOpen] = useState(false);
       const [glossaryEditorOpen, setGlossaryEditorOpen] = useState(false);
+      const [elapsedSec, setElapsedSec] = useState(0);
+      useEffect(() => {
+        if (!isTranslating) { setElapsedSec(0); return; }
+        const t = setInterval(() => setElapsedSec(s => s + 1), 1000);
+        return () => clearInterval(t);
+      }, [isTranslating]);
 
       useEffect(() => { localStorage.setItem('readerTheme', readerTheme); }, [readerTheme]);
       useEffect(() => { localStorage.setItem('readerFont', readerFont); }, [readerFont]);
@@ -9486,6 +9496,31 @@ FORMATTING & STRUCTURE RULES:
                 })
               ),
               renderBoxResizeBar('output'),
+
+              isTranslating && h('div', { className: 'card', style: { borderColor: 'rgba(124,135,255,.45)' } },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 } },
+                  h('span', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--iris)' } }, progressLabel || 'Translating…'),
+                  h('div', { style: { display: 'flex', gap: 10, alignItems: 'center' } },
+                    h('span', { className: 'count' }, `${Math.floor(elapsedSec / 60)}:${String(elapsedSec % 60).padStart(2, '0')}`),
+                    h('button', { type: 'button', className: 'mini-btn danger', onClick: cancelTranslation }, 'Cancel')
+                  )
+                ),
+                h('div', { className: 'mini-progress' }, h('i', { style: { width: `${progress}%` } })),
+                h('div', { className: 'count', style: { marginTop: 8 } }, `${progress}%`)
+              ),
+
+              lastUsageStats && !isTranslating && h('div', { className: 'card' },
+                h('div', { className: 'card-title' },
+                  h('span', null, 'Last Translation'),
+                  h('button', { type: 'button', className: 'chip-act', onClick: () => setLastUsageStats(null) }, '✕')
+                ),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Model'), h('span', { className: 'count' }, `${lastUsageStats.provider || ''} · ${lastUsageStats.model || ''}`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Tokens'), h('span', { className: 'count' }, `${(lastUsageStats.totalTokens || 0).toLocaleString()} (${(lastUsageStats.promptTokens || 0).toLocaleString()} in · ${(lastUsageStats.outputTokens || 0).toLocaleString()} out)`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Cost'), h('span', { className: 'count' }, lastUsageStats.cost || '$0.0000')),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Time'), h('span', { className: 'count' }, `${lastUsageStats.duration || ''}${lastUsageStats.speed ? ' · ' + lastUsageStats.speed : ''}`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Words'), h('span', { className: 'count' }, wordCount(assembledText).toLocaleString()))
+              ),
+
               chapters.length > 0 && h('div', { className: 'count', style: { margin: '0 2px 8px' } }, `${chapters.length} chapters loaded`),
 
               h('div', { className: 'actionbar' },
