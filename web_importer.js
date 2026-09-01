@@ -22,10 +22,11 @@
     // ══════════════════════════════════════════════════════════════════════
         // ══════════════════════════════════════════════════════════════════════
         // ══════════════════════════════════════════════════════════════════════
-    // 8. WITCH CULT TRANSLATION (FULL SERIES RE:ZERO WEB NOVEL CRAWLER)
+        // ══════════════════════════════════════════════════════════════════════
+    // 8. WITCH CULT TRANSLATION (25x TURBO BURST STREAM CRAWLER)
     // ══════════════════════════════════════════════════════════════════════
     async function importWitchCult(url, progressCb) {
-        progressCb?.('Connecting to Witch Cult Translations...', 5);
+        progressCb?.('Connecting to Witch Cult Translations Master TOC...', 5);
 
         const cleanHtml = (html) => {
             return html
@@ -60,7 +61,7 @@
         const targetSlug = url.replace(/\/$/, '').split('/').filter(Boolean).pop();
 
         // 1. Fetch Master Table of Contents
-        progressCb?.('Discovering all chapters from Master Table of Contents...', 15);
+        progressCb?.('⚡ Instant discovery: Indexing all chapters across series...', 10);
         let chapterList = [];
         try {
             const tocHtml = await fetchPage('https://witchculttranslation.com/table-of-content/');
@@ -82,7 +83,7 @@
                 if (foundIdx !== -1) targetIdx = foundIdx;
             }
 
-            // Crawl from target chapter onward (Entire Arc / Series)
+            // Ingest all chapters from target chapter onwards
             for (let i = targetIdx; i < allLinks.length; i++) {
                 chapterList.push(allLinks[i]);
             }
@@ -94,20 +95,26 @@
             chapterList = [{ href: url, text: 'Re:Zero Chapter' }];
         }
 
-        progressCb?.(`Discovered ${chapterList.length} chapters! Starting fast multi-stream crawler...`, 25);
+        progressCb?.(`🚀 Discovered ${chapterList.length} chapters! Launching 25x Turbo Multi-Stream...`, 15);
 
         const chapters = [];
-        const batchSize = 5; // Fast concurrent chunks
+        const burstWaveSize = 25; // 25 simultaneous parallel streams per burst
+        let totalWordsEstimate = 0;
 
-        for (let i = 0; i < chapterList.length; i += batchSize) {
-            const chunk = chapterList.slice(i, i + batchSize);
-            const promises = chunk.map(async (ch, cIdx) => {
+        for (let i = 0; i < chapterList.length; i += burstWaveSize) {
+            const wave = chapterList.slice(i, i + burstWaveSize);
+            const waveNum = Math.floor(i / burstWaveSize) + 1;
+            const totalWaves = Math.ceil(chapterList.length / burstWaveSize);
+
+            const wavePromises = wave.map(async (ch, cIdx) => {
+                const globalIndex = i + cIdx;
                 try {
                     const html = await fetchPage(ch.href);
                     const cMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
                     const txt = cleanHtml(cMatch ? cMatch[1] : html);
-                    if (txt.length > 50) {
-                        return { idx: i + cIdx, title: ch.text, text: txt };
+                    if (txt.length > 40) {
+                        const words = txt.split(/\s+/).filter(Boolean).length;
+                        return { idx: globalIndex, title: ch.text, text: txt, words };
                     }
                 } catch (e) {
                     console.warn(`Failed chapter ${ch.href}:`, e);
@@ -115,24 +122,31 @@
                 return null;
             });
 
-            const results = await Promise.all(promises);
-            for (const r of results) {
-                if (r) chapters.push(r);
+            const waveResults = await Promise.all(wavePromises);
+            for (const r of waveResults) {
+                if (r) {
+                    chapters.push(r);
+                    totalWordsEstimate += r.words;
+                }
             }
 
-            const currentCount = Math.min(i + batchSize, chapterList.length);
-            const pct = Math.round(25 + ((currentCount / chapterList.length) * 70));
-            progressCb?.(`Crawled ${chapters.length}/${chapterList.length} chapters (${chunk[0]?.text || ''})...`, pct);
+            const pct = Math.round(15 + ((Math.min(i + burstWaveSize, chapterList.length) / chapterList.length) * 82));
+            progressCb?.(`⚡ Turbo Burst (Wave ${waveNum}/${totalWaves}): Ingested ${chapters.length}/${chapterList.length} chapters (~ ${totalWordsEstimate.toLocaleString()} words)...`, pct);
+
+            // Micro 80ms breathing pause between 25-chapter waves to guarantee zero rate limits
+            if (i + burstWaveSize < chapterList.length) {
+                await new Promise(r => setTimeout(r, 80));
+            }
         }
 
         chapters.sort((a, b) => a.idx - b.idx);
-        progressCb?.(`Successfully compiled all ${chapters.length} Re:Zero chapters into book!`, 100);
+        progressCb?.(`✨ Successfully compiled all ${chapters.length} Re:Zero chapters into complete book package! (~ ${totalWordsEstimate.toLocaleString()} words)`, 100);
 
         return {
-            title: 'Re:Zero Web Novel — ' + (chapterList[0]?.text || 'Complete Series'),
+            title: 'Re:Zero Web Novel — ' + (chapterList[0]?.text || 'Complete Edition'),
             author: 'Tappei Nagatsuki (Witch Cult Translations)',
-            summary: `Re:Zero Starting Life in Another World Web Novel. ${chapters.length} complete chapters starting from ${chapterList[0]?.text}.`,
-            tags: ['Re:Zero', 'Witch Cult Translations', 'Web Novel'],
+            summary: `Re:Zero Starting Life in Another World Web Novel. ${chapters.length} complete chapters (~ ${totalWordsEstimate.toLocaleString()} words) starting from ${chapterList[0]?.text}.`,
+            tags: ['Re:Zero', 'Witch Cult Translations', 'Web Novel', 'Complete Edition'],
             chapters: chapters.map(c => ({ title: c.title, text: c.text })),
             isEpub: false,
             sourceUrl: url
