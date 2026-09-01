@@ -273,7 +273,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.8.8';
+    const VERSION = '6.8.9';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -667,6 +667,7 @@
     };
 
     const splitChunks = (text, glossaryLen = 0, smartGlossary = true, preset = null) => {
+      if (!text || typeof text !== 'string') return [];
       const activePreset = preset || (typeof localStorage !== 'undefined' ? localStorage.getItem('chunkSizePreset') : null) || 'turbo';
       const basePayload = CHUNK_PAYLOAD_MAP[activePreset] || 28000;
       const effectiveGlossaryLen = smartGlossary ? Math.min(glossaryLen, 1500) : glossaryLen;
@@ -7508,10 +7509,10 @@ FORMATTING & STRUCTURE RULES:
         const startChapterIdx = resume && activeSession ? activeSession.currentChapterIdx : 0;
         const startChunkIdx = resume && activeSession ? activeSession.currentChunkIdx : 0;
 
-        const jobId = currentFileHash;
+        const jobId = currentFileHash || ('job_' + (chapters[0]?.title || 'book') + '_' + chapters.length);
         const saveState = (c, count, chIdx, ckIdx, ap, nc) => {
           const state = { ctx: c, completedCount: count, currentChapterIdx: chIdx, currentChunkIdx: ckIdx, allParts: ap, newChapters: nc };
-          localStorage.setItem(jobId, JSON.stringify(state));
+          if (jobId) localStorage.setItem(jobId, JSON.stringify(state));
           setActiveSession(state);
         };
 
@@ -7521,10 +7522,12 @@ FORMATTING & STRUCTURE RULES:
           // Prepare chapter chunks with clean paragraph boundary splitting
           const chapterData = chapters.map(c => {
             const effectiveTerm = enableGlossary ? terminology : '';
-            const ch = splitChunks(c.text, effectiveTerm.length, smartGlossary);
+            const chapterText = (typeof c === 'string' ? c : (c?.text || ''));
+            const chapterTitle = (typeof c === 'object' && c?.title) ? String(c.title).trim() : '';
+            const ch = splitChunks(chapterText, effectiveTerm.length, smartGlossary);
             totalChunks += ch.length;
-            if (c.title.trim()) totalChunks++;
-            return { title: c.title, chunks: ch.map(text => ({ text })), doc: c.doc, zipPath: c.zipPath };
+            if (chapterTitle) totalChunks++;
+            return { title: chapterTitle, chunks: ch.map(text => ({ text })), doc: c?.doc, zipPath: c?.zipPath };
           });
 
           let done = 0;
@@ -7561,7 +7564,7 @@ FORMATTING & STRUCTURE RULES:
             let chapterCtx = '';
 
             // 1. Translate title if needed
-            if (title.trim()) {
+            if (title && String(title).trim()) {
               if (!(resume && newChapters[i]?.title)) {
                 try {
                   const tRes = await translateWithRotation(title, { ...workerOpts, context: useContext ? chapterCtx : undefined });
