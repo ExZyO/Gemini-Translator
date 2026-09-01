@@ -273,7 +273,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.9.2';
+    const VERSION = '6.9.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1022,14 +1022,8 @@
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      if (enableThinking) {
-        if (model.includes('3.') || model.includes('2.5') || model.includes('thinking')) {
-          payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
-        }
-      } else {
-        if (model.includes('3.') || model.includes('2.5') || model.includes('thinking')) {
-          payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
-        }
+      if (enableThinking && (model.includes('3.') || model.includes('2.5') || model.includes('thinking'))) {
+        payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
       }
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.system_instruction) {
@@ -1135,14 +1129,8 @@
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      if (enableThinking) {
-        if (model.includes('3.') || model.includes('2.5') || model.includes('thinking')) {
-          payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
-        }
-      } else {
-        if (model.includes('3.') || model.includes('2.5') || model.includes('thinking')) {
-          payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
-        }
+      if (enableThinking && (model.includes('3.') || model.includes('2.5') || model.includes('thinking'))) {
+        payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
       }
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.system_instruction) {
