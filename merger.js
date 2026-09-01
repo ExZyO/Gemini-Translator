@@ -33,10 +33,10 @@ const btnRemoveCover = document.getElementById('btn-remove-cover');
 const coverPreview = document.getElementById('cover-preview');
 
 // Cover handling
-btnSelectCover.addEventListener('click', () => coverInput.click());
-coverPreview.addEventListener('click', () => coverInput.click());
+btnSelectCover?.addEventListener('click', () => coverInput.click());
+coverPreview?.addEventListener('click', () => coverInput.click());
 
-coverInput.addEventListener('change', (e) => {
+coverInput?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) {
         customCoverFile = e.target.files[0];
         const reader = new FileReader();
@@ -48,31 +48,29 @@ coverInput.addEventListener('change', (e) => {
     }
 });
 
-btnRemoveCover.addEventListener('click', () => {
+btnRemoveCover?.addEventListener('click', () => {
     customCoverFile = null;
-    coverInput.value = '';
-    coverPreview.innerHTML = `<span class="text-[10px] leading-tight text-slate-400 text-center px-1">Book 1<br>Cover</span>`;
+    if (coverInput) coverInput.value = '';
+    if (coverPreview) coverPreview.innerHTML = `<span class="text-[10px] leading-tight text-slate-400 text-center px-1">Book 1<br>Cover</span>`;
     btnRemoveCover.classList.add('hidden');
 });
 
 // Upload Handlers
-mergeUploadBox.addEventListener('click', (e) => {
+mergeUploadBox?.addEventListener('click', (e) => {
     if (e.target !== mergeInput) mergeInput.click();
 });
-document.getElementById('btn-add-more-merge').addEventListener('click', () => mergeInput.click());
+document.getElementById('btn-add-more-merge')?.addEventListener('click', () => mergeInput.click());
 
-// NEW: Clear All Logic
-btnClearAllMerge.addEventListener('click', () => {
+// Clear All Logic
+btnClearAllMerge?.addEventListener('click', () => {
     if (confirm("Are you sure you want to clear all queued books?")) {
         mergeFiles = [];
-        mergeTitleInput.value = '';
+        if (mergeTitleInput) mergeTitleInput.value = '';
         renderMergeList();
     }
 });
 
-
-
-// --- Natural Alphanumeric Sort (Book 1, Book 2... Book 10) ---
+// Natural Alphanumeric Sort (Book 1, Book 2... Book 10)
 document.getElementById('btn-sort-merge-natural')?.addEventListener('click', () => {
     if (mergeFiles.length === 0) return showToast('No files in merge list', 'warn');
     const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
@@ -84,7 +82,7 @@ document.getElementById('btn-sort-merge-natural')?.addEventListener('click', () 
     showToast('Sorted books in natural order (A–Z)!', 'success');
 });
 
-mergeInput.addEventListener('change', (e) => {
+mergeInput?.addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
         handleMergeFiles(Array.from(e.target.files));
     }
@@ -107,10 +105,10 @@ function handleMergeFiles(files) {
     }
 
     mergeFiles = mergeFiles.concat(validFiles);
-    mergeUploadBox.classList.add('hidden');
-    mergeListContainer.classList.remove('hidden');
+    mergeUploadBox?.classList.add('hidden');
+    mergeListContainer?.classList.remove('hidden');
 
-    if (mergeFiles.length > 0 && !mergeTitleInput.value) {
+    if (mergeFiles.length > 0 && mergeTitleInput && !mergeTitleInput.value) {
         let baseName = mergeFiles[0].name.replace(/\.epub$/i, '').replace(/\([^\)]+\)/g, '').trim();
         mergeTitleInput.value = `${baseName} (Merged)`;
     }
@@ -136,9 +134,7 @@ async function extractCoverFromEpub(file) {
         const opfText = await zip.file(opfPath).async("text");
         const opfDoc = parser.parseFromString(opfText, "text/xml");
 
-        // Try properties="cover-image" first
         let coverItem = opfDoc.querySelector('item[properties~="cover-image"]');
-        // Fallback: meta name="cover" -> content id
         if (!coverItem) {
             const metaCover = opfDoc.querySelector('meta[name="cover"]');
             if (metaCover) {
@@ -146,7 +142,6 @@ async function extractCoverFromEpub(file) {
                 coverItem = opfDoc.querySelector(`item[id="${coverId}"]`);
             }
         }
-        // Fallback: any image item with "cover" in href or id
         if (!coverItem) {
             coverItem = Array.from(opfDoc.querySelectorAll('item[media-type^="image"]')).find(item => {
                 const h = (item.getAttribute('href') || '').toLowerCase();
@@ -155,7 +150,7 @@ async function extractCoverFromEpub(file) {
             });
         }
 
-        if (coverItem) {
+        if (coverItem && coverPreview) {
             let coverHref = coverItem.getAttribute("href");
             if (coverHref.startsWith('../')) coverHref = coverHref.replace('../', '');
             const fullCoverPath = opfDir + coverHref;
@@ -185,13 +180,11 @@ async function extractEpubStats(files) {
             const spineItems = opfDoc.querySelectorAll('spine itemref');
             mergeChapterCounts.set(file.name, spineItems.length);
 
-            // Build id->href map from manifest
             const manifest = {};
             opfDoc.querySelectorAll('manifest item').forEach(item => {
                 manifest[item.getAttribute('id')] = item.getAttribute('href');
             });
 
-            // Read text from each spine item and count words
             let totalWords = 0;
             for (const itemref of spineItems) {
                 const idref = itemref.getAttribute('idref');
@@ -206,9 +199,8 @@ async function extractEpubStats(files) {
                     const text = (doc.body ? doc.body.textContent : doc.documentElement.textContent) || '';
                     const cjk = (text.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
                     const nonCjk = (text.replace(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\b\w+\b/g) || []).length;
-                    const words = cjk + nonCjk;
-                    totalWords += words;
-                } catch (_) { /* skip unreadable */ }
+                    totalWords += (cjk + nonCjk);
+                } catch (_) {}
             }
             mergeWordCounts.set(file.name, totalWords);
         } catch (e) {
@@ -221,25 +213,27 @@ async function extractEpubStats(files) {
 let draggedIdx = null;
 
 function renderMergeList() {
+    if (!mergeFileList) return;
     mergeFileList.innerHTML = '';
     let totalBytes = mergeFiles.reduce((acc, f) => acc + f.size, 0);
-    if (totalBytes > 300 * 1024 * 1024) memoryWarning.classList.remove('hidden');
-    else memoryWarning.classList.add('hidden');
+    if (memoryWarning) {
+        if (totalBytes > 300 * 1024 * 1024) memoryWarning.classList.remove('hidden');
+        else memoryWarning.classList.add('hidden');
+    }
 
     if (mergeFiles.length === 0) {
-        mergeListContainer.classList.add('hidden');
-        mergeUploadBox.classList.remove('hidden');
-        btnClearAllMerge.classList.add('hidden');
+        mergeListContainer?.classList.add('hidden');
+        mergeUploadBox?.classList.remove('hidden');
+        btnClearAllMerge?.classList.add('hidden');
         return;
     } else {
-        btnClearAllMerge.classList.remove('hidden');
+        btnClearAllMerge?.classList.remove('hidden');
     }
 
     mergeFiles.forEach((f, idx) => {
         const div = document.createElement('div');
         div.className = "p-2.5 bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl flex items-center justify-between gap-2 shadow-2xs hover:border-fuchsia-400/50 transition-all";
 
-        // Desktop Drag events
         div.draggable = true;
         div.addEventListener('dragstart', () => draggedIdx = idx);
         div.addEventListener('dragover', (e) => {
@@ -258,12 +252,10 @@ function renderMergeList() {
             renderMergeList();
         });
 
-        // Initialize the custom label if it doesn't exist
         if (!f.customLabel) {
             f.customLabel = `Book ${idx + 1}`;
         }
 
-        // UI FIX: Using flex-nowrap and min-w-0 for the filename to ensure it wraps correctly without pushing buttons
         const chCount = mergeChapterCounts.get(f.name);
         const wCount = mergeWordCounts.get(f.name);
         const sizeKB = (f.size / 1024).toFixed(0);
@@ -320,7 +312,6 @@ function renderMergeList() {
         mergeFileList.appendChild(div);
     });
 
-    // Total summary
     const totalSize = mergeFiles.reduce((acc, f) => acc + f.size, 0);
     const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
     const totalChapters = mergeFiles.reduce((acc, f) => acc + (mergeChapterCounts.get(f.name) || 0), 0);
@@ -334,8 +325,7 @@ function renderMergeList() {
     mergeFileList.appendChild(summaryDiv);
 }
 
-// Function to update the manual progress bar during parsing
-function updateParsingProgress(current, total) {
+function updateParsingProgress(current, total, label = '') {
     const pWrapper = document.getElementById('merge-progress-wrapper');
     const pBar = document.getElementById('merge-progress-bar');
     const pPercent = document.getElementById('merge-progress-percent');
@@ -346,23 +336,36 @@ function updateParsingProgress(current, total) {
     const percent = Math.floor((current / total) * 100);
     if (pBar) pBar.style.width = percent + '%';
     if (pPercent) pPercent.textContent = percent + '%';
-    if (pStatus) pStatus.textContent = `Parsing Book ${current} of ${total}...`;
+    if (pStatus) pStatus.textContent = label || `Merging Book ${current} of ${total}...`;
+}
+
+function resolveRelativePath(baseDir, relativePath) {
+    if (!relativePath) return "";
+    const stack = baseDir ? baseDir.split('/').filter(Boolean) : [];
+    const parts = relativePath.split('/');
+    for (let p of parts) {
+        if (p === '.' || p === '') continue;
+        if (p === '..') stack.pop();
+        else stack.push(p);
+    }
+    return stack.join('/');
 }
 
 // Merge execution
-btnExecuteMerge.addEventListener('click', async () => {
-    if (mergeFiles.length < 2) return showToast("Add at least 2 books", "warn");
+btnExecuteMerge?.addEventListener('click', async () => {
+    if (mergeFiles.length < 2) return showToast("Add at least 2 books to merge", "warn");
 
     const btnText = document.getElementById('merge-btn-text');
     const btnSpinner = document.getElementById('merge-spinner');
-    btnText.textContent = "Processing...";
-    btnSpinner.classList.remove('hidden');
+    if (btnText) btnText.textContent = "Merging Books...";
+    if (btnSpinner) btnSpinner.classList.remove('hidden');
     btnExecuteMerge.disabled = true;
 
     try {
         const parser = new DOMParser();
+        const serializer = new XMLSerializer();
 
-        updateParsingProgress(1, mergeFiles.length);
+        updateParsingProgress(1, mergeFiles.length, `Parsing Master Book (1/${mergeFiles.length})...`);
 
         const masterZip = await new JSZip().loadAsync(mergeFiles[0]);
         const newZip = masterZip;
@@ -372,16 +375,18 @@ btnExecuteMerge.addEventListener('click', async () => {
         const masterOpfDir = masterOpfPath.includes("/") ? masterOpfPath.substring(0, masterOpfPath.lastIndexOf('/') + 1) : "";
         const masterOpfDoc = parser.parseFromString(await masterZip.file(masterOpfPath).async("text"), "text/xml");
 
-        const cleanTitle = sanitizeFilename(mergeTitleInput.value || "Merged Book");
+        const cleanTitle = (mergeTitleInput?.value || "Merged Book").trim();
         setSmartTitle(masterOpfDoc, cleanTitle);
-        forceNewIdentifier(masterOpfDoc);
 
-        // Apply Advanced Metadata
+        const preserveBookId = document.getElementById('preserve-book-id')?.checked ?? true;
+        if (!preserveBookId) forceNewIdentifier(masterOpfDoc);
+
+        // Apply Metadata
         const metadataEl = masterOpfDoc.querySelector("metadata");
         if (metadataEl) {
-            const mAuthor = document.getElementById("merge-author").value.trim();
-            const mPublisher = document.getElementById("merge-publisher").value.trim();
-            const mLanguage = document.getElementById("merge-language").value.trim();
+            const mAuthor = document.getElementById("merge-author")?.value.trim();
+            const mPublisher = document.getElementById("merge-publisher")?.value.trim();
+            const mLanguage = document.getElementById("merge-language")?.value.trim();
 
             if (mAuthor) {
                 Array.from(metadataEl.getElementsByTagName("dc:creator")).forEach(el => el.remove());
@@ -403,6 +408,7 @@ btnExecuteMerge.addEventListener('click', async () => {
             }
         }
 
+        // Custom Cover
         if (customCoverFile) {
             let coverItem = masterOpfDoc.querySelector('item[properties~="cover-image"]') ||
                 masterOpfDoc.querySelector(`item[id="${masterOpfDoc.querySelector('meta[name="cover"]')?.getAttribute("content")}"]`);
@@ -410,8 +416,8 @@ btnExecuteMerge.addEventListener('click', async () => {
             if (coverItem) newZip.file(masterOpfDir + coverItem.getAttribute("href"), data);
         }
 
-        let masterNcxPath = null, masterNcxDoc = null;
-        let masterNavMap = null;
+        // 1. Initialize Master EPUB 2 NCX
+        let masterNcxPath = null, masterNcxDoc = null, masterNavMap = null;
         const ncxItem = masterOpfDoc.querySelector('item[media-type="application/x-dtbncx+xml"]');
         if (ncxItem) {
             masterNcxPath = masterOpfDir + ncxItem.getAttribute("href");
@@ -419,109 +425,78 @@ btnExecuteMerge.addEventListener('click', async () => {
                 masterNcxDoc = parser.parseFromString(await masterZip.file(masterNcxPath).async("text"), "application/xml");
                 masterNavMap = masterNcxDoc.querySelector("navMap");
 
-                // Nest original book 1's navPoints under a master navPoint
                 if (masterNavMap) {
                     const originalNavPoints = Array.from(masterNavMap.children).filter(el => el.tagName === 'navPoint');
+                    const labelStr = (mergeFiles[0].customLabel || 'Book 1').trim();
+                    
+                    const masterPoint = masterNcxDoc.createElement("navPoint");
+                    masterPoint.setAttribute("id", "vol_master_1");
+                    masterPoint.setAttribute("playOrder", "1");
 
-                    const labelStr = mergeFiles[0].customLabel.trim();
-                    if (labelStr !== '') {
-                        const masterPoint = masterNcxDoc.createElement("navPoint");
-                        masterPoint.setAttribute("id", "master_book_1");
-                        masterPoint.setAttribute("playOrder", "1");
+                    const navLabel = masterNcxDoc.createElement("navLabel");
+                    const textNode = masterNcxDoc.createElement("text");
+                    textNode.textContent = labelStr;
+                    navLabel.appendChild(textNode);
+                    masterPoint.appendChild(navLabel);
 
-                        const navLabel = masterNcxDoc.createElement("navLabel");
-                        const textNode = masterNcxDoc.createElement("text");
-                        textNode.textContent = labelStr;
-                        navLabel.appendChild(textNode);
-                        masterPoint.appendChild(navLabel);
-
-                        // Attach to the first valid content src we can find to act as the parent link
-                        if (originalNavPoints.length > 0) {
-                            const firstContent = originalNavPoints[0].querySelector("content");
-                            if (firstContent) {
-                                const masterContent = masterNcxDoc.createElement("content");
-                                masterContent.setAttribute("src", firstContent.getAttribute("src"));
-                                masterPoint.appendChild(masterContent);
-                            }
+                    if (originalNavPoints.length > 0) {
+                        const firstContent = originalNavPoints[0].querySelector("content");
+                        if (firstContent) {
+                            const masterContent = masterNcxDoc.createElement("content");
+                            masterContent.setAttribute("src", firstContent.getAttribute("src"));
+                            masterPoint.appendChild(masterContent);
                         }
-
-                        // Move original points inside the master point
-                        originalNavPoints.forEach(np => masterPoint.appendChild(np));
-                        masterNavMap.appendChild(masterPoint);
                     }
+
+                    originalNavPoints.forEach(np => masterPoint.appendChild(np));
+                    masterNavMap.innerHTML = '';
+                    masterNavMap.appendChild(masterPoint);
                 }
             }
         }
 
-        const navItem = masterOpfDoc.querySelector('item[properties~="nav"]');
-        let masterNavPath = null, masterNavDoc = null;
-        let masterNavList = null;
+        // 2. Initialize Master EPUB 3 NAV (nav.xhtml)
+        const navItem = masterOpfDoc.querySelector('item[properties~="nav"]') || masterOpfDoc.querySelector('item[id*="nav"]') || masterOpfDoc.querySelector('item[id*="toc"]');
+        let masterNavPath = null, masterNavDoc = null, masterNavOl = null;
         if (navItem) {
             masterNavPath = masterOpfDir + navItem.getAttribute("href");
             if (masterZip.file(masterNavPath)) {
                 masterNavDoc = parser.parseFromString(await masterZip.file(masterNavPath).async("text"), "application/xhtml+xml");
-                const navEl = masterNavDoc.querySelector('nav[epub\\:type="toc"], nav#toc');
+                const navEl = masterNavDoc.querySelector('nav[epub\\:type="toc"], nav[type="toc"], nav#toc, nav');
                 if (navEl) {
-                    masterNavList = navEl.querySelector('ol');
+                    masterNavOl = navEl.querySelector('ol');
+                    if (masterNavOl) {
+                        const originalLis = Array.from(masterNavOl.children).filter(el => el.tagName.toLowerCase() === 'li');
+                        const labelStr = (mergeFiles[0].customLabel || 'Book 1').trim();
 
-                    // Nest original book 1's list items under an expandable tree
-                    if (masterNavList) {
-                        const originalLis = Array.from(masterNavList.children).filter(el => el.tagName.toLowerCase() === 'li');
+                        const masterLi = masterNavDoc.createElement("li");
+                        const subOl = masterNavDoc.createElement("ol");
 
-                        const labelStr = mergeFiles[0].customLabel.trim();
-                        if (labelStr !== '') {
-                            const masterLi = masterNavDoc.createElement("li");
+                        const firstA = originalLis[0]?.querySelector('a');
+                        if (firstA) {
+                            const masterA = masterNavDoc.createElement("a");
+                            masterA.setAttribute("href", firstA.getAttribute("href"));
+                            masterA.textContent = labelStr;
+                            masterLi.appendChild(masterA);
+                        } else {
                             const masterSpan = masterNavDoc.createElement("span");
                             masterSpan.textContent = labelStr;
-
-                            const subOl = masterNavDoc.createElement("ol");
-
-                            // If there's an anchor, we could theoretically link the span, but a span is safer for pure headers
-                            if (originalLis.length > 0) {
-                                const firstA = originalLis[0].querySelector('a');
-                                if (firstA) {
-                                    const masterA = masterNavDoc.createElement("a");
-                                    masterA.setAttribute("href", firstA.getAttribute("href"));
-                                    masterA.textContent = masterSpan.textContent;
-                                    masterLi.appendChild(masterA);
-                                } else {
-                                    masterLi.appendChild(masterSpan);
-                                }
-                            } else {
-                                masterLi.appendChild(masterSpan);
-                            }
-
-                            // Move original LIs into the subOl
-                            originalLis.forEach(li => subOl.appendChild(li));
-                            masterLi.appendChild(subOl);
-
-                            // Clear and append
-                            masterNavList.innerHTML = '';
-                            masterNavList.appendChild(masterLi);
+                            masterLi.appendChild(masterSpan);
                         }
+
+                        originalLis.forEach(li => subOl.appendChild(li));
+                        masterLi.appendChild(subOl);
+
+                        masterNavOl.innerHTML = '';
+                        masterNavOl.appendChild(masterLi);
                     }
                 }
             }
         }
 
-        function resolveRelativePath(baseDir, relativePath) {
-            if (!relativePath) return "";
-            const stack = baseDir ? baseDir.split('/').filter(Boolean) : [];
-            const parts = relativePath.split('/');
-            for (let p of parts) {
-                if (p === '.') continue;
-                if (p === '..') stack.pop();
-                else stack.push(p);
-            }
-            return stack.join('/');
-        }
-
-        // Loop through remaining books
+        // 3. Loop and merge remaining books (Book 2, Book 3, ...)
         for (let i = 1; i < mergeFiles.length; i++) {
-
-            const stripDupes = document.getElementById('merge-strip-dupes')?.checked;
-
-            updateParsingProgress(i + 1, mergeFiles.length);
+            updateParsingProgress(i + 1, mergeFiles.length, `Merging Book ${i + 1} of ${mergeFiles.length} (${mergeFiles[i].name})...`);
 
             const subZip = await new JSZip().loadAsync(mergeFiles[i]);
             const subContainerXml = await subZip.file("META-INF/container.xml").async("text");
@@ -529,29 +504,28 @@ btnExecuteMerge.addEventListener('click', async () => {
             const subOpfDir = subOpfPath.includes("/") ? subOpfPath.substring(0, subOpfPath.lastIndexOf('/') + 1) : "";
             const subOpfDoc = parser.parseFromString(await subZip.file(subOpfPath).async("text"), "text/xml");
 
-            const subManifest = subOpfDoc.querySelectorAll("manifest > item");
+            const subManifest = Array.from(subOpfDoc.querySelectorAll("manifest > item"));
             const idMap = {};
             const hrefMap = {};
 
-            let countMap = 0;
-            for (let j = 0; j < subManifest.length; j++) {
-                if (++countMap % 100 === 0) await new Promise(r => setTimeout(r, 0));
-                const it = subManifest[j];
-                const oldId = it.getAttribute("id");
-                const oldHref = it.getAttribute("href");
+            // Build collision-free IDs and filenames
+            subManifest.forEach((it, idx) => {
+                const oldId = it.getAttribute("id") || `item_${idx}`;
+                const oldHref = (it.getAttribute("href") || '').trim();
                 const newId = `b${i}_${oldId}`;
-                const newHref = `b${i}_${oldHref.split('/').pop()}`;
+                const fileName = oldHref.split('/').pop();
+                const newHref = `b${i}_${fileName}`;
                 idMap[oldId] = newId;
                 hrefMap[oldHref] = newHref;
-            }
+                hrefMap[oldHref.replace(/^\.\//, '')] = newHref;
+                hrefMap[fileName] = newHref;
+            });
 
-            let countFiles = 0;
-            for (let j = 0; j < subManifest.length; j++) {
-                if (++countFiles % 20 === 0) await new Promise(r => setTimeout(r, 0));
-                const it = subManifest[j];
-                const oldHref = it.getAttribute("href");
+            // Copy assets and chapter files with re-written relative paths
+            for (let it of subManifest) {
+                const oldHref = (it.getAttribute("href") || '').trim();
                 const mime = it.getAttribute("media-type") || "";
-                const newHref = hrefMap[oldHref];
+                const newHref = hrefMap[oldHref] || `b${i}_${oldHref.split('/').pop()}`;
                 const fullPath = subOpfDir + oldHref;
 
                 if (subZip.file(fullPath)) {
@@ -563,31 +537,37 @@ btnExecuteMerge.addEventListener('click', async () => {
                             let h = val.split('#')[1] ? '#' + val.split('#')[1] : '';
                             if (lp.startsWith('http') || lp.startsWith('data:')) return m;
                             let res = resolveRelativePath(oDir, lp);
-                            if (hrefMap[res]) return `${attr}="${hrefMap[res]}${h}"`;
+                            let mapped = hrefMap[res] || hrefMap[lp] || hrefMap[lp.split('/').pop()];
+                            if (mapped) return `${attr}="${mapped}${h}"`;
                             return m;
                         });
                         newZip.file(masterOpfDir + newHref, txt);
                     } else {
                         newZip.file(masterOpfDir + newHref, await subZip.file(fullPath).async("blob"));
                     }
+
                     const ni = masterOpfDoc.createElement("item");
                     ni.setAttribute("id", idMap[it.getAttribute("id")]);
                     ni.setAttribute("href", newHref);
                     ni.setAttribute("media-type", mime);
-                    masterOpfDoc.querySelector("manifest").appendChild(ni);
+                    masterOpfDoc.querySelector("manifest")?.appendChild(ni);
                 }
             }
 
+            // Append spine items
             const subSpine = subOpfDoc.querySelectorAll("spine > itemref");
             subSpine.forEach(ref => {
                 const sid = ref.getAttribute("idref");
                 if (idMap[sid]) {
                     const nr = masterOpfDoc.createElement("itemref");
                     nr.setAttribute("idref", idMap[sid]);
-                    masterOpfDoc.querySelector("spine").appendChild(nr);
+                    masterOpfDoc.querySelector("spine")?.appendChild(nr);
                 }
             });
 
+            const labelStr = (mergeFiles[i].customLabel || `Book ${i + 1}`).trim();
+
+            // Append to EPUB 2 NCX (toc.ncx)
             if (masterNcxDoc && masterNavMap) {
                 const subNcx = subOpfDoc.querySelector('item[media-type="application/x-dtbncx+xml"]');
                 if (subNcx) {
@@ -596,36 +576,33 @@ btnExecuteMerge.addEventListener('click', async () => {
                     if (subZip.file(snPath)) {
                         const snd = parser.parseFromString(await subZip.file(snPath).async("text"), "application/xml");
 
-                        const labelStr = mergeFiles[i].customLabel.trim();
-                        let masterPoint = null;
-                        
-                        if (labelStr !== '') {
-                            // Create master wrapper for the appended book
-                            masterPoint = masterNcxDoc.createElement("navPoint");
-                            masterPoint.setAttribute("id", `master_book_${i + 1}`);
-                            masterPoint.setAttribute("playOrder", `${i + 1}`); // Basic ordering
+                        const masterPoint = masterNcxDoc.createElement("navPoint");
+                        masterPoint.setAttribute("id", `vol_master_${i + 1}`);
 
-                            const navLabel = masterNcxDoc.createElement("navLabel");
-                            const textNode = masterNcxDoc.createElement("text");
-                            textNode.textContent = labelStr;
-                            navLabel.appendChild(textNode);
-                            masterPoint.appendChild(navLabel);
-                        }
+                        const navLabel = masterNcxDoc.createElement("navLabel");
+                        const textNode = masterNcxDoc.createElement("text");
+                        textNode.textContent = labelStr;
+                        navLabel.appendChild(textNode);
+                        masterPoint.appendChild(navLabel);
 
                         let firstContentFound = false;
+                        let childIdx = 0;
 
                         snd.querySelectorAll("navMap > navPoint").forEach(np => {
-                            const cl = np.cloneNode(true);
+                            const cl = masterNcxDoc.importNode(np, true);
+                            cl.setAttribute("id", `b${i}_np_${++childIdx}`);
+                            
                             cl.querySelectorAll("content").forEach(c => {
-                                let s = c.getAttribute("src");
+                                let s = (c.getAttribute("src") || '').trim();
                                 let lp = s.split('#')[0];
+                                let h = s.split('#')[1] ? '#' + s.split('#')[1] : '';
                                 let res = resolveRelativePath(snDir, lp);
-                                if (hrefMap[res]) {
-                                    const finalSrc = hrefMap[res] + (s.split('#')[1] ? '#' + s.split('#')[1] : '');
+                                let mapped = hrefMap[res] || hrefMap[lp] || hrefMap[lp.split('/').pop()];
+                                if (mapped) {
+                                    const finalSrc = mapped + h;
                                     c.setAttribute("src", finalSrc);
 
-                                    // Use the first valid child as the URL for the parent block
-                                    if (masterPoint && !firstContentFound) {
+                                    if (!firstContentFound) {
                                         const masterContent = masterNcxDoc.createElement("content");
                                         masterContent.setAttribute("src", finalSrc);
                                         masterPoint.appendChild(masterContent);
@@ -633,106 +610,120 @@ btnExecuteMerge.addEventListener('click', async () => {
                                     }
                                 }
                             });
-                            
-                            if (masterPoint) {
-                                masterPoint.appendChild(cl);
-                            } else {
-                                masterNavMap.appendChild(cl);
-                            }
+                            masterPoint.appendChild(cl);
                         });
 
-                        if (masterPoint) masterNavMap.appendChild(masterPoint);
+                        masterNavMap.appendChild(masterPoint);
                     }
                 }
             }
+
+            // Append to EPUB 3 NAV (nav.xhtml)
+            if (masterNavDoc && masterNavOl) {
+                const subNavItem = subOpfDoc.querySelector('item[properties~="nav"]') || subOpfDoc.querySelector('item[id*="nav"]') || subOpfDoc.querySelector('item[id*="toc"]');
+                const masterLi = masterNavDoc.createElement("li");
+                const subOl = masterNavDoc.createElement("ol");
+                let firstAHref = null;
+
+                if (subNavItem) {
+                    const snNavPath = subOpfDir + subNavItem.getAttribute("href");
+                    const snNavDir = subNavItem.getAttribute("href").includes('/') ? subNavItem.getAttribute("href").substring(0, subNavItem.getAttribute("href").lastIndexOf('/') + 1) : "";
+                    if (subZip.file(snNavPath)) {
+                        const subNavDoc = parser.parseFromString(await subZip.file(snNavPath).async("text"), "application/xhtml+xml");
+                        const subNavEl = subNavDoc.querySelector('nav[epub\\:type="toc"], nav[type="toc"], nav#toc, nav');
+                        const subOlSource = subNavEl?.querySelector('ol');
+
+                        if (subOlSource) {
+                            Array.from(subOlSource.children).forEach(childLi => {
+                                const cl = masterNavDoc.importNode(childLi, true);
+                                cl.querySelectorAll('a').forEach(a => {
+                                    let href = (a.getAttribute('href') || '').trim();
+                                    let lp = href.split('#')[0];
+                                    let h = href.split('#')[1] ? '#' + href.split('#')[1] : '';
+                                    let res = resolveRelativePath(snNavDir, lp);
+                                    let mapped = hrefMap[res] || hrefMap[lp] || hrefMap[lp.split('/').pop()];
+                                    if (mapped) {
+                                        const finalHref = mapped + h;
+                                        a.setAttribute('href', finalHref);
+                                        if (!firstAHref) firstAHref = finalHref;
+                                    }
+                                });
+                                subOl.appendChild(cl);
+                            });
+                        }
+                    }
+                }
+
+                if (firstAHref) {
+                    const masterA = masterNavDoc.createElement("a");
+                    masterA.setAttribute("href", firstAHref);
+                    masterA.textContent = labelStr;
+                    masterLi.appendChild(masterA);
+                } else {
+                    const masterSpan = masterNavDoc.createElement("span");
+                    masterSpan.textContent = labelStr;
+                    masterLi.appendChild(masterSpan);
+                }
+
+                if (subOl.children.length > 0) {
+                    masterLi.appendChild(subOl);
+                }
+                masterNavOl.appendChild(masterLi);
+            }
         }
 
-        // Setup for Final Compression Stage
-        if (masterNcxDoc) newZip.file(masterNcxPath, new XMLSerializer().serializeToString(masterNcxDoc));
-        if (masterNavDoc) newZip.file(masterNavPath, new XMLSerializer().serializeToString(masterNavDoc));
-        newZip.file(masterOpfPath, new XMLSerializer().serializeToString(masterOpfDoc));
+        // Sequential playOrder renumbering across all merged NCX navPoints
+        if (masterNcxDoc) {
+            let playOrderCounter = 1;
+            masterNcxDoc.querySelectorAll("navPoint").forEach(np => {
+                np.setAttribute("playOrder", String(playOrderCounter++));
+            });
+            newZip.file(masterNcxPath, serializer.serializeToString(masterNcxDoc));
+        }
 
-        btnText.textContent = "Compressing Final File...";
-        const compressionLevel = document.getElementById('merge-compression') ? document.getElementById('merge-compression').value : "DEFLATE";
+        if (masterNavDoc && masterNavPath) {
+            newZip.file(masterNavPath, serializer.serializeToString(masterNavDoc));
+        }
+
+        newZip.file(masterOpfPath, serializer.serializeToString(masterOpfDoc));
+
+        // Compression & Export Stage
+        if (btnText) btnText.textContent = "Compressing Final File...";
+        const compressionLevel = document.getElementById('merge-compression')?.value || "DEFLATE";
         const pStatus = document.getElementById('merge-progress-status');
-        if (pStatus) pStatus.textContent = "Compressing Final File...";
+        if (pStatus) pStatus.textContent = "Compressing Final Merged EPUB...";
         const pBar = document.getElementById('merge-progress-bar');
         if (pBar) pBar.style.width = '0%';
 
-        let b;
-        
-        // Universal Web Worker using Blob URL to bypass local file restrictions
-        const serializedFiles = {};
-        let countSerial = 0;
-        for (let path in newZip.files) {
-            if (path === "mimetype" || newZip.files[path].dir) continue;
-            serializedFiles[path] = await newZip.files[path].async("blob");
-            if (++countSerial % 50 === 0) await new Promise(r => setTimeout(r, 2));
-        }
-
-        const workerCode = `
-            importScripts('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
-            self.onmessage = async function(e) {
-                try {
-                    const { filesConfig, compression } = e.data;
-                    const zip = new JSZip();
-                    zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
-                    for (let path in filesConfig) {
-                        zip.file(path, filesConfig[path]);
-                    }
-                    const blob = await zip.generateAsync({ type: "blob", compression: compression, mimeType: "application/epub+zip" }, function updateCallback(metadata) {
-                        self.postMessage({ type: 'progress', percent: metadata.percent });
-                    });
-                    self.postMessage({ type: 'success', blob: blob });
-                } catch (err) {
-                    self.postMessage({ type: 'error', error: err.message });
-                }
-            };
-        `;
-        const blobURL = URL.createObjectURL(new Blob([workerCode], { type: 'application/javascript' }));
-        const worker = new Worker(blobURL);
-        worker.postMessage({ filesConfig: serializedFiles, compression: compressionLevel });
-
-        b = await new Promise((resolve, reject) => {
-            worker.onmessage = (e) => {
-                const data = e.data;
-                if (data.type === 'progress') {
-                    const pWrapper = document.getElementById('merge-progress-wrapper');
-                    const pBar = document.getElementById('merge-progress-bar');
-                    const pPercent = document.getElementById('merge-progress-percent');
-                    if (pWrapper) pWrapper.classList.remove('hidden');
-                    if (pBar) pBar.style.width = data.percent.toFixed(0) + '%';
-                    if (pPercent) pPercent.textContent = data.percent.toFixed(0) + '%';
-                } else if (data.type === 'success') {
-                    resolve(data.blob);
-                    worker.terminate();
-                    URL.revokeObjectURL(blobURL);
-                } else if (data.type === 'error') {
-                    reject(new Error(data.error));
-                    worker.terminate();
-                    URL.revokeObjectURL(blobURL);
-                }
-            };
-            worker.onerror = (e) => {
-                reject(new Error(e.message || "Worker crashed"));
-                worker.terminate();
-                URL.revokeObjectURL(blobURL);
-            };
+        // Direct, fast, offline-bulletproof generation
+        const mergedBlob = await newZip.generateAsync({
+            type: "blob",
+            compression: compressionLevel,
+            mimeType: "application/epub+zip"
+        }, function updateCallback(metadata) {
+            const pWrapper = document.getElementById('merge-progress-wrapper');
+            const pBar = document.getElementById('merge-progress-bar');
+            const pPercent = document.getElementById('merge-progress-percent');
+            if (pWrapper) pWrapper.classList.remove('hidden');
+            if (pBar) pBar.style.width = metadata.percent.toFixed(0) + '%';
+            if (pPercent) pPercent.textContent = metadata.percent.toFixed(0) + '%';
         });
 
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(b);
+        a.href = URL.createObjectURL(mergedBlob);
         a.download = `${cleanTitle}.epub`;
         a.click();
-        showToast("Books merged!", "success");
-        addExportEntry(cleanTitle, 'merge', `${mergeFiles.length} books`);
+        showToast("✨ Books merged successfully!", "success");
+        if (typeof addExportEntry === 'function') {
+            addExportEntry(cleanTitle, 'merge', `${mergeFiles.length} books`);
+        }
 
     } catch (err) {
-        console.error(err);
-        showToast("Merge failed.", "error");
+        console.error("Merge error:", err);
+        showToast("Merge failed: " + err.message, "error");
     } finally {
-        btnText.textContent = "Merge & Download";
-        btnSpinner.classList.add('hidden');
+        if (btnText) btnText.textContent = "Merge & Download";
+        if (btnSpinner) btnSpinner.classList.add('hidden');
         btnExecuteMerge.disabled = false;
 
         const pWrapper = document.getElementById('merge-progress-wrapper');
@@ -743,4 +734,3 @@ btnExecuteMerge.addEventListener('click', async () => {
 });
 
 };
-
