@@ -550,6 +550,17 @@ const modalHtml = `<!-- Chapter Preview Modal -->
                 </div>
             </div>
 
+            <!-- Optional Custom AI Prompt Instruction -->
+            <div class="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0 flex items-center gap-1">
+                        <span>💬</span> Custom Prompt (Optional):
+                    </span>
+                    <input type="text" id="ai-toc-custom-instruction" placeholder="e.g. Keep Year & Volume names, format Side Stories as 'SS - Name', keep decimals like 1.1"
+                        class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300/80 dark:border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30">
+                </div>
+            </div>
+
             <div id="ai-toc-results-container" class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3 font-mono text-xs max-h-[50vh]">
                 <p class="text-slate-400 dark:text-slate-500 italic text-center py-8">Click "Generate AI Cleaned TOC" above to start analyzing and standardizing chapter titles.</p>
             </div>

@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.8.6';
+    const VERSION = '5.9.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1523,7 +1523,7 @@
     // ═══════════════════════════════════════════════════════════════
     // AI TABLE OF CONTENTS & METADATA POLISHER ENGINE
     // ═══════════════════════════════════════════════════════════════
-                            window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus, customProvider) {
+                                window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus, customProvider, customInstruction) {
       const provider = customProvider || localStorage.getItem('translationProvider') || 'gemini';
       
       let allKeys = [];
@@ -1543,19 +1543,26 @@
       const getActiveKey = () => allKeys[keyIndex % allKeys.length];
       const rotateKey = () => { keyIndex++; return getActiveKey(); };
 
-      const compactLines = sampleChapters.map(c => `${c.index}. ${c.rawName || ''}`).join('\n');
+      const compactLines = sampleChapters.map(c => {
+        let line = `${c.index}. File: ${c.rawName || ''}`;
+        if (c.snippet) line += ` | Text: "${c.snippet}"`;
+        return line;
+      }).join('\n');
+
+      const customUserRule = customInstruction ? `\nUSER CUSTOM INSTRUCTIONS:\n${customInstruction}\n` : '';
+
       const prompt = `You are an expert digital eBook editor and Table of Contents specialist.
-Task: Standardize raw/scraped Table of Contents entries into clean, readable, professional titles.
+Task: Standardize raw/scraped Table of Contents entries into clean, readable, professional titles by analyzing both file names AND the internal chapter text snippet provided.
 
 CRITICAL RULES:
 1. PRESERVE NOVEL HIERARCHY & SPECIAL SECTIONS:
-   - If an entry is a Volume, Arc, Year, or Book (e.g. "Year 3, Volume 3", "Volume 1", "Book 2: Earth", "Arc 4"), PRESERVE the Volume/Arc name (e.g. "Year 3, Volume 3" or "Volume 1").
-   - If an entry is a Prologue, Epilogue, Interlude, Monologue, Side Story (SS), Afterword, Synopsis, or Illustrations, KEEP its special name (e.g. "Prologue: Shiina Hiyori's Monologue", "Illustrations", "Epilogue", "Side Story 1").
-   - If an entry has Parts or Sub-chapters (e.g. "Part 1", "Part 2"), preserve the Part structure.
+   - If an entry is a Volume, Arc, Year, or Book (e.g. "Year 3, Volume 3", "Volume 1", "Book 2: Earth", "Arc 4"), PRESERVE the Volume/Arc name.
+   - If an entry is a Prologue, Epilogue, Interlude, Monologue, Side Story (SS), Afterword, Synopsis, or Illustrations, KEEP its authentic character name (e.g. "Prologue: Shiina Hiyori's Monologue", "Illustrations", "Epilogue", "Side Story - Kushida", "1.1", "7.1", "E.1").
+   - If an entry has Parts or Sub-chapters (e.g. "Part 1", "Part 2", "Chapter 1 - Part 1"), preserve the Part structure.
    - DO NOT flatten or renumber everything into a generic "Chapter 1 to 500" if the book is an anthology or light novel series with Volumes/Years/Arcs!
 2. CLEAN STORY CHAPTERS:
-   - For regular chapters, format cleanly as "Chapter N - Title" (e.g. "Chapter 1 - Opening", "Chapter 2 - A Surprise Attack").
-   - Strip ugly web scrape artifacts, raw file paths (.xhtml, .html), and duplicate prefix numbers (e.g. "136: Chapter 136 - 136: ..." -> "Chapter 136 - ...").
+   - Use the internal text snippet and heading to produce the true chapter title (e.g. "Chapter 1 - The Structure of Japanese Society").
+   - Strip ugly web scrape artifacts and file paths (.xhtml, .html).${customUserRule}
 
 Book Title: ${bookTitle || 'Unknown'}
 
