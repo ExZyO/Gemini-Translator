@@ -14,16 +14,16 @@
             }
         },
 
-        checkForUpdate: async (currentVersion = "7.0.2") => {
+                checkForUpdate: async (currentVersion) => {
             try {
                 let remoteVersion = null;
                 let releaseNotes = '';
                 let isApkReady = false;
                 let apkDownloadUrl = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
 
-                // Step 1: Check GitHub Releases API to verify APK asset is published
+                // Step 1: Query GitHub Releases directly for the latest published release and APK
                 try {
-                    const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest', {
+                    const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now(), {
                         headers: { 'Accept': 'application/vnd.github.v3+json' }
                     });
                     if (res.ok) {
@@ -51,20 +51,7 @@
                     console.warn('GitHub Releases check error:', re);
                 }
 
-                // Step 2: Fallback to package.json if release title was generic, but only if APK is ready
-                if (!remoteVersion && isApkReady) {
-                    try {
-                        const pkgRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now());
-                        if (pkgRes.ok) {
-                            const pkgData = await pkgRes.json();
-                            if (pkgData.version && pkgData.version !== '1.0.0') {
-                                remoteVersion = pkgData.version;
-                            }
-                        }
-                    } catch (pe) {}
-                }
-
-                // If no APK asset is ready on GitHub, do not show update
+                // If no published APK asset is ready on GitHub Releases, do not show update
                 if (!remoteVersion || !isApkReady) return null;
 
                 // Strict Semver Math: remote > current
