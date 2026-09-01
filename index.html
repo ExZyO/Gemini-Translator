@@ -249,13 +249,13 @@
       'Plus', 'Minus', 'Maximize2', 'Minimize2', 'BookOpen', 'Key', 'Shield', 'Lock', 'Unlock',
       'Calendar', 'ArrowUpDown', 'CalendarDays', 'Volume2', 'VolumeX', 'Play', 'Pause',
       'SkipForward', 'SkipBack', 'MoreVertical', 'Type', 'Palette', 'List', 'Compass',
-      'Bookmark', 'Menu', 'ArrowLeft', 'Maximize', 'Minimize', 'ChevronsUp', 'ChevronsDown'
+      'Bookmark', 'Menu', 'ArrowLeft', 'ArrowRight', 'Maximize', 'Minimize', 'ChevronsUp', 'ChevronsDown'
     ];
     iconNamesList.forEach(name => {
       window[name] = LucideIcons[name] || createLucideIcon(name);
     });
 
-    const { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload, Sun, Moon, Columns2, Rows2, History, ChevronDown, ChevronUp, Zap, X, CheckCircle2, AlertCircle, Info, Search, Trash2, RotateCcw, Square, FileDown, Settings, Globe, Sparkles, Brain, Languages, Check, ArrowRightLeft, Star, Clock, Layers, Scissors, Sliders, Plus, Minus, Maximize2, Minimize2, BookOpen, Key, Shield, Lock, Unlock, Calendar, ArrowUpDown, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, MoreVertical, Type, Palette, List, Compass, Bookmark, Menu, ArrowLeft, Maximize, Minimize } = window;
+    const { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload, Sun, Moon, Columns2, Rows2, History, ChevronDown, ChevronUp, Zap, X, CheckCircle2, AlertCircle, Info, Search, Trash2, RotateCcw, Square, FileDown, Settings, Globe, Sparkles, Brain, Languages, Check, ArrowRightLeft, Star, Clock, Layers, Scissors, Sliders, Plus, Minus, Maximize2, Minimize2, BookOpen, Key, Shield, Lock, Unlock, Calendar, ArrowUpDown, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, MoreVertical, Type, Palette, List, Compass, Bookmark, Menu, ArrowLeft, ArrowRight, Maximize, Minimize } = window;
     const ic = (Icon, size = 18, className = 'shrink-0') => {
       let comp = Icon;
       if (typeof Icon === 'string') {
@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.7.1';
+    const VERSION = '7.8.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -9882,6 +9882,100 @@ p {
             )
           ),
 
+                    // 📚 NOVEL LIBRARY & RECENT IMPORTS HISTORY SECTION
+          webImportHistory.length > 0 && h('div', { className: 'p-5 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4' },
+            h('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3' },
+              h('div', { className: 'flex items-center gap-2' },
+                h('div', { className: 'w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center' }, ic(BookOpen, 16)),
+                h('div', null,
+                  h('h3', { className: 'text-sm font-bold text-slate-900 dark:text-slate-100' }, `📚 My Novel Library & History (${webImportHistory.length})`),
+                  h('p', { className: 'text-[11px] text-slate-500 dark:text-slate-400' }, 'Saved web novels & EPUBs ready to load, read, or export instantly without re-fetching')
+                )
+              ),
+              h('div', { className: 'flex items-center gap-2' },
+                webImportHistory.length > 3 && h('input', {
+                  type: 'text',
+                  placeholder: 'Filter library...',
+                  value: historySearchQuery,
+                  onChange: e => setHistorySearchQuery(e.target.value),
+                  className: 'px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200'
+                }),
+                btn({
+                  onClick: clearAllNovelHistory,
+                  className: 'px-2.5 py-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 rounded-lg text-[11px] font-bold cursor-pointer transition-all'
+                }, ic(Trash2, 12), 'Clear All')
+              )
+            ),
+            h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1' },
+              webImportHistory
+                .filter(item => !historySearchQuery || (item.title || '').toLowerCase().includes(historySearchQuery.toLowerCase()) || (item.author || '').toLowerCase().includes(historySearchQuery.toLowerCase()))
+                .map(item => {
+                  return h('div', {
+                    key: item.id,
+                    className: 'p-3.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between gap-3 group hover:border-indigo-500/40 transition-all'
+                  },
+                    h('div', null,
+                      h('div', { className: 'flex items-start justify-between gap-2' },
+                        h('h4', { className: 'text-xs font-bold text-slate-900 dark:text-slate-100 line-clamp-1' }, item.title),
+                        btn({
+                          onClick: () => deleteNovelFromHistory(item.id),
+                          className: 'p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer transition-colors shrink-0',
+                          title: 'Delete from library'
+                        }, ic(Trash2, 13))
+                      ),
+                      h('p', { className: 'text-[11px] text-slate-500 dark:text-slate-400 mt-0.5' }, `By ${item.author} · ${item.chapterCount} chapters · ~${(item.wordCount || 0).toLocaleString()} words`),
+                      h('div', { className: 'flex flex-wrap items-center gap-1.5 mt-2' },
+                        h('span', { className: 'px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300' }, item.isEpub ? '📁 EPUB' : '🌐 Web Novel'),
+                        h('span', { className: 'text-[10px] text-slate-400 font-mono' }, new Date(item.timestamp).toLocaleDateString())
+                      )
+                    ),
+                    h('div', { className: 'flex items-center gap-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/60' },
+                      // 1. Load into preview
+                      btn({
+                        onClick: () => {
+                          setWebImportData({
+                            title: item.title,
+                            author: item.author,
+                            summary: item.summary,
+                            tags: item.tags,
+                            chapters: item.rawChapters,
+                            isEpub: item.isEpub,
+                            sourceUrl: item.sourceUrl
+                          });
+                          toast(`Loaded "${item.title}" into active workspace!`, 'success');
+                        },
+                        className: 'flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer'
+                      }, ic(Sparkles, 12), '⚡ Load'),
+
+                      // 2. Read in Moon Reader
+                      btn({
+                        onClick: () => {
+                          setChapters(item.rawChapters);
+                          setReaderOpen(true);
+                        },
+                        className: 'px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-teal-400 text-[11px] font-bold rounded-lg border border-teal-500/30 transition-all flex items-center gap-1 cursor-pointer'
+                      }, ic(BookOpen, 12), '📖 Read'),
+
+                      // 3. Download EPUB directly
+                      btn({
+                        onClick: async () => {
+                          try {
+                            toast('📦 Compiling EPUB package...', 'info');
+                            const blob = await generateEpubFromChapters(item.rawChapters, item.title, item.author, 'en');
+                            const safeName = (item.title || 'novel').toLowerCase().replace(/[^a-z0-9_-]/g, '_') + '.epub';
+                            await saveUniversalBlob(blob, safeName, 'application/epub+zip');
+                          } catch (e) {
+                            toast('EPUB export failed: ' + e.message, 'error');
+                          }
+                        },
+                        className: 'px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer'
+                      }, ic(Download, 12), '📥 EPUB')
+                    )
+                  );
+                })
+            )
+          ),
+
           // URL Input Card
           h('div', { className: 'p-5 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4' },
             h('label', { className: 'block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400' }, 'Enter Novel / Fanfiction URL:'),
@@ -9904,6 +9998,7 @@ p {
                       setWebImportStatus(status);
                     });
                     setWebImportData(data);
+                    saveNovelToHistory(data);
                     toast(`✨ Successfully imported "${data.title}" with ${data.chapters.length} chapter(s)!`, 'success');
                   } catch (err) {
                     console.error('Web Import Error:', err);
@@ -9944,6 +10039,7 @@ p {
                       const buffer = await file.arrayBuffer();
                       const data = await window.WebNovelImporter.importEpubBuffer(buffer, file.name, (s) => setWebImportStatus(s));
                       setWebImportData(data);
+                      saveNovelToHistory(data);
                       toast(`✨ Loaded "${data.title}" with ${data.chapters.length} chapters!`, 'success');
                     } catch (err) {
                       console.error('File import error:', err);
