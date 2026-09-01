@@ -23,7 +23,8 @@
         // ══════════════════════════════════════════════════════════════════════
         // ══════════════════════════════════════════════════════════════════════
         // ══════════════════════════════════════════════════════════════════════
-    // 8. WITCH CULT TRANSLATION (25x TURBO BURST STREAM CRAWLER)
+        // ══════════════════════════════════════════════════════════════════════
+    // 8. WITCH CULT TRANSLATION (CONTINUOUS PIPELINE STREAM CRAWLER)
     // ══════════════════════════════════════════════════════════════════════
     async function importWitchCult(url, progressCb) {
         progressCb?.('Connecting to Witch Cult Translations Master TOC...', 5);
@@ -61,7 +62,7 @@
         const targetSlug = url.replace(/\/$/, '').split('/').filter(Boolean).pop();
 
         // 1. Fetch Master Table of Contents
-        progressCb?.('⚡ Instant discovery: Indexing all chapters across series...', 10);
+        progressCb?.('⚡ Indexing all chapters across series from Master TOC...', 10);
         let chapterList = [];
         try {
             const tocHtml = await fetchPage('https://witchculttranslation.com/table-of-content/');
@@ -95,49 +96,39 @@
             chapterList = [{ href: url, text: 'Re:Zero Chapter' }];
         }
 
-        progressCb?.(`🚀 Discovered ${chapterList.length} chapters! Launching 25x Turbo Multi-Stream...`, 15);
+        progressCb?.(`🚀 Discovered ${chapterList.length} chapters! Launching continuous streaming pipeline...`, 15);
 
+        // Continuous worker pool of 12 parallel requests with zero stall pauses
+        const concurrency = 12;
+        let nextIndex = 0;
+        let completedCount = 0;
         const chapters = [];
-        const burstWaveSize = 25; // 25 simultaneous parallel streams per burst
         let totalWordsEstimate = 0;
 
-        for (let i = 0; i < chapterList.length; i += burstWaveSize) {
-            const wave = chapterList.slice(i, i + burstWaveSize);
-            const waveNum = Math.floor(i / burstWaveSize) + 1;
-            const totalWaves = Math.ceil(chapterList.length / burstWaveSize);
-
-            const wavePromises = wave.map(async (ch, cIdx) => {
-                const globalIndex = i + cIdx;
+        const worker = async () => {
+            while (nextIndex < chapterList.length) {
+                const currentIndex = nextIndex++;
+                const ch = chapterList[currentIndex];
                 try {
                     const html = await fetchPage(ch.href);
                     const cMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
                     const txt = cleanHtml(cMatch ? cMatch[1] : html);
                     if (txt.length > 40) {
                         const words = txt.split(/\s+/).filter(Boolean).length;
-                        return { idx: globalIndex, title: ch.text, text: txt, words };
+                        chapters.push({ idx: currentIndex, title: ch.text, text: txt, words });
+                        totalWordsEstimate += words;
                     }
                 } catch (e) {
                     console.warn(`Failed chapter ${ch.href}:`, e);
                 }
-                return null;
-            });
-
-            const waveResults = await Promise.all(wavePromises);
-            for (const r of waveResults) {
-                if (r) {
-                    chapters.push(r);
-                    totalWordsEstimate += r.words;
-                }
+                completedCount++;
+                const pct = Math.min(99, Math.round(15 + ((completedCount / chapterList.length) * 84)));
+                progressCb?.(`⚡ Live Stream: Ingested ${chapters.length}/${chapterList.length} chapters (~ ${totalWordsEstimate.toLocaleString()} words)...`, pct);
             }
+        };
 
-            const pct = Math.round(15 + ((Math.min(i + burstWaveSize, chapterList.length) / chapterList.length) * 82));
-            progressCb?.(`⚡ Turbo Burst (Wave ${waveNum}/${totalWaves}): Ingested ${chapters.length}/${chapterList.length} chapters (~ ${totalWordsEstimate.toLocaleString()} words)...`, pct);
-
-            // Micro 80ms breathing pause between 25-chapter waves to guarantee zero rate limits
-            if (i + burstWaveSize < chapterList.length) {
-                await new Promise(r => setTimeout(r, 80));
-            }
-        }
+        const workers = Array.from({ length: Math.min(concurrency, chapterList.length) }, () => worker());
+        await Promise.all(workers);
 
         chapters.sort((a, b) => a.idx - b.idx);
         progressCb?.(`✨ Successfully compiled all ${chapters.length} Re:Zero chapters into complete book package! (~ ${totalWordsEstimate.toLocaleString()} words)`, 100);

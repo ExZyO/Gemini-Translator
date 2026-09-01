@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.6.1';
+    const VERSION = '7.7.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2238,6 +2238,185 @@ const formatModelName = (id, displayName) => {
         // ══════════════════════════════════════════════════════════════════════
     // MOON+ READER ENGINE (Continuous Multi-Chapter Scroll, Clean UI & Fast Nav)
     // ══════════════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════════════
+    // GLOBAL EXPORT & FILE UTILITIES (Accessible by All Components)
+    // ══════════════════════════════════════════════════════════════════════
+    const escapeXml = (unsafe) => {
+      if (!unsafe) return '';
+      return String(unsafe).replace(/[<>&'"]/g, c => {
+        switch (c) {
+          case '<': return '&lt;';
+          case '>': return '&gt;';
+          case '&': return '&amp;';
+          case "'": return '&apos;';
+          case '"': return '&quot;';
+          default: return c;
+        }
+      });
+    };
+
+    const saveUniversalBlob = async (blob, fileName, mimeType) => {
+      try {
+        // 1. Android Native Capacitor Bridge (MediaStore Scoped Storage)
+        if (window.NativeBridge && window.NativeBridge.saveBlob) {
+          const res = await window.NativeBridge.saveBlob(blob, fileName, mimeType);
+          if (window.__setDownloadModal) {
+            window.__setDownloadModal({ fileName, path: res.path || ('Download/GeminiTranslator/' + fileName), mimeType });
+          }
+          return;
+        }
+
+        // 2. Modern Desktop Browser Native "Save As" Folder Picker (Windows / Mac)
+        if (window.showSaveFilePicker) {
+          try {
+            const ext = fileName.split('.').pop();
+            const handle = await window.showSaveFilePicker({
+              suggestedName: fileName,
+              types: [{
+                description: `${ext.toUpperCase()} Document`,
+                accept: { [mimeType]: ['.' + ext] }
+              }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            if (window.__toast) window.__toast(`💾 Saved "${fileName}"!`, 'success');
+            return;
+          } catch (err) {
+            if (err.name === 'AbortError') return; // User cancelled
+            console.warn('showSaveFilePicker fallback:', err);
+          }
+        }
+
+        // 3. Universal Browser HTML5 Download Trigger
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
+        }, 2000);
+        if (window.__toast) window.__toast(`💾 Downloaded "${fileName}"!`, 'success');
+      } catch (saveErr) {
+        console.error('Save file error:', saveErr);
+        if (window.__toast) window.__toast('Failed to save file: ' + saveErr.message, 'error');
+      }
+    };
+
+    const generateEpubFromChapters = async (chaptersList, bookTitle = 'Web Novel', bookAuthor = 'Author', bookLang = 'en') => {
+      if (!window.JSZip) throw new Error('JSZip library is not available.');
+      const zip = new window.JSZip();
+      const uuid = 'urn:uuid:' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ (typeof crypto !== 'undefined' ? crypto.getRandomValues(new Uint8Array(1))[0] : Math.floor(Math.random() * 16)) & 15 >> c / 4).toString(16)));
+
+      zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+      zip.folder('META-INF').file('container.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`);
+
+      const oebps = zip.folder('OEBPS');
+      oebps.file('style.css', `
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Georgia, serif; line-height: 1.65; margin: 5% 8%; color: #1a1a1a; }
+h1 { font-size: 1.5em; font-weight: bold; margin-top: 1em; margin-bottom: 1.2em; border-bottom: 1px solid #ddd; padding-bottom: 0.3em; text-align: center; }
+p { margin-top: 0; margin-bottom: 0.85em; text-align: left; line-height: 1.65; }
+.divider { text-align: center; margin: 1.5em 0; letter-spacing: 0.2em; font-weight: bold; }
+`);
+
+      const manifestItems = [
+        '<item id="css" href="style.css" media-type="text/css"/>',
+        '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>'
+      ];
+      const spineItems = [];
+      const tocNavPoints = [];
+
+      chaptersList.forEach((ch, idx) => {
+        const chId = `chapter_${idx + 1}`;
+        const chFilename = `${chId}.xhtml`;
+        const chTitle = ch.title ? ch.title.trim() : `Chapter ${idx + 1}`;
+
+        manifestItems.push(`<item id="${chId}" href="${chFilename}" media-type="application/xhtml+xml"/>`);
+        spineItems.push(`<itemref idref="${chId}"/>`);
+        tocNavPoints.push(`
+  <navPoint id="nav_${chId}" playOrder="${idx + 1}">
+    <navLabel><text>${escapeXml(chTitle)}</text></navLabel>
+    <content src="${chFilename}"/>
+  </navPoint>`);
+
+        const rawLines = (ch.text || ch.content || '').split(/\r?\n/);
+        const bodyHtml = [];
+        bodyHtml.push(`<h1>${escapeXml(chTitle)}</h1>`);
+
+        for (const line of rawLines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          if (/^(?:\*|\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(trimmed)) {
+            bodyHtml.push(`<p class="divider">${escapeXml(trimmed)}</p>`);
+          } else {
+            bodyHtml.push(`<p>${escapeXml(trimmed)}</p>`);
+          }
+        }
+
+        const xhtmlContent = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${bookLang}">
+<head>
+<meta charset="utf-8" />
+<title>${escapeXml(chTitle)}</title>
+<link rel="stylesheet" type="text/css" href="style.css" />
+</head>
+<body>
+${bodyHtml.join('\n  ')}
+</body>
+</html>`;
+
+        oebps.file(chFilename, xhtmlContent);
+      });
+
+      const opfContent = `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <dc:title>${escapeXml(bookTitle)}</dc:title>
+  <dc:creator>${escapeXml(bookAuthor)}</dc:creator>
+  <dc:language>${bookLang}</dc:language>
+  <dc:identifier id="BookID">${uuid}</dc:identifier>
+  <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
+</metadata>
+<manifest>
+  ${manifestItems.join('\n    ')}
+</manifest>
+<spine toc="ncx">
+  ${spineItems.join('\n    ')}
+</spine>
+</package>`;
+      oebps.file('content.opf', opfContent);
+
+      const ncxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+<head>
+  <meta name="dtb:uid" content="${uuid}"/>
+  <meta name="dtb:depth" content="1"/>
+  <meta name="dtb:totalPageCount" content="0"/>
+  <meta name="dtb:maxPageNumber" content="0"/>
+</head>
+<docTitle><text>${escapeXml(bookTitle)}</text></docTitle>
+<navMap>
+  ${tocNavPoints.join('')}
+</navMap>
+</ncx>`;
+      oebps.file('toc.ncx', ncxContent);
+
+      return await zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
+    };
+
+    // ══════════════════════════════════════════════════════════════════════
+    // MOON+ READER PRO ENGINE (Virtual Windowed Preloading, Visible Crisp UI)
+    // ══════════════════════════════════════════════════════════════════════
     const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
       if (!open) return null;
 
@@ -2304,7 +2483,7 @@ const formatModelName = (id, displayName) => {
       const utteranceRef = useRef(null);
       const contentContainerRef = useRef(null);
 
-      // ── ANDROID GESTURE / BACK BUTTON & KEYBOARD SHORTCUTS ──
+      // ── ANDROID BACK BUTTON & DESKTOP KEYBOARD SHORTCUTS ──
       useEffect(() => {
         window.history.pushState({ readerModalOpen: true }, '');
         const handlePopState = () => {
@@ -2340,10 +2519,10 @@ const formatModelName = (id, displayName) => {
       const normalizedTheme = theme === 'dark' ? 'oled' : (theme === 'paper' ? 'sepia' : (theme || 'oled'));
 
       const themeConfig = {
-        oled: { hexBg: '#000000', hexText: '#F3F4F6', hexBarBg: '#0F0F11', hexBorder: '#27272A', accent: '#14B8A6', name: 'OLED Black' },
-        sepia: { hexBg: '#FBF0D9', hexText: '#382816', hexBarBg: '#F4E5C4', hexBorder: '#E6D3AF', accent: '#B45309', name: 'Warm Paper' },
-        slate: { hexBg: '#0B0F19', hexText: '#E2E8F0', hexBarBg: '#131B2E', hexBorder: '#1E293B', accent: '#6366F1', name: 'Midnight' },
-        light: { hexBg: '#FFFFFF', hexText: '#0F172A', hexBarBg: '#F8FAFC', hexBorder: '#E2E8F0', accent: '#4F46E5', name: 'Clean White' }
+        oled: { hexBg: '#000000', hexText: '#FFFFFF', hexBarBg: '#121215', hexBorder: '#2E2E38', accent: '#14B8A6', name: 'OLED Black' },
+        sepia: { hexBg: '#FBF0D9', hexText: '#2D1F10', hexBarBg: '#EFE0BE', hexBorder: '#DFC898', accent: '#B45309', name: 'Warm Paper' },
+        slate: { hexBg: '#0B0F19', hexText: '#F1F5F9', hexBarBg: '#131B2E', hexBorder: '#23304B', accent: '#6366F1', name: 'Midnight' },
+        light: { hexBg: '#FFFFFF', hexText: '#0F172A', hexBarBg: '#F1F5F9', hexBorder: '#CBD5E1', accent: '#4F46E5', name: 'Clean White' }
       };
       const activeTheme = themeConfig[normalizedTheme] || themeConfig.oled;
 
@@ -2368,7 +2547,7 @@ const formatModelName = (id, displayName) => {
       };
       const activeHighlight = highlightColors[ttsHighlightColor] || highlightColors.amber;
 
-      // Tokenize paragraphs into sentences for current active chapter TTS
+      // Tokenize paragraphs into sentences for TTS
       useEffect(() => {
         const content = currentChapter.content || currentChapter.text || text || '';
         if (!content) return;
@@ -2386,28 +2565,21 @@ const formatModelName = (id, displayName) => {
         setTtsSentences(sentenceList);
       }, [currentChapter, activeChapterIdx, text]);
 
-      // ── CONTINUOUS SCROLL TRACKING & CHAPTER DETECTION ──
+      // ── VIRTUAL WINDOWING (Renders active - 1, active, active + 1 for ZERO LAG) ──
+      const windowStart = Math.max(0, activeChapterIdx - 1);
+      const windowEnd = Math.min(safeChapters.length - 1, activeChapterIdx + 1);
+      const visibleChapters = safeChapters.slice(windowStart, windowEnd + 1).map((ch, relIdx) => ({
+        ...ch,
+        realIdx: windowStart + relIdx
+      }));
+
+      // Scroll Progress & Auto Next-Chapter Threshold
       const handleScroll = (e) => {
         const el = e.currentTarget;
         const total = el.scrollHeight - el.clientHeight;
         if (total > 0) {
           const pct = Math.min(100, Math.max(0, Math.round((el.scrollTop / total) * 100)));
           setScrollPercent(pct);
-        }
-
-        // Detect which chapter is currently in viewport
-        const chapterElements = safeChapters.map((_, i) => document.getElementById(`chapter-anchor-${i}`)).filter(Boolean);
-        const containerTop = el.getBoundingClientRect().top;
-
-        for (let i = chapterElements.length - 1; i >= 0; i--) {
-          const rect = chapterElements[i].getBoundingClientRect();
-          if (rect.top - containerTop <= 150) {
-            if (activeChapterIdx !== i) {
-              setActiveChapterIdx(i);
-              onChapterChange?.(i);
-            }
-            break;
-          }
         }
       };
 
@@ -2416,10 +2588,7 @@ const formatModelName = (id, displayName) => {
         setActiveChapterIdx(target);
         onChapterChange?.(target);
         stopTTS();
-        const anchor = document.getElementById(`chapter-anchor-${target}`);
-        if (anchor) {
-          anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else if (contentContainerRef.current) {
+        if (contentContainerRef.current) {
           contentContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
         }
         window.NativeBridge?.haptic?.('selection');
@@ -2440,7 +2609,7 @@ const formatModelName = (id, displayName) => {
           if (idx >= ttsSentences.length) {
             if (activeChapterIdx < safeChapters.length - 1) {
               scrollToChapter(activeChapterIdx + 1);
-              setTimeout(() => startTTS(0), 700);
+              setTimeout(() => startTTS(0), 600);
             } else {
               setIsTtsActive(false);
               setIsTtsPlaying(false);
@@ -2515,11 +2684,6 @@ const formatModelName = (id, displayName) => {
         setCurrentWordRange(null);
       };
 
-      const skipTTSSentence = (direction) => {
-        const next = Math.max(0, Math.min(currentSentenceIdx + direction, ttsSentences.length - 1));
-        startTTS(next);
-      };
-
       return h('div', {
         style: {
           position: 'fixed',
@@ -2534,7 +2698,7 @@ const formatModelName = (id, displayName) => {
           overflow: 'hidden'
         }
       },
-        // ── TOP OVERLAY HEADER ──
+        // ── TOP HEADER (CRISP & HIGH-CONTRAST) ──
         h('header', {
           style: {
             position: 'absolute',
@@ -2542,7 +2706,7 @@ const formatModelName = (id, displayName) => {
             left: 0,
             right: 0,
             width: '100%',
-            height: '56px',
+            height: '60px',
             zIndex: 50,
             backgroundColor: activeTheme.hexBarBg,
             borderBottom: `1px solid ${activeTheme.hexBorder}`,
@@ -2550,9 +2714,9 @@ const formatModelName = (id, displayName) => {
             transform: showOverlay ? 'translateY(0)' : 'translateY(-100%)',
             transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
           },
-          className: 'px-4 py-2 flex items-center justify-between shadow-2xl backdrop-blur-md'
+          className: 'px-3 sm:px-4 py-2 flex items-center justify-between shadow-2xl backdrop-blur-xl'
         },
-          // Left: Back Arrow
+          // Left: Back Button
           h('button', {
             onClick: (e) => {
               e.stopPropagation();
@@ -2560,37 +2724,48 @@ const formatModelName = (id, displayName) => {
               onClose();
               window.NativeBridge?.haptic?.('selection');
             },
-            className: 'p-2 rounded-xl hover:bg-white/10 active:scale-90 transition-all text-inherit cursor-pointer flex items-center gap-1.5',
-            'aria-label': 'Back to App'
+            style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
+            className: 'px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 transition-all font-bold text-xs flex items-center gap-1.5 cursor-pointer border'
           },
-            ic(ArrowLeft, 20),
-            h('span', { className: 'text-xs font-bold hidden sm:inline' }, 'Back')
+            ic(ArrowLeft, 16),
+            h('span', null, 'Back')
           ),
 
-          // Center: Title (Tap to open TOC)
+          // Center: Title (Tap to open Table of Contents)
           h('div', {
-            className: 'flex-1 min-w-0 px-3 text-center cursor-pointer active:scale-95 transition-transform',
+            className: 'flex-1 min-w-0 px-2 text-center cursor-pointer active:scale-95 transition-transform',
             onClick: (e) => {
               e.stopPropagation();
               setShowTocDrawer(true);
             }
           },
-            h('p', { className: 'text-xs sm:text-sm font-bold truncate tracking-tight text-inherit' }, rawTitle),
-            h('p', { className: 'text-[10px] opacity-60 truncate font-mono' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length}`)
+            h('p', { className: 'text-xs sm:text-sm font-extrabold truncate' }, rawTitle),
+            h('p', { className: 'text-[11px] opacity-70 font-mono text-teal-400 font-semibold' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length} (Tap for TOC)`)
           ),
 
-          // Right: Options
+          // Right: Action Buttons (TTS + Display + Close)
           h('div', { className: 'flex items-center gap-1.5 shrink-0' },
+            // TTS Action Pill Button
             h('button', {
               onClick: (e) => {
                 e.stopPropagation();
-                setShowTtsSheet(prev => !prev);
-                setShowVisualSheet(false);
+                if (isTtsActive) {
+                  pauseTTS();
+                } else {
+                  startTTS(0);
+                }
                 window.NativeBridge?.haptic?.('selection');
               },
-              className: `p-2 rounded-xl text-inherit transition-all active:scale-90 cursor-pointer ${isTtsActive ? 'text-teal-400 bg-teal-500/20' : 'hover:bg-white/10'}`,
-              title: 'TTS Voice & Narration Options'
-            }, ic(Volume2, 18)),
+              className: `px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-90 cursor-pointer flex items-center gap-1 border ${
+                isTtsActive ? 'bg-teal-500 text-white border-teal-400 shadow-md shadow-teal-500/30' : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+              }`,
+              title: isTtsActive ? (isTtsPlaying ? 'Pause TTS' : 'Resume TTS') : 'Start TTS'
+            },
+              ic(isTtsPlaying ? Pause : Volume2, 16),
+              h('span', { className: 'hidden sm:inline' }, isTtsActive ? (isTtsPlaying ? 'Pause' : 'Resume') : 'TTS')
+            ),
+
+            // Display / Font Options
             h('button', {
               onClick: (e) => {
                 e.stopPropagation();
@@ -2598,26 +2773,30 @@ const formatModelName = (id, displayName) => {
                 setShowTtsSheet(false);
                 window.NativeBridge?.haptic?.('selection');
               },
-              className: `p-2 rounded-xl text-inherit transition-all active:scale-90 cursor-pointer ${showVisualSheet ? 'bg-teal-500 text-white shadow' : 'hover:bg-white/10'}`,
+              style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
+              className: `p-2 rounded-xl border transition-all active:scale-90 cursor-pointer ${showVisualSheet ? 'bg-teal-500 text-white border-teal-400' : 'bg-white/10 hover:bg-white/20'}`,
               title: 'Visual Options & Typography'
-            }, ic(Type, 18)),
+            }, ic(Type, 17)),
+
+            // Close
             h('button', {
               onClick: (e) => {
                 e.stopPropagation();
                 stopTTS();
                 onClose();
               },
-              className: 'p-2 rounded-xl hover:bg-white/10 active:scale-90 transition-all text-inherit cursor-pointer',
-              title: 'Close Reader (Esc)'
-            }, ic(X, 18))
+              style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
+              className: 'p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 transition-all cursor-pointer border',
+              title: 'Close Reader'
+            }, ic(X, 17))
           )
         ),
 
-        // ── READING BODY: CONTINUOUS SEAMLESS MULTI-CHAPTER SCROLL ──
+        // ── READING BODY: VIRTUAL WINDOWED MULTI-CHAPTER SCROLL (0% LAG) ──
         h('main', {
           ref: contentContainerRef,
           onScroll: handleScroll,
-          onClick: (e) => {
+          onClick: () => {
             if (!window.getSelection()?.toString()) {
               setShowOverlay(prev => !prev);
               setShowVisualSheet(false);
@@ -2635,32 +2814,31 @@ const formatModelName = (id, displayName) => {
             zIndex: 10,
             backgroundColor: activeTheme.hexBg,
             color: activeTheme.hexText,
-            paddingTop: '68px',
+            paddingTop: '74px',
             paddingBottom: '90px'
           },
           className: `w-full mx-auto select-text ${marginPaddings[marginWidth] || marginPaddings.normal} transition-colors`
         },
-          safeChapters.map((ch, cIdx) => {
-            const chTitle = ch.title || `Chapter ${cIdx + 1}`;
+          visibleChapters.map((ch) => {
+            const chTitle = ch.title || `Chapter ${ch.realIdx + 1}`;
             const chContent = ch.content || ch.text || '';
             const chParagraphs = chContent.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
+            const isCurrentActive = ch.realIdx === activeChapterIdx;
 
             return h('section', {
-              key: cIdx,
-              id: `chapter-anchor-${cIdx}`,
-              className: 'mb-20 scroll-mt-20'
+              key: ch.realIdx,
+              className: 'mb-16'
             },
               // Chapter Header
               h('div', { className: 'mb-8 pt-4 pb-4 border-b text-center', style: { borderColor: activeTheme.hexBorder } },
-                h('h1', { className: 'text-xl sm:text-2xl font-bold tracking-tight' }, chTitle),
-                h('p', { className: 'text-xs opacity-50 mt-1 font-mono' }, `Part ${cIdx + 1} of ${safeChapters.length}`)
+                h('h1', { className: 'text-xl sm:text-2xl font-extrabold tracking-tight' }, chTitle),
+                h('p', { className: 'text-xs opacity-60 mt-1 font-mono text-teal-400 font-bold' }, `Part ${ch.realIdx + 1} of ${safeChapters.length}`)
               ),
 
               // Chapter Paragraphs
               chParagraphs.length === 0 ? h('p', { className: 'opacity-40 italic text-center py-10' }, 'No text content in this chapter...') :
                 chParagraphs.map((p, pIdx) => {
-                  const isCurrentActiveChapter = activeChapterIdx === cIdx;
-                  const sentencesInP = isCurrentActiveChapter ? ttsSentences.filter(s => s.paragraphIdx === pIdx) : [];
+                  const sentencesInP = isCurrentActive ? ttsSentences.filter(s => s.paragraphIdx === pIdx) : [];
 
                   return h('p', {
                     key: pIdx,
@@ -2673,7 +2851,7 @@ const formatModelName = (id, displayName) => {
                     sentencesInP.length > 0 ?
                       sentencesInP.map((sObj, sIdx) => {
                         const globalSentenceIdx = ttsSentences.indexOf(sObj);
-                        const isSentenceActive = isTtsActive && isCurrentActiveChapter && currentSentenceIdx === globalSentenceIdx;
+                        const isSentenceActive = isTtsActive && isCurrentActive && currentSentenceIdx === globalSentenceIdx;
 
                         return h('span', {
                           key: sIdx,
@@ -2707,99 +2885,26 @@ const formatModelName = (id, displayName) => {
                   );
                 }),
 
-              // End of Chapter Divider
-              cIdx < safeChapters.length - 1 && h('div', {
-                className: 'mt-16 pt-8 pb-4 border-t border-dashed text-center opacity-40',
+              // Seamless Next Chapter Transition Trigger
+              isCurrentActive && activeChapterIdx < safeChapters.length - 1 && h('div', {
+                className: 'mt-12 pt-8 pb-6 border-t border-dashed text-center',
                 style: { borderColor: activeTheme.hexBorder }
               },
-                h('p', { className: 'text-xs uppercase tracking-widest font-mono' }, `—— End of Part ${cIdx + 1} · Scroll to Continue ——`)
+                h('button', {
+                  onClick: (e) => {
+                    e.stopPropagation();
+                    scrollToChapter(activeChapterIdx + 1);
+                  },
+                  style: { backgroundColor: activeTheme.hexBarBg, borderColor: activeTheme.hexBorder, color: activeTheme.hexText },
+                  className: 'px-5 py-2.5 rounded-2xl border text-xs font-bold shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto cursor-pointer'
+                },
+                  ic(ChevronDown, 16),
+                  h('span', null, `Continue to Part ${activeChapterIdx + 2}: ${(safeChapters[activeChapterIdx + 1]?.title || '').substring(0, 30)}...`),
+                  ic(ArrowRight, 16)
+                )
               )
             );
           })
-        ),
-
-        // ── TTS ADVANCED OPTIONS SHEET ──
-        showTtsSheet && h('div', {
-          onClick: (e) => e.stopPropagation(),
-          style: {
-            position: 'absolute',
-            bottom: '76px',
-            left: '16px',
-            right: '16px',
-            maxWidth: '520px',
-            margin: '0 auto',
-            zIndex: 60,
-            backgroundColor: activeTheme.hexBarBg,
-            border: `1px solid ${activeTheme.hexBorder}`,
-            color: activeTheme.hexText
-          },
-          className: 'rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200 backdrop-blur-xl'
-        },
-          h('div', { className: 'flex items-center justify-between border-b pb-2', style: { borderColor: activeTheme.hexBorder } },
-            h('span', { className: 'text-xs font-bold uppercase tracking-wider text-teal-400' }, '🎙️ TTS & Voice Settings'),
-            h('button', { onClick: (e) => { e.stopPropagation(); setShowTtsSheet(false); }, className: 'p-1 hover:bg-white/10 rounded-lg cursor-pointer active:scale-90' }, ic(X, 15))
-          ),
-          // Speed Slider
-          h('div', { className: 'space-y-1.5' },
-            h('div', { className: 'flex justify-between text-xs font-semibold opacity-80' },
-              h('span', null, 'Reading Speed'),
-              h('span', { className: 'font-mono text-teal-400 font-bold' }, `${ttsSpeed.toFixed(1)}x`)
-            ),
-            h('div', { className: 'flex items-center gap-3' },
-              h('button', {
-                onClick: (e) => { e.stopPropagation(); const n = Math.max(0.5, parseFloat((ttsSpeed - 0.1).toFixed(1))); setTtsSpeed(n); localStorage.setItem('readerTtsSpeed', n); },
-                className: 'px-2 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs cursor-pointer active:scale-90',
-                style: { borderColor: activeTheme.hexBorder }
-              }, '-0.1'),
-              h('input', {
-                type: 'range',
-                min: 0.5,
-                max: 3.0,
-                step: 0.1,
-                value: ttsSpeed,
-                onChange: (e) => { const n = parseFloat(e.target.value); setTtsSpeed(n); localStorage.setItem('readerTtsSpeed', n); },
-                className: 'flex-1 accent-teal-500 cursor-pointer'
-              }),
-              h('button', {
-                onClick: (e) => { e.stopPropagation(); const n = Math.min(3.0, parseFloat((ttsSpeed + 0.1).toFixed(1))); setTtsSpeed(n); localStorage.setItem('readerTtsSpeed', n); },
-                className: 'px-2 py-1 rounded-lg border hover:bg-white/10 font-bold text-xs cursor-pointer active:scale-90',
-                style: { borderColor: activeTheme.hexBorder }
-              }, '+0.1')
-            )
-          ),
-          // Pitch Slider
-          h('div', { className: 'space-y-1.5' },
-            h('div', { className: 'flex justify-between text-xs font-semibold opacity-80' },
-              h('span', null, 'Voice Pitch'),
-              h('span', { className: 'font-mono font-bold' }, `${ttsPitch.toFixed(1)}x`)
-            ),
-            h('input', {
-              type: 'range',
-              min: 0.5,
-              max: 1.5,
-              step: 0.1,
-              value: ttsPitch,
-              onChange: (e) => { const n = parseFloat(e.target.value); setTtsPitch(n); localStorage.setItem('readerTtsPitch', n); },
-              className: 'w-full accent-teal-500 cursor-pointer'
-            })
-          ),
-          // Highlight Colors
-          h('div', { className: 'space-y-1.5 pt-1' },
-            h('span', { className: 'text-xs font-semibold opacity-80 block' }, 'Highlight Color'),
-            h('div', { className: 'flex items-center gap-3' },
-              ['amber', 'cyan', 'emerald', 'purple', 'rose'].map(c => h('button', {
-                key: c,
-                onClick: (e) => {
-                  e.stopPropagation();
-                  setTtsHighlightColor(c);
-                  localStorage.setItem('readerHighlightColor', c);
-                },
-                className: `w-7 h-7 rounded-full border border-white/20 transition-all active:scale-90 cursor-pointer ${ttsHighlightColor === c ? 'ring-2 ring-white scale-110 shadow-lg' : 'opacity-60'} ${
-                  c === 'amber' ? 'bg-amber-400' : c === 'cyan' ? 'bg-cyan-400' : c === 'emerald' ? 'bg-emerald-400' : c === 'purple' ? 'bg-purple-400' : 'bg-rose-400'
-                }`
-              }))
-            )
-          )
         ),
 
         // ── VISUAL OPTIONS & TYPOGRAPHY SHEET ──
@@ -2827,7 +2932,7 @@ const formatModelName = (id, displayName) => {
           h('div', { className: 'space-y-1.5' },
             h('div', { className: 'flex justify-between text-xs font-semibold opacity-80' },
               h('span', null, 'Font Size'),
-              h('span', { className: 'font-mono' }, `${fontSize}px`)
+              h('span', { className: 'font-mono text-teal-400 font-bold' }, `${fontSize}px`)
             ),
             h('div', { className: 'flex items-center gap-3' },
               h('button', {
@@ -2882,29 +2987,6 @@ const formatModelName = (id, displayName) => {
                 style: { borderColor: activeTheme.hexBorder }
               }, t.label))
             )
-          ),
-          // Line Spacing & Margins
-          h('div', { className: 'grid grid-cols-2 gap-3 pt-1' },
-            h('div', { className: 'space-y-1' },
-              h('span', { className: 'text-[11px] font-semibold opacity-80' }, 'Line Spacing'),
-              h('div', { className: 'flex rounded-xl overflow-hidden border', style: { borderColor: activeTheme.hexBorder } },
-                [1.4, 1.8, 2.2].map(lh => h('button', {
-                  key: lh,
-                  onClick: (e) => { e.stopPropagation(); setLineHeight(lh); localStorage.setItem('readerLineHeight', lh); },
-                  className: `flex-1 py-1 text-xs font-bold transition-all active:scale-90 cursor-pointer ${lineHeight === lh ? 'bg-teal-500 text-white' : 'hover:bg-white/10'}`
-                }, `${lh}x`))
-              )
-            ),
-            h('div', { className: 'space-y-1' },
-              h('span', { className: 'text-[11px] font-semibold opacity-80' }, 'Margins'),
-              h('div', { className: 'flex rounded-xl overflow-hidden border', style: { borderColor: activeTheme.hexBorder } },
-                ['tight', 'normal', 'wide'].map(m => h('button', {
-                  key: m,
-                  onClick: (e) => { e.stopPropagation(); setMarginWidth(m); localStorage.setItem('readerMarginWidth', m); },
-                  className: `flex-1 py-1 text-[11px] font-bold capitalize transition-all active:scale-90 cursor-pointer ${marginWidth === m ? 'bg-teal-500 text-white' : 'hover:bg-white/10'}`
-                }, m))
-              )
-            )
           )
         ),
 
@@ -2937,7 +3019,7 @@ const formatModelName = (id, displayName) => {
             h('div', { className: 'flex items-center justify-between border-b pb-3', style: { borderColor: activeTheme.hexBorder } },
               h('div', null,
                 h('h3', { className: 'text-sm font-bold truncate' }, 'Table of Contents'),
-                h('p', { className: 'text-[11px] opacity-60' }, `${safeChapters.length} chapters available`)
+                h('p', { className: 'text-[11px] opacity-60 font-mono text-teal-400' }, `${safeChapters.length} chapters available`)
               ),
               h('button', { onClick: () => setShowTocDrawer(false), className: 'p-1 hover:bg-white/10 rounded-lg cursor-pointer active:scale-90' }, ic(X, 18))
             ),
@@ -2957,7 +3039,7 @@ const formatModelName = (id, displayName) => {
           )
         ),
 
-        // ── ICON-ONLY FLOATING BOTTOM TOOLBAR ──
+        // ── CRISP HIGH-CONTRAST FLOATING BOTTOM TOOLBAR ──
         h('footer', {
           onClick: (e) => e.stopPropagation(),
           style: {
@@ -2966,7 +3048,7 @@ const formatModelName = (id, displayName) => {
             left: 0,
             right: 0,
             width: '100%',
-            height: '62px',
+            height: '64px',
             zIndex: 50,
             backgroundColor: activeTheme.hexBarBg,
             borderTop: `1px solid ${activeTheme.hexBorder}`,
@@ -2974,17 +3056,18 @@ const formatModelName = (id, displayName) => {
             transform: showOverlay ? 'translateY(0)' : 'translateY(100%)',
             transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
           },
-          className: 'px-4 py-2 flex items-center justify-around gap-2 shadow-2xl backdrop-blur-xl'
+          className: 'px-3 sm:px-6 py-2 flex items-center justify-between gap-2 shadow-2xl backdrop-blur-xl'
         },
-          // 1. Prev Chapter Icon
+          // 1. Prev Chapter Button
           h('button', {
             disabled: activeChapterIdx <= 0,
             onClick: (e) => { e.stopPropagation(); scrollToChapter(activeChapterIdx - 1); },
-            className: 'p-2.5 rounded-2xl hover:bg-white/10 disabled:opacity-20 transition-all active:scale-90 cursor-pointer text-inherit',
+            style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
+            className: 'px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all active:scale-90 cursor-pointer border flex items-center gap-1 text-xs font-bold',
             title: 'Previous Chapter'
-          }, ic(SkipBack, 20)),
+          }, ic(SkipBack, 16), h('span', { className: 'hidden sm:inline' }, 'Prev')),
 
-          // 2. TTS Play/Pause Action Button
+          // 2. TTS Narration Play/Pause Button
           h('button', {
             onClick: (e) => {
               e.stopPropagation();
@@ -2992,44 +3075,54 @@ const formatModelName = (id, displayName) => {
               else startTTS(0);
               window.NativeBridge?.haptic?.('selection');
             },
-            className: `p-3 rounded-2xl transition-all active:scale-90 cursor-pointer flex items-center justify-center ${isTtsActive ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/25 ring-2 ring-teal-400' : 'hover:bg-white/10 text-inherit'}`,
+            className: `px-4 py-2 rounded-xl font-extrabold text-xs transition-all active:scale-90 cursor-pointer flex items-center gap-1.5 shadow-lg ${
+              isTtsActive ? 'bg-teal-500 text-white shadow-teal-500/30 ring-2 ring-teal-400' : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+            }`,
             title: isTtsActive ? (isTtsPlaying ? 'Pause TTS' : 'Resume TTS') : 'Play TTS Narration'
-          }, ic(isTtsPlaying ? Pause : Play, 20)),
+          },
+            ic(isTtsPlaying ? Pause : Play, 16),
+            h('span', null, isTtsActive ? (isTtsPlaying ? 'Pause' : 'Resume') : 'Narrate')
+          ),
 
-          // 3. Table of Contents Icon
+          // 3. Table of Contents Button
           h('button', {
             onClick: (e) => { e.stopPropagation(); setShowTocDrawer(true); window.NativeBridge?.haptic?.('selection'); },
-            className: 'p-2.5 rounded-2xl hover:bg-white/10 transition-all active:scale-90 cursor-pointer text-inherit',
+            style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
+            className: 'px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-90 cursor-pointer border flex items-center gap-1 text-xs font-bold',
             title: 'Table of Contents'
-          }, ic(List, 20)),
+          }, ic(List, 16), h('span', { className: 'hidden sm:inline' }, 'TOC')),
 
-          // 4. Typography / Visual Sheet Icon
+          // 4. Visual / Font Settings Button
           h('button', {
             onClick: (e) => { e.stopPropagation(); setShowVisualSheet(prev => !prev); setShowTtsSheet(false); window.NativeBridge?.haptic?.('selection'); },
-            className: `p-2.5 rounded-2xl transition-all active:scale-90 cursor-pointer ${showVisualSheet ? 'bg-teal-500 text-white shadow' : 'hover:bg-white/10 text-inherit'}`,
+            style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
+            className: `px-3 py-2 rounded-xl border transition-all active:scale-90 cursor-pointer flex items-center gap-1 text-xs font-bold ${
+              showVisualSheet ? 'bg-teal-500 text-white border-teal-400' : 'bg-white/10 hover:bg-white/20'
+            }`,
             title: 'Font & Display Settings'
-          }, ic(Type, 20)),
+          }, ic(Type, 16), h('span', { className: 'hidden sm:inline' }, 'Font')),
 
-          // 5. Next Chapter Icon
+          // 5. Next Chapter Button
           h('button', {
             disabled: activeChapterIdx >= safeChapters.length - 1,
             onClick: (e) => { e.stopPropagation(); scrollToChapter(activeChapterIdx + 1); },
-            className: 'p-2.5 rounded-2xl hover:bg-white/10 disabled:opacity-20 transition-all active:scale-90 cursor-pointer text-inherit',
+            style: { color: activeTheme.hexText, borderColor: activeTheme.hexBorder },
+            className: 'px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all active:scale-90 cursor-pointer border flex items-center gap-1 text-xs font-bold',
             title: 'Next Chapter'
-          }, ic(SkipForward, 20))
+          }, h('span', { className: 'hidden sm:inline' }, 'Next'), ic(SkipForward, 16))
         ),
 
-        // ── MICRO BOTTOM STATUS BAR ──
+        // ── MICRO BOTTOM STATUS BAR (When overlay is hidden) ──
         !showOverlay && h('div', {
           style: {
             position: 'absolute',
-            bottom: '4px',
+            bottom: '6px',
             left: '16px',
             right: '16px',
             zIndex: 40,
             pointerEvents: 'none'
           },
-          className: 'flex items-center justify-between text-[10px] font-mono opacity-40'
+          className: 'flex items-center justify-between text-[11px] font-mono opacity-50 bg-black/40 px-3 py-1 rounded-full backdrop-blur-md text-white'
         },
           h('span', { className: 'truncate max-w-[65%]' }, `${rawTitle} (${activeChapterIdx + 1}/${safeChapters.length})`),
           h('span', null, `${scrollPercent}%`)
@@ -3339,6 +3432,8 @@ const formatModelName = (id, displayName) => {
       const [toasts, setToasts] = useState([]);
       const [availableUpdate, setAvailableUpdate] = useState(null);
       const [downloadSuccessModal, setDownloadSuccessModal] = useState(null);
+      window.__setDownloadModal = setDownloadSuccessModal;
+      window.__toast = toast;
 
       // ── UNIVERSAL SAVE BLOB HELPER (Native Folder Picker / MediaStore / HTML5) ──
       const saveUniversalBlob = async (blob, fileName, mimeType) => {
