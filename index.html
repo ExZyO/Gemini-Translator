@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.7.8';
+    const VERSION = '5.7.9';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1523,7 +1523,7 @@
     // ═══════════════════════════════════════════════════════════════
     // AI TABLE OF CONTENTS & METADATA POLISHER ENGINE
     // ═══════════════════════════════════════════════════════════════
-                        window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus, customProvider) {
+                            window.aiPolishEpubToc = async function(sampleChapters, bookTitle, onRetryStatus, customProvider) {
       const provider = customProvider || localStorage.getItem('translationProvider') || 'gemini';
       
       let allKeys = [];
@@ -1544,7 +1544,7 @@
       const rotateKey = () => { keyIndex++; return getActiveKey(); };
 
       const compactLines = sampleChapters.map(c => `${c.index}. ${c.rawName || ''}`).join('\n');
-      const prompt = `You are an expert digital eBook editor. Standardize raw/scraped chapter names into clean, readable chapter titles (e.g. "Chapter 1: The Awakening", "Chapter 2: ..."). Strip .xhtml, web tags, or duplicated prefixes.
+      const prompt = `You are an expert digital eBook editor. Standardize raw/scraped chapter names into clean, readable chapter titles formatted as "Chapter N - Title" (e.g. "Chapter 1 - The Awakening", "Chapter 2 - ..."). Strip .xhtml, web tags, or duplicated numbers.
 Book Title: ${bookTitle || 'Unknown'}
 
 Chapters to clean:
@@ -1554,20 +1554,29 @@ Return strictly a JSON object with this exact format:
 {
   "cleanedTitle": "Official Book Title",
   "chapters": [
-    { "index": 1, "cleanedName": "Chapter 1: Title" }
+    { "index": 1, "cleanedName": "Chapter 1 - Title" }
   ]
 }`;
 
-      // Diverse Gemini 3 lineup with independent rate limit buckets
+      const safetySettings = [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+      ];
+
+      // Strictly verified official Gemini 3 Flash endpoints (high speed & high quota)
       const preferredModel = localStorage.getItem('geminiModel') || 'gemini-3.5-flash-lite';
       const geminiModels = Array.from(new Set([
         preferredModel,
         'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-lite',
         'gemini-3.5-flash',
         'gemini-3.6-flash',
         'gemini-3.7-flash',
-        'gemini-3.7-pro'
-      ])).filter(m => m.startsWith('gemini-3'));
+        'gemini-3-flash-preview'
+      ])).filter(m => m.startsWith('gemini-3') && !m.includes('pro'));
 
       let modelIdx = 0;
       const maxAttempts = 30; // High resilience
@@ -1594,10 +1603,11 @@ Return strictly a JSON object with this exact format:
                 signal: ctrl.signal,
                 body: JSON.stringify({
                   contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                  safetySettings,
                   generationConfig: {
                     temperature: 0.1,
                     responseMimeType: 'application/json',
-                    thinkingConfig: { thinkingBudget: 0 } // Disable reasoning tokens for instant sub-second response
+                    thinkingConfig: { thinkingBudget: 0 }
                   }
                 })
               });
@@ -1639,7 +1649,13 @@ Return strictly a JSON object with this exact format:
               throw new Error(`Gemini Error ${res.status}: ${errTxt.substring(0, 150)}`);
             }
             data = await res.json();
-            rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            
+            // Correctly filter out thought reasoning tokens from Gemini 3
+            const candidateParts = data?.candidates?.[0]?.content?.parts || [];
+            const actualParts = candidateParts.filter(p => !p.thought);
+            rawJson = actualParts.length > 0
+              ? actualParts.map(p => p.text || '').join('')
+              : (candidateParts.map(p => p.text || '').join(''));
           } else if (provider === 'deepseek') {
             const ctrl = new AbortController();
             const timeoutId = setTimeout(() => ctrl.abort(), 15000);
@@ -1729,7 +1745,14 @@ Return strictly a JSON object with this exact format:
             rawJson = data.content?.[0]?.text || '';
           }
 
-          const clean = rawJson.replace(/^\`\`\`json\s*/i, '').replace(/\s*\`\`\`$/i, '').trim();
+          let clean = rawJson.replace(/^\`\`\`json\s*/i, '').replace(/\s*\`\`\`$/i, '').trim();
+          
+          // Fallback regex to extract JSON object if wrapped in text
+          if (!clean.startsWith('{')) {
+            const match = clean.match(/\{[\s\S]*\}/);
+            if (match) clean = match[0];
+          }
+
           const parsed = JSON.parse(clean);
           
           let pTok = Math.ceil(prompt.length / 4);
