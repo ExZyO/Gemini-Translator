@@ -14,24 +14,56 @@
             }
         },
 
-        checkForUpdate: async (currentVersion = "6.9.4") => {
+        checkForUpdate: async (currentVersion = "6.9.5") => {
             try {
-                const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest', {
-                    headers: { 'Accept': 'application/vnd.github.v3+json' }
-                });
-                if (!res.ok) return null;
-                const data = await res.json();
-                const latestTag = (data.tag_name || '').replace(/^v/i, '').trim();
-                const current = currentVersion.replace(/^v/i, '').trim();
-                
-                const isNewer = latestTag && (latestTag !== current);
+                let remoteVersion = null;
+                let releaseNotes = '';
+
+                // Source 1: Check GitHub Releases metadata
+                try {
+                    const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest', {
+                        headers: { 'Accept': 'application/vnd.github.v3+json' }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        releaseNotes = data.body || '';
+                        const titleMatch = (data.name || '').match(/v?(\d+\.\d+\.\d+)/i);
+                        if (titleMatch) remoteVersion = titleMatch[1];
+                    }
+                } catch (re) {}
+
+                // Source 2: Check raw package.json (no rate limits)
+                if (!remoteVersion) {
+                    try {
+                        const pkgRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now());
+                        if (pkgRes.ok) {
+                            const pkgData = await pkgRes.json();
+                            if (pkgData.version && pkgData.version !== '1.0.0') {
+                                remoteVersion = pkgData.version;
+                            }
+                        }
+                    } catch (pe) {}
+                }
+
+                if (!remoteVersion) return null;
+
+                // Strict Semver Math: remote > current
+                const parseVer = (v) => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+                const [rMajor = 0, rMinor = 0, rPatch = 0] = parseVer(remoteVersion);
+                const [cMajor = 0, cMinor = 0, cPatch = 0] = parseVer(currentVersion);
+
+                let isNewer = false;
+                if (rMajor > cMajor) isNewer = true;
+                else if (rMajor === cMajor && rMinor > cMinor) isNewer = true;
+                else if (rMajor === cMajor && rMinor === cMinor && rPatch > cPatch) isNewer = true;
+
                 return {
                     isNewer,
-                    latestVersion: 'v' + latestTag,
-                    currentVersion: 'v' + current,
-                    releaseNotes: data.body || '',
+                    latestVersion: 'v' + [rMajor, rMinor, rPatch].join('.'),
+                    currentVersion: 'v' + [cMajor, cMinor, cPatch].join('.'),
+                    releaseNotes,
                     apkUrl: "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
-                    releasePage: data.html_url || "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest"
+                    releasePage: "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest"
                 };
             } catch (e) {
                 console.warn('Update check failed:', e);
