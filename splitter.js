@@ -153,6 +153,21 @@ function cleanChapterTitleString(raw, fallbackIndex) {
     // Normalize whitespace
     s = s.replace(/\s+/g, ' ').trim();
 
+    // Check for special Light Novel / Anthology structures (Volumes, Years, Arcs, Prologues, etc.)
+    const isSpecialSection = /^(?:year\s*\d+|volume\s*\d+|vol\s*\d+|book\s*\d+|arc\s*\d+|prologue|epilogue|interlude|monologue|afterword|synopsis|illustration|illustrations|side\s*story|\bss\b|part\s*\d+|extra|character\s*intro)/i.test(s);
+
+    if (isSpecialSection) {
+        s = s.replace(/^(Year\s*\d+)[,\s]+(Volume\s*[\d\.]+)[,\s:\-]*(.*)$/i, (m, y, v, rest) => {
+            return rest ? `${y}, ${v} - ${rest.trim()}` : `${y}, ${v}`;
+        });
+        s = s.replace(/^(Volume\s*[\d\.]+)[,\s:\-]+(?:Volume\s*[\d\.]+)?[,\s:\-]*(.*)$/i, (m, v, rest) => {
+            return rest ? `${v} - ${rest.trim()}` : v;
+        });
+        s = s.replace(/^Illustration(?:s)?\s*#?(\d+)/i, 'Illustration #$1');
+        s = s.replace(/^Part\s*(\d+)[\s:\.\-]+(.*)$/i, (m, p, rest) => rest ? `Part ${p} - ${rest}` : `Part ${p}`);
+        return s;
+    }
+
     // Strip leading scrape numbers like "0003 4 Chapter 4" or "0000 1 Chapter 1"
     s = s.replace(/^(?:\d+[\s\.\-_]+)+(?:Chapter|\bCh\b)/i, 'Chapter');
 

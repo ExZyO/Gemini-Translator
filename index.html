@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.7.9';
+    const VERSION = '5.8.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1544,7 +1544,19 @@
       const rotateKey = () => { keyIndex++; return getActiveKey(); };
 
       const compactLines = sampleChapters.map(c => `${c.index}. ${c.rawName || ''}`).join('\n');
-      const prompt = `You are an expert digital eBook editor. Standardize raw/scraped chapter names into clean, readable chapter titles formatted as "Chapter N - Title" (e.g. "Chapter 1 - The Awakening", "Chapter 2 - ..."). Strip .xhtml, web tags, or duplicated numbers.
+      const prompt = `You are an expert digital eBook editor and Table of Contents specialist.
+Task: Standardize raw/scraped Table of Contents entries into clean, readable, professional titles.
+
+CRITICAL RULES:
+1. PRESERVE NOVEL HIERARCHY & SPECIAL SECTIONS:
+   - If an entry is a Volume, Arc, Year, or Book (e.g. "Year 3, Volume 3", "Volume 1", "Book 2: Earth", "Arc 4"), PRESERVE the Volume/Arc name (e.g. "Year 3, Volume 3" or "Volume 1").
+   - If an entry is a Prologue, Epilogue, Interlude, Monologue, Side Story (SS), Afterword, Synopsis, or Illustrations, KEEP its special name (e.g. "Prologue: Shiina Hiyori's Monologue", "Illustrations", "Epilogue", "Side Story 1").
+   - If an entry has Parts or Sub-chapters (e.g. "Part 1", "Part 2"), preserve the Part structure.
+   - DO NOT flatten or renumber everything into a generic "Chapter 1 to 500" if the book is an anthology or light novel series with Volumes/Years/Arcs!
+2. CLEAN STORY CHAPTERS:
+   - For regular chapters, format cleanly as "Chapter N - Title" (e.g. "Chapter 1 - Opening", "Chapter 2 - A Surprise Attack").
+   - Strip ugly web scrape artifacts, raw file paths (.xhtml, .html), and duplicate prefix numbers (e.g. "136: Chapter 136 - 136: ..." -> "Chapter 136 - ...").
+
 Book Title: ${bookTitle || 'Unknown'}
 
 Chapters to clean:
@@ -1554,7 +1566,7 @@ Return strictly a JSON object with this exact format:
 {
   "cleanedTitle": "Official Book Title",
   "chapters": [
-    { "index": 1, "cleanedName": "Chapter 1 - Title" }
+    { "index": 1, "cleanedName": "Cleaned Title" }
   ]
 }`;
 
