@@ -234,7 +234,7 @@
               }),
               webImportData && h('div', { className: 'book-card' },
                 h('div', { className: 't' }, webImportData.title || 'Untitled Web Novel'),
-                h('div', { className: 'm' }, `By ${webImportData.author || 'Unknown'} · ${webImportData.chapters.length} chapter(s) · ${webImportData.chapters.reduce((a, c) => a + ((c.text || c.content || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
+                h('div', { className: 'm' }, `By ${webImportData.author || 'Unknown'} · ${(webImportData.chapters || []).length} chapter(s) · ${(webImportData.chapters || []).reduce((a, c) => a + ((c.text || c.content || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
                 h('div', { className: 'book-acts' },
                   h('button', { type: 'button', className: 'mini-btn', onClick: () => {
                     const fullText = webImportData.chapters.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
@@ -253,7 +253,7 @@
                   } }, 'Download Raw EPUB')
                 )
               ),
-              webImportData.chapters && webImportData.chapters.length > 0 && h('div', { className: 'card' },
+              webImportData && webImportData.chapters && webImportData.chapters.length > 0 && h('div', { className: 'card' },
                 h('div', { className: 'card-title' }, h('span', null, `Chapters (${webImportData.chapters.length})`)),
                 webImportData.chapters.slice(0, 12).map((c, i) => h('div', { key: i, className: 'set-row' },
                   h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, c.title || `Chapter ${i + 1}`),
