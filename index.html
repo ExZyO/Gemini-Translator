@@ -247,13 +247,15 @@
       'Square', 'FileDown', 'Settings', 'Globe', 'Sparkles', 'Brain', 'Languages',
       'Check', 'ArrowRightLeft', 'Star', 'Clock', 'Layers', 'Scissors', 'Sliders',
       'Plus', 'Minus', 'Maximize2', 'Minimize2', 'BookOpen', 'Key', 'Shield', 'Lock', 'Unlock',
-      'Calendar', 'ArrowUpDown', 'CalendarDays'
+      'Calendar', 'ArrowUpDown', 'CalendarDays', 'Volume2', 'VolumeX', 'Play', 'Pause',
+      'SkipForward', 'SkipBack', 'MoreVertical', 'Type', 'Palette', 'List', 'Compass',
+      'Bookmark', 'Menu', 'ArrowLeft', 'Maximize', 'Minimize', 'ChevronsUp', 'ChevronsDown'
     ];
     iconNamesList.forEach(name => {
       window[name] = LucideIcons[name] || createLucideIcon(name);
     });
 
-    const { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload, Sun, Moon, Columns2, Rows2, History, ChevronDown, ChevronUp, Zap, X, CheckCircle2, AlertCircle, Info, Search, Trash2, RotateCcw, Square, FileDown, Settings, Globe, Sparkles, Brain, Languages, Check, ArrowRightLeft, Star, Clock, Layers, Scissors, Sliders, Plus, Minus, Maximize2, Minimize2, BookOpen, Key, Shield, Lock, Unlock, Calendar, ArrowUpDown } = window;
+    const { Download, Clipboard, Link, BookText, FileText, XCircle, Copy, Loader2, Eye, EyeOff, RefreshCcw, Save, Upload, Sun, Moon, Columns2, Rows2, History, ChevronDown, ChevronUp, Zap, X, CheckCircle2, AlertCircle, Info, Search, Trash2, RotateCcw, Square, FileDown, Settings, Globe, Sparkles, Brain, Languages, Check, ArrowRightLeft, Star, Clock, Layers, Scissors, Sliders, Plus, Minus, Maximize2, Minimize2, BookOpen, Key, Shield, Lock, Unlock, Calendar, ArrowUpDown, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, MoreVertical, Type, Palette, List, Compass, Bookmark, Menu, ArrowLeft, Maximize, Minimize } = window;
     const ic = (Icon, size = 18, className = 'shrink-0') => {
       let comp = Icon;
       if (typeof Icon === 'string') {
@@ -279,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.0.2';
+    const VERSION = '7.1.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2209,109 +2211,612 @@ const formatModelName = (id, displayName) => {
     // ═══════════════════════════════════════
     // READER VIEW MODAL
     // ═══════════════════════════════════════
-    const ReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
+        // ══════════════════════════════════════════════════════════════════════
+    // MOON+ READER ENGINE (OLED Black, Infinite Scroll, TTS Word Highlighter)
+    // ══════════════════════════════════════════════════════════════════════
+    const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
       if (!open) return null;
 
-      const isGeneric = t => !t || typeof t !== 'string' || t.trim() === '' || /^translated\s*(document|file)?$/i.test(t.trim());
-      const safeChapters = Array.isArray(chapters) ? chapters.filter(c => c && typeof c === 'object') : [];
-      const currentChapter = safeChapters.length > 0
-        ? (safeChapters[currentIdx] || safeChapters[0] || { title: '', content: text })
-        : { title: '', content: text };
+      const safeChapters = Array.isArray(chapters) && chapters.length > 0
+        ? chapters.filter(c => c && typeof c === 'object')
+        : [{ title: 'Document', text: text || '' }];
 
-      const rawTitle = typeof currentChapter?.title === 'string' ? currentChapter.title : '';
-      const rawContent = typeof currentChapter?.content === 'string'
-        ? currentChapter.content
-        : (typeof text === 'string' ? text : '');
-      const hasRealTitle = rawTitle && !isGeneric(rawTitle);
-      const paragraphs = rawContent.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
+      const [activeChapterIdx, setActiveChapterIdx] = useState(() => Math.min(Math.max(0, currentIdx || 0), safeChapters.length - 1));
+      const [scrollPercent, setScrollPercent] = useState(0);
+      const [showOverlay, setShowOverlay] = useState(true);
+      const [showVisualSheet, setShowVisualSheet] = useState(false);
+      const [showTocDrawer, setShowTocDrawer] = useState(false);
+      const [showMoreMenu, setShowMoreMenu] = useState(false);
+      const [lineHeight, setLineHeight] = useState(() => parseFloat(localStorage.getItem('readerLineHeight')) || 1.8);
+      const [marginWidth, setMarginWidth] = useState(() => localStorage.getItem('readerMarginWidth') || 'normal'); // tight, normal, wide
+      const [continuousScroll, setContinuousScroll] = useState(() => localStorage.getItem('readerContinuous') !== 'false');
 
-      const themeStyles = {
-        sepia: 'bg-[#fbf0d9] text-[#433422]',
-        dark: 'bg-[#121212] text-[#e0e0e0]',
-        slate: 'bg-[#0f172a] text-[#cbd5e1]',
-        light: 'bg-white text-gray-900'
+      // TTS Engine State
+      const [isTtsActive, setIsTtsActive] = useState(false);
+      const [isTtsPlaying, setIsTtsPlaying] = useState(false);
+      const [ttsSpeed, setTtsSpeed] = useState(() => parseFloat(localStorage.getItem('readerTtsSpeed')) || 1.0);
+      const [ttsHighlightColor, setTtsHighlightColor] = useState(() => localStorage.getItem('readerHighlightColor') || 'amber'); // amber, cyan, emerald, purple, rose
+      const [currentSentenceIdx, setCurrentSentenceIdx] = useState(-1);
+      const [currentWordRange, setCurrentWordRange] = useState(null);
+      const [ttsSentences, setTtsSentences] = useState([]);
+      const utteranceRef = useRef(null);
+      const contentContainerRef = useRef(null);
+
+      const currentChapter = safeChapters[activeChapterIdx] || safeChapters[0] || { title: 'Document', text: '' };
+      const rawTitle = currentChapter.title || `Chapter ${activeChapterIdx + 1}`;
+      const rawContent = currentChapter.content || currentChapter.text || text || '';
+
+      // Themes matching Moon+ Reader
+      const themeConfig = {
+        oled: { bg: 'bg-[#000000]', text: 'text-[#EDEDED]', border: 'border-white/10', barBg: 'bg-[#0a0a0a]/95', accent: 'text-teal-400', name: 'OLED Black' },
+        sepia: { bg: 'bg-[#FBF0D9]', text: 'text-[#433422]', border: 'border-[#433422]/15', barBg: 'bg-[#F4E6C8]/95', accent: 'text-amber-800', name: 'Warm Paper' },
+        slate: { bg: 'bg-[#0F172A]', text: 'text-[#CBD5E1]', border: 'border-slate-700', barBg: 'bg-[#1E293B]/95', accent: 'text-indigo-400', name: 'Midnight' },
+        light: { bg: 'bg-[#FFFFFF]', text: 'text-[#18181B]', border: 'border-gray-200', barBg: 'bg-[#FAFAFA]/95', accent: 'text-indigo-600', name: 'Clean White' }
       };
+      const activeTheme = themeConfig[theme] || themeConfig.oled;
 
-      const fontStyles = {
+      const fontClasses = {
         serif: 'font-serif',
         sans: 'font-sans',
         mono: 'font-mono'
       };
 
+      const marginClasses = {
+        tight: 'px-4 sm:px-6 max-w-4xl',
+        normal: 'px-6 sm:px-12 max-w-3xl',
+        wide: 'px-8 sm:px-16 max-w-2xl'
+      };
+
+      const highlightColors = {
+        amber: { sentence: 'bg-amber-400/25 dark:bg-amber-400/20 text-amber-950 dark:text-amber-100', word: 'bg-amber-400 text-black font-bold px-0.5 rounded' },
+        cyan: { sentence: 'bg-cyan-400/25 dark:bg-cyan-400/20 text-cyan-950 dark:text-cyan-100', word: 'bg-cyan-400 text-black font-bold px-0.5 rounded' },
+        emerald: { sentence: 'bg-emerald-400/25 dark:bg-emerald-400/20 text-emerald-950 dark:text-emerald-100', word: 'bg-emerald-400 text-black font-bold px-0.5 rounded' },
+        purple: { sentence: 'bg-purple-400/25 dark:bg-purple-400/20 text-purple-950 dark:text-purple-100', word: 'bg-purple-400 text-white font-bold px-0.5 rounded' },
+        rose: { sentence: 'bg-rose-400/25 dark:bg-rose-400/20 text-rose-950 dark:text-rose-100', word: 'bg-rose-400 text-white font-bold px-0.5 rounded' }
+      };
+      const activeHighlight = highlightColors[ttsHighlightColor] || highlightColors.amber;
+
+      // Tokenize paragraphs into sentences for TTS
+      useEffect(() => {
+        if (!rawContent) return;
+        const paragraphs = rawContent.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
+        const sentenceList = [];
+        paragraphs.forEach((p, pIdx) => {
+          const matched = p.match(/[^.!?。！？]+[.!?。！？]*/g) || [p];
+          matched.forEach((s, sIdx) => {
+            const trimmed = s.trim();
+            if (trimmed) {
+              sentenceList.push({ text: trimmed, paragraphIdx: pIdx, sentenceIdx: sIdx, fullId: `s-${pIdx}-${sIdx}` });
+            }
+          });
+        });
+        setTtsSentences(sentenceList);
+      }, [rawContent, activeChapterIdx]);
+
+      // Scroll progress tracking
+      const handleScroll = (e) => {
+        const el = e.currentTarget;
+        const total = el.scrollHeight - el.clientHeight;
+        if (total > 0) {
+          const pct = Math.min(100, Math.max(0, Math.round((el.scrollTop / total) * 100)));
+          setScrollPercent(pct);
+        }
+      };
+
+      // TTS Controller
+      const startTTS = (startSentenceIdx = 0) => {
+        if (!window.speechSynthesis || ttsSentences.length === 0) return;
+        window.speechSynthesis.cancel();
+
+        setIsTtsActive(true);
+        setIsTtsPlaying(true);
+        let sIdx = Math.max(0, Math.min(startSentenceIdx, ttsSentences.length - 1));
+
+        const speakNext = (idx) => {
+          if (idx >= ttsSentences.length) {
+            // Chapter complete: move to next chapter if continuous
+            if (activeChapterIdx < safeChapters.length - 1) {
+              const nextChap = activeChapterIdx + 1;
+              setActiveChapterIdx(nextChap);
+              onChapterChange?.(nextChap);
+              setTimeout(() => startTTS(0), 600);
+            } else {
+              setIsTtsActive(false);
+              setIsTtsPlaying(false);
+            }
+            return;
+          }
+
+          setCurrentSentenceIdx(idx);
+          const sentenceObj = ttsSentences[idx];
+          const utter = new SpeechSynthesisUtterance(sentenceObj.text);
+          utter.rate = ttsSpeed;
+          utter.pitch = 1.0;
+
+          // Auto-select natural language voice
+          const voices = window.speechSynthesis.getVoices();
+          const targetVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium'))) ||
+                             voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || voices[0];
+          if (targetVoice) utter.voice = targetVoice;
+
+          utter.onboundary = (event) => {
+            if (event.name === 'word') {
+              setCurrentWordRange({ start: event.charIndex, length: event.charLength || 5 });
+            }
+          };
+
+          utter.onend = () => {
+            speakNext(idx + 1);
+          };
+
+          utter.onerror = (err) => {
+            console.warn('TTS Speech error:', err);
+            speakNext(idx + 1);
+          };
+
+          utteranceRef.current = utter;
+          window.speechSynthesis.speak(utter);
+
+          // Auto scroll to active sentence
+          const sentenceEl = document.getElementById(sentenceObj.fullId);
+          if (sentenceEl) {
+            sentenceEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        };
+
+        speakNext(sIdx);
+      };
+
+      const pauseTTS = () => {
+        if (window.speechSynthesis) {
+          if (isTtsPlaying) {
+            window.speechSynthesis.pause();
+            setIsTtsPlaying(false);
+          } else {
+            window.speechSynthesis.resume();
+            setIsTtsPlaying(true);
+          }
+        }
+      };
+
+      const stopTTS = () => {
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        setIsTtsActive(false);
+        setIsTtsPlaying(false);
+        setCurrentSentenceIdx(-1);
+        setCurrentWordRange(null);
+      };
+
+      const skipTTSSentence = (direction) => {
+        const next = Math.max(0, Math.min(currentSentenceIdx + direction, ttsSentences.length - 1));
+        startTTS(next);
+      };
+
+      const changeChapter = (newIdx) => {
+        const target = Math.max(0, Math.min(newIdx, safeChapters.length - 1));
+        setActiveChapterIdx(target);
+        onChapterChange?.(target);
+        stopTTS();
+        if (contentContainerRef.current) {
+          contentContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        window.NativeBridge?.haptic?.('selection');
+      };
+
+      const paragraphs = rawContent.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
+
       return h('div', {
-        className: `fixed inset-0 z-50 overflow-y-auto flex flex-col transition-colors ${themeStyles[theme] || themeStyles.sepia}`,
-        style: { fontSize: `${fontSize}px`, lineHeight: 1.8 }
+        className: `fixed inset-0 z-50 overflow-hidden flex flex-col select-none transition-colors duration-300 ${activeTheme.bg} ${activeTheme.text}`,
+        style: { fontSize: `${fontSize}px` }
       },
-        // Top Sticky Toolbar
+        // ── TOP OVERLAY HEADER (Moon+ Style) ──
         h('header', {
-          className: 'sticky top-0 z-10 backdrop-blur-md bg-black/10 dark:bg-black/40 border-b border-black/10 dark:border-white/10 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-sm shadow-sm'
+          className: `fixed top-0 inset-x-0 z-30 transition-all duration-300 border-b ${activeTheme.barBg} ${activeTheme.border} backdrop-blur-md px-3 py-2.5 flex items-center justify-between shadow-md ${showOverlay ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`
         },
-          h('div', { className: 'flex items-center gap-2' },
-            h('span', { className: 'font-bold flex items-center gap-1.5' }, ic(BookText, 18), 'Reader View'),
-            safeChapters.length > 1 && h('select', {
-              value: Math.min(Math.max(0, currentIdx || 0), safeChapters.length - 1),
-              onChange: e => onChapterChange && onChapterChange(parseInt(e.target.value) || 0),
-              className: 'ml-2 p-1.5 rounded border border-black/20 dark:border-white/20 bg-transparent text-xs font-semibold max-w-[200px] truncate'
-            }, safeChapters.map((c, i) => h('option', { key: i, value: i, className: 'text-gray-900 bg-white' }, (c && typeof c.title === 'string' && c.title) ? c.title : `Chapter ${i + 1}`)))
+          // Left: Back Arrow to Exit Reader
+          h('button', {
+            onClick: () => {
+              stopTTS();
+              onClose();
+              window.NativeBridge?.haptic?.('selection');
+            },
+            className: 'p-2 rounded-full hover:bg-white/10 active:scale-95 transition-all text-inherit cursor-pointer flex items-center gap-1.5 font-bold',
+            'aria-label': 'Back to App'
+          },
+            ic(ArrowLeft, 22),
+            h('span', { className: 'text-xs font-semibold hidden sm:inline' }, 'Back')
           ),
-          h('div', { className: 'flex items-center gap-2 sm:gap-3 text-xs' },
-            // Font Selector
-            h('div', { className: 'flex rounded-lg overflow-hidden border border-black/20 dark:border-white/20' },
-              ['serif', 'sans', 'mono'].map(f => h('button', {
-                key: f,
-                onClick: () => { setFont(f); localStorage.setItem('readerFont', f); },
-                className: `px-2.5 py-1 uppercase font-semibold transition-colors ${font === f ? 'bg-indigo-600 text-white' : 'hover:bg-black/5 dark:hover:bg-white/10'}`
-              }, f))
+
+          // Center: Book & Chapter Title
+          h('div', { className: 'flex-1 min-w-0 px-3 text-center cursor-pointer', onClick: () => setShowTocDrawer(true) },
+            h('p', { className: 'text-xs sm:text-sm font-bold truncate tracking-tight text-inherit' }, rawTitle),
+            h('p', { className: 'text-[10px] opacity-60 truncate font-mono mt-0.5' }, `Chapter ${activeChapterIdx + 1} of ${safeChapters.length}`)
+          ),
+
+          // Right: Visual Options & Overflow Menu
+          h('div', { className: 'flex items-center gap-1 shrink-0' },
+            h('button', {
+              onClick: () => { setShowVisualSheet(!showVisualSheet); window.NativeBridge?.haptic?.('selection'); },
+              className: `p-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${showVisualSheet ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-white/10'}`,
+              title: 'Visual Options & Typography'
+            }, ic(Type, 18)),
+            h('button', {
+              onClick: () => {
+                const themes = ['oled', 'sepia', 'slate', 'light'];
+                const next = themes[(themes.indexOf(theme) + 1) % themes.length];
+                setTheme(next);
+                localStorage.setItem('readerTheme', next);
+                window.NativeBridge?.haptic?.('selection');
+              },
+              className: 'p-2 rounded-xl hover:bg-white/10 transition-all cursor-pointer',
+              title: `Theme: ${activeTheme.name}`
+            }, ic(Palette, 18)),
+            h('button', {
+              onClick: () => setShowMoreMenu(!showMoreMenu),
+              className: 'p-2 rounded-xl hover:bg-white/10 transition-all cursor-pointer',
+              title: 'More Operations'
+            }, ic(MoreVertical, 18))
+          )
+        ),
+
+        // ── OVERFLOW MENU DROPDOWN ──
+        showMoreMenu && h('div', {
+          className: `fixed top-14 right-3 z-40 w-56 rounded-2xl border p-2 shadow-2xl backdrop-blur-xl ${activeTheme.barBg} ${activeTheme.border} text-xs font-medium space-y-1`
+        },
+          h('button', {
+            onClick: () => { setShowTocDrawer(true); setShowMoreMenu(false); },
+            className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer'
+          }, ic(List, 15), 'Table of Contents'),
+          h('button', {
+            onClick: () => { startTTS(0); setShowMoreMenu(false); },
+            className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer text-teal-400'
+          }, ic(Volume2, 15), 'Read Aloud (TTS)'),
+          h('button', {
+            onClick: () => {
+              setContinuousScroll(!continuousScroll);
+              localStorage.setItem('readerContinuous', String(!continuousScroll));
+              setShowMoreMenu(false);
+              toast(continuousScroll ? 'Paged Reading Mode' : 'Continuous Infinite Scroll', 'info');
+            },
+            className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer'
+          }, ic(Compass, 15), continuousScroll ? 'Switch to Paged View' : 'Switch to Infinite Scroll'),
+          h('div', { className: 'border-t border-white/10 my-1' }),
+          h('button', {
+            onClick: () => {
+              if (document.fullscreenElement) document.exitFullscreen();
+              else document.documentElement.requestFullscreen?.();
+              setShowMoreMenu(false);
+            },
+            className: 'w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 flex items-center gap-2 cursor-pointer'
+          }, ic(Maximize, 15), 'Toggle Device Fullscreen')
+        ),
+
+        // ── READING BODY (Tap center to toggle overlays) ──
+        h('main', {
+          ref: contentContainerRef,
+          onScroll: handleScroll,
+          onClick: (e) => {
+            // Only toggle if not clicking interactive elements or text selection
+            if (!window.getSelection()?.toString()) {
+              setShowOverlay(!showOverlay);
+              setShowVisualSheet(false);
+              setShowMoreMenu(false);
+            }
+          },
+          className: `flex-1 overflow-y-auto w-full mx-auto select-text ${fontClasses[font] || fontClasses.serif} ${marginClasses[marginWidth] || marginClasses.normal} py-14 sm:py-20 transition-all`,
+          style: { lineHeight: lineHeight }
+        },
+          // Chapter Header
+          h('div', { className: 'mb-8 pt-4 pb-4 border-b border-inherit/15 text-center' },
+            h('h1', { className: 'text-xl sm:text-2xl font-bold tracking-tight' }, rawTitle),
+            h('p', { className: 'text-xs opacity-50 mt-1' }, `Part ${activeChapterIdx + 1} of ${safeChapters.length}`)
+          ),
+
+          // Story Paragraphs with real-time sentence and word highlighter
+          paragraphs.length === 0 ? h('p', { className: 'opacity-40 italic text-center py-20' }, 'No text content available in reader...') :
+            paragraphs.map((p, pIdx) => {
+              const sentencesInP = ttsSentences.filter(s => s.paragraphIdx === pIdx);
+              return h('p', {
+                key: pIdx,
+                className: 'mb-6 text-left tracking-normal leading-relaxed text-justify break-words'
+              },
+                sentencesInP.length > 0 ?
+                  sentencesInP.map((sObj, sIdx) => {
+                    const globalSentenceIdx = ttsSentences.indexOf(sObj);
+                    const isSentenceActive = isTtsActive && currentSentenceIdx === globalSentenceIdx;
+
+                    return h('span', {
+                      key: sIdx,
+                      id: sObj.fullId,
+                      onClick: (e) => {
+                        if (isTtsActive) {
+                          e.stopPropagation();
+                          startTTS(globalSentenceIdx);
+                        }
+                      },
+                      className: `transition-colors duration-150 rounded px-0.5 cursor-pointer ${isSentenceActive ? activeHighlight.sentence : 'hover:bg-white/5'}`
+                    },
+                      // If sentence is active and TTS word range is known, highlight word
+                      isSentenceActive && currentWordRange ? (() => {
+                        const str = sObj.text;
+                        const wStart = currentWordRange.start || 0;
+                        const wLen = currentWordRange.length || 5;
+                        const before = str.substring(0, wStart);
+                        const word = str.substring(wStart, wStart + wLen);
+                        const after = str.substring(wStart + wLen);
+                        return h(React.Fragment, null,
+                          before,
+                          h('span', { className: activeHighlight.word }, word),
+                          after,
+                          ' '
+                        );
+                      })() : sObj.text + ' '
+                    );
+                  })
+                : p
+              );
+            }),
+
+          // ── CONTINUOUS INFINITE SCROLL NEXT CHAPTER TRIGGER ──
+          continuousScroll && activeChapterIdx < safeChapters.length - 1 && h('div', {
+            className: 'mt-16 pt-8 pb-12 border-t border-dashed border-inherit/20 text-center space-y-3'
+          },
+            h('p', { className: 'text-xs uppercase tracking-widest opacity-60 font-mono' }, `—— End of Chapter ${activeChapterIdx + 1} ——`),
+            h('button', {
+              onClick: (e) => {
+                e.stopPropagation();
+                changeChapter(activeChapterIdx + 1);
+              },
+              className: 'px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-2xl shadow-lg shadow-teal-500/20 active:scale-95 transition-all cursor-pointer'
+            }, `Continue to Chapter ${activeChapterIdx + 2}: ${safeChapters[activeChapterIdx + 1]?.title || 'Next'}`)
+          )
+        ),
+
+        // ── FLOATING TTS NARRATION PLAYER BAR ──
+        isTtsActive && h('div', {
+          className: `fixed bottom-20 inset-x-4 max-w-xl mx-auto z-40 rounded-2xl border p-3.5 shadow-2xl backdrop-blur-xl ${activeTheme.barBg} ${activeTheme.border} flex flex-col gap-2.5 animate-in slide-in-from-bottom duration-200`
+        },
+          h('div', { className: 'flex items-center justify-between text-xs' },
+            h('div', { className: 'flex items-center gap-2 font-bold text-teal-400 truncate' },
+              ic(Volume2, 16),
+              h('span', { className: 'truncate' }, `Reading Aloud (Sentence ${currentSentenceIdx + 1}/${ttsSentences.length})`)
             ),
-            // Font Size Adjuster
-            h('div', { className: 'flex items-center rounded-lg border border-black/20 dark:border-white/20' },
-              h('button', { onClick: () => { const n = Math.max(14, fontSize - 2); setFontSize(n); localStorage.setItem('readerFontSize', n); }, className: 'px-2.5 py-1 font-bold hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer' }, 'A-'),
-              h('span', { className: 'px-2 font-mono text-[11px]' }, `${fontSize}px`),
-              h('button', { onClick: () => { const n = Math.min(36, fontSize + 2); setFontSize(n); localStorage.setItem('readerFontSize', n); }, className: 'px-2.5 py-1 font-bold hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer' }, 'A+')
-            ),
-            // Theme Switcher
+            h('button', {
+              onClick: stopTTS,
+              className: 'p-1 text-slate-400 hover:text-white rounded-lg'
+            }, ic(X, 16))
+          ),
+          h('div', { className: 'flex items-center justify-between gap-3' },
+            // Speed Controls
             h('div', { className: 'flex items-center gap-1' },
+              [0.75, 1.0, 1.25, 1.5, 2.0].map(spd => h('button', {
+                key: spd,
+                onClick: () => {
+                  setTtsSpeed(spd);
+                  localStorage.setItem('readerTtsSpeed', spd);
+                  if (isTtsActive) startTTS(currentSentenceIdx);
+                },
+                className: `px-2 py-1 text-[10px] font-bold rounded-lg transition-all ${ttsSpeed === spd ? 'bg-teal-500 text-white' : 'hover:bg-white/10 opacity-70'}`
+              }, `${spd}x`))
+            ),
+            // Playback controls
+            h('div', { className: 'flex items-center gap-2' },
+              h('button', { onClick: () => skipTTSSentence(-1), className: 'p-1.5 rounded-lg hover:bg-white/10' }, ic(SkipBack, 18)),
+              h('button', {
+                onClick: pauseTTS,
+                className: 'p-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-full shadow-md'
+              }, ic(isTtsPlaying ? Pause : Play, 18)),
+              h('button', { onClick: () => skipTTSSentence(1), className: 'p-1.5 rounded-lg hover:bg-white/10' }, ic(SkipForward, 18))
+            ),
+            // Highlight color picker
+            h('div', { className: 'flex items-center gap-1' },
+              ['amber', 'cyan', 'emerald', 'purple', 'rose'].map(c => h('button', {
+                key: c,
+                onClick: () => {
+                  setTtsHighlightColor(c);
+                  localStorage.setItem('readerHighlightColor', c);
+                },
+                className: `w-4 h-4 rounded-full border border-white/20 transition-all ${ttsHighlightColor === c ? 'ring-2 ring-white scale-125' : 'opacity-60'} ${
+                  c === 'amber' ? 'bg-amber-400' : c === 'cyan' ? 'bg-cyan-400' : c === 'emerald' ? 'bg-emerald-400' : c === 'purple' ? 'bg-purple-400' : 'bg-rose-400'
+                }`
+              }))
+            )
+          )
+        ),
+
+        // ── VISUAL OPTIONS & TYPOGRAPHY SHEET (Moon+ Style) ──
+        showVisualSheet && h('div', {
+          className: `fixed bottom-16 inset-x-4 max-w-lg mx-auto z-40 rounded-3xl border p-5 shadow-2xl backdrop-blur-2xl ${activeTheme.barBg} ${activeTheme.border} space-y-4 animate-in slide-in-from-bottom duration-200`
+        },
+          h('div', { className: 'flex items-center justify-between border-b border-inherit/15 pb-2' },
+            h('span', { className: 'text-xs font-bold uppercase tracking-wider text-inherit' }, 'Visual Options & Font'),
+            h('button', { onClick: () => setShowVisualSheet(false), className: 'p-1 hover:bg-white/10 rounded-lg' }, ic(X, 15))
+          ),
+          // Font Size Slider
+          h('div', { className: 'space-y-1.5' },
+            h('div', { className: 'flex justify-between text-xs font-semibold opacity-80' },
+              h('span', null, 'Font Size'),
+              h('span', { className: 'font-mono' }, `${fontSize}px`)
+            ),
+            h('div', { className: 'flex items-center gap-3' },
+              h('button', {
+                onClick: () => { const n = Math.max(12, fontSize - 1); setFontSize(n); localStorage.setItem('readerFontSize', n); },
+                className: 'px-2.5 py-1 rounded-lg border border-inherit/20 hover:bg-white/10 font-bold text-xs'
+              }, 'A-'),
+              h('input', {
+                type: 'range',
+                min: 12,
+                max: 38,
+                value: fontSize,
+                onChange: (e) => { const n = parseInt(e.target.value); setFontSize(n); localStorage.setItem('readerFontSize', n); },
+                className: 'flex-1 accent-teal-500'
+              }),
+              h('button', {
+                onClick: () => { const n = Math.min(38, fontSize + 1); setFontSize(n); localStorage.setItem('readerFontSize', n); },
+                className: 'px-2.5 py-1 rounded-lg border border-inherit/20 hover:bg-white/10 font-bold text-xs'
+              }, 'A+')
+            )
+          ),
+          // Font Family
+          h('div', { className: 'space-y-1.5' },
+            h('span', { className: 'text-xs font-semibold opacity-80 block' }, 'Font Family'),
+            h('div', { className: 'grid grid-cols-3 gap-2' },
               [
-                { id: 'sepia', label: 'Paper' },
-                { id: 'dark', label: 'OLED' },
-                { id: 'slate', label: 'Slate' },
-                { id: 'light', label: 'White' }
+                { id: 'serif', label: 'Serif (Literata)' },
+                { id: 'sans', label: 'Sans (Inter)' },
+                { id: 'mono', label: 'Mono (Clean)' }
+              ].map(f => h('button', {
+                key: f.id,
+                onClick: () => { setFont(f.id); localStorage.setItem('readerFont', f.id); },
+                className: `p-2 rounded-xl text-xs font-bold border transition-all ${font === f.id ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'border-inherit/15 hover:bg-white/10 opacity-70'}`
+              }, f.label))
+            )
+          ),
+          // Theme Presets
+          h('div', { className: 'space-y-1.5' },
+            h('span', { className: 'text-xs font-semibold opacity-80 block' }, 'Theme Preset'),
+            h('div', { className: 'grid grid-cols-4 gap-2' },
+              [
+                { id: 'oled', label: 'OLED', bg: 'bg-black text-white' },
+                { id: 'sepia', label: 'Paper', bg: 'bg-[#FBF0D9] text-[#433422]' },
+                { id: 'slate', label: 'Midnight', bg: 'bg-[#0F172A] text-[#CBD5E1]' },
+                { id: 'light', label: 'White', bg: 'bg-white text-black' }
               ].map(t => h('button', {
                 key: t.id,
                 onClick: () => { setTheme(t.id); localStorage.setItem('readerTheme', t.id); },
-                title: t.label,
-                className: `px-2.5 py-1 rounded-lg border border-black/15 dark:border-white/15 text-[11px] font-semibold transition-all cursor-pointer ${theme === t.id ? 'ring-2 ring-indigo-500 bg-indigo-500/10 scale-105' : 'opacity-70 hover:opacity-100'}`
+                className: `p-2 rounded-xl text-xs font-bold border ${t.bg} transition-all ${theme === t.id ? 'ring-2 ring-teal-500 scale-105 shadow-md' : 'opacity-80 border-inherit/20'}`
               }, t.label))
+            )
+          ),
+          // Line Spacing & Margins
+          h('div', { className: 'grid grid-cols-2 gap-3 pt-1' },
+            h('div', { className: 'space-y-1' },
+              h('span', { className: 'text-[11px] font-semibold opacity-80' }, 'Line Spacing'),
+              h('div', { className: 'flex rounded-xl overflow-hidden border border-inherit/20' },
+                [1.4, 1.8, 2.2].map(lh => h('button', {
+                  key: lh,
+                  onClick: () => { setLineHeight(lh); localStorage.setItem('readerLineHeight', lh); },
+                  className: `flex-1 py-1 text-xs font-bold transition-all ${lineHeight === lh ? 'bg-teal-500 text-white' : 'hover:bg-white/10'}`
+                }, `${lh}x`))
+              )
             ),
-            // Close Button
-            h('button', {
-              onClick: onClose,
-              className: 'p-1.5 rounded-full hover:bg-red-500 hover:text-white transition-colors ml-2 cursor-pointer',
-              'aria-label': 'Close Reader Mode'
-            }, ic(X, 18))
+            h('div', { className: 'space-y-1' },
+              h('span', { className: 'text-[11px] font-semibold opacity-80' }, 'Margins'),
+              h('div', { className: 'flex rounded-xl overflow-hidden border border-inherit/20' },
+                ['tight', 'normal', 'wide'].map(m => h('button', {
+                  key: m,
+                  onClick: () => { setMarginWidth(m); localStorage.setItem('readerMarginWidth', m); },
+                  className: `flex-1 py-1 text-[11px] font-bold capitalize transition-all ${marginWidth === m ? 'bg-teal-500 text-white' : 'hover:bg-white/10'}`
+                }, m))
+              )
+            )
           )
         ),
-        // Reading Content Body
-        h('main', { className: `flex-1 max-w-3xl w-full mx-auto px-6 py-10 ${fontStyles[font] || fontStyles.serif}` },
-          hasRealTitle && h('h1', { className: 'text-2xl sm:text-3xl font-bold mb-8 pb-3 border-b border-black/10 dark:border-white/10' }, rawTitle),
-          paragraphs.length === 0 ? h('p', { className: 'opacity-50 italic text-center py-12' }, 'Translating or no content to display in Reader Mode yet...') :
-            paragraphs.map((p, idx) => h('p', { key: idx, className: 'mb-5 text-left tracking-normal leading-relaxed' }, p)),
-          // Navigation Footer
-          safeChapters.length > 1 && h('footer', {
-            className: 'mt-12 pt-6 border-t border-black/10 dark:border-white/10 flex items-center justify-between text-sm'
+
+        // ── TABLE OF CONTENTS DRAWER ──
+        showTocDrawer && h('div', {
+          className: 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-start',
+          onClick: () => setShowTocDrawer(false)
+        },
+          h('div', {
+            className: `w-4/5 max-w-sm h-full ${activeTheme.bg} ${activeTheme.text} border-r ${activeTheme.border} p-5 flex flex-col shadow-2xl animate-in slide-in-from-left duration-200`,
+            onClick: (e) => e.stopPropagation()
           },
-            h('button', {
-              disabled: currentIdx <= 0,
-              onClick: () => { onChapterChange && onChapterChange(Math.max(0, currentIdx - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); },
-              className: 'px-4 py-2 rounded border border-black/20 dark:border-white/20 disabled:opacity-30 hover:bg-black/5 dark:hover:bg-white/10 font-semibold cursor-pointer'
-            }, '← Previous Chapter'),
-            h('span', { className: 'text-xs opacity-70' }, `${Math.min(currentIdx + 1, safeChapters.length)} of ${safeChapters.length}`),
-            h('button', {
-              disabled: currentIdx >= safeChapters.length - 1,
-              onClick: () => { onChapterChange && onChapterChange(Math.min(safeChapters.length - 1, currentIdx + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); },
-              className: 'px-4 py-2 rounded border border-black/20 dark:border-white/20 disabled:opacity-30 hover:bg-black/5 dark:hover:bg-white/10 font-semibold cursor-pointer'
-            }, 'Next Chapter →')
+            h('div', { className: 'flex items-center justify-between border-b border-inherit/15 pb-3' },
+              h('div', null,
+                h('h3', { className: 'text-sm font-bold truncate' }, 'Table of Contents'),
+                h('p', { className: 'text-[11px] opacity-60' }, `${safeChapters.length} chapters available`)
+              ),
+              h('button', { onClick: () => setShowTocDrawer(false), className: 'p-1 hover:bg-white/10 rounded-lg' }, ic(X, 18))
+            ),
+            h('div', { className: 'flex-1 overflow-y-auto py-3 space-y-1' },
+              safeChapters.map((ch, idx) =>
+                h('button', {
+                  key: idx,
+                  onClick: () => { changeChapter(idx); setShowTocDrawer(false); },
+                  className: `w-full text-left p-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-between gap-2 ${activeChapterIdx === idx ? 'bg-teal-500 text-white shadow-sm' : 'hover:bg-white/5 opacity-80'}`
+                },
+                  h('span', { className: 'truncate flex-1' }, `${idx + 1}. ${ch.title || `Chapter ${idx + 1}`}`),
+                  h('span', { className: 'text-[10px] opacity-60 font-mono shrink-0' }, `${(ch.text || ch.content || '').length}c`)
+                )
+              )
+            )
           )
+        ),
+
+        // ── BOTTOM OVERLAY TOOLBAR (Moon+ Style) ──
+        h('footer', {
+          className: `fixed bottom-0 inset-x-0 z-30 transition-all duration-300 border-t ${activeTheme.barBg} ${activeTheme.border} backdrop-blur-md px-4 py-2.5 flex flex-col gap-2 shadow-2xl ${showOverlay ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`
+        },
+          // Row 1: Scrub Progress Slider & Skip Chapter Arrows
+          h('div', { className: 'flex items-center justify-between gap-3 text-xs' },
+            h('button', {
+              disabled: activeChapterIdx <= 0,
+              onClick: () => changeChapter(activeChapterIdx - 1),
+              className: 'p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-30 transition-all cursor-pointer'
+            }, ic(ChevronDown, 16, 'rotate-90')),
+            h('div', { className: 'flex-1 flex items-center gap-2' },
+              h('input', {
+                type: 'range',
+                min: 0,
+                max: safeChapters.length - 1,
+                value: activeChapterIdx,
+                onChange: (e) => changeChapter(parseInt(e.target.value)),
+                className: 'w-full accent-teal-500'
+              })
+            ),
+            h('span', { className: 'text-xs font-mono font-bold opacity-80 shrink-0 min-w-[45px] text-right' }, `${scrollPercent}%`),
+            h('button', {
+              disabled: activeChapterIdx >= safeChapters.length - 1,
+              onClick: () => changeChapter(activeChapterIdx + 1),
+              className: 'p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-30 transition-all cursor-pointer'
+            }, ic(ChevronDown, 16, '-rotate-90'))
+          ),
+
+          // Row 2: Tool Icons (Audio, Visual Options, Chapters, Themes)
+          h('div', { className: 'flex items-center justify-between pt-1 border-t border-inherit/10' },
+            h('button', {
+              onClick: () => {
+                if (isTtsActive) pauseTTS();
+                else startTTS(0);
+                window.NativeBridge?.haptic?.('selection');
+              },
+              className: `flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${isTtsActive ? 'text-teal-400 bg-teal-500/10' : 'hover:bg-white/10 text-inherit'}`,
+              title: 'Read Aloud (Google TTS)'
+            }, ic(Volume2, 16), h('span', { className: 'text-[11px]' }, isTtsActive ? 'Speaking' : 'TTS')),
+
+            h('button', {
+              onClick: () => { setShowVisualSheet(!showVisualSheet); window.NativeBridge?.haptic?.('selection'); },
+              className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
+              title: 'Visual Options'
+            }, ic(Type, 16), h('span', { className: 'text-[11px]' }, 'Font (A±)')),
+
+            h('button', {
+              onClick: () => { setShowTocDrawer(true); window.NativeBridge?.haptic?.('selection'); },
+              className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
+              title: 'Table of Contents'
+            }, ic(List, 16), h('span', { className: 'text-[11px]' }, 'Chapters')),
+
+            h('button', {
+              onClick: () => {
+                const themes = ['oled', 'sepia', 'slate', 'light'];
+                const next = themes[(themes.indexOf(theme) + 1) % themes.length];
+                setTheme(next);
+                localStorage.setItem('readerTheme', next);
+                window.NativeBridge?.haptic?.('selection');
+              },
+              className: 'flex-1 py-1.5 rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-1.5 text-inherit cursor-pointer',
+              title: 'Theme'
+            }, ic(Palette, 16), h('span', { className: 'text-[11px]' }, activeTheme.name.split(' ')[0]))
+          )
+        ),
+
+        // ── MICRO BOTTOM STATUS BAR (When Immersive Reading Mode is Active) ──
+        !showOverlay && h('div', {
+          className: 'fixed bottom-1 inset-x-0 z-20 px-4 flex items-center justify-between text-[10px] font-mono opacity-40 pointer-events-none'
+        },
+          h('span', { className: 'truncate max-w-[60%]' }, `${rawTitle} (${activeChapterIdx + 1}/${safeChapters.length})`),
+          h('span', null, `${scrollPercent}%`)
         )
       );
     };
@@ -9424,7 +9929,7 @@ p {
         ),
 
         // READER VIEW MODAL
-        h(ReaderModal, {
+        h(MoonReaderModal, {
           open: readerOpen,
           onClose: () => setReaderOpen(false),
           text: assembledText,
