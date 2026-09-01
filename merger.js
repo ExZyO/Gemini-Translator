@@ -238,9 +238,21 @@ function renderMergeList() {
     if (!mergeFileList) return;
     mergeFileList.innerHTML = '';
     let totalBytes = mergeFiles.reduce((acc, f) => acc + f.size, 0);
+    const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
+    const totalGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+
     if (memoryWarning) {
-        if (totalBytes > 300 * 1024 * 1024) memoryWarning.classList.remove('hidden');
-        else memoryWarning.classList.add('hidden');
+        if (totalBytes > 1800 * 1024 * 1024) {
+            memoryWarning.innerHTML = `⚠️ <strong>Massive Anthology (${totalGB} GB):</strong> Web browsers have a hard 2.0 GB memory limit for single ZIP files. For optimal performance in Moon+ Reader and to prevent browser memory crashes, we recommend merging in 2 batches (e.g. Vol 1–15 & Vol 16–30).`;
+            memoryWarning.className = "p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/70 text-amber-800 dark:text-amber-200 text-xs font-medium space-y-1";
+            memoryWarning.classList.remove('hidden');
+        } else if (totalBytes > 300 * 1024 * 1024) {
+            memoryWarning.innerHTML = `ℹ️ Large payload (${totalMB} MB). In-memory streaming is active for smooth merging.`;
+            memoryWarning.className = "p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/70 text-indigo-700 dark:text-indigo-300 text-xs font-medium";
+            memoryWarning.classList.remove('hidden');
+        } else {
+            memoryWarning.classList.add('hidden');
+        }
     }
 
     if (mergeFiles.length === 0) {
@@ -759,7 +771,12 @@ btnExecuteMerge?.addEventListener('click', async () => {
 
     } catch (err) {
         console.error("Merge error:", err);
-        showToast("Merge failed: " + err.message, "error");
+        const errMsg = (err.message || '').toLowerCase();
+        if (errMsg.includes('array buffer') || errMsg.includes('allocation failed') || errMsg.includes('out of memory') || errMsg.includes('maximum call stack')) {
+            showToast("⚠️ Browser Memory Limit: This merge payload exceeds the 2 GB single-file limit of web browsers. Please merge in 2 smaller volumes.", "error", 8000);
+        } else {
+            showToast("Merge failed: " + err.message, "error");
+        }
     } finally {
         if (btnText) btnText.textContent = "Merge & Download";
         if (btnSpinner) btnSpinner.classList.add('hidden');
