@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.9.0';
+    const VERSION = '5.9.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1544,8 +1544,8 @@
       const rotateKey = () => { keyIndex++; return getActiveKey(); };
 
       const compactLines = sampleChapters.map(c => {
-        let line = `${c.index}. File: ${c.rawName || ''}`;
-        if (c.snippet) line += ` | Text: "${c.snippet}"`;
+        let line = `${c.index}. ${c.rawName || ''}`;
+        if (c.internalTitle) line += ` -> "${c.internalTitle}"`;
         return line;
       }).join('\n');
 
