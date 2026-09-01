@@ -560,7 +560,7 @@ btnExecuteMerge?.addEventListener('click', async () => {
 
             const subBuffer = await mergeFiles[i].arrayBuffer();
             validateZipHeader(subBuffer, mergeFiles[i].name);
-            const subZip = await new JSZip().loadAsync(subBuffer);
+            let subZip = await new JSZip().loadAsync(subBuffer);
             const subContainerXml = await subZip.file("META-INF/container.xml").async("text");
             const subOpfPath = parser.parseFromString(subContainerXml, "text/xml").querySelector("rootfile").getAttribute("full-path");
             const subOpfDir = subOpfPath.includes("/") ? subOpfPath.substring(0, subOpfPath.lastIndexOf('/') + 1) : "";

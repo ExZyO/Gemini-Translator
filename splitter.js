@@ -146,11 +146,27 @@ async function applyCleanTitlesToZip(newZip, newOpfDoc, survivingChapters, split
                         const textNode = np.querySelector('navLabel > text');
                         if (textNode) textNode.textContent = cleanTitle;
                         np.setAttribute('playOrder', String(playOrder++));
-                    } else {
-                        // If not in surviving chapters, remove navPoint from TOC
+                    } else if (!np.querySelector(':scope > navPoint')) {
+                        // Leaf with no surviving chapter — remove it
                         np.parentNode?.removeChild(np);
                     }
+                    // Parent navPoints (Year/Volume) are pruned below if left empty
                 });
+
+                // Prune parent navPoints that lost all their children (bottom-up)
+                let pruned = true;
+                while (pruned) {
+                    pruned = false;
+                    const parents = Array.from(ncxDoc.querySelectorAll('navPoint'));
+                    for (const np of parents) {
+                        const hasContent = np.querySelector('content');
+                        const hasChildren = np.querySelector(':scope > navPoint');
+                        if (!hasContent && !hasChildren) {
+                            np.parentNode?.removeChild(np);
+                            pruned = true;
+                        }
+                    }
+                }
 
                 newZip.file(ncxFullPath, serializer.serializeToString(ncxDoc));
             } catch (e) { console.warn('Failed to rewrite toc.ncx:', e); }
@@ -179,6 +195,21 @@ async function applyCleanTitlesToZip(newZip, newOpfDoc, survivingChapters, split
                         if (li) li.parentNode?.removeChild(li);
                     }
                 });
+
+                // Prune empty parent <li>s (Year/Volume groups) left behind
+                let prunedNav = true;
+                while (prunedNav) {
+                    prunedNav = false;
+                    const lis = Array.from(navDoc.querySelectorAll('li'));
+                    for (const li of lis) {
+                        const hasLink = li.querySelector('a[href]');
+                        const hasChildLi = li.querySelector('li');
+                        if (!hasLink && !hasChildLi) {
+                            li.parentNode?.removeChild(li);
+                            prunedNav = true;
+                        }
+                    }
+                }
 
                 newZip.file(navFullPath, serializer.serializeToString(navDoc));
             } catch (e) { console.warn('Failed to rewrite nav.xhtml:', e); }

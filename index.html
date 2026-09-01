@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.5';
+    const VERSION = '8.4.6';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2929,6 +2929,7 @@ ${bodyHtml.join('\n ')}
       const [showTtsBar, setShowTtsBar] = useState(false);
       const [justify, setJustify] = useState(() => { try { return localStorage.getItem('readerJustify') !== 'false'; } catch (e) { return false; } });
       useEffect(() => { try { localStorage.setItem('readerJustify', String(justify)); } catch (e) {} }, [justify]);
+      const [chrome, setChrome] = useState(false);
       const [endReached, setEndReached] = useState(false);
 
       // TTS State — Moon+ follow-along
@@ -3176,10 +3177,10 @@ ${bodyHtml.join('\n ')}
 
       return h('div', {
         className: 'reader-shell',
-        onClick: () => { if (showToc) setShowToc(false); }
+        onClick: () => { if (showToc) setShowToc(false); else setChrome(c => !c); }
       },
-        // Top bar (revealed)
-        h('div', { className: 'reader-top', onClick: (e) => e.stopPropagation() },
+        // Top bar (tap to reveal)
+        chrome && h('div', { className: 'reader-top', onClick: (e) => e.stopPropagation() },
           h('div', null,
             h('div', { className: 'book-title' }, 'Reader'),
             h('div', { className: 'ch' }, `${firstChapterTitle} · Ch ${activeIdx + 1} of ${safeChapters.length}`)
@@ -3259,8 +3260,8 @@ ${bodyHtml.join('\n ')}
           )
         ),
 
-        // Slim stats line
-        h('div', { className: 'statsline' },
+        // Slim stats line (tap to reveal)
+        chrome && h('div', { className: 'statsline' },
           h('span', null, `${chapterMins} min left in chapter · ${bookHours} hrs left in book`),
           h('span', null, `Ch ${activeIdx + 1} of ${safeChapters.length} · ${pct}%`)
         ),
@@ -8627,7 +8628,7 @@ FORMATTING & STRUCTURE RULES:
                 onChunk: onChunkStream
               });
               // Fallback: if the context-memory pass returned no translation body, retry once without context
-              if (!chunkResult.trim() && useContext) {
+              if ((!chunkResult.trim() || (chunks[i].trim().length > 300 && chunkResult.trim().length < 100)) && useContext) {
                 chunkResult = '';
                 streamRes = await streamWithRotation(chunks[i], { ...opts, context: undefined, onChunk: onChunkStream });
               }
