@@ -273,7 +273,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '6.9.9';
+    const VERSION = '7.0.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -9185,13 +9185,81 @@ p {
               webImportData.summary
             ),
 
-            h('div', { className: 'space-y-2 pt-2' },
-              h('span', { className: 'text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block' }, `Chapters Ready to Translate (${webImportData.chapters.length}):`),
-              h('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1' },
+            h('div', { className: 'space-y-3 pt-2' },
+              h('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2' },
+                h('span', { className: 'text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400' }, `Chapters Ready to Translate (${webImportData.chapters.length}):`),
+                h('div', { className: 'flex items-center gap-1.5' },
+                  btn({
+                    onClick: () => {
+                      const sorted = [...webImportData.chapters].sort((a, b) => {
+                        const titleA = a.title || '';
+                        const titleB = b.title || '';
+                        const isExtraA = /番外|extra|side\s*story|afterword|后记|附录/i.test(titleA);
+                        const isExtraB = /番外|extra|side\s*story|afterword|后记|附录/i.test(titleB);
+                        if (!isExtraA && isExtraB) return -1;
+                        if (isExtraA && !isExtraB) return 1;
+                        const matchA = titleA.match(/[\(（](\d+)[\)）]|(?:chapter|ch|第)\s*(\d+)/i) || titleA.match(/(\d+)/);
+                        const matchB = titleB.match(/[\(（](\d+)[\)）]|(?:chapter|ch|第)\s*(\d+)/i) || titleB.match(/(\d+)/);
+                        const numA = matchA ? parseInt(matchA[1] || matchA[2] || matchA[0], 10) : null;
+                        const numB = matchB ? parseInt(matchB[1] || matchB[2] || matchB[0], 10) : null;
+                        if (numA !== null && numB !== null) return numA - numB;
+                        return 0;
+                      });
+                      setWebImportData({ ...webImportData, chapters: sorted });
+                      toast('🔀 Smart Sorted: Main story in order, Extras at the end!', 'success');
+                    },
+                    className: 'px-2.5 py-1 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-700 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer'
+                  }, ic(ArrowUpDown, 12), '🔀 Extras at End'),
+                  btn({
+                    onClick: () => {
+                      const reversed = [...webImportData.chapters].reverse();
+                      setWebImportData({ ...webImportData, chapters: reversed });
+                      toast('🔄 Inverted chapter order', 'info');
+                    },
+                    className: 'px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-[11px] font-semibold transition-all cursor-pointer'
+                  }, '🔄 Reverse')
+                )
+              ),
+              h('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1' },
                 webImportData.chapters.map((ch, idx) =>
-                  h('div', { key: idx, className: 'p-2.5 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200/80 dark:border-slate-800/80 text-xs flex items-center justify-between' },
-                    h('span', { className: 'font-semibold text-slate-800 dark:text-slate-200 truncate' }, `${idx + 1}. ${ch.title}`),
-                    h('span', { className: 'text-[10px] text-slate-400 shrink-0 ml-2 font-mono' }, `${(ch.text || '').length} chars`)
+                  h('div', { key: idx, className: 'p-2.5 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200/80 dark:border-slate-800/80 text-xs flex items-center justify-between gap-2 group hover:border-teal-500/40 transition-all' },
+                    h('div', { className: 'min-w-0 flex-1' },
+                      h('p', { className: 'font-semibold text-slate-800 dark:text-slate-200 truncate' }, `${idx + 1}. ${ch.title}`),
+                      h('span', { className: 'text-[10px] text-slate-400 font-mono' }, `${(ch.text || '').length} chars`)
+                    ),
+                    h('div', { className: 'flex items-center gap-1 shrink-0' },
+                      idx > 0 && btn({
+                        onClick: () => {
+                          const list = [...webImportData.chapters];
+                          const temp = list[idx - 1];
+                          list[idx - 1] = list[idx];
+                          list[idx] = temp;
+                          setWebImportData({ ...webImportData, chapters: list });
+                        },
+                        className: 'p-1 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded transition-all cursor-pointer',
+                        title: 'Move up'
+                      }, ic(ChevronUp, 13)),
+                      idx < webImportData.chapters.length - 1 && btn({
+                        onClick: () => {
+                          const list = [...webImportData.chapters];
+                          const temp = list[idx + 1];
+                          list[idx + 1] = list[idx];
+                          list[idx] = temp;
+                          setWebImportData({ ...webImportData, chapters: list });
+                        },
+                        className: 'p-1 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded transition-all cursor-pointer',
+                        title: 'Move down'
+                      }, ic(ChevronDown, 13)),
+                      btn({
+                        onClick: () => {
+                          const list = webImportData.chapters.filter((_, i) => i !== idx);
+                          setWebImportData({ ...webImportData, chapters: list });
+                          toast(`Removed "${ch.title}"`, 'info');
+                        },
+                        className: 'p-1 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 rounded transition-all cursor-pointer',
+                        title: 'Remove chapter'
+                      }, ic(X, 13))
+                    )
                   )
                 )
               )

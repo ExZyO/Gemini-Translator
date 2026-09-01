@@ -14,6 +14,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.provider.Settings;
 import android.util.Base64;
 import android.util.Log;
 import android.view.ViewGroup;
@@ -663,6 +664,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 conn.disconnect();
 
                 updateNotification("Gemini Translator Updater", "Download complete. Starting installation...", 100, false);
+
+                // Prompt for unknown sources permission if needed on Android 8+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    if (!context.getPackageManager().canRequestPackageInstalls()) {
+                        Intent manageIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.getPackageName()));
+                        manageIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        context.startActivity(manageIntent);
+                    }
+                }
 
                 // Trigger Android Package Installer
                 Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", cacheFile);
