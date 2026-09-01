@@ -185,7 +185,8 @@ async function extractCoverFromEpub(file) {
 
 async function extractEpubStats(files) {
     const parser = new DOMParser();
-    for (const file of files) {
+    // Parallel stats extraction across all uploaded books
+    await Promise.all(Array.from(files).map(async (file) => {
         try {
             const buf = await file.arrayBuffer();
             const zip = await new JSZip().loadAsync(buf);
@@ -195,7 +196,7 @@ async function extractEpubStats(files) {
             const opfText = await zip.file(opfPath).async("text");
             const opfDoc = parser.parseFromString(opfText, "text/xml");
 
-            const spineItems = opfDoc.querySelectorAll('spine itemref');
+            const spineItems = Array.from(opfDoc.querySelectorAll('spine itemref'));
             mergeChapterCounts.set(file.name, spineItems.length);
 
             const manifest = {};
@@ -204,27 +205,30 @@ async function extractEpubStats(files) {
             });
 
             let totalWords = 0;
-            for (const itemref of spineItems) {
-                const idref = itemref.getAttribute('idref');
-                const href = manifest[idref];
-                if (!href) continue;
-                const fullPath = href.startsWith('../') ? href.replace('../', '') : opfDir + href;
-                const entry = zip.file(fullPath);
-                if (!entry) continue;
-                try {
-                    const xhtml = await entry.async("text");
-                    const doc = parser.parseFromString(xhtml, "text/html");
-                    const text = (doc.body ? doc.body.textContent : doc.documentElement.textContent) || '';
-                    const cjk = (text.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
-                    const nonCjk = (text.replace(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\b\w+\b/g) || []).length;
-                    totalWords += (cjk + nonCjk);
-                } catch (_) {}
+            const CHUNK = 40;
+            for (let j = 0; j < spineItems.length; j += CHUNK) {
+                const chunk = spineItems.slice(j, j + CHUNK);
+                await Promise.all(chunk.map(async (itemref) => {
+                    const idref = itemref.getAttribute('idref');
+                    const href = manifest[idref];
+                    if (!href) return;
+                    const fullPath = href.startsWith('../') ? href.replace('../', '') : opfDir + href;
+                    const entry = zip.file(fullPath);
+                    if (!entry) return;
+                    try {
+                        const xhtml = await entry.async("text");
+                        const stripped = xhtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                        const cjk = (stripped.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
+                        const nonCjk = (stripped.replace(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\b\w+\b/g) || []).length;
+                        totalWords += (cjk + nonCjk);
+                    } catch (_) {}
+                }));
             }
             mergeWordCounts.set(file.name, totalWords);
         } catch (e) {
             console.log("Stats extraction skipped for", file.name, e.message);
         }
-    }
+    }));
     renderMergeList();
 }
 
@@ -552,37 +556,41 @@ btnExecuteMerge?.addEventListener('click', async () => {
                 hrefMap[fileName] = newHref;
             });
 
-            // Copy assets and chapter files with re-written relative paths
-            for (let it of subManifest) {
-                const oldHref = (it.getAttribute("href") || '').trim();
-                const mime = it.getAttribute("media-type") || "";
-                const newHref = hrefMap[oldHref] || `b${i}_${oldHref.split('/').pop()}`;
-                const fullPath = subOpfDir + oldHref;
+            // Parallel asset transfer with re-written relative paths
+            const ASSET_CHUNK = 50;
+            for (let aIdx = 0; aIdx < subManifest.length; aIdx += ASSET_CHUNK) {
+                const chunk = subManifest.slice(aIdx, aIdx + ASSET_CHUNK);
+                await Promise.all(chunk.map(async (it) => {
+                    const oldHref = (it.getAttribute("href") || '').trim();
+                    const mime = it.getAttribute("media-type") || "";
+                    const newHref = hrefMap[oldHref] || `b${i}_${oldHref.split('/').pop()}`;
+                    const fullPath = subOpfDir + oldHref;
 
-                if (subZip.file(fullPath)) {
-                    if (mime.includes("html") || mime.includes("xml") || mime.includes("css")) {
-                        let txt = await subZip.file(fullPath).async("text");
-                        const oDir = oldHref.includes('/') ? oldHref.substring(0, oldHref.lastIndexOf('/') + 1) : "";
-                        txt = txt.replace(/(href|src)=["']([^"']+)["']/g, (m, attr, val) => {
-                            let lp = val.split('#')[0];
-                            let h = val.split('#')[1] ? '#' + val.split('#')[1] : '';
-                            if (lp.startsWith('http') || lp.startsWith('data:')) return m;
-                            let res = resolveRelativePath(oDir, lp);
-                            let mapped = hrefMap[res] || hrefMap[lp] || hrefMap[lp.split('/').pop()];
-                            if (mapped) return `${attr}="${mapped}${h}"`;
-                            return m;
-                        });
-                        newZip.file(masterOpfDir + newHref, txt);
-                    } else {
-                        newZip.file(masterOpfDir + newHref, await subZip.file(fullPath).async("uint8array"));
+                    if (subZip.file(fullPath)) {
+                        if (mime.includes("html") || mime.includes("xml") || mime.includes("css")) {
+                            let txt = await subZip.file(fullPath).async("text");
+                            const oDir = oldHref.includes('/') ? oldHref.substring(0, oldHref.lastIndexOf('/') + 1) : "";
+                            txt = txt.replace(/(href|src)=["']([^"']+)["']/g, (m, attr, val) => {
+                                let lp = val.split('#')[0];
+                                let h = val.split('#')[1] ? '#' + val.split('#')[1] : '';
+                                if (lp.startsWith('http') || lp.startsWith('data:')) return m;
+                                let res = resolveRelativePath(oDir, lp);
+                                let mapped = hrefMap[res] || hrefMap[lp] || hrefMap[lp.split('/').pop()];
+                                if (mapped) return `${attr}="${mapped}${h}"`;
+                                return m;
+                            });
+                            newZip.file(masterOpfDir + newHref, txt);
+                        } else {
+                            newZip.file(masterOpfDir + newHref, await subZip.file(fullPath).async("uint8array"));
+                        }
+
+                        const ni = masterOpfDoc.createElement("item");
+                        ni.setAttribute("id", idMap[it.getAttribute("id")]);
+                        ni.setAttribute("href", newHref);
+                        ni.setAttribute("media-type", mime);
+                        masterOpfDoc.querySelector("manifest")?.appendChild(ni);
                     }
-
-                    const ni = masterOpfDoc.createElement("item");
-                    ni.setAttribute("id", idMap[it.getAttribute("id")]);
-                    ni.setAttribute("href", newHref);
-                    ni.setAttribute("media-type", mime);
-                    masterOpfDoc.querySelector("manifest")?.appendChild(ni);
-                }
+                }));
             }
 
             // Append spine items

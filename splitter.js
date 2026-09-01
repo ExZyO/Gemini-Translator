@@ -946,7 +946,7 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
             `;
             const blobURL = URL.createObjectURL(new Blob([workerCode], { type: 'application/javascript' }));
             const worker = new Worker(blobURL);
-            worker.postMessage({ filesConfig: serializedFiles, compression: "DEFLATE" });
+            worker.postMessage({ filesConfig: serializedFiles, compression: "DEFLATE", compressionOptions: { level: 1 } });
 
             blob = await new Promise((resolve, reject) => {
                 worker.onmessage = (e) => {
@@ -977,7 +977,7 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
         } catch (workerErr) {
             console.warn("Web Worker failed or unsupported, using main-thread fallback:", workerErr);
             blob = await newZip.generateAsync(
-                { type: "blob", compression: "DEFLATE", mimeType: "application/epub+zip" },
+                { type: "blob", compression: "DEFLATE", compressionOptions: { level: 1 }, mimeType: "application/epub+zip" },
                 function updateCallback(metadata) {
                     const pWrapper = document.getElementById('split-progress-wrapper');
                     const pBar = document.getElementById('split-progress-bar');
@@ -1664,7 +1664,7 @@ async function buildSingleVolumeBlob(selectedIdrefs, rangeSuffix) {
     const volChapters = storyChapters.filter(c => allowedIdrefs.has(c.idref));
     await applyCleanTitlesToZip(newZip, newOpfDoc, volChapters, splitOpfDir);
     newZip.file(splitOpfPath, new XMLSerializer().serializeToString(newOpfDoc));
-    return await newZip.generateAsync({ type: "blob", compression: "DEFLATE", mimeType: "application/epub+zip" });
+    return await newZip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 1 }, mimeType: "application/epub+zip" });
 }
 
 // ═══════════════════════════════════════════════════════════════
