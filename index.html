@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.7';
+    const VERSION = '8.4.8';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1271,9 +1271,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // Strips any leaked CONTEXT_UPDATE section (model echo with any dash variant)
     const stripContextLeak = (t) => (t || '').split(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\s\S]*$/i)[0].trim();
 
-    const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false }) => {
+    const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, epubSmartQuotes = false, epubCleanWebArtifacts = false }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, opts?.epubSmartQuotes, opts?.epubCleanWebArtifacts);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, epubSmartQuotes, epubCleanWebArtifacts);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const safetySettings = [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -1378,9 +1378,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       return parseTranslationOutput(t, context, { promptTokens, outputTokens, totalTokens });
     };
 
-    const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false }) => {
+    const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, epubSmartQuotes = false, epubCleanWebArtifacts = false }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, opts?.epubSmartQuotes, opts?.epubCleanWebArtifacts);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, epubSmartQuotes, epubCleanWebArtifacts);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
       const safetySettings = [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -1537,11 +1537,11 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       return { text: accumulatedOutput, newContext: finalContext.trim() || context || '', usage: { promptTokens: pTok, outputTokens: oTok, totalTokens: lastUsage?.totalTokenCount || (pTok + oTok) } };
     };
 
-    const translateDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false }) => {
+    const translateDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, epubSmartQuotes = false, epubCleanWebArtifacts = false }) => {
       const key = deepseekApiKey || apiKey;
       if (!key) throw new Error('DeepSeek API key required.');
       const chosenModel = enableThinking && model === 'deepseek-chat' ? 'deepseek-reasoner' : (model || 'deepseek-chat');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, opts?.epubSmartQuotes, opts?.epubCleanWebArtifacts);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, epubSmartQuotes, epubCleanWebArtifacts);
       const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
@@ -1571,11 +1571,11 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       return parseTranslationOutput(raw, context, { promptTokens, outputTokens, totalTokens });
     };
 
-    const streamDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false }) => {
+    const streamDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, epubSmartQuotes = false, epubCleanWebArtifacts = false }) => {
       const key = deepseekApiKey || apiKey;
       if (!key) throw new Error('DeepSeek API key required.');
       const chosenModel = enableThinking && model === 'deepseek-chat' ? 'deepseek-reasoner' : (model || 'deepseek-chat');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, opts?.epubSmartQuotes, opts?.epubCleanWebArtifacts);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, epubSmartQuotes, epubCleanWebArtifacts);
       const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
