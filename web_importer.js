@@ -9,6 +9,7 @@
         const clean = url.trim().toLowerCase();
         if (clean.includes('archiveofourown.org')) return 'ao3';
         if (clean.includes('lofter.com')) return 'lofter';
+        if (clean.includes('tumblr.com')) return 'tumblr';
         if (clean.includes('syosetu.com')) return 'syosetu';
         if (clean.includes('pixiv.net')) return 'pixiv';
         if (clean.includes('kakuyomu.jp')) return 'kakuyomu';
@@ -206,6 +207,47 @@
     // ══════════════════════════════════════════════════════════════════════
     // 3. SYOSETU INGESTION ENGINE (小説家になろう)
     // ══════════════════════════════════════════════════════════════════════
+    
+    // ══════════════════════════════════════════════════════════════════════
+    // 2.5 TUMBLR INGESTION ENGINE
+    // ══════════════════════════════════════════════════════════════════════
+    async function importTumblr(url, progressCb) {
+        progressCb?.('Connecting to Tumblr...', 20);
+
+        const res = await window.NativeBridge.fetchUrl(url);
+        const html = await res.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || doc.querySelector('title, h1, .post-title')?.textContent?.trim() || 'Tumblr Story';
+        const author = doc.querySelector('meta[name="author"], meta[property="article:author"]')?.getAttribute('content') || doc.querySelector('.author, .blog-name, .post-author')?.textContent?.trim() || 'Tumblr Author';
+
+        // Extract tags
+        const tags = [];
+        doc.querySelectorAll('.post-tags a, .tag, a[href*="/tagged/"]').forEach(t => {
+            const txt = t.textContent?.replace(/^#/, '').trim();
+            if (txt) tags.push(txt);
+        });
+
+        // Clean out junk
+        doc.querySelectorAll('script, style, nav, footer, header, .like_and_reblog_buttons, .notes').forEach(el => el.remove());
+
+        const bodyEl = doc.querySelector('article, .post-body, .body-text, .post_body, .post-content, .post, main') || doc.body;
+        const mainText = bodyEl.textContent?.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim() || '';
+
+        progressCb?.(`Loaded Tumblr post: "${title}" (${mainText.length} characters)`, 100);
+
+        return {
+            title,
+            author,
+            summary: mainText.substring(0, 300) + '...',
+            tags: tags.length > 0 ? tags : ['Tumblr', author],
+            chapters: [{ title, text: mainText }],
+            rawZip: null,
+            isEpub: false,
+            sourceUrl: url
+        };
+    }
+
     async function importSyosetu(url, progressCb) {
         progressCb?.('Connecting to Syosetu...', 20);
         const res = await window.NativeBridge.fetchUrl(url);
@@ -371,6 +413,7 @@
 
             if (type === 'ao3') return await importAO3(url, progressCb);
             if (type === 'lofter') return await importLofter(url, progressCb);
+            if (type === 'tumblr') return await importTumblr(url, progressCb);
             if (type === 'syosetu') return await importSyosetu(url, progressCb);
             return await importUniversal(url, progressCb);
         }
