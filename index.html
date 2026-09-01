@@ -281,7 +281,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.7.0';
+    const VERSION = '7.7.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2241,19 +2241,7 @@ const formatModelName = (id, displayName) => {
         // ══════════════════════════════════════════════════════════════════════
     // GLOBAL EXPORT & FILE UTILITIES (Accessible by All Components)
     // ══════════════════════════════════════════════════════════════════════
-    const escapeXml = (unsafe) => {
-      if (!unsafe) return '';
-      return String(unsafe).replace(/[<>&'"]/g, c => {
-        switch (c) {
-          case '<': return '&lt;';
-          case '>': return '&gt;';
-          case '&': return '&amp;';
-          case "'": return '&apos;';
-          case '"': return '&quot;';
-          default: return c;
-        }
-      });
-    };
+    // (escapeXml is global)
 
     const saveUniversalBlob = async (blob, fileName, mimeType) => {
       try {
@@ -3432,61 +3420,39 @@ ${bodyHtml.join('\n  ')}
       const [toasts, setToasts] = useState([]);
       const [availableUpdate, setAvailableUpdate] = useState(null);
       const [downloadSuccessModal, setDownloadSuccessModal] = useState(null);
+      const [isUpdating, setIsUpdating] = useState(false);
+      const [sideBySide, setSideBySide] = useState(false);
+      const [showModal, setShowModal] = useState(false);
+      const [modalMessage, setModalMessage] = useState('');
+      const [modalCallback, setModalCallback] = useState(null);
+      const [history, setHistory] = useState([]);
+      const [historySearch, setHistorySearch] = useState('');
+      const [showHistory, setShowHistory] = useState(false);
+      const [showSettings, setShowSettings] = useState(true);
+      const [showGlossaryManager, setShowGlossaryManager] = useState(true);
+      const [uploadingFile, setUploadingFile] = useState(false);
+      const [downloadingPdf, setDownloadingPdf] = useState(false);
+      const [downloadingEpub, setDownloadingEpub] = useState(false);
+      const [downloadingDocx, setDownloadingDocx] = useState(false);
+      const [isOptimizingGlossary, setIsOptimizingGlossary] = useState(false);
+      const [isDragOver, setIsDragOver] = useState(false);
+
+      // --- Core Toast Helper (Defined before any usage) ---
+      const toast = (msg, type = 'success') => {
+        if (!msg) return;
+        setToasts(prev => {
+          if (prev.some(t => t.msg === msg)) return prev;
+          const id = genId();
+          setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3200);
+          return [...prev.slice(-2), { id, msg, type }];
+        });
+      };
+
+      // Bind global references for outer helpers
       window.__setDownloadModal = setDownloadSuccessModal;
       window.__toast = toast;
 
-      // ── UNIVERSAL SAVE BLOB HELPER (Native Folder Picker / MediaStore / HTML5) ──
-      const saveUniversalBlob = async (blob, fileName, mimeType) => {
-        try {
-          // 1. Android Native Capacitor Bridge (MediaStore Scoped Storage)
-          if (window.NativeBridge && window.NativeBridge.saveBlob) {
-            const res = await window.NativeBridge.saveBlob(blob, fileName, mimeType);
-            setDownloadSuccessModal({ fileName, path: res.path || ('Download/GeminiTranslator/' + fileName), mimeType });
-            return;
-          }
-
-          // 2. Modern Desktop Browser Native "Save As" Folder Picker (Windows/Mac)
-          if (window.showSaveFilePicker) {
-            try {
-              const ext = fileName.split('.').pop();
-              const handle = await window.showSaveFilePicker({
-                suggestedName: fileName,
-                types: [{
-                  description: `${ext.toUpperCase()} Document`,
-                  accept: { [mimeType]: ['.' + ext] }
-                }]
-              });
-              const writable = await handle.createWritable();
-              await writable.write(blob);
-              await writable.close();
-              toast(`💾 Successfully saved "${fileName}"!`, 'success');
-              return;
-            } catch (err) {
-              if (err.name === 'AbortError') return; // User cancelled
-              console.warn('showSaveFilePicker fallback:', err);
-            }
-          }
-
-          // 3. Universal Browser HTML5 Download Trigger
-          const blobUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.style.display = 'none';
-          a.href = blobUrl;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(blobUrl);
-          }, 2000);
-          toast(`💾 Downloaded "${fileName}"!`, 'success');
-        } catch (saveErr) {
-          console.error('Save file error:', saveErr);
-          toast('Failed to save file: ' + saveErr.message, 'error');
-        }
-      };
-      const [isUpdating, setIsUpdating] = useState(false);
-
+      // Update Handlers
       const checkForAppUpdate = async (isManual = false) => {
         if (isManual) toast('Checking for updates...', 'info');
         try {
@@ -3512,7 +3478,6 @@ ${bodyHtml.join('\n  ')}
         } catch (err) {
           console.error('Update error:', err);
           toast('Failed to download update: ' + err.message, 'error');
-          // Fallback open release page
           window.open(availableUpdate?.releasePage || "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest", '_blank');
         } finally {
           setIsUpdating(false);
@@ -3522,21 +3487,6 @@ ${bodyHtml.join('\n  ')}
       useEffect(() => {
         checkForAppUpdate(false);
       }, []);
-      const [sideBySide, setSideBySide] = useState(false);
-      const [showModal, setShowModal] = useState(false);
-      const [modalMessage, setModalMessage] = useState('');
-      const [modalCallback, setModalCallback] = useState(null);
-      const [history, setHistory] = useState([]);
-      const [historySearch, setHistorySearch] = useState('');
-      const [showHistory, setShowHistory] = useState(false);
-      const [showSettings, setShowSettings] = useState(true);
-      const [showGlossaryManager, setShowGlossaryManager] = useState(true);
-      const [uploadingFile, setUploadingFile] = useState(false);
-      const [downloadingPdf, setDownloadingPdf] = useState(false);
-      const [downloadingEpub, setDownloadingEpub] = useState(false);
-      const [downloadingDocx, setDownloadingDocx] = useState(false);
-      const [isOptimizingGlossary, setIsOptimizingGlossary] = useState(false);
-      const [isDragOver, setIsDragOver] = useState(false);
 
       // --- Refs for Text Areas & Files ---
       // --- Refs for Text Areas & Files ---
@@ -3691,16 +3641,7 @@ ${bodyHtml.join('\n  ')}
         );
       };
 
-      // --- Toast Helper (Debounced & Max 3 visible) ---
-      const toast = (msg, type = 'success') => {
-        if (!msg) return;
-        setToasts(prev => {
-          if (prev.some(t => t.msg === msg)) return prev;
-          const id = genId();
-          setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3200);
-          return [...prev.slice(-2), { id, msg, type }];
-        });
-      };
+// (toast is defined above)
 
       // --- Effects ---
       useEffect(() => {
@@ -8884,19 +8825,7 @@ FORMATTING & STRUCTURE RULES:
         } catch (e) { setError(`PDF error: ${e.message}`) } finally { setDownloadingPdf(false) }
       };
 
-      const escapeXml = (unsafe) => {
-        if (!unsafe) return '';
-        return String(unsafe).replace(/[<>&'"]/g, c => {
-          switch (c) {
-            case '<': return '&lt;';
-            case '>': return '&gt;';
-            case '&': return '&amp;';
-            case "'": return '&apos;';
-            case '"': return '&quot;';
-            default: return c;
-          }
-        });
-      };
+      // (escapeXml is global)
 
       const handleDownloadEPUB = async () => {
         const chaptersToExport = getExportChapters();
