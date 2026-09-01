@@ -20,6 +20,7 @@
 
     
     // ══════════════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════════════
     // 8. WITCH CULT TRANSLATION (RE:ZERO WEB NOVEL CRAWLER)
     // ══════════════════════════════════════════════════════════════════════
     async function importWitchCult(url, progressCb) {
@@ -50,24 +51,32 @@
                 const res = await window.NativeBridge.fetchNative(pageUrl);
                 return res.data || '';
             }
-            // Proxy fallback for browser
             const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(pageUrl);
             const res = await fetch(proxy);
             return await res.text();
         };
 
-        // 1. Fetch current chapter
-        progressCb?.('Fetching chapter details...', 20);
-        const chapterHtml = await fetchPage(url);
-        const titleMatch = chapterHtml.match(/<h1[^>]*class="[^"]*entry-title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i);
-        const currentTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim().replace(/&#8220;/g, '"').replace(/&#8221;/g, '"').replace(/&#8211;/g, '–').replace(/&#8217;/g, "'") : 'Re:Zero Chapter';
-        
-        const contentMatch = chapterHtml.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<!-- \.entry-content -->/i) ||
-                             chapterHtml.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-        const currentContent = cleanHtml(contentMatch ? contentMatch[1] : chapterHtml);
+        const targetSlug = url.replace(/\/$/, '').split('/').filter(Boolean).pop();
+
+        // 1. Fetch current chapter first
+        progressCb?.('Fetching chapter metadata...', 20);
+        let currentTitle = 'Re:Zero Chapter';
+        let currentContent = '';
+        try {
+            const chapterHtml = await fetchPage(url);
+            const titleMatch = chapterHtml.match(/<h1[^>]*class="[^"]*entry-title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i);
+            if (titleMatch) {
+                currentTitle = titleMatch[1].replace(/<[^>]+>/g, '').trim().replace(/&#8220;/g, '"').replace(/&#8221;/g, '"').replace(/&#8211;/g, '–').replace(/&#8217;/g, "'");
+            }
+            const contentMatch = chapterHtml.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<!-- \.entry-content -->/i) ||
+                                 chapterHtml.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+            currentContent = cleanHtml(contentMatch ? contentMatch[1] : chapterHtml);
+        } catch (e) {
+            console.warn('Initial chapter fetch:', e);
+        }
 
         // 2. Discover Arc Chapters from Table of Contents
-        progressCb?.('Discovering Arc chapters from Table of Contents...', 35);
+        progressCb?.('Analyzing Table of Contents...', 35);
         let chapterList = [];
         try {
             const tocHtml = await fetchPage('https://witchculttranslation.com/table-of-content/');
@@ -83,37 +92,30 @@
                 }
             }
 
-            const cleanTarget = url.replace(/\/$/, '') + '/';
-            let targetIdx = allLinks.findIndex(l => l.href === cleanTarget || cleanTarget.includes(l.href) || l.href.includes(cleanTarget.split('/')[4] || ''));
+            let targetIdx = allLinks.findIndex(l => targetSlug && l.href.includes(targetSlug));
             if (targetIdx === -1) targetIdx = 0;
 
-            // Determine Arc boundary
-            // Crawl up to next Arc or 30 chapters batch
-            for (let i = targetIdx; i < allLinks.length; i++) {
-                const item = allLinks[i];
-                if (i > targetIdx && (item.text.toLowerCase().includes('arc ') && !allLinks[targetIdx].text.toLowerCase().includes(item.text.toLowerCase().split('chapter')[0].trim()))) {
-                    break;
-                }
-                chapterList.push(item);
-                if (chapterList.length >= 35) break; // Comfortable volume size
+            // Batch up to 30 chapters starting from target chapter
+            for (let i = targetIdx; i < allLinks.length && chapterList.length < 30; i++) {
+                chapterList.push(allLinks[i]);
             }
         } catch (tocErr) {
-            console.warn('Witch Cult TOC discovery fallback:', tocErr);
+            console.warn('Witch Cult TOC discovery error:', tocErr);
         }
 
-        if (chapterList.length <= 1) {
+        if (chapterList.length === 0) {
             chapterList = [{ href: url, text: currentTitle }];
         }
 
-        progressCb?.(`Found ${chapterList.length} chapters. Crawling content...`, 50);
+        progressCb?.(`Discovered ${chapterList.length} chapters. Crawling full text...`, 45);
 
         const chapters = [];
         for (let i = 0; i < chapterList.length; i++) {
             const ch = chapterList[i];
-            const pct = Math.round(50 + ((i / chapterList.length) * 45));
-            progressCb?.(`Crawling chapter ${i + 1}/${chapterList.length}: ${ch.text}...`, pct);
+            const pct = Math.round(45 + ((i / chapterList.length) * 50));
+            progressCb?.(`Ingesting ${i + 1}/${chapterList.length}: ${ch.text}...`, pct);
 
-            if (i === 0 && currentContent.length > 100) {
+            if (i === 0 && currentContent && currentContent.length > 100) {
                 chapters.push({ title: ch.text || currentTitle, text: currentContent });
             } else {
                 try {
@@ -129,12 +131,12 @@
             }
         }
 
-        progressCb?.(`Successfully imported ${chapters.length} Re:Zero chapters!`, 100);
+        progressCb?.(`Successfully compiled ${chapters.length} Re:Zero chapters!`, 100);
 
         return {
             title: 'Re:Zero Web Novel — ' + (chapterList[0]?.text || currentTitle),
             author: 'Tappei Nagatsuki (Witch Cult Translations)',
-            summary: `Re:Zero Starting Life in Another World Web Novel. Extracted ${chapters.length} chapters starting from ${currentTitle}.`,
+            summary: `Re:Zero Starting Life in Another World Web Novel. ${chapters.length} chapters starting from ${chapterList[0]?.text || currentTitle}.`,
             tags: ['Re:Zero', 'Witch Cult Translations', 'Web Novel'],
             chapters,
             isEpub: false,
