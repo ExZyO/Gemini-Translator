@@ -292,7 +292,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '7.9.9';
+    const VERSION = '8.0.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2359,9 +2359,8 @@ p.divider {
         const imageCache = new Map();
         let imgSeq = 0;
 
-        // Step 2: Download unique illustrations with memory-safe concurrency (max 150 illustrations)
-        const fullImgList = Array.from(uniqueImgUrls);
-        const imgUrlList = fullImgList.slice(0, 150); // Memory safety cap for mobile WebView
+        // Step 2: Download all unique illustrations with chunked streaming save safety
+        const imgUrlList = Array.from(uniqueImgUrls);
 
         if (imgUrlList.length > 0) {
           onProgress?.(`🖼️ Pre-caching ${imgUrlList.length} illustration(s)...`, 5);

@@ -81,7 +81,16 @@
             .replace(/<p[^>]*>[\s\S]*?Previous Post[\s\S]*?<\/p>/gi, '')
             .replace(/<p[^>]*>[\s\S]*?(?:Read light novel|Lightnovelpub|NovelFull|Boxnovel)[\s\S]*?<\/p>/gi, '');
 
-        // Preserve illustrations as ![Illustration](url) markdown tokens
+        // 1. Convert linked image wrappers <a href="*.jpg"><img .../></a> or <a href="*.jpg">[Download Image]</a>
+        processed = processed.replace(/<a\s+[^>]*href="([^"]+\.(?:jpg|jpeg|png|webp|gif)(?:\?[^"]*)?)"[^>]*>([\s\S]*?)<\/a>/gi, (match, href, inner) => {
+            if (/<img\b/i.test(inner) || /download|view|image|illustration|art/i.test(inner.trim())) {
+                const cleanHref = href.replace(/\?w=\d+.*$/i, '').replace(/\?resize=\d+.*$/i, '').replace(/\?fit=\d+.*$/i, '').trim();
+                return '\n\n![Illustration](' + cleanHref + ')\n\n';
+            }
+            return match;
+        });
+
+        // 2. Preserve remaining direct <img> tags
         processed = processed.replace(/<img\b[^>]*>/gi, (match) => {
             const bestUrl = getBestImageUrl(match);
             if (bestUrl && (bestUrl.startsWith('http://') || bestUrl.startsWith('https://') || bestUrl.startsWith('data:image/'))) {
@@ -89,6 +98,9 @@
             }
             return '';
         });
+
+        // 3. Strip all residual "[Download Image]", "Download Image", "[View Image]" anchor text artifacts
+        processed = processed.replace(/[\[\(]?\s*(?:Download|View|High-Res|Full Size|Original)\s*(?:Image|Illustration|Art|Resolution)?[\]\)]?/gi, '');
 
         return processed
             .replace(/<br\s*[\/]?>/gi, '\n')
