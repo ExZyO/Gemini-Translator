@@ -8,6 +8,7 @@
         if (!url || typeof url !== 'string') return 'unknown';
         const clean = url.trim().toLowerCase();
         if (clean.includes('archiveofourown.org')) return 'ao3';
+        if (clean.includes('witchculttranslation.com')) return 'witchcult';
         if (clean.includes('lofter.com')) return 'lofter';
         if (clean.includes('tumblr.com')) return 'tumblr';
         if (clean.includes('syosetu.com')) return 'syosetu';
@@ -16,6 +17,131 @@
         if (clean.includes('royalroad.com')) return 'royalroad';
         return 'universal';
     }
+
+    
+    // ══════════════════════════════════════════════════════════════════════
+    // 8. WITCH CULT TRANSLATION (RE:ZERO WEB NOVEL CRAWLER)
+    // ══════════════════════════════════════════════════════════════════════
+    async function importWitchCult(url, progressCb) {
+        progressCb?.('Connecting to Witch Cult Translations...', 10);
+
+        const cleanHtml = (html) => {
+            return html
+                .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+                .replace(/<div[^>]*class="[^"]*(?:sharedaddy|wpcnt|nav-links|post-navigation)[^"]*"[\s\S]*?<\/div>/gi, '')
+                .replace(/<p[^>]*>[\s\S]*?Next Post[\s\S]*?<\/p>/gi, '')
+                .replace(/<p[^>]*>[\s\S]*?Previous Post[\s\S]*?<\/p>/gi, '')
+                .replace(/<br\s*[\/]?>/gi, '\n')
+                .replace(/<\/p>/gi, '\n\n')
+                .replace(/<[^>]+>/g, '')
+                .replace(/&#8216;/g, "'")
+                .replace(/&#8217;/g, "'")
+                .replace(/&#8220;/g, '"')
+                .replace(/&#8221;/g, '"')
+                .replace(/&#8211;/g, '–')
+                .replace(/&amp;/g, '&')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+        };
+
+        const fetchPage = async (pageUrl) => {
+            if (window.NativeBridge && window.NativeBridge.fetchNative) {
+                const res = await window.NativeBridge.fetchNative(pageUrl);
+                return res.data || '';
+            }
+            // Proxy fallback for browser
+            const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(pageUrl);
+            const res = await fetch(proxy);
+            return await res.text();
+        };
+
+        // 1. Fetch current chapter
+        progressCb?.('Fetching chapter details...', 20);
+        const chapterHtml = await fetchPage(url);
+        const titleMatch = chapterHtml.match(/<h1[^>]*class="[^"]*entry-title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i);
+        const currentTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim().replace(/&#8220;/g, '"').replace(/&#8221;/g, '"').replace(/&#8211;/g, '–').replace(/&#8217;/g, "'") : 'Re:Zero Chapter';
+        
+        const contentMatch = chapterHtml.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<!-- \.entry-content -->/i) ||
+                             chapterHtml.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+        const currentContent = cleanHtml(contentMatch ? contentMatch[1] : chapterHtml);
+
+        // 2. Discover Arc Chapters from Table of Contents
+        progressCb?.('Discovering Arc chapters from Table of Contents...', 35);
+        let chapterList = [];
+        try {
+            const tocHtml = await fetchPage('https://witchculttranslation.com/table-of-content/');
+            const linkRegex = /<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+            let m;
+            const allLinks = [];
+            while ((m = linkRegex.exec(tocHtml)) !== null) {
+                const href = m[1].replace(/\/$/, '') + '/';
+                const text = m[2].replace(/<[^>]+>/g, '').trim()
+                    .replace(/&#8220;/g, '"').replace(/&#8221;/g, '"').replace(/&#8211;/g, '–').replace(/&#8217;/g, "'").replace(/&amp;/g, '&');
+                if (href.includes('witchculttranslation.com/20') && !allLinks.some(l => l.href === href)) {
+                    allLinks.push({ href, text });
+                }
+            }
+
+            const cleanTarget = url.replace(/\/$/, '') + '/';
+            let targetIdx = allLinks.findIndex(l => l.href === cleanTarget || cleanTarget.includes(l.href) || l.href.includes(cleanTarget.split('/')[4] || ''));
+            if (targetIdx === -1) targetIdx = 0;
+
+            // Determine Arc boundary
+            // Crawl up to next Arc or 30 chapters batch
+            for (let i = targetIdx; i < allLinks.length; i++) {
+                const item = allLinks[i];
+                if (i > targetIdx && (item.text.toLowerCase().includes('arc ') && !allLinks[targetIdx].text.toLowerCase().includes(item.text.toLowerCase().split('chapter')[0].trim()))) {
+                    break;
+                }
+                chapterList.push(item);
+                if (chapterList.length >= 35) break; // Comfortable volume size
+            }
+        } catch (tocErr) {
+            console.warn('Witch Cult TOC discovery fallback:', tocErr);
+        }
+
+        if (chapterList.length <= 1) {
+            chapterList = [{ href: url, text: currentTitle }];
+        }
+
+        progressCb?.(`Found ${chapterList.length} chapters. Crawling content...`, 50);
+
+        const chapters = [];
+        for (let i = 0; i < chapterList.length; i++) {
+            const ch = chapterList[i];
+            const pct = Math.round(50 + ((i / chapterList.length) * 45));
+            progressCb?.(`Crawling chapter ${i + 1}/${chapterList.length}: ${ch.text}...`, pct);
+
+            if (i === 0 && currentContent.length > 100) {
+                chapters.push({ title: ch.text || currentTitle, text: currentContent });
+            } else {
+                try {
+                    const html = await fetchPage(ch.href);
+                    const cMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+                    const txt = cleanHtml(cMatch ? cMatch[1] : html);
+                    if (txt.length > 50) {
+                        chapters.push({ title: ch.text, text: txt });
+                    }
+                } catch (e) {
+                    console.warn(`Failed chapter ${ch.href}:`, e);
+                }
+            }
+        }
+
+        progressCb?.(`Successfully imported ${chapters.length} Re:Zero chapters!`, 100);
+
+        return {
+            title: 'Re:Zero Web Novel — ' + (chapterList[0]?.text || currentTitle),
+            author: 'Tappei Nagatsuki (Witch Cult Translations)',
+            summary: `Re:Zero Starting Life in Another World Web Novel. Extracted ${chapters.length} chapters starting from ${currentTitle}.`,
+            tags: ['Re:Zero', 'Witch Cult Translations', 'Web Novel'],
+            chapters,
+            isEpub: false,
+            sourceUrl: url
+        };
+    }
+
 
     // ══════════════════════════════════════════════════════════════════════
     // 1. AO3 INGESTION ENGINE (ARCHIVE OF OUR OWN)
