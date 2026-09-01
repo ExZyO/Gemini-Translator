@@ -735,6 +735,7 @@ btnExecuteMerge?.addEventListener('click', async () => {
                 }
                 masterNavOl.appendChild(masterLi);
             }
+            subZip = null; // Immediate garbage collection
         }
 
         // Sequential playOrder renumbering across all merged NCX navPoints
@@ -764,6 +765,7 @@ btnExecuteMerge?.addEventListener('click', async () => {
         const mergedBlob = await newZip.generateAsync({
             type: "blob",
             compression: compressionLevel,
+            streamFiles: true,
             mimeType: "application/epub+zip"
         }, function updateCallback(metadata) {
             const pWrapper = document.getElementById('merge-progress-wrapper');
