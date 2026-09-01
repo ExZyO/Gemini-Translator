@@ -552,33 +552,36 @@ async function processSplitFile(file) {
             }
         });
 
-        // Compute word count + file size for each chapter
+        // Hyper-speed parallel word count + heading extraction in concurrent chunks
         let totalSplitWords = 0;
-        for (let chap of storyChapters) {
-            const fullPath = splitOpfDir + chap.originalName;
-            const f = splitMasterZip.files[fullPath];
-            chap.fileSize = 0;
-            chap.wordCount = 0;
-            if (f) {
-                if (f._data && f._data.uncompressedSize) chap.fileSize = f._data.uncompressedSize;
-                try {
-                    const txt = await f.async('text');
-                    const stripped = txt.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-                    const cjk = (stripped.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
-                    const nonCjk = (stripped.replace(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\b\w+\b/g) || []).length;
-                    chap.wordCount = cjk + nonCjk;
-                    totalSplitWords += chap.wordCount;
+        const CHUNK_SIZE = 60;
+        for (let i = 0; i < storyChapters.length; i += CHUNK_SIZE) {
+            const chunk = storyChapters.slice(i, i + CHUNK_SIZE);
+            await Promise.all(chunk.map(async (chap) => {
+                const fullPath = splitOpfDir + chap.originalName;
+                const f = splitMasterZip.files[fullPath];
+                chap.fileSize = 0;
+                chap.wordCount = 0;
+                if (f) {
+                    if (f._data && f._data.uncompressedSize) chap.fileSize = f._data.uncompressedSize;
+                    try {
+                        const txt = await f.async('text');
+                        const stripped = txt.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                        const cjk = (stripped.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
+                        const nonCjk = (stripped.replace(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\b\w+\b/g) || []).length;
+                        chap.wordCount = cjk + nonCjk;
 
-                    // Auto-extract real chapter heading using original TOC map or internal XHTML
-                    const fname = (chap.originalName || '').split('/').pop();
-                    const tocTitle = splitTocMap.get(chap.originalName) || splitTocMap.get(fname) || '';
-                    const extracted = extractHeadingFromXhtml(txt, chap.displayIndex, tocTitle);
-                    if (extracted && extracted !== chap.originalName && !isMachineFilename(extracted)) {
-                        chap.customName = extracted;
-                    }
-                } catch (e) { /* skip */ }
-            }
+                        const fname = (chap.originalName || '').split('/').pop();
+                        const tocTitle = splitTocMap.get(chap.originalName) || splitTocMap.get(fname) || '';
+                        const extracted = extractHeadingFromXhtml(txt, chap.displayIndex, tocTitle);
+                        if (extracted && extracted !== chap.originalName && !isMachineFilename(extracted)) {
+                            chap.customName = extracted;
+                        }
+                    } catch (e) {}
+                }
+            }));
         }
+        totalSplitWords = storyChapters.reduce((acc, c) => acc + (c.wordCount || 0), 0);
 
         const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
         const wordText = formatWordStat(totalSplitWords);
@@ -1698,32 +1701,41 @@ document.getElementById('btn-instant-extract-toc')?.addEventListener('click', as
     aiPolishedResults = [];
     let html = '<div class="space-y-1.5 max-h-[42vh] overflow-y-auto custom-scrollbar pr-1">';
 
-    for (let chap of storyChapters) {
-        const fullPath = splitOpfDir + chap.originalName;
-        const f = splitMasterZip.files[fullPath];
-        const fname = (chap.originalName || '').split('/').pop();
-        const tocTitle = splitTocMap.get(chap.originalName) || splitTocMap.get(fname) || '';
-        let heading = 'Chapter ' + chap.displayIndex;
-        if (f) {
-            try {
-                const txt = await f.async('text');
-                heading = extractHeadingFromXhtml(txt, chap.displayIndex, tocTitle);
-            } catch (e) {}
-        }
-        if (!heading || heading === 'Chapter ' + chap.displayIndex) {
-            heading = cleanChapterTitleString(chap.customName || tocTitle || chap.originalName, chap.displayIndex);
-        }
-        aiPolishedResults.push({ index: chap.displayIndex, idref: chap.idref, cleanedName: heading });
-        
-        html += `
-            <div class="p-2 bg-white/90 dark:bg-slate-800/90 rounded-lg flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700/70 text-xs shadow-2xs">
-                <span class="text-purple-600 dark:text-purple-400 shrink-0 font-bold">#${chap.displayIndex}</span>
-                <span class="text-slate-400 line-through truncate max-w-[35%]">${chap.originalName}</span>
-                <span class="text-indigo-500 font-bold shrink-0">&rarr;</span>
-                <span class="text-emerald-600 dark:text-emerald-400 font-semibold truncate flex-1">${heading}</span>
-            </div>
-        `;
+    // Concurrent batch extraction across all chapters
+    const extractedItems = new Array(storyChapters.length);
+    const TOC_CHUNK = 80;
+    for (let i = 0; i < storyChapters.length; i += TOC_CHUNK) {
+        const chunk = storyChapters.slice(i, i + TOC_CHUNK);
+        await Promise.all(chunk.map(async (chap, idxInChunk) => {
+            const actualIdx = i + idxInChunk;
+            const fullPath = splitOpfDir + chap.originalName;
+            const f = splitMasterZip.files[fullPath];
+            const fname = (chap.originalName || '').split('/').pop();
+            const tocTitle = splitTocMap.get(chap.originalName) || splitTocMap.get(fname) || '';
+            let heading = 'Chapter ' + chap.displayIndex;
+            if (f) {
+                try {
+                    const txt = await f.async('text');
+                    heading = extractHeadingFromXhtml(txt, chap.displayIndex, tocTitle);
+                } catch (e) {}
+            }
+            if (!heading || heading === 'Chapter ' + chap.displayIndex) {
+                heading = cleanChapterTitleString(chap.customName || tocTitle || chap.originalName, chap.displayIndex);
+            }
+            extractedItems[actualIdx] = { index: chap.displayIndex, idref: chap.idref, originalName: chap.originalName, cleanedName: heading };
+        }));
     }
+
+    aiPolishedResults = extractedItems.filter(Boolean);
+    const rowHtmls = aiPolishedResults.map(item => `
+        <div class="p-2 bg-white/90 dark:bg-slate-800/90 rounded-lg flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700/70 text-xs shadow-2xs">
+            <span class="text-purple-600 dark:text-purple-400 shrink-0 font-bold">#${item.index}</span>
+            <span class="text-slate-400 line-through truncate max-w-[35%]">${item.originalName}</span>
+            <span class="text-indigo-500 font-bold shrink-0">&rarr;</span>
+            <span class="text-emerald-600 dark:text-emerald-400 font-semibold truncate flex-1">${item.cleanedName}</span>
+        </div>
+    `);
+    html += rowHtmls.join('');
     html += '</div>';
     container.innerHTML = html;
     btnApply.disabled = false;

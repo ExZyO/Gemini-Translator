@@ -271,7 +271,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '5.9.8';
+    const VERSION = '6.0.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2266,6 +2266,7 @@ const formatModelName = (id, displayName) => {
       const [inputText, setInputText] = useState('');
       const [assembledText, setAssembledText] = useState('');
       const [terminology, setTerminology] = useState(() => localStorage.getItem('terminology') || '');
+      const [enableGlossary, setEnableGlossary] = useState(() => localStorage.getItem('enableGlossary') === 'true');
       const [customInstructions, setCustomInstructions] = useState(() => localStorage.getItem('customInstructions') || '');
       const [smartGlossary, setSmartGlossary] = useState(() => localStorage.getItem('smartGlossary') !== 'false');
       const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'text');
@@ -7207,7 +7208,8 @@ FORMATTING & STRUCTURE RULES:
 
         try {
           const opts = getTranslateOpts(ctrl.signal);
-          const chunks = splitChunks(inputText, terminology.length, smartGlossary);
+          const effectiveTerm = enableGlossary ? terminology : '';
+          const chunks = splitChunks(inputText, effectiveTerm.length, smartGlossary);
           const isAIProvider = provider === 'gemini' || provider === 'deepseek';
           const useContext = contextAware && chunks.length > 1 && isAIProvider;
 
@@ -7386,7 +7388,8 @@ FORMATTING & STRUCTURE RULES:
 
           // Prepare chapter chunks with clean paragraph boundary splitting
           const chapterData = chapters.map(c => {
-            const ch = splitChunks(c.text, terminology.length, smartGlossary);
+            const effectiveTerm = enableGlossary ? terminology : '';
+            const ch = splitChunks(c.text, effectiveTerm.length, smartGlossary);
             totalChunks += ch.length;
             if (c.title.trim()) totalChunks++;
             return { title: c.title, chunks: ch.map(text => ({ text })), doc: c.doc, zipPath: c.zipPath };
