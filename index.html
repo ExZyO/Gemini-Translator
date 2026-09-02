@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.13';
+    const VERSION = '8.4.14';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1475,7 +1475,20 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         }
       }
       if (slidingWindow && !isContextContext) { onChunk(slidingWindow); accumulatedOutput += slidingWindow; slidingWindow = ''; }
-      
+
+      // Thinking responses can contain only internal thought parts in streaming mode.
+      // Recover the visible translation without thinking instead of returning a blank chapter.
+      if (enableThinking && !accumulatedOutput.trim() && text.trim().length > 100) {
+        console.warn('Gemini thinking stream returned no visible translation. Retrying without thinking...');
+        const recovery = await translateGemini(text, {
+          apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary, enableThinking: false
+        });
+        if (recovery?.text?.trim()) {
+          onChunk(recovery.text);
+          return recovery;
+        }
+      }
+
       // Auto-continuation on SAFETY filter cutoff during streaming
       if (finishReason === 'SAFETY' && accumulatedOutput.trim().length > 0) {
         console.warn('Gemini stream interrupted by safety filter. Auto-resuming remaining content with solemn continuation...');
