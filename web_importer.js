@@ -747,10 +747,11 @@
             }
             progressCb?.('Reading Pixiv series chapter index...', 15);
             const seen = new Set();
-            const limit = 100;
+            // Pixiv currently rejects series_content requests above 30 items.
+            const limit = 30;
             let lastOrder = 0;
             for (let page = 0; page < 100; page++) {
-                const data = await fetchPixivJson(`https://www.pixiv.net/ajax/novel/series_content/${resolvedSeriesId}?limit=${limit}&last_order=${lastOrder}&order_by=asc`);
+                const data = await fetchPixivJson(`https://www.pixiv.net/ajax/novel/series_content/${resolvedSeriesId}?limit=${limit}&last_order=${lastOrder}&order_by=asc&lang=en`);
                 const items = data?.page?.seriesContents || data?.seriesContents || [];
                 if (!Array.isArray(items) || !items.length) break;
                 for (const item of items) {
