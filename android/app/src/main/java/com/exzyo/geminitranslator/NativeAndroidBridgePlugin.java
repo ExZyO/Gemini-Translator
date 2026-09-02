@@ -424,6 +424,10 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 int statusCode = 0;
                 String cookies = "";
 
+                // Carry cookies from the in-app WebView challenge/session into API requests.
+                String webViewCookies = CookieManager.getInstance().getCookie("https://www.pixiv.net/");
+                if (webViewCookies != null && !webViewCookies.isEmpty()) cookies = webViewCookies;
+
                 while (redirects < 10) {
                     URL url = new URL(currentUrl);
                     conn = (HttpURLConnection) url.openConnection();

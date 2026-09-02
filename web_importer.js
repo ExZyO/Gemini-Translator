@@ -137,10 +137,15 @@
         // 1. Android Native Bridge (Zero CORS / Full Chromium Engine)
         if (window.NativeBridge && window.NativeBridge.fetchNative) {
             try {
-                const res = await window.NativeBridge.fetchNative(url, {
-                    headers: options.headers || {},
-                    userAgent: options.userAgent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-                });
+                // The browser fallback behind NativeBridge can hang when a proxy blocks a site.
+                // Race it against the same timeout used by the regular fetch path.
+                const res = await Promise.race([
+                    window.NativeBridge.fetchNative(url, {
+                        headers: options.headers || {},
+                        userAgent: options.userAgent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Native fetch timed out')), timeoutMs))
+                ]);
                 clearTimeout(timer);
                 if (res && res.data) return res.data;
             } catch (e) {
@@ -671,6 +676,112 @@
     }
 
     // --- G. UNIVERSAL HEURISTIC SCRAPER (FALLBACK ENGINE) ---
+    // Pixiv exposes novel text and ordered series entries through its AJAX endpoints.
+    async function fetchPixivJson(endpoint) {
+        const endpointName = endpoint.includes('/series_content/') ? 'series chapter index' : endpoint.includes('/series/') ? 'series details' : 'novel content';
+        const options = {
+            timeout: 30000,
+            headers: { Accept: 'application/json, text/plain, */*', 'X-Requested-With': 'XMLHttpRequest', Referer: 'https://www.pixiv.net/' },
+            userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/122.0.0.0 Mobile Safari/537.36'
+        };
+        // fetchUrlNative is the Android path that can reuse WebView cookies after verification.
+        let raw;
+        if (window.NativeBridge?.fetchUrl) {
+            const response = await window.NativeBridge.fetchUrl(endpoint, options);
+            if (!response?.ok) throw new Error(`Pixiv ${endpointName} returned HTTP ${response?.status || 'error'}.`);
+            raw = await response.text();
+        } else {
+            raw = await fetchHtml(endpoint, options);
+        }
+        let payload;
+        try { payload = JSON.parse(raw); } catch (e) {
+            throw new Error(`Pixiv ${endpointName} request did not return JSON. It may require a logged-in browser session, VPN, or Android network access.`);
+        }
+        if (payload?.error) throw new Error(payload.message || 'Pixiv rejected the request.');
+        return payload?.body ?? payload;
+    }
+
+    function cleanPixivContent(content) {
+        if (!content) return '';
+        const value = String(content).replace(/\r\n?/g, '\n').trim();
+        return /<[^>]+>/.test(value) ? cleanChapterHtmlWithImages(value) : value
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
+    }
+
+    async function crawlPixiv(url, progressCb) {
+        const parsed = new URL(url);
+        const novelId = parsed.pathname.match(/\/novel\/show\.php$/i) ? parsed.searchParams.get('id') : null;
+        const seriesId = parsed.pathname.match(/\/novel\/series\/(\d+)/i)?.[1] || null;
+        if (!novelId && !seriesId) throw new Error('Pixiv URL must be a novel or novel series URL.');
+
+        progressCb?.('Connecting to Pixiv...', 8);
+        let firstNovel = null;
+        let resolvedSeriesId = seriesId;
+        let pixivVerified = false;
+        if (novelId) {
+            try {
+                firstNovel = await fetchPixivJson(`https://www.pixiv.net/ajax/novel/${novelId}?lang=en`);
+            } catch (firstError) {
+                if (!window.NativeBridge?.resolveCloudflare) throw firstError;
+                progressCb?.('Pixiv requires verification. Complete the check in the Android window...', 10);
+                await window.NativeBridge.resolveCloudflare(`https://www.pixiv.net/novel/show.php?id=${encodeURIComponent(novelId)}`);
+                pixivVerified = true;
+                progressCb?.('Verification complete. Retrying Pixiv...', 12);
+                firstNovel = await fetchPixivJson(`https://www.pixiv.net/ajax/novel/${novelId}?lang=en`);
+            }
+            resolvedSeriesId = firstNovel?.seriesNavData?.seriesId || firstNovel?.seriesId || null;
+        }
+
+        let seriesInfo = null;
+        const chapterList = [];
+        if (resolvedSeriesId) {
+            try {
+                seriesInfo = await fetchPixivJson(`https://www.pixiv.net/ajax/novel/series/${resolvedSeriesId}?lang=en`);
+            } catch (seriesError) {
+                if (pixivVerified || !window.NativeBridge?.resolveCloudflare) throw seriesError;
+                progressCb?.('Pixiv requires verification. Complete the check in the Android window...', 10);
+                await window.NativeBridge.resolveCloudflare(`https://www.pixiv.net/novel/series/${encodeURIComponent(resolvedSeriesId)}`);
+                pixivVerified = true;
+                progressCb?.('Verification complete. Retrying Pixiv...', 12);
+                seriesInfo = await fetchPixivJson(`https://www.pixiv.net/ajax/novel/series/${resolvedSeriesId}?lang=en`);
+            }
+            progressCb?.('Reading Pixiv series chapter index...', 15);
+            const seen = new Set();
+            const limit = 100;
+            let lastOrder = 0;
+            for (let page = 0; page < 100; page++) {
+                const data = await fetchPixivJson(`https://www.pixiv.net/ajax/novel/series_content/${resolvedSeriesId}?limit=${limit}&last_order=${lastOrder}&order_by=asc`);
+                const items = data?.page?.seriesContents || data?.seriesContents || [];
+                if (!Array.isArray(items) || !items.length) break;
+                for (const item of items) {
+                    const id = String(item.id || item.novelId || item.novel_id || '');
+                    if (!id || seen.has(id) || item.available === false) continue;
+                    seen.add(id);
+                    chapterList.push({ id, title: item.title || item.name || `Chapter ${chapterList.length + 1}`, order: Number(item.order ?? item.seriesOrder ?? chapterList.length) });
+                }
+                const nextOrder = Number(items[items.length - 1]?.order ?? items[items.length - 1]?.seriesOrder ?? (lastOrder + items.length));
+                if (items.length < limit || nextOrder <= lastOrder) break;
+                lastOrder = nextOrder;
+                progressCb?.(`Found ${chapterList.length} Pixiv chapters...`, Math.min(28, 15 + page * 3));
+            }
+        }
+        if (!chapterList.length && novelId) chapterList.push({ id: String(novelId), title: firstNovel?.title || 'Chapter 1', order: 0 });
+        if (!chapterList.length) throw new Error('No readable chapters were found in this Pixiv series.');
+        chapterList.sort((a, b) => a.order - b.order);
+        progressCb?.(`Found ${chapterList.length} Pixiv chapters. Downloading all chapters...`, 30);
+
+        const { chapters, totalWords } = await crawlChapterPool(chapterList, async (item) => {
+            const detail = item.id === String(novelId) && firstNovel ? firstNovel : await fetchPixivJson(`https://www.pixiv.net/ajax/novel/${item.id}?lang=en`);
+            return { title: item.title || detail?.title, text: cleanPixivContent(detail?.content || detail?.novel?.content || '') };
+        }, 8, progressCb);
+
+        if (!chapters.length) throw new Error('Pixiv chapters were found, but their content could not be read.');
+        const title = seriesInfo?.title || firstNovel?.seriesNavData?.title || firstNovel?.title || 'Pixiv Novel';
+        const author = seriesInfo?.userName || firstNovel?.userName || 'Pixiv Author';
+        progressCb?.(`Loaded ${chapters.length}/${chapterList.length} Pixiv chapters (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', tags: ['Pixiv', 'Web Novel'], chapters, isEpub: false, sourceUrl: url };
+    }
+
     async function crawlUniversal(url, progressCb) {
         progressCb?.('Analyzing web page structure with Universal Readability Engine...', 20);
         const html = await fetchHtml(url);
@@ -816,6 +927,7 @@
         if (clean.includes('royalroad.com') || clean.includes('scribblehub.com')) return 'royalroad';
         if (clean.includes('syosetu.com') || clean.includes('kakuyomu.jp')) return 'syosetu';
         if (clean.includes('novelfull.com') || clean.includes('boxnovel.com') || clean.includes('readlightnovel')) return 'novelfull';
+        if (clean.includes('pixiv.net/novel/')) return 'pixiv';
         return 'universal';
     }
 
@@ -835,6 +947,7 @@
             if (type === 'syosetu') return await crawlSyosetu(url, progressCb);
             if (type === 'novelfull') return await crawlNovelFull(url, progressCb);
             if (type === 'lofter') return await crawlLofter(url, progressCb);
+            if (type === 'pixiv') return await crawlPixiv(url, progressCb);
             return await crawlUniversal(url, progressCb);
         }
     };

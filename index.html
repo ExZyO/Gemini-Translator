@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.9';
+    const VERSION = '8.4.10';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -9622,8 +9622,8 @@ FORMATTING & STRUCTURE RULES:
 
             // ═══ TAB 2: WEB IMPORTER ═══
             activeTab === 'web_importer' && h(React.Fragment, null,
-              h('div', { className: 'src-chips' }, ['AO3', 'Lofter', 'Syosetu', 'Witch Cult', 'WordPress'].map(s => h('span', { key: s, className: 'src-chip' }, s))),
-              h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel URL (AO3, Syosetu, Lofter…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
+              h('div', { className: 'src-chips' }, ['Pixiv', 'AO3', 'Lofter', 'Syosetu', 'Witch Cult', 'WordPress'].map(s => h('span', { key: s, className: 'src-chip' }, s))),
+              h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel or series URL (Pixiv, AO3, Syosetu…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
               h('button', {
                 type: 'button', className: 'primary block', disabled: isFetchingUrl || !webImportUrl.trim(),
                 onClick: async () => {
@@ -9657,8 +9657,8 @@ FORMATTING & STRUCTURE RULES:
               ),
               h(InfoTooltip, {
                 title: 'Supported Sources',
-                text: 'Extracts full works and multi-chapter stories from AO3, Syosetu, Lofter, Witch Cult Translations, and standard WordPress/Tumblr webnovels directly to EPUB.',
-                tip: 'Paste either a single chapter URL or a full Table of Contents page.'
+                text: 'Extracts full works and multi-chapter stories from Pixiv, AO3, Syosetu, Lofter, Witch Cult Translations, and standard WordPress/Tumblr webnovels directly to EPUB.',
+                tip: 'For Pixiv, paste either a novel URL or a /novel/series/ URL to fetch the entire story.'
               }),
               webImportData && h('div', { className: 'book-card' },
                 h('div', { className: 't' }, webImportData.title || 'Untitled Web Novel'),

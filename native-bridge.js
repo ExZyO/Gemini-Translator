@@ -91,7 +91,14 @@
             }
             // Browser CORS fallback
             const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-            const res = await fetch(proxy);
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 15000);
+            let res;
+            try {
+                res = await fetch(proxy, { signal: controller.signal });
+            } finally {
+                clearTimeout(timer);
+            }
             const text = await res.text();
             return { success: true, data: text };
         },
@@ -323,7 +330,10 @@
             for (const proxyFn of proxies) {
                 try {
                     const target = proxyFn(url);
-                    const res = await fetch(target, options);
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), options.timeout || 15000);
+                    const res = await fetch(target, { ...options, signal: controller.signal });
+                    clearTimeout(timer);
                     if (res.ok) {
                         return res;
                     }
