@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.11';
+    const VERSION = '8.4.12';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1255,7 +1255,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       let text = cleanNovelProse(rawText || '');
       let newContext = context;
       if (context !== undefined && text.includes('CONTEXT_UPDATE')) {
-        const parts = text.split(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\n\r]*/i);
+        const parts = text.split(/[\n\r]*[-—–]{1,}CONTEXT_UPDATE[-—–]{1,}[\n\r]*/i);
         const mainBody = parts[0].trim();
         if (mainBody.length > 0) {
           text = cleanNovelProse(mainBody);
@@ -1447,7 +1447,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
                       finalContext += t;
                     } else {
                       slidingWindow += t;
-                      const splitMatch = slidingWindow.match(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\n\r]*/i);
+                      const splitMatch = slidingWindow.match(/[\n\r]*[-—–]{1,}CONTEXT_UPDATE[-—–]{1,}[\n\r]*/i);
                       if (splitMatch) {
                         const idx = splitMatch.index;
                         const textPart = slidingWindow.substring(0, idx);
@@ -1625,7 +1625,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
                     finalContext += t;
                   } else {
                     slidingWindow += t;
-                    const splitMatch = slidingWindow.match(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\n\r]*/i);
+                    const splitMatch = slidingWindow.match(/[\n\r]*[-—–]{1,}CONTEXT_UPDATE[-—–]{1,}[\n\r]*/i);
                     if (splitMatch) {
                       const idx = splitMatch.index;
                       const textPart = slidingWindow.substring(0, idx);
@@ -1658,7 +1658,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     };
 
     // Strips any leaked CONTEXT_UPDATE section (model echo with any dash variant)
-    const stripContextLeak = (t) => (t || '').split(/[\n\r]*[-—–]{2,}CONTEXT_UPDATE[-—–]{2,}[\s\S]*$/i)[0].trim();
+    const stripContextLeak = (t) => (t || '').split(/[\n\r]*[-—–]{1,}CONTEXT_UPDATE[-—–]{1,}[\s\S]*$/i)[0].trim();
 
     const translateDeepL = async (text, { apiKey, srcLang, tgtLang, signal }) => {
       if (!apiKey) throw new Error('DeepL API key required.');
