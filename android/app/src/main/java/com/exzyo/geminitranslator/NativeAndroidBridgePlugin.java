@@ -645,11 +645,19 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 int status = conn.getResponseCode();
                 if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM || status == 307 || status == 308) {
                     String newUrl = conn.getHeaderField("Location");
+                    if (newUrl == null || newUrl.isEmpty()) {
+                        throw new java.io.IOException("Update server returned a redirect without a destination");
+                    }
                     conn.disconnect();
                     url = new URL(newUrl);
                     conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) GeminiTranslator/6.9");
                     conn.connect();
+                    status = conn.getResponseCode();
+                }
+
+                if (status < 200 || status >= 300) {
+                    throw new java.io.IOException("Update download returned HTTP " + status);
                 }
 
                 int totalLength = conn.getContentLength();
@@ -681,6 +689,9 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         Intent manageIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.getPackageName()));
                         manageIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         context.startActivity(manageIntent);
+                        updateNotification("Gemini Translator Updater", "Allow installs from this source, then tap Update Now again.", 0, false);
+                        call.reject("Allow installs from this source, then tap Update Now again.");
+                        return;
                     }
                 }
 

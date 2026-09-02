@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.16';
+    const VERSION = '8.4.17';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1230,6 +1230,15 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     const cleanNovelProse = (text) => {
       if (!text) return '';
       let t = text;
+      // Decode HTML entities left by web imports or model output, including numeric entities such as &#x20;.
+      if (typeof document !== 'undefined') {
+        const entityDecoder = document.createElement('textarea');
+        t = t.replace(/&(?:#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, entity => {
+          entityDecoder.innerHTML = entity;
+          return entityDecoder.value;
+        });
+      }
+      t = t.replace(/\u00a0/g, ' ');
       // Clean standalone markdown italic sound effects like *Rip!*, *Crack!*, *Whoosh!*
       t = t.replace(/^(\s*)\*([A-Za-z0-9!?,.\s'-]{1,30})\*(\s*)$/gm, '$1$2$3');
       // Strip residual web navigation artifacts
@@ -1248,6 +1257,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       // Normalize dashes and ellipsis
       t = t.replace(/---?/g, '\u2014');
       t = t.replace(/\.{3,}/g, '\u2026');
+      // Remove accidental whitespace after opening quotation marks and at line edges.
+      t = t.replace(/([\u201c\u2018"])\s+(?=[A-Za-z])/g, '$1');
+      t = t.replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n');
       // Restore spaces lost when a model or chunk boundary joins sentences.
       t = t.replace(/([.!?\u2026]+)(["'\u201d\u2019)]?)(?=[A-Za-z])/g, '$1$2 ');
       return t.trim();
@@ -1269,6 +1281,18 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         text = text.trim();
       }
       return { text, newContext, usage };
+    };
+
+    const isLikelyHeadingOnlyTranslation = (value, sourceLength) => {
+      const normalized = cleanNovelProse(value || '').trim();
+      if (!normalized || sourceLength <= 300) return !normalized;
+      const lines = normalized.split(/\r?\n+/).map(line => line.trim()).filter(Boolean);
+      if (!lines.length || lines.length > 8) return false;
+      return lines.every(line => {
+        const plain = line.replace(/^#{1,6}\s*/, '').trim();
+        return /^(?:preface|prologue|afterword|epilogue|postscript)$/i.test(plain) ||
+          /^chapter\b/i.test(plain) || /^\[[^\]]+\]/.test(plain);
+      });
     };
 
     const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false }) => {
@@ -1318,7 +1342,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         : (candidateParts.map(p => p.text || '').join(''));
       
       // If model returned a blank or near-empty response on a large chunk, attempt direct recovery prompt
-      if ((!t || t.trim().length < 15) && text.length > 100) {
+      if ((!t || t.trim().length < 15 || isLikelyHeadingOnlyTranslation(t, text.length)) && text.length > 100) {
         console.warn('Gemini returned minimal text. Retrying with direct translation prompt...');
         const directPayload = {
           contents: [{ role: 'user', parts: [{ text: `Translate this entire fiction chapter from ${srcLang || 'Chinese'} into publication-quality ${tgtLang || 'English'}. Translate 100% of all paragraphs without summarizing:\n\n${text}` }] }],
@@ -1422,6 +1446,17 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       let finalContext = '';
       let slidingWindow = '';
       let accumulatedOutput = '';
+      const deferThinkingOutput = Boolean(enableThinking);
+      const deferredOutput = [];
+      const emitVisible = (value) => {
+        if (!value) return;
+        if (deferThinkingOutput) {
+          deferredOutput.push(value);
+        } else {
+          onChunk(value);
+          accumulatedOutput += value;
+        }
+      };
       let lastUsage = null;
       let finishReason = null;
       while (true) {
@@ -1453,22 +1488,20 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
                       if (splitMatch) {
                         const idx = splitMatch.index;
                         const textPart = slidingWindow.substring(0, idx);
-                        if (textPart) { onChunk(textPart); accumulatedOutput += textPart; }
+                        if (textPart) emitVisible(textPart);
                         finalContext += slidingWindow.substring(idx + splitMatch[0].length);
                         isContextContext = true;
                         slidingWindow = '';
                       } else {
                         if (slidingWindow.length > 40) {
                           const safeToEmit = slidingWindow.substring(0, slidingWindow.length - 40);
-                          onChunk(safeToEmit);
-                          accumulatedOutput += safeToEmit;
+                          emitVisible(safeToEmit);
                           slidingWindow = slidingWindow.substring(slidingWindow.length - 40);
                         }
                       }
                     }
                   } else {
-                    onChunk(t);
-                    accumulatedOutput += t;
+                    emitVisible(t);
                   }
                 }
               }
@@ -1476,11 +1509,19 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
           }
         }
       }
-      if (slidingWindow && !isContextContext) { onChunk(slidingWindow); accumulatedOutput += slidingWindow; slidingWindow = ''; }
+      if (slidingWindow && !isContextContext) { emitVisible(slidingWindow); slidingWindow = ''; }
+
+      if (deferThinkingOutput) {
+        const deferredText = deferredOutput.join('');
+        if (deferredText.trim() && !isLikelyHeadingOnlyTranslation(deferredText, text.length)) {
+          onChunk(deferredText);
+          accumulatedOutput = deferredText;
+        }
+      }
 
       // Thinking responses can contain only internal thought parts in streaming mode.
       // Recover the visible translation without thinking instead of returning a blank chapter.
-      if (enableThinking && !accumulatedOutput.trim() && text.trim().length > 100) {
+      if (enableThinking && (isLikelyHeadingOnlyTranslation(deferredOutput.join(''), text.length) || !accumulatedOutput.trim()) && text.trim().length > 100) {
         console.warn('Gemini thinking stream returned no visible translation. Retrying without thinking...');
         const recovery = await translateGemini(text, {
           apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary, enableThinking: false
@@ -2433,7 +2474,7 @@ const formatModelName = (id, displayName) => {
       const exportChapters = (Array.isArray(chaptersList) ? chaptersList : []).map((ch, idx) => ({
         ...ch,
         title: String(ch?.title || '').trim() || ('Chapter ' + (idx + 1)),
-        content: String(ch?.text ?? ch?.content ?? '').replace(/\r\n?/g, '\n').trim()
+        content: cleanNovelProse(String(ch?.text ?? ch?.content ?? '').replace(/\r\n?/g, '\n')).trim()
       }));
       if (!exportChapters.length) throw new Error('No chapters to package');
       const safeLang = String(bookLang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en';
@@ -4013,12 +4054,18 @@ ${tocNavLinks.join('\n')}
         setIsUpdating(true);
         toast(' Starting update download...', 'info');
         try {
-          await window.NativeBridge?.installApk(availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk");
+          const installResult = await window.NativeBridge?.installApk(availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk");
+          if (installResult && installResult.success === false) {
+            throw new Error(installResult.message || 'The package installer could not be launched.');
+          }
           toast(' Download complete. Opening package installer...', 'success');
         } catch (err) {
           console.error('Update error:', err);
-          toast('Failed to download update: ' + err.message, 'error');
-          window.open(availableUpdate?.releasePage || "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest", '_blank');
+          const updateError = err?.message || String(err);
+          toast('Failed to install update: ' + updateError, 'error');
+          if (!/Allow installs from this source/i.test(updateError)) {
+            window.open(availableUpdate?.releasePage || "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest", '_blank');
+          }
         } finally {
           setIsUpdating(false);
         }

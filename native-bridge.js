@@ -20,18 +20,25 @@
                 let releaseNotes = '';
                 let isApkReady = false;
                 let apkDownloadUrl = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
+                let releasePage = "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest";
 
                 // Step 1: Query GitHub Releases directly for the latest published release and APK
                 try {
                     const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now(), {
-                        headers: { 'Accept': 'application/vnd.github.v3+json' }
+                        headers: {
+                            'Accept': 'application/vnd.github.v3+json',
+                            'Cache-Control': 'no-cache'
+                        },
+                        cache: 'no-store'
                     });
                     if (res.ok) {
                         const data = await res.json();
                         releaseNotes = data.body || '';
+                        releasePage = data.html_url || releasePage;
 
                         const apkAsset = Array.isArray(data.assets) && data.assets.find(a => 
-                            (a.name === 'GeminiTranslator.apk' || a.name.endsWith('.apk')) && 
+                            a && typeof a.name === 'string' &&
+                            (a.name.toLowerCase() === 'geminitranslator.apk' || a.name.toLowerCase().endsWith('.apk')) &&
                             a.state === 'uploaded' && 
                             a.size > 1000000
                         );
@@ -72,7 +79,7 @@
                     currentVersion: 'v' + [cMajor, cMinor, cPatch].join('.'),
                     releaseNotes,
                     apkUrl: apkDownloadUrl,
-                    releasePage: "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest"
+                    releasePage
                 };
             } catch (e) {
                 console.warn('Update check failed:', e);
@@ -380,69 +387,6 @@
                 }
             }
             throw new Error('Could not download binary file across network.');
-        },
-
-        checkForUpdate: async (currentVersion) => {
-            const curVer = (currentVersion || '0.0.0').replace(/^v/, '').trim();
-            const semverCompare = (v1, v2) => {
-                const p1 = v1.split('.').map(n => parseInt(n, 10) || 0);
-                const p2 = v2.split('.').map(n => parseInt(n, 10) || 0);
-                for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
-                    const n1 = p1[i] || 0;
-                    const n2 = p2[i] || 0;
-                    if (n1 > n2) return 1;
-                    if (n1 < n2) return -1;
-                }
-                return 0;
-            };
-
-            // 1. Try raw package.json on main branch (Zero rate limits, instantaneous)
-            try {
-                const rawRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now());
-                if (rawRes.ok) {
-                    const pkgData = await rawRes.json();
-                    const latestVer = (pkgData.version || '').replace(/^v/, '').trim();
-                    if (latestVer && semverCompare(latestVer, curVer) > 0) {
-                        return {
-                            isNewer: true,
-                            currentVersion: curVer,
-                            latestVersion: latestVer,
-                            releaseNotes: `Version ${latestVer} is ready to install!`,
-                            apkUrl: 'https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk',
-                            releasePage: 'https://github.com/ExZyO/Gemini-Translator/releases/tag/latest'
-                        };
-                    }
-                }
-            } catch (rawErr) {
-                console.warn('Raw package update check fallback:', rawErr);
-            }
-
-            // 2. Try GitHub Releases API
-            try {
-                const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest', {
-                    headers: { 'Accept': 'application/vnd.github.v3+json' }
-                });
-                if (res.ok) {
-                    const release = await res.json();
-                    const latestTag = (release.tag_name || '').replace(/^v/, '').trim();
-                    const isNewer = semverCompare(latestTag, curVer) > 0;
-                    const apkAsset = release.assets?.find(a => a.name.endsWith('.apk'));
-                    const apkUrl = apkAsset?.browser_download_url || 'https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk';
-
-                    return {
-                        isNewer,
-                        currentVersion: curVer,
-                        latestVersion: latestTag,
-                        releaseNotes: release.body || '',
-                        apkUrl,
-                        releasePage: release.html_url || 'https://github.com/ExZyO/Gemini-Translator/releases/tag/latest'
-                    };
-                }
-            } catch (e) {
-                console.warn('GitHub API update check error:', e);
-            }
-
-            return null;
         },
 
         installApk: async (apkUrl) => {
