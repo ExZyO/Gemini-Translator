@@ -345,6 +345,20 @@
     }
 
     // --- B. AO3 (Archive of Our Own - 1-Shot Official EPUB & Full Work Engine) ---
+    const normalizeImportedChapterForDedup = (text) => String(text || '')
+        .replace(/!\[Illustration\]\([^)]*\)/gi, '![illustration]')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLocaleLowerCase();
+
+    const appendUniqueImportedChapter = (chapters, chapter, seenKeys) => {
+        if (!chapter || !chapter.text || chapter.text.length <= 30) return;
+        const key = normalizeImportedChapterForDedup(chapter.text);
+        if (!key || seenKeys.has(key)) return;
+        seenKeys.add(key);
+        chapters.push(chapter);
+    };
+
     async function crawlAO3(url, progressCb) {
         progressCb?.('Analyzing AO3 work URL...', 10);
         const match = url.match(/works\/(\d+)/);
@@ -381,19 +395,24 @@
             if (a.textContent?.trim()) tags.push(a.textContent.trim());
         });
 
-        const chapterNodes = doc.querySelectorAll('#chapters .chapter, #chapters > .userstuff');
+        // AO3 full-work pages expose the same body through nested `.userstuff`
+        // elements. Only consume top-level chapter wrappers; combining those
+        // with direct `.userstuff` nodes duplicates the authored chapter.
+        let chapterNodes = Array.from(doc.querySelectorAll('#chapters > .chapter'));
+        if (chapterNodes.length === 0) chapterNodes = Array.from(doc.querySelectorAll('#chapters .chapter'));
         const chapters = [];
+        const seenChapterKeys = new Set();
 
         if (chapterNodes.length > 0) {
             chapterNodes.forEach((cn, idx) => {
-                const heading = cn.querySelector('.title, h3.heading')?.textContent?.trim() || `Chapter ${idx + 1}`;
-                const contentEl = cn.querySelector('.userstuff, div[role="article"]') || cn;
+                const heading = cn.querySelector('h3.title, h3.heading, h2.title, h1.title, .title.heading')?.textContent?.trim() || `Chapter ${idx + 1}`;
+                const contentEl = cn.querySelector('.userstuff') || cn.querySelector('div[role="article"]') || cn;
                 const text = cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '');
-                if (text.length > 30) chapters.push({ title: heading, text });
+                appendUniqueImportedChapter(chapters, { title: heading, text }, seenChapterKeys);
             });
         } else {
-            const contentEl = doc.querySelector('#chapters, .userstuff[role="article"], .work.meta .userstuff') || doc.body;
-            chapters.push({ title, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') });
+            const contentEl = doc.querySelector('#chapters .userstuff, .userstuff[role="article"], .work.meta .userstuff') || doc.body;
+            appendUniqueImportedChapter(chapters, { title, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') }, seenChapterKeys);
         }
 
         progressCb?.(`Loaded ${chapters.length} chapters from AO3!`, 100);
@@ -870,18 +889,33 @@
 
         const spineItems = Array.from(opf.querySelectorAll('spine itemref'));
         const manifestMap = {};
+        const manifestMeta = {};
         opf.querySelectorAll('manifest item').forEach(it => {
-            manifestMap[it.getAttribute('id')] = it.getAttribute('href');
+            const id = it.getAttribute('id');
+            manifestMap[id] = it.getAttribute('href');
+            manifestMeta[id] = {
+                mediaType: (it.getAttribute('media-type') || '').toLowerCase(),
+                properties: (it.getAttribute('properties') || '').toLowerCase()
+            };
         });
 
         const chapters = [];
+        const seenChapterKeys = new Set();
         for (let i = 0; i < spineItems.length; i++) {
             const id = spineItems[i].getAttribute('idref');
             const href = manifestMap[id];
             if (!href) continue;
+
+            const meta = manifestMeta[id] || {};
+            const hrefPath = href.split('#')[0];
+            if (meta.properties.split(/\s+/).includes('nav') ||
+                !['application/xhtml+xml', 'text/html'].includes(meta.mediaType) ||
+                /(?:^|\/)(?:nav|toc|table[-_ ]?of[-_ ]?contents)(?:[-_.]|\/|$)/i.test(hrefPath)) continue;
             
-            const filePath = od ? (od + href) : href;
-            let chFile = zip.file(filePath) || zip.file(href);
+            const filePath = od ? (od + hrefPath) : hrefPath;
+            let decodedFilePath = filePath;
+            try { decodedFilePath = decodeURIComponent(filePath); } catch (e) {}
+            let chFile = zip.file(filePath) || zip.file(hrefPath) || zip.file(decodedFilePath);
             if (!chFile) continue;
 
             const chHtml = await chFile.async('text');
@@ -889,14 +923,12 @@
             const heading = chDoc.querySelector('h1, h2, h3, h4, [class*="title"], [class*="heading"]')?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
             const bodyText = cleanChapterHtmlWithImages(chDoc.body?.innerHTML || chDoc.body?.textContent || '');
 
-            if (bodyText.length > 30) {
-                chapters.push({
-                    title: heading,
-                    text: bodyText,
-                    doc: chDoc,
-                    zipPath: filePath
-                });
-            }
+            appendUniqueImportedChapter(chapters, {
+                title: heading,
+                text: bodyText,
+                doc: chDoc,
+                zipPath: filePath
+            }, seenChapterKeys);
         }
 
         if (chapters.length === 0) {

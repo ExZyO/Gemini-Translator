@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.17';
+    const VERSION = '8.4.18';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -977,26 +977,14 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 
     const formatGlossaryString = (str) => {
       if (!str || !str.trim()) return '';
-      const lines = str.split('\n').filter(l => l.trim());
-      return lines.map(line => {
-        let clean = line.replace(/^[-*•\s]+/, '').trim();
-        if (clean.includes('->')) return `- ${clean}`;
-        if (clean.includes('=')) {
-          const [k, ...v] = clean.split('=');
-          return `- ${k.trim()} -> ${v.join('=').trim()}`;
-        }
-        if (clean.includes(':')) {
-          const [k, ...v] = clean.split(':');
-          return `- ${k.trim()} -> ${v.join(':').trim()}`;
-        }
-        return `- ${clean}`;
-      }).join('\n');
+      // Keep the glossary lossless. Formatting must never rewrite or discard rules, notes, aliases, or headings.
+      return String(str).replace(/\r\n?/g, '\n').trim();
     };
 
     // ═══════════════════════════════════════
-    // SMART DYNAMIC GLOSSARY FILTERING (MASTER NOVEL & LOTM OPTIMIZED)
+    // SMART DYNAMIC GLOSSARY FILTERING (LOSSLESS & SOURCE-AWARE)
     // ═══════════════════════════════════════
-    const filterGlossaryForChunk = (rawGlossary, chunkText, isSmartEnabled = true) => {
+    const legacyFilterGlossaryForChunk = (rawGlossary, chunkText, isSmartEnabled = true) => {
       if (!rawGlossary || !rawGlossary.trim()) return '';
       if (!isSmartEnabled || !chunkText || !chunkText.trim()) return formatGlossaryString(rawGlossary);
 
@@ -1180,12 +1168,165 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       return result.trim() || (globalRules.length > 0 ? globalRules.join('\n').trim() : formatGlossaryString(rawGlossary));
     };
 
+    // Lossless dynamic glossary selection. Every selected block keeps all of its original lines.
+    const filterGlossaryForChunk = (rawGlossary, chunkText, isSmartEnabled = true) => {
+      if (!rawGlossary || !rawGlossary.trim()) return '';
+      const originalGlossary = String(rawGlossary).replace(/\r\n?/g, '\n').trim();
+      if (!isSmartEnabled || !chunkText || !chunkText.trim()) return originalGlossary;
+
+      const lines = originalGlossary.split('\n');
+      const globalRules = [];
+      const blocks = [];
+      let currentBlock = null;
+      let currentSectionHeading = '';
+      let isGlobalSection = true;
+      const topSectionPattern = /^(?:#+\s*)?[IVXLCDM]+\.\s+\S/i;
+      const globalSectionPattern = /^(?:#+\s*)?(?:I\.)?\s*(?:SYSTEM TRANSLATION RULES|STYLE GUIDELINES|SYSTEM RULES|TRANSLATION RULES|GENERAL RULES|PROMPT RULES)/i;
+      const alwaysIncludeSectionPattern = /\b(?:RULES?|GUIDELINES?|STYLE|SPOILER|CONSISTENCY|CONTINUITY|CANON|PRONOUN|FORMATTING|NAMING|GENDER|DO\s+NOT)\b/i;
+      const genericKeys = new Set([
+        'a', 'an', 'and', 'as', 'at', 'be', 'by', 'for', 'from', 'god', 'goddess', 'he', 'her', 'his',
+        'human', 'in', 'into', 'is', 'it', 'its', 'of', 'on', 'or', 'pathway', 'sequence', 'she', 'the',
+        'this', 'to', 'unknown', 'was', 'with', 'year', 'ability', 'abilities', 'authority', 'authorities',
+        'appearance', 'aliases', 'counters', 'formula', 'history', 'symbolism', 'physical', 'enhanced', 'enhancement'
+      ]);
+
+      const normalizeKey = value => String(value || '')
+        .normalize('NFKC')
+        .toLowerCase()
+        .replace(/[\u2019\u2018]/g, "'")
+        .replace(/[^a-z0-9\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const keyVariants = key => {
+        const raw = String(key || '').trim();
+        if (!raw) return [];
+        if (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(raw)) return [raw];
+        const normalized = normalizeKey(raw);
+        if (!normalized) return [];
+        const variants = [normalized];
+        const withoutTitle = normalized.replace(/^(?:mr|mrs|ms|miss|madam|madame|the)\s+/, '').trim();
+        if (withoutTitle && withoutTitle !== normalized) variants.push(withoutTitle);
+        if (normalized.includes(' ')) {
+          normalized.split(' ').filter(word => word.length >= 4 && !genericKeys.has(word)).forEach(word => variants.push(word));
+        }
+        return Array.from(new Set(variants)).filter(v => v.length >= 3 && !genericKeys.has(v));
+      };
+
+      const addTermKeys = (target, value) => {
+        const clean = String(value || '').replace(/^[-*+\u2022#\d.\s]+/, '').trim();
+        if (!clean) return;
+        const cjkMatches = clean.match(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af·・]+/g) || [];
+        cjkMatches.forEach(key => {
+          target.push(key);
+          key.split(/[·・]/).filter(part => part.length >= 2).forEach(part => target.push(part));
+        });
+        clean.split(/[/|,;]+/)
+          .map(part => part.replace(/\([^)]*\)/g, '').replace(/[\[\]]/g, '').trim())
+          .filter(part => part && part.length <= 100)
+          .forEach(part => keyVariants(part).forEach(variant => target.push(variant)));
+      };
+
+      const addLineSearchKeys = (target, line) => {
+        const trimmed = String(line || '').trim();
+        if (!trimmed) return;
+        const content = trimmed.replace(/^[-*+\u2022#\d.\s]+/, '').trim();
+        if (!content) return;
+        const mapping = content.match(/^(.*?)\s*(?:->|=>|=)\s*(.*?)\s*$/);
+        if (mapping) {
+          addTermKeys(target, mapping[1]);
+          addTermKeys(target, mapping[2]);
+        } else {
+          const dashEntry = content.match(/^(.+?)\s+-\s+.+$/);
+          const colonEntry = content.match(/^(.+?)\s*:\s*(.*)$/);
+          addTermKeys(target, dashEntry ? dashEntry[1] : (colonEntry ? colonEntry[1] : content));
+          if (colonEntry?.[2] && colonEntry[2].length <= 60) addTermKeys(target, colonEntry[2]);
+        }
+        (content.match(/\b\d+-\d+\b/g) || []).forEach(number => target.push(number));
+      };
+
+      const flushCurrentBlock = () => {
+        if (currentBlock && currentBlock.lines.length > 0) {
+          currentBlock.searchKeys = Array.from(new Set(currentBlock.searchKeys.filter(Boolean)));
+          blocks.push(currentBlock);
+        }
+        currentBlock = null;
+      };
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          if (isGlobalSection) globalRules.push('');
+          flushCurrentBlock();
+          continue;
+        }
+        if (topSectionPattern.test(trimmed)) {
+          flushCurrentBlock();
+          currentSectionHeading = line;
+          isGlobalSection = globalSectionPattern.test(trimmed) || alwaysIncludeSectionPattern.test(trimmed);
+          if (isGlobalSection) globalRules.push(line);
+          continue;
+        }
+        if (isGlobalSection) {
+          globalRules.push(line);
+          continue;
+        }
+
+        const isContinuation = currentBlock && (
+          /^\s{2,}/.test(line) ||
+          /^\s*[*+\u2022]\s+/.test(line) ||
+          /^\s*["\u201c\u2018]/.test(line)
+        );
+        if (isContinuation) {
+          currentBlock.lines.push(line);
+          // Only index short child entries. Long explanatory notes stay lossless
+          // inside their parent block without becoming broad search matches.
+          if (trimmed.length <= 100) addLineSearchKeys(currentBlock.searchKeys, line);
+        } else {
+          flushCurrentBlock();
+          currentBlock = { lines: [line], searchKeys: [], sectionHeading: currentSectionHeading };
+          addLineSearchKeys(currentBlock.searchKeys, line);
+        }
+      }
+      flushCurrentBlock();
+
+      const chunkForMatch = normalizeKey(chunkText);
+      const matchesKey = key => {
+        if (!key) return false;
+        if (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(key)) return chunkText.includes(key);
+        return keyVariants(key).some(variant => {
+          const escaped = variant.replace(/[.*+?^()|[\]\\]/g, '\\$&');
+          return new RegExp('(?:^| )' + escaped + '(?:$| )', 'i').test(chunkForMatch);
+        });
+      };
+
+      // Match each entry independently. Do not expand through shared English
+      // words: that was causing an unrelated multi-novel glossary to snowball.
+      const selected = new Set(blocks.filter(block => block.searchKeys.some(matchesKey)));
+      if (selected.size === 0) return originalGlossary;
+
+      const output = [];
+      const seenSections = new Set();
+      const globalText = globalRules.join('\n').trim();
+      if (globalText) output.push(globalText);
+      for (const block of blocks) {
+        if (!selected.has(block)) continue;
+        if (block.sectionHeading && !seenSections.has(block.sectionHeading)) {
+          output.push(block.sectionHeading);
+          seenSections.add(block.sectionHeading);
+        }
+        output.push(block.lines.join('\n'));
+      }
+      return output.join('\n\n').trim() || originalGlossary;
+    };
+
     const buildPrompt = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true) => {
       const srcDisplay = srcLang && srcLang !== 'Auto-detect' ? srcLang : 'Chinese';
       const tgtDisplay = tgtLang || 'English';
 
-      let promptHeader = `You are a master literary localization editor translating an authorized webnovel from ${srcDisplay} into publication-quality ${tgtDisplay}.\n\n` +
+      let promptHeader = `You are a direct literary translator translating the exact supplied fiction text from ${srcDisplay} into publication-quality ${tgtDisplay}.\n\n` +
         `TRANSLATION GUIDELINES:\n` +
+        `0. Direct Translation Boundary: Translate only the text in RAW TEXT TO TRANSLATE. Do not write a continuation, adaptation, rewrite, alternate scene, fanfiction, synopsis, or replacement story. The terminology guide, custom instructions, and previous context are reference material only, never additional story content. Stop when the supplied raw text ends.\n` +
         `1. Raw Accuracy & Tone Fidelity: Faithfully capture the original RAW text's exact meaning, scene pacing, and narrative tone (ruthless, contemplative, dark, humorous, or conversational). Do not invent unmentioned lore or distort character personalities.\n` +
         `2. 100% Complete Zero-Omission Fidelity (No Self-Censorship or Summarization): This is an authorized literary translation of a published fantasy novel. You MUST translate every single sentence, action, combat exchange, gory beast attack, character death, dialogue line, and philosophical passage completely from beginning to end. NEVER summarize, skip, self-censor, or omit any scenes or paragraphs.\n` +
         `3. Visceral Action & Punchy Pacing (No Academic Softening): Preserve gritty dark fantasy, raw visceral combat, and dark atmospheric weight with punchy, impactful English phrasing. Do NOT sanitize or soften intense actions into timid, polite academic language.\n` +
@@ -1197,7 +1338,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         `9. Dignified Literary Translation of Classical Metaphors: When the source uses poetic classical tropes for character descriptions, localize them into serious, dignified, non-suggestive English prose to maintain a solemn, high-register tone without tripping automated filters.\n` +
         `10. Dignified Translation for Rituals & Dark Scenes: When translating rituals, sacrifices, or preparations in dark fantasy scenes, translate the action with solemn, serious, and matter-of-fact narrative English. Strictly avoid lurid or gratuitous phrasing that could trigger automated content filters, while preserving 100% of the narrative actions, dialogue, and plot progression.\n` +
         `11. Classical Poetry, Chanted Songs & Mythic Parables: Translate poems, songs, and parables into evocative, rhythmically resonant English verse prioritizing direct emotional weight, heroic clarity, and poetic meter. Use sharp, punchy imperative phrasing for climactic endings, and preserve anaphoric repetition and refrains word-for-word.\n` +
-        `Glossary Discipline: Apply glossary/terminology mappings ONLY when the exact term appears in the source text. Never force terminology, characters, or lore from another work into the translation.\n` +
+        `Glossary Discipline: Apply glossary/terminology mappings ONLY when the exact term appears in the source text. Never force terminology, examples, characters, or lore from another work into the translation. Treat all glossary examples and notes as reference data, never as source prose.\n` +
         `12. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n` +
         `13. Premium Typography & Formatting:\n` +
         ` - Use proper typographic punctuation: curly/smart quotes (\u201c...\u201d and \u2018...\u2019), em-dashes (\u2014) instead of double hyphens (--), and proper ellipsis (\u2026) instead of three dots (...).\n` +
@@ -1211,7 +1352,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 
       const filteredGlossary = filterGlossaryForChunk(glossary, text, smartGlossary);
       if (filteredGlossary.trim()) {
-        p = `=== TERMINOLOGY GUIDE ===\n${filteredGlossary.trim()}\n=== END TERMINOLOGY GUIDE ===\n\n` + p;
+        p = `=== TERMINOLOGY GUIDE (REFERENCE ONLY) ===\nThe following guide supplies terminology and style constraints. It is not story content. Do not reproduce its examples, notes, character lists, or lore unless the same information is present in the raw text.\n\n${filteredGlossary.trim()}\n=== END TERMINOLOGY GUIDE ===\n\n` + p;
       }
 
       if (instructions && instructions.trim()) {
@@ -1310,7 +1451,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         system_instruction: {
           parts: [{
-            text: 'You are an expert literary translator performing direct, faithful translation of an authorized dark fantasy fiction webnovel. You strictly translate 100% of all combat, gore, mythical beast attacks, and character deaths with complete zero-omission fidelity. Never self-censor, summarize, or omit any scenes. Never use markdown asterisks around sound effects.'
+            text: 'You are an expert direct literary translator. Translate only the exact supplied source text; do not continue, adapt, rewrite, summarize, or invent story content. Glossaries, examples, lore notes, and context are reference material only. Preserve every source paragraph and event.'
           }]
         },
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
@@ -1417,7 +1558,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         system_instruction: {
           parts: [{
-            text: 'You are an expert literary translator performing direct, faithful translation of an authorized dark fantasy fiction webnovel. You strictly translate 100% of all combat, gore, mythical beast attacks, and character deaths with complete zero-omission fidelity. Never self-censor, summarize, or omit any scenes. Never use markdown asterisks around sound effects.'
+            text: 'You are an expert direct literary translator. Translate only the exact supplied source text; do not continue, adapt, rewrite, summarize, or invent story content. Glossaries, examples, lore notes, and context are reference material only. Preserve every source paragraph and event.'
           }]
         },
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
@@ -1605,7 +1746,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         body: JSON.stringify({
           model: chosenModel,
           messages: [
-            { role: 'system', content: 'You are an expert literary translator. Follow all glossary terms and tone instructions accurately. Output only the translated text.' },
+            { role: 'system', content: 'You are an expert direct literary translator. Translate only the supplied source text. Do not continue, adapt, rewrite, summarize, or invent content. Glossary terms and context are reference material only. Output only the translated text.' },
             { role: 'user', content: prompt }
           ],
           stream: false
@@ -1639,7 +1780,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         body: JSON.stringify({
           model: chosenModel,
           messages: [
-            { role: 'system', content: 'You are an expert literary translator. Follow all glossary terms and tone instructions accurately. Output only the translated text.' },
+            { role: 'system', content: 'You are an expert direct literary translator. Translate only the supplied source text. Do not continue, adapt, rewrite, summarize, or invent content. Glossary terms and context are reference material only. Output only the translated text.' },
             { role: 'user', content: prompt }
           ],
           stream: true,
@@ -8165,8 +8306,9 @@ FORMATTING & STRUCTURE RULES:
    Format every term strictly as:
    - [Original Language Source Key] -> [English Translation] ([Optional Lore, Notes, or Alias])
    Always put the original language characters (Chinese/Korean/Japanese) on the LEFT side of ->.
-4. Clean up duplicates, remove junk text/links, and standardize capitalization.
-5. Output ONLY the clean plaintext glossary content. No meta-commentary.
+4. LOSSLESS REQUIREMENT: Do not delete, omit, summarize, deduplicate, merge, paraphrase, or silently correct any original rule, term, alias, note, example, heading, section, or line. Preserve every original fact and its ordering. You may add searchable aliases or index lines, but additions must be clearly additive and must never replace the original text.
+5. Keep all original content even when it appears repetitive or belongs to another series; the translation engine's dynamic selector decides what to use per source chunk.
+6. Output ONLY the lossless plaintext glossary content. No meta-commentary.
 
 ---
 RAW GLOSSARY DATA TO CLEAN:
@@ -8199,7 +8341,9 @@ FORMATTING & STRUCTURE RULES:
    Format terms strictly as:
    - [Original Language Source Key] -> [English Translation] ([Optional Lore / Alias / Context])
    Always put the original language characters (Chinese/Korean/Japanese) on the LEFT of ->.
-4. Clean up, deduplicate, and remove junk text/links. Output ONLY the clean glossary. No conversational opening or closing.`;
+4. LOSSLESS REQUIREMENT: Never delete, omit, summarize, deduplicate, merge, paraphrase, or silently correct any original rule, term, alias, note, example, heading, section, or line. Preserve every original fact and its ordering. Add searchable aliases or index lines only when additive; never replace source text.
+5. Keep all original content even when it appears repetitive or belongs to another series; dynamic selection handles relevance during translation.
+6. Output ONLY the lossless glossary. No conversational opening or closing.`;
 
         const userPrompt = `Please optimize, structure, and format the following glossary data:\n\n${terminology}`;
 
@@ -9182,6 +9326,8 @@ FORMATTING & STRUCTURE RULES:
       const readEpub = async f => {
         if (!window.JSZip) throw new Error('JSZip not loaded.');
         const zip = await window.JSZip.loadAsync(f); const chapters = [];
+        const seenChapterKeys = new Set();
+        const chapterKey = text => String(text || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
         const cf = zip.file('META-INF/container.xml'); if (!cf) throw new Error('Invalid EPUB');
         const cc = await cf.async('text'); const cd = new DOMParser().parseFromString(cc, 'text/xml');
         const rp = cd.querySelector('rootfile')?.getAttribute('full-path'); if (!rp) throw new Error('No rootfile');
@@ -9190,7 +9336,7 @@ FORMATTING & STRUCTURE RULES:
         const oc = await of2.async('text'); const opf = new DOMParser().parseFromString(oc, 'text/xml');
         const ncxI = opf.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
         const ncxH = ncxI ? od + ncxI.getAttribute('href') : null;
-        const navI = Array.from(opf.querySelectorAll('manifest item')).find(i => i.getAttribute('properties') === 'nav');
+        const navI = Array.from(opf.querySelectorAll('manifest item')).find(i => (i.getAttribute('properties') || '').split(/\s+/).includes('nav'));
         const navH = navI ? od + navI.getAttribute('href') : null;
         const titles = new Map();
         if (ncxH) { const nf = zip.file(ncxH); if (nf) { const nc = await nf.async('text'); const nd = new DOMParser().parseFromString(nc, 'text/xml'); nd.querySelectorAll('navPoint').forEach(np => { const l = np.querySelector('navLabel text')?.textContent; const s = np.querySelector('content')?.getAttribute('src'); if (l && s) titles.set(s.split('#')[0], l.trim()) }) } }
@@ -9223,8 +9369,11 @@ FORMATTING & STRUCTURE RULES:
 
         for (const ir of opf.querySelectorAll('spine itemref')) {
           const id = ir.getAttribute('idref'); const mi = opf.querySelector(`manifest item[id="${id}"]`); const href = mi?.getAttribute('href'); if (!href) continue;
-          const cp = od + href; if (cp === navH || cp === ncxH || href.toLowerCase().includes('toc.xhtml')) continue;
-          const mt = mi.getAttribute('media-type');
+          const hrefPath = href.split('#')[0];
+          const cp = od + hrefPath;
+          const properties = (mi.getAttribute('properties') || '').toLowerCase().split(/\s+/);
+          if (properties.includes('nav') || cp === navH || cp === ncxH || /(?:^|\/)(?:nav|toc|table[-_ ]?of[-_ ]?contents)(?:[-_.]|\/|$)/i.test(hrefPath)) continue;
+          const mt = (mi.getAttribute('media-type') || '').toLowerCase();
           if (mt && (mt === 'application/xhtml+xml' || mt === 'text/html')) {
             const file = zip.file(cp);
             if (file) {
@@ -9246,7 +9395,11 @@ FORMATTING & STRUCTURE RULES:
                   }
                 }
                 if (!title) title = `Chapter ${chapters.length + 1}`;
-                if (txt.trim()) chapters.push({ title, text: txt, doc, zipPath: cp });
+                const key = chapterKey(txt);
+                if (txt.trim() && key && !seenChapterKeys.has(key)) {
+                  seenChapterKeys.add(key);
+                  chapters.push({ title, text: txt, doc, zipPath: cp });
+                }
               } catch (e) { }
             }
           }
