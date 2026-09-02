@@ -1168,7 +1168,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       return result.trim() || (globalRules.length > 0 ? globalRules.join('\n').trim() : formatGlossaryString(rawGlossary));
     };
 
-    // Lossless dynamic glossary selection with Dependency & Sequence Resolution.
+    // Precision Lossless dynamic glossary selection.
     const filterGlossaryForChunk = (rawGlossary, chunkText, isSmartEnabled = true) => {
       if (!rawGlossary || !rawGlossary.trim()) return '';
       const originalGlossary = String(rawGlossary).replace(/\r\n?/g, '\n').trim();
@@ -1279,14 +1279,12 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
           continue;
         }
 
-        const isContinuation = currentBlock && (
-          /^\s{2,}/.test(line) ||
-          /^\s*[*+\u2022-]\s+/.test(line) ||
-          /^\s*["\u201c\u2018]/.test(line) ||
-          /^\s*Sequence\s+\d+/i.test(line) ||
-          /^\s*序列\s*\d+/i.test(line)
+        const isSubIndentedNote = currentBlock && (
+          /^\s{2,}[*+\u2022-]\s+/.test(line) ||
+          /^\s{2,}\*/.test(line)
         );
-        if (isContinuation) {
+
+        if (isSubIndentedNote) {
           currentBlock.lines.push(line);
           if (trimmed.length <= 120) addLineSearchKeys(currentBlock.searchKeys, line);
         } else {
@@ -1307,51 +1305,18 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         });
       };
 
-      // Pass 1: Direct Matching against chunk text
+      // Direct precision matching against chunk text
       const selectedBlocks = new Set();
       for (const block of blocks) {
         for (const key of block.searchKeys) {
           if (matchesKeyInText(key, chunkText, chunkForMatch)) {
             selectedBlocks.add(block);
+            break;
           }
         }
       }
 
-      // Pass 2: Automatic Dependent Term Resolution (Aliases, Pathways, Sequences, Sefirot)
-      const dependencyKeywords = new Set();
-      for (const block of selectedBlocks) {
-        for (const line of block.lines) {
-          const trimmed = line.trim();
-          const pathwayMatch = trimmed.match(/\b(Fool|Error|Door|Visionary|Sun|Tyrant|White Tower|Hanged Man|Darkness|Death|Twilight Giant|Demoness|Red Priest|Hermit|Paragon|Mother|Moon|Abyss|Chained|Black Emperor|Justiciar|Wheel of Fortune|Circle of Inevitability|Eternal Aeon|Chaos Primogenitor|Patriarch|Chaos Mist|Tail-Devourer|Condenser|Everlasting|Second Law|Sublunary Eye|Eternal Edict)\s+(?:Pathway|途径|Tree)/i);
-          if (pathwayMatch) {
-            dependencyKeywords.add(pathwayMatch[1].toLowerCase());
-          }
-          const aliasMatch = trimmed.match(/(?:The Fool|Mr\. Fool|The World|Gehrman Sparrow|Sherlock Moriarty|Dwayne Dantes|Merlin Hermes|Zhou Mingrui|Audrey Hall|Miss Justice|Alger Wilson|The Hanged Man|Derrick Berg|Mr\. Sun|Fors Wall|The Magician|Emlyn White|The Moon|Leonard Mitchell|The Star|Mr\. Star|Cattleya|The Hermit|Xio Derecha|Judgment|Reinette Tinekerr|Miss Messenger|Amon|Mr\. Error|Pallez Zoroast|Medici|Sauron-Einhorn-Medici|Adam|True Creator|Evernight Goddess|Roselle Gustav|Queen Mystic|Colin Iliad|Lovia Tiffany|Lumian Lee|Franca Roland|Jenna)/ig);
-          if (aliasMatch) {
-            aliasMatch.forEach(a => dependencyKeywords.add(a.toLowerCase()));
-          }
-          const sefirahMatch = trimmed.match(/(?:Sefirah Castle|Chaos Sea|City of Calamity|River of Eternal Darkness|Brood Hive|Tenebrous World|Nation of Disorder|Key of Light|Knowledge Moor|源堡|混沌海|灾祸之城|永暗之河|母巢|暗影世界|秩序阴影|光之钥|知识荒野)/ig);
-          if (sefirahMatch) {
-            sefirahMatch.forEach(s => dependencyKeywords.add(s.toLowerCase()));
-          }
-        }
-      }
-
-      if (dependencyKeywords.size > 0) {
-        const depNormalized = Array.from(dependencyKeywords).map(k => normalizeKey(k)).filter(Boolean);
-        for (const block of blocks) {
-          if (selectedBlocks.has(block)) continue;
-          const isDepMatch = block.searchKeys.some(k => {
-            const nk = normalizeKey(k);
-            return depNormalized.some(dep => nk === dep || (nk.length >= 4 && dep.includes(nk)));
-          });
-          if (isDepMatch) {
-            selectedBlocks.add(block);
-          }
-        }
-      }
-
-      // Pass 3: Assemble Lossless Formatted Output
+      // Assemble Lossless Formatted Output
       const output = [];
       const seenSections = new Set();
       const globalText = globalRules.join('\n').trim();
