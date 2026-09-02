@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.15';
+    const VERSION = '8.4.16';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2348,12 +2348,95 @@ const formatModelName = (id, displayName) => {
 
     // saveUniversalBlob is globally provided by utils.js
 
+    const updateOriginalEpubNavigation = async (zip, translatedChapters) => {
+      if (!zip || !Array.isArray(translatedChapters) || typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') return;
+      const containerFile = zip.file('META-INF/container.xml');
+      if (!containerFile) return;
+
+      const normalizePath = value => {
+        let decoded = String(value || '');
+        try { decoded = decodeURIComponent(decoded); } catch (e) {}
+        const parts = decoded.split('/');
+        const clean = [];
+        parts.forEach(part => {
+          if (!part || part === '.') return;
+          if (part === '..') clean.pop();
+          else clean.push(part);
+        });
+        return clean.join('/');
+      };
+      const resolveArchivePath = (filePath, href) => {
+        const cleanHref = String(href || '').split('#')[0].split('?')[0];
+        const base = normalizePath(filePath).split('/');
+        base.pop();
+        return normalizePath(base.concat(cleanHref.split('/')).join('/'));
+      };
+
+      try {
+        const containerDoc = new DOMParser().parseFromString(await containerFile.async('text'), 'text/xml');
+        const opfPath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
+        if (!opfPath) return;
+        const opfFile = zip.file(opfPath);
+        if (!opfFile) return;
+        const opfDoc = new DOMParser().parseFromString(await opfFile.async('text'), 'text/xml');
+        const titleByPath = new Map();
+        translatedChapters.forEach(ch => {
+          if (ch?.zipPath && ch?.title) titleByPath.set(normalizePath(ch.zipPath), String(ch.title).trim());
+        });
+        if (!titleByPath.size) return;
+
+        const manifestItems = Array.from(opfDoc.querySelectorAll('manifest item'));
+        const navItem = manifestItems.find(item => item.getAttribute('properties')?.split(/\s+/).includes('nav'));
+        const ncxItem = manifestItems.find(item => item.getAttribute('media-type') === 'application/x-dtbncx+xml');
+        const serializer = new XMLSerializer();
+
+        if (navItem?.getAttribute('href')) {
+          const navPath = resolveArchivePath(opfPath, navItem.getAttribute('href'));
+          const navFile = zip.file(navPath);
+          if (navFile) {
+            const navDoc = new DOMParser().parseFromString(await navFile.async('text'), 'text/xml');
+            navDoc.querySelectorAll('a[href]').forEach(anchor => {
+              const title = titleByPath.get(resolveArchivePath(navPath, anchor.getAttribute('href')));
+              if (title) anchor.textContent = title;
+            });
+            zip.file(navPath, serializer.serializeToString(navDoc));
+          }
+        }
+
+        if (ncxItem?.getAttribute('href')) {
+          const ncxPath = resolveArchivePath(opfPath, ncxItem.getAttribute('href'));
+          const ncxFile = zip.file(ncxPath);
+          if (ncxFile) {
+            const ncxDoc = new DOMParser().parseFromString(await ncxFile.async('text'), 'text/xml');
+            ncxDoc.querySelectorAll('navPoint').forEach(navPoint => {
+              const src = navPoint.querySelector('content')?.getAttribute('src');
+              const title = titleByPath.get(resolveArchivePath(ncxPath, src));
+              if (title) {
+                const label = navPoint.querySelector('navLabel text');
+                if (label) label.textContent = title;
+              }
+            });
+            zip.file(ncxPath, serializer.serializeToString(ncxDoc));
+          }
+        }
+      } catch (e) {
+        console.warn('EPUB navigation update skipped:', e);
+      }
+    };
+
     const generateEpubFromChapters = async (chaptersList, bookTitle = 'Web Novel', bookAuthor = 'Author', bookLang = 'en', onProgress = null, options = {}) => {
       const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
       if (!JSZipClass) throw new Error('JSZip library not loaded');
       const zip = new JSZipClass();
       const uuid = 'urn:uuid:' + (crypto.randomUUID ? crypto.randomUUID() : ('uuid_' + Date.now()));
       const startTime = Date.now();
+      const exportChapters = (Array.isArray(chaptersList) ? chaptersList : []).map((ch, idx) => ({
+        ...ch,
+        title: String(ch?.title || '').trim() || ('Chapter ' + (idx + 1)),
+        content: String(ch?.text ?? ch?.content ?? '').replace(/\r\n?/g, '\n').trim()
+      }));
+      if (!exportChapters.length) throw new Error('No chapters to package');
+      const safeLang = String(bookLang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en';
 
       const useDropCaps = options.dropCaps !== undefined ? options.dropCaps : (localStorage.getItem('epubDropCaps') !== 'false');
       const useSmartQuotes = options.smartQuotes !== undefined ? options.smartQuotes : (localStorage.getItem('epubSmartQuotes') !== 'false');
@@ -2539,15 +2622,17 @@ hr {
 
         const manifestItems = [
           '<item id="css" href="style.css" media-type="text/css"/>',
+          '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
           '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>'
         ];
         const spineItems = [];
         const tocNavPoints = [];
+        const tocNavLinks = [];
 
         // Step 1: Scan and strictly filter unique illustration URLs
         const uniqueImgUrls = new Set();
-        for (const ch of chaptersList) {
-          const rawLines = (ch.text || ch.content || '').split(/\r?\n/);
+        for (const ch of exportChapters) {
+          const rawLines = ch.content.split(/\r?\n/);
           for (const line of rawLines) {
             const imgMatch = line.trim().match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
             if (imgMatch && imgMatch[2]) {
@@ -2629,8 +2714,8 @@ hr {
         onProgress?.(` Assembling ${chaptersList.length} chapter(s) • ${getElapsed()}...`, 35, getElapsed());
         window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Assembling ${chaptersList.length} chapters • ${getElapsed()}`, 35, true);
 
-        for (let idx = 0; idx < chaptersList.length; idx++) {
-          const ch = chaptersList[idx];
+        for (let idx = 0; idx < exportChapters.length; idx++) {
+          const ch = exportChapters[idx];
           const chId = `chapter_${idx + 1}`;
           const chFilename = `${chId}.xhtml`;
           const chTitle = ch.title ? ch.title.trim() : `Chapter ${idx + 1}`;
@@ -2642,21 +2727,26 @@ hr {
     <navLabel><text>${escapeXml(chTitle)}</text></navLabel>
     <content src="${chFilename}"/>
   </navPoint>`);
+          tocNavLinks.push('  <li><a href="' + chFilename + '">' + escapeXml(chTitle) + '</a></li>');
 
-          const rawLines = (ch.text || ch.content || '').split(/\r?\n/);
+          const rawLines = ch.content.split(/\r?\n/);
           const bodyHtml = [];
           bodyHtml.push(`<h1>${escapeXml(chTitle)}</h1>`);
+          const chapterTitleKey = chTitle.replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+          const seenHeadings = new Set();
 
           // Smart typographic formatter
           const smartFormat = (raw) => {
             let s = escapeXml(raw);
-            // Smart quotes: "..." -> curly double quotes
-            s = s.replace(/&quot;([^&]*?)&quot;/g, '\u201c$1\u201d');
-            // Straight double quotes fallback
-            s = s.replace(/"([^"]*?)"/g, '\u201c$1\u201d');
-            // Smart single quotes / apostrophes
-            s = s.replace(/(\w)&apos;(\w)/g, '$1\u2019$2'); // it's, don't
-            s = s.replace(/&apos;([^&]*?)&apos;/g, '\u2018$1\u2019');
+            if (useSmartQuotes) {
+              // Smart quotes: "..." -> curly double quotes
+              s = s.replace(/&quot;([^&]*?)&quot;/g, '\u201c$1\u201d');
+              // Straight double quotes fallback
+              s = s.replace(/"([^"]*?)"/g, '\u201c$1\u201d');
+              // Smart single quotes / apostrophes
+              s = s.replace(/(\w)&apos;(\w)/g, '$1\u2019$2'); // it's, don't
+              s = s.replace(/&apos;([^&]*?)&apos;/g, '\u2018$1\u2019');
+            }
             // Normalize dashes: -- or --- to em-dash
             s = s.replace(/---?/g, '\u2014');
             // Normalize triple dots to proper ellipsis
@@ -2673,6 +2763,18 @@ hr {
           for (let li = 0; li < rawLines.length; li++) {
             const trimmed = rawLines[li].trim();
             if (!trimmed) continue;
+
+            // Markdown headings: render them and remove duplicate title echoes from scraped pages.
+            const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+            if (headingMatch) {
+              const headingText = headingMatch[2].trim();
+              const headingKey = headingText.replace(/\s+/g, ' ').toLocaleLowerCase();
+              if (headingKey === chapterTitleKey || seenHeadings.has(headingKey)) continue;
+              seenHeadings.add(headingKey);
+              const headingLevel = headingMatch[1].length <= 2 ? 2 : 3;
+              bodyHtml.push('<h' + headingLevel + '>' + smartFormat(headingText) + '</h' + headingLevel + '>');
+              continue;
+            }
 
             // Illustration
             const imgMatch = trimmed.match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
@@ -2718,7 +2820,7 @@ hr {
 
           const xhtmlContent = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${bookLang}">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${safeLang}">
 <head>
 <meta charset="utf-8" />
 <title>${escapeXml(chTitle)}</title>
@@ -2737,7 +2839,7 @@ ${bodyHtml.join('\n ')}
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
   <dc:title>${escapeXml(bookTitle)}</dc:title>
   <dc:creator>${escapeXml(bookAuthor)}</dc:creator>
-  <dc:language>${bookLang}</dc:language>
+  <dc:language>${safeLang}</dc:language>
   <dc:identifier id="BookID">${uuid}</dc:identifier>
   <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
 </metadata>
@@ -2764,6 +2866,23 @@ ${bodyHtml.join('\n ')}
 </navMap>
 </ncx>`;
         oebps.file('toc.ncx', ncxContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
+        const navContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${safeLang}">
+<head>
+<meta charset="utf-8" />
+<title>${escapeXml(bookTitle)}</title>
+</head>
+<body>
+<nav epub:type="toc" id="toc">
+<h1>${escapeXml(bookTitle)}</h1>
+<ol>
+${tocNavLinks.join('\n')}
+</ol>
+</nav>
+</body>
+</html>`;
+        oebps.file('nav.xhtml', navContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
 
         onProgress?.(` Compressing EPUB archive • ${getElapsed()}...`, 60, getElapsed());
         window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive • ${getElapsed()}`, 60, true);
@@ -9313,6 +9432,7 @@ FORMATTING & STRUCTURE RULES:
           // Preserve the ORIGINAL EPUB structure (OPF/TOC/format) when translating from an EPUB file
           if (currentIsEpub && currentOriginalZip && typeof currentOriginalZip.generateAsync === 'function') {
             setEpubPackagingModal({ title: docTitle, status: ' Packaging original EPUB structure…', pct: 40 });
+            await updateOriginalEpubNavigation(currentOriginalZip, chaptersToExport);
             const zipBlob = await currentOriginalZip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
             setEpubPackagingModal(null);
             const cleanDocName = sanitizeFilename(docTitle).replace(/\s+/g, '_');
