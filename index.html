@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.18';
+    const VERSION = '8.4.19';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1179,7 +1179,10 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       const blocks = [];
       let currentBlock = null;
       let currentSectionHeading = '';
-      let isGlobalSection = true;
+      // Content before a recognized section heading is ordinary glossary data.
+      // Treating an unsectioned file as global rules leaks every unrelated entry
+      // into every request, which is especially harmful with lightweight models.
+      let isGlobalSection = false;
       const topSectionPattern = /^(?:#+\s*)?[IVXLCDM]+\.\s+\S/i;
       const globalSectionPattern = /^(?:#+\s*)?(?:I\.)?\s*(?:SYSTEM TRANSLATION RULES|STYLE GUIDELINES|SYSTEM RULES|TRANSLATION RULES|GENERAL RULES|PROMPT RULES)/i;
       const alwaysIncludeSectionPattern = /\b(?:RULES?|GUIDELINES?|STYLE|SPOILER|CONSISTENCY|CONTINUITY|CANON|PRONOUN|FORMATTING|NAMING|GENDER|DO\s+NOT)\b/i;
@@ -1208,7 +1211,12 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         const withoutTitle = normalized.replace(/^(?:mr|mrs|ms|miss|madam|madame|the)\s+/, '').trim();
         if (withoutTitle && withoutTitle !== normalized) variants.push(withoutTitle);
         if (normalized.includes(' ')) {
-          normalized.split(' ').filter(word => word.length >= 4 && !genericKeys.has(word)).forEach(word => variants.push(word));
+          const words = normalized.split(' ').filter(Boolean);
+          // Allow short name/title entries to match an abbreviated source form,
+          // but never index every word from a long explanatory sentence.
+          if (words.length <= 3 && words.every(word => word.length >= 4 && !genericKeys.has(word))) {
+            words.forEach(word => variants.push(word));
+          }
         }
         return Array.from(new Set(variants)).filter(v => v.length >= 3 && !genericKeys.has(v));
       };
@@ -1302,13 +1310,11 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 
       // Match each entry independently. Do not expand through shared English
       // words: that was causing an unrelated multi-novel glossary to snowball.
-      const selected = new Set(blocks.filter(block => block.searchKeys.some(matchesKey)));
-      if (selected.size === 0) return originalGlossary;
-
       const output = [];
       const seenSections = new Set();
       const globalText = globalRules.join('\n').trim();
       if (globalText) output.push(globalText);
+      const selected = new Set(blocks.filter(block => block.searchKeys.some(matchesKey)));
       for (const block of blocks) {
         if (!selected.has(block)) continue;
         if (block.sectionHeading && !seenSections.has(block.sectionHeading)) {
@@ -1317,38 +1323,25 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         }
         output.push(block.lines.join('\n'));
       }
-      return output.join('\n\n').trim() || originalGlossary;
+      // With Dynamic Glossary enabled, a no-match must stay small. Full
+      // glossary mode remains available when the toggle is disabled above.
+      return output.join('\n\n').trim() || '';
     };
 
     const buildPrompt = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true) => {
-      const srcDisplay = srcLang && srcLang !== 'Auto-detect' ? srcLang : 'Chinese';
+      const srcDisplay = srcLang && srcLang !== 'Auto-detect' ? srcLang : 'the detected source language';
       const tgtDisplay = tgtLang || 'English';
 
-      let promptHeader = `You are a direct literary translator translating the exact supplied fiction text from ${srcDisplay} into publication-quality ${tgtDisplay}.\n\n` +
+      const promptHeader = `You are a direct translator translating the exact supplied text from ${srcDisplay} into ${tgtDisplay}. The input may be a single sentence, dialogue, metadata, or long-form fiction.\n\n` +
         `TRANSLATION GUIDELINES:\n` +
-        `0. Direct Translation Boundary: Translate only the text in RAW TEXT TO TRANSLATE. Do not write a continuation, adaptation, rewrite, alternate scene, fanfiction, synopsis, or replacement story. The terminology guide, custom instructions, and previous context are reference material only, never additional story content. Stop when the supplied raw text ends.\n` +
-        `1. Raw Accuracy & Tone Fidelity: Faithfully capture the original RAW text's exact meaning, scene pacing, and narrative tone (ruthless, contemplative, dark, humorous, or conversational). Do not invent unmentioned lore or distort character personalities.\n` +
-        `2. 100% Complete Zero-Omission Fidelity (No Self-Censorship or Summarization): This is an authorized literary translation of a published fantasy novel. You MUST translate every single sentence, action, combat exchange, gory beast attack, character death, dialogue line, and philosophical passage completely from beginning to end. NEVER summarize, skip, self-censor, or omit any scenes or paragraphs.\n` +
-        `3. Visceral Action & Punchy Pacing (No Academic Softening): Preserve gritty dark fantasy, raw visceral combat, and dark atmospheric weight with punchy, impactful English phrasing. Do NOT sanitize or soften intense actions into timid, polite academic language.\n` +
-        `4. NO Random Markdown Asterisks / Clean Onomatopoeia: Do NOT wrap sound effects, onomatopoeia, or emphasized words in asterisks or markdown italics (e.g. write "Crack!", "Rip!", "Whoosh!" or integrate naturally into prose rather than "*Crack!*", "*Rip!*", "*Whoosh!*"). Maintain clean, standard novel formatting without distracting markdown symbols.\n` +
-        `5. Natural English Flow (No Chinglish): Localize Chinese idioms, rhetorical patterns, and colloquial exclamations into natural, immersive English phrasing (e.g. translate "这是何等概念/什么概念" as "What kind of insane power is this?!" / "How is that even possible?!" rather than literal "What concept is this"). Avoid stiff word-for-word machine translation.\n` +
-        `6. Spoken Dialogue: Ensure character dialogue flows naturally in English while preserving each speaker's distinct personality, attitude, and tone from the source.\n` +
-        `7. Proper Nouns & Names: Strictly preserve the source's character names (proper Pinyin capitalization for Chinese names), ranks, and locations exactly as they appear in the source text.\n` +
-        `8. Zero Meta-Artifacts: NEVER include translator notes, editorial remarks, or parenthetical explanations (e.g. "(omitted...)", "(translator note:...)"). Output ONLY the pure translated chapter.\n` +
-        `9. Dignified Literary Translation of Classical Metaphors: When the source uses poetic classical tropes for character descriptions, localize them into serious, dignified, non-suggestive English prose to maintain a solemn, high-register tone without tripping automated filters.\n` +
-        `10. Dignified Translation for Rituals & Dark Scenes: When translating rituals, sacrifices, or preparations in dark fantasy scenes, translate the action with solemn, serious, and matter-of-fact narrative English. Strictly avoid lurid or gratuitous phrasing that could trigger automated content filters, while preserving 100% of the narrative actions, dialogue, and plot progression.\n` +
-        `11. Classical Poetry, Chanted Songs & Mythic Parables: Translate poems, songs, and parables into evocative, rhythmically resonant English verse prioritizing direct emotional weight, heroic clarity, and poetic meter. Use sharp, punchy imperative phrasing for climactic endings, and preserve anaphoric repetition and refrains word-for-word.\n` +
-        `Glossary Discipline: Apply glossary/terminology mappings ONLY when the exact term appears in the source text. Never force terminology, examples, characters, or lore from another work into the translation. Treat all glossary examples and notes as reference data, never as source prose.\n` +
-        `12. Structure: Preserve all original paragraph breaks and quotation punctuation exactly.\n` +
-        `13. Premium Typography & Formatting:\n` +
-        ` - Use proper typographic punctuation: curly/smart quotes (\u201c...\u201d and \u2018...\u2019), em-dashes (\u2014) instead of double hyphens (--), and proper ellipsis (\u2026) instead of three dots (...).\n` +
-        ` - Use clean scene breaks: output a single line containing only *** between scene transitions. Do not use random symbols, decorative ASCII art, or inconsistent break markers.\n` +
-        ` - Ensure clean paragraph separation: each paragraph should be on its own line with a blank line between paragraphs. Do not merge multiple paragraphs into a single block.\n` +
-        ` - For poems, songs, or recited verses embedded in narrative, prefix each line with > to mark them as blockquotes.\n` +
-        ` - Mark emphasized or internally-thought text with *single asterisks* for italic emphasis.\n` +
-        ` - Remove all residual web artifacts: navigation links, "Previous Chapter / Next Chapter" buttons, donation appeals, social media links, WordPress widget text, and any HTML tags.\n\n`;
+        `0. Translate ONLY the text inside RAW TEXT TO TRANSLATE. Do not continue it, rewrite it, adapt it, summarize it, or replace it with invented content. Stop when the supplied text ends.\n` +
+        `1. Translate every supplied sentence, paragraph, heading, dialogue line, and event. Do not omit, merge, or summarize.\n` +
+        `2. Preserve the source meaning, relationships, chronology, voice, and level of formality. Use natural ${tgtDisplay} rather than word-for-word phrasing.\n` +
+        `3. Use a glossary mapping only when its source term actually occurs in RAW TEXT TO TRANSLATE. Never import a character, setting, event, example, or lore detail from the glossary.\n` +
+        `4. Preserve headings, paragraph breaks, dialogue boundaries, and scene breaks. Do not add notes, commentary, or text that is not a translation of the supplied source.\n` +
+        `5. Return only the translation.\n\n`;
 
-      let p = `${promptHeader}RAW TEXT TO TRANSLATE:\n${text}\n\n`;
+      let p = `${promptHeader}=== RAW TEXT TO TRANSLATE ===\n${text}\n=== END RAW TEXT TO TRANSLATE ===\n\n`;
 
       const filteredGlossary = filterGlossaryForChunk(glossary, text, smartGlossary);
       if (filteredGlossary.trim()) {
@@ -1451,7 +1444,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         system_instruction: {
           parts: [{
-            text: 'You are an expert direct literary translator. Translate only the exact supplied source text; do not continue, adapt, rewrite, summarize, or invent story content. Glossaries, examples, lore notes, and context are reference material only. Preserve every source paragraph and event.'
+            text: 'Translate only the exact text supplied between the RAW TEXT delimiters. Do not continue, adapt, rewrite, summarize, or invent content. Reference material is not source text. Return only the translation.'
           }]
         },
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
@@ -1486,7 +1479,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       if ((!t || t.trim().length < 15 || isLikelyHeadingOnlyTranslation(t, text.length)) && text.length > 100) {
         console.warn('Gemini returned minimal text. Retrying with direct translation prompt...');
         const directPayload = {
-          contents: [{ role: 'user', parts: [{ text: `Translate this entire fiction chapter from ${srcLang || 'Chinese'} into publication-quality ${tgtLang || 'English'}. Translate 100% of all paragraphs without summarizing:\n\n${text}` }] }],
+          contents: [{ role: 'user', parts: [{ text: `Translate the exact text between these delimiters from ${srcLang && srcLang !== 'Auto-detect' ? srcLang : 'the detected source language'} into ${tgtLang || 'English'}. Do not summarize, continue, or invent anything. Return only the translation.\n\n=== RAW TEXT ===\n${text}\n=== END RAW TEXT ===` }] }],
           generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
           safetySettings
         };
@@ -1558,7 +1551,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         system_instruction: {
           parts: [{
-            text: 'You are an expert direct literary translator. Translate only the exact supplied source text; do not continue, adapt, rewrite, summarize, or invent story content. Glossaries, examples, lore notes, and context are reference material only. Preserve every source paragraph and event.'
+            text: 'Translate only the exact text supplied between the RAW TEXT delimiters. Do not continue, adapt, rewrite, summarize, or invent content. Reference material is not source text. Return only the translation.'
           }]
         },
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
