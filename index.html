@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.12';
+    const VERSION = '8.4.13';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -8173,12 +8173,20 @@ FORMATTING & STRUCTURE RULES:
           }
         }
 
-        // Fallback: classic invisible anchor download
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(a.href);
+        // Use the native chunked saver in the APK, with a browser-safe fallback.
+        if (window.NativeBridge?.saveBlob) {
+          await window.NativeBridge.saveBlob(blob, fileName, 'application/json', false);
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
         toast(shouldIncludeKeys ? 'Full backup (+ API Keys) downloaded!' : 'Full backup (No Keys) downloaded!');
       };
 
