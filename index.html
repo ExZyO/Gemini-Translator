@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.4.14';
+    const VERSION = '8.4.15';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1248,6 +1248,8 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       // Normalize dashes and ellipsis
       t = t.replace(/---?/g, '\u2014');
       t = t.replace(/\.{3,}/g, '\u2026');
+      // Restore spaces lost when a model or chunk boundary joins sentences.
+      t = t.replace(/([.!?\u2026]+)(["'\u201d\u2019)]?)(?=[A-Za-z])/g, '$1$2 ');
       return t.trim();
     };
 
@@ -8726,7 +8728,7 @@ FORMATTING & STRUCTURE RULES:
             });
 
             const translated = results.map(r => typeof r === 'string' ? r : (r?.text ? r.text : (r?.error ? `\n\n[Error: ${r.error}]\n\n` : '')));
-            const combinedNew = translated.join('').replace(/\r\n/g, '\n').trim();
+            const combinedNew = cleanNovelProse(translated.join('\n\n').replace(/\r\n/g, '\n')).trim();
             result = stripContextLeak(result ? result + '\n\n' + combinedNew : combinedNew);
 
             setAssembledText(result); setTranslatedChapters([{ title: 'Translated Document', content: result }]);
@@ -8896,14 +8898,14 @@ FORMATTING & STRUCTURE RULES:
               parts.push(translatedText);
               
               // Live update output box in real time as each chunk arrives
-              allParts[i] = `${title}\n\n${parts.join('')}`;
+              allParts[i] = `${title}\n\n${parts.join('\n\n')}`;
               const liveText = allParts.filter(Boolean).join('\n\n\n').trim();
               setAssembledText(liveText);
 
               done++; setProgress(Math.floor((done / totalChunks) * 100));
             }
 
-            const content = stripContextLeak(parts.join('')).replace(/\r\n/g, '\n').trim();
+            const content = cleanNovelProse(stripContextLeak(parts.join('\n\n')).replace(/\r\n/g, '\n')).trim();
 
             let docHtml = null;
             if (isEpub && ch.doc) {
