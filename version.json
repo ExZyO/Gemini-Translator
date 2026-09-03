@@ -1,7 +1,7 @@
 {
-  "version": "8.5.7",
-  "versionCode": 857,
+  "version": "8.5.8",
+  "versionCode": 858,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.5.7: Bulletproof 4-tier CDN update detection, Chunk Size presets, and patient 503 recovery."
+  "releaseNotes": "v8.5.8: Eliminate multi-worker key collision stampede, dedicated worker key isolation, and high-speed parallel throughput."
 }
