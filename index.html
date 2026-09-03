@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.7.8';
+    const VERSION = '8.7.9';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2091,10 +2091,14 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         if (keys.length === 0) return null;
         if (keys.length === 1) return keys[0].key;
 
-        // Anti-stampede pacing: ensure at least 350ms between outbound worker dispatches
+        // Adaptive Anti-stampede pacing:
+        // Healthy state (zero rate-limits): 40ms micro-gap (100% instant full speed for 3.5-flash-lite)
+        // Rate-limited state (keys actively cooling): 350ms spacing to prevent retry stampedes
+        const hasCoolingKeys = Array.from(this.coolingUntil.values()).some(t => t > Date.now());
+        const minGap = hasCoolingKeys ? 350 : 40;
         const elapsedSinceLastLease = Date.now() - (this.lastLeaseTime || 0);
-        if (elapsedSinceLastLease < 350) {
-          await new Promise(r => setTimeout(r, 350 - elapsedSinceLastLease));
+        if (elapsedSinceLastLease < minGap) {
+          await new Promise(r => setTimeout(r, minGap - elapsedSinceLastLease));
         }
 
         const now = Date.now();

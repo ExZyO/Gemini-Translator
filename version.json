@@ -1,7 +1,7 @@
 {
-  "version": "8.7.8",
-  "versionCode": 878,
+  "version": "8.7.9",
+  "versionCode": 879,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.7.8: Anti-stampede pacing (350ms delay) and jittered cooling in KeyPool to prevent 429 retry loops."
+  "releaseNotes": "v8.7.9: Adaptive KeyPool pacing (instant 40ms when healthy, 350ms anti-stampede when cooling)."
 }
