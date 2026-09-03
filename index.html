@@ -1469,9 +1469,14 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         delete payload.generationConfig.thinkingConfig;
         r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       }
-      if (!r.ok && r.status === 404 && model !== 'gemini-3.7-flash' && model !== 'gemini-3.6-flash') {
-        console.warn(`Model ${model} is unavailable (404). Auto-falling back to gemini-3.7-flash...`);
-        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${apiKey}`;
+      if (!r.ok && (r.status === 404 || r.status === 503) && model !== 'gemini-3.7-flash') {
+        const fallbackModel = 'gemini-3.7-flash';
+        const reason = r.status === 404 ? 'Model Not Found / Deprecated' : 'Server Overloaded (503)';
+        console.warn(`Model ${model} is unavailable (${r.status}). Auto-falling back to ${fallbackModel}...`);
+        if (typeof window !== 'undefined' && window.notifyModelChange) {
+          window.notifyModelChange(model, fallbackModel, reason);
+        }
+        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${apiKey}`;
         r = await fetchRetry(fallbackUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       }
       if (!r || !r.ok) { const b = await r?.text().catch(() => '') || ''; throw new Error(`Gemini API error ${r?.status || 'network'}: ${b.substring(0, 200)}`); }
@@ -1576,9 +1581,14 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         delete payload.generationConfig.thinkingConfig;
         r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       }
-      if (!r.ok && r.status === 404 && model !== 'gemini-3.7-flash' && model !== 'gemini-3.6-flash') {
-        console.warn(`Model ${model} is unavailable (404). Auto-falling back to gemini-3.7-flash...`);
-        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+      if (!r.ok && (r.status === 404 || r.status === 503) && model !== 'gemini-3.7-flash') {
+        const fallbackModel = 'gemini-3.7-flash';
+        const reason = r.status === 404 ? 'Model Not Found / Deprecated' : 'Server Overloaded (503)';
+        console.warn(`Model ${model} is unavailable (${r.status}). Auto-falling back to ${fallbackModel}...`);
+        if (typeof window !== 'undefined' && window.notifyModelChange) {
+          window.notifyModelChange(model, fallbackModel, reason);
+        }
+        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
         r = await fetchRetry(fallbackUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       }
       if (!r || !r.ok) { const b = await r?.text().catch(() => '') || ''; throw new Error(`Gemini stream error ${r?.status || 'network'}: ${b.substring(0, 200)}`); }
@@ -2177,25 +2187,25 @@ Return strictly a JSON object with this exact format:
               if (is404 || is503) {
                 modelIdx++;
                 const nextModel = geminiModels[modelIdx % geminiModels.length];
-                if (typeof onRetryStatus === 'function') onRetryStatus(`Model ${currentModel} ${is503 ? 'high demand' : 'unavailable'}. Trying ${nextModel}...`);
+                const reason = is503 ? 'High Server Demand (503)' : 'Model Unavailable (404)';
+                if (typeof window !== 'undefined' && window.notifyModelChange) {
+                  window.notifyModelChange(currentModel, nextModel, reason);
+                }
+                if (typeof onRetryStatus === 'function') onRetryStatus(`⚠️ Model switched: ${currentModel} → ${nextModel} (${reason})`);
                 await new Promise(r => setTimeout(r, 800));
                 continue;
               }
 
               if (is429) {
                 rotateKey();
-                modelIdx++;
-                const nextModel = geminiModels[modelIdx % geminiModels.length];
                 const keyNum = (keyIndex % allKeys.length) + 1;
-                
                 const waitSec = Math.round(backoffDelay / 1000);
                 for (let s = waitSec; s > 0; s--) {
                   if (typeof onRetryStatus === 'function') {
-                    onRetryStatus(`Rate limit cooldown: retrying in ${s}s with Key ${keyNum}/${allKeys.length} (${nextModel})...`);
+                    onRetryStatus(`Rate limit cooldown: retrying in ${s}s with Key ${keyNum}/${allKeys.length} (${currentModel})...`);
                   }
                   await new Promise(r => setTimeout(r, 1000));
                 }
-                
                 backoffDelay = Math.min(backoffDelay * 1.3, 8000);
                 continue;
               }
@@ -4229,6 +4239,11 @@ ${tocNavLinks.join('\n')}
       // Bind global references for outer helpers
       window.__setDownloadModal = setDownloadSuccessModal;
       window.__toast = toast;
+      window.notifyModelChange = (fromModel, toModel, reason) => {
+        const msg = `⚠️ Model switched: ${fromModel} → ${toModel} (${reason})`;
+        toast(msg, 'warning');
+        window.NativeBridge?.haptic?.('warning');
+      };
 
       // Update Handlers
       const checkForAppUpdate = async (isManual = false) => {
