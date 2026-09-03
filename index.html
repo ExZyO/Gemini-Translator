@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.7.1';
+    const VERSION = '8.7.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1468,7 +1468,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         ? { thinkingBudget: 2048 }
         : { thinkingBudget: 0 };
       const apiStart = performance.now();
-      window.AppLogger?.log('info', 'GeminiAPI', `Outbound request to ${model} (Key: ${apiKey.slice(0, 8)}..., Chars: ${text.length}, Thinking: ${enableThinking ? 'ON' : 'OFF'})`);
+      window.AppLogger?.log('info', 'GeminiAPI', `Outbound request to ${model} (Key: ${maskKey(apiKey)}, Chars: ${text.length}, Thinking: ${enableThinking ? 'ON' : 'OFF'})`);
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       window.AppLogger?.log(r.ok ? 'info' : 'warn', 'GeminiAPI', `Response ${r.status} ${r.statusText} in ${Math.round(performance.now() - apiStart)}ms`);
       if (!r.ok && r.status === 400 && payload.system_instruction) {
@@ -2029,6 +2029,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ══════════════════════════════════════════════════════════
     // SYSTEM DIAGNOSTICS & TELEMETRY LOGGER
     // ══════════════════════════════════════════════════════════
+    const maskKey = (k) => (!k ? '' : (k.length > 10 ? `${k.slice(0, 6)}…${k.slice(-4)}` : k));
     window.AppLogger = {
       logs: [],
       maxLogs: 250,
@@ -2081,7 +2082,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         const now = Date.now();
         if (failingKey) {
           this.coolingUntil.set(failingKey, now + 20000); // 20s cooling penalty
-          window.AppLogger?.log('warn', 'KeyPool', `Key ${failingKey.slice(0, 8)}... hit 429 rate-limit. Cooling for 20s.`);
+          window.AppLogger?.log('warn', 'KeyPool', `Key ${maskKey(failingKey)} hit 429 rate-limit. Cooling for 20s.`);
           this.inUse.delete(failingKey);
         }
 
@@ -2100,7 +2101,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
               if (currentTime >= coolTime) {
                 this.lastIndex = idx;
                 this.inUse.add(k.key);
-                window.AppLogger?.log('info', 'KeyPool', `Leased idle key #${idx + 1} ${k.key.slice(0, 8)}... (${this.inUse.size}/${total} in-flight)`);
+                window.AppLogger?.log('info', 'KeyPool', `Leased idle key #${idx + 1} ${maskKey(k.key)} (${this.inUse.size}/${total} in-flight)`);
                 return k.key;
               }
             }
@@ -2117,7 +2118,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
           if (k?.key && k.key !== failingKey && !this.inUse.has(k.key)) {
             this.lastIndex = idx;
             this.inUse.add(k.key);
-            window.AppLogger?.log('info', 'KeyPool', `Leased fallback key #${idx + 1} ${k.key.slice(0, 8)}...`);
+            window.AppLogger?.log('info', 'KeyPool', `Leased fallback key #${idx + 1} ${maskKey(k.key)}`);
             return k.key;
           }
         }
@@ -2127,7 +2128,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       releaseKey(key) {
         if (key) {
           this.inUse.delete(key);
-          window.AppLogger?.log('info', 'KeyPool', `Released key ${key.slice(0, 8)}... (${this.inUse.size} in-flight)`);
+          window.AppLogger?.log('info', 'KeyPool', `Released key ${maskKey(key)} (${this.inUse.size} in-flight)`);
         }
       }
     };
