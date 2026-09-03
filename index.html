@@ -10926,7 +10926,7 @@ FORMATTING & STRUCTURE RULES:
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
               body: JSON.stringify({
-                model: useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel,
+                model: useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : 'deepseek-reasoner',
                 messages: [
                   { role: 'system', content: systemPrompt },
                   { role: 'user', content: userPrompt }
@@ -10947,7 +10947,9 @@ FORMATTING & STRUCTURE RULES:
                 systemInstruction: { parts: [{ text: systemPrompt }] },
                 contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
                 generationConfig: {
-                  thinkingConfig: { thinkingBudget: 0 }
+                  temperature: 0.1,
+                  maxOutputTokens: 8192,
+                  thinkingConfig: { thinkingBudget: 2048 }
                 }
               })
             });
