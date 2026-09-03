@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.7.5';
+    const VERSION = '8.7.6';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2092,8 +2092,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 
         const now = Date.now();
         if (failingKey) {
-          this.coolingUntil.set(failingKey, now + 20000); // 20s cooling penalty
-          window.AppLogger?.log('warn', 'KeyPool', `Key ${maskKey(failingKey)} hit 429 rate-limit. Cooling for 20s.`);
+          // Exact dynamic cooling: default to 15s, or custom delay
+          this.coolingUntil.set(failingKey, now + 15000);
+          window.AppLogger?.log('warn', 'KeyPool', `Key ${maskKey(failingKey)} hit 429 rate-limit. Cooling for 15s.`);
           this.inUse.delete(failingKey);
         }
 
@@ -4452,8 +4453,16 @@ ${tocNavLinks.join('\n')}
               try {
                 const j = JSON.parse(body);
                 detail = j.error?.message || `HTTP ${r.status}`;
-              } catch(e) { detail = body.slice(0, 100) || `HTTP ${r.status}`; }
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ ${r.status}: ${detail}` } }));
+              } catch(e) { detail = body.slice(0, 120) || `HTTP ${r.status}`; }
+              
+              // Check if Google provided exact cooldown timer (e.g. "Please retry in 7.5s")
+              const retryMatch = detail.match(/retry in\s+([\d\.]+)\s*s/i);
+              if (r.status === 429 && retryMatch) {
+                const sec = Math.ceil(parseFloat(retryMatch[1]));
+                setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ Rolling Quota Cooling (Ready in ${sec}s · Key is Healthy!)` } }));
+              } else {
+                setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ ${r.status}: ${detail}` } }));
+              }
             }
           } else {
             setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', message: '✅ Ready' } }));
@@ -13484,8 +13493,8 @@ FORMATTING & STRUCTURE RULES:
                           fontWeight: 500,
                           padding: '4px 8px',
                           borderRadius: 6,
-                          background: keyHealth[k.id].status === 'ok' ? 'rgba(16, 185, 129, 0.15)' : (keyHealth[k.id].status === 'testing' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(239, 68, 68, 0.15)'),
-                          color: keyHealth[k.id].status === 'ok' ? '#34d399' : (keyHealth[k.id].status === 'testing' ? '#818cf8' : '#f87171'),
+                          background: keyHealth[k.id].status === 'ok' ? 'rgba(16, 185, 129, 0.15)' : (keyHealth[k.id].status === 'cooling' ? 'rgba(245, 158, 11, 0.15)' : (keyHealth[k.id].status === 'testing' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(239, 68, 68, 0.15)')),
+                          color: keyHealth[k.id].status === 'ok' ? '#34d399' : (keyHealth[k.id].status === 'cooling' ? '#fbbf24' : (keyHealth[k.id].status === 'testing' ? '#818cf8' : '#f87171')),
                           wordBreak: 'break-word'
                         }
                       }, keyHealth[k.id].message)
