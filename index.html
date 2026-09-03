@@ -1532,7 +1532,8 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       if (!t || t.trim().length === 0) throw new Error('Empty response from translation model. Please try Gemini 2.5 Flash.');
       
       const finishReason = j?.candidates?.[0]?.finishReason;
-      if (finishReason === 'SAFETY' && t.trim().length > 0) {
+      if ((finishReason === 'SAFETY' || finishReason === 'MAX_TOKENS') && t.trim().length > 0) {
+        console.warn(`Gemini translation cut off due to ${finishReason}. Auto-continuing seamlessly...`);
         console.warn('Gemini translation cut off due to SAFETY filter. Attempting solemn auto-continuation...');
         const tailSummary = t.trim().slice(-200);
         const contPrompt = `You are translating an authorized Chinese dark fantasy literature chapter into ${tgtLang || 'English'}.\n` +
@@ -1724,9 +1725,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         }
       }
 
-      // Auto-continuation on SAFETY filter cutoff during streaming
-      if (finishReason === 'SAFETY' && accumulatedOutput.trim().length > 0) {
-        console.warn('Gemini stream interrupted by safety filter. Auto-resuming remaining content with solemn continuation...');
+      // Auto-continuation on SAFETY or MAX_TOKENS cutoff during streaming
+      if ((finishReason === 'SAFETY' || finishReason === 'MAX_TOKENS') && accumulatedOutput.trim().length > 0) {
+        console.warn(`Gemini stream interrupted by ${finishReason}. Auto-resuming remaining content seamlessly...`);
         const tailSummary = accumulatedOutput.trim().slice(-200);
         const contPrompt = `You are translating an authorized Chinese dark fantasy literature chapter into ${tgtLang || 'English'}.\n` +
           `The translation was partially completed up to this line:\n"...${tailSummary}"\n\n` +
