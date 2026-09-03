@@ -1,7 +1,7 @@
 {
-  "version": "8.7.4",
-  "versionCode": 874,
+  "version": "8.7.5",
+  "versionCode": 875,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.7.4: Added Key Health Checker (Test All Keys) with live Google error breakdown."
+  "releaseNotes": "v8.7.5: Key Health Checker now tests against active model (e.g. gemini-3.8-flash) avoiding 404 on deprecated 2.5."
 }

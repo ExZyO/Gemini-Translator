@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.7.4';
+    const VERSION = '8.7.5';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4436,7 +4436,8 @@ ${tocNavLinks.join('\n')}
         const start = performance.now();
         try {
           if (prov === 'gemini') {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(keyStr.trim())}`;
+            const targetTestModel = (prov === 'gemini' ? (geminiModel || 'gemini-3.8-flash') : 'deepseek-chat');
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetTestModel}:generateContent?key=${encodeURIComponent(keyStr.trim())}`;
             const r = await fetch(url, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-goog-api-key': keyStr.trim() },
