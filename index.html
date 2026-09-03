@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.6.3';
+    const VERSION = '8.6.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -12491,10 +12491,18 @@ FORMATTING & STRUCTURE RULES:
       const [sheetOpen, setSheetOpen] = useState(false);
       const [glossaryEditorOpen, setGlossaryEditorOpen] = useState(false);
       const [logsModalOpen, setLogsModalOpen] = useState(false);
+      const [showLiveLogs, setShowLiveLogs] = useState(() => localStorage.getItem('showLiveLogs') === 'true');
+      useEffect(() => { localStorage.setItem('showLiveLogs', String(showLiveLogs)); }, [showLiveLogs]);
+      const logsContainerRef = useRef(null);
       const [liveLogs, setLiveLogs] = useState(() => window.AppLogger ? [...window.AppLogger.logs] : []);
       useEffect(() => {
         if (!window.AppLogger) return;
-        return window.AppLogger.subscribe(logs => setLiveLogs([...logs]));
+        return window.AppLogger.subscribe(logs => {
+          setLiveLogs([...logs]);
+          if (logsContainerRef.current) {
+            logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+          }
+        });
       }, []);
       const [elapsedSec, setElapsedSec] = useState(0);
       const [libCollapsed, setLibCollapsed] = useState({ books: false, history: false });
@@ -12707,6 +12715,72 @@ FORMATTING & STRUCTURE RULES:
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Cost'), h('span', { className: 'count' }, lastUsageStats.cost || '$0.0000')),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Time & Speed'), h('span', { className: 'count' }, `${lastUsageStats.duration || ''}${lastUsageStats.speed ? ' · ' + lastUsageStats.speed : ''}`)),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Words Translated'), h('span', { className: 'count' }, wordCount(assembledText).toLocaleString()))
+              ),
+
+              // ═══ TRANSLATOR BOTTOM LOGS PANEL ═══
+              h('div', { className: 'card', style: { marginTop: 12, marginBottom: 12 } },
+                h('div', { className: 'card-title', style: { marginBottom: showLiveLogs ? 8 : 0 } },
+                  h('span', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                    h('span', null, '📜 Live Diagnostics & API Logs'),
+                    h('span', { className: 'count', style: { fontSize: 10 } }, `${liveLogs.length} events`)
+                  ),
+                  h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+                    showLiveLogs && h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      title: 'Copy All Logs to Clipboard',
+                      onClick: () => {
+                        const text = window.AppLogger ? window.AppLogger.getFormattedText() : '';
+                        navigator.clipboard.writeText(text).then(() => toast('📋 Diagnostic logs copied to clipboard!', 'success'));
+                      }
+                    }, '📋 Copy Logs'),
+                    showLiveLogs && h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      title: 'Clear Logs',
+                      onClick: () => {
+                        window.AppLogger?.clear();
+                        toast('Logs cleared', 'info');
+                      }
+                    }, '🗑 Clear'),
+                    h('button', {
+                      type: 'button',
+                      className: `chip-act ${showLiveLogs ? 'active' : ''}`,
+                      onClick: () => setShowLiveLogs(v => !v),
+                      style: showLiveLogs ? { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 } : {}
+                    }, showLiveLogs ? 'ON' : 'OFF')
+                  )
+                ),
+                showLiveLogs && h('div', {
+                  ref: logsContainerRef,
+                  style: {
+                    maxHeight: 220,
+                    overflowY: 'auto',
+                    background: '#07090e',
+                    color: '#e2e8f0',
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: 10.5,
+                    lineHeight: 1.5,
+                    padding: 10,
+                    borderRadius: 8,
+                    border: '1px solid var(--hairline)',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all'
+                  }
+                },
+                  liveLogs.length === 0
+                    ? h('div', { style: { color: '#64748b', textAlign: 'center', padding: '20px 0' } }, 'Ready. Run a translation to see live API calls, key leases, and responses.')
+                    : liveLogs.map((l, idx) => {
+                        const color = l.level === 'warn' ? '#f59e0b' : (l.level === 'error' ? '#ef4444' : '#38bdf8');
+                        const det = l.details ? ' ' + (typeof l.details === 'object' ? JSON.stringify(l.details) : String(l.details)) : '';
+                        return h('div', { key: idx, style: { marginBottom: 3 } },
+                          h('span', { style: { color: '#64748b' } }, `[${l.time}] `),
+                          h('span', { style: { color, fontWeight: 600 } }, `[${l.tag}] `),
+                          h('span', null, l.message),
+                          det && h('span', { style: { color: '#94a3b8' } }, det)
+                        );
+                      })
+                )
               ),
 
               chapters.length > 0 && h('div', { className: 'count', style: { margin: '0 2px 8px' } }, `${chapters.length} chapters loaded`),
@@ -13019,6 +13093,7 @@ FORMATTING & STRUCTURE RULES:
                 switchRow('Drop Caps', epubDropCaps, setEpubDropCaps),
                 switchRow('Smart Quotes', epubSmartQuotes, setEpubSmartQuotes),
                 switchRow('Clean Web Junk', epubCleanWebArtifacts, setEpubCleanWebArtifacts),
+                switchRow('Live Diagnostics Logs', showLiveLogs, setShowLiveLogs),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Diagnostics & Logs'),
                   h('button', { type: 'button', className: 'chip-act', onClick: () => setLogsModalOpen(true) }, '📜 View Live Logs')
