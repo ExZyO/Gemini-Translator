@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.7.9';
+    const VERSION = '8.8.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4539,25 +4539,24 @@ ${tocNavLinks.join('\n')}
       };
 
       const copyDiagnosticsReport = () => {
-        if (!lastUsageStats) return;
         const s = lastUsageStats;
         const lines = [
           '=== 📊 TRANSLATION DIAGNOSTICS REPORT ===',
-          `Model: ${s.provider || ''} · ${s.model || ''}`,
-          `Typewriter Streaming: ${s.enableStreaming ? 'ON' : 'OFF'} | Extended Thinking: ${s.enableThinking ? 'ON' : 'OFF'}`,
-          `Context-Aware Memory: ${s.contextAware ? 'ON' : 'OFF'} | Concurrency: ${s.concurrency || 1} parallel stream(s)`,
-          `Chunk Size Preset: ${(s.chunkSizePreset || 'turbo').toUpperCase()} | Smart Glossary: ${s.smartGlossary ? 'ON' : 'OFF'} (${s.glossaryTermCount || 0} terms loaded)`,
-          `Tokens: ${(s.totalTokens || 0).toLocaleString()} (${(s.promptTokens || 0).toLocaleString()} in · ${(s.outputTokens || 0).toLocaleString()} out)`,
-          `Cost: ${s.cost || '$0.0000'} | Time: ${s.duration || ''} (${s.speed || 'N/A'}) | Words: ${wordCount(assembledText).toLocaleString()}`,
+          s ? `Model: ${s.provider || ''} · ${s.model || ''}` : `Model: ${provider} · ${provider === 'gemini' ? (geminiModel || 'gemini-3.7-flash') : deepseekModel}`,
+          `Typewriter Streaming: ${s ? (s.enableStreaming ? 'ON' : 'OFF') : (enableStreaming ? 'ON' : 'OFF')} | Extended Thinking: ${s ? (s.enableThinking ? 'ON' : 'OFF') : (enableThinking ? 'ON' : 'OFF')}`,
+          `Context-Aware Memory: ${s ? (s.contextAware ? 'ON' : 'OFF') : (contextAware ? 'ON' : 'OFF')} | Concurrency: ${s ? (s.concurrency || 1) : concurrency} parallel stream(s)`,
+          `Chunk Size Preset: ${(s?.chunkSizePreset || chunkSizePreset || 'turbo').toUpperCase()} | Smart Glossary: ${(s ? s.smartGlossary : smartGlossary) ? 'ON' : 'OFF'} (${s ? s.glossaryTermCount : glossaryTermCount} terms loaded)`,
+          s ? `Tokens: ${(s.totalTokens || 0).toLocaleString()} (${(s.promptTokens || 0).toLocaleString()} in · ${(s.outputTokens || 0).toLocaleString()} out)` : 'Tokens: In-flight / pending completion',
+          s ? `Cost: ${s.cost || '$0.0000'} | Time: ${s.duration || ''} (${s.speed || 'N/A'}) | Words: ${wordCount(assembledText).toLocaleString()}` : `Words: ${wordCount(assembledText).toLocaleString()}`,
           '',
           '=== 📜 RECENT TELEMETRY EVENTS ===',
           window.AppLogger ? window.AppLogger.getFormattedText() : 'No logs available.'
         ];
         const text = lines.join('\n');
         navigator.clipboard.writeText(text).then(() => {
-          toast('📋 Full Report & Diagnostic Logs copied to clipboard!', 'success');
+          toast('📋 Diagnostics Report & Telemetry Logs copied to clipboard!', 'success');
         }).catch(() => {
-          toast('Failed to copy report to clipboard', 'error');
+          toast('Failed to copy to clipboard', 'error');
         });
       };
 
@@ -13015,10 +13014,7 @@ FORMATTING & STRUCTURE RULES:
                       type: 'button',
                       className: 'chip-act',
                       title: 'Copy All Logs to Clipboard',
-                      onClick: () => {
-                        const text = window.AppLogger ? window.AppLogger.getFormattedText() : '';
-                        navigator.clipboard.writeText(text).then(() => toast('📋 Diagnostic logs copied to clipboard!', 'success'));
-                      }
+                      onClick: copyDiagnosticsReport
                     }, '📋 Copy Logs'),
                     showLiveLogs && h('button', {
                       type: 'button',
@@ -13582,10 +13578,7 @@ FORMATTING & STRUCTURE RULES:
             h('div', { className: 'gloss-head', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
               h('span', { style: { fontWeight: 600, fontSize: 14 } }, '📜 Live Diagnostics & API Logs'),
               h('div', { style: { display: 'flex', gap: 6 } },
-                h('button', { type: 'button', className: 'chip-act', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => {
-                  const text = window.AppLogger ? window.AppLogger.getFormattedText() : '';
-                  navigator.clipboard.writeText(text).then(() => toast('📋 All logs copied to clipboard!', 'success'));
-                } }, '📋 Copy All'),
+                h('button', { type: 'button', className: 'chip-act', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: copyDiagnosticsReport }, '📋 Copy All'),
                 h('button', { type: 'button', className: 'chip-act', onClick: () => { window.AppLogger?.clear(); toast('Logs cleared', 'info'); } }, '🗑 Clear'),
                 h('button', { type: 'button', className: 'icon-btn', onClick: () => setLogsModalOpen(false) }, '✕')
               )

@@ -1,7 +1,7 @@
 {
-  "version": "8.7.9",
-  "versionCode": 879,
+  "version": "8.8.0",
+  "versionCode": 880,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.7.9: Adaptive KeyPool pacing (instant 40ms when healthy, 350ms anti-stampede when cooling)."
+  "releaseNotes": "v8.8.0: Copy Logs button now automatically prepends the Translation Diagnostics Report header."
 }
