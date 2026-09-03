@@ -1,7 +1,7 @@
 {
-  "version": "8.6.2",
-  "versionCode": 862,
+  "version": "8.6.3",
+  "versionCode": 863,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.6.2: Complete telemetry diagnostics logger, 1-tap Copy Report, full config summary in stats card."
+  "releaseNotes": "v8.6.3: Robust multi-hop redirect APK downloader and explicit FileProvider permissions for 100% reliable in-app updates."
 }
