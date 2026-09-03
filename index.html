@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.5.9';
+    const VERSION = '8.6.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2023,9 +2023,11 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     const streamWithRotation = async (text, opts) => {
       let currentOpts = { ...opts };
       const rotateFn = opts?.rotateApiKey || (typeof window !== 'undefined' ? window.rotateApiKey : null);
+      const isParallelWorker = Boolean(opts?.isParallelWorker);
       const maxAttempts = 60;
-      let backoffDelay = 3000;
+      let backoffDelay = 2500;
       let consecutiveRotations = 0;
+
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
           const streamFn = currentOpts.provider === 'deepseek' ? streamDeepSeek : streamGemini;
@@ -2036,10 +2038,16 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
           const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
           if (isRateLimit) {
             consecutiveRotations++;
+            if (isParallelWorker) {
+              const coolingTime = Math.min(3500 + (attempt * 500), 8000);
+              console.warn(`Parallel streaming worker key rate-limited (429). Dedicated cooling for ${(coolingTime/1000).toFixed(1)}s (attempt ${attempt + 1}/${maxAttempts})...`);
+              await new Promise(r => setTimeout(r, coolingTime));
+              continue;
+            }
             if (typeof rotateFn === 'function') {
               const nextKey = rotateFn(currentOpts.apiKey);
               if (nextKey && nextKey !== currentOpts.apiKey) {
-                const pauseTime = (consecutiveRotations >= 5) ? 4500 : 600;
+                const pauseTime = (consecutiveRotations >= 5) ? 4500 : 800;
                 console.warn(`Streaming rate limit (429) → Auto-switched to key ${nextKey.substring(0, 8)}... (pause ${pauseTime}ms, attempt ${attempt + 1}/${maxAttempts})`);
                 currentOpts.apiKey = nextKey;
                 await new Promise(r => setTimeout(r, pauseTime));
@@ -11783,7 +11791,7 @@ FORMATTING & STRUCTURE RULES:
             if (title && String(title).trim()) {
               if (!(resume && newChapters[i]?.title)) {
                 try {
-                  const tRes = await translateWithRotation(title, { ...workerOpts, context: useContext ? chapterCtx : undefined });
+                  const tRes = await translateWithRotation(title, { ...workerOpts, context: undefined });
                   title = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
                   if (tRes?.usage) {
                     totalPromptTokens += tRes.usage.promptTokens || 0;
