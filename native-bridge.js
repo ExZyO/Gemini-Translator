@@ -21,47 +21,64 @@
                 const apkDownloadUrl = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
                 const releasePage = "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest";
 
-                // Tier 1: GitHub Raw package.json (Unmetered static CDN, zero rate-limit 403s)
+                // Tier 1: Dedicated raw version.json manifest (Zero rate limits, instant)
                 try {
-                    const rRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now(), { cache: 'no-store' });
-                    if (rRes.ok) {
-                        const rData = await rRes.json();
-                        if (rData && rData.version) remoteVersion = rData.version;
+                    const vRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/version.json?t=' + Date.now(), { cache: 'no-store' });
+                    if (vRes.ok) {
+                        const vData = await vRes.json();
+                        if (vData && vData.version) {
+                            remoteVersion = vData.version;
+                            if (vData.releaseNotes) releaseNotes = vData.releaseNotes;
+                        }
                     }
                 } catch (e1) {
-                    console.warn('Tier 1 Raw update check blip:', e1);
+                    console.warn('Tier 1 version.json check blip:', e1);
                 }
 
-                // Tier 2: jsDelivr global edge mirror (Zero rate limits, high reliability fallback)
+                // Tier 2: GitHub Raw package.json (Zero rate limits)
                 if (!remoteVersion) {
                     try {
-                        const cRes = await fetch('https://cdn.jsdelivr.net/gh/ExZyO/Gemini-Translator@main/package.json?t=' + Date.now(), { cache: 'no-store' });
-                        if (cRes.ok) {
-                            const cData = await cRes.json();
-                            if (cData && cData.version) remoteVersion = cData.version;
+                        const rRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now(), { cache: 'no-store' });
+                        if (rRes.ok) {
+                            const rData = await rRes.json();
+                            if (rData && rData.version) remoteVersion = rData.version;
                         }
                     } catch (e2) {
-                        console.warn('Tier 2 CDN update check blip:', e2);
+                        console.warn('Tier 2 package.json check blip:', e2);
                     }
                 }
 
-                // Tier 3: GitHub Releases API for release notes & fallback
-                try {
-                    const ghRes = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now(), {
-                        headers: { 'Accept': 'application/vnd.github.v3+json' },
-                        cache: 'no-store'
-                    });
-                    if (ghRes.ok) {
-                        const ghData = await ghRes.json();
-                        if (ghData?.body) releaseNotes = ghData.body;
-                        if (!remoteVersion) {
+                // Tier 3: jsDelivr global edge mirror for version.json
+                if (!remoteVersion) {
+                    try {
+                        const cRes = await fetch('https://cdn.jsdelivr.net/gh/ExZyO/Gemini-Translator@main/version.json?t=' + Date.now(), { cache: 'no-store' });
+                        if (cRes.ok) {
+                            const cData = await cRes.json();
+                            if (cData && cData.version) {
+                                remoteVersion = cData.version;
+                                if (cData.releaseNotes) releaseNotes = cData.releaseNotes;
+                            }
+                        }
+                    } catch (e3) {
+                        console.warn('Tier 3 jsDelivr check blip:', e3);
+                    }
+                }
+
+                // Tier 4: GitHub Releases API fallback
+                if (!remoteVersion) {
+                    try {
+                        const ghRes = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now(), {
+                            headers: { 'Accept': 'application/vnd.github.v3+json' },
+                            cache: 'no-store'
+                        });
+                        if (ghRes.ok) {
+                            const ghData = await ghRes.json();
+                            if (ghData?.body) releaseNotes = ghData.body;
                             const verMatch = (ghData.name || '').match(/v?(\d+\.\d+\.\d+)/i) || 
                                              (ghData.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
                             if (verMatch) remoteVersion = verMatch[1];
                         }
-                    }
-                } catch (e3) {
-                    // Non-fatal: release notes are optional
+                    } catch (e4) {}
                 }
 
                 if (!remoteVersion) return null;
@@ -76,10 +93,8 @@
                 else if (rMajor === cMajor && rMinor > cMinor) isNewer = true;
                 else if (rMajor === cMajor && rMinor === cMinor && rPatch > cPatch) isNewer = true;
 
-                if (!isNewer) return null;
-
                 return {
-                    isNewer: true,
+                    isNewer,
                     latestVersion: 'v' + [rMajor, rMinor, rPatch].join('.'),
                     currentVersion: 'v' + [cMajor, cMinor, cPatch].join('.'),
                     releaseNotes: releaseNotes || `Gemini Translator v${rMajor}.${rMinor}.${rPatch} is now available!`,
