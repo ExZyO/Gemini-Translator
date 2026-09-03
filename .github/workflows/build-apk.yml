@@ -20,19 +20,21 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: ☕ Set up Java 17 (Temurin)
+      - name: ☕ Set up Java 17 with Gradle Cache
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
-      - name: 🟩 Set up Node.js 22
+      - name: 🟩 Set up Node.js 22 with npm Cache
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
 
-      - name: 📦 Install Dependencies
-        run: npm install
+      - name: 📦 Install Node Dependencies (Cached)
+        run: npm ci --prefer-offline || npm install
 
       - name: 🌐 Prepare Web Assets
         run: node build-www.js
@@ -44,17 +46,9 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon --build-cache --parallel
 
-      - name: 📤 Upload Release APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GeminiTranslator-Android-Release-APK
-          path: android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: 📱 Rename APK for Direct Download
+      - name: 📱 Prepare APK for Direct Download
         run: cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/GeminiTranslator.apk
 
       - name: 🏷️ Read Version from package.json
