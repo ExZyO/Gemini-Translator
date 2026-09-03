@@ -1,7 +1,7 @@
 {
-  "version": "8.6.4",
-  "versionCode": 864,
+  "version": "8.6.5",
+  "versionCode": 865,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.6.4: Live Diagnostics Logs card at the bottom of the Translator tab with ON/OFF switch and 1-tap clipboard copy."
+  "releaseNotes": "v8.6.5: Bulk API Key Import modal, async KeyPool queuing (no double-dipping), active key counters."
 }

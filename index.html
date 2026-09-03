@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.6.4';
+    const VERSION = '8.6.5';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2063,42 +2063,57 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       inUse: new Set(),
       coolingUntil: new Map(),
 
-      acquireKey(keys, failingKey = null) {
+      async acquireKey(keys, failingKey = null) {
         if (!keys || keys.length === 0) return null;
         if (keys.length === 1) return keys[0].key;
 
         const now = Date.now();
         if (failingKey) {
           this.coolingUntil.set(failingKey, now + 15000);
-        window.AppLogger?.log('warn', 'KeyPool', `Key ${failingKey.slice(0, 8)}... hit 429 rate-limit. Placed in 15s cooling penalty.`);
+          window.AppLogger?.log('warn', 'KeyPool', `Key ${failingKey.slice(0, 8)}... hit 429 rate-limit. Placed in 15s cooling penalty.`);
           this.inUse.delete(failingKey);
         }
 
-        // 1. Pick a key that is NEITHER in active use NOR cooling
-        let candidate = keys.find(k => k.key && !this.inUse.has(k.key) && (!this.coolingUntil.has(k.key) || now >= this.coolingUntil.get(k.key)));
+        // Anti-collision loop: NEVER lease a key that is currently in flight!
+        // If all keys are in use, wait patiently for an in-flight worker to finish and release its key.
+        for (let wait = 0; wait < 20; wait++) {
+          const currentTime = Date.now();
+          // 1. Pick a key that is NEITHER in active use NOR cooling
+          let candidate = keys.find(k => k.key && !this.inUse.has(k.key) && (!this.coolingUntil.has(k.key) || currentTime >= this.coolingUntil.get(k.key)));
 
-        // 2. If all keys are cooling, pick the key that is closest to expiring cooling
-        if (!candidate) {
-          const available = keys.filter(k => k.key && !this.inUse.has(k.key));
-          if (available.length > 0) {
-            available.sort((a, b) => (this.coolingUntil.get(a.key) || 0) - (this.coolingUntil.get(b.key) || 0));
-            candidate = available[0];
+          // 2. If none, check if any non-in-use key has finished cooling
+          if (!candidate) {
+            const idle = keys.filter(k => k.key && !this.inUse.has(k.key));
+            if (idle.length > 0) {
+              idle.sort((a, b) => (this.coolingUntil.get(a.key) || 0) - (this.coolingUntil.get(b.key) || 0));
+              candidate = idle[0];
+            }
           }
+
+          if (candidate?.key) {
+            this.inUse.add(candidate.key);
+            window.AppLogger?.log('info', 'KeyPool', `Leased idle key ${candidate.key.slice(0, 8)}... (${this.inUse.size}/${keys.length} active in-flight)`);
+            return candidate.key;
+          }
+
+          // All keys are currently busy processing requests. Wait 1.0s for a key to be released.
+          await new Promise(r => setTimeout(r, 1000));
         }
 
-        // 3. Fallback: pick any key
-        if (!candidate) candidate = keys[Math.floor(Math.random() * keys.length)];
-
-        if (candidate?.key) {
-          this.inUse.add(candidate.key);
-        window.AppLogger?.log('info', 'KeyPool', `Leased idle key ${candidate.key.slice(0, 8)}... (In-use: ${this.inUse.size})`);
-          return candidate.key;
+        // Absolute fallback: pick any idle key or first key
+        const fallback = keys.find(k => !this.inUse.has(k.key)) || keys[0];
+        if (fallback?.key) {
+          this.inUse.add(fallback.key);
+          return fallback.key;
         }
         return null;
       },
 
       releaseKey(key) {
-        if (key) this.inUse.delete(key);
+        if (key) {
+          this.inUse.delete(key);
+          window.AppLogger?.log('info', 'KeyPool', `Released key ${key.slice(0, 8)}... (${this.inUse.size} remaining in-flight)`);
+        }
       }
     };
 
@@ -2106,7 +2121,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       let currentOpts = { ...opts };
       const allKeys = opts?.availableKeys || [];
       if (allKeys.length > 1) {
-        const leased = KeyPool.acquireKey(allKeys);
+        const leased = await KeyPool.acquireKey(allKeys);
         if (leased) currentOpts.apiKey = leased;
       }
       const maxAttempts = 60;
@@ -2123,7 +2138,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
             const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
             if (isRateLimit) {
               if (allKeys.length > 1) {
-                const freshKey = KeyPool.acquireKey(allKeys, currentOpts.apiKey);
+                const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
                 if (freshKey && freshKey !== currentOpts.apiKey) {
                   console.warn(`Key rate-limited (429) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
                   currentOpts.apiKey = freshKey;
@@ -2148,7 +2163,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       let currentOpts = { ...opts };
       const allKeys = opts?.availableKeys || [];
       if (allKeys.length > 1) {
-        const leased = KeyPool.acquireKey(allKeys);
+        const leased = await KeyPool.acquireKey(allKeys);
         if (leased) currentOpts.apiKey = leased;
       }
       const maxAttempts = 60;
@@ -2166,7 +2181,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
             const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
             if (isRateLimit) {
               if (allKeys.length > 1) {
-                const freshKey = KeyPool.acquireKey(allKeys, currentOpts.apiKey);
+                const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
                 if (freshKey && freshKey !== currentOpts.apiKey) {
                   console.warn(`Key rate-limited (429) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
                   currentOpts.apiKey = freshKey;
@@ -4384,6 +4399,45 @@ ${tocNavLinks.join('\n')}
 
       // Update Handlers
       
+      
+      const handleBulkImportKeys = () => {
+        if (!bulkKeyText.trim()) return;
+        const rawLines = bulkKeyText.split(/[\r\n,;]+/);
+        const validKeys = rawLines.map(k => k.trim()).filter(k => k.length > 15);
+        if (validKeys.length === 0) {
+          toast('No valid API keys detected. Keys are usually 30+ characters.', 'error');
+          return;
+        }
+
+        const prov = provider;
+        const provNames = { gemini: 'Gemini', deepseek: 'DeepSeek', openai: 'OpenAI', claude: 'Claude', deepl: 'DeepL', libre: 'LibreTranslate' };
+        const provName = provNames[prov] || prov.toUpperCase();
+
+        const newProfiles = validKeys.map((k, idx) => ({
+          id: genId(),
+          name: `${provName} Key ${idx + 1}`,
+          key: k
+        }));
+
+        setApiKeysByProvider(prev => {
+          const updated = { ...prev, [prov]: newProfiles };
+          localStorage.setItem('apiKeysByProvider', JSON.stringify(updated));
+          return updated;
+        });
+
+        if (newProfiles.length > 0) {
+          setActiveKeyIds(prev => {
+            const updated = { ...prev, [prov]: newProfiles[0].id };
+            localStorage.setItem('activeKeyIds', JSON.stringify(updated));
+            return updated;
+          });
+        }
+
+        setBulkKeyText('');
+        setBulkKeyModalOpen(false);
+        toast(`🎉 Successfully imported ${newProfiles.length} ${provName} API keys!`, 'success');
+      };
+
       const copyDiagnosticsReport = () => {
         if (!lastUsageStats) return;
         const s = lastUsageStats;
@@ -12491,6 +12545,8 @@ FORMATTING & STRUCTURE RULES:
       const [sheetOpen, setSheetOpen] = useState(false);
       const [glossaryEditorOpen, setGlossaryEditorOpen] = useState(false);
       const [logsModalOpen, setLogsModalOpen] = useState(false);
+      const [bulkKeyModalOpen, setBulkKeyModalOpen] = useState(false);
+      const [bulkKeyText, setBulkKeyText] = useState('');
       const [showLiveLogs, setShowLiveLogs] = useState(() => localStorage.getItem('showLiveLogs') === 'true');
       useEffect(() => { localStorage.setItem('showLiveLogs', String(showLiveLogs)); }, [showLiveLogs]);
       const logsContainerRef = useRef(null);
@@ -13154,8 +13210,11 @@ FORMATTING & STRUCTURE RULES:
 
               h('div', { className: 'card' },
                 h('div', { className: 'card-title' },
-                  h('span', null, `API Keys (${provider.toUpperCase()})`),
-                  h('button', { type: 'button', className: 'mini-btn', onClick: () => addApiKey(provider) }, '+ Add Key')
+                  h('span', null, `API Keys (${provider.toUpperCase()}) · ${(apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim()).length} active`),
+                  h('div', { style: { display: 'flex', gap: 6 } },
+                    h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => setBulkKeyModalOpen(true) }, '⚡ Bulk Paste'),
+                    h('button', { type: 'button', className: 'mini-btn', onClick: () => addApiKey(provider) }, '+ Add')
+                  )
                 ),
                 (apiKeysByProvider[provider] || []).map(k => {
                   const isActive = (activeKeyIds[provider] === k.id) || ((apiKeysByProvider[provider] || []).length === 1);
@@ -13286,6 +13345,42 @@ FORMATTING & STRUCTURE RULES:
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--paper-dim)' } },
               h('span', null, `${liveLogs.length} events logged (buffer: ${window.AppLogger?.maxLogs || 250})`),
               h('button', { type: 'button', className: 'mini-btn', onClick: () => setLogsModalOpen(false) }, 'Done')
+            )
+          )
+        ),
+
+        
+        // ═════ BULK API KEY IMPORT MODAL ═════
+        bulkKeyModalOpen && h('div', { className: 'gloss-overlay', style: { zIndex: 9999 } },
+          h('div', { className: 'gloss-box', style: { maxWidth: 520 } },
+            h('div', { className: 'gloss-head', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              h('span', { style: { fontWeight: 600, fontSize: 14 } }, `⚡ Bulk Paste ${provider.toUpperCase()} Keys`),
+              h('button', { type: 'button', className: 'icon-btn', onClick: () => setBulkKeyModalOpen(false) }, '✕')
+            ),
+            h('p', { style: { fontSize: 12, color: 'var(--paper-dim)', margin: '8px 0' } },
+              'Paste all your API keys at once below (one per line or comma-separated). They will all be imported directly into the multi-key pool.'
+            ),
+            h('textarea', {
+              value: bulkKeyText,
+              onChange: e => setBulkKeyText(e.target.value),
+              placeholder: "AIzaSyAr12345...\nAIzaSyBc67890...\nAIzaSyCd11223...",
+              style: {
+                width: '100%',
+                height: 160,
+                background: 'var(--void)',
+                color: 'var(--paper)',
+                border: '1px solid var(--hairline)',
+                borderRadius: 8,
+                padding: 10,
+                fontSize: 11,
+                fontFamily: "'IBM Plex Mono', monospace",
+                outline: 'none',
+                resize: 'vertical'
+              }
+            }),
+            h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 } },
+              h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => setBulkKeyModalOpen(false) }, 'Cancel'),
+              h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 }, onClick: handleBulkImportKeys }, 'Import All Keys')
             )
           )
         ),
