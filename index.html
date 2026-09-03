@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.5.5';
+    const VERSION = '8.5.6';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -12821,6 +12821,31 @@ FORMATTING & STRUCTURE RULES:
                   h('div', { className: 'slider-row', style: { flex: 1, maxWidth: 190 } },
                     h('input', { type: 'range', min: 1, max: 20, value: concurrency, onChange: e => setConcurrency(parseInt(e.target.value)) }),
                     h('span', { className: 'val' }, concurrency)
+                  )
+                ),
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'Chunk Size Preset'),
+                  h('select', {
+                    value: chunkSizePreset,
+                    onChange: e => {
+                      setChunkSizePreset(e.target.value);
+                      localStorage.setItem('chunkSizePreset', e.target.value);
+                    },
+                    style: {
+                      background: 'var(--void)',
+                      border: '1px solid var(--hairline)',
+                      color: 'var(--paper)',
+                      borderRadius: 8,
+                      padding: '5px 8px',
+                      fontSize: 12,
+                      outline: 'none',
+                      fontFamily: "'IBM Plex Mono', monospace"
+                    }
+                  },
+                    h('option', { value: 'turbo' }, '⚡ Turbo (Max words/req)'),
+                    h('option', { value: 'large' }, '📖 Large (~3,500 chars)'),
+                    h('option', { value: 'medium' }, '⚖️ Medium (~2,500 chars)'),
+                    h('option', { value: 'small' }, '🐢 Small (~1,800 chars)')
                   )
                 )
               ),
