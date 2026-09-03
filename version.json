@@ -1,7 +1,7 @@
 {
-  "version": "8.6.0",
-  "versionCode": 860,
+  "version": "8.6.1",
+  "versionCode": 861,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.6.0: Zero-latency title translations, anti-stampede key isolation for streaming & batch, and instant multi-source update consensus."
+  "releaseNotes": "v8.6.1: KeyPool architecture with dynamic idle key leasing, eliminating key trapping and rate limit collisions."
 }

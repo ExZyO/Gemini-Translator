@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.6.0';
+    const VERSION = '8.6.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2020,105 +2020,132 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     };
 
     
+
+    // Global Multi-Key Lease Pool (Guarantees zero concurrent collision & smart failover to idle keys)
+    const KeyPool = {
+      inUse: new Set(),
+      coolingUntil: new Map(),
+
+      acquireKey(keys, failingKey = null) {
+        if (!keys || keys.length === 0) return null;
+        if (keys.length === 1) return keys[0].key;
+
+        const now = Date.now();
+        if (failingKey) {
+          this.coolingUntil.set(failingKey, now + 15000);
+          this.inUse.delete(failingKey);
+        }
+
+        // 1. Pick a key that is NEITHER in active use NOR cooling
+        let candidate = keys.find(k => k.key && !this.inUse.has(k.key) && (!this.coolingUntil.has(k.key) || now >= this.coolingUntil.get(k.key)));
+
+        // 2. If all keys are cooling, pick the key that is closest to expiring cooling
+        if (!candidate) {
+          const available = keys.filter(k => k.key && !this.inUse.has(k.key));
+          if (available.length > 0) {
+            available.sort((a, b) => (this.coolingUntil.get(a.key) || 0) - (this.coolingUntil.get(b.key) || 0));
+            candidate = available[0];
+          }
+        }
+
+        // 3. Fallback: pick any key
+        if (!candidate) candidate = keys[Math.floor(Math.random() * keys.length)];
+
+        if (candidate?.key) {
+          this.inUse.add(candidate.key);
+          return candidate.key;
+        }
+        return null;
+      },
+
+      releaseKey(key) {
+        if (key) this.inUse.delete(key);
+      }
+    };
+
     const streamWithRotation = async (text, opts) => {
       let currentOpts = { ...opts };
-      const rotateFn = opts?.rotateApiKey || (typeof window !== 'undefined' ? window.rotateApiKey : null);
-      const isParallelWorker = Boolean(opts?.isParallelWorker);
+      const allKeys = opts?.availableKeys || [];
+      if (allKeys.length > 1) {
+        const leased = KeyPool.acquireKey(allKeys);
+        if (leased) currentOpts.apiKey = leased;
+      }
       const maxAttempts = 60;
-      let backoffDelay = 2500;
-      let consecutiveRotations = 0;
+      let backoffDelay = 2000;
 
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        try {
-          const streamFn = currentOpts.provider === 'deepseek' ? streamDeepSeek : streamGemini;
-          return await streamFn(text, currentOpts);
-        } catch (err) {
-          if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
-          const errMsg = (err.message || '').toLowerCase();
-          const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
-          if (isRateLimit) {
-            consecutiveRotations++;
-            if (isParallelWorker) {
-              const coolingTime = Math.min(3500 + (attempt * 500), 8000);
-              console.warn(`Parallel streaming worker key rate-limited (429). Dedicated cooling for ${(coolingTime/1000).toFixed(1)}s (attempt ${attempt + 1}/${maxAttempts})...`);
-              await new Promise(r => setTimeout(r, coolingTime));
+      try {
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const streamFn = currentOpts.provider === 'deepseek' ? streamDeepSeek : streamGemini;
+            return await streamFn(text, currentOpts);
+          } catch (err) {
+            if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
+            const errMsg = (err.message || '').toLowerCase();
+            const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
+            if (isRateLimit) {
+              if (allKeys.length > 1) {
+                const freshKey = KeyPool.acquireKey(allKeys, currentOpts.apiKey);
+                if (freshKey && freshKey !== currentOpts.apiKey) {
+                  console.warn(`Key rate-limited (429) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
+                  currentOpts.apiKey = freshKey;
+                  await new Promise(r => setTimeout(r, 600));
+                  continue;
+                }
+              }
+              await new Promise(r => setTimeout(r, backoffDelay));
+              backoffDelay = Math.min(backoffDelay * 1.2, 5000);
               continue;
             }
-            if (typeof rotateFn === 'function') {
-              const nextKey = rotateFn(currentOpts.apiKey);
-              if (nextKey && nextKey !== currentOpts.apiKey) {
-                const pauseTime = (consecutiveRotations >= 5) ? 4500 : 800;
-                console.warn(`Streaming rate limit (429) → Auto-switched to key ${nextKey.substring(0, 8)}... (pause ${pauseTime}ms, attempt ${attempt + 1}/${maxAttempts})`);
-                currentOpts.apiKey = nextKey;
-                await new Promise(r => setTimeout(r, pauseTime));
-                if (consecutiveRotations >= 8) consecutiveRotations = 0;
-                continue;
-              }
-            }
-            await new Promise(r => setTimeout(r, backoffDelay));
-            backoffDelay = Math.min(backoffDelay * 1.3, 8000);
-            continue;
+            throw err;
           }
-          throw err;
         }
+        throw new Error('Rate-limited across all keys after ' + maxAttempts + ' attempts. Try another model in Settings · Engine, or wait a few minutes.');
+      } finally {
+        if (currentOpts.apiKey) KeyPool.releaseKey(currentOpts.apiKey);
       }
-      throw new Error('Rate-limited across all keys after ' + maxAttempts + ' attempts. Try another model in Settings · Engine, or wait a few minutes.');
     };
 
     const translateWithRotation = async (text, opts) => {
       let currentOpts = { ...opts };
-      const rotateFn = opts?.rotateApiKey || (typeof window !== 'undefined' ? window.rotateApiKey : null);
-      const isParallelWorker = Boolean(opts?.isParallelWorker);
+      const allKeys = opts?.availableKeys || [];
+      if (allKeys.length > 1) {
+        const leased = KeyPool.acquireKey(allKeys);
+        if (leased) currentOpts.apiKey = leased;
+      }
       const maxAttempts = 60;
-      let backoffDelay = 2500;
-      let consecutiveRotations = 0;
+      let backoffDelay = 2000;
 
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        try {
-          const res = await translateChunk(text, currentOpts);
-          if (res) return res;
-          throw new Error('Empty response from translation provider');
-        } catch (err) {
-          if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
-          const errMsg = (err.message || '').toLowerCase();
-          const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
-          if (isRateLimit) {
-            consecutiveRotations++;
-
-            // CRITICAL ANTI-STAMPEDE FIX:
-            // When multiple workers run in parallel, each worker has its OWN dedicated key.
-            // If Worker A hits a rate limit, it must NOT jump onto Worker B's key, because doing so
-            // puts 2 requests on Worker B's key and causes a cascading stampede across all keys!
-            if (isParallelWorker) {
-              // Patiently cool this dedicated key for 3.5 seconds so Google's RPM window clears
-              const coolingTime = Math.min(3500 + (attempt * 500), 8000);
-              console.warn(`Parallel worker key rate-limited (429). Dedicated cooling for ${(coolingTime/1000).toFixed(1)}s (attempt ${attempt + 1}/${maxAttempts})...`);
-              await new Promise(r => setTimeout(r, coolingTime));
+      try {
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const res = await translateChunk(text, currentOpts);
+            if (res) return res;
+            throw new Error('Empty response from translation provider');
+          } catch (err) {
+            if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
+            const errMsg = (err.message || '').toLowerCase();
+            const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
+            if (isRateLimit) {
+              if (allKeys.length > 1) {
+                const freshKey = KeyPool.acquireKey(allKeys, currentOpts.apiKey);
+                if (freshKey && freshKey !== currentOpts.apiKey) {
+                  console.warn(`Key rate-limited (429) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
+                  currentOpts.apiKey = freshKey;
+                  await new Promise(r => setTimeout(r, 600));
+                  continue;
+                }
+              }
+              await new Promise(r => setTimeout(r, backoffDelay));
+              backoffDelay = Math.min(backoffDelay * 1.2, 5000);
               continue;
             }
-
-            // Single worker mode: can safely rotate through keys because no other workers exist
-            if (typeof rotateFn === 'function') {
-              const nextKey = rotateFn(currentOpts.apiKey);
-              if (nextKey && nextKey !== currentOpts.apiKey) {
-                const pauseTime = (consecutiveRotations >= 5) ? 4500 : 800;
-                console.warn(`Rate limit (429) → Auto-switched to key ${nextKey.substring(0, 8)}... (pause ${pauseTime}ms, attempt ${attempt + 1}/${maxAttempts})`);
-                currentOpts.apiKey = nextKey;
-                await new Promise(r => setTimeout(r, pauseTime));
-                if (consecutiveRotations >= 8) consecutiveRotations = 0;
-                continue;
-              }
-            }
-
-            console.warn(`Rate limit cooling pause for ${(backoffDelay / 1000).toFixed(1)}s (attempt ${attempt + 1}/${maxAttempts})...`);
-            await new Promise(r => setTimeout(r, backoffDelay));
-            backoffDelay = Math.min(backoffDelay * 1.3, 8000);
-            continue;
+            throw err;
           }
-          throw err;
         }
+        throw new Error('Rate-limited across all keys after ' + maxAttempts + ' attempts. Try another model in Settings · Engine, or wait a few minutes.');
+      } finally {
+        if (currentOpts.apiKey) KeyPool.releaseKey(currentOpts.apiKey);
       }
-      throw new Error('Rate-limited across all keys after ' + maxAttempts + ' attempts. Try another model in Settings · Engine, or wait a few minutes.');
     };
 
     const translateChunk = async (text, opts) => {
@@ -11644,7 +11671,7 @@ FORMATTING & STRUCTURE RULES:
             const effectiveConcurrency = Math.max(1, concurrency || 3);
             const results = await batchParallel(remainingChunks, async (chunk, idx, workerId = 0) => {
               const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
-              const workerOpts = { ...opts, apiKey: workerKey, isParallelWorker: effectiveConcurrency > 1 };
+              const workerOpts = { ...opts, apiKey: workerKey, availableKeys, isParallelWorker: effectiveConcurrency > 1 };
               const translated = await translateWithRotation(chunk, workerOpts);
               completed++; setProgress(Math.floor((completed / chunks.length) * 100));
               setProgressLabel(`Completed ${completed}/${chunks.length} chunks`);
@@ -11782,7 +11809,7 @@ FORMATTING & STRUCTURE RULES:
 
           await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx, workerId = 0) => {
             const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
-            const workerOpts = { ...opts, apiKey: workerKey, isParallelWorker: effectiveConcurrency > 1 };
+            const workerOpts = { ...opts, apiKey: workerKey, availableKeys, isParallelWorker: effectiveConcurrency > 1 };
             let title = ch.title;
             const chunks = ch.chunks;
             let chapterCtx = '';
