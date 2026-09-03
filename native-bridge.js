@@ -18,48 +18,53 @@
             try {
                 let remoteVersion = null;
                 let releaseNotes = '';
-                let isApkReady = false;
-                let apkDownloadUrl = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
-                let releasePage = "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest";
+                const apkDownloadUrl = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
+                const releasePage = "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest";
 
-                // Step 1: Query GitHub Releases directly for the latest published release and APK
+                // Tier 1: GitHub Raw package.json (Unmetered static CDN, zero rate-limit 403s)
                 try {
-                    const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now(), {
-                        headers: {
-                            'Accept': 'application/vnd.github.v3+json',
-                            'Cache-Control': 'no-cache'
-                        },
+                    const rRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now(), { cache: 'no-store' });
+                    if (rRes.ok) {
+                        const rData = await rRes.json();
+                        if (rData && rData.version) remoteVersion = rData.version;
+                    }
+                } catch (e1) {
+                    console.warn('Tier 1 Raw update check blip:', e1);
+                }
+
+                // Tier 2: jsDelivr global edge mirror (Zero rate limits, high reliability fallback)
+                if (!remoteVersion) {
+                    try {
+                        const cRes = await fetch('https://cdn.jsdelivr.net/gh/ExZyO/Gemini-Translator@main/package.json?t=' + Date.now(), { cache: 'no-store' });
+                        if (cRes.ok) {
+                            const cData = await cRes.json();
+                            if (cData && cData.version) remoteVersion = cData.version;
+                        }
+                    } catch (e2) {
+                        console.warn('Tier 2 CDN update check blip:', e2);
+                    }
+                }
+
+                // Tier 3: GitHub Releases API for release notes & fallback
+                try {
+                    const ghRes = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now(), {
+                        headers: { 'Accept': 'application/vnd.github.v3+json' },
                         cache: 'no-store'
                     });
-                    if (res.ok) {
-                        const data = await res.json();
-                        releaseNotes = data.body || '';
-                        releasePage = data.html_url || releasePage;
-
-                        const apkAsset = Array.isArray(data.assets) && data.assets.find(a => 
-                            a && typeof a.name === 'string' &&
-                            (a.name.toLowerCase() === 'geminitranslator.apk' || a.name.toLowerCase().endsWith('.apk')) &&
-                            a.state === 'uploaded' && 
-                            a.size > 1000000
-                        );
-
-                        if (apkAsset) {
-                            isApkReady = true;
-                            if (apkAsset.browser_download_url) {
-                                apkDownloadUrl = apkAsset.browser_download_url;
-                            }
-                            const verMatch = (data.name || '').match(/v?(\d+\.\d+\.\d+)/i) || 
-                                             (data.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i) ||
-                                             (data.body || '').match(/v?(\d+\.\d+\.\d+)/i);
+                    if (ghRes.ok) {
+                        const ghData = await ghRes.json();
+                        if (ghData?.body) releaseNotes = ghData.body;
+                        if (!remoteVersion) {
+                            const verMatch = (ghData.name || '').match(/v?(\d+\.\d+\.\d+)/i) || 
+                                             (ghData.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
                             if (verMatch) remoteVersion = verMatch[1];
                         }
                     }
-                } catch (re) {
-                    console.warn('GitHub Releases check error:', re);
+                } catch (e3) {
+                    // Non-fatal: release notes are optional
                 }
 
-                // If no published APK asset is ready on GitHub Releases, do not show update
-                if (!remoteVersion || !isApkReady) return null;
+                if (!remoteVersion) return null;
 
                 // Strict Semver Math: remote > current
                 const parseVer = (v) => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
@@ -74,10 +79,10 @@
                 if (!isNewer) return null;
 
                 return {
-                    isNewer,
+                    isNewer: true,
                     latestVersion: 'v' + [rMajor, rMinor, rPatch].join('.'),
                     currentVersion: 'v' + [cMajor, cMinor, cPatch].join('.'),
-                    releaseNotes,
+                    releaseNotes: releaseNotes || `Gemini Translator v${rMajor}.${rMinor}.${rPatch} is now available!`,
                     apkUrl: apkDownloadUrl,
                     releasePage
                 };

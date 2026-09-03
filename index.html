@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.5.4';
+    const VERSION = '8.5.5';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4297,7 +4297,32 @@ ${tocNavLinks.join('\n')}
       const checkForAppUpdate = async (isManual = false) => {
         if (isManual) toast('Checking for updates...', 'info');
         try {
-          const update = await window.NativeBridge?.checkForUpdate(VERSION);
+          let update = null;
+          if (window.NativeBridge && typeof window.NativeBridge.checkForUpdate === 'function') {
+            update = await window.NativeBridge.checkForUpdate(VERSION);
+          } else {
+            // Direct Web/Bridge Fallback: query raw CDN
+            const r = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now(), { cache: 'no-store' });
+            if (r.ok) {
+              const d = await r.json();
+              if (d && d.version) {
+                const parseV = v => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+                const [rMaj=0, rMin=0, rPat=0] = parseV(d.version);
+                const [cMaj=0, cMin=0, cPat=0] = parseV(VERSION);
+                const isNewer = (rMaj > cMaj) || (rMaj === cMaj && rMin > cMin) || (rMaj === cMaj && rMin === cMin && rPat > cPat);
+                if (isNewer) {
+                  update = {
+                    isNewer: true,
+                    latestVersion: 'v' + [rMaj, rMin, rPat].join('.'),
+                    currentVersion: 'v' + [cMaj, cMin, cPat].join('.'),
+                    apkUrl: "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
+                    releasePage: "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest"
+                  };
+                }
+              }
+            }
+          }
+
           if (update && update.isNewer) {
             setAvailableUpdate(update);
             if (isManual) toast(`New version ${update.latestVersion} available!`, 'success');
