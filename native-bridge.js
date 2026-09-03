@@ -16,75 +16,64 @@
 
                 checkForUpdate: async (currentVersion) => {
             try {
-                let remoteVersion = null;
-                let releaseNotes = '';
+                const parseVer = (v) => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
                 const apkDownloadUrl = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
                 const releasePage = "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest";
+                let releaseNotes = '';
 
-                // Tier 1: Dedicated raw version.json manifest (Zero rate limits, instant)
-                try {
-                    const vRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/version.json?t=' + Date.now(), { cache: 'no-store' });
-                    if (vRes.ok) {
-                        const vData = await vRes.json();
-                        if (vData && vData.version) {
-                            remoteVersion = vData.version;
-                            if (vData.releaseNotes) releaseNotes = vData.releaseNotes;
-                        }
+                // Concurrent Multi-Source Version Query (Bypasses CDN edge caching by checking all sources in parallel)
+                const candidateVersions = [];
+
+                const p1 = fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now(), {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' },
+                    cache: 'no-store'
+                }).then(async r => {
+                    if (r.ok) {
+                        const d = await r.json();
+                        if (d?.body) releaseNotes = d.body;
+                        const m = (d.name || '').match(/v?(\d+\.\d+\.\d+)/i) || (d.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
+                        if (m) candidateVersions.push(m[1]);
                     }
-                } catch (e1) {
-                    console.warn('Tier 1 version.json check blip:', e1);
-                }
+                }).catch(() => {});
 
-                // Tier 2: GitHub Raw package.json (Zero rate limits)
-                if (!remoteVersion) {
-                    try {
-                        const rRes = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now(), { cache: 'no-store' });
-                        if (rRes.ok) {
-                            const rData = await rRes.json();
-                            if (rData && rData.version) remoteVersion = rData.version;
+                const p2 = fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/version.json?t=' + Date.now(), { cache: 'no-store' })
+                    .then(async r => {
+                        if (r.ok) {
+                            const d = await r.json();
+                            if (d && d.version) candidateVersions.push(d.version);
                         }
-                    } catch (e2) {
-                        console.warn('Tier 2 package.json check blip:', e2);
-                    }
-                }
+                    }).catch(() => {});
 
-                // Tier 3: jsDelivr global edge mirror for version.json
-                if (!remoteVersion) {
-                    try {
-                        const cRes = await fetch('https://cdn.jsdelivr.net/gh/ExZyO/Gemini-Translator@main/version.json?t=' + Date.now(), { cache: 'no-store' });
-                        if (cRes.ok) {
-                            const cData = await cRes.json();
-                            if (cData && cData.version) {
-                                remoteVersion = cData.version;
-                                if (cData.releaseNotes) releaseNotes = cData.releaseNotes;
-                            }
+                const p3 = fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/package.json?t=' + Date.now(), { cache: 'no-store' })
+                    .then(async r => {
+                        if (r.ok) {
+                            const d = await r.json();
+                            if (d && d.version) candidateVersions.push(d.version);
                         }
-                    } catch (e3) {
-                        console.warn('Tier 3 jsDelivr check blip:', e3);
-                    }
-                }
+                    }).catch(() => {});
 
-                // Tier 4: GitHub Releases API fallback
-                if (!remoteVersion) {
-                    try {
-                        const ghRes = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now(), {
-                            headers: { 'Accept': 'application/vnd.github.v3+json' },
-                            cache: 'no-store'
-                        });
-                        if (ghRes.ok) {
-                            const ghData = await ghRes.json();
-                            if (ghData?.body) releaseNotes = ghData.body;
-                            const verMatch = (ghData.name || '').match(/v?(\d+\.\d+\.\d+)/i) || 
-                                             (ghData.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
-                            if (verMatch) remoteVersion = verMatch[1];
+                const p4 = fetch('https://cdn.jsdelivr.net/gh/ExZyO/Gemini-Translator@main/version.json?t=' + Date.now(), { cache: 'no-store' })
+                    .then(async r => {
+                        if (r.ok) {
+                            const d = await r.json();
+                            if (d && d.version) candidateVersions.push(d.version);
                         }
-                    } catch (e4) {}
-                }
+                    }).catch(() => {});
 
-                if (!remoteVersion) return null;
+                await Promise.allSettled([p1, p2, p3, p4]);
 
-                // Strict Semver Math: remote > current
-                const parseVer = (v) => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+                if (candidateVersions.length === 0) return null;
+
+                // Pick the highest version among all reporting sources (immunizes against stale CDN edge caching)
+                candidateVersions.sort((a, b) => {
+                    const [a1, a2, a3] = parseVer(a);
+                    const [b1, b2, b3] = parseVer(b);
+                    if (b1 !== a1) return b1 - a1;
+                    if (b2 !== a2) return b2 - a2;
+                    return b3 - a3;
+                });
+
+                const remoteVersion = candidateVersions[0];
                 const [rMajor = 0, rMinor = 0, rPatch = 0] = parseVer(remoteVersion);
                 const [cMajor = 0, cMinor = 0, cPatch = 0] = parseVer(currentVersion);
 
@@ -97,7 +86,7 @@
                     isNewer,
                     latestVersion: 'v' + [rMajor, rMinor, rPatch].join('.'),
                     currentVersion: 'v' + [cMajor, cMinor, cPatch].join('.'),
-                    releaseNotes: releaseNotes || `Gemini Translator v${rMajor}.${rMinor}.${rPatch} is now available!`,
+                    releaseNotes: releaseNotes || `Gemini Translator v${rMajor}.${rMinor}.${rPatch} is available!`,
                     apkUrl: apkDownloadUrl,
                     releasePage
                 };

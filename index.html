@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.5.8';
+    const VERSION = '8.5.9';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4312,28 +4312,48 @@ ${tocNavLinks.join('\n')}
       const checkForAppUpdate = async (isManual = false) => {
         if (isManual) toast('Checking for updates...', 'info');
         try {
+          const parseV = v => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
           let update = null;
           if (window.NativeBridge && typeof window.NativeBridge.checkForUpdate === 'function') {
             update = await window.NativeBridge.checkForUpdate(VERSION);
           }
           if (!update || !update.latestVersion) {
-            // Direct Web/Bridge Fallback: query raw version.json
-            const r = await fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/version.json?t=' + Date.now(), { cache: 'no-store' });
-            if (r.ok) {
-              const d = await r.json();
-              if (d && d.version) {
-                const parseV = v => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
-                const [rMaj=0, rMin=0, rPat=0] = parseV(d.version);
-                const [cMaj=0, cMin=0, cPat=0] = parseV(VERSION);
-                const isNewer = (rMaj > cMaj) || (rMaj === cMaj && rMin > cMin) || (rMaj === cMaj && rMin === cMin && rPat > cPat);
-                update = {
-                  isNewer,
-                  latestVersion: 'v' + [rMaj, rMin, rPat].join('.'),
-                  currentVersion: 'v' + [cMaj, cMin, cPat].join('.'),
-                  apkUrl: d.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
-                  releasePage: d.releasePage || "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest"
-                };
+            // Web fallback: query GitHub releases and version manifest concurrently
+            const candidates = [];
+            const q1 = fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now()).then(async r => {
+              if (r.ok) {
+                const d = await r.json();
+                const m = (d.name || '').match(/v?(\d+\.\d+\.\d+)/i) || (d.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
+                if (m) candidates.push(m[1]);
               }
+            }).catch(() => {});
+            const q2 = fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/version.json?t=' + Date.now()).then(async r => {
+              if (r.ok) {
+                const d = await r.json();
+                if (d?.version) candidates.push(d.version);
+              }
+            }).catch(() => {});
+            await Promise.allSettled([q1, q2]);
+
+            if (candidates.length > 0) {
+              candidates.sort((a, b) => {
+                const [a1, a2, a3] = parseV(a);
+                const [b1, b2, b3] = parseV(b);
+                if (b1 !== a1) return b1 - a1;
+                if (b2 !== a2) return b2 - a2;
+                return b3 - a3;
+              });
+              const bestVer = candidates[0];
+              const [rMaj=0, rMin=0, rPat=0] = parseV(bestVer);
+              const [cMaj=0, cMin=0, cPat=0] = parseV(VERSION);
+              const isNewer = (rMaj > cMaj) || (rMaj === cMaj && rMin > cMin) || (rMaj === cMaj && rMin === cMin && rPat > cPat);
+              update = {
+                isNewer,
+                latestVersion: 'v' + [rMaj, rMin, rPat].join('.'),
+                currentVersion: 'v' + [cMaj, cMin, cPat].join('.'),
+                apkUrl: "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
+                releasePage: "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest"
+              };
             }
           }
 

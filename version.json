@@ -1,7 +1,7 @@
 {
-  "version": "8.5.8",
-  "versionCode": 858,
+  "version": "8.5.9",
+  "versionCode": 859,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.5.8: Eliminate multi-worker key collision stampede, dedicated worker key isolation, and high-speed parallel throughput."
+  "releaseNotes": "v8.5.9: Instant multi-source update detector, anti-stampede key isolation, and Turbo chunking."
 }
