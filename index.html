@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.6.1';
+    const VERSION = '8.6.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1467,7 +1467,10 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       payload.generationConfig.thinkingConfig = enableThinking
         ? { thinkingBudget: 2048 }
         : { thinkingBudget: 0 };
+      const apiStart = performance.now();
+      window.AppLogger?.log('info', 'GeminiAPI', `Outbound request to ${model} (Key: ${apiKey.slice(0, 8)}..., Chars: ${text.length}, Thinking: ${enableThinking ? 'ON' : 'OFF'})`);
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+      window.AppLogger?.log(r.ok ? 'info' : 'warn', 'GeminiAPI', `Response ${r.status} ${r.statusText} in ${Math.round(performance.now() - apiStart)}ms`);
       if (!r.ok && r.status === 400 && payload.system_instruction) {
         delete payload.system_instruction;
         r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
@@ -2022,6 +2025,40 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     
 
     // Global Multi-Key Lease Pool (Guarantees zero concurrent collision & smart failover to idle keys)
+    
+    // ══════════════════════════════════════════════════════════
+    // SYSTEM DIAGNOSTICS & TELEMETRY LOGGER
+    // ══════════════════════════════════════════════════════════
+    window.AppLogger = {
+      logs: [],
+      maxLogs: 250,
+      listeners: new Set(),
+      log(level, tag, message, details = null) {
+        const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+        const entry = { time, level, tag, message, details };
+        this.logs.push(entry);
+        if (this.logs.length > this.maxLogs) this.logs.shift();
+        const detailStr = details ? (typeof details === 'object' ? JSON.stringify(details) : String(details)) : '';
+        console.log(`[${time}][${tag}] ${message}`, detailStr);
+        this.listeners.forEach(fn => { try { fn([...this.logs]); } catch(e) {} });
+      },
+      subscribe(fn) {
+        this.listeners.add(fn);
+        return () => this.listeners.delete(fn);
+      },
+      getFormattedText() {
+        if (this.logs.length === 0) return 'No diagnostic events recorded.';
+        return this.logs.map(l => {
+          const det = l.details ? ' ' + (typeof l.details === 'object' ? JSON.stringify(l.details) : String(l.details)) : '';
+          return `[${l.time}][${l.level.toUpperCase()}][${l.tag}] ${l.message}${det}`;
+        }).join('\n');
+      },
+      clear() {
+        this.logs = [];
+        this.listeners.forEach(fn => { try { fn([]); } catch(e) {} });
+      }
+    };
+
     const KeyPool = {
       inUse: new Set(),
       coolingUntil: new Map(),
@@ -2033,6 +2070,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         const now = Date.now();
         if (failingKey) {
           this.coolingUntil.set(failingKey, now + 15000);
+        window.AppLogger?.log('warn', 'KeyPool', `Key ${failingKey.slice(0, 8)}... hit 429 rate-limit. Placed in 15s cooling penalty.`);
           this.inUse.delete(failingKey);
         }
 
@@ -2053,6 +2091,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 
         if (candidate?.key) {
           this.inUse.add(candidate.key);
+        window.AppLogger?.log('info', 'KeyPool', `Leased idle key ${candidate.key.slice(0, 8)}... (In-use: ${this.inUse.size})`);
           return candidate.key;
         }
         return null;
@@ -4344,6 +4383,30 @@ ${tocNavLinks.join('\n')}
       };
 
       // Update Handlers
+      
+      const copyDiagnosticsReport = () => {
+        if (!lastUsageStats) return;
+        const s = lastUsageStats;
+        const lines = [
+          '=== 📊 TRANSLATION DIAGNOSTICS REPORT ===',
+          `Model: ${s.provider || ''} · ${s.model || ''}`,
+          `Typewriter Streaming: ${s.enableStreaming ? 'ON' : 'OFF'} | Extended Thinking: ${s.enableThinking ? 'ON' : 'OFF'}`,
+          `Context-Aware Memory: ${s.contextAware ? 'ON' : 'OFF'} | Concurrency: ${s.concurrency || 1} parallel stream(s)`,
+          `Chunk Size Preset: ${(s.chunkSizePreset || 'turbo').toUpperCase()} | Smart Glossary: ${s.smartGlossary ? 'ON' : 'OFF'} (${s.glossaryTermCount || 0} terms loaded)`,
+          `Tokens: ${(s.totalTokens || 0).toLocaleString()} (${(s.promptTokens || 0).toLocaleString()} in · ${(s.outputTokens || 0).toLocaleString()} out)`,
+          `Cost: ${s.cost || '$0.0000'} | Time: ${s.duration || ''} (${s.speed || 'N/A'}) | Words: ${wordCount(assembledText).toLocaleString()}`,
+          '',
+          '=== 📜 RECENT TELEMETRY EVENTS ===',
+          window.AppLogger ? window.AppLogger.getFormattedText() : 'No logs available.'
+        ];
+        const text = lines.join('\n');
+        navigator.clipboard.writeText(text).then(() => {
+          toast('📋 Full Report & Diagnostic Logs copied to clipboard!', 'success');
+        }).catch(() => {
+          toast('Failed to copy report to clipboard', 'error');
+        });
+      };
+
       const checkForAppUpdate = async (isManual = false) => {
         if (isManual) toast('Checking for updates...', 'info');
         try {
@@ -11714,6 +11777,13 @@ FORMATTING & STRUCTURE RULES:
             speed: tokPerSec ? `${tokPerSec} tok/s` : '',
             model: activeM,
             provider,
+            enableStreaming: Boolean(enableStreaming),
+            enableThinking: Boolean(enableThinking),
+            contextAware: Boolean(contextAware),
+            concurrency: Number(concurrency || 1),
+            chunkSizePreset: String(chunkSizePreset || 'turbo'),
+            smartGlossary: Boolean(smartGlossary),
+            glossaryTermCount: Number(glossaryTermCount || 0),
             hasGlossary: Boolean(terminology && terminology.trim()),
             hasInstructions: Boolean(customInstructions && customInstructions.trim())
           };
@@ -11923,6 +11993,13 @@ FORMATTING & STRUCTURE RULES:
             speed: tokPerSec ? `${tokPerSec} tok/s` : '',
             model: activeM,
             provider,
+            enableStreaming: Boolean(enableStreaming),
+            enableThinking: Boolean(enableThinking),
+            contextAware: Boolean(contextAware),
+            concurrency: Number(concurrency || 1),
+            chunkSizePreset: String(chunkSizePreset || 'turbo'),
+            smartGlossary: Boolean(smartGlossary),
+            glossaryTermCount: Number(glossaryTermCount || 0),
             hasGlossary: Boolean(terminology && terminology.trim()),
             hasInstructions: Boolean(customInstructions && customInstructions.trim())
           };
@@ -12413,6 +12490,12 @@ FORMATTING & STRUCTURE RULES:
       // ═══════════════════════════════════
       const [sheetOpen, setSheetOpen] = useState(false);
       const [glossaryEditorOpen, setGlossaryEditorOpen] = useState(false);
+      const [logsModalOpen, setLogsModalOpen] = useState(false);
+      const [liveLogs, setLiveLogs] = useState(() => window.AppLogger ? [...window.AppLogger.logs] : []);
+      useEffect(() => {
+        if (!window.AppLogger) return;
+        return window.AppLogger.subscribe(logs => setLiveLogs([...logs]));
+      }, []);
       const [elapsedSec, setElapsedSec] = useState(0);
       const [libCollapsed, setLibCollapsed] = useState({ books: false, history: false });
       const [libQuery, setLibQuery] = useState('');
@@ -12606,16 +12689,24 @@ FORMATTING & STRUCTURE RULES:
                 h('div', { className: 'count', style: { marginTop: 8 } }, `${progress}%`)
               ),
 
-              lastUsageStats && !isTranslating && h('div', { className: 'card' },
+              lastUsageStats && !isTranslating && h('div', { className: 'card', style: { borderColor: 'var(--accent, #6366f1)' } },
                 h('div', { className: 'card-title' },
-                  h('span', null, 'Last Translation'),
-                  h('button', { type: 'button', className: 'chip-act', onClick: () => setLastUsageStats(null) }, '✕')
+                  h('span', null, '📊 Last Translation Summary'),
+                  h('div', { style: { display: 'flex', gap: 6 } },
+                    h('button', { type: 'button', className: 'chip-act', title: 'Copy Report & Logs to Clipboard', onClick: () => copyDiagnosticsReport(), style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 } }, '📋 Copy Report'),
+                    h('button', { type: 'button', className: 'chip-act', title: 'Open Live Logs Viewer', onClick: () => setLogsModalOpen(true) }, '📜 Logs'),
+                    h('button', { type: 'button', className: 'chip-act', onClick: () => setLastUsageStats(null) }, '✕')
+                  )
                 ),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Model'), h('span', { className: 'count' }, `${lastUsageStats.provider || ''} · ${lastUsageStats.model || ''}`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Engine Mode'), h('span', { className: 'count' }, `Thinking: ${lastUsageStats.enableThinking ? 'ON' : 'OFF'} · Stream: ${lastUsageStats.enableStreaming ? 'ON' : 'OFF'}`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Pipeline Config'), h('span', { className: 'count' }, `Context: ${lastUsageStats.contextAware ? 'ON' : 'OFF'} · ${lastUsageStats.concurrency || 1} Stream(s)`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Chunk Size'), h('span', { className: 'count' }, `${(lastUsageStats.chunkSizePreset || 'turbo').toUpperCase()}`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Smart Glossary'), h('span', { className: 'count' }, `${lastUsageStats.smartGlossary ? 'ON' : 'OFF'} (${lastUsageStats.glossaryTermCount || 0} terms loaded)`)),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Tokens'), h('span', { className: 'count' }, `${(lastUsageStats.totalTokens || 0).toLocaleString()} (${(lastUsageStats.promptTokens || 0).toLocaleString()} in · ${(lastUsageStats.outputTokens || 0).toLocaleString()} out)`)),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Cost'), h('span', { className: 'count' }, lastUsageStats.cost || '$0.0000')),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Time'), h('span', { className: 'count' }, `${lastUsageStats.duration || ''}${lastUsageStats.speed ? ' · ' + lastUsageStats.speed : ''}`)),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Words'), h('span', { className: 'count' }, wordCount(assembledText).toLocaleString()))
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Time & Speed'), h('span', { className: 'count' }, `${lastUsageStats.duration || ''}${lastUsageStats.speed ? ' · ' + lastUsageStats.speed : ''}`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Words Translated'), h('span', { className: 'count' }, wordCount(assembledText).toLocaleString()))
               ),
 
               chapters.length > 0 && h('div', { className: 'count', style: { margin: '0 2px 8px' } }, `${chapters.length} chapters loaded`),
@@ -12928,6 +13019,10 @@ FORMATTING & STRUCTURE RULES:
                 switchRow('Drop Caps', epubDropCaps, setEpubDropCaps),
                 switchRow('Smart Quotes', epubSmartQuotes, setEpubSmartQuotes),
                 switchRow('Clean Web Junk', epubCleanWebArtifacts, setEpubCleanWebArtifacts),
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'Diagnostics & Logs'),
+                  h('button', { type: 'button', className: 'chip-act', onClick: () => setLogsModalOpen(true) }, '📜 View Live Logs')
+                ),
                 switchRow('Justify Text', epubJustifyText, setEpubJustifyText),
                 h('div', { className: 'seg', style: { paddingTop: 8 } },
                   fontThemes.map(f => h('button', { key: f.id, type: 'button', className: `seg-btn ${epubFontTheme === f.id ? 'on' : ''}`, onClick: () => setEpubFontTheme(f.id) }, f.label))
@@ -13068,6 +13163,58 @@ FORMATTING & STRUCTURE RULES:
         ),
 
         // ── GLOSSARY FULL-SCREEN EDITOR ──
+        
+        // ═════ DIAGNOSTICS & TELEMETRY LOGS MODAL ═════
+        logsModalOpen && h('div', { className: 'gloss-overlay', style: { zIndex: 9999 } },
+          h('div', { className: 'gloss-box', style: { maxWidth: 700, height: '85vh', display: 'flex', flexDirection: 'column' } },
+            h('div', { className: 'gloss-head', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              h('span', { style: { fontWeight: 600, fontSize: 14 } }, '📜 Live Diagnostics & API Logs'),
+              h('div', { style: { display: 'flex', gap: 6 } },
+                h('button', { type: 'button', className: 'chip-act', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => {
+                  const text = window.AppLogger ? window.AppLogger.getFormattedText() : '';
+                  navigator.clipboard.writeText(text).then(() => toast('📋 All logs copied to clipboard!', 'success'));
+                } }, '📋 Copy All'),
+                h('button', { type: 'button', className: 'chip-act', onClick: () => { window.AppLogger?.clear(); toast('Logs cleared', 'info'); } }, '🗑 Clear'),
+                h('button', { type: 'button', className: 'icon-btn', onClick: () => setLogsModalOpen(false) }, '✕')
+              )
+            ),
+            h('div', {
+              style: {
+                flex: 1,
+                overflowY: 'auto',
+                background: '#090a0f',
+                color: '#e2e8f0',
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: 11,
+                lineHeight: 1.5,
+                padding: 12,
+                borderRadius: 8,
+                margin: '10px 0',
+                border: '1px solid var(--hairline)',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all'
+              }
+            },
+              liveLogs.length === 0
+                ? h('div', { style: { color: '#64748b', textAlign: 'center', marginTop: 40 } }, 'No diagnostic events recorded yet. Run a translation to see live telemetry.')
+                : liveLogs.map((l, idx) => {
+                    const color = l.level === 'warn' ? '#f59e0b' : (l.level === 'error' ? '#ef4444' : '#38bdf8');
+                    const det = l.details ? ' ' + (typeof l.details === 'object' ? JSON.stringify(l.details) : String(l.details)) : '';
+                    return h('div', { key: idx, style: { marginBottom: 4 } },
+                      h('span', { style: { color: '#64748b' } }, `[${l.time}] `),
+                      h('span', { style: { color, fontWeight: 600 } }, `[${l.tag}] `),
+                      h('span', null, l.message),
+                      det && h('span', { style: { color: '#94a3b8' } }, det)
+                    );
+                  })
+            ),
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--paper-dim)' } },
+              h('span', null, `${liveLogs.length} events logged (buffer: ${window.AppLogger?.maxLogs || 250})`),
+              h('button', { type: 'button', className: 'mini-btn', onClick: () => setLogsModalOpen(false) }, 'Done')
+            )
+          )
+        ),
+
         glossaryEditorOpen && h('div', { className: 'gloss-overlay' },
           h('div', { className: 'tl-head-inner' },
             h('div', null,

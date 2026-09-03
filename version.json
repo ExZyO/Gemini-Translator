@@ -1,7 +1,7 @@
 {
-  "version": "8.6.1",
-  "versionCode": 861,
+  "version": "8.6.2",
+  "versionCode": 862,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.6.1: KeyPool architecture with dynamic idle key leasing, eliminating key trapping and rate limit collisions."
+  "releaseNotes": "v8.6.2: Complete telemetry diagnostics logger, 1-tap Copy Report, full config summary in stats card."
 }
