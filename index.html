@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.6.6';
+    const VERSION = '8.6.7';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -12682,8 +12682,18 @@ FORMATTING & STRUCTURE RULES:
                 h('div', { style: { fontWeight: 700, fontSize: 13 } }, `Update Ready: v${availableUpdate.latestVersion}`),
                 h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } }, 'Tap to install the latest features and fixes.')
               ),
-              h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-                h('button', { type: 'button', className: 'mini-btn', disabled: isUpdating, onClick: handlePerformUpdate }, isUpdating ? 'Downloading…' : 'Update Now'),
+              h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
+                h('button', { type: 'button', className: 'mini-btn', disabled: isUpdating, onClick: handlePerformUpdate }, isUpdating ? 'Downloading…' : '⚡ Update Now'),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  title: 'Download APK directly using your device browser',
+                  onClick: () => {
+                    const apkUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
+                    window.AppLogger?.log('info', 'Updater', 'Opening browser download: ' + apkUrl);
+                    window.open(apkUrl, '_blank');
+                  }
+                }, '🌐 Browser Download'),
                 h('button', { type: 'button', className: 'icon-btn', onClick: () => setAvailableUpdate(null) }, '✕')
               )
             )

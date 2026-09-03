@@ -723,11 +723,29 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 installIntent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
                 installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 installIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                installIntent.setClipData(android.content.ClipData.newRawUri("GeminiTranslatorUpdate", apkUri));
 
-                List<ResolveInfo> resInfoList = context.getPackageManager().queryIntentActivities(installIntent, PackageManager.MATCH_DEFAULT_ONLY);
-                for (ResolveInfo resolveInfo : resInfoList) {
-                    String packageName = resolveInfo.activityInfo.packageName;
-                    context.grantUriPermission(packageName, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                // Explicitly grant permissions to resolved activities and all common OEM package installers
+                try {
+                    List<ResolveInfo> resInfoList = context.getPackageManager().queryIntentActivities(installIntent, PackageManager.MATCH_DEFAULT_ONLY);
+                    for (ResolveInfo resolveInfo : resInfoList) {
+                        String packageName = resolveInfo.activityInfo.packageName;
+                        context.grantUriPermission(packageName, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    }
+                } catch (Exception ignored) {}
+
+                String[] commonInstallers = {
+                    "com.google.android.packageinstaller",
+                    "com.android.packageinstaller",
+                    "com.samsung.android.packageinstaller",
+                    "com.miui.packageinstaller",
+                    "com.coloros.packageinstaller",
+                    "com.vivo.packageinstaller"
+                };
+                for (String pkg : commonInstallers) {
+                    try {
+                        context.grantUriPermission(pkg, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    } catch (Exception ignored) {}
                 }
 
                 context.startActivity(installIntent);

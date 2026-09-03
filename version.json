@@ -1,7 +1,7 @@
 {
-  "version": "8.6.6",
-  "versionCode": 866,
+  "version": "8.6.7",
+  "versionCode": 867,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.6.6: Copy and Paste buttons for individual API keys, Copy All keys button, and clipboard paste in bulk modal."
+  "releaseNotes": "v8.6.7: Added package queries, ClipData URI grants for Samsung/Xiaomi/Google package installers, Browser Download button, and Updater telemetry."
 }
