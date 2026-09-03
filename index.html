@@ -529,6 +529,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     const DEEPL_LANG_MAP = { 'English': 'EN', 'Spanish': 'ES', 'French': 'FR', 'German': 'DE', 'Italian': 'IT', 'Portuguese': 'PT', 'Chinese (Simplified)': 'ZH', 'Chinese (Traditional)': 'ZH', 'Japanese': 'JA', 'Korean': 'KO', 'Russian': 'RU', 'Arabic': 'AR', 'Hindi': 'HI', 'Vietnamese': 'VI', 'Turkish': 'TR', 'Polish': 'PL', 'Dutch': 'NL', 'Swedish': 'SV', 'Norwegian': 'NB', 'Danish': 'DA', 'Finnish': 'FI', 'Greek': 'EL', 'Hebrew': 'HE', 'Indonesian': 'ID', 'Romanian': 'RO', 'Hungarian': 'HU', 'Czech': 'CS', 'Slovak': 'SK', 'Bulgarian': 'BG', 'Serbian': 'SR', 'Croatian': 'HR', 'Ukrainian': 'UK', 'Lithuanian': 'LT', 'Latvian': 'LV', 'Estonian': 'ET', 'Slovenian': 'SL' };
     const LIBRE_LANG_MAP = { 'English': 'en', 'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Italian': 'it', 'Portuguese': 'pt', 'Chinese (Simplified)': 'zh', 'Chinese (Traditional)': 'zt', 'Japanese': 'ja', 'Korean': 'ko', 'Russian': 'ru', 'Arabic': 'ar', 'Hindi': 'hi', 'Vietnamese': 'vi', 'Turkish': 'tr', 'Polish': 'pl', 'Dutch': 'nl', 'Swedish': 'sv', 'Norwegian': 'nb', 'Danish': 'da', 'Finnish': 'fi', 'Greek': 'el', 'Hebrew': 'he', 'Indonesian': 'id', 'Filipino': 'tl', 'Romanian': 'ro', 'Hungarian': 'hu', 'Czech': 'cs', 'Slovak': 'sk', 'Bulgarian': 'bg', 'Serbian': 'sr', 'Croatian': 'hr', 'Ukrainian': 'uk' };
             const DEFAULT_GEMINI_MODELS = [
+      { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Latest Flagship · Fast & Literary)' },
       { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash (Flagship Hybrid & Fast)' },
       { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Official 2026 Recommended)' },
       { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash (Ultra Fast)' },
@@ -2116,16 +2117,19 @@ Return strictly a JSON object with this exact format:
       ];
 
       // Strictly verified official Gemini 3 Flash endpoints (high speed & high quota)
-      const preferredModel = localStorage.getItem('geminiModel') || 'gemini-3.5-flash-lite';
+      const isCustomActive = localStorage.getItem('useCustomModel') === 'true';
+      const storedCustomModel = (localStorage.getItem('customModel') || '').trim();
+      const preferredModel = (isCustomActive && storedCustomModel) ? storedCustomModel : (localStorage.getItem('geminiModel') || 'gemini-3.8-flash');
       const geminiModels = Array.from(new Set([
         preferredModel,
-        'gemini-3.5-flash-lite',
-        'gemini-3.1-flash-lite',
-        'gemini-3.5-flash',
-        'gemini-3.6-flash',
+        'gemini-3.8-flash',
         'gemini-3.7-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.6-flash',
+        'gemini-3.5-flash',
+        'gemini-3.1-flash-lite',
         'gemini-3-flash-preview'
-      ])).filter(m => m.startsWith('gemini-3') && !m.includes('pro'));
+      ])).filter(m => (m.startsWith('gemini') || m === preferredModel) && !m.includes('pro'));
 
       let modelIdx = 0;
       const maxAttempts = 30; // High resilience
@@ -3960,10 +3964,10 @@ ${tocNavLinks.join('\n')}
       const [openaiModel, setOpenaiModel] = useState(() => localStorage.getItem('openaiModel') || 'gpt-4o-mini');
       const [claudeModel, setClaudeModel] = useState(() => localStorage.getItem('claudeModel') || 'claude-3-5-haiku-20241022');
       const [availableModels, setAvailableModels] = useState([]);
-      const [customModel, setCustomModel] = useState('');
-      const [useCustomModel, setUseCustomModel] = useState(false);
-      const [customDeepseekModel, setCustomDeepseekModel] = useState('');
-      const [useCustomDeepseekModel, setUseCustomDeepseekModel] = useState(false);
+      const [customModel, setCustomModel] = useState(() => localStorage.getItem('customModel') || '');
+      const [useCustomModel, setUseCustomModel] = useState(() => localStorage.getItem('useCustomModel') === 'true');
+      const [customDeepseekModel, setCustomDeepseekModel] = useState(() => localStorage.getItem('customDeepseekModel') || '');
+      const [useCustomDeepseekModel, setUseCustomDeepseekModel] = useState(() => localStorage.getItem('useCustomDeepseekModel') === 'true');
       const [customOpenaiModel, setCustomOpenaiModel] = useState('');
       const [useCustomOpenaiModel, setUseCustomOpenaiModel] = useState(false);
       const [customClaudeModel, setCustomClaudeModel] = useState('');
@@ -12614,15 +12618,101 @@ FORMATTING & STRUCTURE RULES:
                     h('option', { value: 'libre' }, 'LibreTranslate')
                   )
                 ),
-                provider === 'gemini' && h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Gemini Model'),
-                  h('select', { className: 'chip', style: chipSelectStyle, value: geminiModel, onChange: e => { setGeminiModel(e.target.value); localStorage.setItem('geminiModel', e.target.value); } },
-                    DEFAULT_GEMINI_MODELS.map(m => h('option', { key: m.id, value: m.id }, m.name)))
+                provider === 'gemini' && h(React.Fragment, null,
+                  h('div', { className: 'set-row' },
+                    h('span', { className: 'l' }, 'Gemini Model'),
+                    h('select', { 
+                      className: 'chip', 
+                      style: chipSelectStyle, 
+                      value: useCustomModel ? 'custom' : geminiModel, 
+                      onChange: e => { 
+                        if (e.target.value === 'custom') {
+                          setUseCustomModel(true);
+                          localStorage.setItem('useCustomModel', 'true');
+                        } else {
+                          setUseCustomModel(false);
+                          localStorage.setItem('useCustomModel', 'false');
+                          setGeminiModel(e.target.value); 
+                          localStorage.setItem('geminiModel', e.target.value); 
+                        }
+                      } 
+                    },
+                      DEFAULT_GEMINI_MODELS.map(m => h('option', { key: m.id, value: m.id }, m.name)),
+                      h('option', { value: 'custom' }, '✍️ Custom Model (Enter Manually…)')
+                    )
+                  ),
+                  useCustomModel && h('div', { className: 'set-row', style: { paddingTop: 4 } },
+                    h('span', { className: 'l', style: { fontSize: 11, color: 'var(--slate)' } }, 'Custom Model ID'),
+                    h('input', {
+                      type: 'text',
+                      placeholder: 'e.g. gemini-3.8-flash',
+                      value: customModel,
+                      onChange: e => {
+                        const val = e.target.value.trim();
+                        setCustomModel(val);
+                        localStorage.setItem('customModel', val);
+                      },
+                      style: {
+                        background: 'var(--void)',
+                        border: '1px solid var(--accent, #6366f1)',
+                        color: 'var(--paper)',
+                        borderRadius: 8,
+                        padding: '5px 8px',
+                        fontSize: 11,
+                        outline: 'none',
+                        width: 180,
+                        fontFamily: "'IBM Plex Mono', monospace"
+                      }
+                    })
+                  )
                 ),
-                provider === 'deepseek' && h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'DeepSeek Model'),
-                  h('select', { className: 'chip', style: chipSelectStyle, value: deepseekModel, onChange: e => { setDeepseekModel(e.target.value); localStorage.setItem('deepseekModel', e.target.value); } },
-                    DEFAULT_DEEPSEEK_MODELS.map(m => h('option', { key: m.id, value: m.id }, m.name)))
+                provider === 'deepseek' && h(React.Fragment, null,
+                  h('div', { className: 'set-row' },
+                    h('span', { className: 'l' }, 'DeepSeek Model'),
+                    h('select', { 
+                      className: 'chip', 
+                      style: chipSelectStyle, 
+                      value: useCustomDeepseekModel ? 'custom' : deepseekModel, 
+                      onChange: e => { 
+                        if (e.target.value === 'custom') {
+                          setUseCustomDeepseekModel(true);
+                          localStorage.setItem('useCustomDeepseekModel', 'true');
+                        } else {
+                          setUseCustomDeepseekModel(false);
+                          localStorage.setItem('useCustomDeepseekModel', 'false');
+                          setDeepseekModel(e.target.value); 
+                          localStorage.setItem('deepseekModel', e.target.value); 
+                        }
+                      } 
+                    },
+                      DEFAULT_DEEPSEEK_MODELS.map(m => h('option', { key: m.id, value: m.id }, m.name)),
+                      h('option', { value: 'custom' }, '✍️ Custom Model (Enter Manually…)')
+                    )
+                  ),
+                  useCustomDeepseekModel && h('div', { className: 'set-row', style: { paddingTop: 4 } },
+                    h('span', { className: 'l', style: { fontSize: 11, color: 'var(--slate)' } }, 'Custom DeepSeek ID'),
+                    h('input', {
+                      type: 'text',
+                      placeholder: 'e.g. deepseek-chat',
+                      value: customDeepseekModel,
+                      onChange: e => {
+                        const val = e.target.value.trim();
+                        setCustomDeepseekModel(val);
+                        localStorage.setItem('customDeepseekModel', val);
+                      },
+                      style: {
+                        background: 'var(--void)',
+                        border: '1px solid var(--accent, #6366f1)',
+                        color: 'var(--paper)',
+                        borderRadius: 8,
+                        padding: '5px 8px',
+                        fontSize: 11,
+                        outline: 'none',
+                        width: 180,
+                        fontFamily: "'IBM Plex Mono', monospace"
+                      }
+                    })
+                  )
                 ),
                 provider === 'libre' && h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'LibreTranslate URL'),
