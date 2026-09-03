@@ -30,8 +30,8 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: 📦 Install Node Dependencies (Cached)
-        run: npm ci --prefer-offline || npm install
+      - name: 📦 Install Node Dependencies
+        run: npm install --no-audit --no-fund
 
       - name: 🌐 Prepare Web Assets
         run: node build-www.js
