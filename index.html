@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.8.0';
+    const VERSION = '8.8.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4538,7 +4538,7 @@ ${tocNavLinks.join('\n')}
         toast(`🎉 Successfully imported ${newProfiles.length} ${provName} API keys!`, 'success');
       };
 
-      const copyDiagnosticsReport = () => {
+      const getReportSummaryText = () => {
         const s = lastUsageStats;
         const lines = [
           '=== 📊 TRANSLATION DIAGNOSTICS REPORT ===',
@@ -4547,16 +4547,30 @@ ${tocNavLinks.join('\n')}
           `Context-Aware Memory: ${s ? (s.contextAware ? 'ON' : 'OFF') : (contextAware ? 'ON' : 'OFF')} | Concurrency: ${s ? (s.concurrency || 1) : concurrency} parallel stream(s)`,
           `Chunk Size Preset: ${(s?.chunkSizePreset || chunkSizePreset || 'turbo').toUpperCase()} | Smart Glossary: ${(s ? s.smartGlossary : smartGlossary) ? 'ON' : 'OFF'} (${s ? s.glossaryTermCount : glossaryTermCount} terms loaded)`,
           s ? `Tokens: ${(s.totalTokens || 0).toLocaleString()} (${(s.promptTokens || 0).toLocaleString()} in · ${(s.outputTokens || 0).toLocaleString()} out)` : 'Tokens: In-flight / pending completion',
-          s ? `Cost: ${s.cost || '$0.0000'} | Time: ${s.duration || ''} (${s.speed || 'N/A'}) | Words: ${wordCount(assembledText).toLocaleString()}` : `Words: ${wordCount(assembledText).toLocaleString()}`,
-          '',
-          '=== 📜 RECENT TELEMETRY EVENTS ===',
-          window.AppLogger ? window.AppLogger.getFormattedText() : 'No logs available.'
+          s ? `Cost: ${s.cost || '$0.0000'} | Time: ${s.duration || ''} (${s.speed || 'N/A'}) | Words: ${wordCount(assembledText).toLocaleString()}` : `Words: ${wordCount(assembledText).toLocaleString()}`
         ];
-        const text = lines.join('\n');
+        return lines.join('\n');
+      };
+
+      // [📋 Copy Report] button: ONLY copies the clean diagnostic summary block
+      const copyDiagnosticsReport = () => {
+        const text = getReportSummaryText();
         navigator.clipboard.writeText(text).then(() => {
-          toast('📋 Diagnostics Report & Telemetry Logs copied to clipboard!', 'success');
+          toast('📋 Diagnostics summary copied to clipboard!', 'success');
         }).catch(() => {
-          toast('Failed to copy to clipboard', 'error');
+          toast('Failed to copy report', 'error');
+        });
+      };
+
+      // [📋 Copy Logs] button: copies BOTH the diagnostic summary block AND the telemetry event stream
+      const copyLogsWithReport = () => {
+        const summary = getReportSummaryText();
+        const logs = window.AppLogger ? window.AppLogger.getFormattedText() : 'No logs recorded.';
+        const fullText = `${summary}\n\n=== 📜 RECENT TELEMETRY EVENTS ===\n${logs}`;
+        navigator.clipboard.writeText(fullText).then(() => {
+          toast('📋 Report summary & Telemetry logs copied to clipboard!', 'success');
+        }).catch(() => {
+          toast('Failed to copy logs', 'error');
         });
       };
 
@@ -13014,7 +13028,7 @@ FORMATTING & STRUCTURE RULES:
                       type: 'button',
                       className: 'chip-act',
                       title: 'Copy All Logs to Clipboard',
-                      onClick: copyDiagnosticsReport
+                      onClick: copyLogsWithReport
                     }, '📋 Copy Logs'),
                     showLiveLogs && h('button', {
                       type: 'button',
@@ -13578,7 +13592,7 @@ FORMATTING & STRUCTURE RULES:
             h('div', { className: 'gloss-head', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
               h('span', { style: { fontWeight: 600, fontSize: 14 } }, '📜 Live Diagnostics & API Logs'),
               h('div', { style: { display: 'flex', gap: 6 } },
-                h('button', { type: 'button', className: 'chip-act', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: copyDiagnosticsReport }, '📋 Copy All'),
+                h('button', { type: 'button', className: 'chip-act', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: copyLogsWithReport }, '📋 Copy All'),
                 h('button', { type: 'button', className: 'chip-act', onClick: () => { window.AppLogger?.clear(); toast('Logs cleared', 'info'); } }, '🗑 Clear'),
                 h('button', { type: 'button', className: 'icon-btn', onClick: () => setLogsModalOpen(false) }, '✕')
               )
