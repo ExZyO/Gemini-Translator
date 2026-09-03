@@ -1,7 +1,7 @@
 {
-  "version": "8.7.3",
-  "versionCode": 873,
+  "version": "8.7.4",
+  "versionCode": 874,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.7.3: Added official x-goog-api-key auth header and detailed Google 429/503 error telemetry."
+  "releaseNotes": "v8.7.4: Added Key Health Checker (Test All Keys) with live Google error breakdown."
 }

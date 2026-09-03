@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.7.3';
+    const VERSION = '8.7.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4427,6 +4427,54 @@ ${tocNavLinks.join('\n')}
       // Update Handlers
       
       
+      const testSingleKey = async (prov, keyStr, keyId) => {
+        if (!keyStr || !keyStr.trim()) {
+          setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: 'Empty key' } }));
+          return;
+        }
+        setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'testing', message: 'Testing…' } }));
+        const start = performance.now();
+        try {
+          if (prov === 'gemini') {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(keyStr.trim())}`;
+            const r = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': keyStr.trim() },
+              body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }], generationConfig: { maxOutputTokens: 5 } })
+            });
+            const latency = Math.round(performance.now() - start);
+            if (r.ok) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', message: `✅ Active (${latency}ms)` } }));
+            } else {
+              const body = await r.text().catch(() => '');
+              let detail = '';
+              try {
+                const j = JSON.parse(body);
+                detail = j.error?.message || `HTTP ${r.status}`;
+              } catch(e) { detail = body.slice(0, 100) || `HTTP ${r.status}`; }
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ ${r.status}: ${detail}` } }));
+            }
+          } else {
+            setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', message: '✅ Ready' } }));
+          }
+        } catch(err) {
+          setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Network Error: ${err.message || 'failed'}` } }));
+        }
+      };
+
+      const handleTestAllKeys = async (prov) => {
+        const provKeys = (apiKeysByProvider[prov] || []).filter(k => k.key && k.key.trim());
+        if (provKeys.length === 0) { toast('No keys to test', 'info'); return; }
+        setTestingKeys(true);
+        toast(`Testing ${provKeys.length} ${prov.toUpperCase()} keys against Google servers…`, 'info');
+        for (const k of provKeys) {
+          await testSingleKey(prov, k.key, k.id);
+          await new Promise(r => setTimeout(r, 200));
+        }
+        setTestingKeys(false);
+        toast('🎉 Key testing completed!', 'success');
+      };
+
       const handleBulkImportKeys = () => {
         if (!bulkKeyText.trim()) return;
         const rawLines = bulkKeyText.split(/[\r\n,;]+/);
@@ -12575,6 +12623,8 @@ FORMATTING & STRUCTURE RULES:
       const [glossaryCardOpen, setGlossaryCardOpen] = useState(() => localStorage.getItem('glossaryCardOpen') !== 'false');
       useEffect(() => { localStorage.setItem('glossaryCardOpen', String(glossaryCardOpen)); }, [glossaryCardOpen]);
       const [bulkKeyModalOpen, setBulkKeyModalOpen] = useState(false);
+      const [keyHealth, setKeyHealth] = useState({});
+      const [testingKeys, setTestingKeys] = useState(false);
       const [bulkKeyText, setBulkKeyText] = useState('');
       const [showLiveLogs, setShowLiveLogs] = useState(() => localStorage.getItem('showLiveLogs') === 'true');
       useEffect(() => { localStorage.setItem('showLiveLogs', String(showLiveLogs)); }, [showLiveLogs]);
@@ -13354,6 +13404,13 @@ FORMATTING & STRUCTURE RULES:
                         navigator.clipboard.writeText(allK.join('\n')).then(() => toast(`📋 Copied all ${allK.length} keys to clipboard!`, 'success'));
                       }
                     }, '📋 Copy All'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontWeight: 600 },
+                      disabled: testingKeys,
+                      onClick: () => handleTestAllKeys(provider)
+                    }, testingKeys ? 'Testing…' : '⚡ Test All Keys'),
                     h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => setBulkKeyModalOpen(true) }, '⚡ Bulk Paste'),
                     h('button', { type: 'button', className: 'mini-btn', onClick: () => addApiKey(provider) }, '+ Add')
                   )
@@ -13372,6 +13429,13 @@ FORMATTING & STRUCTURE RULES:
                         ? h('span', { className: 'badge' }, 'Active')
                         : h('button', { type: 'button', className: 'chip-act', onClick: () => setActiveKey(provider, k.id) }, 'Set Active'),
                       isDuplicate && h('span', { className: 'badge', style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 10 } }, '⚠️ Duplicate'),
+                      h('button', {
+                        type: 'button',
+                        className: 'chip-act',
+                        title: 'Test this API key',
+                        disabled: !k.key,
+                        onClick: () => testSingleKey(provider, k.key, k.id)
+                      }, 'Test'),
                       h('button', {
                         type: 'button',
                         className: 'icon-btn',
@@ -13411,7 +13475,19 @@ FORMATTING & STRUCTURE RULES:
                         onChange: e => updateApiKey(provider, k.id, 'key', e.target.value),
                         placeholder: `Enter ${provider.toUpperCase()} API Key…`,
                         style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '9px 12px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                      })
+                      }),
+                      keyHealth[k.id] && h('div', {
+                        style: {
+                          marginTop: 4,
+                          fontSize: 11,
+                          fontWeight: 500,
+                          padding: '4px 8px',
+                          borderRadius: 6,
+                          background: keyHealth[k.id].status === 'ok' ? 'rgba(16, 185, 129, 0.15)' : (keyHealth[k.id].status === 'testing' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(239, 68, 68, 0.15)'),
+                          color: keyHealth[k.id].status === 'ok' ? '#34d399' : (keyHealth[k.id].status === 'testing' ? '#818cf8' : '#f87171'),
+                          wordBreak: 'break-word'
+                        }
+                      }, keyHealth[k.id].message)
                     )
                   );
                 })
