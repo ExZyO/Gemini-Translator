@@ -1459,14 +1459,10 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      // Explicitly disable thinking when toggle is off to prevent Gemini 3 models from auto-generating hidden thoughts
-      if (model.includes('3.') || model.includes('2.5') || model.includes('thinking') || model.includes('flash')) {
-        if (enableThinking) {
-          payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
-        } else {
-          payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
-        }
-      }
+      // Universal Thinking Control: Explicitly respect user toggle for ALL models (standard + custom)
+      payload.generationConfig.thinkingConfig = enableThinking
+        ? { thinkingBudget: 2048 }
+        : { thinkingBudget: 0 };
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.system_instruction) {
         delete payload.system_instruction;
@@ -1592,14 +1588,10 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      // Explicitly disable thinking when toggle is off to prevent Gemini 3 models from auto-generating hidden thoughts
-      if (model.includes('3.') || model.includes('2.5') || model.includes('thinking') || model.includes('flash')) {
-        if (enableThinking) {
-          payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
-        } else {
-          payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
-        }
-      }
+      // Universal Thinking Control: Explicitly respect user toggle for ALL models (standard + custom)
+      payload.generationConfig.thinkingConfig = enableThinking
+        ? { thinkingBudget: 2048 }
+        : { thinkingBudget: 0 };
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.system_instruction) {
         delete payload.system_instruction;
@@ -10953,7 +10945,10 @@ FORMATTING & STRUCTURE RULES:
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: [{ role: 'user', parts: [{ text: userPrompt }] }]
+                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                generationConfig: {
+                  thinkingConfig: { thinkingBudget: 0 }
+                }
               })
             });
             if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`Gemini API error ${r.status}: ${b.substring(0, 150)}`); }
