@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.6.5';
+    const VERSION = '8.6.6';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -13211,7 +13211,17 @@ FORMATTING & STRUCTURE RULES:
               h('div', { className: 'card' },
                 h('div', { className: 'card-title' },
                   h('span', null, `API Keys (${provider.toUpperCase()}) · ${(apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim()).length} active`),
-                  h('div', { style: { display: 'flex', gap: 6 } },
+                  h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      title: 'Copy all active keys for this provider to clipboard',
+                      onClick: () => {
+                        const allK = (apiKeysByProvider[provider] || []).map(k => (k.key || '').trim()).filter(Boolean);
+                        if (allK.length === 0) { toast('No keys to copy', 'info'); return; }
+                        navigator.clipboard.writeText(allK.join('\n')).then(() => toast(`📋 Copied all ${allK.length} keys to clipboard!`, 'success'));
+                      }
+                    }, '📋 Copy All'),
                     h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => setBulkKeyModalOpen(true) }, '⚡ Bulk Paste'),
                     h('button', { type: 'button', className: 'mini-btn', onClick: () => addApiKey(provider) }, '+ Add')
                   )
@@ -13225,6 +13235,36 @@ FORMATTING & STRUCTURE RULES:
                       isActive
                         ? h('span', { className: 'badge' }, 'Active')
                         : h('button', { type: 'button', className: 'chip-act', onClick: () => setActiveKey(provider, k.id) }, 'Set Active'),
+                      h('button', {
+                        type: 'button',
+                        className: 'icon-btn',
+                        style: { width: 30, height: 30 },
+                        title: 'Copy this key to clipboard',
+                        disabled: !k.key,
+                        onClick: () => {
+                          if (!k.key) return;
+                          navigator.clipboard.writeText(k.key).then(() => toast('Key copied to clipboard!', 'success')).catch(() => toast('Could not copy key', 'error'));
+                        }
+                      }, '📋'),
+                      h('button', {
+                        type: 'button',
+                        className: 'icon-btn',
+                        style: { width: 30, height: 30 },
+                        title: 'Paste key from clipboard',
+                        onClick: async () => {
+                          try {
+                            const clipText = await navigator.clipboard.readText();
+                            if (clipText && clipText.trim()) {
+                              updateApiKey(provider, k.id, 'key', clipText.trim());
+                              toast('Pasted key from clipboard!', 'success');
+                            } else {
+                              toast('Clipboard is empty', 'info');
+                            }
+                          } catch(err) {
+                            toast('Clipboard access denied. Please paste manually.', 'error');
+                          }
+                        }
+                      }, '📥'),
                       h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: isVisible ? 'Hide key' : 'Show key', onClick: () => setShowKeys(prev => ({ ...prev, [k.id]: !isVisible })) }, isVisible ? '🙈' : '👁'),
                       h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: 'Delete key', onClick: () => deleteApiKey(provider, k.id) }, '🗑')
                     ),
@@ -13357,8 +13397,26 @@ FORMATTING & STRUCTURE RULES:
               h('span', { style: { fontWeight: 600, fontSize: 14 } }, `⚡ Bulk Paste ${provider.toUpperCase()} Keys`),
               h('button', { type: 'button', className: 'icon-btn', onClick: () => setBulkKeyModalOpen(false) }, '✕')
             ),
-            h('p', { style: { fontSize: 12, color: 'var(--paper-dim)', margin: '8px 0' } },
-              'Paste all your API keys at once below (one per line or comma-separated). They will all be imported directly into the multi-key pool.'
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0' } },
+              h('p', { style: { fontSize: 12, color: 'var(--paper-dim)', margin: 0 } }, 'Paste keys below (one per line or comma-separated):'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { fontSize: 11, padding: '3px 8px' },
+                onClick: async () => {
+                  try {
+                    const clipText = await navigator.clipboard.readText();
+                    if (clipText && clipText.trim()) {
+                      setBulkKeyText(clipText.trim());
+                      toast('Pasted from clipboard!', 'success');
+                    } else {
+                      toast('Clipboard is empty', 'info');
+                    }
+                  } catch(e) {
+                    toast('Clipboard access denied', 'error');
+                  }
+                }
+              }, '📥 Paste from Clipboard')
             ),
             h('textarea', {
               value: bulkKeyText,
