@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.5.3';
+    const VERSION = '8.5.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2023,8 +2023,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     const streamWithRotation = async (text, opts) => {
       let currentOpts = { ...opts };
       const rotateFn = opts?.rotateApiKey || (typeof window !== 'undefined' ? window.rotateApiKey : null);
-      const maxAttempts = 10;
-      let backoffDelay = 1500;
+      const maxAttempts = 60;
+      let backoffDelay = 3000;
+      let consecutiveRotations = 0;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
           const streamFn = currentOpts.provider === 'deepseek' ? streamDeepSeek : streamGemini;
@@ -2034,17 +2035,20 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
           const errMsg = (err.message || '').toLowerCase();
           const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
           if (isRateLimit) {
+            consecutiveRotations++;
             if (typeof rotateFn === 'function') {
               const nextKey = rotateFn(currentOpts.apiKey);
               if (nextKey && nextKey !== currentOpts.apiKey) {
-                console.warn(`Streaming rate limit (429) → Auto-switched to next key (attempt ${attempt + 1}/${maxAttempts})`);
+                const pauseTime = (consecutiveRotations >= 5) ? 4500 : 600;
+                console.warn(`Streaming rate limit (429) → Auto-switched to key ${nextKey.substring(0, 8)}... (pause ${pauseTime}ms, attempt ${attempt + 1}/${maxAttempts})`);
                 currentOpts.apiKey = nextKey;
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, pauseTime));
+                if (consecutiveRotations >= 8) consecutiveRotations = 0;
                 continue;
               }
             }
             await new Promise(r => setTimeout(r, backoffDelay));
-            backoffDelay = Math.min(backoffDelay * 1.5, 10000);
+            backoffDelay = Math.min(backoffDelay * 1.3, 8000);
             continue;
           }
           throw err;
@@ -2056,8 +2060,9 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     const translateWithRotation = async (text, opts) => {
       let currentOpts = { ...opts };
       const rotateFn = opts?.rotateApiKey || (typeof window !== 'undefined' ? window.rotateApiKey : null);
-      const maxAttempts = 30; // Sufficient attempts to rotate across all keys with cooling
-      let backoffDelay = 2000;
+      const maxAttempts = 60; // Patient retry pool ensuring no chapters are ever dropped
+      let backoffDelay = 3000;
+      let consecutiveRotations = 0;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
           const res = await translateChunk(text, currentOpts);
@@ -2068,18 +2073,23 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
           const errMsg = (err.message || '').toLowerCase();
           const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
           if (isRateLimit) {
+            consecutiveRotations++;
             if (typeof rotateFn === 'function') {
               const nextKey = rotateFn(currentOpts.apiKey);
               if (nextKey && nextKey !== currentOpts.apiKey) {
-                console.warn(`Rate limit (429) encountered → Auto-switched to key ${nextKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
                 currentOpts.apiKey = nextKey;
-                await new Promise(r => setTimeout(r, 800));
+                // If we have rotated through multiple keys and are still rate-limited, Google's 1-minute bucket is saturated
+                // Insert a 4-second cooling pause so Google's RPM bucket actually replenishes
+                const pauseTime = (consecutiveRotations >= 5) ? 4500 : 600;
+                console.warn(`Rate limit (429) → Auto-switched to key ${nextKey.substring(0, 8)}... (pause ${pauseTime}ms, attempt ${attempt + 1}/${maxAttempts})`);
+                await new Promise(r => setTimeout(r, pauseTime));
+                if (consecutiveRotations >= 8) consecutiveRotations = 0;
                 continue;
               }
             }
             console.warn(`Rate limit cooling pause for ${(backoffDelay / 1000).toFixed(1)}s (attempt ${attempt + 1}/${maxAttempts})...`);
             await new Promise(r => setTimeout(r, backoffDelay));
-            backoffDelay = Math.min(backoffDelay * 1.3, 6000);
+            backoffDelay = Math.min(backoffDelay * 1.3, 8000);
             continue;
           }
           throw err;
@@ -11560,9 +11570,8 @@ FORMATTING & STRUCTURE RULES:
             let completed = startIndex;
             const remainingChunks = chunks.slice(startIndex);
             const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
-            const maxSafeWorkers = availableKeys.length > 0 ? availableKeys.length : 1;
-            // Allow full speed up to user slider, safely capped at 1 worker per key to prevent 429 collisions
-            const effectiveConcurrency = Math.min(Math.max(1, concurrency || 3), maxSafeWorkers);
+            // User requested full parallel speed (up to 20 workers)
+            const effectiveConcurrency = Math.max(1, concurrency || 3);
             const results = await batchParallel(remainingChunks, async (chunk, idx, workerId = 0) => {
               const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
               const workerOpts = { ...opts, apiKey: workerKey };
@@ -11695,9 +11704,8 @@ FORMATTING & STRUCTURE RULES:
           }
 
           const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
-          const maxSafeWorkers = availableKeys.length > 0 ? availableKeys.length : 1;
-          // Scale up to 11 (or 20) parallel streams if user has that many keys, dedicating 1 key per worker
-          const effectiveConcurrency = Math.min(Math.max(1, concurrency || 3), maxSafeWorkers);
+          // User requested full parallel speed (up to 20 workers)
+          const effectiveConcurrency = Math.max(1, concurrency || 3);
 
           setProgress(Math.floor((done / totalChunks) * 100));
           setProgressLabel(`Translating ${chapterItems.length} chapter(s) with ${Math.min(effectiveConcurrency, chapterItems.length)} parallel multi-key stream(s)${useContext ? ' (intra-chapter context)' : ''}...`);
@@ -11720,7 +11728,7 @@ FORMATTING & STRUCTURE RULES:
                     totalOutputTokens += tRes.usage.outputTokens || 0;
                     totalTokensUsed += tRes.usage.totalTokens || 0;
                   }
-                } catch (e) { title += ` [Error: ${e.message}]`; }
+                } catch (e) { console.warn('Title translation failed, keeping original title:', e.message); }
                 done++; setProgress(Math.floor((done / totalChunks) * 100));
               } else {
                 title = newChapters[i].title;
