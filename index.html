@@ -2704,9 +2704,11 @@ h3 { font-size: 1.15em; margin-top: 1.5em; }
 
 /* ── Paragraphs ── */
 p {
-  margin-top: 0;
-  margin-bottom: 0.85em;
-  text-indent: 1.5em;
+  margin-top: 0 !important;
+  margin-bottom: 1.15em !important;
+  padding: 0 !important;
+  line-height: 1.85 !important;
+  text-indent: 0 !important;
   ${useJustify ? 'text-align: justify;' : 'text-align: left;'}
   font-size: 1em;
   font-weight: 400;
@@ -2715,7 +2717,7 @@ h1 + p, h2 + p, h3 + p,
 .illustration-wrap + p,
 p.divider + p,
 p.first {
-  text-indent: 0;
+  text-indent: 0 !important;
 }
 
 ${useDropCaps ? `/* ── Drop Cap ── */
@@ -3744,31 +3746,43 @@ ${tocNavLinks.join('\n')}
         });
       };
 
+      const loadFullNovel = async (meta) => {
+        if (!meta) return null;
+        if (window.GeminiNovelDB && meta.id) {
+          try {
+            const full = await window.GeminiNovelDB.getNovel(meta.id);
+            if (full && (full.rawChapters?.length > 0 || full.chapters?.length > 0)) return full;
+          } catch(e) {}
+        }
+        if (meta.rawChapters?.length > 0 || meta.chapters?.length > 0) return meta;
+        return null;
+      };
+
       const loadNovelFromHistory = async (meta) => {
         try {
           toast(` Loading "${meta.title}" from library...`, 'info');
-          let fullNovel = null;
-          if (window.GeminiNovelDB) {
-            fullNovel = await window.GeminiNovelDB.getNovel(meta.id);
-          }
-          if (!fullNovel || !fullNovel.rawChapters || fullNovel.rawChapters.length === 0) {
+          const fullNovel = await loadFullNovel(meta);
+          if (!fullNovel || (!fullNovel.rawChapters && !fullNovel.chapters)) {
             throw new Error('Novel chapter data not found in local library store.');
           }
+          const rawChs = fullNovel.rawChapters || fullNovel.chapters || [];
           const loadedData = {
             title: fullNovel.title,
             author: fullNovel.author,
             summary: fullNovel.summary,
             tags: fullNovel.tags,
-            chapters: fullNovel.rawChapters,
-            rawChapters: fullNovel.rawChapters,
+            chapters: rawChs,
+            rawChapters: rawChs,
             isEpub: fullNovel.isEpub,
             sourceUrl: fullNovel.sourceUrl
           };
           setWebImportData(loadedData);
           toast(` Loaded "${loadedData.title}" (${loadedData.chapters.length} chapters)!`, 'success');
+          return loadedData;
         } catch (err) {
           console.error('Failed to load novel from library:', err);
           toast('Failed to load: ' + err.message, 'error');
+          return null;
         }
       };
 
@@ -10739,15 +10753,16 @@ Sequence 0: Eternal Edict
         toast('Glossary formatted cleanly!');
       };
 
-      const exportGlossaryTxt = () => {
+      const exportGlossaryTxt = async () => {
         if (!terminology.trim()) return setError('Glossary is empty.');
         const blob = new Blob([terminology], { type: 'text/plain;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = (activeGlossaryId ? activeGlossaryId.replace(/\s+/g, '_') : 'glossary_export') + '.txt';
-        a.click();
-        URL.revokeObjectURL(a.href);
-        toast('Glossary exported as .txt!');
+        const fileName = (activeGlossaryId ? activeGlossaryId.replace(/\s+/g, '_') : 'glossary_export') + '.txt';
+        try {
+          await saveUniversalBlob(blob, fileName, 'text/plain');
+          toast('Glossary exported to Downloads as .txt!', 'success');
+        } catch(e) {
+          toast('Export error: ' + e.message, 'error');
+        }
       };
 
       const copyAiGlossaryPrompt = () => {
@@ -10928,51 +10943,12 @@ FORMATTING & STRUCTURE RULES:
         const blob = new Blob([jsonStr], { type: 'application/json' });
         const file = new File([blob], fileName, { type: 'application/json' });
 
-        // Android & Mobile: Use Share Sheet so user can pick save location (Files, Drive, etc.)
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file], title: 'Gemini Translator Backup', text: 'Full app backup' });
-            toast(shouldIncludeKeys ? 'Backup shared (+ API Keys)!' : 'Backup shared (No Keys)!');
-            return;
-          } catch (shareErr) {
-            if (shareErr.name === 'AbortError') return; // user cancelled
-            console.warn('Share API failed, falling back to download:', shareErr);
-          }
+        try {
+          await saveUniversalBlob(blob, fileName, 'application/json');
+          toast(shouldIncludeKeys ? 'Full backup (+ API Keys) saved to Downloads!' : 'Full backup (No Keys) saved to Downloads!', 'success');
+        } catch(e) {
+          toast('Backup save error: ' + e.message, 'error');
         }
-
-        // Desktop: Try native file picker (Save As dialog)
-        if (window.showSaveFilePicker) {
-          try {
-            const handle = await window.showSaveFilePicker({
-              suggestedName: fileName,
-              types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }]
-            });
-            const writable = await handle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-            toast(shouldIncludeKeys ? 'Full backup saved (+ API Keys)!' : 'Full backup saved (No Keys)!');
-            return;
-          } catch (pickerErr) {
-            if (pickerErr.name === 'AbortError') return;
-            console.warn('File picker failed, falling back to download:', pickerErr);
-          }
-        }
-
-        // Use the native chunked saver in the APK, with a browser-safe fallback.
-        if (window.NativeBridge?.saveBlob) {
-          await window.NativeBridge.saveBlob(blob, fileName, 'application/json', false);
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          a.style.display = 'none';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        }
-        toast(shouldIncludeKeys ? 'Full backup (+ API Keys) downloaded!' : 'Full backup (No Keys) downloaded!');
       };
 
       const applyRestoredData = (data) => {
@@ -11582,7 +11558,7 @@ FORMATTING & STRUCTURE RULES:
           // Prepare chapter chunks with clean paragraph boundary splitting
           const chapterData = chapters.map(c => {
             const effectiveTerm = enableGlossary ? terminology : '';
-            const chapterText = (typeof c === 'string' ? c : (c?.text || ''));
+            const chapterText = (typeof c === 'string' ? c : (c?.text || c?.content || ''));
             const chapterTitle = (typeof c === 'object' && c?.title) ? String(c.title).trim() : '';
             const ch = splitChunks(chapterText, effectiveTerm.length, smartGlossary);
             totalChunks += ch.length;
@@ -12470,7 +12446,7 @@ FORMATTING & STRUCTURE RULES:
                   h('button', { type: 'button', className: 'mini-btn', onClick: () => {
                     const fullText = webImportData.chapters.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
                     setInputText(fullText);
-                    setChapters(webImportData.chapters.map(c => ({ title: c.title, content: c.text || c.content })));
+                    setChapters(webImportData.chapters.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
                     setActiveTab('text');
                     toast('Imported to Translator tab!', 'info');
                   } }, 'Send to Translator'),
@@ -12764,6 +12740,7 @@ FORMATTING & STRUCTURE RULES:
               h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('ri') }, 'RI'),
               h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('lotm') }, 'LOTM'),
               h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia'),
+              h('button', { type: 'button', className: 'chip-act accent', disabled: isOptimizingGlossary, onClick: handleAiOptimizeGlossary }, isOptimizingGlossary ? 'Optimizing…' : 'AI Optimize ✦'),
               h('button', { type: 'button', className: 'icon-btn', onClick: () => setGlossaryEditorOpen(false) }, '✕')
             )
           ),
