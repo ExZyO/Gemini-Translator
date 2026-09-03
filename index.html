@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.7.0';
+    const VERSION = '8.7.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2064,8 +2064,18 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       coolingUntil: new Map(),
       lastIndex: 0,
 
-      async acquireKey(keys, failingKey = null) {
-        if (!keys || keys.length === 0) return null;
+      async acquireKey(rawKeys, failingKey = null) {
+        if (!rawKeys || rawKeys.length === 0) return null;
+        // Automatic deduplication: keep only unique physical API keys
+        const seen = new Set();
+        const keys = [];
+        for (const k of rawKeys) {
+          if (k?.key && k.key.trim() && !seen.has(k.key.trim())) {
+            seen.add(k.key.trim());
+            keys.push(k);
+          }
+        }
+        if (keys.length === 0) return null;
         if (keys.length === 1) return keys[0].key;
 
         const now = Date.now();
@@ -13312,8 +13322,15 @@ FORMATTING & STRUCTURE RULES:
               ),
 
               h('div', { className: 'card' },
-                h('div', { className: 'card-title' },
-                  h('span', null, `API Keys (${provider.toUpperCase()}) · ${(apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim()).length} active`),
+                (() => {
+                  const provKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
+                  const uniqueCount = new Set(provKeys.map(k => k.key.trim())).size;
+                  const hasDuplicates = provKeys.length > uniqueCount;
+                  return h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+                      h('span', null, `API Keys (${provider.toUpperCase()}) · ${provKeys.length} slots (${uniqueCount} unique)`),
+                      hasDuplicates && h('span', { className: 'badge', style: { background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid currentColor', fontSize: 10 } }, `⚠️ ${provKeys.length - uniqueCount} duplicate(s)`)
+                    ),
                   h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
                     h('button', {
                       type: 'button',
@@ -13328,16 +13345,21 @@ FORMATTING & STRUCTURE RULES:
                     h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => setBulkKeyModalOpen(true) }, '⚡ Bulk Paste'),
                     h('button', { type: 'button', className: 'mini-btn', onClick: () => addApiKey(provider) }, '+ Add')
                   )
-                ),
+                );
+                })(),
                 (apiKeysByProvider[provider] || []).map(k => {
-                  const isActive = (activeKeyIds[provider] === k.id) || ((apiKeysByProvider[provider] || []).length === 1);
+                  const allProvKeys = apiKeysByProvider[provider] || [];
+                  const isActive = (activeKeyIds[provider] === k.id) || (allProvKeys.length === 1);
                   const isVisible = showKeys[k.id] || false;
+                  const firstWithThisKey = allProvKeys.find(other => other.key && k.key && other.key.trim() === k.key.trim());
+                  const isDuplicate = firstWithThisKey && firstWithThisKey.id !== k.id;
                   return h('div', { key: k.id, style: { padding: '6px 0', borderBottom: '1px solid rgba(36,39,48,.5)' } },
                     h('div', { className: 'set-row' },
                       h('input', { type: 'text', value: k.name || '', onChange: e => updateApiKey(provider, k.id, 'name', e.target.value), placeholder: 'Key profile name…', style: { background: 'transparent', border: 'none', color: 'var(--paper)', fontSize: 12, fontWeight: 600, flex: 1, minWidth: 0, outline: 'none' } }),
                       isActive
                         ? h('span', { className: 'badge' }, 'Active')
                         : h('button', { type: 'button', className: 'chip-act', onClick: () => setActiveKey(provider, k.id) }, 'Set Active'),
+                      isDuplicate && h('span', { className: 'badge', style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 10 } }, '⚠️ Duplicate'),
                       h('button', {
                         type: 'button',
                         className: 'icon-btn',

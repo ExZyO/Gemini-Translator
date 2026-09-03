@@ -1,7 +1,7 @@
 {
-  "version": "8.7.0",
-  "versionCode": 870,
+  "version": "8.7.1",
+  "versionCode": 871,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.7.0: Circular Round-Robin KeyPool dispatch so all 11 keys are systematically rotated."
+  "releaseNotes": "v8.7.1: KeyPool automatic deduplication and visual duplicate key warnings in Settings."
 }
