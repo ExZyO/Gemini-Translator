@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.5.0';
+    const VERSION = '8.5.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -906,19 +906,21 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     };
 
     const CHUNK_PAYLOAD_MAP = {
-      turbo: 12000,
-      large: 8000,
-      medium: 5000,
-      small: 2800
+      turbo: 4500,
+      large: 3800,
+      medium: 2800,
+      small: 1800
     };
 
     const splitChunks = (text, glossaryLen = 0, smartGlossary = true, preset = null) => {
       if (!text || typeof text !== 'string') return [];
       const activePreset = preset || (typeof localStorage !== 'undefined' ? localStorage.getItem('chunkSizePreset') : null) || 'turbo';
-      const basePayload = CHUNK_PAYLOAD_MAP[activePreset] || 28000;
+      const basePayload = CHUNK_PAYLOAD_MAP[activePreset] || 4500;
       const effectiveGlossaryLen = smartGlossary ? Math.min(glossaryLen, 1500) : glossaryLen;
-      let max = basePayload - PROMPT_OVERHEAD - effectiveGlossaryLen;
-      if (max <= 0) max = 2500;
+      let max = basePayload - Math.min(PROMPT_OVERHEAD + effectiveGlossaryLen, 1800);
+      // Ensure chunks never exceed 3500 chars so translated English output never breaches the 8192 token window
+      if (max > 3500) max = 3500;
+      if (max <= 0) max = 1800;
       const chunks = []; let rem = text;
       while (rem.length > 0) {
         if (rem.length <= max) { chunks.push(rem); break; }
@@ -1457,8 +1459,13 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      if (enableThinking && (model.includes('3.') || model.includes('2.5') || model.includes('thinking'))) {
-        payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+      // Explicitly disable thinking when toggle is off to prevent Gemini 3 models from auto-generating hidden thoughts
+      if (model.includes('3.') || model.includes('2.5') || model.includes('thinking') || model.includes('flash')) {
+        if (enableThinking) {
+          payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+        } else {
+          payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
       }
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.system_instruction) {
@@ -1584,8 +1591,13 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      if (enableThinking && (model.includes('3.') || model.includes('2.5') || model.includes('thinking'))) {
-        payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+      // Explicitly disable thinking when toggle is off to prevent Gemini 3 models from auto-generating hidden thoughts
+      if (model.includes('3.') || model.includes('2.5') || model.includes('thinking') || model.includes('flash')) {
+        if (enableThinking) {
+          payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+        } else {
+          payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
       }
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.system_instruction) {
