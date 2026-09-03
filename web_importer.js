@@ -920,13 +920,22 @@
 
             const chHtml = await chFile.async('text');
             const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
-            const heading = chDoc.querySelector('h1, h2, h3, h4, [class*="title"], [class*="heading"]')?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
+            let heading = chDoc.querySelector('h1, h2, h3, h4, [class*="title"], [class*="heading"]')?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
             const bodyText = cleanChapterHtmlWithImages(chDoc.body?.innerHTML || chDoc.body?.textContent || '');
 
+            // AO3 / EPUB metadata & summary chapter disambiguation:
+            // If heading matches the novel title and contains summary, notes, or tags, label it "Summary"
+            const lowerBody = (bodyText || '').toLowerCase();
+            const isSummaryBlock = chDoc.querySelector('.meta, .tags, [class*="summary"], [class*="preface"], dl.tags') ||
+                                   lowerBody.includes('summary:') || lowerBody.includes('notes:') || lowerBody.includes('tags:');
+            if (heading.toLowerCase() === title.toLowerCase() && isSummaryBlock) {
+                heading = 'Summary';
+            }
+
+            // Note: Do not attach chDoc (DOM Document) as it prevents IndexedDB structured cloning
             appendUniqueImportedChapter(chapters, {
                 title: heading,
                 text: bodyText,
-                doc: chDoc,
                 zipPath: filePath
             }, seenChapterKeys);
         }

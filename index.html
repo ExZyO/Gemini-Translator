@@ -3700,20 +3700,28 @@ ${tocNavLinks.join('\n')}
 
       const saveNovelToHistory = async (novelData) => {
         if (!novelData || !novelData.chapters || novelData.chapters.length === 0) return;
-        const totalWords = novelData.chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)), 0);
+        const totalWords = novelData.chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : (c.content ? c.content.split(/\s+/).filter(Boolean).length : 0))), 0);
         const novelId = 'novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+        
+        // Sanitize chapters into plain cloneable objects without DOM nodes, functions, or circular references
+        const cleanChapters = novelData.chapters.map((c, i) => ({
+          title: c.title || `Chapter ${i + 1}`,
+          text: typeof c === 'string' ? c : (c.text || c.content || ''),
+          content: typeof c === 'string' ? c : (c.content || c.text || '')
+        }));
+
         const novelRecord = {
           id: novelId,
           title: novelData.title || 'Untitled Novel',
           author: novelData.author || 'Author',
           summary: (novelData.summary || '').substring(0, 300),
           tags: novelData.tags || [],
-          chapterCount: novelData.chapters.length,
+          chapterCount: cleanChapters.length,
           wordCount: totalWords,
           timestamp: new Date().toISOString(),
           isEpub: !!novelData.isEpub,
           sourceUrl: novelData.sourceUrl || '',
-          rawChapters: novelData.chapters
+          rawChapters: cleanChapters
         };
 
         if (window.GeminiNovelDB) {
@@ -3748,13 +3756,35 @@ ${tocNavLinks.join('\n')}
 
       const loadFullNovel = async (meta) => {
         if (!meta) return null;
+        // 1. Try IndexedDB by meta.id
         if (window.GeminiNovelDB && meta.id) {
           try {
             const full = await window.GeminiNovelDB.getNovel(meta.id);
             if (full && (full.rawChapters?.length > 0 || full.chapters?.length > 0)) return full;
           } catch(e) {}
         }
+        // 2. Try IndexedDB by matching title or id across all stored records
+        if (window.GeminiNovelDB && meta.title) {
+          try {
+            const all = await window.GeminiNovelDB.getAllNovels();
+            const match = (all || []).find(n => n.id === meta.id || n.title === meta.title);
+            if (match && (match.rawChapters?.length > 0 || match.chapters?.length > 0)) return match;
+          } catch(e) {}
+        }
+        // 3. Fallback: check if meta already contains rawChapters or chapters
         if (meta.rawChapters?.length > 0 || meta.chapters?.length > 0) return meta;
+        // 4. Fallback: check currently active webImportData
+        if (webImportData && webImportData.title === meta.title && webImportData.chapters?.length > 0) {
+          return { ...webImportData, rawChapters: webImportData.chapters };
+        }
+        // 5. Fallback: check legacy localStorage storage
+        try {
+          const old = JSON.parse(localStorage.getItem('gemini_web_import_history') || '[]');
+          const found = (old || []).find(n => n.id === (meta.id || '')) || (old || []).find(n => n.title === meta.title);
+          if (found && (found.chapters?.length || found.rawChapters?.length)) {
+            return { title: found.title, author: found.author, rawChapters: found.chapters || found.rawChapters };
+          }
+        } catch (e) {}
         return null;
       };
 
@@ -3807,53 +3837,62 @@ ${tocNavLinks.join('\n')}
           await window.GeminiNovelDB.clearAll();
         }
         setWebImportHistory([]);
-
-      const loadFullNovel = async (meta) => {
-        try {
-          if (window.GeminiNovelDB) {
-            const full = await window.GeminiNovelDB.getNovel(meta.id);
-            if (full && full.rawChapters && full.rawChapters.length) return full;
-          }
-        } catch (e) { console.warn('GeminiNovelDB load error:', e); }
-        // Fallback: older records stored full chapters in localStorage
-        try {
-          const old = JSON.parse(localStorage.getItem('gemini_web_import_history') || '[]');
-          const found = (old || []).find(n => n.id === (meta.id || '')) || (old || []).find(n => n.title === meta.title);
-          if (found && found.chapters && found.chapters.length) {
-            return { title: found.title, author: found.author, rawChapters: found.chapters };
-          }
-        } catch (e) {}
-        return null;
-      };
         localStorage.removeItem('gemini_web_import_history_meta');
         toast('Cleared all novel history', 'info');
       };
 
-      // Load persistent IndexedDB novels on mount
+      // Load persistent IndexedDB novels on mount, merging seamlessly with localStorage
       useEffect(() => {
         (async () => {
           try {
+            const combined = [];
+            const seenIds = new Set();
+            const seenTitles = new Set();
+
             if (window.GeminiNovelDB) {
               const dbNovels = await window.GeminiNovelDB.getAllNovels();
               if (dbNovels && dbNovels.length > 0) {
-                const metaList = dbNovels.reverse().map(n => ({
-                  id: n.id,
-                  title: n.title,
-                  author: n.author,
-                  summary: n.summary,
-                  tags: n.tags,
-                  chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
-                  wordCount: n.wordCount,
-                  timestamp: n.timestamp,
-                  isEpub: n.isEpub,
-                  sourceUrl: n.sourceUrl
-                }));
-                setWebImportHistory(metaList);
-                return;
+                dbNovels.reverse().forEach(n => {
+                  const item = {
+                    id: n.id,
+                    title: n.title,
+                    author: n.author,
+                    summary: n.summary,
+                    tags: n.tags,
+                    chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
+                    wordCount: n.wordCount,
+                    timestamp: n.timestamp,
+                    isEpub: n.isEpub,
+                    sourceUrl: n.sourceUrl
+                  };
+                  if (!seenIds.has(item.id)) {
+                    seenIds.add(item.id);
+                    if (item.title) seenTitles.add(item.title);
+                    combined.push(item);
+                  }
+                });
               }
             }
-            const metaStr = localStorage.getItem('gemini_web_import_history_meta') || localStorage.getItem('gemini_web_import_history');
-            if (metaStr) setWebImportHistory(JSON.parse(metaStr));
+
+            try {
+              const metaStr = localStorage.getItem('gemini_web_import_history_meta') || localStorage.getItem('gemini_web_import_history');
+              if (metaStr) {
+                const localList = JSON.parse(metaStr);
+                if (Array.isArray(localList)) {
+                  localList.forEach(item => {
+                    if (item && item.id && !seenIds.has(item.id) && !seenTitles.has(item.title)) {
+                      seenIds.add(item.id);
+                      if (item.title) seenTitles.add(item.title);
+                      combined.push(item);
+                    }
+                  });
+                }
+              }
+            } catch(e) {}
+
+            if (combined.length > 0) {
+              setWebImportHistory(combined);
+            }
           } catch (e) {
             console.warn('Novel history load error:', e);
           }
@@ -11713,6 +11752,18 @@ FORMATTING & STRUCTURE RULES:
           };
           setLastUsageStats(stats);
           addToHistory(srcLang, tgtLang, provider, inputText || (chapters || []).map(c => c.text).join('\n\n'), final, stats);
+          if (newChapters && newChapters.length > 0) {
+            const bTitle = (chapters && chapters[0]?.title) || 'Translated Novel';
+            saveNovelToHistory({
+              title: bTitle.includes('(Translated)') ? bTitle : `${bTitle} (Translated)`,
+              author: 'Gemini Translator',
+              chapters: newChapters.map((nc, idx) => ({
+                title: nc.title || `Chapter ${idx + 1}`,
+                text: nc.content || '',
+                content: nc.content || ''
+              }))
+            }).catch(e => console.warn('History save error:', e));
+          }
           localStorage.removeItem(jobId); setActiveSession(null);
           toast(`Ebook translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
           window.NativeBridge?.releaseWakeLock();
