@@ -1,7 +1,7 @@
 {
-  "version": "8.6.8",
-  "versionCode": 868,
+  "version": "8.6.9",
+  "versionCode": 869,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.6.8: Fixed KeyPool failing key bounce-back so 429 keys are never immediately re-leased."
+  "releaseNotes": "v8.6.9: Moved Glossary & Book Profiles to the Translate screen with clear active badge and 1-tap presets."
 }

@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.6.8';
+    const VERSION = '8.6.9';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -12543,6 +12543,8 @@ FORMATTING & STRUCTURE RULES:
       const [sheetOpen, setSheetOpen] = useState(false);
       const [glossaryEditorOpen, setGlossaryEditorOpen] = useState(false);
       const [logsModalOpen, setLogsModalOpen] = useState(false);
+      const [glossaryCardOpen, setGlossaryCardOpen] = useState(() => localStorage.getItem('glossaryCardOpen') !== 'false');
+      useEffect(() => { localStorage.setItem('glossaryCardOpen', String(glossaryCardOpen)); }, [glossaryCardOpen]);
       const [bulkKeyModalOpen, setBulkKeyModalOpen] = useState(false);
       const [bulkKeyText, setBulkKeyText] = useState('');
       const [showLiveLogs, setShowLiveLogs] = useState(() => localStorage.getItem('showLiveLogs') === 'true');
@@ -12706,9 +12708,32 @@ FORMATTING & STRUCTURE RULES:
                 h('button', { type: 'button', className: 'swap', title: 'Swap Languages', disabled: disabled || srcLang === 'Auto-detect', onClick: handleSwapLanguages }, ic(ArrowRightLeft, 14)),
                 h('select', { className: 'lang', value: tgtLang, onChange: e => setTgtLang(e.target.value), disabled }, TARGET_LANGUAGES.map(l => h('option', { key: l, value: l }, l)))
               ),
-              h('div', { className: 'meta' },
-                h('span', { className: 'chip' }, `${concurrency} streams`),
-                h('span', null, `${glossaryTermCount} glossary terms${smartGlossary ? ' · Smart' : ''}`)
+              h('div', { className: 'meta', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 } },
+                h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+                  h('span', { className: 'chip' }, `${concurrency} streams`),
+                  h('span', { className: 'chip' }, `${(chunkSizePreset || 'turbo').toUpperCase()}`)
+                ),
+                h('div', {
+                  className: 'chip-act',
+                  style: {
+                    background: glossaryTermCount > 0 ? 'rgba(99, 102, 241, 0.22)' : 'var(--ember-2)',
+                    color: glossaryTermCount > 0 ? '#c7d2fe' : 'var(--paper-dim)',
+                    border: glossaryTermCount > 0 ? '1px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    padding: '4px 10px',
+                    borderRadius: 8
+                  },
+                  onClick: () => setGlossaryCardOpen(v => !v)
+                },
+                  h('span', null, '📖'),
+                  h('span', null, activeGlossaryId ? `Glossary: ${activeGlossaryId}` : (glossaryTermCount > 0 ? 'Glossary: Custom' : 'Glossary: None')),
+                  h('span', { style: { opacity: 0.85, fontSize: 10.5, fontWeight: 500 } }, `(${glossaryTermCount} terms${smartGlossary ? ' · Smart' : ''})`),
+                  h('span', { style: { fontSize: 9, opacity: 0.7 } }, glossaryCardOpen ? '▲' : '▼')
+                )
               ),
 
               h('div', { className: 'pane', onDragOver, onDragLeave, onDrop, style: isDragOver ? { borderColor: 'var(--iris-deep)' } : null },
@@ -12748,6 +12773,99 @@ FORMATTING & STRUCTURE RULES:
                 })
               ),
               renderBoxResizeBar('output'),
+
+              // ═══ GLOSSARY & BOOK PROFILES PANEL (TRANSLATE SCREEN) ═══
+              h('div', { className: 'card', style: { marginTop: 12, borderColor: glossaryTermCount > 0 ? 'rgba(99, 102, 241, 0.4)' : 'var(--hairline)' } },
+                h('div', { className: 'card-title', style: { marginBottom: glossaryCardOpen ? 10 : 0 } },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                    h('span', { style: { fontWeight: 700 } }, '📖 Glossary & Profiles'),
+                    activeGlossaryId
+                      ? h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 10.5, padding: '2px 8px' } }, `Active: ${activeGlossaryId}`)
+                      : (glossaryTermCount > 0
+                          ? h('span', { className: 'badge', style: { background: 'rgba(99, 102, 241, 0.25)', color: '#a5b4fc', fontSize: 10.5, padding: '2px 8px' } }, 'Active: Custom')
+                          : h('span', { className: 'count', style: { fontSize: 10.5 } }, 'None Active')
+                        )
+                  ),
+                  h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+                    h('button', { type: 'button', className: 'mini-btn', onClick: () => setGlossaryEditorOpen(true), style: { fontSize: 11, padding: '3px 8px' } }, 'Editor'),
+                    h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      onClick: () => setGlossaryCardOpen(v => !v),
+                      style: { fontSize: 11 }
+                    }, glossaryCardOpen ? '▲ Collapse' : '▼ Expand')
+                  )
+                ),
+                glossaryCardOpen && h(React.Fragment, null,
+                  // Quick Preset Chips
+                  h('div', { className: 'seg', style: { marginBottom: 8 } },
+                    h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('ri') }, 'RI Preset'),
+                    h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('lotm') }, 'LOTM Preset'),
+                    h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia Preset')
+                  ),
+
+                  // Quick Term Bar
+                  h('div', {
+                    className: 'mini-input',
+                    style: { cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+                    onClick: () => setGlossaryEditorOpen(true)
+                  },
+                    h('span', null, `${glossaryTermCount} terms loaded · tap to open full table editor`),
+                    h('span', { style: { fontSize: 11, color: 'var(--iris)' } }, 'Edit ➔')
+                  ),
+
+                  // Controls: Editor, Clear, Smart Filter Toggle
+                  h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
+                    h('button', { type: 'button', className: 'mini-btn', onClick: () => setGlossaryEditorOpen(true) }, 'Open Full Editor'),
+                    h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => { setTerminology(''); localStorage.removeItem('terminology'); setActiveGlossaryId(null); localStorage.removeItem('activeGlossaryId'); toast('Glossary cleared.', 'info'); } }, 'Clear'),
+                    switchRow('Smart Glossary Filter', smartGlossary, (v) => { setSmartGlossary(v); localStorage.setItem('smartGlossary', v); })
+                  ),
+
+                  // Save Profile Row
+                  h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
+                    h('input', { type: 'text', value: newGlossaryName, onChange: e => setNewGlossaryName(e.target.value), placeholder: 'Save current terms as profile name…', style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '8px 10px', fontSize: 12, color: 'var(--paper-dim)', outline: 'none', flex: 1, minWidth: 140 } }),
+                    h('button', { type: 'button', className: 'mini-btn', onClick: handleSaveGlossary }, 'Save Profile'),
+                    activeGlossaryId && h('button', { type: 'button', className: 'mini-btn ghost', onClick: handleUnloadGlossary }, 'Unload')
+                  ),
+
+                  // Saved Profiles List
+                  savedGlossaries.length > 0 && h(React.Fragment, null,
+                    h('div', { className: 'card-title', style: { marginTop: 12, fontSize: 12 } },
+                      h('span', null, `Saved Book Profiles (${savedGlossaries.length})`)
+                    ),
+                    savedGlossaries.map(g => h('div', { key: g.name, className: 'set-row', style: { padding: '5px 0' } },
+                      h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: activeGlossaryId === g.name ? 700 : 400, color: activeGlossaryId === g.name ? 'var(--iris)' : 'inherit' } },
+                        `${g.name}${activeGlossaryId === g.name ? ' (Active)' : ''}${defaultGlossaryName === g.name ? ' (Default)' : ''}`
+                      ),
+                      h('div', { className: 'pane-acts' },
+                        h('button', { type: 'button', className: `chip-act ${activeGlossaryId === g.name ? 'active' : ''}`, onClick: () => handleLoadGlossary(g) }, activeGlossaryId === g.name ? 'Loaded' : 'Load'),
+                        h('button', { type: 'button', className: 'chip-act', onClick: () => { localStorage.setItem('defaultGlossaryName', g.name); setDefaultGlossaryName(g.name); toast(`Set "${g.name}" as default.`); } }, 'Default'),
+                        h('button', { type: 'button', className: 'chip-act', onClick: () => handleDeleteGlossary(g.name) }, '✕')
+                      )
+                    )),
+                    defaultGlossaryName && h('div', { style: { marginTop: 6 } },
+                      h('button', { type: 'button', className: 'mini-btn danger', style: { fontSize: 11, padding: '3px 8px' }, onClick: clearDefaultGloss }, 'Clear Default Profile')
+                    )
+                  ),
+
+                  // Custom Instructions Box
+                  h('div', { style: { marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--hairline)' } },
+                    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+                      h('span', { style: { fontSize: 12, fontWeight: 600 } }, 'Custom Translation Instructions'),
+                      h('div', { className: 'seg' },
+                        h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('literary') }, 'Literary'),
+                        h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('dialogue') }, 'Dialogue')
+                      )
+                    ),
+                    h('textarea', {
+                      className: 'mini-input', ref: instructionsRef, value: customInstructions,
+                      onChange: e => { setCustomInstructions(e.target.value); localStorage.setItem('customInstructions', e.target.value); },
+                      placeholder: 'e.g. "Use formal tone", "Keep Chinese honorifics", "Pallez speaks like an old gentleman"',
+                      style: { width: '100%', height: 60, resize: 'vertical' }
+                    })
+                  )
+                )
+              ),
 
               isTranslating && h('div', { className: 'card', style: { borderColor: 'rgba(124,135,255,.45)' } },
                 h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 } },
@@ -13169,51 +13287,21 @@ FORMATTING & STRUCTURE RULES:
               ),
 
               h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Glossary & Profiles')),
-                h('div', { className: 'seg', style: { marginBottom: 6 } },
-                  h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('ri') }, 'RI'),
-                  h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('lotm') }, 'LOTM'),
-                  h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia')
+                h('div', { className: 'card-title' },
+                  h('span', null, 'Glossary & Instructions'),
+                  activeGlossaryId
+                    ? h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 10.5 } }, `Active: ${activeGlossaryId}`)
+                    : h('span', { className: 'count', style: { fontSize: 10.5 } }, `${glossaryTermCount} terms`)
                 ),
-                h('div', { className: 'mini-input', style: { cursor: 'pointer' }, onClick: () => setGlossaryEditorOpen(true) }, `${glossaryTermCount} terms loaded · tap to open full editor`),
-                h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' } },
-                  h('button', { type: 'button', className: 'mini-btn', onClick: () => setGlossaryEditorOpen(true) }, 'Open Full Editor'),
-                  h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => { setTerminology(''); localStorage.removeItem('terminology'); } }, 'Clear'),
-                  switchRow('Smart Glossary Filter', smartGlossary, (v) => { setSmartGlossary(v); localStorage.setItem('smartGlossary', v); })
-                ),
-                h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
-                  h('input', { type: 'text', value: newGlossaryName, onChange: e => setNewGlossaryName(e.target.value), placeholder: 'Profile name…', style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '8px 10px', fontSize: 12, color: 'var(--paper-dim)', outline: 'none', flex: 1, minWidth: 120 } }),
-                  h('button', { type: 'button', className: 'mini-btn', onClick: handleSaveGlossary }, 'Save'),
-                  activeGlossaryId && h('button', { type: 'button', className: 'mini-btn ghost', onClick: handleUnloadGlossary }, 'Unload')
-                ),
-                savedGlossaries.length > 0 && h(React.Fragment, null,
-                  h('div', { className: 'card-title', style: { marginTop: 10 } }, h('span', null, 'Saved Profiles')),
-                  savedGlossaries.map(g => h('div', { key: g.name, className: 'set-row' },
-                    h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${g.name}${activeGlossaryId === g.name ? ' · active' : ''}${defaultGlossaryName === g.name ? ' · default' : ''}`),
-                    h('div', { className: 'pane-acts' },
-                      h('button', { type: 'button', className: 'chip-act', onClick: () => handleLoadGlossary(g) }, 'Load'),
-                      h('button', { type: 'button', className: 'chip-act', onClick: () => { localStorage.setItem('defaultGlossaryName', g.name); setDefaultGlossaryName(g.name); } }, 'Default'),
-                      h('button', { type: 'button', className: 'chip-act', onClick: () => handleDeleteGlossary(g.name) }, '✕')
-                    )
-                  )),
-                  defaultGlossaryName && h('div', { style: { marginTop: 8 } },
-                    h('button', { type: 'button', className: 'mini-btn danger', onClick: clearDefaultGloss }, 'Clear Default Profile')
-                  )
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'Location'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                    onClick: () => setActiveTab('text')
+                  }, '📖 Manage on Translate Tab ➔')
                 )
-              ),
-
-              h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Instructions')),
-                h('div', { className: 'seg', style: { marginBottom: 6 } },
-                  h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('literary') }, 'Literary'),
-                  h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('dialogue') }, 'Dialogue')
-                ),
-                h('textarea', {
-                  className: 'mini-input', ref: instructionsRef, value: customInstructions,
-                  onChange: e => { setCustomInstructions(e.target.value); localStorage.setItem('customInstructions', e.target.value); },
-                  placeholder: 'e.g. "Use formal tone", "Keep Chinese honorifics"',
-                  style: { width: '100%', height: 70, resize: 'vertical' }
-                })
               ),
 
               h('div', { className: 'card' },
