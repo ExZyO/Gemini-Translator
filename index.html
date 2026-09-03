@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.6.9';
+    const VERSION = '8.7.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2062,6 +2062,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     const KeyPool = {
       inUse: new Set(),
       coolingUntil: new Map(),
+      lastIndex: 0,
 
       async acquireKey(keys, failingKey = null) {
         if (!keys || keys.length === 0) return null;
@@ -2069,48 +2070,54 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
 
         const now = Date.now();
         if (failingKey) {
-          this.coolingUntil.set(failingKey, now + 15000);
-          window.AppLogger?.log('warn', 'KeyPool', `Key ${failingKey.slice(0, 8)}... hit 429 rate-limit. Placed in 15s cooling penalty.`);
+          this.coolingUntil.set(failingKey, now + 20000); // 20s cooling penalty
+          window.AppLogger?.log('warn', 'KeyPool', `Key ${failingKey.slice(0, 8)}... hit 429 rate-limit. Cooling for 20s.`);
           this.inUse.delete(failingKey);
         }
 
-        // Anti-collision loop: NEVER lease the failing key, in-flight keys, or cooling keys!
+        const total = keys.length;
+
+        // Circular Round-Robin search: check keys starting from (lastIndex + 1)
         for (let wait = 0; wait < 20; wait++) {
           const currentTime = Date.now();
-          // 1. Pick a key that is NEITHER in active use NOR cooling, and is NOT the failing key
-          let candidate = keys.find(k => k.key && k.key !== failingKey && !this.inUse.has(k.key) && (!this.coolingUntil.has(k.key) || currentTime >= this.coolingUntil.get(k.key)));
 
-          // 2. If none, pick any idle key whose cooling timer has already elapsed
-          if (!candidate) {
-            const idle = keys.filter(k => k.key && k.key !== failingKey && !this.inUse.has(k.key) && (!this.coolingUntil.has(k.key) || currentTime >= this.coolingUntil.get(k.key)));
-            if (idle.length > 0) {
-              candidate = idle[0];
+          // 1. Find the next idle, non-cooling, non-failing key in circular sequence
+          for (let step = 1; step <= total; step++) {
+            const idx = (this.lastIndex + step) % total;
+            const k = keys[idx];
+            if (k?.key && k.key !== failingKey && !this.inUse.has(k.key)) {
+              const coolTime = this.coolingUntil.get(k.key) || 0;
+              if (currentTime >= coolTime) {
+                this.lastIndex = idx;
+                this.inUse.add(k.key);
+                window.AppLogger?.log('info', 'KeyPool', `Leased idle key #${idx + 1} ${k.key.slice(0, 8)}... (${this.inUse.size}/${total} in-flight)`);
+                return k.key;
+              }
             }
           }
 
-          if (candidate?.key) {
-            this.inUse.add(candidate.key);
-            window.AppLogger?.log('info', 'KeyPool', `Leased idle key ${candidate.key.slice(0, 8)}... (${this.inUse.size}/${keys.length} active in-flight)`);
-            return candidate.key;
-          }
-
-          // All valid keys are currently busy processing requests. Wait 1.0s for a key to be released.
+          // 2. If all keys are in-flight or cooling, pause 1.0s and re-evaluate
           await new Promise(r => setTimeout(r, 1000));
         }
 
-        // Absolute fallback: pick any non-failing idle key
-        const fallback = keys.find(k => k.key && k.key !== failingKey && !this.inUse.has(k.key)) || keys.find(k => k.key && k.key !== failingKey) || keys[0];
-        if (fallback?.key) {
-          this.inUse.add(fallback.key);
-          return fallback.key;
+        // Absolute fallback: pick next non-failing key
+        for (let step = 1; step <= total; step++) {
+          const idx = (this.lastIndex + step) % total;
+          const k = keys[idx];
+          if (k?.key && k.key !== failingKey && !this.inUse.has(k.key)) {
+            this.lastIndex = idx;
+            this.inUse.add(k.key);
+            window.AppLogger?.log('info', 'KeyPool', `Leased fallback key #${idx + 1} ${k.key.slice(0, 8)}...`);
+            return k.key;
+          }
         }
-        return null;
+        return keys[0]?.key || null;
       },
 
       releaseKey(key) {
         if (key) {
           this.inUse.delete(key);
-          window.AppLogger?.log('info', 'KeyPool', `Released key ${key.slice(0, 8)}... (${this.inUse.size} remaining in-flight)`);
+          window.AppLogger?.log('info', 'KeyPool', `Released key ${key.slice(0, 8)}... (${this.inUse.size} in-flight)`);
         }
       }
     };
