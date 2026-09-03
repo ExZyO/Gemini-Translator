@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.7.2';
+    const VERSION = '8.7.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1469,8 +1469,19 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         : { thinkingBudget: 0 };
       const apiStart = performance.now();
       window.AppLogger?.log('info', 'GeminiAPI', `Outbound request to ${model} (Key: ${maskKey(apiKey)}, Chars: ${text.length}, Thinking: ${enableThinking ? 'ON' : 'OFF'})`);
-      let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
-      window.AppLogger?.log(r.ok ? 'info' : 'warn', 'GeminiAPI', `Response ${r.status} ${r.statusText} in ${Math.round(performance.now() - apiStart)}ms`);
+      const reqHeaders = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
+      let r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
+      if (!r.ok) {
+        const errBody = await r.clone().text().catch(() => '');
+        let errSnippet = '';
+        try {
+          const errJson = JSON.parse(errBody);
+          errSnippet = errJson?.error?.message || errBody.slice(0, 160);
+        } catch(e) { errSnippet = errBody.slice(0, 160); }
+        window.AppLogger?.log('warn', 'GeminiAPI', `Response ${r.status} ${r.statusText} in ${Math.round(performance.now() - apiStart)}ms`, errSnippet);
+      } else {
+        window.AppLogger?.log('info', 'GeminiAPI', `Response 200 OK in ${Math.round(performance.now() - apiStart)}ms`);
+      }
       if (!r.ok && r.status === 400 && payload.system_instruction) {
         delete payload.system_instruction;
         r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
