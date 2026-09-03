@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.7.6';
+    const VERSION = '8.7.7';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1463,10 +1463,10 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      // Universal Thinking Control: Explicitly respect user toggle for ALL models (standard + custom)
-      payload.generationConfig.thinkingConfig = enableThinking
-        ? { thinkingBudget: 2048 }
-        : { thinkingBudget: 0 };
+      // Universal Thinking Control: Only attach thinkingConfig when user explicitly turns it ON
+      if (enableThinking) {
+        payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+      }
       const apiStart = performance.now();
       window.AppLogger?.log('info', 'GeminiAPI', `Outbound request to ${model} (Key: ${maskKey(apiKey)}, Chars: ${text.length}, Thinking: ${enableThinking ? 'ON' : 'OFF'})`);
       const reqHeaders = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
@@ -1606,10 +1606,10 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      // Universal Thinking Control: Explicitly respect user toggle for ALL models (standard + custom)
-      payload.generationConfig.thinkingConfig = enableThinking
-        ? { thinkingBudget: 2048 }
-        : { thinkingBudget: 0 };
+      // Universal Thinking Control: Only attach thinkingConfig when user explicitly turns it ON
+      if (enableThinking) {
+        payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+      }
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.system_instruction) {
         delete payload.system_instruction;
@@ -2350,7 +2350,7 @@ Return strictly a JSON object with this exact format:
                   generationConfig: {
                     temperature: 0.1,
                     responseMimeType: 'application/json',
-                    thinkingConfig: { thinkingBudget: 0 }
+                    // thinking disabled
                   }
                 })
               });

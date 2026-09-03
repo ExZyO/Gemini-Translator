@@ -1,7 +1,7 @@
 {
-  "version": "8.7.6",
-  "versionCode": 876,
+  "version": "8.7.7",
+  "versionCode": 877,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.7.6: Smart cooling parser showing exact Google seconds-remaining countdown for rolling rate limits."
+  "releaseNotes": "v8.7.7: Fixed 400 Invalid Argument error on gemini-3.5-flash-lite by omitting thinkingConfig when thinking is OFF."
 }
