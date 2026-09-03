@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.7.7';
+    const VERSION = '8.7.8';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2075,6 +2075,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
       inUse: new Set(),
       coolingUntil: new Map(),
       lastIndex: 0,
+      lastLeaseTime: 0,
 
       async acquireKey(rawKeys, failingKey = null) {
         if (!rawKeys || rawKeys.length === 0) return null;
@@ -2090,11 +2091,19 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
         if (keys.length === 0) return null;
         if (keys.length === 1) return keys[0].key;
 
+        // Anti-stampede pacing: ensure at least 350ms between outbound worker dispatches
+        const elapsedSinceLastLease = Date.now() - (this.lastLeaseTime || 0);
+        if (elapsedSinceLastLease < 350) {
+          await new Promise(r => setTimeout(r, 350 - elapsedSinceLastLease));
+        }
+
         const now = Date.now();
         if (failingKey) {
-          // Exact dynamic cooling: default to 15s, or custom delay
-          this.coolingUntil.set(failingKey, now + 15000);
-          window.AppLogger?.log('warn', 'KeyPool', `Key ${maskKey(failingKey)} hit 429 rate-limit. Cooling for 15s.`);
+          // Desynchronize retry waves: 15s base + 0 to 4s random jitter so workers never wake up simultaneously
+          const jitter = Math.floor(Math.random() * 4000);
+          const totalCoolMs = 15000 + jitter;
+          this.coolingUntil.set(failingKey, now + totalCoolMs);
+          window.AppLogger?.log('warn', 'KeyPool', `Key ${maskKey(failingKey)} hit 429 rate-limit. Cooling for ${(totalCoolMs / 1000).toFixed(1)}s.`);
           this.inUse.delete(failingKey);
         }
 
@@ -2112,6 +2121,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
               const coolTime = this.coolingUntil.get(k.key) || 0;
               if (currentTime >= coolTime) {
                 this.lastIndex = idx;
+                this.lastLeaseTime = Date.now();
                 this.inUse.add(k.key);
                 window.AppLogger?.log('info', 'KeyPool', `Leased idle key #${idx + 1} ${maskKey(k.key)} (${this.inUse.size}/${total} in-flight)`);
                 return k.key;
@@ -2129,6 +2139,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
           const k = keys[idx];
           if (k?.key && k.key !== failingKey && !this.inUse.has(k.key)) {
             this.lastIndex = idx;
+            this.lastLeaseTime = Date.now();
             this.inUse.add(k.key);
             window.AppLogger?.log('info', 'KeyPool', `Leased fallback key #${idx + 1} ${maskKey(k.key)}`);
             return k.key;
