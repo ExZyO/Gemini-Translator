@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.8.1';
+    const VERSION = '8.8.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -11335,24 +11335,80 @@ FORMATTING & STRUCTURE RULES:
           })();
         }
 
+        // Novel Library (Full raw chapters from IndexedDB + Metadata)
+        let novelLibrary = [];
+        if (window.GeminiNovelDB) {
+          try {
+            novelLibrary = await window.GeminiNovelDB.getAllNovels();
+          } catch (e) {
+            console.warn('Backup novel library fetch error:', e);
+          }
+        }
+        const webImportMeta = (() => {
+          try {
+            return JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || localStorage.getItem('gemini_web_import_history') || '[]');
+          } catch (e) {
+            return [];
+          }
+        })();
+
+        // Telemetry diagnostics snapshot
+        const recentTelemetry = (typeof window !== 'undefined' && window.AppLogger && Array.isArray(window.AppLogger.logs))
+          ? window.AppLogger.logs.slice(-300)
+          : [];
+
         const backup = {
           version: VERSION,
           timestamp: new Date().toISOString(),
           includesApiKeys: shouldIncludeKeys,
-          savedGlossaries: currentSavedGlossaries,
-          translationHistory: fullHistory,
-          customInstructions: currentInstructions,
-          terminology: currentTerminology,
-          smartGlossary,
-          defaultGlossaryName: defaultGlossaryName || localStorage.getItem('defaultGlossaryName') || null,
+
+          // Core Translation & Engine Settings
+          provider,
           geminiModel,
           deepseekModel,
           openaiModel,
           claudeModel,
-          provider,
           concurrency,
           contextAware,
-          exportHistory: JSON.parse(localStorage.getItem('exportHistory') || '[]')
+          chunkSizePreset: chunkSizePreset || localStorage.getItem('chunkSizePreset') || 'turbo',
+          enableThinking: enableThinking !== undefined ? enableThinking : (localStorage.getItem('enableThinking') === 'true'),
+          enableStreaming: enableStreaming !== undefined ? enableStreaming : (localStorage.getItem('enableStreaming') !== 'false'),
+          enableGlossary: enableGlossary !== undefined ? enableGlossary : (localStorage.getItem('enableGlossary') === 'true'),
+          customModel: customModel || localStorage.getItem('customModel') || '',
+          useCustomModel: useCustomModel !== undefined ? useCustomModel : (localStorage.getItem('useCustomModel') === 'true'),
+          customDeepseekModel: customDeepseekModel || localStorage.getItem('customDeepseekModel') || '',
+          useCustomDeepseekModel: useCustomDeepseekModel !== undefined ? useCustomDeepseekModel : (localStorage.getItem('useCustomDeepseekModel') === 'true'),
+
+          // Glossaries & Instructions
+          savedGlossaries: currentSavedGlossaries,
+          defaultGlossaryName: defaultGlossaryName || localStorage.getItem('defaultGlossaryName') || null,
+          terminology: currentTerminology,
+          smartGlossary,
+          customInstructions: currentInstructions,
+
+          // EPUB Styling & Typography Preferences
+          epubDropCaps: epubDropCaps !== undefined ? epubDropCaps : (localStorage.getItem('epubDropCaps') !== 'false'),
+          epubSmartQuotes: epubSmartQuotes !== undefined ? epubSmartQuotes : (localStorage.getItem('epubSmartQuotes') !== 'false'),
+          epubCleanWebArtifacts: epubCleanWebArtifacts !== undefined ? epubCleanWebArtifacts : (localStorage.getItem('epubCleanWebArtifacts') !== 'false'),
+          epubFontTheme: epubFontTheme || localStorage.getItem('epubFontTheme') || 'literata',
+          epubJustifyText: epubJustifyText !== undefined ? epubJustifyText : (localStorage.getItem('epubJustifyText') !== 'false'),
+          epubIncludeImages: epubIncludeImages !== undefined ? epubIncludeImages : (localStorage.getItem('epubIncludeImages') !== 'false'),
+          scrapeImages: scrapeImages !== undefined ? scrapeImages : (localStorage.getItem('scrapeImages') !== 'false'),
+
+          // Reader Mode Preferences
+          readerTheme: readerTheme || localStorage.getItem('readerTheme') || 'sepia',
+          readerFont: readerFont || localStorage.getItem('readerFont') || 'serif',
+          readerFontSize: readerFontSize || parseInt(localStorage.getItem('readerFontSize')) || 18,
+          readerJustify: localStorage.getItem('readerJustify') !== 'false',
+
+          // Book History & Novel Library
+          translationHistory: fullHistory,
+          exportHistory: JSON.parse(localStorage.getItem('exportHistory') || '[]'),
+          novelLibrary,
+          webImportHistory: webMeta,
+
+          // Telemetry Diagnostics
+          telemetryLogs: recentTelemetry
         };
         if (shouldIncludeKeys) {
           const exportKeys = {};
@@ -11388,13 +11444,18 @@ FORMATTING & STRUCTURE RULES:
 
         try {
           await saveUniversalBlob(blob, fileName, 'application/json');
-          toast(shouldIncludeKeys ? 'Full backup (+ API Keys) saved to Downloads!' : 'Full backup (No Keys) saved to Downloads!', 'success');
+          const details = [];
+          if (novelLibrary.length > 0) details.push(`${novelLibrary.length} novel(s)`);
+          if (fullHistory.length > 0) details.push(`${fullHistory.length} history item(s)`);
+          details.push('all settings');
+          if (shouldIncludeKeys) details.push('keys');
+          toast(`Full backup (${details.join(', ')}) saved to Downloads!`, 'success');
         } catch(e) {
           toast('Backup save error: ' + e.message, 'error');
         }
       };
 
-      const applyRestoredData = (data) => {
+      const applyRestoredData = async (data) => {
         if (!data || typeof data !== 'object') throw new Error('Invalid backup data format.');
         
         // 1. Array format (Glossary export)
@@ -11456,6 +11517,10 @@ FORMATTING & STRUCTURE RULES:
           setSmartGlossary(data.smartGlossary);
           localStorage.setItem('smartGlossary', data.smartGlossary);
         }
+        if (data.enableGlossary !== undefined) {
+          setEnableGlossary(!!data.enableGlossary);
+          localStorage.setItem('enableGlossary', String(data.enableGlossary));
+        }
         if (data.provider) {
           setProvider(data.provider);
           localStorage.setItem('translationProvider', data.provider);
@@ -11478,10 +11543,128 @@ FORMATTING & STRUCTURE RULES:
         }
         if (data.concurrency) {
           setConcurrency(data.concurrency);
+          localStorage.setItem('concurrency', String(data.concurrency));
         }
         if (data.contextAware !== undefined) {
           setContextAware(data.contextAware);
           localStorage.setItem('contextAware', data.contextAware);
+        }
+        if (data.chunkSizePreset) {
+          setChunkSizePreset(data.chunkSizePreset);
+          localStorage.setItem('chunkSizePreset', data.chunkSizePreset);
+        }
+        if (data.enableThinking !== undefined) {
+          setEnableThinking(!!data.enableThinking);
+          localStorage.setItem('enableThinking', String(data.enableThinking));
+        }
+        if (data.enableStreaming !== undefined) {
+          setEnableStreaming(!!data.enableStreaming);
+          localStorage.setItem('enableStreaming', String(data.enableStreaming));
+        }
+        if (data.customModel !== undefined) {
+          setCustomModel(data.customModel);
+          localStorage.setItem('customModel', data.customModel);
+        }
+        if (data.useCustomModel !== undefined) {
+          setUseCustomModel(!!data.useCustomModel);
+          localStorage.setItem('useCustomModel', String(data.useCustomModel));
+        }
+        if (data.customDeepseekModel !== undefined) {
+          setCustomDeepseekModel(data.customDeepseekModel);
+          localStorage.setItem('customDeepseekModel', data.customDeepseekModel);
+        }
+        if (data.useCustomDeepseekModel !== undefined) {
+          setUseCustomDeepseekModel(!!data.useCustomDeepseekModel);
+          localStorage.setItem('useCustomDeepseekModel', String(data.useCustomDeepseekModel));
+        }
+
+        // EPUB Styling & Typography preferences
+        if (data.epubDropCaps !== undefined) {
+          setEpubDropCaps(!!data.epubDropCaps);
+          localStorage.setItem('epubDropCaps', String(data.epubDropCaps));
+        }
+        if (data.epubSmartQuotes !== undefined) {
+          setEpubSmartQuotes(!!data.epubSmartQuotes);
+          localStorage.setItem('epubSmartQuotes', String(data.epubSmartQuotes));
+        }
+        if (data.epubCleanWebArtifacts !== undefined) {
+          setEpubCleanWebArtifacts(!!data.epubCleanWebArtifacts);
+          localStorage.setItem('epubCleanWebArtifacts', String(data.epubCleanWebArtifacts));
+        }
+        if (data.epubFontTheme) {
+          setEpubFontTheme(data.epubFontTheme);
+          localStorage.setItem('epubFontTheme', data.epubFontTheme);
+        }
+        if (data.epubJustifyText !== undefined) {
+          setEpubJustifyText(!!data.epubJustifyText);
+          localStorage.setItem('epubJustifyText', String(data.epubJustifyText));
+        }
+        if (data.epubIncludeImages !== undefined) {
+          setEpubIncludeImages(!!data.epubIncludeImages);
+          localStorage.setItem('epubIncludeImages', String(data.epubIncludeImages));
+        }
+        if (data.scrapeImages !== undefined) {
+          setScrapeImages(!!data.scrapeImages);
+          localStorage.setItem('scrapeImages', String(data.scrapeImages));
+        }
+
+        // Reader Preferences
+        if (data.readerTheme) {
+          setReaderTheme(data.readerTheme);
+          localStorage.setItem('readerTheme', data.readerTheme);
+        }
+        if (data.readerFont) {
+          setReaderFont(data.readerFont);
+          localStorage.setItem('readerFont', data.readerFont);
+        }
+        if (data.readerFontSize) {
+          setReaderFontSize(data.readerFontSize);
+          localStorage.setItem('readerFontSize', String(data.readerFontSize));
+        }
+        if (data.readerJustify !== undefined) {
+          localStorage.setItem('readerJustify', String(data.readerJustify));
+        }
+
+        // Novel Library Restore (Full chapters + Metadata)
+        let novelCount = 0;
+        if (data.novelLibrary && Array.isArray(data.novelLibrary) && data.novelLibrary.length > 0) {
+          if (window.GeminiNovelDB) {
+            for (const novel of data.novelLibrary) {
+              try {
+                if (!novel.id) novel.id = 'novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+                await window.GeminiNovelDB.saveNovel(novel);
+              } catch(e) {
+                console.warn('Restore novel error:', e);
+              }
+            }
+          }
+          novelCount = data.novelLibrary.length;
+        }
+        if (data.webImportHistory && Array.isArray(data.webImportHistory)) {
+          setWebImportHistory(data.webImportHistory);
+          try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(data.webImportHistory)); } catch (e) {}
+          if (novelCount === 0) novelCount = data.webImportHistory.length;
+        } else if (data.novelLibrary && Array.isArray(data.novelLibrary) && data.novelLibrary.length > 0) {
+          const synthesizedMeta = data.novelLibrary.map(n => ({
+            id: n.id,
+            title: n.title || 'Untitled Novel',
+            author: n.author || 'Author',
+            summary: (n.summary || '').substring(0, 300),
+            tags: n.tags || [],
+            chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
+            wordCount: n.wordCount || 0,
+            timestamp: n.timestamp || new Date().toISOString(),
+            isEpub: !!n.isEpub,
+            sourceUrl: n.sourceUrl || ''
+          }));
+          setWebImportHistory(synthesizedMeta);
+          try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(synthesizedMeta)); } catch (e) {}
+        }
+
+        // Telemetry Diagnostics Restore
+        if (data.telemetryLogs && Array.isArray(data.telemetryLogs) && window.AppLogger) {
+          window.AppLogger.logs = [...data.telemetryLogs];
+          window.AppLogger.listeners.forEach(fn => { try { fn([...window.AppLogger.logs]); } catch(e) {} });
         }
 
         // Restore API Key Profiles (Robust Multi-Format Parsing)
@@ -11550,7 +11733,9 @@ FORMATTING & STRUCTURE RULES:
         if (keyCount > 0) parts.push(`${keyCount} API key(s)`);
         if (glossaryCount > 0) parts.push(`${glossaryCount} glossary profile(s)`);
         else if (data.terminology && data.terminology.trim()) parts.push('active glossary');
-        parts.push('settings');
+        if (data.translationHistory && data.translationHistory.length > 0) parts.push(`${data.translationHistory.length} book session(s)`);
+        if (novelCount > 0) parts.push(`${novelCount} library novel(s)`);
+        parts.push('all settings & typography');
         toast(` Restored ${parts.join(', ')} successfully!`);
       };
 
@@ -11578,7 +11763,7 @@ FORMATTING & STRUCTURE RULES:
         try {
           const txt = await readFileContentAsText(f);
           const data = JSON.parse(txt);
-          applyRestoredData(data);
+          await applyRestoredData(data);
         } catch (err) {
           console.error("Backup import error:", err);
           setError('Failed to restore backup: ' + err.message);
@@ -11596,7 +11781,7 @@ FORMATTING & STRUCTURE RULES:
           const input = prompt('Paste your backup JSON content below:', text);
           if (!input || !input.trim()) return;
           const data = JSON.parse(input.trim());
-          applyRestoredData(data);
+          await applyRestoredData(data);
         } catch (err) {
           setError('Failed to parse backup JSON: ' + err.message);
           toast('Failed to parse backup JSON: ' + err.message, 'error');
@@ -13529,7 +13714,7 @@ FORMATTING & STRUCTURE RULES:
               ),
 
               h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Backup')),
+                h('div', { className: 'card-title' }, h('span', null, 'Full App Backup & Restore'), h('span', { className: 'count' }, 'Library · Settings · Logs · Keys')),
                 h('div', { className: 'book-acts' },
                   h('button', { type: 'button', className: 'mini-btn', onClick: () => exportFullBackup(true) }, 'Export + Keys'),
                   h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => exportFullBackup(false) }, 'Export Safe'),

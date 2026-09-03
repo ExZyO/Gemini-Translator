@@ -1,7 +1,7 @@
 {
-  "version": "8.8.1",
-  "versionCode": 881,
+  "version": "8.8.2",
+  "versionCode": 882,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.8.1: Copy Report now copies summary only; Copy Logs copies summary + telemetry logs."
+  "releaseNotes": "v8.8.2: Comprehensive Full App Backup (Novel library, all settings, EPUB styling, and diagnostic logs)."
 }
