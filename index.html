@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.6.7';
+    const VERSION = '8.6.8';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2074,18 +2074,16 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
           this.inUse.delete(failingKey);
         }
 
-        // Anti-collision loop: NEVER lease a key that is currently in flight!
-        // If all keys are in use, wait patiently for an in-flight worker to finish and release its key.
+        // Anti-collision loop: NEVER lease the failing key, in-flight keys, or cooling keys!
         for (let wait = 0; wait < 20; wait++) {
           const currentTime = Date.now();
-          // 1. Pick a key that is NEITHER in active use NOR cooling
-          let candidate = keys.find(k => k.key && !this.inUse.has(k.key) && (!this.coolingUntil.has(k.key) || currentTime >= this.coolingUntil.get(k.key)));
+          // 1. Pick a key that is NEITHER in active use NOR cooling, and is NOT the failing key
+          let candidate = keys.find(k => k.key && k.key !== failingKey && !this.inUse.has(k.key) && (!this.coolingUntil.has(k.key) || currentTime >= this.coolingUntil.get(k.key)));
 
-          // 2. If none, check if any non-in-use key has finished cooling
+          // 2. If none, pick any idle key whose cooling timer has already elapsed
           if (!candidate) {
-            const idle = keys.filter(k => k.key && !this.inUse.has(k.key));
+            const idle = keys.filter(k => k.key && k.key !== failingKey && !this.inUse.has(k.key) && (!this.coolingUntil.has(k.key) || currentTime >= this.coolingUntil.get(k.key)));
             if (idle.length > 0) {
-              idle.sort((a, b) => (this.coolingUntil.get(a.key) || 0) - (this.coolingUntil.get(b.key) || 0));
               candidate = idle[0];
             }
           }
@@ -2096,12 +2094,12 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
             return candidate.key;
           }
 
-          // All keys are currently busy processing requests. Wait 1.0s for a key to be released.
+          // All valid keys are currently busy processing requests. Wait 1.0s for a key to be released.
           await new Promise(r => setTimeout(r, 1000));
         }
 
-        // Absolute fallback: pick any idle key or first key
-        const fallback = keys.find(k => !this.inUse.has(k.key)) || keys[0];
+        // Absolute fallback: pick any non-failing idle key
+        const fallback = keys.find(k => k.key && k.key !== failingKey && !this.inUse.has(k.key)) || keys.find(k => k.key && k.key !== failingKey) || keys[0];
         if (fallback?.key) {
           this.inUse.add(fallback.key);
           return fallback.key;
