@@ -13,6 +13,9 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NativeEpubMergerPlugin.class);
         super.onCreate(savedInstanceState);
 
+        // Enable Chrome remote debugging and verbose adb console output
+        android.webkit.WebView.setWebContentsDebuggingEnabled(true);
+
         // Request runtime notification permission on Android 13+ (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {

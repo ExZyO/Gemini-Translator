@@ -1,7 +1,7 @@
 {
-  "version": "8.10.4",
-  "versionCode": 8104,
+  "version": "8.10.5",
+  "versionCode": 8105,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.4: Resilient pendingQueue (never drops chapters on rate limit); Live Cloudflare cooldown countdown; Paced 2-worker NovelFire crawling with fast proxy failover; Fixed lingering notification center progress bar on pause/interrupt; Safe local client_secrets.json auto-detection & 1-click import."
+  "releaseNotes": "v8.10.5: Enabled Android WebView remote debugging & live console output for ADB logcat & Chrome DevTools."
 }
