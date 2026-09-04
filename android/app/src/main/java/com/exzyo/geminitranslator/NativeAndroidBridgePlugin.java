@@ -51,9 +51,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Field;
 import java.net.CookieHandler;
 import java.net.CookiePolicy;
 import java.net.HttpURLConnection;
+import java.net.ProtocolException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
@@ -509,6 +511,90 @@ public class NativeAndroidBridgePlugin extends Plugin {
             } catch (Exception e) {
                 Log.e(TAG, "Native HTTP fetch failed: " + e.getMessage(), e);
                 call.reject("Native HTTP Fetch Error: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public void webDavRequestNative(PluginCall call) {
+        new Thread(() -> {
+            try {
+                String targetUrl = call.getString("url");
+                if (targetUrl == null || targetUrl.isEmpty()) {
+                    call.reject("Missing URL");
+                    return;
+                }
+                String method = call.getString("method", "GET").toUpperCase();
+                String body = call.getString("body", null);
+                JSObject headers = call.getObject("headers");
+
+                URL url = new URL(targetUrl);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(30000);
+                conn.setReadTimeout(35000);
+                conn.setInstanceFollowRedirects(true);
+
+                // Set HTTP method (with reflection fallback for WebDAV custom verbs like PROPFIND, MKCOL)
+                try {
+                    conn.setRequestMethod(method);
+                } catch (ProtocolException pe) {
+                    try {
+                        Class<?> currentClass = conn.getClass();
+                        Field methodField = null;
+                        while (currentClass != null && methodField == null) {
+                            try {
+                                methodField = currentClass.getDeclaredField("method");
+                            } catch (NoSuchFieldException e) {
+                                currentClass = currentClass.getSuperclass();
+                            }
+                        }
+                        if (methodField != null) {
+                            methodField.setAccessible(true);
+                            methodField.set(conn, method);
+                        }
+                    } catch (Exception re) {
+                        Log.w(TAG, "WebDAV reflection method override failed: " + re.getMessage());
+                    }
+                }
+
+                if (headers != null) {
+                    Iterator<String> it = headers.keys();
+                    while (it.hasNext()) {
+                        String k = it.next();
+                        conn.setRequestProperty(k, headers.getString(k));
+                    }
+                }
+
+                if (body != null && !body.isEmpty()) {
+                    conn.setDoOutput(true);
+                    try (OutputStream os = conn.getOutputStream()) {
+                        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                        os.write(bytes, 0, bytes.length);
+                    }
+                }
+
+                int status = conn.getResponseCode();
+                InputStream is = (status >= 200 && status < 400) ? conn.getInputStream() : conn.getErrorStream();
+                String responseData = "";
+                if (is != null) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line).append("\n");
+                    }
+                    reader.close();
+                    responseData = sb.toString();
+                }
+                conn.disconnect();
+
+                JSObject ret = new JSObject();
+                ret.put("status", status);
+                ret.put("data", responseData);
+                call.resolve(ret);
+            } catch (Exception e) {
+                Log.e(TAG, "webDavRequestNative error: " + e.getMessage(), e);
+                call.reject("WebDAV Error: " + e.getMessage());
             }
         }).start();
     }

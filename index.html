@@ -15,6 +15,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Translator">
+  <script>
+    try {
+      if (localStorage.getItem('amoledMode') === 'true') {
+        document.documentElement.setAttribute('data-theme', 'amoled');
+      }
+    } catch(e) {}
+  </script>
   <link rel="stylesheet" href="./styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="./vendor/jspdf.umd.min.js"></script>
@@ -203,6 +210,124 @@
   --pine: #34C759;
   --rose: #FF453A;
 }
+/* AMOLED True Pitch Black Theme */
+[data-theme="amoled"], body.theme-amoled, .theme-amoled {
+  --void: #000000 !important;
+  --ember: #050507 !important;
+  --ember-2: rgba(255, 255, 255, 0.04) !important;
+  --hairline: rgba(255, 255, 255, 0.12) !important;
+  --paper: #FFFFFF !important;
+  --paper-dim: #D4D7E2 !important;
+  --slate: #8E92A4 !important;
+  background-color: #000000 !important;
+}
+[data-theme="amoled"] .tl-head, body.theme-amoled .tl-head {
+  background: rgba(0, 0, 0, 0.92) !important;
+}
+[data-theme="amoled"] .tl-bar, body.theme-amoled .tl-bar {
+  background: rgba(0, 0, 0, 0.92) !important;
+}
+
+/* Studio / IDE Section Banners */
+.sec-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--slate);
+  padding: 16px 0 6px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 8px;
+}
+.sec-banner .sec-tag {
+  color: var(--iris);
+  font-weight: 700;
+  margin-right: 4px;
+}
+.sec-banner .sec-title {
+  color: var(--paper-dim);
+  font-weight: 600;
+}
+
+/* Connected Rectangular Toolbars */
+.toolbar-group {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+}
+.toolbar-group > button, .toolbar-group > label {
+  border: none !important;
+  border-radius: 0 !important;
+  border-right: 1px solid var(--hairline) !important;
+  background: transparent !important;
+  margin: 0 !important;
+  font-size: 12.5px !important;
+  padding: 9px 14px !important;
+  cursor: pointer;
+  color: var(--paper);
+}
+.toolbar-group > button:last-child, .toolbar-group > label:last-child {
+  border-right: none !important;
+}
+.toolbar-group > button:hover, .toolbar-group > label:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Modal Dialogs */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-box {
+  background: var(--ember);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0,0,0,.8);
+  overflow: hidden;
+}
+.modal-hd {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.modal-bd {
+  padding: 16px 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+.modal-ft {
+  padding: 12px 18px;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
 html { color-scheme: dark; }
 html, body { background: var(--void); }
 body {
@@ -682,7 +807,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.8.7';
+    const VERSION = '8.9.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3428,6 +3553,48 @@ const formatModelName = (id, displayName) => {
 
       // --- UI State ---
       const [darkMode, setDarkMode] = useState(() => { const s = localStorage.getItem('darkMode'); return s !== null ? s === 'true' : window.matchMedia('(prefers-color-scheme:dark)').matches });
+      const [amoledMode, setAmoledMode] = useState(() => localStorage.getItem('amoledMode') === 'true');
+      useEffect(() => {
+        localStorage.setItem('amoledMode', String(amoledMode));
+        if (amoledMode) {
+          document.documentElement.setAttribute('data-theme', 'amoled');
+          document.body.classList.add('theme-amoled');
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+          document.body.classList.remove('theme-amoled');
+        }
+      }, [amoledMode]);
+
+      // Android / Device WakeLock Setting
+      const [deviceWakeLock, setDeviceWakeLock] = useState(() => localStorage.getItem('deviceWakeLock') !== 'false');
+      useEffect(() => { localStorage.setItem('deviceWakeLock', String(deviceWakeLock)); }, [deviceWakeLock]);
+
+      // WebDAV Sync State
+      const [webdavUrl, setWebdavUrl] = useState(() => localStorage.getItem('webdavUrl') || '');
+      const [webdavUser, setWebdavUser] = useState(() => localStorage.getItem('webdavUser') || '');
+      const [webdavPass, setWebdavPass] = useState(() => localStorage.getItem('webdavPass') || '');
+      const [webdavPath, setWebdavPath] = useState(() => localStorage.getItem('webdavPath') || 'GeminiTranslator');
+      const [webdavAutoSync, setWebdavAutoSync] = useState(() => localStorage.getItem('webdavAutoSync') === 'true');
+      const [webdavTesting, setWebdavTesting] = useState(false);
+      const [webdavSyncing, setWebdavSyncing] = useState(false);
+      const [webdavLastSync, setWebdavLastSync] = useState(() => localStorage.getItem('webdavLastSync') || null);
+
+      useEffect(() => { localStorage.setItem('webdavUrl', webdavUrl); }, [webdavUrl]);
+      useEffect(() => { localStorage.setItem('webdavUser', webdavUser); }, [webdavUser]);
+      useEffect(() => { localStorage.setItem('webdavPass', webdavPass); }, [webdavPass]);
+      useEffect(() => { localStorage.setItem('webdavPath', webdavPath); }, [webdavPath]);
+      useEffect(() => { localStorage.setItem('webdavAutoSync', String(webdavAutoSync)); }, [webdavAutoSync]);
+
+      // AI Auto-Glossary Extractor State
+      const [autoGlossaryModalOpen, setAutoGlossaryModalOpen] = useState(false);
+      const [autoGlossaryChapterCount, setAutoGlossaryChapterCount] = useState(5);
+      const [isExtractingGlossary, setIsExtractingGlossary] = useState(false);
+      const [extractedTerms, setExtractedTerms] = useState([]);
+
+      // Name Consistency Verifier State
+      const [consistencyModalOpen, setConsistencyModalOpen] = useState(false);
+      const [isAuditingConsistency, setIsAuditingConsistency] = useState(false);
+      const [consistencyAuditResults, setConsistencyAuditResults] = useState(null);
       const [toasts, setToasts] = useState([]);
       const [availableUpdate, setAvailableUpdate] = useState(null);
       const [downloadSuccessModal, setDownloadSuccessModal] = useState(null);
@@ -4239,131 +4406,405 @@ FORMATTING & STRUCTURE RULES:
         }
       };
 
-      // --- Full App Backup & Restore ---
+      // --- AI Auto-Glossary & Character Extractor Engine ---
+      const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      const callAiAnalysis = async (prompt, systemInstruction = '') => {
+        const prov = provider || 'gemini';
+        let allKeys = [];
+        try {
+          const stored = JSON.parse(localStorage.getItem('apiKeysByProvider') || '{}');
+          allKeys = (stored[prov] || []).map(p => p.key).filter(Boolean);
+        } catch (e) {}
+        if (allKeys.length === 0) {
+          const single = localStorage.getItem(`${prov}ApiKey`) || (prov === 'gemini' ? (localStorage.getItem('apiKey') || '') : '');
+          if (single) allKeys.push(single);
+        }
+        if (allKeys.length === 0) throw new Error(`Please configure an API key for ${prov.toUpperCase()} in Settings.`);
+
+        let key = allKeys[0];
+        if (prov === 'deepseek') {
+          const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+            body: JSON.stringify({
+              model: useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : 'deepseek-chat',
+              messages: [
+                ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
+                { role: 'user', content: prompt }
+              ],
+              stream: false
+            })
+          });
+          if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`DeepSeek error ${r.status}: ${b.substring(0, 120)}`); }
+          const j = await r.json();
+          return j.choices?.[0]?.message?.content || '';
+        } else {
+          const activeM = useCustomModel && customModel ? customModel : (geminiModel || 'gemini-2.5-flash');
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeM}:generateContent?key=${key}`;
+          const bodyPayload = {
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+          };
+          if (systemInstruction) {
+            bodyPayload.systemInstruction = { parts: [{ text: systemInstruction }] };
+          }
+          const r = await fetchRetry(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bodyPayload)
+          });
+          if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`Gemini error ${r.status}: ${b.substring(0, 120)}`); }
+          const j = await r.json();
+          const candidateParts = j?.candidates?.[0]?.content?.parts || [];
+          const actualParts = candidateParts.filter(p => !p.thought);
+          return actualParts.length > 0 ? actualParts.map(p => p.text || '').join('') : candidateParts.map(p => p.text || '').join('');
+        }
+      };
+
+      const handleOpenAutoGlossary = () => {
+        const maxCh = (chapters && chapters.length > 0) ? chapters.length : 1;
+        setAutoGlossaryChapterCount(Math.min(5, maxCh));
+        setExtractedTerms([]);
+        setAutoGlossaryModalOpen(true);
+      };
+
+      const handleExtractGlossary = async () => {
+        let sampleText = '';
+        if (chapters && chapters.length > 0) {
+          const count = Math.min(autoGlossaryChapterCount, chapters.length);
+          for (let i = 0; i < count; i++) {
+            const c = chapters[i];
+            const title = (typeof c === 'object' && c?.title) ? c.title : `Chapter ${i + 1}`;
+            const txt = (typeof c === 'string' ? c : (c?.text || c?.content || '')).slice(0, 4000);
+            sampleText += `\n--- ${title} ---\n${txt}\n`;
+          }
+        } else if (inputText && inputText.trim()) {
+          sampleText = inputText.slice(0, 16000);
+        } else {
+          return toast('Please load a novel or enter text in the translate box first', 'warning');
+        }
+
+        setIsExtractingGlossary(true);
+        try {
+          const sysPrompt = `You are an expert light novel and web novel translator and editor.
+Analyze the provided novel chapter excerpts and extract:
+1. Character names (protagonists, side characters, villains, titles, aliases)
+2. Factions, sects, guilds, schools, academies, or family clans
+3. Special fantasy terminology, cultivation ranks, magical skills, or key locations
+
+For each entity, output a single line in this exact format:
+OriginalTerm = TranslatedTerm # Category (Character|Location|Faction|Term): Note
+
+Example:
+綾小路 清隆 = Kiyotaka Ayanokouji # Character: Main protagonist, Class D
+堀北 鈴音 = Suzune Horikita # Character: Class D leader
+高度育成高等学校 = Advanced Nurturing High School # Location: Main setting
+
+Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conversational chatter.`;
+
+          const raw = await callAiAnalysis(`NOVEL TEXT EXCERPTS:\n${sampleText}`, sysPrompt);
+          const parsed = [];
+          const lines = raw.split(/\r?\n/);
+          lines.forEach((line, idx) => {
+            line = line.trim();
+            if (!line || line.startsWith('//') || line.startsWith('/*')) return;
+            const eqIdx = line.indexOf('=');
+            if (eqIdx !== -1) {
+              const orig = line.slice(0, eqIdx).trim();
+              let rest = line.slice(eqIdx + 1).trim();
+              let cat = 'Character';
+              let note = '';
+              const hashIdx = rest.indexOf('#');
+              if (hashIdx !== -1) {
+                const comment = rest.slice(hashIdx + 1).trim();
+                rest = rest.slice(0, hashIdx).trim();
+                const colIdx = comment.indexOf(':');
+                if (colIdx !== -1) {
+                  cat = comment.slice(0, colIdx).trim();
+                  note = comment.slice(colIdx + 1).trim();
+                } else {
+                  cat = comment;
+                }
+              }
+              if (orig && rest) {
+                parsed.push({ id: 'term_' + idx, orig, trans: rest, category: cat || 'Entity', note, checked: true });
+              }
+            }
+          });
+
+          if (parsed.length === 0) {
+            toast('No terms identified. Try increasing chapter count or check chapter content.', 'info');
+          } else {
+            setExtractedTerms(parsed);
+            toast(`Extracted ${parsed.length} terms from novel!`, 'success');
+          }
+        } catch (err) {
+          console.error('Auto-glossary extraction error:', err);
+          toast('Extraction failed: ' + err.message, 'error');
+        } finally {
+          setIsExtractingGlossary(false);
+        }
+      };
+
+      const handleApplyExtractedTerms = (asNewProfile = false) => {
+        const selected = extractedTerms.filter(t => t.checked);
+        if (selected.length === 0) return toast('No terms selected', 'warning');
+        
+        const formattedLines = selected.map(t => `${t.orig} = ${t.trans}${t.note ? ` # ${t.category}: ${t.note}` : ''}`).join('\n');
+        
+        if (asNewProfile) {
+          const defaultName = (chapters && chapters[0]?.title) ? `${chapters[0].title.slice(0, 20)} Glossary` : 'Auto Extracted Glossary';
+          const name = prompt('Enter profile name for these terms:', defaultName);
+          if (!name || !name.trim()) return;
+          handleSaveGlossary(name.trim(), formattedLines);
+          setAutoGlossaryModalOpen(false);
+          toast(`Saved ${selected.length} terms as "${name.trim()}"!`, 'success');
+        } else {
+          const current = (terminology || '').trim();
+          const updated = current ? `${current}\n${formattedLines}` : formattedLines;
+          setTerminology(updated);
+          localStorage.setItem('terminology', updated);
+          setAutoGlossaryModalOpen(false);
+          toast(`Appended ${selected.length} terms to active glossary!`, 'success');
+        }
+      };
+
+      // --- Feature 4: Name Consistency Verifier Engine ---
+      const handleRunConsistencyCheck = () => {
+        const termLines = (terminology || '').split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#') && !l.startsWith('//'));
+        if (termLines.length === 0) {
+          return toast('No glossary terms to check. Add terms to your glossary first!', 'warning');
+        }
+
+        const glossaryPairs = [];
+        termLines.forEach(line => {
+          let clean = line;
+          const hash = clean.indexOf('#');
+          if (hash !== -1) clean = clean.slice(0, hash).trim();
+          const eq = clean.indexOf('=');
+          if (eq !== -1) {
+            const orig = clean.slice(0, eq).trim();
+            const target = clean.slice(eq + 1).trim();
+            if (orig && target) glossaryPairs.push({ orig, target });
+          }
+        });
+
+        if (glossaryPairs.length === 0) {
+          return toast('No "Original = Translation" pairs found in glossary.', 'info');
+        }
+
+        const chs = (translatedChapters && translatedChapters.length > 0)
+          ? translatedChapters
+          : (chapters && chapters.length > 0 ? chapters : [{ title: 'Current Output', content: assembledText || inputText }]);
+
+        setIsAuditingConsistency(true);
+        const results = [];
+
+        glossaryPairs.forEach(pair => {
+          const targetTerm = pair.target;
+          const origTerm = pair.orig;
+          let totalTargetOccurrences = 0;
+          let totalLeaks = 0;
+          const chapterOccurrences = [];
+          const leaksFoundIn = [];
+          const driftMatches = [];
+
+          const words = targetTerm.split(/\s+/).filter(w => w.length >= 4);
+
+          chs.forEach((ch, idx) => {
+            const text = (ch?.content || ch?.text || '');
+            const chName = ch?.title || `Ch. ${idx + 1}`;
+            
+            try {
+              const targetRegex = new RegExp('\\b' + escapeRegExp(targetTerm) + '\\b', 'gi');
+              const targetMatches = (text.match(targetRegex) || []).length;
+              if (targetMatches > 0) {
+                totalTargetOccurrences += targetMatches;
+                chapterOccurrences.push({ chName, count: targetMatches });
+              }
+
+              if (origTerm && origTerm.length >= 2) {
+                const leakRegex = new RegExp(escapeRegExp(origTerm), 'g');
+                const leakMatches = (text.match(leakRegex) || []).length;
+                if (leakMatches > 0) {
+                  totalLeaks += leakMatches;
+                  leaksFoundIn.push({ chName, count: leakMatches });
+                }
+              }
+
+              words.forEach(w => {
+                if (w.includes('ou')) {
+                  const alternate = w.replace(/ou/g, 'o');
+                  const altRegex = new RegExp('\\b' + escapeRegExp(alternate) + '\\b', 'gi');
+                  const altMatches = (text.match(altRegex) || []).length;
+                  if (altMatches > 0) {
+                    driftMatches.push({ chName, found: alternate, shouldBe: w, count: altMatches });
+                  }
+                }
+              });
+            } catch(e) {}
+          });
+
+          results.push({
+            orig: origTerm,
+            target: targetTerm,
+            totalCount: totalTargetOccurrences,
+            chapterOccurrences,
+            totalLeaks,
+            leaksFoundIn,
+            driftMatches,
+            status: totalLeaks > 0 ? 'leak' : (driftMatches.length > 0 ? 'drift' : (totalTargetOccurrences > 0 ? 'good' : 'missing'))
+          });
+        });
+
+        setConsistencyAuditResults(results);
+        setIsAuditingConsistency(false);
+        setConsistencyModalOpen(true);
+      };
+
+      const handleBatchFixDrift = (foundWord, targetWord) => {
+        if (!foundWord || !targetWord) return;
+        const regex = new RegExp('\\b' + escapeRegExp(foundWord) + '\\b', 'g');
+        let replacedCount = 0;
+
+        if (translatedChapters && translatedChapters.length > 0) {
+          const updated = translatedChapters.map(ch => {
+            const c = ch.content || '';
+            const matches = (c.match(regex) || []).length;
+            replacedCount += matches;
+            return { ...ch, content: c.replace(regex, targetWord) };
+          });
+          setTranslatedChapters(updated);
+        }
+
+        if (assembledText) {
+          const matches = (assembledText.match(regex) || []).length;
+          if (replacedCount === 0) replacedCount += matches;
+          setAssembledText(assembledText.replace(regex, targetWord));
+        }
+
+        toast(`Replaced ${replacedCount} occurrences of "${foundWord}" with "${targetWord}"!`, 'success');
+        handleRunConsistencyCheck();
+      };
+
+      // --- Full App Backup & Restore & WebDAV Cloud Sync ---
+      const generateBackupPayload = async (shouldIncludeKeys = false) => {
+        const currentSavedGlossaries = (savedGlossaries && savedGlossaries.length > 0)
+          ? savedGlossaries
+          : (() => {
+              try { return JSON.parse(localStorage.getItem('savedGlossaries') || '[]'); } catch (e) { return []; }
+            })();
+        const currentTerminology = (terminology && terminology.trim())
+          ? terminology
+          : (localStorage.getItem('terminology') || '');
+        const currentInstructions = (customInstructions && customInstructions.trim())
+          ? customInstructions
+          : (localStorage.getItem('customInstructions') || '');
+
+        let fullHistory = await dbGetAll('history');
+        if (!fullHistory || fullHistory.length === 0) {
+          fullHistory = (history && history.length > 0) ? history : (() => {
+            try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
+          })();
+        }
+
+        let novelLibrary = [];
+        if (window.GeminiNovelDB) {
+          try {
+            novelLibrary = await window.GeminiNovelDB.getAllNovels();
+          } catch (e) {
+            console.warn('Backup novel library fetch error:', e);
+          }
+        }
+        const webImportMeta = (() => {
+          try {
+            return JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || localStorage.getItem('gemini_web_import_history') || '[]');
+          } catch (e) {
+            return [];
+          }
+        })();
+
+        const recentTelemetry = (typeof window !== 'undefined' && window.AppLogger && Array.isArray(window.AppLogger.logs))
+          ? window.AppLogger.logs.slice(-300)
+          : [];
+
+        const backup = {
+          version: VERSION,
+          timestamp: new Date().toISOString(),
+          includesApiKeys: shouldIncludeKeys,
+          provider,
+          geminiModel,
+          deepseekModel,
+          openaiModel,
+          claudeModel,
+          concurrency,
+          contextAware,
+          chunkSizePreset: chunkSizePreset || localStorage.getItem('chunkSizePreset') || 'turbo',
+          enableThinking: enableThinking !== undefined ? enableThinking : (localStorage.getItem('enableThinking') === 'true'),
+          enableStreaming: enableStreaming !== undefined ? enableStreaming : (localStorage.getItem('enableStreaming') !== 'false'),
+          enableGlossary: enableGlossary !== undefined ? enableGlossary : (localStorage.getItem('enableGlossary') === 'true'),
+          customModel: customModel || localStorage.getItem('customModel') || '',
+          useCustomModel: useCustomModel !== undefined ? useCustomModel : (localStorage.getItem('useCustomModel') === 'true'),
+          customDeepseekModel: customDeepseekModel || localStorage.getItem('customDeepseekModel') || '',
+          useCustomDeepseekModel: useCustomDeepseekModel !== undefined ? useCustomDeepseekModel : (localStorage.getItem('useCustomDeepseekModel') === 'true'),
+          savedGlossaries: currentSavedGlossaries,
+          defaultGlossaryName: defaultGlossaryName || localStorage.getItem('defaultGlossaryName') || null,
+          terminology: currentTerminology,
+          smartGlossary,
+          customInstructions: currentInstructions,
+          epubDropCaps: epubDropCaps !== undefined ? epubDropCaps : (localStorage.getItem('epubDropCaps') !== 'false'),
+          epubSmartQuotes: epubSmartQuotes !== undefined ? epubSmartQuotes : (localStorage.getItem('epubSmartQuotes') !== 'false'),
+          epubCleanWebArtifacts: epubCleanWebArtifacts !== undefined ? epubCleanWebArtifacts : (localStorage.getItem('epubCleanWebArtifacts') !== 'false'),
+          epubFontTheme: epubFontTheme || localStorage.getItem('epubFontTheme') || 'literata',
+          epubJustifyText: epubJustifyText !== undefined ? epubJustifyText : (localStorage.getItem('epubJustifyText') !== 'false'),
+          epubIncludeImages: epubIncludeImages !== undefined ? epubIncludeImages : (localStorage.getItem('epubIncludeImages') !== 'false'),
+          scrapeImages: scrapeImages !== undefined ? scrapeImages : (localStorage.getItem('scrapeImages') !== 'false'),
+          readerTheme: readerTheme || localStorage.getItem('readerTheme') || 'sepia',
+          readerFont: readerFont || localStorage.getItem('readerFont') || 'serif',
+          readerFontSize: readerFontSize || parseInt(localStorage.getItem('readerFontSize')) || 18,
+          readerJustify: localStorage.getItem('readerJustify') !== 'false',
+          translationHistory: fullHistory,
+          exportHistory: JSON.parse(localStorage.getItem('exportHistory') || '[]'),
+          novelLibrary,
+          webImportHistory: webImportMeta,
+          telemetryLogs: recentTelemetry
+        };
+
+        if (shouldIncludeKeys) {
+          const exportKeys = {};
+          ['gemini', 'deepseek', 'openai', 'claude', 'deepl', 'libre'].forEach(prov => {
+            const legacyKey = localStorage.getItem(`${prov}ApiKey`) || (prov === 'gemini' ? (localStorage.getItem('apiKey') || '') : '');
+            const profiles = (apiKeysByProvider && apiKeysByProvider[prov]) ? [...apiKeysByProvider[prov]] : [];
+            if (profiles.length > 0) {
+              exportKeys[prov] = profiles.map(p => {
+                if (!p.key && legacyKey) return { ...p, key: legacyKey };
+                return p;
+              });
+            } else if (legacyKey) {
+              const provNames = { gemini: 'Gemini', deepseek: 'DeepSeek', openai: 'OpenAI', claude: 'Claude', deepl: 'DeepL', libre: 'LibreTranslate' };
+              exportKeys[prov] = [{ id: `${prov}-init`, name: `Primary ${provNames[prov] || prov} Key`, key: legacyKey }];
+            } else {
+              exportKeys[prov] = [];
+            }
+          });
+
+          backup.apiKeysByProvider = exportKeys;
+          backup.activeKeyIds = activeKeyIds;
+          backup.geminiApiKey = exportKeys.gemini?.[0]?.key || localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey') || '';
+          backup.deepseekApiKey = exportKeys.deepseek?.[0]?.key || localStorage.getItem('deepseekApiKey') || '';
+          backup.openaiApiKey = exportKeys.openai?.[0]?.key || localStorage.getItem('openaiApiKey') || '';
+          backup.claudeApiKey = exportKeys.claude?.[0]?.key || localStorage.getItem('claudeApiKey') || '';
+          backup.deeplApiKey = exportKeys.deepl?.[0]?.key || localStorage.getItem('deeplApiKey') || '';
+          backup.libreUrl = libreUrl;
+        }
+        return { backup, fullHistory, novelLibrary };
+      };
+
       const exportFullBackup = async (forceIncludeKeys = null) => {
         try {
           const shouldIncludeKeys = forceIncludeKeys !== null ? forceIncludeKeys : includeApiKeysInBackup;
-          const currentSavedGlossaries = (savedGlossaries && savedGlossaries.length > 0)
-            ? savedGlossaries
-            : (() => {
-                try { return JSON.parse(localStorage.getItem('savedGlossaries') || '[]'); } catch (e) { return []; }
-              })();
-          const currentTerminology = (terminology && terminology.trim())
-            ? terminology
-            : (localStorage.getItem('terminology') || '');
-          const currentInstructions = (customInstructions && customInstructions.trim())
-            ? customInstructions
-            : (localStorage.getItem('customInstructions') || '');
-
-          let fullHistory = await dbGetAll('history');
-          if (!fullHistory || fullHistory.length === 0) {
-            fullHistory = (history && history.length > 0) ? history : (() => {
-              try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
-            })();
-          }
-
-          // Novel Library (Full raw chapters from IndexedDB + Metadata)
-          let novelLibrary = [];
-          if (window.GeminiNovelDB) {
-            try {
-              novelLibrary = await window.GeminiNovelDB.getAllNovels();
-            } catch (e) {
-              console.warn('Backup novel library fetch error:', e);
-            }
-          }
-          const webImportMeta = (() => {
-            try {
-              return JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || localStorage.getItem('gemini_web_import_history') || '[]');
-            } catch (e) {
-              return [];
-            }
-          })();
-
-          // Telemetry diagnostics snapshot
-          const recentTelemetry = (typeof window !== 'undefined' && window.AppLogger && Array.isArray(window.AppLogger.logs))
-            ? window.AppLogger.logs.slice(-300)
-            : [];
-
-          const backup = {
-            version: VERSION,
-            timestamp: new Date().toISOString(),
-            includesApiKeys: shouldIncludeKeys,
-
-            // Core Translation & Engine Settings
-            provider,
-            geminiModel,
-            deepseekModel,
-            openaiModel,
-            claudeModel,
-            concurrency,
-            contextAware,
-            chunkSizePreset: chunkSizePreset || localStorage.getItem('chunkSizePreset') || 'turbo',
-            enableThinking: enableThinking !== undefined ? enableThinking : (localStorage.getItem('enableThinking') === 'true'),
-            enableStreaming: enableStreaming !== undefined ? enableStreaming : (localStorage.getItem('enableStreaming') !== 'false'),
-            enableGlossary: enableGlossary !== undefined ? enableGlossary : (localStorage.getItem('enableGlossary') === 'true'),
-            customModel: customModel || localStorage.getItem('customModel') || '',
-            useCustomModel: useCustomModel !== undefined ? useCustomModel : (localStorage.getItem('useCustomModel') === 'true'),
-            customDeepseekModel: customDeepseekModel || localStorage.getItem('customDeepseekModel') || '',
-            useCustomDeepseekModel: useCustomDeepseekModel !== undefined ? useCustomDeepseekModel : (localStorage.getItem('useCustomDeepseekModel') === 'true'),
-
-            // Glossaries & Instructions
-            savedGlossaries: currentSavedGlossaries,
-            defaultGlossaryName: defaultGlossaryName || localStorage.getItem('defaultGlossaryName') || null,
-            terminology: currentTerminology,
-            smartGlossary,
-            customInstructions: currentInstructions,
-
-            // EPUB Styling & Typography Preferences
-            epubDropCaps: epubDropCaps !== undefined ? epubDropCaps : (localStorage.getItem('epubDropCaps') !== 'false'),
-            epubSmartQuotes: epubSmartQuotes !== undefined ? epubSmartQuotes : (localStorage.getItem('epubSmartQuotes') !== 'false'),
-            epubCleanWebArtifacts: epubCleanWebArtifacts !== undefined ? epubCleanWebArtifacts : (localStorage.getItem('epubCleanWebArtifacts') !== 'false'),
-            epubFontTheme: epubFontTheme || localStorage.getItem('epubFontTheme') || 'literata',
-            epubJustifyText: epubJustifyText !== undefined ? epubJustifyText : (localStorage.getItem('epubJustifyText') !== 'false'),
-            epubIncludeImages: epubIncludeImages !== undefined ? epubIncludeImages : (localStorage.getItem('epubIncludeImages') !== 'false'),
-            scrapeImages: scrapeImages !== undefined ? scrapeImages : (localStorage.getItem('scrapeImages') !== 'false'),
-
-            // Reader Mode Preferences
-            readerTheme: readerTheme || localStorage.getItem('readerTheme') || 'sepia',
-            readerFont: readerFont || localStorage.getItem('readerFont') || 'serif',
-            readerFontSize: readerFontSize || parseInt(localStorage.getItem('readerFontSize')) || 18,
-            readerJustify: localStorage.getItem('readerJustify') !== 'false',
-
-            // Book History & Novel Library
-            translationHistory: fullHistory,
-            exportHistory: JSON.parse(localStorage.getItem('exportHistory') || '[]'),
-            novelLibrary,
-            webImportHistory: webImportMeta,
-
-            // Telemetry Diagnostics
-            telemetryLogs: recentTelemetry
-          };
-          if (shouldIncludeKeys) {
-            const exportKeys = {};
-            ['gemini', 'deepseek', 'openai', 'claude', 'deepl', 'libre'].forEach(prov => {
-              const legacyKey = localStorage.getItem(`${prov}ApiKey`) || (prov === 'gemini' ? (localStorage.getItem('apiKey') || '') : '');
-              const profiles = (apiKeysByProvider && apiKeysByProvider[prov]) ? [...apiKeysByProvider[prov]] : [];
-              if (profiles.length > 0) {
-                exportKeys[prov] = profiles.map(p => {
-                  if (!p.key && legacyKey) return { ...p, key: legacyKey };
-                  return p;
-                });
-              } else if (legacyKey) {
-                const provNames = { gemini: 'Gemini', deepseek: 'DeepSeek', openai: 'OpenAI', claude: 'Claude', deepl: 'DeepL', libre: 'LibreTranslate' };
-                exportKeys[prov] = [{ id: `${prov}-init`, name: `Primary ${provNames[prov] || prov} Key`, key: legacyKey }];
-              } else {
-                exportKeys[prov] = [];
-              }
-            });
-
-            backup.apiKeysByProvider = exportKeys;
-            backup.activeKeyIds = activeKeyIds;
-            backup.geminiApiKey = exportKeys.gemini?.[0]?.key || localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey') || '';
-            backup.deepseekApiKey = exportKeys.deepseek?.[0]?.key || localStorage.getItem('deepseekApiKey') || '';
-            backup.openaiApiKey = exportKeys.openai?.[0]?.key || localStorage.getItem('openaiApiKey') || '';
-            backup.claudeApiKey = exportKeys.claude?.[0]?.key || localStorage.getItem('claudeApiKey') || '';
-            backup.deeplApiKey = exportKeys.deepl?.[0]?.key || localStorage.getItem('deeplApiKey') || '';
-            backup.libreUrl = libreUrl;
-          }
+          const { backup, fullHistory, novelLibrary } = await generateBackupPayload(shouldIncludeKeys);
           const jsonStr = JSON.stringify(backup, null, 2);
           const fileName = `gemini_translator_backup_${shouldIncludeKeys ? 'with_keys_' : ''}${new Date().toISOString().slice(0, 10)}.json`;
           const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -4378,6 +4819,140 @@ FORMATTING & STRUCTURE RULES:
         } catch(e) {
           console.error('Full backup error:', e);
           toast('Backup save error: ' + e.message, 'error');
+        }
+      };
+
+      const testWebDavConnection = async () => {
+        if (!webdavUrl || !webdavUrl.trim()) return toast('Please enter a WebDAV URL in Settings', 'warning');
+        setWebdavTesting(true);
+        try {
+          const cleanUrl = webdavUrl.trim().replace(/\/+$/, '');
+          const headers = {};
+          if (webdavUser || webdavPass) {
+            headers['Authorization'] = 'Basic ' + btoa(`${webdavUser}:${webdavPass}`);
+          }
+          const res = await (window.NativeBridge?.webDavRequest ? window.NativeBridge.webDavRequest({
+            url: cleanUrl,
+            method: 'PROPFIND',
+            headers: { ...headers, 'Depth': '0' }
+          }) : fetch(cleanUrl, { method: 'GET', headers }));
+
+          if (res.status >= 200 && res.status < 400) {
+            toast(`✅ Connected to WebDAV! (Status ${res.status})`, 'success');
+          } else if (res.status === 401 || res.status === 403) {
+            toast(`Authentication failed (HTTP ${res.status}). Check username/password.`, 'error');
+          } else {
+            toast(`WebDAV server responded with HTTP ${res.status}.`, 'info');
+          }
+        } catch (e) {
+          toast(`Connection failed: ${e.message}`, 'error');
+        } finally {
+          setWebdavTesting(false);
+        }
+      };
+
+      const backupToWebDav = async () => {
+        if (!webdavUrl || !webdavUrl.trim()) return toast('Please configure WebDAV URL in Settings first', 'warning');
+        setWebdavSyncing(true);
+        try {
+          const cleanUrl = webdavUrl.trim().replace(/\/+$/, '');
+          const targetFolder = (webdavPath || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
+          const fullBackupUrl = `${cleanUrl}/${targetFolder}/backup_full.json`;
+          const metaUrl = `${cleanUrl}/${targetFolder}/metadata.json`;
+
+          const headers = { 'Content-Type': 'application/json' };
+          if (webdavUser || webdavPass) {
+            headers['Authorization'] = 'Basic ' + btoa(`${webdavUser}:${webdavPass}`);
+          }
+
+          const { backup } = await generateBackupPayload(true);
+          const backupJson = JSON.stringify(backup, null, 2);
+          const metaJson = JSON.stringify({
+            version: VERSION,
+            lastSync: new Date().toISOString(),
+            device: navigator.userAgent.includes('Android') ? 'Android' : 'Desktop/Web',
+            novelCount: (backup.novelLibrary || []).length,
+            glossaryCount: (backup.savedGlossaries || []).length
+          }, null, 2);
+
+          // 1. Try MKCOL to ensure directory exists (ignore if already exists or fails)
+          try {
+            await window.NativeBridge?.webDavRequest?.({
+              url: `${cleanUrl}/${targetFolder}`,
+              method: 'MKCOL',
+              headers
+            });
+          } catch(e) {}
+
+          // 2. PUT backup payload
+          const uploadRes = await (window.NativeBridge?.webDavRequest ? window.NativeBridge.webDavRequest({
+            url: fullBackupUrl,
+            method: 'PUT',
+            headers,
+            body: backupJson
+          }) : fetch(fullBackupUrl, { method: 'PUT', headers, body: backupJson }));
+
+          // 3. PUT metadata
+          try {
+            await (window.NativeBridge?.webDavRequest ? window.NativeBridge.webDavRequest({
+              url: metaUrl,
+              method: 'PUT',
+              headers,
+              body: metaJson
+            }) : fetch(metaUrl, { method: 'PUT', headers, body: metaJson }));
+          } catch(e) {}
+
+          if (uploadRes.status >= 200 && uploadRes.status < 300) {
+            const timeStr = new Date().toLocaleString();
+            toast(`☁️ WebDAV Backup Successful! Saved to /${targetFolder}/`, 'success');
+            setWebdavLastSync(timeStr);
+            localStorage.setItem('webdavLastSync', timeStr);
+          } else {
+            throw new Error(`HTTP ${uploadRes.status}: ${uploadRes.data?.slice(0, 100) || 'Upload failed'}`);
+          }
+        } catch (e) {
+          console.error('WebDAV Backup Error:', e);
+          toast(`WebDAV Backup failed: ${e.message}`, 'error');
+        } finally {
+          setWebdavSyncing(false);
+        }
+      };
+
+      const restoreFromWebDav = async () => {
+        if (!webdavUrl || !webdavUrl.trim()) return toast('Please configure WebDAV URL in Settings first', 'warning');
+        setWebdavSyncing(true);
+        try {
+          const cleanUrl = webdavUrl.trim().replace(/\/+$/, '');
+          const targetFolder = (webdavPath || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
+          const fullBackupUrl = `${cleanUrl}/${targetFolder}/backup_full.json`;
+
+          const headers = {};
+          if (webdavUser || webdavPass) {
+            headers['Authorization'] = 'Basic ' + btoa(`${webdavUser}:${webdavPass}`);
+          }
+
+          const res = await (window.NativeBridge?.webDavRequest ? window.NativeBridge.webDavRequest({
+            url: fullBackupUrl,
+            method: 'GET',
+            headers
+          }) : fetch(fullBackupUrl, { method: 'GET', headers }));
+
+          if (res.status !== 200 || !res.data) {
+            throw new Error(`HTTP ${res.status}: Backup file not found on WebDAV.`);
+          }
+
+          const data = JSON.parse(res.data);
+          const countNovels = (data.novelLibrary || []).length;
+          const countGloss = (data.savedGlossaries || []).length;
+
+          if (confirm(`Found WebDAV backup (${countNovels} novels, ${countGloss} glossaries). Restore now? This will safely merge and update your data.`)) {
+            await applyRestoredData(data);
+            toast(`Restored ${countNovels} novels and ${countGloss} glossaries from WebDAV!`, 'success');
+          }
+        } catch (e) {
+          toast(`WebDAV Restore failed: ${e.message}`, 'error');
+        } finally {
+          setWebdavSyncing(false);
         }
       };
 
@@ -5169,7 +5744,15 @@ FORMATTING & STRUCTURE RULES:
                     totalTokensUsed += tRes.usage.totalTokens || 0;
                   }
                 } catch (e) { console.warn('Title translation failed, keeping original title:', e.message); }
-                done++; setProgress(Math.floor((done / totalChunks) * 100));
+                done++;
+                const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
+                setProgress(curPct);
+                window.NativeBridge?.showProgressNotification(
+                  `Gemini Translator (${curPct}%)`,
+                  `Ch. ${i + 1}/${chapters.length}: Title standardized`,
+                  curPct,
+                  true
+                );
               } else {
                 title = newChapters[i].title;
               }
@@ -5206,7 +5789,16 @@ FORMATTING & STRUCTURE RULES:
               const liveText = allParts.filter(Boolean).join('\n\n\n').trim();
               setAssembledText(liveText);
 
-              done++; setProgress(Math.floor((done / totalChunks) * 100));
+              done++;
+              const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
+              setProgress(curPct);
+              const chTitleClean = (title || `Chapter ${i + 1}`).trim().slice(0, 30);
+              window.NativeBridge?.showProgressNotification(
+                `Gemini Translator (${curPct}%)`,
+                `Ch. ${i + 1}/${chapters.length} (chunk ${j + 1}/${chunks.length}) • ${chTitleClean}`,
+                curPct,
+                true
+              );
             }
 
             const content = cleanNovelProse(stripContextLeak(parts.join('\n\n')).replace(/\r\n/g, '\n')).trim();
@@ -5293,8 +5885,11 @@ FORMATTING & STRUCTURE RULES:
           localStorage.removeItem(jobId); setActiveSession(null);
           toast(`Ebook translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
           window.NativeBridge?.releaseWakeLock();
-          window.NativeBridge?.clearProgressNotification(true, 'Book Translation Complete! ', `${chapters.length} chapters translated in ${durationStr}.`);
+          window.NativeBridge?.clearProgressNotification(true, 'Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${durationStr}.`);
           window.NativeBridge?.haptic('success');
+          if (webdavAutoSync && webdavUrl.trim()) {
+            backupToWebDav().catch(e => console.warn('Auto WebDAV sync error:', e));
+          }
         } catch (e) {
           if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error') } else toast('Translation paused.', 'info')
           setTranslatedChapters(resume && activeSession ? activeSession.newChapters : []);
@@ -5317,6 +5912,8 @@ FORMATTING & STRUCTURE RULES:
         if (abortRef.current) {
           try { abortRef.current.abort(); } catch (err) {}
         }
+        window.NativeBridge?.clearProgressNotification(false);
+        window.NativeBridge?.releaseWakeLock();
         setIsTranslating(false);
         setProgressLabel('');
       };
@@ -6200,8 +6797,21 @@ FORMATTING & STRUCTURE RULES:
                     h('span', { style: { fontSize: 11, color: 'var(--iris)' } }, 'Edit ➔')
                   ),
 
-                  // Controls: Editor, Clear, Smart Filter Toggle
+                  // Controls: AI Auto-Extract, Consistency Audit, Full Editor, Clear, Smart Filter Toggle
                   h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', border: '1px solid currentColor', fontWeight: 600 },
+                      onClick: handleOpenAutoGlossary
+                    }, '⚡ AI Auto-Extract'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'rgba(16, 185, 129, 0.2)', color: 'var(--pine)', border: '1px solid currentColor', fontWeight: 600 },
+                      onClick: handleRunConsistencyCheck,
+                      disabled: isAuditingConsistency
+                    }, isAuditingConsistency ? 'Auditing…' : '🔍 Verify Names'),
                     h('button', { type: 'button', className: 'mini-btn', onClick: () => setGlossaryEditorOpen(true) }, 'Open Full Editor'),
                     h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => { setTerminology(''); localStorage.removeItem('terminology'); setActiveGlossaryId(null); localStorage.removeItem('activeGlossaryId'); toast('Glossary cleared.', 'info'); } }, 'Clear'),
                     switchRow('Smart Glossary Filter', smartGlossary, (v) => { setSmartGlossary(v); localStorage.setItem('smartGlossary', v); })
@@ -6530,8 +7140,15 @@ FORMATTING & STRUCTURE RULES:
 
             // ═══ TAB 5: SETTINGS ═══
             activeTab === 'settings' && h(React.Fragment, null,
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'TRANSLATION ENGINE')
+                ),
+                h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, provider.toUpperCase())
+              ),
               h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Engine')),
+                h('div', { className: 'card-title' }, h('span', null, 'Engine Configuration')),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Active Provider'),
                   h('select', { className: 'chip', style: chipSelectStyle, value: provider, onChange: e => setProvider(e.target.value) },
@@ -6680,9 +7297,27 @@ FORMATTING & STRUCTURE RULES:
                 )
               ),
 
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'APPEARANCE & DISPLAY')
+                ),
+                h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, amoledMode ? 'AMOLED' : 'DARK')
+              ),
               h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'EPUB Format')),
-                switchRow('Embed Images', epubIncludeImages, setEpubIncludeImages),
+                h('div', { className: 'card-title' }, h('span', null, 'Theme & Reader Formatting')),
+                switchRow('AMOLED Pitch Black (Pure #000000)', amoledMode, (v) => {
+                  setAmoledMode(v);
+                  localStorage.setItem('amoledMode', String(v));
+                  if (v) {
+                    document.documentElement.setAttribute('data-theme', 'amoled');
+                    document.body.classList.add('theme-amoled');
+                  } else {
+                    document.documentElement.removeAttribute('data-theme');
+                    document.body.classList.remove('theme-amoled');
+                  }
+                }),
+                switchRow('Embed Images in EPUB', epubIncludeImages, setEpubIncludeImages),
                 switchRow('Drop Caps', epubDropCaps, setEpubDropCaps),
                 switchRow('Smart Quotes', epubSmartQuotes, setEpubSmartQuotes),
                 switchRow('Clean Web Junk', epubCleanWebArtifacts, setEpubCleanWebArtifacts),
@@ -6692,8 +7327,21 @@ FORMATTING & STRUCTURE RULES:
                 )
               ),
 
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'HARDWARE & DIAGNOSTICS')
+                )
+              ),
               h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Diagnostics & Telemetry')),
+                h('div', { className: 'card-title' }, h('span', null, 'Device Lock & Telemetry')),
+                switchRow('Keep Screen & Device Awake (WakeLock)', deviceWakeLock, (v) => {
+                  setDeviceWakeLock(v);
+                  localStorage.setItem('deviceWakeLock', String(v));
+                  if (!v && window.NativeBridge?.releaseWakeLock) {
+                    window.NativeBridge.releaseWakeLock();
+                  }
+                }),
                 switchRow('Show Live Logs on Translate Tab', showLiveLogs, setShowLiveLogs),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'System & API Logs'),
@@ -6701,24 +7349,120 @@ FORMATTING & STRUCTURE RULES:
                 )
               ),
 
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'CLOUD & WEBDAV SYNC')
+                ),
+                h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, 'NEXTCLOUD / NAS')
+              ),
               h('div', { className: 'card' },
                 h('div', { className: 'card-title' },
-                  h('span', null, 'Glossary & Instructions'),
-                  activeGlossaryId
-                    ? h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 10.5 } }, `Active: ${activeGlossaryId}`)
-                    : h('span', { className: 'count', style: { fontSize: 10.5 } }, `${glossaryTermCount} terms`)
+                  h('span', null, 'WebDAV Cloud Auto-Sync'),
+                  h('span', { className: 'count' }, 'Nextcloud · ownCloud · WebDAV NAS')
                 ),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Location'),
-                  h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
-                    onClick: () => setActiveTab('text')
-                  }, '📖 Manage on Translate Tab ➔')
+                h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 } },
+                  h('div', null,
+                    h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'SERVER WEBDAV URL'),
+                    h('input', {
+                      type: 'text',
+                      placeholder: 'https://cloud.example.com/remote.php/dav/files/username/',
+                      value: webdavUrl,
+                      onChange: e => setWebdavUrl(e.target.value.trim()),
+                      style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 12px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
+                    })
+                  ),
+                  h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+                    h('div', null,
+                      h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'USERNAME'),
+                      h('input', {
+                        type: 'text',
+                        placeholder: 'Username',
+                        value: webdavUser,
+                        onChange: e => setWebdavUser(e.target.value.trim()),
+                        style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
+                      })
+                    ),
+                    h('div', null,
+                      h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'APP PASSWORD / TOKEN'),
+                      h('input', {
+                        type: 'password',
+                        placeholder: 'App Password / Token',
+                        value: webdavPass,
+                        onChange: e => setWebdavPass(e.target.value.trim()),
+                        style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
+                      })
+                    )
+                  ),
+                  h('div', null,
+                    h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'REMOTE FOLDER NAME'),
+                    h('input', {
+                      type: 'text',
+                      placeholder: 'GeminiTranslator',
+                      value: webdavPath,
+                      onChange: e => setWebdavPath(e.target.value.trim()),
+                      style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
+                    })
+                  ),
+                  switchRow('Auto-Backup on Translation Finish', webdavAutoSync, (v) => {
+                    setWebdavAutoSync(v);
+                    localStorage.setItem('webdavAutoSync', String(v));
+                  }),
+                  h('div', { className: 'set-row', style: { padding: '4px 0' } },
+                    h('span', { className: 'l', style: { fontSize: 11 } }, 'Last Cloud Sync:'),
+                    h('span', { className: 'count', style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 } }, webdavLastSync || 'Never synced')
+                  ),
+                  h('div', { className: 'toolbar-group', style: { width: '100%', marginTop: 6 } },
+                    h('button', {
+                      type: 'button',
+                      style: { flex: 1, textAlign: 'center' },
+                      disabled: webdavTesting,
+                      onClick: testWebDavConnection
+                    }, webdavTesting ? 'Testing…' : '⚡ Test Link'),
+                    h('button', {
+                      type: 'button',
+                      style: { flex: 1, textAlign: 'center', fontWeight: 600, color: 'var(--iris)' },
+                      disabled: webdavSyncing,
+                      onClick: backupToWebDav
+                    }, webdavSyncing ? 'Syncing…' : '☁️ Backup Now'),
+                    h('button', {
+                      type: 'button',
+                      style: { flex: 1, textAlign: 'center' },
+                      disabled: webdavSyncing,
+                      onClick: restoreFromWebDav
+                    }, '📥 Restore')
+                  )
                 )
               ),
 
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'LOCAL ARCHIVE & BACKUP')
+                )
+              ),
+              h('div', { className: 'card' },
+                h('div', { className: 'card-title' },
+                  h('span', null, 'Full App Backup & Restore'),
+                  h('span', { className: 'count' }, 'Library · Settings · Keys')
+                ),
+                h('div', { className: 'toolbar-group', style: { width: '100%', marginTop: 8 } },
+                  h('button', { type: 'button', style: { flex: 1, textAlign: 'center' }, onClick: () => exportFullBackup(true) }, 'Export + Keys'),
+                  h('button', { type: 'button', style: { flex: 1, textAlign: 'center' }, onClick: () => exportFullBackup(false) }, 'Export Safe'),
+                  h('label', { style: { flex: 1, textAlign: 'center', cursor: 'pointer' } },
+                    'Import File',
+                    h('input', { type: 'file', accept: '.json', style: { display: 'none' }, onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) importFullBackup({ target: { files: [f] } }); } })
+                  ),
+                  h('button', { type: 'button', style: { flex: 1, textAlign: 'center' }, onClick: pasteAndRestoreBackup }, 'Paste & Restore')
+                )
+              ),
+
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'API KEYS & ROTATION')
+                )
+              ),
               h('div', { className: 'card' },
                 (() => {
                   const provKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
@@ -6822,24 +7566,18 @@ FORMATTING & STRUCTURE RULES:
                 })
               ),
 
-              h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Full App Backup & Restore'), h('span', { className: 'count' }, 'Library · Settings · Logs · Keys')),
-                h('div', { className: 'book-acts' },
-                  h('button', { type: 'button', className: 'mini-btn', onClick: () => exportFullBackup(true) }, 'Export + Keys'),
-                  h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => exportFullBackup(false) }, 'Export Safe'),
-                  h('label', { className: 'mini-btn ghost', style: { cursor: 'pointer' } },
-                    'Import File',
-                    h('input', { type: 'file', accept: '.json', style: { display: 'none' }, onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) importFullBackup({ target: { files: [f] } }); } })
-                  ),
-                  h('button', { type: 'button', className: 'mini-btn ghost', onClick: pasteAndRestoreBackup }, 'Paste & Restore')
-                )
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'SYSTEM & BUILD')
+                ),
+                h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, `v${VERSION}`)
               ),
-
               h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'App')),
+                h('div', { className: 'card-title' }, h('span', null, 'App Version & Runtime')),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Check for updates'), h('button', { type: 'button', className: 'chip-act', onClick: () => checkForAppUpdate(true) }, `v${VERSION}`)),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Install App'), h('button', { type: 'button', className: 'chip-act', onClick: handleInstallPWA }, 'Install')),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Shortcuts'), h('span', { className: 'count' }, 'Ctrl+Enter · Ctrl+Shift+C · Ctrl+Alt+R'))
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Install App (PWA)'), h('button', { type: 'button', className: 'chip-act', onClick: handleInstallPWA }, 'Install')),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Keyboard Shortcuts'), h('span', { className: 'count' }, 'Ctrl+Enter · Ctrl+Shift+C · Ctrl+Alt+R'))
               )
             )
           ),
@@ -7084,8 +7822,227 @@ FORMATTING & STRUCTURE RULES:
           setFont: setReaderFont,
           fontSize: readerFontSize,
           setFontSize: setReaderFontSize,
-          tgtLang
+          tgtLang,
+          onVerifyConsistency: handleRunConsistencyCheck
         }),
+
+        // ── AUTO-GLOSSARY & CHARACTER EXTRACTOR MODAL ──
+        autoGlossaryModalOpen && h('div', { className: 'modal-overlay', onClick: () => setAutoGlossaryModalOpen(false) },
+          h('div', { className: 'modal-box', onClick: e => e.stopPropagation() },
+            h('div', { className: 'modal-hd' },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 18 } }, '⚡'),
+                h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'AI Auto-Glossary & Character Extractor')
+              ),
+              h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setAutoGlossaryModalOpen(false) }, '✕')
+            ),
+            h('div', { className: 'modal-bd' },
+              h('p', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 14, lineHeight: 1.5 } },
+                'Deeply scans novel text using Gemini to discover character names, aliases, sects, factions, and realm terminology with clean translations.'
+              ),
+              h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: 12, borderRadius: 4, marginBottom: 16 } },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
+                  h('span', { style: { fontSize: 12, fontWeight: 600 } }, 'Chapters to Sample:'),
+                  h('span', { className: 'badge', style: { fontFamily: "'IBM Plex Mono', monospace" } },
+                    chapters && chapters.length > 0
+                      ? `${autoGlossaryChapterCount} / ${chapters.length} chapters (${autoGlossaryChapterCount === chapters.length ? 'ALL' : `Ch. 1 - ${autoGlossaryChapterCount}`})`
+                      : 'Single Input Text'
+                  )
+                ),
+                chapters && chapters.length > 1 && h('input', {
+                  type: 'range',
+                  min: 1,
+                  max: chapters.length,
+                  value: autoGlossaryChapterCount,
+                  onChange: e => setAutoGlossaryChapterCount(parseInt(e.target.value)),
+                  style: { width: '100%', accentColor: 'var(--iris)' }
+                }),
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--slate)', marginTop: 4 } },
+                  h('span', null, '1 Chapter'),
+                  h('span', null, chapters && chapters.length > 0 ? `All (${chapters.length} Chs)` : 'Input Box')
+                )
+              ),
+              h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
+                h('button', {
+                  type: 'button',
+                  className: 'btn primary',
+                  style: { flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 },
+                  disabled: isExtractingGlossary,
+                  onClick: handleExtractGlossary
+                }, isExtractingGlossary ? 'Analyzing Chapters with AI…' : '⚡ Extract Characters & Lore')
+              ),
+              extractedTerms.length > 0 && h('div', null,
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid var(--hairline)' } },
+                  h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)' } }, `Extracted Entities (${extractedTerms.filter(t => t.checked).length}/${extractedTerms.length} selected)`),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn ghost',
+                    style: { fontSize: 11, padding: '2px 8px' },
+                    onClick: () => {
+                      const allChecked = extractedTerms.every(t => t.checked);
+                      setExtractedTerms(extractedTerms.map(t => ({ ...t, checked: !allChecked })));
+                    }
+                  }, extractedTerms.every(t => t.checked) ? 'Deselect All' : 'Select All')
+                ),
+                h('div', { style: { maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 } },
+                  extractedTerms.map((t, idx) => h('div', {
+                    key: t.id || idx,
+                    style: {
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid var(--hairline)',
+                      borderRadius: 4,
+                      padding: '6px 10px'
+                    }
+                  },
+                    h('input', {
+                      type: 'checkbox',
+                      checked: !!t.checked,
+                      onChange: e => {
+                        const checked = e.target.checked;
+                        setExtractedTerms(prev => prev.map(item => item.id === t.id ? { ...item, checked } : item));
+                      },
+                      style: { accentColor: 'var(--iris)' }
+                    }),
+                    h('div', { style: { flex: 1, minWidth: 0 } },
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+                        h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--paper)' } }, t.orig),
+                        h('span', { style: { color: 'var(--slate)', fontSize: 11 } }, '➔'),
+                        h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--iris)' } }, t.trans),
+                        h('span', { className: 'badge', style: { fontSize: 9, textTransform: 'uppercase', padding: '1px 5px' } }, t.category || 'Term')
+                      ),
+                      t.note && h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.note)
+                    )
+                  ))
+                )
+              )
+            ),
+            extractedTerms.length > 0 && h('div', { className: 'modal-ft' },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                onClick: () => handleApplyExtractedTerms(true)
+              }, '💾 Save as New Profile'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: { background: 'var(--iris)', color: '#fff', fontWeight: 600 },
+                onClick: () => handleApplyExtractedTerms(false)
+              }, `➕ Append to Glossary (${extractedTerms.filter(t => t.checked).length})`)
+            )
+          )
+        ),
+
+        // ── NAME CONSISTENCY VERIFIER MODAL ──
+        consistencyModalOpen && h('div', { className: 'modal-overlay', onClick: () => setConsistencyModalOpen(false) },
+          h('div', { className: 'modal-box', style: { maxWidth: 640 }, onClick: e => e.stopPropagation() },
+            h('div', { className: 'modal-hd' },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 18 } }, '🔍'),
+                h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'Name Consistency & Leak Verifier')
+              ),
+              h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setConsistencyModalOpen(false) }, '✕')
+            ),
+            h('div', { className: 'modal-bd' },
+              h('p', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 14, lineHeight: 1.5 } },
+                'Audits all translated chapters against active glossary rules to detect untranslated source leaks and spelling variations/drift.'
+              ),
+              (() => {
+                if (!consistencyAuditResults) return null;
+                const totalChecked = consistencyAuditResults.length;
+                const leakItems = consistencyAuditResults.filter(r => r.totalLeaks > 0);
+                const driftItems = consistencyAuditResults.filter(r => r.driftMatches && r.driftMatches.length > 0);
+
+                return h(React.Fragment, null,
+                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 } },
+                    h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: 10, borderRadius: 4, textAlign: 'center' } },
+                      h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Terms Checked'),
+                      h('div', { style: { fontSize: 16, fontWeight: 700, marginTop: 2 } }, totalChecked)
+                    ),
+                    h('div', { style: { background: leakItems.length > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255, 255, 255, 0.03)', border: `1px solid ${leakItems.length > 0 ? 'rgba(239, 68, 68, 0.4)' : 'var(--hairline)'}`, padding: 10, borderRadius: 4, textAlign: 'center' } },
+                      h('div', { style: { fontSize: 11, color: leakItems.length > 0 ? '#f87171' : 'var(--slate)' } }, 'Leaks Detected'),
+                      h('div', { style: { fontSize: 16, fontWeight: 700, marginTop: 2, color: leakItems.length > 0 ? '#f87171' : 'inherit' } }, leakItems.length)
+                    ),
+                    h('div', { style: { background: driftItems.length > 0 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(255, 255, 255, 0.03)', border: `1px solid ${driftItems.length > 0 ? 'rgba(245, 158, 11, 0.4)' : 'var(--hairline)'}`, padding: 10, borderRadius: 4, textAlign: 'center' } },
+                      h('div', { style: { fontSize: 11, color: driftItems.length > 0 ? '#fbbf24' : 'var(--slate)' } }, 'Spelling Drift'),
+                      h('div', { style: { fontSize: 16, fontWeight: 700, marginTop: 2, color: driftItems.length > 0 ? '#fbbf24' : 'inherit' } }, driftItems.length)
+                    )
+                  ),
+                  (leakItems.length === 0 && driftItems.length === 0)
+                    ? h('div', { style: { padding: 18, background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 4, textAlign: 'center', color: '#34d399' } },
+                        h('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 4 } }, '✨ 100% Consistent!'),
+                        h('div', { style: { fontSize: 12, color: 'var(--paper-dim)' } }, 'No untranslated source terms or known romanization drift detected across chapters.')
+                      )
+                    : h('div', { style: { maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 } },
+                        leakItems.map((item, idx) => h('div', {
+                          key: 'leak_' + idx,
+                          style: { background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 4, padding: '10px 12px' }
+                        },
+                          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
+                            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                              h('span', { style: { fontWeight: 700, fontSize: 12, color: '#f87171' } }, item.orig),
+                              h('span', { style: { color: 'var(--slate)', fontSize: 11 } }, '➔ should be'),
+                              h('span', { style: { fontWeight: 700, fontSize: 12, color: 'var(--iris)' } }, item.target)
+                            ),
+                            h('span', { className: 'badge', style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 10 } },
+                              `⚠️ ${item.totalLeaks} Untranslated Leak(s)`
+                            )
+                          ),
+                          h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 8 } },
+                            `Found in: ${item.leaksFoundIn.map(l => `${l.chName} (${l.count}x)`).join(', ')}`
+                          ),
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn',
+                            style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 11 },
+                            onClick: () => handleBatchFixDrift(item.orig, item.target)
+                          }, `⚡ Replace All Leaks with "${item.target}"`)
+                        )),
+                        driftItems.map((item, idx) => h('div', {
+                          key: 'drift_' + idx,
+                          style: { background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 4, padding: '10px 12px' }
+                        },
+                          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
+                            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                              h('span', { style: { fontWeight: 700, fontSize: 12, color: '#fbbf24' } }, item.target)
+                            ),
+                            h('span', { className: 'badge', style: { background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: '1px solid currentColor', fontSize: 10 } },
+                              'Spelling Variation'
+                            )
+                          ),
+                          item.driftMatches.map((dm, dIdx) => h('div', { key: dIdx, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, gap: 8 } },
+                            h('span', { style: { fontSize: 11, color: 'var(--slate)' } },
+                              `Found "${dm.found}" (${dm.count}x in ${dm.chName})`
+                            ),
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn',
+                              style: { background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: '1px solid currentColor', fontSize: 10, padding: '2px 8px' },
+                              onClick: () => handleBatchFixDrift(dm.found, dm.shouldBe)
+                            }, `Fix to "${dm.shouldBe}"`)
+                          ))
+                        ))
+                      )
+                );
+              })()
+            ),
+            h('div', { className: 'modal-ft' },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                onClick: handleRunConsistencyCheck,
+                disabled: isAuditingConsistency
+              }, isAuditingConsistency ? 'Auditing…' : '🔄 Re-audit Chapters'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                onClick: () => setConsistencyModalOpen(false)
+              }, 'Close')
+            )
+          )
+        ),
 
         // ── EPUB STUDIO PREVIEW MODAL ──
         h('div', { dangerouslySetInnerHTML: { __html: modalHtml } })

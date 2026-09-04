@@ -1,7 +1,7 @@
 {
-  "version": "8.8.9",
-  "versionCode": 889,
+  "version": "8.9.0",
+  "versionCode": 890,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.8.9: Fixed backup export ReferenceError & Android WebView downloads; Architectural Flat & Crisp UI (zero rounded section boxes, hairline dividers, generous touch scale)."
+  "releaseNotes": "v8.9.0 Studio Pro: AI Auto-Glossary & Character Extractor with dynamic chapter slider; Name Consistency & Untranslated Leak Verifier with 1-click batch fix; Cloud & WebDAV Auto-Sync (Nextcloud/NAS); AMOLED Pitch Black (#000000) theme; Dual WakeLock & dynamic chapter/chunk live notifications; Studio IDE flat aesthetic."
 }

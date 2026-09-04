@@ -6,7 +6,7 @@
   const { useState, useEffect, useRef, useMemo, useCallback } = React;
   const h = React.createElement;
 
-    const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
+    const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang, onVerifyConsistency }) => {
       if (!open) return null;
 
       const safeChapters = useMemo(() => {
@@ -309,6 +309,7 @@
             h('div', { className: 'ch' }, `${firstChapterTitle} · Ch ${activeIdx + 1} of ${safeChapters.length}`)
           ),
           h('div', { style: { display: 'flex', gap: 8 } },
+            onVerifyConsistency && h('button', { type: 'button', className: 'icon-btn', title: 'Verify Character Name Consistency', onClick: () => { handleStopTts(); onClose(); onVerifyConsistency(); } }, '🔍'),
             h('button', { type: 'button', className: 'icon-btn', title: 'Read Aloud', onClick: () => { setShowTtsBar(!showTtsBar); if (!ttsPlaying && !showTtsBar) handlePlayPause(); } }, '🔊'),
             h('button', { type: 'button', className: 'icon-btn', title: 'Table of Contents', onClick: () => setShowToc(!showToc) }, '☰'),
             h('button', { type: 'button', className: 'icon-btn', title: 'Reader Menu', onClick: () => setShowMenu(true) }, '⋯'),

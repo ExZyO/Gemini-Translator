@@ -273,6 +273,14 @@
             } catch (e) {
                 console.warn('WakeLock Bridge:', e);
             }
+            try {
+                if ('wakeLock' in navigator && !window.__activeScreenWakeLock) {
+                    window.__activeScreenWakeLock = await navigator.wakeLock.request('screen');
+                    window.__activeScreenWakeLock.addEventListener('release', () => { window.__activeScreenWakeLock = null; });
+                }
+            } catch (e) {
+                console.warn('Screen WakeLock API:', e);
+            }
         },
 
         releaseWakeLock: async () => {
@@ -284,6 +292,34 @@
             } catch (e) {
                 console.warn('WakeLock Release Bridge:', e);
             }
+            try {
+                if (window.__activeScreenWakeLock) {
+                    await window.__activeScreenWakeLock.release();
+                    window.__activeScreenWakeLock = null;
+                }
+            } catch (e) {
+                console.warn('Screen WakeLock Release:', e);
+            }
+        },
+
+        webDavRequest: async ({ url, method = 'GET', headers = {}, body = null }) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.webDavRequestNative) {
+                    const res = await bridge.webDavRequestNative({ url, method, headers, body });
+                    return res;
+                }
+            } catch (e) {
+                console.warn('Native WebDAV bridge error, trying fetch fallback:', e);
+            }
+            // Web / PWA fetch fallback
+            const res = await fetch(url, {
+                method,
+                headers,
+                body: body ? body : undefined
+            });
+            const text = await res.text();
+            return { status: res.status, data: text };
         },
 
         haptic: async (type = 'milestone') => {
