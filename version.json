@@ -1,7 +1,7 @@
 {
-  "version": "8.10.11",
-  "versionCode": 8111,
+  "version": "8.10.12",
+  "versionCode": 8112,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.11: Fallback exclusively to Gemini 3.5 Flash Lite — Removed all Gemini 2 models from defaults, recommendations, and fallback mechanisms."
+  "releaseNotes": "v8.10.12: Fixed Library Translate source inversion bug (never puts translated text into source input, preserves original Chinese source chapters alongside translations, adds dedicated Read and Re-Translate actions). Fixed Gemini 3.7 Flash safety block recovery to eliminate empty response 60-retry loops."
 }
