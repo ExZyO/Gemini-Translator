@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.12';
+    const VERSION = '8.10.13';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6335,8 +6335,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           // Prepare chapter chunks with clean paragraph boundary splitting
           const chapterData = chapters.map(c => {
             const effectiveTerm = enableGlossary ? terminology : '';
-            const chapterText = (typeof c === 'string' ? c : (c?.text || c?.content || ''));
+            let chapterText = (typeof c === 'string' ? c : (c?.text || c?.content || ''));
             const chapterTitle = (typeof c === 'object' && c?.title) ? String(c.title).trim() : '';
+            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+            if (typeof stripFn === 'function' && chapterTitle) {
+              chapterText = stripFn(chapterText, chapterTitle, c?.originalTitle);
+            }
             const ch = splitChunks(chapterText, effectiveTerm.length, smartGlossary);
             totalChunks += ch.length;
             if (chapterTitle) totalChunks++;
@@ -6457,7 +6461,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               );
             }
 
-            const content = cleanNovelProse(stripContextLeak(parts.join('\n\n')).replace(/\r\n/g, '\n')).trim();
+            let content = cleanNovelProse(stripContextLeak(parts.join('\n\n')).replace(/\r\n/g, '\n')).trim();
+            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+            if (typeof stripFn === 'function' && title) {
+              content = stripFn(content, title, chapters[i]?.title);
+            }
 
             let docHtml = null;
             if (isEpub && ch.doc) {
@@ -6865,7 +6873,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               doc.setFont('Helvetica', 'normal');
             }
             doc.setFontSize(10.5);
-            const rawLines = (ch.content || '').split(/\r?\n/);
+            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+            const cleanContent = (typeof stripFn === 'function') ? stripFn(ch.content || '', ch.title, ch.originalTitle) : (ch.content || '');
+            const rawLines = cleanContent.split(/\r?\n/);
             for (const rawLine of rawLines) {
               const p = sanitizeTextForPdf(rawLine);
               if (!p) continue;
@@ -6962,7 +6972,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               }));
             }
 
-            const lines = (ch.content || '').split(/\r?\n/);
+            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+            const cleanContent = (typeof stripFn === 'function') ? stripFn(ch.content || '', ch.title, ch.originalTitle) : (ch.content || '');
+            const lines = cleanContent.split(/\r?\n/);
             for (const line of lines) {
               const trimmed = line.trim();
               if (!trimmed) continue;
@@ -7972,6 +7984,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         }, '▶ Continue Fetch'),
                         (() => {
                           const isTrans = !!item.isTranslated || (item.title || '').includes('(Translated)');
+                          const cleanCh = (c) => {
+                            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+                            const raw = c?.text || c?.content || '';
+                            return (typeof stripFn === 'function' && c?.title) ? stripFn(raw, c.title, c.originalTitle) : raw;
+                          };
                           return h(React.Fragment, null,
                             isTrans && h('button', {
                               type: 'button',
@@ -7981,12 +7998,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                 const full = await loadFullNovel(item);
                                 if (!full) { toast('Novel data not found in local store.', 'error'); return; }
                                 const tgtChs = full.rawChapters || full.chapters || [];
-                                setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n'));
-                                setTranslatedChapters(tgtChs.map(c => ({ title: c.title, content: c.text || c.content })));
+                                setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
+                                setTranslatedChapters(tgtChs.map(c => ({ title: c.title, content: cleanCh(c) })));
                                 if (full.originalChapters && full.originalChapters.length > 0) {
                                   const srcChs = full.originalChapters;
-                                  setInputText(srcChs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n'));
-                                  setChapters(srcChs.map(c => ({ title: c.title, content: c.text || c.content })));
+                                  setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
+                                  setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c) })));
                                 } else {
                                   setInputText('');
                                   setChapters([]);
@@ -8007,11 +8024,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                   // 1. Check if original source chapters are stored on this record
                                   if (full.originalChapters && full.originalChapters.length > 0) {
                                     const srcChs = full.originalChapters;
-                                    setInputText(srcChs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n'));
-                                    setChapters(srcChs.map(c => ({ title: c.title, content: c.text || c.content })));
+                                    setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
+                                    setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c) })));
                                     const tgtChs = full.rawChapters || full.chapters || [];
-                                    setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n'));
-                                    setTranslatedChapters(tgtChs);
+                                    setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
+                                    setTranslatedChapters(tgtChs.map(c => ({ title: c.title, content: cleanCh(c) })));
                                     setActiveTab('text');
                                     toast(`Loaded original source chapters into Translator!`, 'success');
                                     return;
@@ -8027,11 +8044,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                       );
                                       if (sourceNovel && (sourceNovel.rawChapters?.length > 0 || sourceNovel.chapters?.length > 0)) {
                                         const srcChs = sourceNovel.rawChapters || sourceNovel.chapters;
-                                        setInputText(srcChs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n'));
-                                        setChapters(srcChs.map(c => ({ title: c.title, content: c.text || c.content })));
+                                        setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
+                                        setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c) })));
                                         const tgtChs = full.rawChapters || full.chapters || [];
-                                        setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n'));
-                                        setTranslatedChapters(tgtChs);
+                                        setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
+                                        setTranslatedChapters(tgtChs.map(c => ({ title: c.title, content: cleanCh(c) })));
                                         setActiveTab('text');
                                         toast(`Linked to source novel "${sourceNovel.title}"! Original loaded in input.`, 'success');
                                         return;
@@ -8040,8 +8057,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                   }
                                   // 3. Fallback: Cannot find source. NEVER put translated text into source input!
                                   const tgtChs = full.rawChapters || full.chapters || [];
-                                  setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n'));
-                                  setTranslatedChapters(tgtChs);
+                                  setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
+                                  setTranslatedChapters(tgtChs.map(c => ({ title: c.title, content: cleanCh(c) })));
                                   setInputText('');
                                   setChapters([]);
                                   setActiveTab('text');
@@ -8049,8 +8066,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                 } else {
                                   // Untranslated source novel: load its raw chapters into source input & queue
                                   const chs = full.rawChapters || full.chapters || [];
-                                  setInputText(chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n'));
-                                  setChapters(chs.map(c => ({ title: c.title, content: c.text || c.content })));
+                                  setInputText(chs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
+                                  setChapters(chs.map(c => ({ title: c.title, content: cleanCh(c) })));
                                   setAssembledText('');
                                   setTranslatedChapters([]);
                                   setActiveTab('text');

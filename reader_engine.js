@@ -111,7 +111,11 @@
       const currentChapter = safeChapters[activeIdx] || safeChapters[0];
 
       const parsedParagraphs = useMemo(() => {
-        const rawText = currentChapter?.text || '';
+        let rawText = currentChapter?.text || '';
+        const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+        if (typeof stripFn === 'function' && currentChapter?.title) {
+          rawText = stripFn(rawText, currentChapter.title, currentChapter.originalTitle);
+        }
         const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         return lines.map((line, pIdx) => {
           const imgMatch = line.match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);

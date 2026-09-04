@@ -417,6 +417,7 @@ hr {
             return s;
           };
 
+          let hasEncounteredParagraph = false;
           for (let li = 0; li < rawLines.length; li++) {
             const trimmed = rawLines[li].trim();
             if (!trimmed) continue;
@@ -427,6 +428,22 @@ hr {
               const headingText = headingMatch[2].trim();
               const headingKey = headingText.replace(/\s+/g, ' ').toLocaleLowerCase();
               if (headingKey === chapterTitleKey || seenHeadings.has(headingKey)) continue;
+
+              // If at the beginning of the chapter before any narrative paragraphs:
+              if (!hasEncounteredParagraph) {
+                const isSpecialNote = /^(?:author'?s?\s*note|translator'?s?\s*note|editor'?s?\s*note|t\/n|a\/n|synopsis|summary|foreword|preface|prologue|epilogue|afterword|interlude|warning|content\s*warning)\b/i.test(headingText);
+                if (!isSpecialNote) {
+                  const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
+                  if (typeof checkTitleEcho === 'function') {
+                    if (checkTitleEcho(trimmed, chTitle, ch.originalTitle)) {
+                      continue; // Suppress duplicate title heading!
+                    }
+                  } else if (headingText.length < 120) {
+                    continue;
+                  }
+                }
+              }
+
               seenHeadings.add(headingKey);
               const headingLevel = headingMatch[1].length <= 2 ? 2 : 3;
               bodyHtml.push('<h' + headingLevel + '>' + smartFormat(headingText) + '</h' + headingLevel + '>');
@@ -462,6 +479,7 @@ hr {
 
             // Blockquote lines starting with >
             if (trimmed.startsWith('>')) {
+              hasEncounteredParagraph = true;
               const bqLines = [trimmed.replace(/^>\s*/, '')];
               while (li + 1 < rawLines.length && rawLines[li + 1].trim().startsWith('>')) {
                 li++;
@@ -471,8 +489,17 @@ hr {
               continue;
             }
 
+            // Standalone line check before first paragraph: suppress title echo
+            if (!hasEncounteredParagraph) {
+              const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
+              if (typeof checkTitleEcho === 'function' && checkTitleEcho(trimmed, chTitle, ch.originalTitle)) {
+                continue; // Suppress duplicate plain-text title paragraph!
+              }
+            }
+
             // Normal paragraph with smart formatting
             bodyHtml.push(`<p>${smartFormat(trimmed)}</p>`);
+            hasEncounteredParagraph = true;
           }
 
           const xhtmlContent = `<?xml version="1.0" encoding="utf-8"?>

@@ -1,7 +1,7 @@
 {
-  "version": "8.10.12",
-  "versionCode": 8112,
+  "version": "8.10.13",
+  "versionCode": 8113,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.12: Fixed Library Translate source inversion bug (never puts translated text into source input, preserves original Chinese source chapters alongside translations, adds dedicated Read and Re-Translate actions). Fixed Gemini 3.7 Flash safety block recovery to eliminate empty response 60-retry loops."
+  "releaseNotes": "v8.10.13: Eliminated duplicate chapter title rendering across EPUB engine, internal Moon+ Reader, DOCX, and PDF exports. Stripped heading tag echoes from DOM during EPUB/web novel ingestion and before translation chunking so model does not translate title twice."
 }

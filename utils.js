@@ -165,6 +165,145 @@ window.saveUniversalBlob = saveUniversalBlob;
 window.escapeXml = escapeXml;
 
 
+// ── Title Deduplication & Heading Similarity Utilities ──
+function normalizeTextForComparison(str) {
+    if (!str) return '';
+    return str
+        .replace(/^第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]\s*/i, '')
+        .replace(/^(?:chapter|ch\.?)\s*\d+[\s:.-]*/i, '')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function getWordStems(str) {
+    if (!str) return [];
+    const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'does', 'not', 'no', 'this', 'that']);
+    return str
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 1 && !stopWords.has(w))
+        .map(w => w.length > 4 ? w.slice(0, 4) : w);
+}
+
+function isSimilarToTitle(candidate, title) {
+    if (!candidate || !title) return false;
+    const cNorm = normalizeTextForComparison(candidate);
+    const tNorm = normalizeTextForComparison(title);
+    if (!cNorm || !tNorm) return false;
+
+    // Exact match
+    if (cNorm === tNorm) return true;
+
+    // Stem overlap
+    const cStems = getWordStems(candidate);
+    const tStems = getWordStems(title);
+    if (cStems.length === 0 || tStems.length === 0) return false;
+
+    const tSet = new Set(tStems);
+    let common = 0;
+    for (const stem of cStems) {
+        if (tSet.has(stem)) common++;
+    }
+
+    const minLen = Math.min(cStems.length, tStems.length);
+    const maxLen = Math.max(cStems.length, tStems.length);
+    if (maxLen > minLen * 2.5 && maxLen > 6) return false;
+
+    const ratio = common / minLen;
+    return ratio >= 0.5 || (common >= 2 && minLen <= 4);
+}
+
+function isTitleEcho(line, title, originalTitle) {
+    if (!line) return false;
+    const cleanLine = line.trim();
+    if (!cleanLine) return false;
+
+    // Check special notes that must NEVER be stripped
+    if (/^(?:author'?s?\s*note|translator'?s?\s*note|editor'?s?\s*note|t\/n|a\/n|synopsis|summary|foreword|preface|prologue|epilogue|afterword|interlude|warning|content\s*warning)\b/i.test(cleanLine.replace(/^#{1,6}\s*/, '').trim())) {
+        return false;
+    }
+
+    const headingMatch = cleanLine.match(/^(#{1,6})\s+(.+)$/);
+    const isMarkdownHeading = Boolean(headingMatch);
+    const innerText = isMarkdownHeading
+        ? headingMatch[2].replace(/^(\*{1,2}|_{1,2})(.+?)\1$/, '$2').trim()
+        : cleanLine.replace(/^(\*{1,2}|_{1,2})(.+?)\1$/, '$2').trim();
+
+    // If it is NOT a markdown heading, it must be short (< 90 chars) and not a full prose sentence ending in period
+    if (!isMarkdownHeading) {
+        if (cleanLine.length > 90) return false;
+        if (/[.!?]$/.test(cleanLine) && !/[.!?]$/.test(title || '')) {
+            const cNorm = normalizeTextForComparison(innerText);
+            const tNorm = normalizeTextForComparison(title);
+            if (cNorm !== tNorm) return false;
+        }
+    }
+
+    // 1. Direct match with original title (e.g. Chinese source)
+    if (originalTitle && originalTitle.trim()) {
+        const oNorm = normalizeTextForComparison(originalTitle);
+        const iNorm = normalizeTextForComparison(innerText);
+        if (oNorm && (oNorm === iNorm || (isMarkdownHeading && (iNorm.includes(oNorm) || oNorm.includes(iNorm))))) {
+            return true;
+        }
+    }
+
+    // 2. Direct match with translated title
+    if (title && title.trim()) {
+        const tNorm = normalizeTextForComparison(title);
+        const iNorm = normalizeTextForComparison(innerText);
+        if (tNorm && (tNorm === iNorm || (isMarkdownHeading && (iNorm.includes(tNorm) || tNorm.includes(iNorm))))) {
+            return true;
+        }
+        // 3. High word/stem similarity
+        if (isMarkdownHeading && isSimilarToTitle(innerText, title)) {
+            return true;
+        }
+    }
+
+    // 4. Pure chapter heading line e.g. "### Chapter 1", "Chapter 1", "第1章"
+    if (/^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|chapter\s*\d+|ch\.?\s*\d+)$/i.test(innerText)) {
+        return true;
+    }
+
+    // 5. If it's a markdown heading at the very start of the text and shorter than 120 chars
+    // and not a recognized special section:
+    if (isMarkdownHeading && innerText.length < 120) {
+        return true;
+    }
+
+    return false;
+}
+
+function stripLeadingTitleFromContent(content, title, originalTitle) {
+    if (!content || typeof content !== 'string') return '';
+    const lines = content.split(/\r?\n/);
+    let startIdx = 0;
+
+    while (startIdx < lines.length) {
+        const line = lines[startIdx].trim();
+        if (!line) {
+            startIdx++;
+            continue;
+        }
+
+        if (isTitleEcho(line, title, originalTitle)) {
+            startIdx++;
+            continue;
+        }
+        break;
+    }
+
+    return lines.slice(startIdx).join('\n').trim();
+}
+
+window.normalizeTextForComparison = normalizeTextForComparison;
+window.isSimilarToTitle = isSimilarToTitle;
+window.isTitleEcho = isTitleEcho;
+window.stripLeadingTitleFromContent = stripLeadingTitleFromContent;
+
 window.sanitizeFilename = sanitizeFilename;
 window.sanitize = sanitize;
 window.setSmartTitle = setSmartTitle;

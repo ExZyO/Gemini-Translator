@@ -492,6 +492,10 @@
 
     const appendUniqueImportedChapter = (chapters, chapter, seenKeys) => {
         if (!chapter || !chapter.text || chapter.text.length <= 30) return;
+        const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+        if (typeof stripFn === 'function' && chapter.title) {
+            chapter.text = stripFn(chapter.text, chapter.title, chapter.originalTitle);
+        }
         const key = normalizeImportedChapterForDedup(chapter.text);
         if (!key || seenKeys.has(key)) return;
         seenKeys.add(key);
@@ -1224,8 +1228,12 @@
 
             const chHtml = await chFile.async('text');
             const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
-            let heading = chDoc.querySelector('h1, h2, h3, h4, [class*="title"], [class*="heading"]')?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
-            const bodyText = cleanChapterHtmlWithImages(chDoc.body?.innerHTML || chDoc.body?.textContent || '');
+            const headingEl = chDoc.querySelector('h1, h2, h3, h4, [class*="title"], [class*="heading"]');
+            let heading = headingEl?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
+            if (headingEl && headingEl.parentNode) {
+                headingEl.parentNode.removeChild(headingEl);
+            }
+            let bodyText = cleanChapterHtmlWithImages(chDoc.body?.innerHTML || chDoc.body?.textContent || '');
 
             // AO3 / EPUB metadata & summary chapter disambiguation:
             // If heading matches the novel title and contains summary, notes, or tags, label it "Summary"
