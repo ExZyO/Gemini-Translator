@@ -1,7 +1,7 @@
 {
-  "version": "8.10.16",
-  "versionCode": 8116,
+  "version": "8.10.17",
+  "versionCode": 8117,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.16: High-speed novel ingestion engine (lncrawl parity). Direct local socket proxying via telemetry-server, sub-second public proxy tiering with strict 3.5s failovers, NovelFire 4 workers with 120ms pacing, and parallel Lofter crawling."
+  "releaseNotes": "v8.10.17: Added high-speed Novel Bin (novel-bin.com, novelbin.me, mvlempyr.com) crawler adapter with full chapter auto-discovery, 8-stream parallel ingestion, and TOC sorting."
 }

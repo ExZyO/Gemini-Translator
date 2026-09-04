@@ -784,6 +784,121 @@
         return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
     }
 
+    // --- E1. NOVELBIN & MVLEMPYR TEMPLATE (novel-bin.com, novelbin.me, mvlempyr.com) ---
+    async function crawlNovelBin(url, progressCb) {
+        progressCb?.('Connecting to NovelBin...', 15);
+        const origin = new URL(url).origin;
+        
+        let bookUrl = url.trim().replace(/\/chapter[-/].*$/i, '');
+        if (bookUrl.endsWith('/chapters')) {
+            bookUrl = bookUrl.replace(/\/chapters$/, '');
+        }
+
+        const html = await fetchHtml(bookUrl);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        const title = doc.querySelector('meta[property="og:novel:novel_name"]')?.getAttribute('content')?.trim() ||
+                      doc.querySelector('h3.title, .books .desc h3, .novel-title, h1')?.textContent?.trim() || 'NovelBin Novel';
+        const author = doc.querySelector('meta[property="og:novel:author"]')?.getAttribute('content')?.trim() ||
+                       doc.querySelector('.info li:has(h3) a, .info a[href*="/author/"], .author a')?.textContent?.trim() || 'Author';
+        const summary = doc.querySelector('.desc-text, #tab-description, .summary')?.textContent?.trim() || '';
+
+        const tags = [];
+        doc.querySelectorAll('.info a[href*="/genre/"], .tags a').forEach(t => {
+            const txt = t.textContent?.trim();
+            if (txt && !tags.includes(txt)) tags.push(txt);
+        });
+
+        // Check if TOC is already known from resume session
+        let chapterLinks = [];
+        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
+            console.log(`⚡ [NovelBin] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            chapterLinks = [...existingTOC];
+        } else {
+            // First check if novel has AJAX chapter archive (NovelBin backend)
+            const novelId = (html.match(/data-novel-id=["'](\d+)["']/i) || html.match(/novelId\s*=\s*['"]?(\d+)['"]?/i) || html.match(/id=["']novel_id["'][^>]*value=["'](\d+)["']/i) || [])[1];
+            if (novelId) {
+                try {
+                    progressCb?.('Fetching complete chapter index from AJAX archive...', 25);
+                    const archiveHtml = await fetchHtml(`${origin}/ajax/chapter-archive?novelId=${novelId}`);
+                    const aDoc = new DOMParser().parseFromString(archiveHtml, 'text/html');
+                    const seen = new Set();
+                    aDoc.querySelectorAll('ul.list-chapter li a, a[href*="/chapter"]').forEach(a => {
+                        const href = a.getAttribute('href');
+                        if (href && !seen.has(href)) {
+                            seen.add(href);
+                            const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                            chapterLinks.push({ url: fullUrl, title: a.textContent?.trim() || a.getAttribute('title') });
+                        }
+                    });
+                } catch (ajaxErr) {
+                    console.warn('NovelBin AJAX archive error, fallback to page DOM:', ajaxErr);
+                }
+            }
+
+            // If not found via AJAX, extract from page DOM (.list-chapter or a[href*="/chapter-"])
+            if (chapterLinks.length === 0) {
+                const seen = new Set();
+                const aTags = Array.from(doc.querySelectorAll('.list-chapter a, ul.list-chapter li a, a[href*="/chapter-"]'));
+                for (const a of aTags) {
+                    if (a.closest('header, footer, nav, #header')) continue;
+                    const href = a.getAttribute('href');
+                    if (href && !seen.has(href)) {
+                        seen.add(href);
+                        const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                        const chTitle = a.getAttribute('title') || a.querySelector('.nchr-text')?.textContent?.trim() || a.textContent?.trim();
+                        chapterLinks.push({ url: fullUrl, title: chTitle });
+                    }
+                }
+            }
+
+            // Natural sort by chapter number to guarantee correct chronological order
+            if (chapterLinks.length > 1) {
+                const getChWeight = (item, idx) => {
+                    const t = (item.title || '').trim().toLowerCase();
+                    if (/^(prologue|preface|intro|foreword|序章|序)\b/i.test(t)) return -999999 + idx * 0.001;
+                    if (/^(epilogue|afterword|postscript|终章|尾声)\b/i.test(t) && !/chapter\s*\d+/i.test(t)) return 999999 + idx * 0.001;
+                    const m = (item.title || '').match(/(?:chapter|ch\.?|ep\.?|part)\s*(\d+(?:\.\d+)?)/i) || (item.url || '').match(/\/chapter-(\d+(?:\.\d+)?)/i);
+                    return m ? parseFloat(m[1]) : idx;
+                };
+                chapterLinks.sort((a, b) => getChWeight(a, 0) - getChWeight(b, 0));
+            }
+        }
+
+        if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
+
+        progressCb?.(`Found ${chapterLinks.length} chapters on NovelBin! Ingesting in parallel...`, 30);
+
+        const { chapters, totalWords } = await crawlChapterPool(
+            chapterLinks,
+            async (item) => {
+                const chHtml = await fetchHtml(item.url);
+                const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                const contentEl = chDoc.querySelector('#chr-content, .chr-c, #chapter-content, .chapter-content') || chDoc.body;
+                
+                // Clean ads, scripts, and reporting widgets
+                contentEl.querySelectorAll('.ads, .ad, [class*="advertisement"], script, style, .report-chapter, .desc-text').forEach(e => e.remove());
+                
+                // Remove repeated "Chapter X" first-line headers if present
+                const firstChild = contentEl.firstElementChild;
+                if (firstChild && /^\s*chapter\s+\d+/i.test(firstChild.textContent.trim())) {
+                    firstChild.remove();
+                }
+
+                const chTitle = chDoc.querySelector('.chr-title, .chapter-title, h2')?.textContent?.trim() || item.title;
+                return { title: chTitle, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
+            },
+            8,
+            progressCb,
+            { title, author, summary, chapterList: chapterLinks },
+            { delayMs: 100 }
+        );
+
+        progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelBin (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+    }
+
     // --- F. NOVELFIRE TEMPLATE (novelfire.net) ---
     async function crawlNovelFire(url, progressCb) {
         progressCb?.('Connecting to NovelFire...', 15);
@@ -1340,13 +1455,14 @@
     function detectUrlType(url) {
         if (!url || typeof url !== 'string') return 'unknown';
         const clean = url.trim().toLowerCase();
+        if (clean.includes('novel-bin.') || clean.includes('novelbin.') || clean.includes('mvlempyr.')) return 'novelbin';
         if (clean.includes('novelfire.')) return 'novelfire';
         if (clean.includes('archiveofourown.org')) return 'ao3';
         if (clean.includes('witchculttranslation.com')) return 'witchcult';
         if (clean.includes('lofter.com')) return 'lofter';
         if (clean.includes('royalroad.com') || clean.includes('scribblehub.com')) return 'royalroad';
         if (clean.includes('syosetu.com') || clean.includes('kakuyomu.jp')) return 'syosetu';
-        if (clean.includes('novelfull.com') || clean.includes('boxnovel.com') || clean.includes('readlightnovel') || clean.includes('novelbin.') || clean.includes('allnovelfull.') || clean.includes('readnovelfull.') || clean.includes('freewebnovel.') || clean.includes('lightnovelpub.')) return 'novelfull';
+        if (clean.includes('novelfull.com') || clean.includes('boxnovel.com') || clean.includes('readlightnovel') || clean.includes('allnovelfull.') || clean.includes('readnovelfull.') || clean.includes('freewebnovel.') || clean.includes('lightnovelpub.')) return 'novelfull';
         if (clean.includes('pixiv.net/novel/')) return 'pixiv';
         return 'universal';
     }
@@ -1379,10 +1495,11 @@
             if (!url || !url.trim()) throw new Error('Please enter a valid novel URL.');
             createCrawlController(options);
             const type = detectUrlType(url);
-            console.log(` [LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
+            console.log(`⚡ [LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
 
             let result;
-            if (type === 'novelfire') result = await crawlNovelFire(url, progressCb);
+            if (type === 'novelbin') result = await crawlNovelBin(url, progressCb);
+            else if (type === 'novelfire') result = await crawlNovelFire(url, progressCb);
             else if (type === 'witchcult') result = await crawlWitchCult(url, progressCb);
             else if (type === 'ao3') result = await crawlAO3(url, progressCb);
             else if (type === 'royalroad') result = await crawlRoyalRoad(url, progressCb);
