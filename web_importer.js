@@ -153,7 +153,7 @@
         if (window.NativeBridge && window.NativeBridge.fetchNative) {
             try {
                 const res = await Promise.race([
-                    window.NativeBridge.fetchNative(url),
+                    window.NativeBridge.fetchNative(url, options),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Native fetch timed out')), timeoutMs))
                 ]);
                 if (res && res.data) {
@@ -175,9 +175,12 @@
             try {
                 lastLocalProxyCheck = now;
                 const localCtrl = new AbortController();
-                const localTimer = setTimeout(() => localCtrl.abort(), 4500);
+                const localTimer = setTimeout(() => localCtrl.abort(), 6500);
                 const localRes = await fetch(`http://127.0.0.1:9090/proxy?url=${encodeURIComponent(url)}`, {
-                    signal: localCtrl.signal
+                    signal: localCtrl.signal,
+                    method: options.method || 'GET',
+                    headers: options.headers || {},
+                    body: options.body
                 });
                 clearTimeout(localTimer);
                 if (localRes.ok) {
@@ -216,10 +219,14 @@
                 };
                 controller.signal.addEventListener('abort', onParentAbort, { once: true });
 
-                const res = await fetch(proxyFn(url), {
+                const fetchOpts = {
                     signal: proxyCtrl.signal,
                     headers: options.headers || {}
-                });
+                };
+                if (options.method) fetchOpts.method = options.method;
+                if (options.body) fetchOpts.body = options.body;
+
+                const res = await fetch(proxyFn(url), fetchOpts);
                 clearTimeout(proxyTimer);
                 controller.signal.removeEventListener('abort', onParentAbort);
 
@@ -1289,6 +1296,493 @@
         return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', tags: ['Pixiv', 'Web Novel'], chapters, isEpub: false, sourceUrl: url };
     }
 
+    // --- G. NOVELBUDDY TEMPLATE (novelbuddy.me / novelbuddy.com) ---
+    async function crawlNovelBuddy(url, progressCb) {
+        progressCb?.('Connecting to NovelBuddy...', 15);
+        let bookUrl = url.trim().replace(/\/chapter[-/].*$/i, '');
+        const origin = new URL(url).origin;
+
+        const html = await fetchHtml(bookUrl, { headers: { 'Referer': 'https://novelbuddy.me/' } });
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        let nextData = null;
+        try {
+            const nextMatch = html.match(/<script\s+id=["']__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/i);
+            if (nextMatch) nextData = JSON.parse(nextMatch[1]);
+        } catch (_) {}
+
+        const manga = nextData?.props?.pageProps?.initialManga || {};
+        const apiUrl = nextData?.props?.pageProps?.siteConfig?.apiUrl || 'https://api.novelbuddy.me';
+        const mangaId = manga.id || (html.match(/["'](?:mangaId|id)["']\s*:\s*["']([a-zA-Z0-9_-]{6,16})["']/i) || [])[1];
+
+        const title = manga.name || doc.querySelector('h1')?.textContent?.trim() || 'NovelBuddy Novel';
+        const author = Array.isArray(manga.authors) ? manga.authors.map(a => a.name).filter(Boolean).join(', ') : (doc.querySelector('.authors, .author')?.textContent?.trim() || 'NovelBuddy Author');
+        const summary = manga.summary || doc.querySelector('.summary, .description, #summary')?.textContent?.trim() || '';
+        const tags = (manga.genres || []).map(g => g.name || g).concat(['NovelBuddy', 'Web Novel']);
+
+        // Check if TOC is already known from resume session
+        let chapterLinks = [];
+        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
+            console.log(`⚡ [NovelBuddy] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            chapterLinks = [...existingTOC];
+        } else if (mangaId) {
+            // First fetch complete chapter index via official REST API
+            try {
+                progressCb?.('Fetching complete chapter index from NovelBuddy API...', 25);
+                const resText = await fetchHtml(`${apiUrl}/titles/${mangaId}/chapters`, {
+                    headers: { 'Referer': bookUrl }
+                });
+                const resJson = JSON.parse(resText);
+                const chItems = resJson?.data?.chapters || (Array.isArray(resJson?.data) ? resJson.data : []);
+                if (Array.isArray(chItems) && chItems.length > 0) {
+                    chapterLinks = chItems.map(c => ({
+                        id: c.id,
+                        mangaId: mangaId,
+                        title: c.name || `Chapter ${c.number || ''}`,
+                        number: typeof c.number === 'number' ? c.number : parseFloat(c.number || '0'),
+                        url: c.url ? (c.url.startsWith('http') ? c.url : new URL(c.url, origin).href) : ''
+                    }));
+                }
+            } catch (apiErr) {
+                console.warn('NovelBuddy API chapter list error, fallback to page props:', apiErr);
+            }
+        }
+
+        // Fallback to initialManga.chapters or page DOM if API was unavailable
+        if (chapterLinks.length === 0 && Array.isArray(manga.chapters) && manga.chapters.length > 0) {
+            chapterLinks = manga.chapters.map(c => ({
+                id: c.id,
+                mangaId: mangaId,
+                title: c.name || `Chapter ${c.number || ''}`,
+                number: typeof c.number === 'number' ? c.number : parseFloat(c.number || '0'),
+                url: c.slug ? `${origin}/${manga.slug || 'novel'}/${c.slug}` : ''
+            }));
+        }
+        if (chapterLinks.length === 0) {
+            const seen = new Set();
+            doc.querySelectorAll('a[href*="/chapter-"], .chapter-list a, ul.chapters a').forEach(a => {
+                const href = a.getAttribute('href');
+                if (href && !seen.has(href)) {
+                    seen.add(href);
+                    const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                    const chTitle = a.textContent?.trim() || a.getAttribute('title') || `Chapter ${chapterLinks.length + 1}`;
+                    chapterLinks.push({ url: fullUrl, title: chTitle });
+                }
+            });
+        }
+
+        // Chronological natural sort
+        if (chapterLinks.length > 1) {
+            chapterLinks.sort((a, b) => {
+                if (typeof a.number === 'number' && typeof b.number === 'number' && a.number !== b.number) {
+                    return a.number - b.number;
+                }
+                const mA = (a.title || '').match(/(?:chapter|ch\.?)\s*(\d+(?:\.\d+)?)/i) || (a.url || '').match(/chapter-(\d+(?:\.\d+)?)/i);
+                const mB = (b.title || '').match(/(?:chapter|ch\.?)\s*(\d+(?:\.\d+)?)/i) || (b.url || '').match(/chapter-(\d+(?:\.\d+)?)/i);
+                return (mA ? parseFloat(mA[1]) : 0) - (mB ? parseFloat(mB[1]) : 0);
+            });
+        }
+
+        if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
+
+        progressCb?.(`Found ${chapterLinks.length} chapters on NovelBuddy! Ingesting in parallel...`, 30);
+
+        const { chapters, totalWords } = await crawlChapterPool(
+            chapterLinks,
+            async (item) => {
+                // High-speed direct REST API attempt
+                if (item.mangaId && item.id) {
+                    try {
+                        const chRes = await fetchHtml(`${apiUrl}/titles/${item.mangaId}/chapters/${item.id}`, {
+                            headers: { 'Referer': item.url || bookUrl }
+                        });
+                        const chJson = JSON.parse(chRes);
+                        const chObj = chJson?.data?.chapter || chJson?.data;
+                        const contentHtml = chObj?.content;
+                        if (contentHtml && contentHtml.length > 50) {
+                            return { title: chObj.name || item.title, text: cleanChapterHtmlWithImages(contentHtml) };
+                        }
+                    } catch (_) {}
+                }
+
+                // SSR __NEXT_DATA__ or HTML DOM fallback
+                const chHtml = await fetchHtml(item.url, { headers: { 'Referer': bookUrl } });
+                const chNext = chHtml.match(/<script\s+id=["']__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/i);
+                if (chNext) {
+                    try {
+                        const chJson = JSON.parse(chNext[1]);
+                        const initCh = chJson?.props?.pageProps?.initialChapter;
+                        if (initCh?.content && initCh.content.length > 50) {
+                            return { title: initCh.name || item.title, text: cleanChapterHtmlWithImages(initCh.content) };
+                        }
+                    } catch (_) {}
+                }
+
+                const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                const contentEl = chDoc.querySelector('#chapter-article, .chapter-content, .content-inner, .reading-content, .novel-tts-content') || chDoc.body;
+                contentEl.querySelectorAll('.ads, .ad, [class*="advertisement"], script, style, .report-chapter, .desc-text').forEach(e => e.remove());
+                const chTitle = chDoc.querySelector('h1, h2, .chapter-title')?.textContent?.trim() || item.title;
+                return { title: chTitle, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
+            },
+            8,
+            progressCb,
+            { title, author, summary, chapterList: chapterLinks },
+            { delayMs: 50 }
+        );
+
+        progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelBuddy (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+    }
+
+    // --- H. LNORI TEMPLATE (lnori.com - Single Book & Multi-Volume Series) ---
+    async function crawlLnori(url, progressCb) {
+        progressCb?.('Connecting to Lnori...', 15);
+        const origin = 'https://lnori.com';
+        const isSeries = url.includes('/series/');
+
+        function parseChaptersFromBookHtml(bookHtml, bookPageUrl) {
+            const bDoc = new DOMParser().parseFromString(bookHtml, 'text/html');
+            const sections = Array.from(bDoc.querySelectorAll('section.chapter, section[id^="page"]'));
+            const extracted = [];
+
+            sections.forEach((sec, idx) => {
+                const titleEl = sec.querySelector('.chapter-title, h1, h2, h3, h4');
+                let chTitle = titleEl?.textContent?.trim();
+                if (!chTitle) {
+                    const imgAlt = sec.querySelector('img')?.getAttribute('alt');
+                    if (imgAlt) {
+                        chTitle = imgAlt.replace(/\s*-\s*\d+$/, '').trim();
+                    } else {
+                        chTitle = idx === 0 ? 'Cover' : `Part ${idx + 1}`;
+                    }
+                }
+                const cleaned = cleanChapterHtmlWithImages(sec.innerHTML);
+                if (cleaned.length > 15 || /!\[Illustration\]/i.test(cleaned)) {
+                    extracted.push({
+                        title: chTitle,
+                        text: cleaned,
+                        url: `${bookPageUrl}#${sec.id || idx}`
+                    });
+                }
+            });
+            return extracted;
+        }
+
+        if (!isSeries) {
+            // Single Book / Volume page (/book/{id}/{slug})
+            progressCb?.('Ingesting entire Lnori book volume...', 25);
+            const html = await fetchHtml(url, { headers: { 'Referer': 'https://lnori.com/' } });
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+
+            const title = doc.querySelector('title')?.textContent?.replace(/\s*-\s*Lnori\s*$/i, '').trim() || doc.querySelector('h1')?.textContent?.trim() || 'Lnori Book';
+            const author = doc.querySelector('meta[name="author"]')?.getAttribute('content') || doc.querySelector('.author')?.textContent?.trim() || 'Lnori Author';
+            const summary = doc.querySelector('meta[name="description"]')?.getAttribute('content') || 'Imported from Lnori';
+            const tags = ['Lnori', 'Light Novel', 'Illustrated'];
+
+            const bookChapters = parseChaptersFromBookHtml(html, url);
+            const totalWords = bookChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
+            progressCb?.(`Parsed ${bookChapters.length} illustrated chapters from Lnori volume (~${totalWords.toLocaleString()} words)!`, 100);
+
+            return {
+                title,
+                author,
+                summary,
+                tags,
+                chapters: bookChapters,
+                chapterList: bookChapters.map(c => ({ url: c.url, title: c.title })),
+                totalChapterCount: bookChapters.length,
+                isEpub: false,
+                sourceUrl: url
+            };
+        } else {
+            // Series page (/series/{id}/{slug})
+            progressCb?.('Reading Lnori series volume index...', 20);
+            const html = await fetchHtml(url, { headers: { 'Referer': 'https://lnori.com/' } });
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+
+            const title = doc.querySelector('h1, title')?.textContent?.replace(/\s*-\s*Lnori\s*$/i, '').trim() || 'Lnori Series';
+            const author = doc.querySelector('meta[name="author"], .author')?.textContent?.trim() || 'Lnori Author';
+            const summary = doc.querySelector('.description, .synopsis, meta[name="description"]')?.textContent?.trim() || 'Imported from Lnori Series';
+            const tags = ['Lnori', 'Light Novel Series', 'Illustrated'];
+
+            // Find all book / volume links
+            const bookUrls = [];
+            const seen = new Set();
+            doc.querySelectorAll('a[href*="/book/"]').forEach(a => {
+                const href = a.getAttribute('href');
+                if (href && !seen.has(href)) {
+                    seen.add(href);
+                    const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                    const bookTitle = a.textContent?.trim() || `Volume ${bookUrls.length + 1}`;
+                    bookUrls.push({ url: fullUrl, title: bookTitle });
+                }
+            });
+
+            if (bookUrls.length === 0) throw new Error('No readable volumes found for this Lnori series.');
+
+            progressCb?.(`Found ${bookUrls.length} volumes in Lnori series! Ingesting volumes...`, 30);
+
+            // Fetch each book page and extract chapters
+            let allChapters = [];
+            for (let i = 0; i < bookUrls.length; i++) {
+                if (activeCrawlController?.isPaused || activeCrawlController?.isCancelled) break;
+                const bItem = bookUrls[i];
+                progressCb?.(`Fetching Lnori Volume ${i + 1}/${bookUrls.length}: ${bItem.title.slice(0, 30)}...`, Math.min(95, 30 + Math.floor((i / bookUrls.length) * 65)));
+                try {
+                    const bHtml = await fetchHtml(bItem.url, { headers: { 'Referer': url } });
+                    const volChapters = parseChaptersFromBookHtml(bHtml, bItem.url);
+                    allChapters = allChapters.concat(volChapters);
+                } catch (bErr) {
+                    console.warn(`Failed to fetch Lnori volume ${bItem.url}:`, bErr);
+                }
+            }
+
+            const totalWords = allChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
+            progressCb?.(` Loaded ${allChapters.length} chapters across ${bookUrls.length} Lnori volumes (~${totalWords.toLocaleString()} words)!`, 100);
+            return {
+                title,
+                author,
+                summary,
+                tags,
+                chapters: allChapters,
+                chapterList: allChapters.map(c => ({ url: c.url, title: c.title })),
+                totalChapterCount: allChapters.length,
+                isEpub: false,
+                sourceUrl: url
+            };
+        }
+    }
+
+    // --- I. WUXIA BOX TEMPLATE (wuxiabox.com / wuxiap.com / wuxiaclick.com) ---
+    async function crawlWuxiaBox(url, progressCb) {
+        progressCb?.('Connecting to Wuxia Box...', 15);
+        let bookUrl = url.trim().replace(/_\d+\.html$/i, '.html');
+        const origin = new URL(url).origin;
+
+        const html = await fetchHtml(bookUrl, { headers: { 'Referer': 'https://www.wuxiabox.com/' } });
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        const title = doc.querySelector('h1, .novel-title')?.textContent?.trim() || 'Wuxia Box Novel';
+        const author = doc.querySelector('a[href*="/author/"], .author, meta[property="books:author"]')?.textContent?.trim() || 
+                       html.match(/Author[：:]\s*<a[^>]*>([\s\S]*?)<\/a>/i)?.[1]?.trim() || 
+                       html.match(/Author[：:]\s*([^<\n]+)/i)?.[1]?.trim() || 'Wuxia Box Author';
+        const summary = doc.querySelector('#intro, .intro, .synopsis, .description')?.textContent?.trim() || '';
+        const tags = ['Wuxia Box', 'Web Novel'];
+
+        // Check if TOC is already known
+        let chapterLinks = [];
+        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
+            console.log(`⚡ [WuxiaBox] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            chapterLinks = [...existingTOC];
+        } else {
+            const seen = new Set();
+            doc.querySelectorAll('a[href*="_"]').forEach(a => {
+                const href = a.getAttribute('href');
+                const m = href?.match(/_(\d+)\.html/);
+                if (m && !seen.has(href)) {
+                    seen.add(href);
+                    const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                    const chTitle = a.querySelector('small')?.textContent?.trim() || a.textContent?.replace(/\s+/g, ' ').trim() || `Chapter ${m[1]}`;
+                    chapterLinks.push({ url: fullUrl, title: chTitle, order: parseInt(m[1], 10) });
+                }
+            });
+            chapterLinks.sort((a, b) => a.order - b.order);
+        }
+
+        if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
+
+        progressCb?.(`Found ${chapterLinks.length} chapters on Wuxia Box! Ingesting in parallel...`, 30);
+
+        const { chapters, totalWords } = await crawlChapterPool(
+            chapterLinks,
+            async (item) => {
+                const chHtml = await fetchHtml(item.url, { headers: { 'Referer': bookUrl } });
+                const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                const contentEl = chDoc.querySelector('section.page-in.content-wrap, #chapter-article section.page-in, #chapter-article, #content, .chapter-content') || chDoc.body;
+                
+                contentEl.querySelectorAll('.chapter-header, .recommends, .control-action, .ads, .ad, script, style, .report-chapter').forEach(e => e.remove());
+                const chTitle = chDoc.querySelector('.titles h2, .chapter-header h2, h2, h1')?.textContent?.trim() || item.title;
+                return { title: chTitle, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
+            },
+            8,
+            progressCb,
+            { title, author, summary, chapterList: chapterLinks },
+            { delayMs: 100 }
+        );
+
+        progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from Wuxia Box (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+    }
+
+    // --- J. WTR-LAB TEMPLATE (wtr-lab.com - High-Speed Clean AI JSON API) ---
+    async function crawlWtrLab(url, progressCb) {
+        progressCb?.('Connecting to WTR-LAB...', 15);
+        let bookUrl = url.trim().replace(/\/chapter[-/].*$/i, '');
+        const origin = 'https://wtr-lab.com';
+
+        const html = await fetchHtml(bookUrl, { headers: { 'Referer': 'https://wtr-lab.com/' } });
+        let nextData = null;
+        try {
+            const nextMatch = html.match(/<script\s+id=["']__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/i);
+            if (nextMatch) nextData = JSON.parse(nextMatch[1]);
+        } catch (_) {}
+
+        const serieData = nextData?.props?.pageProps?.serie?.serie_data || {};
+        const rawId = serieData.raw_id || serieData.id || (bookUrl.match(/\/novel\/(\d+)/i) || [])[1];
+
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const title = serieData.data?.title || serieData.title || doc.querySelector('h1')?.textContent?.trim() || 'WTR-LAB Novel';
+        const author = serieData.data?.author || serieData.author || 'WTR-LAB Author';
+        const summary = serieData.data?.description || doc.querySelector('.description, .synopsis')?.textContent?.trim() || '';
+        const tags = (serieData.tags || []).map(t => String(t)).concat(['WTR-LAB', 'Web Novel']);
+
+        // Check if TOC is already known
+        let chapterLinks = [];
+        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
+            console.log(`⚡ [WTR-LAB] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            chapterLinks = [...existingTOC];
+        } else if (rawId) {
+            try {
+                progressCb?.('Fetching complete chapter index from WTR-LAB API...', 25);
+                const listText = await fetchHtml(`https://wtr-lab.com/api/chapters/${rawId}`, {
+                    headers: { 'Referer': bookUrl }
+                });
+                const listJson = JSON.parse(listText);
+                const chList = listJson.chapters || [];
+                chList.sort((a, b) => (a.order || 0) - (b.order || 0));
+                chapterLinks = chList.map(ch => ({
+                    id: ch.id,
+                    rawId: rawId,
+                    order: ch.order,
+                    title: ch.title || ch.name || `Section ${ch.order}`,
+                    url: `https://wtr-lab.com/en/novel/${rawId}/${serieData.slug || 'novel'}/chapter-${ch.order}`
+                }));
+            } catch (apiErr) {
+                console.warn('WTR-LAB chapters API error:', apiErr);
+            }
+        }
+
+        if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
+
+        progressCb?.(`Found ${chapterLinks.length} chapters on WTR-LAB! Ingesting via reader API...`, 30);
+
+        const { chapters, totalWords } = await crawlChapterPool(
+            chapterLinks,
+            async (item) => {
+                // Direct POST /api/reader/get API call for pristine paragraph text
+                try {
+                    const resText = await fetchHtml('https://wtr-lab.com/api/reader/get', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Referer': item.url || bookUrl
+                        },
+                        body: JSON.stringify({
+                            translate: 'ai',
+                            language: 'en',
+                            raw_id: item.rawId,
+                            chapter_no: item.order
+                        })
+                    });
+                    const resJson = JSON.parse(resText);
+                    const bodyLines = resJson?.data?.data?.body;
+                    if (Array.isArray(bodyLines) && bodyLines.length > 0) {
+                        const chTitle = resJson?.chapter?.title || item.title;
+                        const bodyHtml = bodyLines.map(line => `<p>${line}</p>`).join('\n');
+                        return { title: chTitle, text: cleanChapterHtmlWithImages(bodyHtml) };
+                    }
+                } catch (_) {}
+
+                // Fallback to chapter page HTML
+                const chHtml = await fetchHtml(item.url, { headers: { 'Referer': bookUrl } });
+                const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                const bodyEl = chDoc.querySelector('.chapter-body, .reader-body, main, article') || chDoc.body;
+                bodyEl.querySelectorAll('script, style, nav, footer, header, .ads').forEach(e => e.remove());
+                const chTitle = chDoc.querySelector('h1, h2, .chapter-title')?.textContent?.trim() || item.title;
+                return { title: chTitle, text: cleanChapterHtmlWithImages(bodyEl.innerHTML || bodyEl.textContent || '') };
+            },
+            6,
+            progressCb,
+            { title, author, summary, chapterList: chapterLinks },
+            { delayMs: 150 }
+        );
+
+        progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from WTR-LAB (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+    }
+
+    // --- K. FUCKNOVELPIA TEMPLATE (fucknovelpia.com - WAF Referer Protected) ---
+    async function crawlFuckNovelPia(url, progressCb) {
+        progressCb?.('Connecting to FuckNovelPia...', 15);
+        let bookUrl = url.trim().replace(/\/chapter\.php.*$/i, '');
+        const origin = 'https://fucknovelpia.com';
+
+        const html = await fetchHtml(bookUrl, { headers: { 'Referer': 'https://fucknovelpia.com/' } });
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        const title = doc.querySelector('h1')?.textContent?.trim() || 'FuckNovelPia Novel';
+        const author = doc.querySelector('.author, .byline, meta[name="author"]')?.getAttribute?.('content') || doc.querySelector('.author, .byline')?.textContent?.trim() || 'FuckNovelPia Author';
+        const summary = doc.querySelector('.synopsis, .description, meta[name="description"]')?.getAttribute?.('content') || doc.querySelector('.synopsis, .description')?.textContent?.trim() || '';
+        const tags = ['FuckNovelPia', 'Korean Web Novel'];
+
+        // Check if TOC is already known
+        let chapterLinks = [];
+        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
+            console.log(`⚡ [FuckNovelPia] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            chapterLinks = [...existingTOC];
+        } else {
+            const seen = new Set();
+            doc.querySelectorAll('a[href*="chapter.php"], a[href*="/chapter-"]').forEach(a => {
+                const href = a.getAttribute('href');
+                if (href && !seen.has(href)) {
+                    seen.add(href);
+                    const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                    const chTitle = a.textContent?.replace(/\s+/g, ' ').trim() || `Chapter ${chapterLinks.length + 1}`;
+                    chapterLinks.push({ url: fullUrl, title: chTitle });
+                }
+            });
+
+            // Natural sort by chapter number
+            if (chapterLinks.length > 1) {
+                chapterLinks.sort((a, b) => {
+                    const mA = a.url.match(/ch=(\d+)/i) || a.title.match(/(?:chapter|ch\.?)\s*(\d+)/i);
+                    const mB = b.url.match(/ch=(\d+)/i) || b.title.match(/(?:chapter|ch\.?)\s*(\d+)/i);
+                    const nA = mA ? parseInt(mA[1], 10) : 0;
+                    const nB = mB ? parseInt(mB[1], 10) : 0;
+                    return nA - nB;
+                });
+            }
+        }
+
+        if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
+
+        progressCb?.(`Found ${chapterLinks.length} chapters on FuckNovelPia! Ingesting in parallel...`, 30);
+
+        const { chapters, totalWords } = await crawlChapterPool(
+            chapterLinks,
+            async (item) => {
+                const chHtml = await fetchHtml(item.url, { headers: { 'Referer': bookUrl } });
+                const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                const readerEl = chDoc.querySelector('.reader-wrap .reader, .reader, #reader') || chDoc.body;
+                
+                readerEl.querySelectorAll('.control-group, .control-action, script, style, .ads, .ad').forEach(e => e.remove());
+                const chTitle = readerEl.querySelector('h1')?.textContent?.trim() || item.title;
+                return { title: chTitle, text: cleanChapterHtmlWithImages(readerEl.innerHTML || readerEl.textContent || '') };
+            },
+            6,
+            progressCb,
+            { title, author, summary, chapterList: chapterLinks },
+            { delayMs: 120 }
+        );
+
+        progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from FuckNovelPia (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+    }
+
     async function crawlUniversal(url, progressCb) {
         progressCb?.('Analyzing web page structure with Universal Readability Engine...', 20);
         const html = await fetchHtml(url);
@@ -1455,6 +1949,11 @@
     function detectUrlType(url) {
         if (!url || typeof url !== 'string') return 'unknown';
         const clean = url.trim().toLowerCase();
+        if (clean.includes('novelbuddy.') || clean.includes('novel-buddy.')) return 'novelbuddy';
+        if (clean.includes('lnori.com')) return 'lnori';
+        if (clean.includes('wuxiabox.com') || clean.includes('wuxiap.com') || clean.includes('wuxiaclick.com')) return 'wuxiabox';
+        if (clean.includes('wtr-lab.com') || clean.includes('wtrlab.com')) return 'wtrlab';
+        if (clean.includes('fucknovelpia.com') || clean.includes('novelpia.com')) return 'fucknovelpia';
         if (clean.includes('novel-bin.') || clean.includes('novelbin.') || clean.includes('mvlempyr.')) return 'novelbin';
         if (clean.includes('novelfire.')) return 'novelfire';
         if (clean.includes('archiveofourown.org')) return 'ao3';
@@ -1498,7 +1997,12 @@
             console.log(`⚡ [LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
 
             let result;
-            if (type === 'novelbin') result = await crawlNovelBin(url, progressCb);
+            if (type === 'novelbuddy') result = await crawlNovelBuddy(url, progressCb);
+            else if (type === 'lnori') result = await crawlLnori(url, progressCb);
+            else if (type === 'wuxiabox') result = await crawlWuxiaBox(url, progressCb);
+            else if (type === 'wtrlab') result = await crawlWtrLab(url, progressCb);
+            else if (type === 'fucknovelpia') result = await crawlFuckNovelPia(url, progressCb);
+            else if (type === 'novelbin') result = await crawlNovelBin(url, progressCb);
             else if (type === 'novelfire') result = await crawlNovelFire(url, progressCb);
             else if (type === 'witchcult') result = await crawlWitchCult(url, progressCb);
             else if (type === 'ao3') result = await crawlAO3(url, progressCb);

@@ -30,7 +30,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (req.method === 'GET' && req.url.startsWith('/proxy?')) {
+    if ((req.method === 'GET' || req.method === 'POST') && req.url.startsWith('/proxy?')) {
         try {
             const reqUrl = new URL(req.url, `http://${req.headers.host || '127.0.0.1:9090'}`);
             const targetUrl = reqUrl.searchParams.get('url');
@@ -40,18 +40,41 @@ const server = http.createServer(async (req, res) => {
                 return;
             }
 
+            let reqBody = undefined;
+            if (req.method === 'POST') {
+                const chunks = [];
+                for await (const chunk of req) chunks.push(chunk);
+                if (chunks.length > 0) reqBody = Buffer.concat(chunks);
+            }
+
+            let referer = req.headers['x-referer'] || req.headers['referer'];
+            if (!referer || referer.includes('127.0.0.1') || referer.includes('localhost')) {
+                try {
+                    const u = new URL(targetUrl);
+                    referer = `${u.protocol}//${u.host}/`;
+                } catch (_) {}
+            }
+
+            const upstreamHeaders = {
+                'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+                'Accept': req.headers['accept'] || 'text/html,application/xhtml+xml,application/xml,application/json;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,ja;q=0.7',
+                'Cache-Control': 'no-cache',
+                'Referer': referer
+            };
+            if (req.headers['content-type']) {
+                upstreamHeaders['Content-Type'] = req.headers['content-type'];
+            }
+
             const abortCtrl = new AbortController();
             const timer = setTimeout(() => abortCtrl.abort(), 20000);
 
             const upstreamRes = await fetch(targetUrl, {
                 signal: abortCtrl.signal,
+                method: req.method,
                 redirect: 'follow',
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,ja;q=0.7',
-                    'Cache-Control': 'no-cache'
-                }
+                headers: upstreamHeaders,
+                body: reqBody
             });
             clearTimeout(timer);
 
