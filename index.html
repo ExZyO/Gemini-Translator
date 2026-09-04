@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.10';
+    const VERSION = '8.10.11';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1800,15 +1800,15 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       }
 
       // ONLY switch to fallback if strictModel is disabled AND (model is 404 or sustained 503)
-      if (!strictModel && !r.ok && (r.status === 404 || r.status === 503) && model !== 'gemini-3.7-flash') {
-        const fallbackModel = 'gemini-3.7-flash';
+      if (!strictModel && !r.ok && (r.status === 404 || r.status === 503) && model !== 'gemini-3.5-flash-lite') {
+        const fallbackModel = 'gemini-3.5-flash-lite';
         const reason = r.status === 404 ? 'Model Not Found / Deprecated' : 'Sustained Server Overload (503)';
         console.warn(`Model ${model} unavailable (${r.status}) after retries. Falling back to ${fallbackModel}...`);
         if (typeof window !== 'undefined' && window.notifyModelChange) {
           window.notifyModelChange(model, fallbackModel, reason);
         }
         const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${apiKey}`;
-        r = await fetchRetry(fallbackUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+        r = await fetchRetry(fallbackUrl, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
       }
       if (!r || !r.ok) { const b = await r?.text().catch(() => '') || ''; throw new Error(`Gemini API error ${r?.status || 'network'}: ${b.substring(0, 200)}`); }
       const j = await r.json();
@@ -1930,8 +1930,8 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       }
 
       // ONLY switch to fallback if strictModel is disabled AND (model is 404 or sustained 503)
-      if (!strictModel && !r.ok && (r.status === 404 || r.status === 503) && model !== 'gemini-3.7-flash') {
-        const fallbackModel = 'gemini-3.7-flash';
+      if (!strictModel && !r.ok && (r.status === 404 || r.status === 503) && model !== 'gemini-3.5-flash-lite') {
+        const fallbackModel = 'gemini-3.5-flash-lite';
         const reason = r.status === 404 ? 'Model Not Found / Deprecated' : 'Sustained Server Overload (503)';
         console.warn(`Stream for ${model} unavailable (${r.status}) after retries. Falling back to ${fallbackModel}...`);
         if (typeof window !== 'undefined' && window.notifyModelChange) {
@@ -2788,7 +2788,7 @@ const formatModelName = (id, displayName) => {
         const id = (m.id || '').toLowerCase();
         const name = (m.name || '').toLowerCase();
 
-        if (id === 'gemini-2.5-flash' || id === 'gemini-2.0-flash' || id === 'gemini-1.5-flash' || name.includes('recommended free tier') || name.includes('fast & stable') || name.includes('highest free quota')) {
+        if (id === 'gemini-3.5-flash-lite' || id === 'gemini-3.1-flash-lite' || name.includes('recommended free tier') || name.includes('fast & stable') || name.includes('highest free quota')) {
           groups[' RECOMMENDED FREE TIER'].push(m);
         } else if (id.includes('pro') || id.startsWith('gemini-3.7') || (id.startsWith('gemini-3.5-flash') && !id.includes('lite')) || name.includes('flagship') || name.includes('literary')) {
           groups[' FLAGSHIP & DEEP REASONING'].push(m);
@@ -2814,7 +2814,9 @@ const formatModelName = (id, displayName) => {
           !m.name.includes('tts') &&
           !m.name.includes('audio') &&
           !m.name.includes('bison') &&
-          !m.name.includes('gecko'))
+          !m.name.includes('gecko') &&
+          !m.name.includes('gemini-2') &&
+          !m.name.includes('gemini-1'))
         .map(m => {
           const id = m.name.replace('models/', '');
           return { id, name: formatModelName(id, m.displayName) };
@@ -3382,8 +3384,14 @@ const formatModelName = (id, displayName) => {
       const [showKeys, setShowKeys] = useState({});
 
       const [libreUrl, setLibreUrl] = useState(() => localStorage.getItem('libreUrl') || 'https://libretranslate.com');
-      const [includeApiKeysInBackup, setIncludeApiKeysInBackup] = useState(() => localStorage.getItem('includeApiKeysInBackup') === 'true');
-      const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem('geminiModel') || 'gemini-3.7-flash');
+      const [geminiModel, setGeminiModel] = useState(() => {
+        const saved = localStorage.getItem('geminiModel');
+        if (saved && (saved.includes('gemini-2') || saved.includes('gemini-1'))) {
+          localStorage.setItem('geminiModel', 'gemini-3.7-flash');
+          return 'gemini-3.7-flash';
+        }
+        return saved || 'gemini-3.7-flash';
+      });
       const [deepseekModel, setDeepseekModel] = useState(() => localStorage.getItem('deepseekModel') || 'deepseek-chat');
       const [openaiModel, setOpenaiModel] = useState(() => localStorage.getItem('openaiModel') || 'gpt-4o-mini');
       const [claudeModel, setClaudeModel] = useState(() => localStorage.getItem('claudeModel') || 'claude-3-5-haiku-20241022');
@@ -4526,7 +4534,7 @@ FORMATTING & STRUCTURE RULES:
           const j = await r.json();
           return j.choices?.[0]?.message?.content || '';
         } else {
-          const activeM = useCustomModel && customModel ? customModel : (geminiModel || 'gemini-2.5-flash');
+          const activeM = useCustomModel && customModel ? customModel : (geminiModel || 'gemini-3.5-flash-lite');
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeM}:generateContent?key=${key}`;
           const bodyPayload = {
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -6101,7 +6109,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
                 const isFatalQuota = (err.message || '').includes('429') || (err.message || '').includes('quota') || (err.message || '').includes('billing');
                 if (isFatalQuota) {
-                  throw new Error(`API Quota exhausted across keys. If on free tier, switch model to Gemini 2.5 Flash. Progress saved at chunk ${i + 1}/${chunks.length}.`);
+                  throw new Error(`API Quota exhausted across keys. Switch model to Gemini 3.5 Flash Lite in Settings · Engine. Progress saved at chunk ${i + 1}/${chunks.length}.`);
                 }
                 if (opts?.strictModel) {
                   throw new Error(`Strict Model: Could not complete chunk ${i + 1}/${chunks.length} with ${opts.model || 'chosen model'}: ${err.message}. Progress safely preserved. Tap Resume to retry.`);
@@ -6350,7 +6358,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 if (e.name === 'AbortError' || opts?.signal?.aborted) throw e;
                 const isFatalQuota = (e.message || '').includes('429') || (e.message || '').includes('quota') || (e.message || '').includes('billing');
                 if (isFatalQuota) {
-                  throw new Error(`API Quota exhausted across keys. If on free tier, switch model to Gemini 1.5 Flash. Progress saved at chapter ${i + 1}.`);
+                  throw new Error(`API Quota exhausted across keys. Switch model to Gemini 3.5 Flash Lite in Settings · Engine. Progress saved at chapter ${i + 1}.`);
                 }
                 if (opts?.strictModel) {
                   throw new Error(`Strict Model: Failed translating chunk ${j + 1}/${chunks.length} of "${title || `Chapter ${i + 1}`}": ${e.message}. Progress safely saved. Tap Resume to retry.`);

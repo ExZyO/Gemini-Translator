@@ -1,7 +1,7 @@
 {
-  "version": "8.10.10",
-  "versionCode": 8110,
+  "version": "8.10.11",
+  "versionCode": 8111,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.10: Strict Model Enforcement (No Fallbacks) — Patient exponential backoff on 503 high demand spikes, thinking budget optimization, and zero dropped chunk protection."
+  "releaseNotes": "v8.10.11: Fallback exclusively to Gemini 3.5 Flash Lite — Removed all Gemini 2 models from defaults, recommendations, and fallback mechanisms."
 }
