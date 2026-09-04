@@ -1,0 +1,470 @@
+/**
+ * Gemini Translator - Pro Moon+ Reader Engine
+ * Virtual Windowing, High-Res Art & Pro TTS Player
+ */
+(function(window) {
+  const { useState, useEffect, useRef, useMemo, useCallback } = React;
+  const h = React.createElement;
+
+    const MoonReaderModal = ({ open, onClose, text, chapters, currentIdx, onChapterChange, theme, setTheme, font, setFont, fontSize, setFontSize, tgtLang }) => {
+      if (!open) return null;
+
+      const safeChapters = useMemo(() => {
+        let list = Array.isArray(chapters) && chapters.length > 0
+          ? chapters.filter(c => c && typeof c === 'object').map(c => ({
+              title: c.title || 'Chapter',
+              text: c.content || c.text || ''
+            }))
+          : [];
+
+        if (list.length === 0 && text && typeof text === 'string') {
+          const lines = text.split(/\r?\n/);
+          const isHeading = (l) => {
+            const trimmed = l.trim();
+            return /^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|Chapter\s*\d+|CHAPTER\s*\d+|\d+[\.\s]+|\#+\s+)/i.test(trimmed);
+          };
+          let curTitle = 'Chapter 1';
+          let curLines = [];
+          for (const line of lines) {
+            if (isHeading(line) && curLines.length > 0) {
+              list.push({ title: curTitle, text: curLines.join('\n') });
+              curTitle = line.trim();
+              curLines = [];
+            } else {
+              curLines.push(line);
+            }
+          }
+          if (curLines.length > 0) {
+            list.push({ title: curTitle, text: curLines.join('\n') });
+          }
+        }
+
+        if (list.length === 0) {
+          list = [{ title: 'Chapter 1', text: text || 'No text loaded.' }];
+        }
+        return list;
+      }, [chapters, text]);
+
+      const [activeIdx, setActiveIdx] = useState(typeof currentIdx === 'number' && currentIdx >= 0 ? currentIdx : 0);
+      const [showToc, setShowToc] = useState(false);
+      const [showMenu, setShowMenu] = useState(false);
+      const [showVisual, setShowVisual] = useState(false);
+      const [showTtsBar, setShowTtsBar] = useState(false);
+      const [justify, setJustify] = useState(() => { try { return localStorage.getItem('readerJustify') !== 'false'; } catch (e) { return false; } });
+      useEffect(() => { try { localStorage.setItem('readerJustify', String(justify)); } catch (e) {} }, [justify]);
+      const [chrome, setChrome] = useState(false);
+      const [endReached, setEndReached] = useState(false);
+
+      // TTS State — Moon+ follow-along
+      const [ttsPlaying, setTtsPlaying] = useState(false);
+      const [ttsPaused, setTtsPaused] = useState(false);
+      const [ttsSpeed, setTtsSpeed] = useState(1.0);
+      const [ttsPitch, setTtsPitch] = useState(1.0);
+      const [ttsVolume, setTtsVolume] = useState(1.0);
+      const [ttsVoices, setTtsVoices] = useState([]);
+      const [selectedVoice, setSelectedVoice] = useState('');
+      const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
+
+      const containerRef = useRef(null);
+      const sentencesRef = useRef([]);
+      const sentenceIdxRef = useRef(0);
+      const activeIdxRef = useRef(activeIdx);
+      activeIdxRef.current = activeIdx;
+      const advancingRef = useRef(false);
+      const ttsPlayingRef = useRef(false);
+      ttsPlayingRef.current = ttsPlaying && !ttsPaused;
+      const ttsSpeedRef = useRef(1.0); ttsSpeedRef.current = ttsSpeed;
+      const ttsPitchRef = useRef(1.0); ttsPitchRef.current = ttsPitch;
+      const ttsVolumeRef = useRef(1.0); ttsVolumeRef.current = ttsVolume;
+      const selectedVoiceRef = useRef(''); selectedVoiceRef.current = selectedVoice;
+      const ttsVoicesRef = useRef([]); ttsVoicesRef.current = ttsVoices;
+
+      useEffect(() => {
+        if (typeof currentIdx === 'number' && currentIdx >= 0 && currentIdx !== activeIdx) {
+          setActiveIdx(currentIdx);
+        }
+      }, [currentIdx]);
+
+      useEffect(() => {
+        const updateVoices = () => {
+          if (typeof window !== 'undefined' && window.speechSynthesis) {
+            const vList = window.speechSynthesis.getVoices() || [];
+            setTtsVoices(vList);
+            if (vList.length > 0 && !selectedVoiceRef.current) {
+              const langCode = (tgtLang || 'en').toLowerCase().substring(0, 2);
+              const matched = vList.find(v => v.lang.toLowerCase().startsWith(langCode)) || vList[0];
+              if (matched) setSelectedVoice(matched.name);
+            }
+          }
+        };
+        updateVoices();
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.onvoiceschanged = updateVoices;
+        }
+        return () => {
+          if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = null;
+          }
+        };
+      }, [tgtLang]);
+
+      const currentChapter = safeChapters[activeIdx] || safeChapters[0];
+
+      const parsedParagraphs = useMemo(() => {
+        const rawText = currentChapter?.text || '';
+        const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        return lines.map((line, pIdx) => {
+          const imgMatch = line.match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
+          if (imgMatch) {
+            return { isImage: true, alt: imgMatch[1] || 'Illustration', url: imgMatch[2], pIdx };
+          }
+          return { isImage: false, text: line, pIdx };
+        });
+      }, [currentChapter]);
+
+      useEffect(() => {
+        const textOnly = parsedParagraphs
+          .filter(p => !p.isImage)
+          .map(p => p.text)
+          .join('\n');
+        const rawSentences = textOnly
+          .split(/([。！？!?\n]+)/)
+          .reduce((acc, cur, i, arr) => {
+            if (i % 2 === 0 && cur.trim()) {
+              const punct = arr[i + 1] || '';
+              acc.push((cur + punct).trim());
+            }
+            return acc;
+          }, [])
+          .filter(s => s.length > 1 && !s.startsWith('![Illustration]'));
+        sentencesRef.current = rawSentences.length > 0 ? rawSentences : [currentChapter?.title || ''];
+        sentenceIdxRef.current = 0;
+        setActiveSentenceIdx(ttsPlayingRef.current ? 0 : -1);
+      }, [parsedParagraphs, currentChapter]);
+
+      const scrollToSentence = (idx) => {
+        if (!containerRef.current) return;
+        const el = containerRef.current.querySelector(`[data-sentence-idx="${idx}"]`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const containerRect = containerRef.current.getBoundingClientRect();
+          if (rect.top < containerRect.top + 80 || rect.bottom > containerRect.bottom - 120) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      };
+
+      const speakSentence = (idx) => {
+        if (typeof window === 'undefined' || !window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+
+        const sList = sentencesRef.current;
+        if (idx < 0 || idx >= sList.length) {
+          if (activeIdxRef.current < safeChapters.length - 1) {
+            const nextCh = activeIdxRef.current + 1;
+            setActiveIdx(nextCh);
+            onChapterChange?.(nextCh);
+            sentenceIdxRef.current = 0;
+            setActiveSentenceIdx(0);
+            setTimeout(() => speakSentence(0), 450);
+            return;
+          } else {
+            setTtsPlaying(false);
+            setTtsPaused(false);
+            setActiveSentenceIdx(-1);
+            setEndReached(true);
+            return;
+          }
+        }
+
+        sentenceIdxRef.current = idx;
+        setActiveSentenceIdx(idx);
+        scrollToSentence(idx);
+
+        const sentenceText = sList[idx];
+        const utter = new SpeechSynthesisUtterance(sentenceText);
+        utter.rate = ttsSpeedRef.current;
+        utter.pitch = ttsPitchRef.current;
+        utter.volume = ttsVolumeRef.current;
+
+        if (selectedVoiceRef.current && ttsVoicesRef.current.length > 0) {
+          const vObj = ttsVoicesRef.current.find(v => v.name === selectedVoiceRef.current);
+          if (vObj) utter.voice = vObj;
+        }
+
+        utter.onend = () => {
+          if (sentenceIdxRef.current === idx) {
+            speakSentence(idx + 1);
+          }
+        };
+        utter.onerror = (e) => {
+          if (e.error !== 'canceled') {
+            console.warn('TTS Speech Error:', e);
+            speakSentence(idx + 1);
+          }
+        };
+
+        window.__activeTtsUtterance = utter;
+        window.speechSynthesis.speak(utter);
+        setTtsPlaying(true);
+        setTtsPaused(false);
+        setEndReached(false);
+      };
+
+      const handlePlayPause = () => {
+        if (typeof window === 'undefined' || !window.speechSynthesis) return;
+        if (ttsPlaying && !ttsPaused) {
+          window.speechSynthesis.pause();
+          setTtsPaused(true);
+        } else if (ttsPaused) {
+          window.speechSynthesis.resume();
+          setTtsPaused(false);
+        } else {
+          setShowTtsBar(true);
+          const startIdx = activeSentenceIdx >= 0 ? activeSentenceIdx : 0;
+          speakSentence(startIdx);
+        }
+      };
+
+      const handleStopTts = () => {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+        window.__activeTtsUtterance = null;
+        setTtsPlaying(false);
+        setTtsPaused(false);
+        setActiveSentenceIdx(-1);
+      };
+
+      const handlePrevSentence = () => {
+        const prev = Math.max(0, sentenceIdxRef.current - 1);
+        speakSentence(prev);
+      };
+
+      const handleNextSentence = () => {
+        const next = sentenceIdxRef.current + 1;
+        speakSentence(next);
+      };
+
+      useEffect(() => {
+        return () => {
+          if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+          }
+          window.__activeTtsUtterance = null;
+        };
+      }, []);
+
+      // Moon+ scroll flow: chapter continues into the next one
+      const advanceChapter = () => {
+        if (advancingRef.current) return;
+        if (activeIdxRef.current >= safeChapters.length - 1) { setEndReached(true); return; }
+        advancingRef.current = true;
+        const next = activeIdxRef.current + 1;
+        setActiveIdx(next);
+        onChapterChange?.(next);
+        if (containerRef.current) containerRef.current.scrollTop = 0;
+        setTimeout(() => { advancingRef.current = false; }, 600);
+        if (ttsPlayingRef.current) {
+          setTimeout(() => speakSentence(0), 300);
+        }
+      };
+
+      const handleScroll = () => {
+        const el = containerRef.current;
+        if (!el) return;
+        if (el.scrollHeight - el.scrollTop - el.clientHeight < 48) {
+          advanceChapter();
+        }
+      };
+
+      // Reading-time estimates (200 wpm)
+      const chapterWords = (currentChapter?.text || '').split(/\s+/).filter(Boolean).length;
+      const chapterMins = Math.max(1, Math.round(chapterWords / 200));
+      const remainingWords = safeChapters.slice(activeIdx).reduce((acc, c) => acc + (c.text || '').split(/\s+/).filter(Boolean).length, 0);
+      const bookHours = remainingWords > 0 ? Math.max(1, Math.round(remainingWords / 200 / 60)) : 1;
+      const pct = Math.round(((activeIdx + 1) / safeChapters.length) * 100);
+
+      const themeClasses = {
+        light: 'reader-theme-light',
+        sepia: 'reader-theme-sepia',
+        dark: 'reader-theme-dark',
+        black: 'reader-theme-black'
+      }[theme] || 'reader-theme-dark';
+
+      const fontClasses = {
+        sans: '', serif: 'serif', mono: 'mono'
+      }[font || 'serif'] || 'serif';
+
+      const firstChapterTitle = currentChapter?.title || 'Chapter';
+
+      return h('div', {
+        className: 'reader-shell',
+        onClick: () => { if (showToc) setShowToc(false); else setChrome(c => !c); }
+      },
+        // Top bar (tap to reveal)
+        chrome && h('div', { className: 'reader-top', onClick: (e) => e.stopPropagation() },
+          h('div', null,
+            h('div', { className: 'book-title' }, 'Reader'),
+            h('div', { className: 'ch' }, `${firstChapterTitle} · Ch ${activeIdx + 1} of ${safeChapters.length}`)
+          ),
+          h('div', { style: { display: 'flex', gap: 8 } },
+            h('button', { type: 'button', className: 'icon-btn', title: 'Read Aloud', onClick: () => { setShowTtsBar(!showTtsBar); if (!ttsPlaying && !showTtsBar) handlePlayPause(); } }, '🔊'),
+            h('button', { type: 'button', className: 'icon-btn', title: 'Table of Contents', onClick: () => setShowToc(!showToc) }, '☰'),
+            h('button', { type: 'button', className: 'icon-btn', title: 'Reader Menu', onClick: () => setShowMenu(true) }, '⋯'),
+            h('button', { type: 'button', className: 'icon-btn', title: 'Close Reader', onClick: () => { handleStopTts(); onClose(); } }, '✕')
+          )
+        ),
+
+        // Slide-over TOC
+        showToc && h('div', { className: 'toc-drawer', onClick: (e) => e.stopPropagation() },
+          h('div', { className: 'hd' },
+            `Contents (${safeChapters.length})`,
+            h('button', { type: 'button', className: 'icon-btn', onClick: () => setShowToc(false) }, '✕')
+          ),
+          h('div', { className: 'toc-list' },
+            safeChapters.map((ch, idx) => {
+              const isActive = idx === activeIdx;
+              return h('div', {
+                key: idx,
+                className: `toc-row ${isActive ? 'cur' : ''}`,
+                onClick: () => {
+                  setActiveIdx(idx);
+                  onChapterChange?.(idx);
+                  setShowToc(false);
+                  if (containerRef.current) containerRef.current.scrollTop = 0;
+                  if (ttsPlayingRef.current) setTimeout(() => speakSentence(0), 300);
+                }
+              },
+                h('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ch.title || `Chapter ${idx + 1}`),
+                h('span', { className: 'pg' }, `${Math.round(((idx + 1) / safeChapters.length) * 100)}%`)
+              );
+            })
+          )
+        ),
+
+        // Chapter content (scroll flow)
+        h('div', {
+          ref: containerRef,
+          className: `reader-body ${themeClasses} ${fontClasses}${justify ? ' justify' : ''}`,
+          style: { fontSize: `${fontSize || 18}px` },
+          onScroll: handleScroll
+        },
+          h('h3', null, firstChapterTitle),
+          parsedParagraphs.map((item, pIdx) => {
+            if (item.isImage) {
+              return h('div', { key: pIdx, className: 'my-6 flex flex-col items-center justify-center' },
+                h('img', {
+                  src: item.url,
+                  alt: item.alt,
+                  loading: 'lazy',
+                  style: { maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 16 }
+                }),
+                item.alt && item.alt !== 'Illustration' && h('span', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 8, fontStyle: 'italic' } }, item.alt)
+              );
+            }
+            const isSpeaking = activeSentenceIdx >= 0 && sentencesRef.current[activeSentenceIdx] && item.text.includes(sentencesRef.current[activeSentenceIdx].substring(0, 15));
+            return h('p', {
+              key: pIdx,
+              'data-sentence-idx': pIdx,
+              className: `${pIdx === 0 ? 'first-para' : ''} ${isSpeaking ? 'speaking' : ''}`,
+              onClick: () => {
+                const matchIdx = sentencesRef.current.findIndex(s => item.text.includes(s.substring(0, 15)));
+                if (matchIdx !== -1) {
+                  setShowTtsBar(true);
+                  speakSentence(matchIdx);
+                }
+              }
+            }, item.text);
+          }),
+          h('div', { className: 'next-ch', onClick: advanceChapter },
+            h('span', null, activeIdx >= safeChapters.length - 1 ? (endReached ? 'End of book' : 'You reached the end') : 'scroll · flows into the next chapter'),
+            h('b', null, activeIdx >= safeChapters.length - 1 ? '★' : `Chapter ${activeIdx + 2} →`)
+          )
+        ),
+
+        // Slim stats line (tap to reveal)
+        chrome && h('div', { className: 'statsline' },
+          h('span', null, `${chapterMins} min left in chapter · ${bookHours} hrs left in book`),
+          h('span', null, `Ch ${activeIdx + 1} of ${safeChapters.length} · ${pct}%`)
+        ),
+
+        // Visual options panel
+        showVisual && h('div', { className: 'vis-panel', onClick: (e) => e.stopPropagation() },
+          h('div', { className: 'row' },
+            h('span', { className: 'cap' }, 'Theme'),
+            ['dark', 'black', 'sepia', 'light'].map(t => h('button', { key: t, type: 'button', className: `seg-btn ${(theme || 'dark') === t ? 'on' : ''}`, onClick: () => setTheme?.(t) }, t === 'black' ? 'OLED' : t))
+          ),
+          h('div', { className: 'row' },
+            h('span', { className: 'cap' }, 'Font'),
+            ['serif', 'sans', 'mono'].map(f => h('button', { key: f, type: 'button', className: `seg-btn ${(font || 'serif') === f ? 'on' : ''}`, onClick: () => setFont?.(f) }, f))
+          ),
+          h('div', { className: 'row' },
+            h('span', { className: 'cap' }, 'Size'),
+            h('button', { type: 'button', className: 'tts-btn', onClick: () => setFontSize?.(Math.max(12, (fontSize || 18) - 2)) }, '−'),
+            h('span', { className: 'mono', style: { fontSize: 12, color: '#E8E4DA', minWidth: 28, textAlign: 'center' } }, fontSize || 18),
+            h('button', { type: 'button', className: 'tts-btn', onClick: () => setFontSize?.(Math.min(36, (fontSize || 18) + 2)) }, '+')
+          ),
+          h('div', { className: 'row' },
+            h('span', { className: 'cap' }, 'Alignment'),
+            h('button', { type: 'button', className: `seg-btn ${justify ? 'on' : ''}`, onClick: () => setJustify(!justify) }, 'Justify Text')
+          ),
+          h('button', { type: 'button', className: 'mini-btn ghost', style: { alignSelf: 'flex-start' }, onClick: () => setShowVisual(false) }, 'Done')
+        ),
+
+        // TTS dock — follow-along
+        showTtsBar && h('div', { className: 'ttsbar', onClick: (e) => e.stopPropagation() },
+          h('div', { style: { display: 'flex', gap: 8, flex: 'none' } },
+            h('button', { type: 'button', className: 'tts-btn', title: 'Previous Sentence', onClick: handlePrevSentence }, '⏮'),
+            h('button', { type: 'button', className: 'tts-play', title: ttsPlaying && !ttsPaused ? 'Pause' : 'Play', onClick: handlePlayPause }, ttsPlaying && !ttsPaused ? '❚❚' : '▶'),
+            h('button', { type: 'button', className: 'tts-btn', title: 'Next Sentence', onClick: handleNextSentence }, '⏭'),
+            h('button', { type: 'button', className: 'tts-btn', title: 'Stop', onClick: handleStopTts }, '■')
+          ),
+          h('div', { className: 'tts-meta' },
+            h('div', { className: 'line1' }, activeSentenceIdx >= 0 ? `Sentence ${activeSentenceIdx + 1} / ${sentencesRef.current.length}` : 'Tap ▶ or any paragraph'),
+            h('div', { className: 'line2' },
+              ttsVoices.length > 0 && h('select', {
+                value: selectedVoice,
+                onChange: (e) => { setSelectedVoice(e.target.value); if (ttsPlayingRef.current) speakSentence(sentenceIdxRef.current); },
+                className: 'chip',
+                style: { background: 'var(--void)', maxWidth: 150, outline: 'none', border: '1px solid var(--hairline)', color: 'var(--slate)', borderRadius: 8, fontSize: 10, padding: '3px 6px' }
+              },
+                ttsVoices.map(v => h('option', { key: v.name, value: v.name }, `${v.name} (${v.lang})`))
+              )
+            )
+          ),
+          h('div', { className: 'tts-sliders' },
+            h('div', { className: 'slider-row' },
+              h('span', { className: 'lbl' }, 'Volume'),
+              h('input', { type: 'range', min: '0', max: '1', step: '0.1', value: ttsVolume, onChange: (e) => { const v = parseFloat(e.target.value); setTtsVolume(v); if (ttsPlayingRef.current) speakSentence(sentenceIdxRef.current); } }),
+              h('span', { className: 'val' }, Math.round(ttsVolume * 10))
+            ),
+            h('div', { className: 'slider-row' },
+              h('span', { className: 'lbl' }, 'Pitch'),
+              h('input', { type: 'range', min: '0', max: '2', step: '0.1', value: ttsPitch, onChange: (e) => { const p = parseFloat(e.target.value); setTtsPitch(p); if (ttsPlayingRef.current) speakSentence(sentenceIdxRef.current); } }),
+              h('span', { className: 'val' }, ttsPitch.toFixed(1))
+            ),
+            h('div', { className: 'slider-row' },
+              h('span', { className: 'lbl' }, 'Speed'),
+              h('input', { type: 'range', min: '0.5', max: '3', step: '0.1', value: ttsSpeed, onChange: (e) => { const s = parseFloat(e.target.value); setTtsSpeed(s); if (ttsPlayingRef.current) speakSentence(sentenceIdxRef.current); } }),
+              h('span', { className: 'val' }, `${ttsSpeed.toFixed(1)}×`)
+            )
+          )
+        ),
+
+        // Reader menu (⋯)
+        showMenu && h('div', { className: 'sheet-backdrop', onClick: () => setShowMenu(false) },
+          h('div', { className: 'sheet', onClick: (e) => e.stopPropagation() },
+            h('div', { className: 'sheet-handle' }),
+            h('div', { className: 'sheet-lbl' }, 'Display'),
+            h('button', { type: 'button', className: 'sheet-row', onClick: () => { setShowMenu(false); setShowVisual(true); } }, h('span', { className: 'ic' }, '🎨'), 'Visual Options', h('span', { className: 'chev' }, '›')),
+            h('div', { className: 'sheet-lbl' }, 'Reading'),
+            h('button', { type: 'button', className: 'sheet-row', onClick: () => { setShowMenu(false); setShowTtsBar(true); } }, h('span', { className: 'ic' }, '🔊'), 'TTS Panel', h('span', { className: 'chev' }, '›')),
+            h('button', { type: 'button', className: 'sheet-row', onClick: () => { handleStopTts(); onClose(); window.dispatchEvent(new CustomEvent('open-glossary-editor')); } }, h('span', { className: 'ic' }, '📖'), 'Glossary', h('span', { className: 'chev' }, '›'))
+          )
+        )
+      );
+    };
+
+  window.MoonReaderModal = MoonReaderModal;
+})(window);
