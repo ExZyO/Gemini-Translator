@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.17';
+    const VERSION = '8.10.18';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6930,6 +6930,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         if (curText && curText.trim()) {
           return [{ title: 'Translated Document', content: curText.trim() }];
         }
+        // Fallback: allow exporting source/raw chapters as EPUB even if translation is incomplete or unstarted
+        if (chapters && chapters.length > 0) {
+          return chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, content: c.text || c.content || '' }));
+        }
         return [];
       };
 
@@ -7841,6 +7845,24 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
+                      style: { borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600 },
+                      onClick: async () => {
+                        const chs = activeCrawlSession.chapters || [];
+                        if (chs.length === 0) return toast('No chapters available to download.', 'warning');
+                        try {
+                          toast(`Building EPUB from ${chs.length} chapters…`, 'info');
+                          const blob = await generateEpubFromChapters(chs, activeCrawlSession.title || 'Web Novel', activeCrawlSession.author || 'Author', 'en');
+                          const cleanName = sanitizeFilename(activeCrawlSession.title || 'Web_Novel').replace(/\s+/g, '_');
+                          await saveUniversalBlob(blob, `${cleanName}_(Ch1-${chs.length}).epub`, 'application/epub+zip');
+                          toast(`EPUB (${chs.length} chapters) downloaded successfully!`, 'success');
+                        } catch (e) {
+                          toast('EPUB export error: ' + e.message, 'error');
+                        }
+                      }
+                    }, `📥 Download EPUB (${(activeCrawlSession.chapters || []).length} Ch)`),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
                       onClick: () => {
                         const chs = activeCrawlSession.chapters || [];
                         const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
@@ -7859,21 +7881,41 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   )
                 ),
 
-                h('div', { className: 'src-chips' }, ['NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', { key: s, className: 'src-chip' }, s))),
-                h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel URL (NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
+                h('div', { className: 'src-chips' }, ['NovelBin', 'NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', { key: s, className: 'src-chip' }, s))),
+                h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel URL (NovelBin, NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
                 
                 isFetchingPaused ? (
-                  h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, margin: '8px 0' } },
+                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 6, margin: '8px 0' } },
                     h('button', {
                       type: 'button',
                       className: 'mini-btn',
-                      style: { padding: '10px 6px', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                      style: { padding: '10px 4px', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, fontSize: 11 },
                       onClick: () => handleStartFetch(true)
                     }, '▶ Resume Fetch'),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
-                      style: { padding: '10px 6px', fontWeight: 600 },
+                      style: { padding: '10px 4px', borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600, fontSize: 11 },
+                      onClick: async () => {
+                        const chs = activeNovelView?.chapters || [];
+                        if (chs.length === 0) return toast('No chapters downloaded yet to export.', 'warning');
+                        try {
+                          toast(`Generating EPUB from ${chs.length} chapters…`, 'info');
+                          const blob = await generateEpubFromChapters(chs, activeNovelView.title || 'Web Novel', activeNovelView.author || 'Author', 'en');
+                          const cleanName = sanitizeFilename(activeNovelView.title || 'Web_Novel').replace(/\s+/g, '_');
+                          const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
+                          const fileName = isInc ? `${cleanName}_(Ch1-${chs.length}).epub` : `${cleanName}.epub`;
+                          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+                          toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
+                        } catch (e) {
+                          toast('EPUB export error: ' + e.message, 'error');
+                        }
+                      }
+                    }, `📥 Download EPUB (${activeNovelView?.chapters?.length || 0})`),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { padding: '10px 4px', fontWeight: 600, fontSize: 11 },
                       onClick: () => {
                         const chs = activeNovelView?.chapters || [];
                         if (chs.length === 0) return toast('No chapters downloaded yet to send.', 'warning');
@@ -7883,11 +7925,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         setActiveTab('text');
                         toast(`Loaded ${chs.length} chapters to Translator tab!`, 'info');
                       }
-                    }, `📥 Send to Translate (${activeNovelView?.chapters?.length || 0})`),
+                    }, `Send to Translate`),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn danger',
-                      style: { padding: '10px 6px', fontWeight: 600 },
+                      style: { padding: '10px 4px', fontWeight: 600, fontSize: 11 },
                       onClick: handleCancelFetch
                     }, '✕ Cancel')
                   )
@@ -7899,17 +7941,35 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     onClick: () => handleStartFetch(false)
                   }, '⤓ Fetch Novel')
                 ) : (
-                  h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '6px 0' } },
+                  h('div', { style: { display: 'grid', gridTemplateColumns: (activeNovelView?.chapters?.length || 0) > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
                     h('button', {
                       type: 'button',
                       className: 'mini-btn',
-                      style: { padding: '10px 14px', background: 'rgba(234, 179, 8, 0.2)', color: '#eab308', borderColor: 'rgba(234, 179, 8, 0.4)', fontWeight: 600 },
+                      style: { padding: '10px 8px', background: 'rgba(234, 179, 8, 0.2)', color: '#eab308', borderColor: 'rgba(234, 179, 8, 0.4)', fontWeight: 600 },
                       onClick: handlePauseFetch
                     }, '⏸ Pause Fetch'),
+                    (activeNovelView?.chapters?.length || 0) > 0 && h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { padding: '10px 6px', borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600, fontSize: 11 },
+                      onClick: async () => {
+                        const chs = activeNovelView?.chapters || [];
+                        if (chs.length === 0) return toast('No chapters downloaded yet.', 'warning');
+                        try {
+                          toast(`Generating EPUB from currently fetched ${chs.length} chapters…`, 'info');
+                          const blob = await generateEpubFromChapters(chs, activeNovelView.title || 'Web Novel', activeNovelView.author || 'Author', 'en');
+                          const cleanName = sanitizeFilename(activeNovelView.title || 'Web_Novel').replace(/\s+/g, '_');
+                          await saveUniversalBlob(blob, `${cleanName}_(Ch1-${chs.length}).epub`, 'application/epub+zip');
+                          toast(`EPUB (${chs.length} chapters) saved!`, 'success');
+                        } catch (e) {
+                          toast('EPUB export error: ' + e.message, 'error');
+                        }
+                      }
+                    }, `📥 EPUB (${activeNovelView.chapters.length} Ch)`),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn danger',
-                      style: { padding: '10px 14px', fontWeight: 600 },
+                      style: { padding: '10px 8px', fontWeight: 600 },
                       onClick: handleCancelFetch
                     }, '✕ Cancel')
                   )
@@ -7936,8 +7996,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 ),
                 h(InfoTooltip, {
                   title: 'Supported Sources',
-                  text: 'Extracts full works and multi-chapter stories from Pixiv, AO3, Syosetu, Lofter, Witch Cult Translations, and standard WordPress/Tumblr webnovels directly to EPUB.',
-                  tip: 'For Pixiv, paste either a novel URL or a /novel/series/ URL to fetch the entire story.'
+                  text: 'Extracts full works and multi-chapter stories from NovelBin, NovelFire, Pixiv, AO3, Syosetu, Lofter, Witch Cult Translations, and standard WordPress/Tumblr webnovels directly to EPUB.',
+                  tip: 'Paste either a novel page URL or any chapter URL to fetch the entire story.'
                 }),
                 activeNovelView && h('div', { className: 'book-card' },
                   h('div', { className: 't' }, activeNovelView.title || 'Untitled Web Novel'),
@@ -7950,14 +8010,26 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       setActiveTab('text');
                       toast('Imported to Translator tab!', 'info');
                     } }, 'Send to Translator'),
-                    h('button', { type: 'button', className: 'mini-btn ghost', onClick: async () => {
-                      try {
-                        const blob = await generateEpubFromChapters(activeNovelView.chapters, activeNovelView.title, activeNovelView.author, 'en');
-                        const cleanName = sanitizeFilename(activeNovelView.title).replace(/\s+/g, '_');
-                        await saveUniversalBlob(blob, `${cleanName}.epub`, 'application/epub+zip');
-                        toast('EPUB downloaded successfully!', 'success');
-                      } catch (e) { toast('EPUB export error: ' + e.message, 'error'); }
-                    } }, 'Download Raw EPUB')
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600 },
+                      onClick: async () => {
+                        try {
+                          const chs = activeNovelView.chapters || [];
+                          if (!chs.length) return toast('No chapters available to download.', 'warning');
+                          const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
+                          toast(`Building ${isInc ? 'partial ' : ''}EPUB (${chs.length} chapters)…`, 'info');
+                          const blob = await generateEpubFromChapters(chs, activeNovelView.title, activeNovelView.author, 'en');
+                          const cleanName = sanitizeFilename(activeNovelView.title).replace(/\s+/g, '_');
+                          const fileName = isInc ? `${cleanName}_(Ch1-${chs.length}).epub` : `${cleanName}.epub`;
+                          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+                          toast(`EPUB downloaded successfully! (${chs.length} chapters)`, 'success');
+                        } catch (e) { toast('EPUB export error: ' + e.message, 'error'); }
+                      }
+                    }, (activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && (activeNovelView.chapters || []).length < activeNovelView.totalChapterCount))
+                      ? `📥 Download EPUB (${(activeNovelView.chapters || []).length} Ch — Incomplete)`
+                      : `📥 Download EPUB (${(activeNovelView.chapters || []).length} Ch)`)
                   )
                 ),
                 activeNovelView && activeNovelView.chapters && activeNovelView.chapters.length > 0 && h('div', { className: 'card' },
@@ -8163,13 +8235,28 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             }, isTrans ? '🔄 Re-Translate' : '🌐 Translate')
                           );
                         })(),
-                        h('button', { type: 'button', className: 'mini-btn ghost', onClick: async () => {
-                          const full = await loadFullNovel(item);
-                          if (!full) { toast('Novel data not found in local store.', 'error'); return; }
-                          const blob = await generateEpubFromChapters(full.rawChapters, item.title, item.author || 'Author');
-                          const cleanName = sanitizeFilename(item.title).replace(/\s+/g, '_');
-                          await saveUniversalBlob(blob, `${cleanName}.epub`, 'application/epub+zip');
-                        } }, 'EPUB'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600 },
+                          onClick: async () => {
+                            const full = await loadFullNovel(item);
+                            if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+                            const chs = full.rawChapters || full.chapters || [];
+                            if (chs.length === 0) { toast('No chapters found in saved novel.', 'warning'); return; }
+                            try {
+                              const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
+                              toast(`Generating ${isInc ? 'partial ' : ''}EPUB (${chs.length} chapters)…`, 'info');
+                              const blob = await generateEpubFromChapters(chs, item.title, item.author || 'Author', 'en');
+                              const cleanName = sanitizeFilename(item.title).replace(/\s+/g, '_');
+                              const fileName = isInc ? `${cleanName}_(Ch1-${chs.length}).epub` : `${cleanName}.epub`;
+                              await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+                              toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
+                            } catch (e) {
+                              toast('EPUB export error: ' + e.message, 'error');
+                            }
+                          }
+                        }, item.isIncomplete ? `📥 EPUB (${item.chapterCount || 'Partial'})` : '📥 EPUB'),
                         h('button', { type: 'button', className: 'mini-btn danger', onClick: () => confirmAction(`Remove "${item.title}" from the library?`, async () => { await deleteNovelFromHistory(item.id); }) }, 'Remove')
                       )
                     ))

@@ -1,7 +1,7 @@
 {
-  "version": "8.10.17",
-  "versionCode": 8117,
+  "version": "8.10.18",
+  "versionCode": 8118,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.17: Added high-speed Novel Bin (novel-bin.com, novelbin.me, mvlempyr.com) crawler adapter with full chapter auto-discovery, 8-stream parallel ingestion, and TOC sorting."
+  "releaseNotes": "v8.10.18: Instant EPUB download buttons for incomplete, paused, and active novel crawls across Web Importer and Library."
 }
