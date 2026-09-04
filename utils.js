@@ -241,6 +241,11 @@ function isTitleEcho(line, title, originalTitle) {
         }
     }
 
+    // 0. Template placeholder leak check e.g. "Chapter [number]: [Name]", "[number]: [Name]", "---Page End ---"
+    if (/\[(?:number|\d+|name|title)\]/i.test(innerText) || /---\s*page\s*end\s*---/i.test(innerText)) {
+        return true;
+    }
+
     // 1. Direct match with original title (e.g. Chinese source)
     if (originalTitle && originalTitle.trim()) {
         const oNorm = normalizeTextForComparison(originalTitle);
@@ -263,8 +268,8 @@ function isTitleEcho(line, title, originalTitle) {
         }
     }
 
-    // 4. Pure chapter heading line e.g. "### Chapter 1", "Chapter 1", "第1章"
-    if (/^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|chapter\s*\d+|ch\.?\s*\d+)$/i.test(innerText)) {
+    // 4. Pure chapter heading line e.g. "### Chapter 1", "Chapter 1", "第1章", "Chapter [number]"
+    if (/^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|chapter\s*(?:\d+|\[(?:number|\d+)\])(?:\s*[:\-–—]\s*(?:\[(?:name|title)\]|.+))?|ch\.?\s*\d+|\[(?:chapter|number|name|title)\])/i.test(innerText)) {
         return true;
     }
 

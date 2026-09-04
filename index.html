@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.13';
+    const VERSION = '8.10.14';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1683,6 +1683,11 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       t = t.replace(/^(\s*)\*([A-Za-z0-9!?,.\s'-]{1,30})\*(\s*)$/gm, '$1$2$3');
       // Strip residual web navigation artifacts
       t = t.replace(/^\s*(?:Previous Chapter|Next Chapter|Table of Contents|Prev|Next|TOC|Back to Top|Share this:?|Like this:?|Related|Loading\.\.\.|Leave a (?:Reply|Comment)|Click here to .+)\s*$/gim, '');
+      // Strip prompt template / placeholder hallucinations like "Chapter [number]: [Name]", "[number]: [Name]", etc.
+      t = t.replace(/^\s*(?:#{1,6}\s*)?Chapter\s*\[(?:number|\d+)\](?:\s*[:\-–—]\s*\[(?:name|title)\])?\s*$/gim, '');
+      t = t.replace(/^\s*(?:#{1,6}\s*)?\[(?:chapter|number)\](?:\s*[:\-–—]\s*\[(?:name|title)\])?\s*$/gim, '');
+      t = t.replace(/^\s*(?:#{1,6}\s*)?\[(?:Chapter\s*Name|Chapter\s*Title|Name|Title)\]\s*$/gim, '');
+      t = t.replace(/^\s*---\s*Page\s*End\s*---\s*$/gim, '');
       // Strip residual WordPress / Tumblr / social widget lines
       t = t.replace(/^\s*(?:Advertisements?|Sponsored|Share on (?:Facebook|Twitter|Reddit)|Follow us on .+|Join our Discord.+|Support (?:us|me) on .+|Donate .+|Patreon .+|Buy me a coffee.+)\s*$/gim, '');
       // Strip orphaned HTML tags
@@ -1756,10 +1761,12 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      // Universal Thinking Control: Explicitly assign 2048 when ON, or 0 when OFF so dynamic thinking does not trigger 503/token exhaustion
+      // Thinking Control: Only pass thinkingConfig when thinking is ON, or for thinking-native models (like 3.7 / 2.5).
+      // Standard models (like gemini-3.5-flash-lite) reject thinkingBudget: 0 with 400 Invalid argument.
+      const isThinkingModel = /gemini-(?:3\.7|2\.5)/i.test(model);
       if (enableThinking) {
         payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
-      } else {
+      } else if (isThinkingModel) {
         payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
       }
       const apiStart = performance.now();
@@ -1777,13 +1784,13 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       } else {
         window.AppLogger?.log('info', 'GeminiAPI', `Response 200 OK in ${Math.round(performance.now() - apiStart)}ms`);
       }
-      if (!r.ok && r.status === 400 && payload.system_instruction) {
-        delete payload.system_instruction;
-        r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
-      }
       if (!r.ok && r.status === 400 && payload.generationConfig?.thinkingConfig) {
         delete payload.generationConfig.thinkingConfig;
-        r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+        r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
+      }
+      if (!r.ok && r.status === 400 && payload.system_instruction) {
+        delete payload.system_instruction;
+        r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
       }
       // If server is overloaded (503/500), be patient: retry with the SAME chosen model first (1-2 quick retries)
       if (!r.ok && (r.status === 503 || r.status === 500 || r.status === 502 || r.status === 504)) {
@@ -1921,31 +1928,34 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      // Universal Thinking Control: Explicitly assign 2048 when ON, or 0 when OFF so dynamic thinking does not trigger 503/token exhaustion
+      // Thinking Control: Only pass thinkingConfig when thinking is ON, or for thinking-native models (like 3.7 / 2.5).
+      // Standard models (like gemini-3.5-flash-lite) reject thinkingBudget: 0 with 400 Invalid argument.
+      const isThinkingModel = /gemini-(?:3\.7|2\.5)/i.test(model);
       if (enableThinking) {
         payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
-      } else {
+      } else if (isThinkingModel) {
         payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
       }
-      let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
-      if (!r.ok && r.status === 400 && payload.system_instruction) {
-        delete payload.system_instruction;
-        r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
-      }
+      const reqHeaders = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
+      let r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.generationConfig?.thinkingConfig) {
         delete payload.generationConfig.thinkingConfig;
-        r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+        r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
+      }
+      if (!r.ok && r.status === 400 && payload.system_instruction) {
+        delete payload.system_instruction;
+        r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
       }
       // If stream server is overloaded (503/500), retry with the SAME chosen model first
       if (!r.ok && (r.status === 503 || r.status === 500 || r.status === 502 || r.status === 504)) {
         console.warn(`Stream for ${model} returned ${r.status}. Waiting 2s before retrying ${model}...`);
         await new Promise(res => setTimeout(res, 2000));
-        r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+        r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
 
         if (!r.ok && (r.status === 503 || r.status === 500 || r.status === 502 || r.status === 504)) {
           console.warn(`Stream for ${model} still busy. Second attempt after 2.5s...`);
           await new Promise(res => setTimeout(res, 2500));
-          r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+          r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
         }
       }
 

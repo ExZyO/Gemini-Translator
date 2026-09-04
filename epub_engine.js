@@ -422,6 +422,11 @@ hr {
             const trimmed = rawLines[li].trim();
             if (!trimmed) continue;
 
+            // Suppress prompt template placeholder leaks anywhere in chapter
+            if (/\[(?:number|\d+|name|title)\]/i.test(trimmed) || /^#*\s*chapter\s*\[/i.test(trimmed) || /---\s*page\s*end\s*---/i.test(trimmed)) {
+              continue;
+            }
+
             // Markdown headings: render them and remove duplicate title echoes from scraped pages.
             const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
             if (headingMatch) {

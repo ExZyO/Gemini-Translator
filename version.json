@@ -1,7 +1,7 @@
 {
-  "version": "8.10.13",
-  "versionCode": 8113,
+  "version": "8.10.14",
+  "versionCode": 8114,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.13: Eliminated duplicate chapter title rendering across EPUB engine, internal Moon+ Reader, DOCX, and PDF exports. Stripped heading tag echoes from DOM during EPUB/web novel ingestion and before translation chunking so model does not translate title twice."
+  "releaseNotes": "v8.10.14: Eliminated prompt template placeholder hallucinations like 'Chapter [number]: [Name]' across prompts, novel prose cleaners, EPUB, and Reader. Fixed 400 Bad Request on gemini-3.5-flash-lite by conditionally omitting thinkingConfig for non-thinking models."
 }

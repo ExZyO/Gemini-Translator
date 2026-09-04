@@ -382,7 +382,7 @@ Number one main rule: ONLY translate what has been given, do NOT invent, halluci
 1. Translation Priority & Formatting:
 - Format Preservation: Maintain the exact original formatting, line breaks, paragraph spacing, and word spacing.
 - Accuracy & Completeness: Translate with maximum detail and fidelity into English. Never omit, drop, or forget words or sentences.
-- No Page Breaks: Do NOT output "---Page End ---". Format chapter headings strictly as "Chapter [number]: [Name]" or "Chapter [number] - [Name]".
+- No Page Breaks: Do NOT output "---Page End ---". Never output placeholder labels such as "Chapter [number]" or "[Name]". Only translate the provided text directly.
 - Hyperlinks: Ignore all URL links.
 
 2. Quotation Marks & Naming Conventions:
@@ -3123,10 +3123,7 @@ Djinn = Genie - also known as Magic Wishing Lamp or The Magic Wishing Lamp
 
 The Earth Church is “Church of The Earth Mother”
 
-Don’t put ---Page End --- in the result
-Dont put ---Page End --- in the result
-Instead do “Chapter [number]: [Name]
-or “Chapter [number] - [Name]
+Do NOT output "---Page End ---" or placeholder headings like "Chapter [number]: [Name]". Never insert invented chapter labels. Only translate the text directly.
 
 Don’t forget to use organisation names like “Twilight Hermit Order”
 

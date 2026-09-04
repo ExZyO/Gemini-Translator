@@ -128,10 +128,7 @@ Djinn = Genie - also known as Magic Wishing Lamp or The Magic Wishing Lamp
 
 The Earth Church is “Church of The Earth Mother”
 
-Don’t put ---Page End --- in the result
-Dont put ---Page End --- in the result
-Instead do “Chapter [number]: [Name]
-or “Chapter [number] - [Name]
+Do NOT output "---Page End ---" or placeholder headings like "Chapter [number]: [Name]". Never insert invented chapter labels. Only translate the text directly.
 
 Don’t forget to use organisation names like “Twilight Hermit Order”
 
