@@ -1,7 +1,7 @@
 {
-  "version": "8.10.2",
-  "versionCode": 8102,
+  "version": "8.10.3",
+  "versionCode": 8103,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.2: Instant network abort on crawl pause/cancel (clean termination of in-flight promises); Cloudflare Error 1015 rate-limit protection & auto-cooldown; TOC reuse on crawl resume (prevents 2000-chapter novels from prematurely finishing); Consolidated paused crawl UI (clean 3-button bar without duplicate banners); Instant chapter list display on app reload; Primary Mihon 1-Tap Google Drive File Backup; Auto-structured Roman numeral Master Glossaries for AI extraction."
+  "releaseNotes": "v8.10.3: Added 1-click Authorized Redirect URI copy helper in Google Drive settings; normalized OAuth redirect URI handling to prevent redirect_uri_mismatch; enhanced local client ID privacy."
 }

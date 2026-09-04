@@ -114,9 +114,14 @@
             console.log('Google Drive disconnected.');
         }
 
+        getRedirectUri() {
+            if (typeof window === 'undefined') return '';
+            return window.location.origin + window.location.pathname;
+        }
+
         getAuthUrl(customClientId = null) {
             const cid = customClientId || this.getClientId();
-            const redirectUri = window.location.origin + window.location.pathname;
+            const redirectUri = this.getRedirectUri();
             const params = new URLSearchParams({
                 client_id: cid,
                 redirect_uri: redirectUri,

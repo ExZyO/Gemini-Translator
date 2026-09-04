@@ -3629,7 +3629,7 @@ const formatModelName = (id, displayName) => {
       const [cloudProvider, setCloudProvider] = useState(() => localStorage.getItem('cloudProvider') || 'gdrive');
       useEffect(() => { localStorage.setItem('cloudProvider', cloudProvider); }, [cloudProvider]);
 
-      const [gdriveClientId, setGdriveClientId] = useState(() => localStorage.getItem('gdrive_client_id') || '');
+      const [gdriveClientId, setGdriveClientId] = useState(() => localStorage.getItem('gdrive_client_id') || window.GoogleDriveSync?.getClientId?.() || '');
       const [gdriveConnected, setGdriveConnected] = useState(() => Boolean(window.GoogleDriveSync?.isConnected()));
       const [gdriveUser, setGdriveUser] = useState(() => window.GoogleDriveSync?.userProfile || null);
       const [gdriveFolderMode, setGdriveFolderMode] = useState(() => localStorage.getItem('gdrive_folder_mode') || 'appDataFolder');
@@ -8916,6 +8916,19 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       toast('Origin copied: ' + window.location.origin, 'info');
                     }
                   }, '📋 Copy Origin')
+                ),
+                h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 } },
+                  h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Authorized Redirect URI: ' + (window.GoogleDriveSync?.getRedirectUri?.() || (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : ''))),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn ghost',
+                    style: { fontSize: 10, padding: '2px 8px' },
+                    onClick: () => {
+                      const rUri = window.GoogleDriveSync?.getRedirectUri?.() || (window.location.origin + window.location.pathname);
+                      navigator.clipboard?.writeText(rUri);
+                      toast('Redirect URI copied: ' + rUri, 'info');
+                    }
+                  }, '📋 Copy Redirect URI')
                 )
               ),
               h('div', { style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 10.5, color: 'var(--slate)', lineHeight: 1.45 } },
