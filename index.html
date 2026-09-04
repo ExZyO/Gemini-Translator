@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.9';
+    const VERSION = '8.10.10';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1735,7 +1735,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       });
     };
 
-    const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, needContextUpdate = false }) => {
+    const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, needContextUpdate = false, strictModel = true }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
       const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -1756,12 +1756,14 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      // Universal Thinking Control: Only attach thinkingConfig when user explicitly turns it ON
+      // Universal Thinking Control: Explicitly assign 2048 when ON, or 0 when OFF so dynamic thinking does not trigger 503/token exhaustion
       if (enableThinking) {
         payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+      } else {
+        payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
       }
       const apiStart = performance.now();
-      window.AppLogger?.log('info', 'GeminiAPI', `Outbound request to ${model} (Key: ${maskKey(apiKey)}, Chars: ${text.length}, Thinking: ${enableThinking ? 'ON' : 'OFF'})`);
+      window.AppLogger?.log('info', 'GeminiAPI', `Outbound request to ${model} (Key: ${maskKey(apiKey)}, Chars: ${text.length}, Thinking: ${enableThinking ? 'ON' : 'OFF'}, Strict: ${strictModel ? 'ON' : 'OFF'})`);
       const reqHeaders = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
       let r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
       if (!r.ok) {
@@ -1797,8 +1799,8 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         }
       }
 
-      // ONLY switch to fallback if model is 404 (does not exist) OR sustained 503 after multiple retries
-      if (!r.ok && (r.status === 404 || r.status === 503) && model !== 'gemini-3.7-flash') {
+      // ONLY switch to fallback if strictModel is disabled AND (model is 404 or sustained 503)
+      if (!strictModel && !r.ok && (r.status === 404 || r.status === 503) && model !== 'gemini-3.7-flash') {
         const fallbackModel = 'gemini-3.7-flash';
         const reason = r.status === 404 ? 'Model Not Found / Deprecated' : 'Sustained Server Overload (503)';
         console.warn(`Model ${model} unavailable (${r.status}) after retries. Falling back to ${fallbackModel}...`);
@@ -1818,10 +1820,10 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       
       // If model returned a blank or near-empty response on a large chunk, attempt direct recovery prompt
       if ((!t || t.trim().length < 15 || isLikelyHeadingOnlyTranslation(t, text.length)) && text.length > 100) {
-        console.warn('Gemini returned minimal text. Retrying with direct translation prompt...');
+        console.warn(`Gemini (${model}) returned minimal text. Retrying with direct translation recovery prompt...`);
         const directPayload = {
           contents: [{ role: 'user', parts: [{ text: `Translate the exact text between these delimiters from ${srcLang && srcLang !== 'Auto-detect' ? srcLang : 'the detected source language'} into ${tgtLang || 'English'}. Do not summarize, continue, or invent anything. Return only the translation.\n\n=== RAW TEXT ===\n${text}\n=== END RAW TEXT ===` }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+          generationConfig: { temperature: 0.3, maxOutputTokens: 8192, thinkingConfig: { thinkingBudget: 0 } },
           safetySettings
         };
         const recoveryRes = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(directPayload), signal });
@@ -1836,7 +1838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         }
       }
 
-      if (!t || t.trim().length === 0) throw new Error('Empty response from translation model. Please try Gemini 2.5 Flash.');
+      if (!t || t.trim().length === 0) throw new Error(`Empty response from ${model}. Google Cloud servers may be experiencing temporary high demand (503). Retrying...`);
       
       const finishReason = j?.candidates?.[0]?.finishReason;
       if ((finishReason === 'SAFETY' || finishReason === 'MAX_TOKENS') && t.trim().length > 0) {
@@ -1878,7 +1880,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       return parseTranslationOutput(t, context, { promptTokens, outputTokens, totalTokens });
     };
 
-    const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, needContextUpdate = false }) => {
+    const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, needContextUpdate = false, strictModel = true }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
       const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
@@ -1899,9 +1901,11 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
         safetySettings
       };
-      // Universal Thinking Control: Only attach thinkingConfig when user explicitly turns it ON
+      // Universal Thinking Control: Explicitly assign 2048 when ON, or 0 when OFF so dynamic thinking does not trigger 503/token exhaustion
       if (enableThinking) {
         payload.generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+      } else {
+        payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
       }
       let r = await fetchRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
       if (!r.ok && r.status === 400 && payload.system_instruction) {
@@ -1925,8 +1929,8 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         }
       }
 
-      // ONLY switch to fallback if model is 404 or sustained 503
-      if (!r.ok && (r.status === 404 || r.status === 503) && model !== 'gemini-3.7-flash') {
+      // ONLY switch to fallback if strictModel is disabled AND (model is 404 or sustained 503)
+      if (!strictModel && !r.ok && (r.status === 404 || r.status === 503) && model !== 'gemini-3.7-flash') {
         const fallbackModel = 'gemini-3.7-flash';
         const reason = r.status === 404 ? 'Model Not Found / Deprecated' : 'Sustained Server Overload (503)';
         console.warn(`Stream for ${model} unavailable (${r.status}) after retries. Falling back to ${fallbackModel}...`);
@@ -2080,6 +2084,10 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         } catch (contErr) {
           console.warn('Continuation stream error:', contErr);
         }
+      }
+
+      if ((!accumulatedOutput || !accumulatedOutput.trim()) && text.trim().length > 50) {
+        throw new Error(`Empty stream from ${model}. Google Cloud servers may be experiencing temporary high demand (503). Retrying...`);
       }
 
       const pTok = lastUsage?.promptTokenCount || estimateTokens(prompt);
@@ -2354,25 +2362,32 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
           } catch (err) {
             if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
             const errMsg = (err.message || '').toLowerCase();
-            const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
-            if (isRateLimit) {
+            const isRetryable = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') ||
+              errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('500') ||
+              errMsg.includes('502') || errMsg.includes('504') || errMsg.includes('demand') ||
+              errMsg.includes('overloaded') || errMsg.includes('unavailable') || errMsg.includes('empty response') ||
+              errMsg.includes('empty stream') || errMsg.includes('network') || errMsg.includes('failed to fetch');
+            if (isRetryable) {
               if (allKeys.length > 1) {
                 const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
                 if (freshKey && freshKey !== currentOpts.apiKey) {
-                  console.warn(`Key rate-limited (429) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
+                  console.warn(`Retryable error (${errMsg.slice(0, 50)}) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
                   currentOpts.apiKey = freshKey;
                   await new Promise(r => setTimeout(r, 600));
                   continue;
                 }
               }
+              const waitSec = Math.round(backoffDelay / 1000);
+              console.warn(`[Strict/Rotation Engine] Stream ${currentOpts.model || 'model'} busy (${errMsg.slice(0, 60)}). Waiting ${waitSec}s (attempt ${attempt + 1}/${maxAttempts})...`);
+              window.AppLogger?.log('warn', 'RotationEngine', `Attempt ${attempt + 1}/${maxAttempts}: Stream ${currentOpts.model || 'model'} busy (${errMsg.slice(0, 80)}). Waiting ${waitSec}s...`);
               await new Promise(r => setTimeout(r, backoffDelay));
-              backoffDelay = Math.min(backoffDelay * 1.2, 5000);
+              backoffDelay = Math.min(backoffDelay * 1.25, 6000);
               continue;
             }
             throw err;
           }
         }
-        throw new Error('Rate-limited across all keys after ' + maxAttempts + ' attempts. Try another model in Settings · Engine, or wait a few minutes.');
+        throw new Error(`Model ${currentOpts.model || 'chosen'} stream busy/rate-limited after ${maxAttempts} patient attempts. Progress safely saved.`);
       } finally {
         if (currentOpts.apiKey) KeyPool.releaseKey(currentOpts.apiKey);
       }
@@ -2393,29 +2408,36 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
           try {
             const res = await translateChunk(text, currentOpts);
             if (res) return res;
-            throw new Error('Empty response from translation provider');
+            throw new Error(`Empty response from ${currentOpts.model || 'provider'}`);
           } catch (err) {
             if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
             const errMsg = (err.message || '').toLowerCase();
-            const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
-            if (isRateLimit) {
+            const isRetryable = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') ||
+              errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('500') ||
+              errMsg.includes('502') || errMsg.includes('504') || errMsg.includes('demand') ||
+              errMsg.includes('overloaded') || errMsg.includes('unavailable') || errMsg.includes('empty response') ||
+              errMsg.includes('empty stream') || errMsg.includes('network') || errMsg.includes('failed to fetch');
+            if (isRetryable) {
               if (allKeys.length > 1) {
                 const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
                 if (freshKey && freshKey !== currentOpts.apiKey) {
-                  console.warn(`Key rate-limited (429) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
+                  console.warn(`Retryable error (${errMsg.slice(0, 50)}) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
                   currentOpts.apiKey = freshKey;
                   await new Promise(r => setTimeout(r, 600));
                   continue;
                 }
               }
+              const waitSec = Math.round(backoffDelay / 1000);
+              console.warn(`[Strict/Rotation Engine] Model ${currentOpts.model || 'model'} busy (${errMsg.slice(0, 60)}). Waiting ${waitSec}s (attempt ${attempt + 1}/${maxAttempts})...`);
+              window.AppLogger?.log('warn', 'RotationEngine', `Attempt ${attempt + 1}/${maxAttempts}: ${currentOpts.model || 'model'} busy (${errMsg.slice(0, 80)}). Waiting ${waitSec}s...`);
               await new Promise(r => setTimeout(r, backoffDelay));
-              backoffDelay = Math.min(backoffDelay * 1.2, 5000);
+              backoffDelay = Math.min(backoffDelay * 1.25, 6000);
               continue;
             }
             throw err;
           }
         }
-        throw new Error('Rate-limited across all keys after ' + maxAttempts + ' attempts. Try another model in Settings · Engine, or wait a few minutes.');
+        throw new Error(`Model ${currentOpts.model || 'chosen'} busy/rate-limited after ${maxAttempts} patient attempts. Progress safely saved.`);
       } finally {
         if (currentOpts.apiKey) KeyPool.releaseKey(currentOpts.apiKey);
       }
@@ -2555,7 +2577,8 @@ Return strictly a JSON object with this exact format:
               const is503 = res.status === 503 || res.status === 500 || res.status === 502 || res.status === 504 || errTxt.includes('high demand') || errTxt.includes('UNAVAILABLE') || errTxt.includes('overloaded');
               const is429 = res.status === 429 || errTxt.includes('quota') || errTxt.includes('RESOURCE_EXHAUSTED') || errTxt.includes('rate limit');
 
-              if (is404 || is503) {
+              const isStrict = localStorage.getItem('strictModel') !== 'false';
+              if ((is404 || is503) && !isStrict) {
                 modelIdx++;
                 const nextModel = geminiModels[modelIdx % geminiModels.length];
                 const reason = is503 ? 'High Server Demand (503)' : 'Model Unavailable (404)';
@@ -3547,6 +3570,7 @@ const formatModelName = (id, displayName) => {
       const deeplKey = getActiveApiKey('deepl');
       const [enableStreaming, setEnableStreaming] = useState(() => localStorage.getItem('enableStreaming') === 'true');
       const [enableThinking, setEnableThinking] = useState(() => localStorage.getItem('enableThinking') === 'true');
+      const [strictModel, setStrictModel] = useState(() => localStorage.getItem('strictModel') !== 'false');
       const [concurrency, setConcurrency] = useState(() => parseInt(localStorage.getItem('concurrency')) || DEFAULT_CONCURRENCY);
       const [contextAware, setContextAware] = useState(() => localStorage.getItem('contextAware') !== 'false');
       const [chunkSizePreset, setChunkSizePreset] = useState(() => localStorage.getItem('chunkSizePreset') || 'turbo');
@@ -3560,6 +3584,7 @@ const formatModelName = (id, displayName) => {
       const [epubIncludeImages, setEpubIncludeImages] = useState(() => localStorage.getItem('epubIncludeImages') !== 'false');
       const [scrapeImages, setScrapeImages] = useState(() => localStorage.getItem('scrapeImages') !== 'false');
 
+      useEffect(() => { localStorage.setItem('strictModel', String(strictModel)); }, [strictModel]);
       useEffect(() => { localStorage.setItem('epubIncludeImages', String(epubIncludeImages)); }, [epubIncludeImages]);
       useEffect(() => { localStorage.setItem('scrapeImages', String(scrapeImages)); if (typeof window !== 'undefined') window.__scrapeImages = scrapeImages; }, [scrapeImages]);
 
@@ -3799,7 +3824,7 @@ const formatModelName = (id, displayName) => {
         const lines = [
           '=== 📊 TRANSLATION DIAGNOSTICS REPORT ===',
           s ? `Model: ${s.provider || ''} · ${s.model || ''}` : `Model: ${provider} · ${provider === 'gemini' ? (geminiModel || 'gemini-3.7-flash') : deepseekModel}`,
-          `Typewriter Streaming: ${s ? (s.enableStreaming ? 'ON' : 'OFF') : (enableStreaming ? 'ON' : 'OFF')} | Extended Thinking: ${s ? (s.enableThinking ? 'ON' : 'OFF') : (enableThinking ? 'ON' : 'OFF')}`,
+          `Typewriter Streaming: ${s ? (s.enableStreaming ? 'ON' : 'OFF') : (enableStreaming ? 'ON' : 'OFF')} | Extended Thinking: ${s ? (s.enableThinking ? 'ON' : 'OFF') : (enableThinking ? 'ON' : 'OFF')} | Strict Model: ${(s ? s.strictModel : strictModel) ? 'ON' : 'OFF'}`,
           `Context-Aware Memory: ${s ? (s.contextAware ? 'ON' : 'OFF') : (contextAware ? 'ON' : 'OFF')} | Concurrency: ${s ? (s.concurrency || 1) : concurrency} parallel stream(s)`,
           `Chunk Size Preset: ${(s?.chunkSizePreset || chunkSizePreset || 'turbo').toUpperCase()} | Smart Glossary: ${(s ? s.smartGlossary : smartGlossary) ? 'ON' : 'OFF'} (${s ? s.glossaryTermCount : glossaryTermCount} terms loaded)`,
           s ? `Tokens: ${(s.totalTokens || 0).toLocaleString()} (${(s.promptTokens || 0).toLocaleString()} in · ${(s.outputTokens || 0).toLocaleString()} out)` : 'Tokens: In-flight / pending completion',
@@ -4908,6 +4933,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           contextAware,
           chunkSizePreset: chunkSizePreset || localStorage.getItem('chunkSizePreset') || 'turbo',
           enableThinking: enableThinking !== undefined ? enableThinking : (localStorage.getItem('enableThinking') === 'true'),
+          strictModel: strictModel !== undefined ? strictModel : (localStorage.getItem('strictModel') !== 'false'),
           enableStreaming: enableStreaming !== undefined ? enableStreaming : (localStorage.getItem('enableStreaming') !== 'false'),
           enableGlossary: enableGlossary !== undefined ? enableGlossary : (localStorage.getItem('enableGlossary') === 'true'),
           customModel: customModel || localStorage.getItem('customModel') || '',
@@ -5337,6 +5363,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         if (data.enableThinking !== undefined) {
           setEnableThinking(!!data.enableThinking);
           localStorage.setItem('enableThinking', String(data.enableThinking));
+        }
+        if (data.strictModel !== undefined) {
+          setStrictModel(!!data.strictModel);
+          localStorage.setItem('strictModel', String(data.strictModel));
         }
         if (data.enableStreaming !== undefined) {
           setEnableStreaming(!!data.enableStreaming);
@@ -5952,6 +5982,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         epubSmartQuotes,
         epubCleanWebArtifacts,
         enableThinking,
+        strictModel: strictModel !== undefined ? strictModel : (localStorage.getItem('strictModel') !== 'false'),
         signal,
         provider,
         libreUrl
@@ -6072,6 +6103,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 if (isFatalQuota) {
                   throw new Error(`API Quota exhausted across keys. If on free tier, switch model to Gemini 2.5 Flash. Progress saved at chunk ${i + 1}/${chunks.length}.`);
                 }
+                if (opts?.strictModel) {
+                  throw new Error(`Strict Model: Could not complete chunk ${i + 1}/${chunks.length} with ${opts.model || 'chosen model'}: ${err.message}. Progress safely preserved. Tap Resume to retry.`);
+                }
                 translated = { text: `\n\n[Error on chunk ${i + 1}: ${err.message}]\n\n` };
               }
               result += (result ? '\n' : '') + (translated.text || translated);
@@ -6106,6 +6140,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               saveState(result + (result ? '\n' : '') + '[Partial Parallel Completion]', '', completed);
               return translated;
             }, effectiveConcurrency, opts.signal);
+
+            if (opts?.strictModel) {
+              const failedItem = results.find(r => r?.error || (!r?.text && typeof r !== 'string'));
+              if (failedItem) {
+                throw new Error(`Strict Model: A chunk encountered an issue ("${failedItem.error || 'empty response'}"). Progress safely saved at ${completed}/${chunks.length}. Tap Resume to retry.`);
+              }
+            }
 
             results.forEach(r => {
               if (r?.usage) {
@@ -6144,6 +6185,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             provider,
             enableStreaming: Boolean(enableStreaming),
             enableThinking: Boolean(enableThinking),
+            strictModel: Boolean(strictModel),
             contextAware: Boolean(contextAware),
             concurrency: Number(concurrency || 1),
             chunkSizePreset: String(chunkSizePreset || 'turbo'),
@@ -6310,6 +6352,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 if (isFatalQuota) {
                   throw new Error(`API Quota exhausted across keys. If on free tier, switch model to Gemini 1.5 Flash. Progress saved at chapter ${i + 1}.`);
                 }
+                if (opts?.strictModel) {
+                  throw new Error(`Strict Model: Failed translating chunk ${j + 1}/${chunks.length} of "${title || `Chapter ${i + 1}`}": ${e.message}. Progress safely saved. Tap Resume to retry.`);
+                }
                 translatedText = `\n\n[Error: ${e.message}]\n\n`;
               }
               parts.push(translatedText);
@@ -6390,6 +6435,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             provider,
             enableStreaming: Boolean(enableStreaming),
             enableThinking: Boolean(enableThinking),
+            strictModel: Boolean(strictModel),
             contextAware: Boolean(contextAware),
             concurrency: Number(concurrency || 1),
             chunkSizePreset: String(chunkSizePreset || 'turbo'),
@@ -7981,6 +8027,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 ),
                 switchRow('Typewriter Streaming', enableStreaming, setEnableStreaming),
                 switchRow('Extended Thinking', enableThinking, (v) => { setEnableThinking(v); localStorage.setItem('enableThinking', v); }),
+                switchRow('Strict Model (No Fallbacks)', strictModel, (v) => { setStrictModel(v); localStorage.setItem('strictModel', String(v)); }),
                 switchRow('Context-Aware Memory', contextAware, setContextAware),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Parallel Streams'),
