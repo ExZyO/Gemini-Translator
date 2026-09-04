@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.8';
+    const VERSION = '8.10.9';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1631,7 +1631,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       return output.join('\n\n').trim() || '';
     };
 
-        const buildPrompt = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true) => {
+        const buildPrompt = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true, needContextUpdate = false) => {
       const srcDisplay = srcLang && srcLang !== 'Auto-detect' ? srcLang : 'the detected source language';
       const tgtDisplay = tgtLang || 'English';
 
@@ -1655,9 +1655,12 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         p = `=== CUSTOM TRANSLATION INSTRUCTIONS ===\n${instructions.trim()}\n=== END CUSTOM INSTRUCTIONS ===\n\n` + p;
       }
 
-      if (context !== undefined) {
-        p = `=== PREVIOUS CHAPTER CONTEXT ===\n${context || 'None yet.'}\n=== END CONTEXT ===\n\nUse this context to maintain strict continuity in character names, gender pronouns (he/she), and tone.\n\n` + p;
-        p += `Provide ONLY the pure ${tgtDisplay} translation. Never include the original source text or bilingual side-by-side lines. Followed EXACTLY by the delimiter "\n---CONTEXT_UPDATE---\n", followed by a brief updated context summary (max 100 words) capturing key characters, their genders/roles, plot points, and tone including this new section.`;
+      if (context !== undefined && context && context.trim()) {
+        p = `=== PREVIOUS CHAPTER CONTEXT ===\n${context.trim()}\n=== END CONTEXT ===\n\nUse this context to maintain strict continuity in character names, gender pronouns (he/she), and tone.\n\n` + p;
+      }
+
+      if (needContextUpdate) {
+        p += `Provide ONLY the pure ${tgtDisplay} translation. Never include the original source text or bilingual side-by-side lines. Followed EXACTLY by the delimiter "\n---CONTEXT_UPDATE---\n", followed by a brief telegraphic continuity note (max 30 words: cast [name/gender], location, immediate tone).`;
       } else {
         p += `Provide ONLY the pure ${tgtDisplay} translated text without preamble, commentary, or markdown notes.`;
       }
@@ -1705,7 +1708,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     const parseTranslationOutput = (rawText, context, usage = null) => {
       let text = cleanNovelProse(rawText || '');
       let newContext = context;
-      if (context !== undefined && text.includes('CONTEXT_UPDATE')) {
+      if (text.includes('CONTEXT_UPDATE')) {
         const parts = text.split(/[\n\r]*[-—–]{1,}CONTEXT_UPDATE[-—–]{1,}[\n\r]*/i);
         const mainBody = parts[0].trim();
         if (mainBody.length > 0) {
@@ -1732,9 +1735,9 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       });
     };
 
-    const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false }) => {
+    const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, needContextUpdate = false }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const safetySettings = [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -1875,9 +1878,9 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       return parseTranslationOutput(t, context, { promptTokens, outputTokens, totalTokens });
     };
 
-    const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false }) => {
+    const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, needContextUpdate = false }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
       const safetySettings = [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -2084,11 +2087,11 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       return { text: accumulatedOutput, newContext: finalContext.trim() || context || '', usage: { promptTokens: pTok, outputTokens: oTok, totalTokens: lastUsage?.totalTokenCount || (pTok + oTok) } };
     };
 
-    const translateDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false }) => {
+    const translateDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, needContextUpdate = false }) => {
       const key = deepseekApiKey || apiKey;
       if (!key) throw new Error('DeepSeek API key required.');
       const chosenModel = enableThinking && model === 'deepseek-chat' ? 'deepseek-reasoner' : (model || 'deepseek-chat');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate);
       const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
@@ -2118,11 +2121,11 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       return parseTranslationOutput(raw, context, { promptTokens, outputTokens, totalTokens });
     };
 
-    const streamDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false }) => {
+    const streamDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, needContextUpdate = false }) => {
       const key = deepseekApiKey || apiKey;
       if (!key) throw new Error('DeepSeek API key required.');
       const chosenModel = enableThinking && model === 'deepseek-chat' ? 'deepseek-reasoner' : (model || 'deepseek-chat');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary);
+      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate);
       const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
@@ -6021,15 +6024,20 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 result += t;
                 setAssembledText(result);
               };
+              const isLastChunk = i === chunks.length - 1;
+              const hasIncomingContext = Boolean(ctx && ctx.trim());
+              const shouldPassContext = useContext && (hasIncomingContext || i > 0);
+              const shouldRequestUpdate = useContext && !isLastChunk;
               let streamRes = await streamWithRotation(chunks[i], {
                 ...opts,
-                context: useContext ? ctx : undefined,
+                context: shouldPassContext ? ctx : undefined,
+                needContextUpdate: shouldRequestUpdate,
                 onChunk: onChunkStream
               });
               // Fallback: if the context-memory pass returned no translation body, retry once without context
               if ((!chunkResult.trim() || (chunks[i].trim().length > 300 && chunkResult.trim().length < 100)) && useContext) {
                 chunkResult = '';
-                streamRes = await streamWithRotation(chunks[i], { ...opts, context: undefined, onChunk: onChunkStream });
+                streamRes = await streamWithRotation(chunks[i], { ...opts, context: undefined, needContextUpdate: shouldRequestUpdate, onChunk: onChunkStream });
               }
               if (useContext) { ctx = streamRes.newContext || ctx; }
               if (streamRes?.usage) {
@@ -6048,8 +6056,16 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             for (let i = startIndex; i < chunks.length; i++) {
               setProgressLabel(`Translating chunk ${i + 1}/${chunks.length} (with context)...`);
               let translated = null;
+              const isLastChunk = i === chunks.length - 1;
+              const hasIncomingContext = Boolean(ctx && ctx.trim());
+              const shouldPassContext = useContext && (hasIncomingContext || i > 0);
+              const shouldRequestUpdate = useContext && !isLastChunk;
               try {
-                translated = await translateWithRotation(chunks[i], { ...opts, context: ctx });
+                translated = await translateWithRotation(chunks[i], {
+                  ...opts,
+                  context: shouldPassContext ? ctx : undefined,
+                  needContextUpdate: shouldRequestUpdate
+                });
               } catch (err) {
                 if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
                 const isFatalQuota = (err.message || '').includes('429') || (err.message || '').includes('quota') || (err.message || '').includes('billing');
@@ -6242,7 +6258,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             if (title && String(title).trim()) {
               if (!(resume && newChapters[i]?.title)) {
                 try {
-                  const tRes = await translateWithRotation(title, { ...workerOpts, context: undefined });
+                  const tRes = await translateWithRotation(title, { ...workerOpts, context: undefined, needContextUpdate: false });
                   title = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
                   if (tRes?.usage) {
                     totalPromptTokens += tRes.usage.promptTokens || 0;
@@ -6269,11 +6285,19 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             for (let j = 0; j < chunks.length; j++) {
               setProgressLabel(`Chapter ${i + 1}/${chapters.length}: chunk ${j + 1}/${chunks.length}${useContext ? ' (intra-context)' : ''}...`);
               let translatedText = '';
+              const isLastChunk = j === chunks.length - 1;
+              const hasIncomingContext = Boolean(chapterCtx && chapterCtx.trim());
+              const shouldPassContext = useContext && (hasIncomingContext || j > 0);
+              const shouldRequestUpdate = useContext && !isLastChunk;
               try {
-                const translated = await translateWithRotation(chunks[j].text, { ...workerOpts, context: useContext ? chapterCtx : undefined });
+                const translated = await translateWithRotation(chunks[j].text, {
+                  ...workerOpts,
+                  context: shouldPassContext ? chapterCtx : undefined,
+                  needContextUpdate: shouldRequestUpdate
+                });
                 translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
-                if (useContext) {
-                  chapterCtx = translated?.newContext || chapterCtx;
+                if (useContext && translated?.newContext) {
+                  chapterCtx = translated.newContext;
                 }
                 if (translated?.usage) {
                   totalPromptTokens += translated.usage.promptTokens || 0;

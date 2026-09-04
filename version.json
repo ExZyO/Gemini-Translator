@@ -1,7 +1,7 @@
 {
-  "version": "8.10.5",
-  "versionCode": 8105,
+  "version": "8.10.9",
+  "versionCode": 8109,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.5: Enabled Android WebView remote debugging & live console output for ADB logcat & Chrome DevTools."
+  "releaseNotes": "v8.10.9: Context-Aware Turbo Speed Optimization — Lean 30-word rolling telegraphic memory + zero-waste final chunk skip for maximum translation throughput."
 }
