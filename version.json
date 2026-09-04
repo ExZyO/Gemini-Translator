@@ -1,7 +1,7 @@
 {
-  "version": "8.10.20",
-  "versionCode": 8120,
+  "version": "8.10.21",
+  "versionCode": 8121,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.20: Mihon-style 1-tap chapter update tracking with delta fetching, dedicated Saved Space library shelf, crash-proof translation pause & resume via IndexedDB v2, 60fps lag-free input for massive texts, and robust Lnori multi-proxy illustration downloads."
+  "releaseNotes": "v8.10.21: Dedicated EPUB packaging progress bar with real-time illustration pre-caching stats (zero toast spam), unified novel translation data model, and 1-click '⚡ Update & Translate' pipeline to delta-crawl new chapters, translate delta with Gemini, and update EPUB archives."
 }

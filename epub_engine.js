@@ -445,8 +445,8 @@ hr {
             downloadedCount++;
             if (downloadedCount - lastReportedImg >= 2 || downloadedCount === imgUrlList.length) {
               lastReportedImg = downloadedCount;
-              const pct = Math.min(30, Math.round(5 + (downloadedCount / imgUrlList.length) * 25));
-              onProgress?.(` Pre-caching illustrations (${downloadedCount}/${imgUrlList.length}) • ${getElapsed()}...`, pct, getElapsed());
+              const pct = Math.min(55, Math.round(5 + (downloadedCount / imgUrlList.length) * 50));
+              onProgress?.(`Pre-caching illustrations (${downloadedCount}/${imgUrlList.length})`, pct, getElapsed());
               window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-cached ${downloadedCount}/${imgUrlList.length} images • ${getElapsed()}`, pct, true);
             }
           };
@@ -463,8 +463,8 @@ hr {
         }
 
         // Step 3: Fast In-Memory Chapter Assembly
-        onProgress?.(` Assembling ${chaptersList.length} chapter(s) • ${getElapsed()}...`, 35, getElapsed());
-        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Assembling ${chaptersList.length} chapters • ${getElapsed()}`, 35, true);
+        onProgress?.(`Assembling ${chaptersList.length} chapter(s)...`, 60, getElapsed());
+        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Assembling ${chaptersList.length} chapters • ${getElapsed()}`, 60, true);
 
         for (let idx = 0; idx < exportChapters.length; idx++) {
           const ch = exportChapters[idx];
@@ -668,17 +668,17 @@ ${tocNavLinks.join('\n')}
 </html>`;
         oebps.file('nav.xhtml', navContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
 
-        onProgress?.(` Compressing EPUB archive • ${getElapsed()}...`, 60, getElapsed());
-        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive • ${getElapsed()}`, 60, true);
+        onProgress?.(`Compressing EPUB archive...`, 70, getElapsed());
+        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive • ${getElapsed()}`, 70, true);
 
         let lastReportedPct = 0;
         const blob = await zip.generateAsync(
           { type: 'blob', mimeType: 'application/epub+zip' },
           (meta) => {
-            const pct = Math.min(99, Math.round(60 + (meta.percent * 0.39)));
-            if (pct - lastReportedPct >= 5 || meta.percent === 100) {
+            const pct = Math.min(99, Math.round(70 + (meta.percent * 0.29)));
+            if (pct - lastReportedPct >= 4 || meta.percent === 100) {
               lastReportedPct = pct;
-              onProgress?.(` Compressing EPUB archive (${Math.round(meta.percent)}%) • ${getElapsed()}...`, pct, getElapsed());
+              onProgress?.(`Compressing EPUB archive (${Math.round(meta.percent)}%)`, pct, getElapsed());
               window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive (${Math.round(meta.percent)}%) • ${getElapsed()}`, pct, true);
             }
           }
