@@ -243,6 +243,8 @@
         const startTime = Date.now();
         let isBackingOff = false;
 
+        window.sendTelemetry?.('CRAWL', `Starting ingestion pool (${concurrency} workers, ${interRequestDelay}ms delay) for ${chapterList.length} chapters: ${meta?.title || 'Novel'}`);
+
         const worker = async () => {
             while (pendingQueue.length > 0) {
                 if (ctrl.isPaused || ctrl.isCancelled) break;
@@ -295,6 +297,7 @@
                         isBackingOff = true;
                         const cooldownSec = Math.min(20, 6 + (attempts * 4));
                         console.warn(`[Cloudflare Rate Limit 1015] detected on chapter ${currentIndex + 1}. Cooling down ${cooldownSec}s...`);
+                        window.sendTelemetry?.('CLOUDFLARE_1015', `Cloudflare 1015 rate limit on Ch ${currentIndex + 1}. Cooldown: ${cooldownSec}s...`);
                         for (let c = cooldownSec; c > 0; c--) {
                             if (ctrl.isPaused || ctrl.isCancelled) break;
                             progressCb?.(`⏳ Cloudflare rate limit (1015) cooldown: resuming in ${c}s... (${completedIndices.size}/${chapterList.length} ch done)`);
@@ -321,6 +324,8 @@
                     chapters.push(newChapterObj);
                     completedIndices.add(currentIndex);
 
+                    window.sendTelemetry?.('CHAPTER_OK', `Saved Ch ${currentIndex + 1}/${chapterList.length}: ${newChapterObj.title} (${words}w, ${completedIndices.size}/${chapterList.length} done)`);
+
                     if (ctrl.onChapterDone && !ctrl.isPaused && !ctrl.isCancelled) {
                         try {
                             ctrl.onChapterDone(newChapterObj, chapters, {
@@ -341,6 +346,7 @@
                 } else if (!ctrl.isPaused && !ctrl.isCancelled) {
                     // Re-queue chapter so it is never lost or skipped
                     console.warn(`Chapter ${currentIndex + 1} incomplete/rate-limited; re-queueing to retry.`);
+                    window.sendTelemetry?.('CHAPTER_RETRY', `Ch ${currentIndex + 1} incomplete or rate-limited; re-queued to retry.`);
                     pendingQueue.push(currentIndex);
                     await new Promise(r => setTimeout(r, 1200));
                 }
@@ -378,11 +384,14 @@
                 window.NativeBridge?.releaseWakeLock?.();
                 if (!ctrl.isPaused && !ctrl.isCancelled) {
                     window.NativeBridge?.clearProgressNotification?.(true, 'Novel Ingestion Complete! ', `${chapters.length} chapters downloaded and saved.`);
+                    window.sendTelemetry?.('CRAWL_DONE', `Novel ingestion completed: ${chapters.length} chapters downloaded and saved.`);
                 } else if (ctrl.isPaused) {
                     window.NativeBridge?.clearProgressNotification?.(false);
                     window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', `Paused at ${chapters.length}/${chapterList.length} chapters. Saved to Library.`);
+                    window.sendTelemetry?.('CRAWL_PAUSED', `Novel ingestion paused at ${chapters.length}/${chapterList.length} chapters. Saved to Library.`);
                 } else if (ctrl.isCancelled) {
                     window.NativeBridge?.clearProgressNotification?.(false);
+                    window.sendTelemetry?.('CRAWL_CANCELLED', `Novel ingestion cancelled.`);
                 }
             } catch(e) {}
         }

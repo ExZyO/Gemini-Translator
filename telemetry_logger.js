@@ -4,6 +4,49 @@
  */
 (function(window) {
     const maskKey = (k) => (!k ? '' : (k.length > 10 ? `${k.slice(0, 6)}…${k.slice(-4)}` : k));
+
+    /**
+     * Wireless Local Wi-Fi Telemetry Dispatcher (Method 2)
+     * Streams real-time diagnostics, crawler events, and errors to PC Agent
+     */
+    window.sendTelemetry = function(tag, message, data) {
+      try {
+        const enabled = localStorage.getItem('telemetry_enabled') !== 'false';
+        const serverUrl = localStorage.getItem('telemetry_server_url') || 'http://192.168.1.216:9090';
+        if (!enabled || !serverUrl) return;
+
+        const endpoint = serverUrl.replace(/\/+$/, '') + '/log';
+        fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tag: tag || 'APP',
+            message: message || '',
+            data: data || null,
+            timestamp: Date.now()
+          })
+        }).catch(() => {});
+      } catch (e) {}
+    };
+
+    // Auto-stream console warnings & errors to PC Agent
+    const _origWarn = console.warn;
+    const _origError = console.error;
+    console.warn = function(...args) {
+      _origWarn.apply(console, args);
+      try {
+        const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+        window.sendTelemetry('WARN', msg);
+      } catch(e) {}
+    };
+    console.error = function(...args) {
+      _origError.apply(console, args);
+      try {
+        const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+        window.sendTelemetry('ERROR', msg);
+      } catch(e) {}
+    };
+
     window.AppLogger = {
       logs: [],
       maxLogs: 250,
@@ -16,6 +59,7 @@
         const detailStr = details ? (typeof details === 'object' ? JSON.stringify(details) : String(details)) : '';
         console.log(`[${time}][${tag}] ${message}`, detailStr);
         this.listeners.forEach(fn => { try { fn([...this.logs]); } catch(e) {} });
+        window.sendTelemetry(tag, `[${level.toUpperCase()}] ${message}`, details);
       },
       subscribe(fn) {
         this.listeners.add(fn);
