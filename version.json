@@ -1,7 +1,7 @@
 {
-  "version": "8.8.3",
-  "versionCode": 883,
+  "version": "8.8.4",
+  "versionCode": 884,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.8.3: Restored full key name visibility (removed individual test button clutter); added Save Profile and Save & Close buttons to Glossary Editor."
+  "releaseNotes": "v8.8.4: Added NovelFire crawler support (novelfire.net) with multi-page chapter scanning and illustration extraction."
 }

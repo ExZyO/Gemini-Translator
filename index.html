@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.8.3';
+    const VERSION = '8.8.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -13284,8 +13284,8 @@ FORMATTING & STRUCTURE RULES:
 
             // ═══ TAB 2: WEB IMPORTER ═══
             activeTab === 'web_importer' && h(React.Fragment, null,
-              h('div', { className: 'src-chips' }, ['Pixiv', 'AO3', 'Lofter', 'Syosetu', 'Witch Cult', 'WordPress'].map(s => h('span', { key: s, className: 'src-chip' }, s))),
-              h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel or series URL (Pixiv, AO3, Syosetu…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
+              h('div', { className: 'src-chips' }, ['NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', { key: s, className: 'src-chip' }, s))),
+              h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel URL (NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
               h('button', {
                 type: 'button', className: 'primary block', disabled: isFetchingUrl || !webImportUrl.trim(),
                 onClick: async () => {

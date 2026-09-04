@@ -589,6 +589,115 @@
         return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
     }
 
+    // --- F. NOVELFIRE TEMPLATE (novelfire.net) ---
+    async function crawlNovelFire(url, progressCb) {
+        progressCb?.('Connecting to NovelFire...', 15);
+        const origin = new URL(url).origin;
+        
+        let bookUrl = url.trim().replace(/\/chapter[-/].*$/i, '');
+        if (bookUrl.endsWith('/chapters')) {
+            bookUrl = bookUrl.replace(/\/chapters$/, '');
+        }
+
+        const html = await fetchHtml(bookUrl);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        const title = doc.querySelector('h1.novel-title, h1, .book-title')?.textContent?.trim() || 'NovelFire Novel';
+        const author = doc.querySelector('span[itemprop="author"], .author a, a[href*="/author/"]')?.textContent?.trim() || 'Author';
+        const summary = doc.querySelector('.description, .summary, .synopsis, #tab-description')?.textContent?.trim() || '';
+
+        const tags = [];
+        doc.querySelectorAll('a[href*="/genre/"], a[href*="/tag/"], .categories a').forEach(t => {
+            const txt = t.textContent?.trim();
+            if (txt && !tags.includes(txt)) tags.push(txt);
+        });
+
+        // Scan all chapter pages through pagination
+        let chapterLinks = [];
+        const seenUrls = new Set();
+        let volUrl = `${bookUrl}/chapters`;
+        let pageNum = 1;
+
+        progressCb?.('Scanning NovelFire chapter archive...', 20);
+
+        while (volUrl) {
+            try {
+                progressCb?.(`Scanning NovelFire chapters (Page ${pageNum})...`, Math.min(28, 20 + pageNum));
+                const chPageHtml = await fetchHtml(volUrl);
+                const pDoc = new DOMParser().parseFromString(chPageHtml, 'text/html');
+                
+                const aTags = Array.from(pDoc.querySelectorAll('ul.chapter-list li a, .list-chapter li a, a[href*="/chapter-"]'));
+                let pageFound = 0;
+                for (const a of aTags) {
+                    const href = a.getAttribute('href');
+                    if (href && !seenUrls.has(href)) {
+                        seenUrls.add(href);
+                        const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                        const chTitle = a.getAttribute('title') || a.querySelector('.chapter-title')?.textContent?.trim() || a.textContent?.trim();
+                        chapterLinks.push({ url: fullUrl, title: chTitle });
+                        pageFound++;
+                    }
+                }
+
+                if (pageFound === 0) break;
+
+                const nextA = pDoc.querySelector('a.page-link[rel="next"], .pagination a[rel="next"]');
+                if (nextA && nextA.getAttribute('href')) {
+                    const nextHref = nextA.getAttribute('href');
+                    volUrl = nextHref.startsWith('http') ? nextHref : new URL(nextHref, origin).href;
+                    pageNum++;
+                } else {
+                    volUrl = null;
+                }
+            } catch (pageErr) {
+                console.warn(`NovelFire page ${pageNum} fetch error:`, pageErr);
+                break;
+            }
+        }
+
+        // Fallback: check chapters directly on book page if /chapters wasn't reached
+        if (chapterLinks.length === 0) {
+            doc.querySelectorAll('ul.chapter-list li a, .list-chapter li a, a[href*="/chapter-"]').forEach(a => {
+                const href = a.getAttribute('href');
+                if (href && !seenUrls.has(href)) {
+                    seenUrls.add(href);
+                    const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                    chapterLinks.push({ url: fullUrl, title: a.getAttribute('title') || a.textContent?.trim() });
+                }
+            });
+        }
+
+        if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
+
+        progressCb?.(`Found ${chapterLinks.length} chapters on NovelFire! Fetching in parallel...`, 30);
+
+        const { chapters, totalWords } = await crawlChapterPool(
+            chapterLinks,
+            async (item) => {
+                const chHtml = await fetchHtml(item.url);
+                const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                const contentEl = chDoc.querySelector('div#content, .chapter-content, #chr-content, .chr-c') || chDoc.body;
+                
+                // Clean ads, scripts, and reporting widgets
+                contentEl.querySelectorAll('.ads, .ad, [class*="advertisement"], script, style, .report-chapter, .desc-text').forEach(e => e.remove());
+                
+                // Remove repeated "Chapter X" first-line headers
+                const firstChild = contentEl.firstElementChild;
+                if (firstChild && /^\s*chapter\s+\d+/i.test(firstChild.textContent.trim())) {
+                    firstChild.remove();
+                }
+
+                const chTitle = chDoc.querySelector('.chapter-title')?.textContent?.trim() || item.title;
+                return { title: chTitle, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
+            },
+            12,
+            progressCb
+        );
+
+        progressCb?.(` Loaded ${chapters.length} chapters from NovelFire (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
+    }
+
     // --- F. LOFTER (乐乎 WITH HIGH-RES ARTWORK) ---
     async function crawlLofter(url, progressCb) {
         progressCb?.('Connecting to NetEase Lofter...', 15);
@@ -963,12 +1072,13 @@
     function detectUrlType(url) {
         if (!url || typeof url !== 'string') return 'unknown';
         const clean = url.trim().toLowerCase();
+        if (clean.includes('novelfire.')) return 'novelfire';
         if (clean.includes('archiveofourown.org')) return 'ao3';
         if (clean.includes('witchculttranslation.com')) return 'witchcult';
         if (clean.includes('lofter.com')) return 'lofter';
         if (clean.includes('royalroad.com') || clean.includes('scribblehub.com')) return 'royalroad';
         if (clean.includes('syosetu.com') || clean.includes('kakuyomu.jp')) return 'syosetu';
-        if (clean.includes('novelfull.com') || clean.includes('boxnovel.com') || clean.includes('readlightnovel')) return 'novelfull';
+        if (clean.includes('novelfull.com') || clean.includes('boxnovel.com') || clean.includes('readlightnovel') || clean.includes('novelbin.') || clean.includes('allnovelfull.') || clean.includes('readnovelfull.') || clean.includes('freewebnovel.') || clean.includes('lightnovelpub.')) return 'novelfull';
         if (clean.includes('pixiv.net/novel/')) return 'pixiv';
         return 'universal';
     }
@@ -983,6 +1093,7 @@
             const type = detectUrlType(url);
             console.log(` [LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
 
+            if (type === 'novelfire') return await crawlNovelFire(url, progressCb);
             if (type === 'witchcult') return await crawlWitchCult(url, progressCb);
             if (type === 'ao3') return await crawlAO3(url, progressCb);
             if (type === 'royalroad') return await crawlRoyalRoad(url, progressCb);
