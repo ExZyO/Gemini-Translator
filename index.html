@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.8.2';
+    const VERSION = '8.8.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4927,9 +4927,13 @@ ${tocNavLinks.join('\n')}
       // (legacy single-key handlers removed — multi-key profiles replace them)
 
       // --- Profile/Glossary Handlers ---
-      const handleSaveGlossary = async () => {
-        const name = (newGlossaryName || '').trim();
-        if (!name) return setError('Enter a profile name.');
+      const handleSaveGlossary = async (targetName = null) => {
+        let name = (targetName || newGlossaryName || activeGlossaryId || '').trim();
+        if (!name) {
+          const prompted = prompt('Enter a name for this glossary profile:');
+          if (!prompted || !prompted.trim()) return;
+          name = prompted.trim();
+        }
         if (!terminology.trim() && !customInstructions.trim()) return setError('Profile content is empty.');
         const existing = savedGlossaries.findIndex(g => g.name === name);
         const updatedEntry = { name, content: terminology, instructions: customInstructions };
@@ -4949,7 +4953,7 @@ ${tocNavLinks.join('\n')}
         setActiveGlossaryId(name);
         localStorage.setItem('activeGlossaryId', name);
         setError('');
-        toast(`Profile "${name}" saved!`);
+        toast(`Profile "${name}" saved!`, 'success');
       };
 
       const handleLoadGlossary = g => {
@@ -13125,8 +13129,14 @@ FORMATTING & STRUCTURE RULES:
 
                   // Save Profile Row
                   h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
-                    h('input', { type: 'text', value: newGlossaryName, onChange: e => setNewGlossaryName(e.target.value), placeholder: 'Save current terms as profile name…', style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '8px 10px', fontSize: 12, color: 'var(--paper-dim)', outline: 'none', flex: 1, minWidth: 140 } }),
-                    h('button', { type: 'button', className: 'mini-btn', onClick: handleSaveGlossary }, 'Save Profile'),
+                    activeGlossaryId && h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                      onClick: () => handleSaveGlossary(activeGlossaryId)
+                    }, `💾 Save to "${activeGlossaryId}"`),
+                    h('input', { type: 'text', value: newGlossaryName, onChange: e => setNewGlossaryName(e.target.value), placeholder: activeGlossaryId ? 'Or save as new profile…' : 'Save current terms as profile name…', style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '8px 10px', fontSize: 12, color: 'var(--paper-dim)', outline: 'none', flex: 1, minWidth: 140 } }),
+                    h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => handleSaveGlossary(newGlossaryName) }, 'Save Profile'),
                     activeGlossaryId && h('button', { type: 'button', className: 'mini-btn ghost', onClick: handleUnloadGlossary }, 'Unload')
                   ),
 
@@ -13651,13 +13661,6 @@ FORMATTING & STRUCTURE RULES:
                       isDuplicate && h('span', { className: 'badge', style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 10 } }, '⚠️ Duplicate'),
                       h('button', {
                         type: 'button',
-                        className: 'chip-act',
-                        title: 'Test this API key',
-                        disabled: !k.key,
-                        onClick: () => testSingleKey(provider, k.key, k.id)
-                      }, 'Test'),
-                      h('button', {
-                        type: 'button',
                         className: 'icon-btn',
                         style: { width: 30, height: 30 },
                         title: 'Copy this key to clipboard',
@@ -13880,6 +13883,14 @@ FORMATTING & STRUCTURE RULES:
               h('div', { className: 'tl-subtitle' }, `${glossaryTermCount} terms · full-screen editor`)
             ),
             h('div', { className: 'pane-acts' },
+              h('button', {
+                type: 'button',
+                className: 'chip-act accent',
+                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700, padding: '4px 10px' },
+                onClick: async () => {
+                  await handleSaveGlossary(activeGlossaryId);
+                }
+              }, activeGlossaryId ? `💾 Save "${activeGlossaryId}"` : '💾 Save Profile'),
               h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('ri') }, 'RI'),
               h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('lotm') }, 'LOTM'),
               h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia'),
@@ -13897,6 +13908,15 @@ FORMATTING & STRUCTURE RULES:
           h('div', { className: 'gloss-foot' },
             h('span', null, `${glossaryTermCount} terms · ${(terminology || '').split(/\s+/).filter(Boolean).length} words`),
             h('div', { className: 'pane-acts' },
+              h('button', {
+                type: 'button',
+                className: 'chip-act accent',
+                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700 },
+                onClick: async () => {
+                  await handleSaveGlossary(activeGlossaryId);
+                  setGlossaryEditorOpen(false);
+                }
+              }, '💾 Save & Close'),
               h('label', { className: 'chip-act', style: { cursor: 'pointer' } },
                 '⇧ Import',
                 h('input', { type: 'file', accept: '.txt', style: { display: 'none' }, onChange: importGlossaryFile })

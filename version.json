@@ -1,7 +1,7 @@
 {
-  "version": "8.8.2",
-  "versionCode": 882,
+  "version": "8.8.3",
+  "versionCode": 883,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.8.2: Comprehensive Full App Backup (Novel library, all settings, EPUB styling, and diagnostic logs)."
+  "releaseNotes": "v8.8.3: Restored full key name visibility (removed individual test button clutter); added Save Profile and Save & Close buttons to Glossary Editor."
 }
