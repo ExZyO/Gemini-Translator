@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.0';
+    const VERSION = '8.10.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3082,8 +3082,8 @@ const formatModelName = (id, displayName) => {
           words: c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)
         }));
 
-        const totalChapters = novelData.totalChapterCount || novelData.chapterList?.length || cleanChapters.length;
-        const isIncomplete = !!novelData.isIncomplete;
+        const totalChapters = novelData.totalChapterCount || (novelData.chapterList ? novelData.chapterList.length : cleanChapters.length);
+        const isIncomplete = novelData.isIncomplete !== undefined ? !!novelData.isIncomplete : (cleanChapters.length < totalChapters);
 
         const novelRecord = {
           id: novelId,
@@ -3133,7 +3133,7 @@ const formatModelName = (id, displayName) => {
           return updated;
         });
 
-        if (!isIncomplete) {
+        if (!isIncomplete && cleanChapters.length >= totalChapters) {
           localStorage.removeItem('gemini_active_crawl_session');
           setActiveCrawlSession(null);
         }
@@ -3245,10 +3245,13 @@ const formatModelName = (id, displayName) => {
                     summary: n.summary,
                     tags: n.tags,
                     chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
+                    totalChapterCount: n.totalChapterCount || (n.chapterList ? n.chapterList.length : (n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0))),
+                    isIncomplete: !!n.isIncomplete,
                     wordCount: n.wordCount,
                     timestamp: n.timestamp,
                     isEpub: n.isEpub,
-                    sourceUrl: n.sourceUrl
+                    sourceUrl: n.sourceUrl,
+                    chapterList: n.chapterList || []
                   };
                   if (!seenIds.has(item.id)) {
                     seenIds.add(item.id);
@@ -5103,6 +5106,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       };
 
       const connectGoogleDrive = async () => {
+        if (!window.GoogleDriveSync?.getClientId()) {
+          setGdriveConfigModalOpen(true);
+          toast('Please configure your Google OAuth Client ID or paste an Access Token.', 'info');
+          return;
+        }
         try {
           toast('Opening Google Authorization window…', 'info');
           await window.GoogleDriveSync.launchOAuthFlow();
@@ -5115,8 +5123,23 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             toast('Google Drive connected!', 'success');
           }
         } catch (err) {
-          console.warn('Google Drive Auth error:', err);
-          toast(`Google Drive Sign-in: ${err.message}`, 'error');
+          if (err.message === 'MISSING_CLIENT_ID') {
+            setGdriveConfigModalOpen(true);
+          } else {
+            console.warn('Google Drive Auth error:', err);
+            toast(`Google Drive Sign-in: ${err.message}`, 'error');
+          }
+        }
+      };
+
+      const backupToGoogleDriveFile = async () => {
+        try {
+          const { backup, novelLibrary, fullHistory } = await generateBackupPayload(includeApiKeysInBackup);
+          const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+          await saveUniversalBlob(blob, 'gemini_translator_backup.json', 'application/json', true);
+          toast(`📁 Backup exported! (${novelLibrary.length} novels, ${fullHistory.length} history items)`, 'success');
+        } catch (e) {
+          toast('Backup error: ' + e.message, 'error');
         }
       };
 
@@ -5478,13 +5501,28 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         const initialChapters = targetSession?.chapters || targetSession?.rawChapters || [];
         const novelId = targetSession?.id || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
 
+        let lastPersistTime = 0;
+        let pendingSaveTimer = null;
+        let latestSessionSnapshot = null;
+
+        const flushCrawlPersistence = (session) => {
+          if (!session) return;
+          try {
+            localStorage.setItem('gemini_active_crawl_session', JSON.stringify(session));
+          } catch (e) {}
+          saveNovelToHistory(session);
+        };
+
         try {
           const data = await window.WebNovelImporter.importUrl(targetUrl, (status, pct) => {
             setWebImportStatus(status);
           }, {
             initialChapters,
             onChapterDone: (newChapterObj, allChapters, stats) => {
-              const currentTotal = stats.total || targetSession?.totalChapterCount || (stats.chapterList ? stats.chapterList.length : allChapters.length);
+              const totalChs = stats.total || stats.totalCount || targetSession?.totalChapterCount || (stats.chapterList ? stats.chapterList.length : 0);
+              const currentTotal = totalChs > 0 ? totalChs : Math.max(allChapters.length + 1, targetSession?.totalChapterCount || 0);
+              const isIncomplete = totalChs > 0 ? (allChapters.length < totalChs) : true;
+
               const sessionObj = {
                 id: novelId,
                 url: targetUrl,
@@ -5496,33 +5534,51 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 chapterList: stats.chapterList || targetSession?.chapterList || [],
                 completedCount: allChapters.length,
                 totalChapterCount: currentTotal,
-                isIncomplete: allChapters.length < currentTotal,
+                isIncomplete: isIncomplete,
                 timestamp: new Date().toISOString()
               };
+              latestSessionSnapshot = sessionObj;
 
-              try {
-                localStorage.setItem('gemini_active_crawl_session', JSON.stringify(sessionObj));
-              } catch (e) {}
-              setActiveCrawlSession(sessionObj);
+              // Smooth 1.5s throttled persistence to IndexedDB & localStorage so UI stays 60fps
+              const now = Date.now();
+              if (now - lastPersistTime > 1500) {
+                lastPersistTime = now;
+                setActiveCrawlSession(sessionObj);
+                flushCrawlPersistence(sessionObj);
+              } else {
+                if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
+                pendingSaveTimer = setTimeout(() => {
+                  if (latestSessionSnapshot) {
+                    setActiveCrawlSession(latestSessionSnapshot);
+                    flushCrawlPersistence(latestSessionSnapshot);
+                  }
+                }, 1200);
+              }
 
-              // Auto-persist incrementally into IndexedDB / Library History
-              saveNovelToHistory(sessionObj);
-              setWebImportStatus(`Chapter ${stats.current || allChapters.length}/${currentTotal}: ${(newChapterObj.title || '').substring(0, 30)}…`);
+              setWebImportStatus(`Chapter ${stats.current || stats.completedCount || allChapters.length}/${currentTotal}: ${(newChapterObj.title || '').substring(0, 32)}…`);
             }
           });
+
+          // Flush any pending save immediately upon completion/pause
+          if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
+          if (latestSessionSnapshot) {
+            flushCrawlPersistence(latestSessionSnapshot);
+          }
 
           const ctrl = window.WebNovelImporter?.getActiveController?.();
           if (ctrl?.isPaused) {
             setIsFetchingPaused(true);
             setIsFetchingUrl(false);
-            toast(`⏸ Fetch paused. ${data?.chapters?.length || initialChapters.length} chapters saved.`, 'info');
+            if (latestSessionSnapshot) setActiveCrawlSession(latestSessionSnapshot);
+            toast(`⏸ Fetch paused. ${data?.chapters?.length || initialChapters.length} chapters saved to Library.`, 'info');
             return;
           }
 
           if (ctrl?.isCancelled) {
             setIsFetchingPaused(false);
             setIsFetchingUrl(false);
-            toast(`✕ Fetch cancelled. ${data?.chapters?.length || initialChapters.length} chapters saved in Library.`, 'warning');
+            if (latestSessionSnapshot) setActiveCrawlSession(latestSessionSnapshot);
+            toast(`✕ Fetch cancelled. Progress preserved in Library.`, 'warning');
             return;
           }
 
@@ -5543,6 +5599,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             } catch (e) {}
           }
         } catch (err) {
+          if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
+          if (latestSessionSnapshot) flushCrawlPersistence(latestSessionSnapshot);
+
           const ctrl = window.WebNovelImporter?.getActiveController?.();
           if (ctrl?.isPaused) {
             setIsFetchingPaused(true);
@@ -7874,6 +7933,42 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       )
                     ),
 
+                    // Mihon/Komikku Standard Drive Storage Backup (Zero Setup)
+                    h('div', {
+                      style: {
+                        background: 'rgba(99, 102, 241, 0.08)',
+                        border: '1px solid rgba(99, 102, 241, 0.25)',
+                        borderRadius: 4,
+                        padding: '10px 12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                        marginTop: 4
+                      }
+                    },
+                      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                        h('span', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--iris)' } }, '📁 1-Tap Google Drive File Backup (Mihon Style)'),
+                        h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Zero Setup Required')
+                      ),
+                      h('p', { style: { fontSize: 11, color: 'var(--slate)', margin: 0, lineHeight: 1.4 } },
+                        'Save your entire novel library and glossaries to Google Drive using the Android / browser system file picker (exactly like Mihon and Komikku). No Google Cloud developer account needed.'
+                      ),
+                      h('div', { style: { display: 'flex', gap: 8, marginTop: 4 } },
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn',
+                          style: { flex: 1, textAlign: 'center', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                          onClick: backupToGoogleDriveFile
+                        }, '💾 Save to Drive Folder'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { flex: 1, textAlign: 'center' },
+                          onClick: () => document.getElementById('full-backup-input')?.click()
+                        }, '📥 Restore from File')
+                      )
+                    ),
+
                     // Quota display
                     gdriveConnected && gdriveUser && (gdriveUser.quotaLimit > 0 || gdriveUser.storageQuota) && h('div', {
                       style: { fontSize: 10, color: 'var(--slate)', display: 'flex', justifyContent: 'space-between', padding: '0 2px' }
@@ -8653,19 +8748,39 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setGdriveConfigModalOpen(false) }, '✕')
             ),
             h('div', { className: 'modal-bd', style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-              h('p', { style: { fontSize: 11.5, color: 'var(--slate)', lineHeight: 1.5 } },
-                'By default, 1-Click Sign-in connects via Google OAuth 2.0 with private application data storage. If you prefer to supply your own Google Cloud Client ID or paste a direct OAuth token (for offline/custom environments), configure them below.'
+              h('div', { style: { background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 6, padding: '10px 12px' } },
+                h('div', { style: { fontSize: 11, fontWeight: 700, color: '#818cf8', marginBottom: 4 } }, '💡 No Developer Account? Use 1-Tap File Backup!'),
+                h('div', { style: { fontSize: 10.5, color: 'var(--slate)', lineHeight: 1.45 } },
+                  'If you don\'t want to configure Google Cloud Console, use ',
+                  h('strong', { style: { color: 'var(--paper-dim)' } }, '1-Tap Google Drive File Backup'),
+                  ' in Settings. It uses Android Storage Access Framework to save/restore directly into your Google Drive with zero setup.'
+                )
               ),
               h('div', null,
-                h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'CUSTOM GOOGLE CLIENT ID (OPTIONAL)'),
+                h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'GOOGLE OAUTH CLIENT ID (OPTIONAL)'),
                 h('input', {
                   type: 'text',
-                  placeholder: 'xxxxxxxxxxxx.apps.googleusercontent.com',
+                  placeholder: 'xxxxxxxxxxxx-xxxxxxxxxxxx.apps.googleusercontent.com',
                   value: gdriveClientId,
                   onChange: e => setGdriveClientId(e.target.value.trim()),
                   style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
                 }),
-                h('div', { style: { fontSize: 10, color: 'var(--slate)', marginTop: 3 } }, 'OAuth Redirect: Current origin and callback')
+                h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 } },
+                  h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Authorized Origin: ' + (typeof window !== 'undefined' ? window.location.origin : '')),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn ghost',
+                    style: { fontSize: 10, padding: '2px 8px' },
+                    onClick: () => {
+                      navigator.clipboard?.writeText(window.location.origin);
+                      toast('Origin copied: ' + window.location.origin, 'info');
+                    }
+                  }, '📋 Copy Origin')
+                )
+              ),
+              h('div', { style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 10.5, color: 'var(--slate)', lineHeight: 1.45 } },
+                h('strong', { style: { color: 'var(--paper-dim)' } }, 'Do I need a Client Secret? No! '),
+                'Public client-side web apps and mobile apps never use client secrets for security reasons. Google Cloud OAuth Web Clients only require the Client ID and Authorized JavaScript Origins.'
               ),
               h('div', null,
                 h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'DIRECT ACCESS TOKEN (OPTIONAL / TESTING)'),

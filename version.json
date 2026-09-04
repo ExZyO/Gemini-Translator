@@ -1,7 +1,7 @@
 {
-  "version": "8.10.0",
-  "versionCode": 8100,
+  "version": "8.10.1",
+  "versionCode": 8101,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.0: Web Novel Ingestion Controls (Pause, Cancel, Resume) with crash-proof persistence (chapter-by-chapter IndexedDB save, incomplete badges in Library, 1-tap continuation after app exit); Google Drive Cloud Sync & Auto-Backup engine modeled on Mihon/Komikku standard (OAuth 2.0, drive.appdata private storage, drive.file folder choice, test link, manual token override, and auto-sync on translation completion)."
+  "releaseNotes": "v8.10.1: Eliminated fetch/crawl UI stutter via throttled IndexedDB persistence; Fixed crawl session persistence across app restarts (fixed stats.total mismatch so Incomplete badges and Continue Fetch buttons reliably appear); Added Mihon/Komikku standard 1-Tap Google Drive File Backup (zero-setup SAF export/import); Added Client Secret clarification and origin helper to prevent Google OAuth 401 errors; Fully verified COTE Section XVI inclusion with Smart Glossary."
 }

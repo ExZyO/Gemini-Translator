@@ -13,9 +13,8 @@
     const BACKUP_FILENAME = 'gemini_translator_backup.json';
     const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
 
-    // Default public web client ID for seamless out-of-the-box OAuth.
-    // Users can also enter their own custom Google Cloud Client ID in Settings.
-    const DEFAULT_CLIENT_ID = '834927164920-u7fhe2l6e7j3o6k1gqkm3d49j1m78a1v.apps.googleusercontent.com';
+    // Default client ID is configured by the user via Settings modal.
+    const DEFAULT_CLIENT_ID = '';
 
     class GoogleDriveSyncEngine {
         constructor() {
@@ -130,7 +129,11 @@
         }
 
         launchOAuthFlow() {
-            const authUrl = this.getAuthUrl();
+            const cid = this.getClientId();
+            if (!cid) {
+                return Promise.reject(new Error('MISSING_CLIENT_ID'));
+            }
+            const authUrl = this.getAuthUrl(cid);
             const width = 500;
             const height = 650;
             const left = Math.max(0, (window.screen.width - width) / 2);

@@ -199,13 +199,17 @@
             isPaused: false,
             isCancelled: false,
             initialChapters: options.initialChapters || (options.resumeSession ? (options.resumeSession.downloadedChapters || options.resumeSession.chapters || options.resumeSession.rawChapters) : []) || [],
-            onChapterDone: options.onChapterDone || null
+            onChapterDone: options.onChapterDone || null,
+            novelMeta: options.novelMeta || {}
         };
         return activeCrawlController;
     }
 
-    async function crawlChapterPool(chapterList, extractContentFn, concurrency = 12, progressCb) {
+    async function crawlChapterPool(chapterList, extractContentFn, concurrency = 12, progressCb, meta = {}) {
         const ctrl = activeCrawlController || { isPaused: false, isCancelled: false, initialChapters: [] };
+        if (meta && typeof meta === 'object') {
+            ctrl.novelMeta = { ...(ctrl.novelMeta || {}), ...meta };
+        }
         let nextIndex = 0;
 
         // Restore downloaded chapters if resuming from a previous or paused session
@@ -258,9 +262,15 @@
                         if (ctrl.onChapterDone) {
                             try {
                                 ctrl.onChapterDone(newChapterObj, chapters, {
+                                    current: completedIndices.size,
                                     completedCount: completedIndices.size,
+                                    total: chapterList.length,
                                     totalCount: chapterList.length,
-                                    totalWords: totalWordsEstimate
+                                    totalWords: totalWordsEstimate,
+                                    chapterList: chapterList,
+                                    title: ctrl.novelMeta?.title || meta?.title || '',
+                                    author: ctrl.novelMeta?.author || meta?.author || '',
+                                    summary: ctrl.novelMeta?.summary || meta?.summary || ''
                                 });
                             } catch (cbErr) {
                                 console.warn('onChapterDone callback error:', cbErr);
