@@ -13,3 +13,7 @@ www/
 describe_ui.py
 poll-workflow.js
 screenshots/
+client_secret*.json
+client_secrets*.json
+credentials*.json
+*.secret.json

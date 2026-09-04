@@ -33,6 +33,25 @@
 
             // Handle incoming OAuth redirect token in URL hash if present
             this.checkUrlHashForToken();
+
+            // Try auto-loading client_secrets.json if running in local web environment
+            if (!this.clientId) {
+                this.tryLoadLocalClientSecrets();
+            }
+        }
+
+        async tryLoadLocalClientSecrets() {
+            try {
+                if (typeof window === 'undefined' || typeof fetch !== 'function') return;
+                const res = await fetch('./client_secrets.json').catch(() => null);
+                if (!res || !res.ok) return;
+                const data = await res.json();
+                const cid = data.web?.client_id || data.installed?.client_id || data.client_id;
+                if (cid && !this.clientId) {
+                    this.setClientId(cid);
+                    console.log('✅ Auto-loaded Google OAuth Client ID from local client_secrets.json');
+                }
+            } catch(e) {}
         }
 
         checkUrlHashForToken() {
