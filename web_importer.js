@@ -190,16 +190,31 @@
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // 4. PARALLEL WORKER POOL ENGINE (LNCRAWL STREAMING)
+    // 4. PARALLEL WORKER POOL ENGINE (LNCRAWL STREAMING & RESUMABLE SESSIONS)
     // ══════════════════════════════════════════════════════════════════════
-    // 4. PARALLEL WORKER POOL ENGINE (LNCRAWL STREAMING)
-    // ══════════════════════════════════════════════════════════════════════
+    let activeCrawlController = null;
+
+    function createCrawlController(options = {}) {
+        activeCrawlController = {
+            isPaused: false,
+            isCancelled: false,
+            initialChapters: options.initialChapters || (options.resumeSession ? (options.resumeSession.downloadedChapters || options.resumeSession.chapters || options.resumeSession.rawChapters) : []) || [],
+            onChapterDone: options.onChapterDone || null
+        };
+        return activeCrawlController;
+    }
+
     async function crawlChapterPool(chapterList, extractContentFn, concurrency = 12, progressCb) {
+        const ctrl = activeCrawlController || { isPaused: false, isCancelled: false, initialChapters: [] };
         let nextIndex = 0;
-        let completedCount = 0;
-        const chapters = [];
-        let totalWordsEstimate = 0;
-        let totalImagesCount = 0;
+
+        // Restore downloaded chapters if resuming from a previous or paused session
+        const chapters = Array.isArray(ctrl.initialChapters) ? [...ctrl.initialChapters] : [];
+        const completedIndices = new Set(chapters.map(c => c.idx));
+        let completedCount = completedIndices.size;
+
+        let totalWordsEstimate = chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)), 0);
+        let totalImagesCount = chapters.reduce((acc, c) => acc + ((c.text && c.text.match(/!\[Illustration\]/g)) || []).length, 0);
         let wakeLockObj = null;
 
         try {
@@ -214,27 +229,49 @@
 
         const worker = async () => {
             while (nextIndex < chapterList.length) {
+                if (ctrl.isPaused || ctrl.isCancelled) {
+                    break;
+                }
                 const currentIndex = nextIndex++;
+                if (completedIndices.has(currentIndex)) {
+                    continue; // Skip already downloaded chapter
+                }
                 const item = chapterList[currentIndex];
                 try {
                     const chData = await extractContentFn(item, currentIndex);
+                    if (ctrl.isCancelled) break;
                     if (chData && chData.text && chData.text.length > 30) {
                         const words = chData.text.split(/\s+/).filter(Boolean).length;
                         const imgCount = (chData.text.match(/!\[Illustration\]/g) || []).length;
                         totalImagesCount += imgCount;
                         totalWordsEstimate += words;
-                        chapters.push({
+                        const newChapterObj = {
                             idx: currentIndex,
                             title: chData.title || item.title || `Chapter ${currentIndex + 1}`,
                             text: chData.text,
+                            content: chData.text,
                             words
-                        });
+                        };
+                        chapters.push(newChapterObj);
+                        completedIndices.add(currentIndex);
+
+                        if (ctrl.onChapterDone) {
+                            try {
+                                ctrl.onChapterDone(newChapterObj, chapters, {
+                                    completedCount: completedIndices.size,
+                                    totalCount: chapterList.length,
+                                    totalWords: totalWordsEstimate
+                                });
+                            } catch (cbErr) {
+                                console.warn('onChapterDone callback error:', cbErr);
+                            }
+                        }
                     }
                 } catch (e) {
                     console.warn(`Error on chapter ${currentIndex + 1} (${item.title || item.url}):`, e);
                 }
 
-                completedCount++;
+                completedCount = completedIndices.size;
                 const pct = Math.min(99, Math.round(15 + ((completedCount / chapterList.length) * 84)));
                 const elapsedSec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
                 const min = Math.floor(elapsedSec / 60);
@@ -249,6 +286,10 @@
                     lastNotifTime = now;
                     window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Ingesting novel: ${chapters.length}/${chapterList.length} ch (${pct}%) • ${timeStr}`, pct, true);
                 }
+
+                if (ctrl.isPaused || ctrl.isCancelled) {
+                    break;
+                }
             }
         };
 
@@ -259,12 +300,25 @@
             try {
                 if (wakeLockObj) { wakeLockObj.release().catch(() => {}); }
                 window.NativeBridge?.releaseWakeLock?.();
-                window.NativeBridge?.clearProgressNotification?.(true, 'Novel Ingestion Complete! ', `${chapters.length} chapters downloaded and saved.`);
+                if (!ctrl.isPaused && !ctrl.isCancelled) {
+                    window.NativeBridge?.clearProgressNotification?.(true, 'Novel Ingestion Complete! ', `${chapters.length} chapters downloaded and saved.`);
+                } else if (ctrl.isPaused) {
+                    window.NativeBridge?.clearProgressNotification?.(false);
+                    window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', `Paused at ${chapters.length}/${chapterList.length} chapters. Saved to Library.`);
+                } else if (ctrl.isCancelled) {
+                    window.NativeBridge?.clearProgressNotification?.(false);
+                }
             } catch(e) {}
         }
 
         chapters.sort((a, b) => a.idx - b.idx);
-        return { chapters, totalWords: totalWordsEstimate, totalImages: totalImagesCount };
+        return { 
+            chapters, 
+            totalWords: totalWordsEstimate, 
+            totalImages: totalImagesCount,
+            isPaused: !!ctrl.isPaused,
+            isCancelled: !!ctrl.isCancelled
+        };
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1117,20 +1171,45 @@
         detectType: detectUrlType,
         getBestImageUrl,
         cleanChapterHtmlWithImages,
-        importUrl: async (url, progressCb) => {
+        pause: () => {
+            if (activeCrawlController) {
+                activeCrawlController.isPaused = true;
+                try { window.NativeBridge?.releaseWakeLock?.(); } catch(e) {}
+                return true;
+            }
+            return false;
+        },
+        cancel: () => {
+            if (activeCrawlController) {
+                activeCrawlController.isCancelled = true;
+                try { window.NativeBridge?.releaseWakeLock?.(); } catch(e) {}
+                return true;
+            }
+            return false;
+        },
+        getActiveController: () => activeCrawlController,
+        importUrl: async (url, progressCb, options = {}) => {
             if (!url || !url.trim()) throw new Error('Please enter a valid novel URL.');
+            createCrawlController(options);
             const type = detectUrlType(url);
             console.log(` [LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
 
-            if (type === 'novelfire') return await crawlNovelFire(url, progressCb);
-            if (type === 'witchcult') return await crawlWitchCult(url, progressCb);
-            if (type === 'ao3') return await crawlAO3(url, progressCb);
-            if (type === 'royalroad') return await crawlRoyalRoad(url, progressCb);
-            if (type === 'syosetu') return await crawlSyosetu(url, progressCb);
-            if (type === 'novelfull') return await crawlNovelFull(url, progressCb);
-            if (type === 'lofter') return await crawlLofter(url, progressCb);
-            if (type === 'pixiv') return await crawlPixiv(url, progressCb);
-            return await crawlUniversal(url, progressCb);
+            let result;
+            if (type === 'novelfire') result = await crawlNovelFire(url, progressCb);
+            else if (type === 'witchcult') result = await crawlWitchCult(url, progressCb);
+            else if (type === 'ao3') result = await crawlAO3(url, progressCb);
+            else if (type === 'royalroad') result = await crawlRoyalRoad(url, progressCb);
+            else if (type === 'syosetu') result = await crawlSyosetu(url, progressCb);
+            else if (type === 'novelfull') result = await crawlNovelFull(url, progressCb);
+            else if (type === 'lofter') result = await crawlLofter(url, progressCb);
+            else if (type === 'pixiv') result = await crawlPixiv(url, progressCb);
+            else result = await crawlUniversal(url, progressCb);
+
+            if (result && activeCrawlController) {
+                result.isPaused = !!activeCrawlController.isPaused;
+                result.isCancelled = !!activeCrawlController.isCancelled;
+            }
+            return result;
         }
     };
 

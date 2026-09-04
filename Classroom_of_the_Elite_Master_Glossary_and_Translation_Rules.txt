@@ -1,0 +1,687 @@
+I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
+- Translate into natural, publication-quality English while preserving every paragraph break, line break, punctuation mark, speaker label, and scene division exactly.
+
+- This glossary covers Classroom of the Elite from Year 1 Volume 1 through Year 3 Volume 4. Use the established English names and terms below consistently. Do not invent alternate romanizations.
+
+- Do not summarize, censor, omit, or merge sentences. Output only the translated text. Ignore web links, translator notes, scan notes, and editorial commentary.
+
+- Keep Japanese honorifics when they carry relationship or tone: -san, -kun, -chan, -sensei, -senpai, and -sama. Do not add honorifics when the source does not use one. Preserve formal and informal registers between characters.
+
+- Use family name first only when the source or an introduction calls for it; otherwise use the established English order below. Ayanokoji and Ayanokouji refer to the same character; standardize to Ayanokoji.
+
+- Do not confuse Class Points with Private Points. Capitalize official exams, school systems, classes, clubs, facilities, and named plans. Keep internal monologue distinct from spoken dialogue.
+
+II. SERIES, SCHOOL, AND CORE TERMINOLOGY
+- ようこそ実力至上主義の教室へ -> Classroom of the Elite
+- よう実 / You-Zitsu / Yō-Jitsu -> Classroom of the Elite
+- 綾小路 -> Ayanokoji
+- 綾小路清隆 -> Kiyotaka Ayanokoji
+- 東京都高度育成高等学校 -> Tokyo Metropolitan Advanced Nurturing High School
+- 高度育成高等学校 -> Advanced Nurturing High School
+- 高度育成高校 -> Advanced Nurturing High School
+- ANHS -> Advanced Nurturing High School
+- 実力至上主義 -> meritocracy
+- 学校 -> school / Advanced Nurturing High School, according to context
+- 生徒会 -> Student Council
+- 生徒会室 -> Student Council room
+- 学生寮 -> student dormitory
+- 寮 -> dormitory
+- 校内 -> on campus / within the school
+- 校外 -> off campus
+- 坂柳 -> Sakayanagi
+- 坂柳有栖 -> Arisu Sakayanagi
+- 茶柱 -> Chabashira
+- 茶柱佐枝 -> Sae Chabashira
+- 月城 -> Tsukishiro
+- 月城常成 -> Tsukishiro
+- 理事長 -> chairman / school board chairman
+- 理事 -> board member / school board member
+- 学年 -> school year / grade, according to context
+- 1年生 -> first-year student
+- 2年生 -> second-year student
+- 3年生 -> third-year student
+- 先輩 -> upperclassman / senpai
+- 後輩 -> underclassman / junior
+- 同級生 -> classmate / yearmate
+- 担任 -> homeroom teacher
+- クラス -> class
+- Aクラス -> Class A
+- Bクラス -> Class B
+- Cクラス -> Class C
+- Dクラス -> Class D
+- A組 -> Class A
+- B組 -> Class B
+- C組 -> Class C
+- D組 -> Class D
+- クラスメイト -> classmate
+- クラス内 -> within the class
+- クラス間 -> between classes
+- クラス替え -> class reassignment / class reshuffle
+- クラス移動 -> class transfer
+- 卒業 -> graduation
+- 退学 -> expulsion / withdrawal, according to context
+- 退学処分 -> expulsion
+- 退学者 -> expelled student
+- 進級 -> advancement to the next year
+- 推薦 -> recommendation
+- 希望する進路 -> desired career path / desired future path
+
+II. THE S-SYSTEM AND POINTS
+- Sシステム -> S-System
+- クラス順位 -> class ranking
+- 学年順位 -> year ranking
+- クラス内順位 -> in-class ranking
+- クラス間順位 -> inter-class ranking
+- クラス点 -> Class Points
+- クラスポイント -> Class Points
+- CP -> Class Points
+- 個人ポイント -> Private Points
+- プライベートポイント -> Private Points
+- PP -> Private Points
+- ポイント -> points; specify Class Points or Private Points from context
+- 1ポイント -> one point
+- 退学を回避するポイント -> points used to avoid expulsion
+- 保護ポイント -> Protection Point
+- プロテクトポイント -> Protection Point
+- 保護ポイントカード -> Protection Point card
+- 一ノ瀬のポイント -> Ichinose's points
+- 坂柳のポイント -> Sakayanagi's points
+- クラス点の譲渡 -> transfer of Class Points
+- 個人ポイントの譲渡 -> transfer of Private Points
+- ポイントを買う -> buy with points
+- ポイントを支払う -> pay points
+- ポイントを消費する -> spend points
+- 月額ポイント -> monthly points
+- 100,000ポイント -> 100,000 points
+- 2000万ポイント -> 20 million points
+- 2000万 -> 20 million
+- 退学回避 -> expulsion avoidance
+- 退学候補 -> expulsion candidate
+- 特別措置 -> special measure
+- 便宜 -> privilege / accommodation, according to context
+- 校則 -> school rules
+- 規則違反 -> violation of the rules
+- ペナルティ -> penalty
+- 報酬 -> reward
+- ペナルティポイント -> penalty points
+- 評価 -> evaluation / assessment
+- 評価値 -> evaluation value
+- 実績 -> achievement / performance record
+- 損得 -> gains and losses / cost-benefit
+- 損失 -> loss
+- 利益 -> benefit / profit
+
+III. DEVICES, APPS, AND SCHOOL FACILITIES
+- OAA -> OAA
+- OAAアプリ -> OAA app
+- オーエーエー -> OAA
+- 学力 -> academic ability
+- 身体能力 -> physical ability
+- 判断力 -> judgment ability
+- 社会貢献性 -> social contribution
+- 分析力 -> analysis ability
+- 推定学力 -> estimated academic ability
+- 学力評価 -> academic evaluation
+- 身体能力評価 -> physical ability evaluation
+- アプリ -> app
+- 携帯電話 -> cell phone / mobile phone
+- スマートフォン -> smartphone
+- タブレット -> tablet
+- 内線 -> internal line
+- 自動販売機 -> vending machine
+- 売店 -> store / school store
+- コンビニ -> convenience store
+- カフェ -> cafe
+- ホワイトルーム -> White Room
+- ホワイトルーム生 -> White Room student
+- ホワイトルーム出身 -> from the White Room
+- 4.5巻 -> Volume 4.5
+- 7.5巻 -> Volume 7.5
+- 11.5巻 -> Volume 11.5
+- 12.5巻 -> Volume 12.5
+
+IV. NAMED SPECIAL EXAMS
+- 特別試験 -> Special Exam
+- 特別試験実施 -> implementation of a Special Exam
+- 無人島サバイバル試験 -> Uninhabited Island Special Exam
+- 無人島特別試験 -> Uninhabited Island Special Exam
+- 無人島試験 -> Uninhabited Island Exam
+- 無人島サバイバルゲーム特別試験 -> Uninhabited Island Survival Game Special Exam
+- 船上特別試験 -> Cruise Ship Special Exam
+- 船上試験 -> cruise ship exam
+- zodiac試験 -> Zodiac Exam
+- ゾディアック -> Zodiac
+- 体育祭 -> Sports Festival
+- スポーツフェスティバル -> Sports Festival
+- ペーパーシャッフル -> Paper Shuffle
+- ペーパーシャッフル試験 -> Paper Shuffle Exam
+- 混合合宿 -> Mixed Training Camp
+- 混合合宿特別試験 -> Mixed Training Camp Special Exam
+- クラス内投票 -> Class Poll
+- クラス内投票試験 -> Class Poll Exam
+- 選抜種目試験 -> Event Selection Exam
+- イベント選択試験 -> Event Selection Exam
+- プロテクトポイント -> Protection Point
+- 1年生と2年生のペア試験 -> Partner Exam
+- ペア試験 -> Partner Exam
+- 1年無人島試験 -> First Uninhabited Island Exam
+- 2年無人島試験 -> Second Uninhabited Island Exam
+- 全員投票 -> Unanimous Vote Special Exam
+- 無記名投票 -> anonymous vote
+- 文化祭 -> Cultural Festival
+- 体育祭実行委員 -> Sports Festival committee member
+- 協力型筆記試験 -> Cooperative Written Test Special Exam
+- 協力型筆記試験特別試験 -> Cooperative Written Test Special Exam
+- サバイバル・脱落試験 -> Survival and Elimination Special Exam
+- 生存と脱落の特別試験 -> Survival and Elimination Special Exam
+- 年度末特別試験 -> End-of-Year Special Exam
+- 年末特別試験 -> End-of-Year Special Exam
+- 総合学力試験 -> Comprehensive Academic Ability Exam
+- 総合学力試験・全体戦 -> Comprehensive Academic Ability Exam: All Battles
+- 少人数グループ戦 -> Small Group Battle
+- 全体戦 -> All Battle / all-class battle
+- 素行評価 -> Evaluation of Adherence to Proper Daily Conduct and School Rules
+- 素行調査 -> conduct evaluation / conduct investigation
+- トークン回収特別試験 -> Token Collection Special Exam
+- トークン争奪戦 -> Token Collection Battle
+- トークン -> token
+- リーダー -> leader
+- リーダーの特定 -> leader identification
+- リーダーを隠す -> conceal the leader
+- リーダーを当てる -> identify the leader
+- 特別ルール -> special rule
+- 試験範囲 -> exam scope
+- 試験会場 -> exam venue
+- 試験監督 -> exam proctor
+- 失格 -> disqualification
+- 脱落 -> elimination
+- 反則 -> foul / rule violation
+- ルール違反 -> rule violation
+
+V. FIRST-YEAR EXAM TERMS
+- 無人島 -> uninhabited island / deserted island, according to context
+- 島のポイント -> island points
+- 拠点 -> base camp / base
+- 拠点ポイント -> base points
+- 食料 -> food supplies
+- 水 -> water supply
+- 時計 -> watch
+- リーダー候補 -> leader candidate
+- リーダーを見抜く -> see through the leader's identity
+- 船 -> ship
+- 豪華客船 -> luxury cruise ship
+- 乗船 -> boarding the ship
+- 星座グループ -> Zodiac group
+- 優待券 -> VIP ticket
+- VIP -> VIP
+- VIPグループ -> VIP group
+- 暗号 -> code / cipher
+- 暗号解読 -> codebreaking
+- 用紙 -> answer sheet / paper
+- 問題用紙 -> question sheet
+- 試験問題 -> exam questions
+- 問題作成者 -> question creator
+- 最高点 -> highest score
+- 最低点 -> lowest score
+- 平均点 -> average score
+- 追試 -> make-up exam
+- 退学者を選ぶ -> choose a student for expulsion
+- 身代わり -> scapegoat / substitute
+- 監視役 -> observer / monitor
+- 監視カメラ -> surveillance camera
+- 監視 -> surveillance
+- 無人島生活 -> life on the uninhabited island
+- 体育祭種目 -> Sports Festival event
+- 騎馬戦 -> cavalry battle
+- リレー -> relay race
+- 綱引き -> tug-of-war
+- 障害物競走 -> obstacle race
+- 選抜種目 -> selected event
+- 退学回避特別試験 -> special exam to avoid expulsion
+
+VI. SECOND-YEAR EXAM TERMS
+- 1年生とのペア -> first-year partner
+- 2年生とのペア -> second-year partner
+- 先輩ペア -> senior partner pair
+- 後輩ペア -> junior partner pair
+- 座学 -> classroom study / written academics
+- 運動能力 -> athletic ability
+- 学力試験 -> academic test
+- ペア決め -> partner selection
+- 無人島サバイバル -> uninhabited-island survival
+- 暫定順位 -> provisional ranking
+- 上位グループ -> upper-ranked group
+- 下位グループ -> lower-ranked group
+- ポイント獲得 -> point acquisition
+- 退学者投票 -> expulsion vote
+- 全員一致 -> unanimous agreement
+- 賛成票 -> vote in favor
+- 反対票 -> vote against
+- 反対者 -> dissenter / opposing voter
+- 文化祭実行委員会 -> Cultural Festival committee
+- 露店 -> food stall / booth
+- 出し物 -> attraction / event offering
+- 筆記試験 -> written test
+- 協力者 -> collaborator
+- 代表者 -> representative
+- 試験の主導権 -> control of the exam
+- 脱落者 -> eliminated student
+- 生存者 -> surviving student
+- 最終試験 -> final exam
+- 学年末 -> end of the school year
+
+VII. THIRD-YEAR TERMS THROUGH VOLUME 4
+- 3年生編 -> Third-Year Arc
+- 3年A組 -> Class 3-A
+- 3年B組 -> Class 3-B
+- 3年C組 -> Class 3-C
+- 3年D組 -> Class 3-D
+- 3年次 -> third year
+- 3学期 -> third term
+- 新学期 -> new term
+- 始業式 -> opening ceremony
+- 総合学力試験・全体戦と少人数グループ戦 -> Comprehensive Academic Ability Exam: All and Small Group Battles
+- 少人数グループ -> small group
+- 小グループ -> small group
+- 全体戦代表 -> all-battle representative
+- グループ戦代表 -> group-battle representative
+- 代表選出 -> representative selection
+- 素行評価試験 -> Conduct Evaluation Exam
+- 日常の素行 -> daily conduct
+- 校則遵守 -> adherence to school rules
+- 無人島サバイバルゲーム -> Uninhabited Island Survival Game
+- 3年生無人島試験 -> Third-Year Uninhabited Island Exam
+- トークン回収 -> token collection
+- トークン回収戦 -> Token Collection Battle
+- 上級生 -> upperclassman / senior student
+- 卒業生 -> graduating student / graduate, according to context
+- 新入生 -> new student / first-year student
+- 編入 -> transfer / mid-year transfer
+- 転校 -> transfer to another school
+- 転級 -> transfer to another class
+- クラス移籍 -> class transfer
+- クラスの再編 -> class reorganization
+- クラスの独立 -> class independence
+- 独立クラス -> independent class
+- 退学者の補充 -> replacement of an expelled student
+- クラスのリーダー -> class leader
+- 裏切り者 -> traitor
+- 内通者 -> mole / inside informant
+- 監視対象 -> surveillance target
+
+VIII. KEY STUDENTS: AYANOKOJI'S YEAR
+- 綾小路清隆 -> Kiyotaka Ayanokoji
+- 綾小路くん -> Ayanokoji-kun
+- アヤノコウジ -> Ayanokoji
+- 清隆 -> Kiyotaka
+- 堀北鈴音 -> Suzune Horikita
+- 堀北 -> Horikita
+- 堀北さん -> Horikita-san
+- 櫛田桔梗 -> Kikyo Kushida
+- 櫛田 -> Kushida
+- 佐倉愛里 -> Airi Sakura
+- 佐倉 -> Sakura
+- 須藤健 -> Ken Sudo
+- 須藤 -> Sudo
+- 池寛治 -> Kanji Ike
+- 池 -> Ike
+- 山内春樹 -> Haruki Yamauchi
+- 山内 -> Yamauchi
+- 石崎大地 -> Daichi Ishizaki
+- 石崎 -> Ishizaki
+- 幸村輝彦 -> Keisei Yukimura
+- 幸村 -> Yukimura
+- 長谷部波瑠加 -> Haruka Hasebe
+- 長谷部 -> Hasebe
+- 三宅明人 -> Akito Miyake
+- 三宅 -> Miyake
+- 佐藤麻耶 -> Maya Sato
+- 佐藤 -> Sato
+- 平田洋介 -> Yosuke Hirata
+- 平田 -> Hirata
+- 軽井沢恵 -> Kei Karuizawa
+- 軽井沢 -> Karuizawa
+- 恵 -> Kei
+- 井口 -> Iguchi
+- 近藤 -> Kondo
+- 田中 -> Tanaka
+- 山下 -> Yamashita
+- 須藤健の母 -> Sudo's mother
+- 橘茜 -> Akane Tachibana
+- 橘 -> Tachibana
+- 坂柳有栖 -> Arisu Sakayanagi
+- 坂柳 -> Sakayanagi
+- 葛城康平 -> Kohei Katsuragi
+- 葛城 -> Katsuragi
+- 橋本正義 -> Masayoshi Hashimoto
+- 橋本 -> Hashimoto
+- 神室真澄 -> Masumi Kamuro
+- 神室 -> Kamuro
+- 山村美紀 -> Miki Yamamura
+- 山村 -> Yamamura
+- 森下愛 -> Ai Morishita
+- 森下 -> Morishita
+- 鬼頭隼 -> Hayato Kito
+- 鬼頭 -> Kito
+- 石上京 -> Kyo Ishigami
+- 石上 -> Ishigami
+- 鬼龍院翔 -> Kiryuin Kyo
+- 鬼龍院 -> Kiryuin
+
+IX. KEY STUDENTS: OTHER CLASS LEADERS AND ALLIES
+- 龍園翔 -> Kakeru Ryuen
+- 龍園 -> Ryuen
+- 龍園くん -> Ryuen-kun
+- 一之瀬帆波 -> Honami Ichinose
+- 一之瀬 -> Ichinose
+- 一之瀬さん -> Ichinose-san
+- 神崎隆二 -> Ryuji Kanzaki
+- 神崎 -> Kanzaki
+- 阿形 -> Agami
+- 姫野ユキ -> Yuki Himeno
+- 姫野 -> Himeno
+- 柴田颯 -> Hayato Shibata
+- 柴田 -> Shibata
+- 王美雨 -> Mii-chan / Mii
+- 王 -> Wang
+- 天沢一夏 -> Ichika Amasawa
+- 天沢 -> Amasawa
+- 椿桜子 -> Sakurako Tsubaki
+- 椿 -> Tsubaki
+- 宇都宮陸 -> Riku Utomiya
+- 宇都宮 -> Utomiya
+- 七瀬翼 -> Tsubasa Nanase
+- 七瀬 -> Nanase
+- 鬼龍院 -> Kiryuin
+- 綾小路グループ -> Ayanokoji Group
+- Aグループ -> Ayanokoji Group, when referring to the original study group
+- 旧Aグループ -> former Ayanokoji Group
+- 南雲雅 -> Miyabi Nagumo
+- 南雲 -> Nagumo
+- 桐山生叶 -> Ikuto Kiriyama
+- 桐山 -> Kiriyama
+- 朝比奈なずな -> Nazuna Asahina
+- 朝比奈 -> Asahina
+- 戸塚弥彦 -> Yahiko Totsuka
+- 戸塚 -> Totsuka
+- 山内春樹 -> Haruki Yamauchi
+- 伊吹澪 -> Mio Ibuki
+- 伊吹 -> Ibuki
+- アルベルト -> Albert
+- Albert -> Albert
+- 金田悟 -> Satoru Kaneda
+- 金田 -> Kaneda
+- 佐倉愛里 -> Airi Sakura
+- 坂柳派 -> Sakayanagi faction
+- 龍園派 -> Ryuen faction
+- 一之瀬派 -> Ichinose faction
+- 堀北派 -> Horikita faction
+
+X. FIRST-YEAR STUDENTS AND WHITE ROOM FIGURES
+- 七瀬翼 -> Tsubasa Nanase
+- 天沢一夏 -> Ichika Amasawa
+- 椿桜子 -> Sakurako Tsubaki
+- 宇都宮陸 -> Riku Utomiya
+- 宝泉和臣 -> Kazuomi Hosen
+- 宝泉 -> Hosen
+- 高円寺六助 -> Rokusuke Kōenji
+- 高円寺 -> Rokusuke Kōenji / Kōenji
+- 小宮葉月 -> Hazuki Komiya
+- 小宮 -> Komiya
+- 木下 -> Kinoshita
+- 鈴音 -> Suzune, when used as Horikita's given name
+- 鬼塚 -> Onizuka
+- 八神拓也 -> Takuya Yagami
+- 八神 -> Yagami
+- 山田アルベルト -> Albert Yamada / Albert
+- 山田 -> Yamada
+- 石上京 -> Kyo Ishigami
+- 有栖 -> Arisu, when referring to Sakayanagi
+- 司馬 -> Shiba
+- 浜口哲也 -> Tetsuya Hamaguchi
+- 浜口 -> Hamaguchi
+- 小野寺 -> Onodera
+- 末広 -> Suehiro
+- 西野 -> Nishino
+- 真澄 -> Masumi, when referring to Kamuro
+- 清隆 -> Kiyotaka, when referring to Ayanokoji
+
+XI. STAFF, ADULTS, AND OUTSIDE FIGURES
+- 坂柳理事長 -> Chairman Sakayanagi
+- 坂柳成守 -> Narumori Sakayanagi
+- 月城常成 -> Tsukishiro
+- 龍園の父 -> Ryuen's father
+- 綾小路篤臣 -> Atsuomi Ayanokoji
+- 綾小路篤臣氏 -> Atsuomi Ayanokoji
+- 綾小路父 -> Ayanokoji's father
+- ホワイトルーム所長 -> White Room director
+- ホワイトルームの講師 -> White Room instructor
+- 真嶋智也 -> Hiroya Mashima
+- 真嶋先生 -> Mashima-sensei
+- 星之宮知恵 -> Chie Hoshinomiya
+- 星之宮先生 -> Hoshinomiya-sensei
+- 坂上 -> Sakagami
+- 坂上先生 -> Sakagami-sensei
+- 山本先生 -> Yamamoto-sensei
+- 高橋先生 -> Takahashi-sensei
+- 司令塔 -> command center / strategist
+- 教員 -> faculty member / teacher
+- 教師 -> teacher
+- 職員 -> staff member
+- 学校関係者 -> school official
+- 政府関係者 -> government official
+
+XII. RELATIONSHIPS, TITLES, AND NICKNAMES
+- きよぽん -> Kiyopon
+- あやのん -> Ayanon
+- 坂柳派のリーダー -> leader of the Sakayanagi faction
+- クラスの中心人物 -> central figure of the class
+- クラスの実力者 -> powerhouse of the class
+- クラスのまとめ役 -> class coordinator
+- 裏の実力者 -> hidden powerhouse
+- 天才 -> genius
+- 劣等生 -> underachiever / inferior student
+- 問題児 -> problem child
+- 不良 -> delinquent
+- 優等生 -> honor student
+- 落ちこぼれ -> dropout / failure, according to context
+- 駒 -> pawn
+- 道具 -> tool
+- 目的のための道具 -> tool for achieving a goal
+- 仲間 -> companion / ally / friend
+- 友達 -> friend
+- 親友 -> best friend
+- 恋人 -> romantic partner / lover
+- 元恋人 -> ex-lover
+- 彼女 -> girlfriend / she, according to context
+- 彼氏 -> boyfriend
+- 好敵手 -> rival
+- 宿敵 -> archrival
+- 監視役 -> watcher / observer
+- 協力者 -> ally / collaborator
+- 協力関係 -> cooperative relationship
+- 信頼関係 -> relationship of trust
+- 利害関係 -> relationship of mutual interests
+- 裏切り -> betrayal
+- 取引 -> deal / transaction
+- 交渉 -> negotiation
+- 脅迫 -> intimidation / blackmail
+- 弱み -> weakness / vulnerability
+- 秘密 -> secret
+- 正体 -> true identity
+- 本性 -> true nature
+- 本音 -> true feelings / honest thoughts
+- 建前 -> public façade / stated position
+
+XIII. LOCATIONS AND COMMON PLACES
+- 私立高育 -> Advanced Nurturing High School, only when used as an abbreviation
+- 学校棟 -> school building
+- 特別棟 -> special building
+- 教室 -> classroom
+- 廊下 -> hallway
+- 屋上 -> rooftop
+- 食堂 -> cafeteria
+- 図書室 -> library
+- 体育館 -> gymnasium
+- グラウンド -> athletic field / grounds
+- プール -> pool
+- プールサイド -> poolside
+- 売店前 -> in front of the store
+- 商業区画 -> shopping district
+- 商店街 -> shopping district
+- 映画館 -> movie theater
+- カラオケ -> karaoke
+- ファミレス -> family restaurant
+- ファストフード店 -> fast-food restaurant
+- 喫茶店 -> coffee shop / cafe
+- コンビニエンスストア -> convenience store
+- 船上 -> aboard the ship
+- 客室 -> cabin / passenger room
+- 無人島 -> uninhabited island
+- 合宿所 -> training camp facility
+- ホテル -> hotel
+- リゾート地 -> resort area
+- 軽井沢 -> Karuizawa
+- 月島 -> Tsukishima, if used as a location name
+- 東京 -> Tokyo
+- 北海道 -> Hokkaido
+
+XIV. TRANSLATION STYLE AND RECURRING PHRASES
+- 実力至上主義 -> a meritocracy / ability above all else
+- 何事も実力がすべて -> ability is everything
+- すべては実力で決まる -> everything is decided by ability
+- 退学させる -> expel from school
+- 退学になる -> be expelled
+- クラスを上げる -> move up a class
+- クラスを落とす -> drop down a class
+- クラスを守る -> protect the class
+- クラスを勝たせる -> lead the class to victory
+- クラスをまとめる -> unite the class
+- 足を引っ張る -> hold someone back / drag the class down
+- 足並みを揃える -> move in step / coordinate
+- 出し抜く -> outmaneuver
+- 探りを入れる -> sound someone out / probe
+- 腹を探る -> probe someone's intentions
+- カマをかける -> bait someone into revealing information
+- 化かし合い -> battle of deception
+- 騙し合い -> mutual deception / game of deceit
+- 牽制する -> check / keep in check
+- 牽制し合う -> check one another
+- 様子見 -> wait and see / gauge the situation
+- 様子を見る -> gauge the situation
+- 見透かす -> see through
+- 見抜く -> discern / see through
+- 読み合い -> battle of wits / exchange of predictions
+- 心理戦 -> psychological warfare
+- 情報戦 -> information war
+- 盤面 -> the board / state of play
+- 駒を動かす -> move a pawn / move a piece
+- 手の内 -> cards in one's hand
+- 手札 -> hand / cards in hand
+- 切り札 -> trump card
+- 奥の手 -> ace up one's sleeve
+- 先手を取る -> seize the initiative
+- 後手に回る -> fall behind / lose the initiative
+- 一枚上手 -> one step ahead
+- 勝ち筋 -> path to victory
+- 詰み -> checkmate / no moves left
+- 油断 -> carelessness
+- 慢心 -> complacency
+- 見誤る -> misjudge
+- 想定外 -> unexpected / outside the plan
+- 予定調和 -> predetermined outcome
+- それだけの話だ -> that's all there is to it
+- 大したことじゃない -> it's nothing important
+- 興味はない -> I have no interest in it
+- 面倒だ -> what a pain
+- どうでもいい -> I don't care / it doesn't matter
+- まあ、そうだな -> Well, I suppose so
+- なるほど -> I see
+- そういうことか -> So that's how it is
+- まったく -> Honestly / Good grief
+- 仕方ない -> It can't be helped
+- ふざけるな -> Don't screw around / Don't be ridiculous
+- 舐めるな -> Don't underestimate me
+- 舐められる -> be underestimated / be looked down on
+- 余計なお世話 -> Mind your own business
+- お互い様 -> The feeling is mutual
+
+XV. VOLUME AND ARC LABELS
+- 1年生編 -> First-Year Arc
+- 2年生編 -> Second-Year Arc
+- 3年生編 -> Third-Year Arc
+- 1年1巻 -> Year 1 Volume 1
+- 1年2巻 -> Year 1 Volume 2
+- 1年3巻 -> Year 1 Volume 3
+- 1年4巻 -> Year 1 Volume 4
+- 1年4.5巻 -> Year 1 Volume 4.5
+- 1年5巻 -> Year 1 Volume 5
+- 1年6巻 -> Year 1 Volume 6
+- 1年7巻 -> Year 1 Volume 7
+- 1年7.5巻 -> Year 1 Volume 7.5
+- 1年8巻 -> Year 1 Volume 8
+- 1年9巻 -> Year 1 Volume 9
+- 1年10巻 -> Year 1 Volume 10
+- 1年11巻 -> Year 1 Volume 11
+- 1年11.5巻 -> Year 1 Volume 11.5
+- 1年12巻 -> Year 1 Volume 12
+- 2年1巻 -> Year 2 Volume 1
+- 2年2巻 -> Year 2 Volume 2
+- 2年3巻 -> Year 2 Volume 3
+- 2年4巻 -> Year 2 Volume 4
+- 2年4.5巻 -> Year 2 Volume 4.5
+- 2年5巻 -> Year 2 Volume 5
+- 2年6巻 -> Year 2 Volume 6
+- 2年7巻 -> Year 2 Volume 7
+- 2年8巻 -> Year 2 Volume 8
+- 2年9巻 -> Year 2 Volume 9
+- 2年9.5巻 -> Year 2 Volume 9.5
+- 2年10巻 -> Year 2 Volume 10
+- 2年11巻 -> Year 2 Volume 11
+- 2年11.5巻 -> Year 2 Volume 11.5
+- 2年12巻 -> Year 2 Volume 12
+- 2年12.5巻 -> Year 2 Volume 12.5
+- 3年1巻 -> Year 3 Volume 1
+- 3年2巻 -> Year 3 Volume 2
+- 3年3巻 -> Year 3 Volume 3
+- 3年4巻 -> Year 3 Volume 4
+- 3年4.5巻 -> Year 3 Volume 4.5
+- 1年編 -> Year 1 Arc
+- 2年編 -> Year 2 Arc
+- 3年編 -> Year 3 Arc
+
+XVI. SPOILER CONTROL AND CONSISTENCY NOTES
+- Ayanokoji's father -> Atsuomi Ayanokoji
+- Ayanokoji's father -> do not translate as Professor Ayanokoji unless the source explicitly uses that title
+- The White Room -> White Room
+- White Room student -> White Room student
+- special exam -> Special Exam when it is an official school event
+- class points -> Class Points
+- private points -> Private Points
+- protection point -> Protection Point
+- class A -> Class A when referring to the official class
+- year 3 class C -> Class 3-C
+- year 3 class D -> Class 3-D
+- Kōenji / Koenji -> Kōenji in prose if macrons are supported; Koenji is acceptable when the source uses ASCII
+- Ryūen / Ryuuen -> Ryuen
+- Ayanokōji / Ayanokoji -> Ayanokoji
+- Sakayanagi Arisu -> Arisu Sakayanagi
+- Horikita Suzune -> Suzune Horikita
+- Ichinose Honami -> Honami Ichinose
+- Karuizawa Kei -> Kei Karuizawa
+- Kushida Kikyo -> Kikyo Kushida
+- Hasebe Haruka -> Haruka Hasebe
+- Sudo Ken -> Ken Sudo
+- Hirata Yosuke -> Yosuke Hirata
+- Katsuragi Kohei -> Kohei Katsuragi
+- Hashimoto Masayoshi -> Masayoshi Hashimoto
+- Morishita Ai -> Ai Morishita
+- Yamamura Miki -> Miki Yamamura
+- Kito Hayato -> Hayato Kito
+- Amasawa Ichika -> Ichika Amasawa
+- Tsubaki Sakurako -> Sakurako Tsubaki
+- Utomiya Riku -> Riku Utomiya
+- Nanase Tsubasa -> Tsubasa Nanase
+- Hosen Kazuomi -> Kazuomi Hosen
+
+Use the glossary as a consistency reference, not as a substitute for context. When a Japanese word has multiple meanings, choose the listed English term only when the surrounding scene supports it.

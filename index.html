@@ -704,6 +704,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="reader_engine.js"></script>
   <script src="epub_engine.js"></script>
   <script src="glossary_presets.js"></script>
+  <script src="gdrive_sync.js"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -807,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.9.1';
+    const VERSION = '8.10.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3047,8 +3048,15 @@ const formatModelName = (id, displayName) => {
       const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'text');
       const [webImportUrl, setWebImportUrl] = useState('');
       const [isFetchingUrl, setIsFetchingUrl] = useState(false);
+      const [isFetchingPaused, setIsFetchingPaused] = useState(false);
       const [webImportStatus, setWebImportStatus] = useState('');
       const [webImportData, setWebImportData] = useState(null);
+      const [activeCrawlSession, setActiveCrawlSession] = useState(() => {
+        try {
+          const s = localStorage.getItem('gemini_active_crawl_session');
+          return s ? JSON.parse(s) : null;
+        } catch (e) { return null; }
+      });
       const [isAiSorting, setIsAiSorting] = useState(false);
       const [webImportHistory, setWebImportHistory] = useState(() => {
         try {
@@ -3063,14 +3071,19 @@ const formatModelName = (id, displayName) => {
       const saveNovelToHistory = async (novelData) => {
         if (!novelData || !novelData.chapters || novelData.chapters.length === 0) return;
         const totalWords = novelData.chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : (c.content ? c.content.split(/\s+/).filter(Boolean).length : 0))), 0);
-        const novelId = 'novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+        const novelId = novelData.id || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
         
         // Sanitize chapters into plain cloneable objects without DOM nodes, functions, or circular references
         const cleanChapters = novelData.chapters.map((c, i) => ({
+          idx: c.idx !== undefined ? c.idx : i,
           title: c.title || `Chapter ${i + 1}`,
           text: typeof c === 'string' ? c : (c.text || c.content || ''),
-          content: typeof c === 'string' ? c : (c.content || c.text || '')
+          content: typeof c === 'string' ? c : (c.content || c.text || ''),
+          words: c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)
         }));
+
+        const totalChapters = novelData.totalChapterCount || novelData.chapterList?.length || cleanChapters.length;
+        const isIncomplete = !!novelData.isIncomplete;
 
         const novelRecord = {
           id: novelId,
@@ -3079,10 +3092,13 @@ const formatModelName = (id, displayName) => {
           summary: (novelData.summary || '').substring(0, 300),
           tags: novelData.tags || [],
           chapterCount: cleanChapters.length,
+          totalChapterCount: totalChapters,
+          isIncomplete,
           wordCount: totalWords,
           timestamp: new Date().toISOString(),
           isEpub: !!novelData.isEpub,
           sourceUrl: novelData.sourceUrl || '',
+          chapterList: novelData.chapterList || [],
           rawChapters: cleanChapters
         };
 
@@ -3101,6 +3117,8 @@ const formatModelName = (id, displayName) => {
           summary: novelRecord.summary,
           tags: novelRecord.tags,
           chapterCount: novelRecord.chapterCount,
+          totalChapterCount: novelRecord.totalChapterCount,
+          isIncomplete: novelRecord.isIncomplete,
           wordCount: novelRecord.wordCount,
           timestamp: novelRecord.timestamp,
           isEpub: novelRecord.isEpub,
@@ -3108,12 +3126,17 @@ const formatModelName = (id, displayName) => {
         };
 
         setWebImportHistory(prev => {
-          const updated = [metaRecord, ...prev.filter(n => n.title !== novelData.title && n.id !== metaRecord.id)].slice(0, 50);
+          const updated = [metaRecord, ...prev.filter(n => n.id !== metaRecord.id && n.title !== novelData.title)].slice(0, 50);
           try {
             localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updated));
           } catch (e) {}
           return updated;
         });
+
+        if (!isIncomplete) {
+          localStorage.removeItem('gemini_active_crawl_session');
+          setActiveCrawlSession(null);
+        }
       };
 
       const loadFullNovel = async (meta) => {
@@ -3584,6 +3607,24 @@ const formatModelName = (id, displayName) => {
       useEffect(() => { localStorage.setItem('webdavPass', webdavPass); }, [webdavPass]);
       useEffect(() => { localStorage.setItem('webdavPath', webdavPath); }, [webdavPath]);
       useEffect(() => { localStorage.setItem('webdavAutoSync', String(webdavAutoSync)); }, [webdavAutoSync]);
+
+      // Cloud Provider & Google Drive Sync State (Mihon/Komikku Architecture)
+      const [cloudProvider, setCloudProvider] = useState(() => localStorage.getItem('cloudProvider') || 'gdrive');
+      useEffect(() => { localStorage.setItem('cloudProvider', cloudProvider); }, [cloudProvider]);
+
+      const [gdriveClientId, setGdriveClientId] = useState(() => localStorage.getItem('gdrive_client_id') || '');
+      const [gdriveConnected, setGdriveConnected] = useState(() => Boolean(window.GoogleDriveSync?.isConnected()));
+      const [gdriveUser, setGdriveUser] = useState(() => window.GoogleDriveSync?.userProfile || null);
+      const [gdriveFolderMode, setGdriveFolderMode] = useState(() => localStorage.getItem('gdrive_folder_mode') || 'appDataFolder');
+      const [gdriveAutoSync, setGdriveAutoSync] = useState(() => localStorage.getItem('gdrive_auto_sync') === 'true');
+      const [gdriveLastSync, setGdriveLastSync] = useState(() => localStorage.getItem('gdrive_last_sync') || null);
+      const [gdriveTesting, setGdriveTesting] = useState(false);
+      const [gdriveSyncing, setGdriveSyncing] = useState(false);
+      const [gdriveConfigModalOpen, setGdriveConfigModalOpen] = useState(false);
+      const [gdriveManualToken, setGdriveManualToken] = useState('');
+
+      useEffect(() => { localStorage.setItem('gdrive_folder_mode', gdriveFolderMode); }, [gdriveFolderMode]);
+      useEffect(() => { localStorage.setItem('gdrive_auto_sync', String(gdriveAutoSync)); }, [gdriveAutoSync]);
 
       // AI Auto-Glossary Extractor State
       const [autoGlossaryModalOpen, setAutoGlossaryModalOpen] = useState(false);
@@ -4994,6 +5035,98 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         }
       };
 
+      // --- Google Drive Cloud Sync Engine Handlers (Mihon/Komikku Standard) ---
+      const testGoogleDriveConnection = async () => {
+        if (!window.GoogleDriveSync?.isConnected()) {
+          return toast('Google Drive is not connected. Click "Sign in with Google" first.', 'warning');
+        }
+        setGdriveTesting(true);
+        try {
+          const res = await window.GoogleDriveSync.testConnection();
+          if (res.success && res.profile) {
+            setGdriveUser(res.profile);
+            setGdriveConnected(true);
+            toast(`✅ Connected to Google Drive! (${res.profile.emailAddress || res.profile.displayName})`, 'success');
+          } else {
+            toast(`Google Drive error: ${res.error}`, 'error');
+          }
+        } catch (e) {
+          toast(`Google Drive test failed: ${e.message}`, 'error');
+        } finally {
+          setGdriveTesting(false);
+        }
+      };
+
+      const backupToGoogleDrive = async () => {
+        if (!window.GoogleDriveSync?.isConnected()) {
+          return toast('Please connect Google Drive in Settings first', 'warning');
+        }
+        setGdriveSyncing(true);
+        try {
+          const { backup, fullHistory, novelLibrary } = await generateBackupPayload(includeApiKeysInBackup);
+          const res = await window.GoogleDriveSync.uploadBackup(backup);
+          if (res.success) {
+            const timeStr = new Date().toLocaleString();
+            setGdriveLastSync(timeStr);
+            toast(`☁️ Google Drive Backup Successful! (${novelLibrary.length} novels, ${fullHistory.length} history items)`, 'success');
+          }
+        } catch (e) {
+          console.error('Google Drive Backup Error:', e);
+          toast(`Google Drive Backup failed: ${e.message}`, 'error');
+        } finally {
+          setGdriveSyncing(false);
+        }
+      };
+
+      const restoreFromGoogleDrive = async () => {
+        if (!window.GoogleDriveSync?.isConnected()) {
+          return toast('Please connect Google Drive in Settings first', 'warning');
+        }
+        setGdriveSyncing(true);
+        try {
+          toast('Fetching backup from Google Drive…', 'info');
+          const { data, meta } = await window.GoogleDriveSync.downloadBackup();
+          const countNovels = (data.novelLibrary || data.novels || []).length;
+          const countGloss = (data.savedGlossaries || data.glossaries || []).length;
+          const backupDate = meta.modifiedTime ? new Date(meta.modifiedTime).toLocaleString() : 'recent';
+
+          if (confirm(`Found Google Drive backup (${backupDate}) with ${countNovels} novels and ${countGloss} glossaries. Restore now? This will safely merge with your local library.`)) {
+            await applyRestoredData(data);
+            toast(`Restored ${countNovels} novels and ${countGloss} glossaries from Google Drive!`, 'success');
+            try { window.NativeBridge?.showCompletionNotification?.('Google Drive Restore Complete! 📥', `Restored ${countNovels} novels and ${countGloss} glossaries from Google Drive.`); } catch(e) {}
+          }
+        } catch (e) {
+          toast(`Google Drive Restore failed: ${e.message}`, 'error');
+        } finally {
+          setGdriveSyncing(false);
+        }
+      };
+
+      const connectGoogleDrive = async () => {
+        try {
+          toast('Opening Google Authorization window…', 'info');
+          await window.GoogleDriveSync.launchOAuthFlow();
+          const testRes = await window.GoogleDriveSync.testConnection();
+          setGdriveConnected(window.GoogleDriveSync.isConnected());
+          if (testRes.success && testRes.profile) {
+            setGdriveUser(testRes.profile);
+            toast(`Google Drive connected as ${testRes.profile.emailAddress}! 🎉`, 'success');
+          } else {
+            toast('Google Drive connected!', 'success');
+          }
+        } catch (err) {
+          console.warn('Google Drive Auth error:', err);
+          toast(`Google Drive Sign-in: ${err.message}`, 'error');
+        }
+      };
+
+      const disconnectGoogleDrive = () => {
+        window.GoogleDriveSync?.disconnect();
+        setGdriveConnected(false);
+        setGdriveUser(null);
+        toast('Google Drive disconnected.', 'info');
+      };
+
       const applyRestoredData = async (data) => {
         if (!data || typeof data !== 'object') throw new Error('Invalid backup data format.');
         
@@ -5325,6 +5458,152 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           setError('Failed to parse backup JSON: ' + err.message);
           toast('Failed to parse backup JSON: ' + err.message, 'error');
         }
+      };
+
+      // --- Web Novel Crawl Pause, Cancel & Resume Controls ---
+      const handleStartFetch = async (isResume = false, resumeSessionData = null) => {
+        const targetSession = resumeSessionData || (isResume ? activeCrawlSession : null);
+        const targetUrl = (targetSession?.url || (targetSession?.sourceUrl) || webImportUrl).trim();
+
+        if (!targetUrl) {
+          toast('Please enter a novel URL to fetch.', 'warning');
+          return;
+        }
+
+        setIsFetchingUrl(true);
+        setIsFetchingPaused(false);
+        setWebImportStatus(isResume ? 'Resuming novel crawl…' : 'Connecting to source…');
+        window.__scrapeImages = scrapeImages;
+
+        const initialChapters = targetSession?.chapters || targetSession?.rawChapters || [];
+        const novelId = targetSession?.id || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+
+        try {
+          const data = await window.WebNovelImporter.importUrl(targetUrl, (status, pct) => {
+            setWebImportStatus(status);
+          }, {
+            initialChapters,
+            onChapterDone: (newChapterObj, allChapters, stats) => {
+              const currentTotal = stats.total || targetSession?.totalChapterCount || (stats.chapterList ? stats.chapterList.length : allChapters.length);
+              const sessionObj = {
+                id: novelId,
+                url: targetUrl,
+                sourceUrl: targetUrl,
+                title: stats.title || targetSession?.title || 'Web Novel',
+                author: stats.author || targetSession?.author || 'Unknown',
+                summary: stats.summary || targetSession?.summary || '',
+                chapters: allChapters,
+                chapterList: stats.chapterList || targetSession?.chapterList || [],
+                completedCount: allChapters.length,
+                totalChapterCount: currentTotal,
+                isIncomplete: allChapters.length < currentTotal,
+                timestamp: new Date().toISOString()
+              };
+
+              try {
+                localStorage.setItem('gemini_active_crawl_session', JSON.stringify(sessionObj));
+              } catch (e) {}
+              setActiveCrawlSession(sessionObj);
+
+              // Auto-persist incrementally into IndexedDB / Library History
+              saveNovelToHistory(sessionObj);
+              setWebImportStatus(`Chapter ${stats.current || allChapters.length}/${currentTotal}: ${(newChapterObj.title || '').substring(0, 30)}…`);
+            }
+          });
+
+          const ctrl = window.WebNovelImporter?.getActiveController?.();
+          if (ctrl?.isPaused) {
+            setIsFetchingPaused(true);
+            setIsFetchingUrl(false);
+            toast(`⏸ Fetch paused. ${data?.chapters?.length || initialChapters.length} chapters saved.`, 'info');
+            return;
+          }
+
+          if (ctrl?.isCancelled) {
+            setIsFetchingPaused(false);
+            setIsFetchingUrl(false);
+            toast(`✕ Fetch cancelled. ${data?.chapters?.length || initialChapters.length} chapters saved in Library.`, 'warning');
+            return;
+          }
+
+          // Fetch completed 100%
+          if (data) {
+            data.id = novelId;
+            data.isIncomplete = false;
+            setWebImportData(data);
+            saveNovelToHistory(data);
+            localStorage.removeItem('gemini_active_crawl_session');
+            setActiveCrawlSession(null);
+            setIsFetchingPaused(false);
+            setIsFetchingUrl(false);
+            setWebImportStatus('');
+            toast(`Imported "${data.title}" — ${data.chapters.length} chapters! 🎉`, 'success');
+            try {
+              window.NativeBridge?.showCompletionNotification?.('Novel Import Complete! 📥', `Imported "${data.title}" (${data.chapters.length} chapters).`);
+            } catch (e) {}
+          }
+        } catch (err) {
+          const ctrl = window.WebNovelImporter?.getActiveController?.();
+          if (ctrl?.isPaused) {
+            setIsFetchingPaused(true);
+            toast('Fetch paused.', 'info');
+          } else if (ctrl?.isCancelled) {
+            setIsFetchingPaused(false);
+            toast('Fetch cancelled.', 'warning');
+          } else {
+            console.error('Fetch novel error:', err);
+            toast('Failed to fetch URL: ' + err.message, 'error');
+          }
+        } finally {
+          setIsFetchingUrl(false);
+        }
+      };
+
+      const handlePauseFetch = () => {
+        window.WebNovelImporter?.pause?.();
+        setIsFetchingPaused(true);
+        setIsFetchingUrl(false);
+        toast('Pausing fetch… current chapter will finish and state will be saved.', 'info');
+      };
+
+      const handleCancelFetch = () => {
+        window.WebNovelImporter?.cancel?.();
+        setIsFetchingPaused(false);
+        setIsFetchingUrl(false);
+        toast('Cancelled fetch. Progress has been preserved.', 'warning');
+      };
+
+      const resumeCrawlFromSession = async (sessionOrNovel) => {
+        setActiveTab('web_importer');
+        let full = sessionOrNovel;
+        if (!full.rawChapters && !full.chapters) {
+          const loaded = await loadFullNovel(sessionOrNovel);
+          if (loaded) full = loaded;
+        }
+        const chs = full.rawChapters || full.chapters || [];
+        const sessionData = {
+          id: full.id,
+          url: full.sourceUrl || full.url,
+          sourceUrl: full.sourceUrl || full.url,
+          title: full.title,
+          author: full.author,
+          summary: full.summary,
+          chapters: chs,
+          chapterList: full.chapterList || [],
+          totalChapterCount: full.totalChapterCount || full.chapterList?.length || chs.length,
+          isIncomplete: true
+        };
+        setWebImportUrl(sessionData.url || '');
+        setActiveCrawlSession(sessionData);
+        try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(sessionData)); } catch(e) {}
+        handleStartFetch(true, sessionData);
+      };
+
+      const dismissCrawlSession = () => {
+        localStorage.removeItem('gemini_active_crawl_session');
+        setActiveCrawlSession(null);
+        setIsFetchingPaused(false);
+        toast('Crawl session dismissed.', 'info');
       };
 
       // --- Modal ---
@@ -5934,6 +6213,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           } catch(e) {}
           if (webdavAutoSync && webdavUrl.trim()) {
             backupToWebDav().catch(e => console.warn('Auto WebDAV sync error:', e));
+          }
+          if (gdriveAutoSync && window.GoogleDriveSync?.isConnected()) {
+            backupToGoogleDrive().catch(e => console.warn('Auto Google Drive sync error:', e));
           }
         } catch (e) {
           if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error') } else toast('Translation paused.', 'info')
@@ -6850,6 +7132,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   h('div', { className: 'seg', style: { marginBottom: 8 } },
                     h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('ri') }, 'RI Preset'),
                     h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('lotm') }, 'LOTM Preset'),
+                    h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('cote') }, 'COTE Preset'),
                     h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia Preset')
                   ),
 
@@ -7040,35 +7323,89 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
             // ═══ TAB 2: WEB IMPORTER ═══
             activeTab === 'web_importer' && h(React.Fragment, null,
+              // Incomplete Crawl Session Banner
+              activeCrawlSession && h('div', {
+                className: 'card',
+                style: {
+                  background: 'rgba(234, 179, 8, 0.08)',
+                  borderColor: 'rgba(234, 179, 8, 0.3)',
+                  marginBottom: 12,
+                  padding: '12px 14px'
+                }
+              },
+                h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 } },
+                  h('span', { style: { fontSize: 12, fontWeight: 600, color: '#eab308' } }, '⏸ Incomplete Crawl Session Detected'),
+                  h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, `${(activeCrawlSession.chapters || []).length} / ${activeCrawlSession.totalChapterCount || '?'} chapters`)
+                ),
+                h('div', { style: { fontSize: 12, fontWeight: 500, marginBottom: 8, color: 'var(--paper)' } }, activeCrawlSession.title || 'Untitled Web Novel'),
+                h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    style: { background: 'var(--accent, #6366f1)', color: '#fff' },
+                    disabled: isFetchingUrl,
+                    onClick: () => handleStartFetch(true)
+                  }, '▶ Resume Fetch'),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn ghost',
+                    onClick: () => {
+                      const chs = activeCrawlSession.chapters || [];
+                      const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
+                      setInputText(fullText);
+                      setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
+                      setActiveTab('text');
+                      toast(`Loaded ${chs.length} chapters to Translator tab!`, 'info');
+                    }
+                  }, 'Send to Translator'),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn danger',
+                    disabled: isFetchingUrl,
+                    onClick: dismissCrawlSession
+                  }, '✕ Dismiss')
+                )
+              ),
+
               h('div', { className: 'src-chips' }, ['NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', { key: s, className: 'src-chip' }, s))),
               h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel URL (NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
-              h('button', {
-                type: 'button', className: 'primary block', disabled: isFetchingUrl || !webImportUrl.trim(),
-                onClick: async () => {
-                  if (!webImportUrl.trim()) return;
-                  setIsFetchingUrl(true);
-                  setWebImportStatus('Connecting to source…');
-                  window.__scrapeImages = scrapeImages;
-                  try {
-                    const data = await window.WebNovelImporter.importUrl(webImportUrl, (status, pct) => setWebImportStatus(status));
-                    setWebImportData(data);
-                    saveNovelToHistory(data);
-                    toast(`Imported "${data.title}" — ${data.chapters.length} chapters!`, 'success');
-                    try {
-                      window.NativeBridge?.showCompletionNotification?.('Novel Import Complete! 📥', `Imported "${data.title}" (${data.chapters.length} chapters).`);
-                    } catch (e) {}
-                  } catch (err) {
-                    toast('Failed to fetch URL: ' + err.message, 'error');
-                  } finally {
-                    setIsFetchingUrl(false);
-                    setWebImportStatus('');
-                  }
-                }
-              }, isFetchingUrl ? 'Fetching…' : '⤓ Fetch Novel'),
+              
+              !isFetchingUrl ? (
+                h('button', {
+                  type: 'button',
+                  className: 'primary block',
+                  disabled: !webImportUrl.trim(),
+                  onClick: () => handleStartFetch(false)
+                }, isFetchingPaused ? '▶ Resume Fetch' : '⤓ Fetch Novel')
+              ) : (
+                h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '6px 0' } },
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    style: { padding: '10px 14px', background: 'rgba(234, 179, 8, 0.2)', color: '#eab308', borderColor: 'rgba(234, 179, 8, 0.4)', fontWeight: 600 },
+                    onClick: handlePauseFetch
+                  }, '⏸ Pause Fetch'),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn danger',
+                    style: { padding: '10px 14px', fontWeight: 600 },
+                    onClick: handleCancelFetch
+                  }, '✕ Cancel')
+                )
+              ),
+
               isFetchingUrl && h('div', { className: 'status-row' },
                 h('span', null, webImportStatus || 'Extracting chapters…'),
                 h('div', { className: 'mini-progress' }, h('i'))
               ),
+
+              isFetchingPaused && !isFetchingUrl && h('div', {
+                className: 'status-row',
+                style: { background: 'rgba(234, 179, 8, 0.1)', borderColor: 'rgba(234, 179, 8, 0.25)', color: '#eab308', borderRadius: 4, padding: '8px 12px' }
+              },
+                h('span', null, `⏸ Ingestion paused. ${activeCrawlSession?.completedCount || activeCrawlSession?.chapters?.length || 0} chapters saved. Click "Resume Fetch" to continue.`)
+              ),
+
               h('div', { className: 'note-row' },
                 h('span', null, 'Scrape images with chapters'),
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
@@ -7169,9 +7506,33 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   )
                 : h(React.Fragment, null,
                     filteredBooks.map((item, idx) => h('div', { key: item.id || idx, className: 'book-card' },
-                      h('div', { className: 't' }, item.title || 'Untitled Book'),
-                      h('div', { className: 'm' }, `${item.chapterCount || 0} chapters · ${new Date(item.timestamp || Date.now()).toLocaleDateString()}`),
+                      h('div', { className: 't', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+                        h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.title || 'Untitled Book'),
+                        item.isIncomplete && h('span', {
+                          style: {
+                            fontSize: 10,
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            background: 'rgba(234, 179, 8, 0.15)',
+                            color: '#eab308',
+                            border: '1px solid rgba(234, 179, 8, 0.3)',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap'
+                          }
+                        }, `⏸ Incomplete (${item.chapterCount}/${item.totalChapterCount || '?'} ch)`)
+                      ),
+                      h('div', { className: 'm' }, `${item.chapterCount || 0}${item.totalChapterCount ? ` / ${item.totalChapterCount}` : ''} chapters · ${new Date(item.timestamp || Date.now()).toLocaleDateString()}`),
                       h('div', { className: 'book-acts' },
+                        item.isIncomplete && h('button', {
+                          type: 'button',
+                          className: 'mini-btn',
+                          style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                          onClick: async () => {
+                            const full = await loadFullNovel(item);
+                            if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+                            resumeCrawlFromSession(full);
+                          }
+                        }, '▶ Continue Fetch'),
                         h('button', { type: 'button', className: 'mini-btn', onClick: async () => {
                           const full = await loadFullNovel(item);
                           if (!full) { toast('Novel data not found in local store.', 'error'); return; }
@@ -7421,85 +7782,236 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               h('div', { className: 'sec-banner' },
                 h('div', { style: { display: 'flex', alignItems: 'center' } },
                   h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'CLOUD & WEBDAV SYNC')
+                  h('span', { className: 'sec-title' }, 'CLOUD BACKUP & RESTORE')
                 ),
-                h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, 'NEXTCLOUD / NAS')
+                h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, cloudProvider === 'gdrive' ? 'GOOGLE DRIVE' : 'NEXTCLOUD / NAS')
               ),
               h('div', { className: 'card' },
-                h('div', { className: 'card-title' },
-                  h('span', null, 'WebDAV Cloud Auto-Sync'),
-                  h('span', { className: 'count' }, 'Nextcloud · ownCloud · WebDAV NAS')
+                // Segmented Switcher
+                h('div', { style: { display: 'flex', border: '1px solid var(--hairline)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 } },
+                  h('button', {
+                    type: 'button',
+                    style: {
+                      flex: 1,
+                      padding: '8px 10px',
+                      background: cloudProvider === 'gdrive' ? 'var(--ember-2)' : 'transparent',
+                      color: cloudProvider === 'gdrive' ? 'var(--paper)' : 'var(--slate)',
+                      border: 'none',
+                      borderRight: '1px solid var(--hairline)',
+                      fontWeight: cloudProvider === 'gdrive' ? 600 : 400,
+                      fontSize: 11,
+                      cursor: 'pointer'
+                    },
+                    onClick: () => setCloudProvider('gdrive')
+                  }, 'Google Drive (Mihon/Komikku)'),
+                  h('button', {
+                    type: 'button',
+                    style: {
+                      flex: 1,
+                      padding: '8px 10px',
+                      background: cloudProvider === 'webdav' ? 'var(--ember-2)' : 'transparent',
+                      color: cloudProvider === 'webdav' ? 'var(--paper)' : 'var(--slate)',
+                      border: 'none',
+                      fontWeight: cloudProvider === 'webdav' ? 600 : 400,
+                      fontSize: 11,
+                      cursor: 'pointer'
+                    },
+                    onClick: () => setCloudProvider('webdav')
+                  }, 'WebDAV (Nextcloud/NAS)')
                 ),
-                h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 } },
-                  h('div', null,
-                    h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'SERVER WEBDAV URL'),
-                    h('input', {
-                      type: 'text',
-                      placeholder: 'https://cloud.example.com/remote.php/dav/files/username/',
-                      value: webdavUrl,
-                      onChange: e => setWebdavUrl(e.target.value.trim()),
-                      style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 12px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                    })
-                  ),
-                  h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+
+                cloudProvider === 'gdrive' ? (
+                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+                    h('div', { className: 'card-title' },
+                      h('span', null, 'Google Drive Cloud Sync'),
+                      h('span', { className: 'count' }, 'Private App Folder · Mihon/Komikku Standard')
+                    ),
+
+                    // Connection Status Box
+                    h('div', {
+                      style: {
+                        background: 'var(--ember-2)',
+                        border: '1px solid var(--hairline)',
+                        borderRadius: 4,
+                        padding: '10px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }
+                    },
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                        h('span', {
+                          style: {
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            background: gdriveConnected ? '#22c55e' : '#64748b'
+                          }
+                        }),
+                        h('div', null,
+                          h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)' } },
+                            gdriveConnected ? (gdriveUser?.displayName || gdriveUser?.emailAddress || 'Connected to Google Drive') : 'Not Connected'
+                          ),
+                          gdriveConnected && gdriveUser?.emailAddress && h('div', { style: { fontSize: 10, color: 'var(--slate)' } },
+                            gdriveUser.emailAddress
+                          )
+                        )
+                      ),
+                      gdriveConnected ? (
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn danger',
+                          style: { padding: '4px 8px', fontSize: 10 },
+                          onClick: disconnectGoogleDrive
+                        }, 'Disconnect')
+                      ) : (
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn',
+                          style: { background: 'var(--accent, #6366f1)', color: '#fff', padding: '6px 12px', fontWeight: 600 },
+                          onClick: connectGoogleDrive
+                        }, 'Sign in with Google')
+                      )
+                    ),
+
+                    // Quota display
+                    gdriveConnected && gdriveUser && (gdriveUser.quotaLimit > 0 || gdriveUser.storageQuota) && h('div', {
+                      style: { fontSize: 10, color: 'var(--slate)', display: 'flex', justifyContent: 'space-between', padding: '0 2px' }
+                    },
+                      h('span', null, 'Storage Quota:'),
+                      h('span', { style: { fontFamily: "'IBM Plex Mono', monospace" } },
+                        window.GoogleDriveSync?.formatQuota?.(gdriveUser.storageQuota || gdriveUser) || ''
+                      )
+                    ),
+
+                    // Folder mode choice
+                    h('div', { className: 'set-row', style: { padding: '6px 0' } },
+                      h('span', { className: 'l', style: { fontSize: 11 } }, 'Drive Storage Mode:'),
+                      h('select', {
+                        className: 'chip',
+                        style: chipSelectStyle,
+                        value: gdriveFolderMode,
+                        onChange: e => setGdriveFolderMode(e.target.value)
+                      },
+                        h('option', { value: 'appDataFolder' }, 'Private App Folder (drive.appdata)'),
+                        h('option', { value: 'visibleFolder' }, 'GeminiTranslator Folder (drive.file)')
+                      )
+                    ),
+
+                    switchRow('Auto-Backup on Translation Finish', gdriveAutoSync, (v) => {
+                      setGdriveAutoSync(v);
+                      localStorage.setItem('gdrive_auto_sync', String(v));
+                    }),
+
+                    h('div', { className: 'set-row', style: { padding: '4px 0' } },
+                      h('span', { className: 'l', style: { fontSize: 11 } }, 'Last Drive Sync:'),
+                      h('span', { className: 'count', style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 } }, gdriveLastSync || 'Never synced')
+                    ),
+
+                    h('div', { className: 'toolbar-group', style: { width: '100%', marginTop: 6 } },
+                      h('button', {
+                        type: 'button',
+                        style: { flex: 1, textAlign: 'center' },
+                        disabled: gdriveTesting || !gdriveConnected,
+                        onClick: testGoogleDriveConnection
+                      }, gdriveTesting ? 'Testing…' : '⚡ Test Link'),
+                      h('button', {
+                        type: 'button',
+                        style: { flex: 1, textAlign: 'center', fontWeight: 600, color: 'var(--iris)' },
+                        disabled: gdriveSyncing || !gdriveConnected,
+                        onClick: backupToGoogleDrive
+                      }, gdriveSyncing ? 'Syncing…' : '☁️ Backup Now'),
+                      h('button', {
+                        type: 'button',
+                        style: { flex: 1, textAlign: 'center' },
+                        disabled: gdriveSyncing || !gdriveConnected,
+                        onClick: restoreFromGoogleDrive
+                      }, '📥 Restore'),
+                      h('button', {
+                        type: 'button',
+                        style: { width: 36, textAlign: 'center', fontSize: 13 },
+                        title: 'Client ID & Direct Token Settings',
+                        onClick: () => setGdriveConfigModalOpen(true)
+                      }, '⚙️')
+                    )
+                  )
+                ) : (
+                  // WEBDAV UI
+                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+                    h('div', { className: 'card-title' },
+                      h('span', null, 'WebDAV Cloud Auto-Sync'),
+                      h('span', { className: 'count' }, 'Nextcloud · ownCloud · WebDAV NAS')
+                    ),
                     h('div', null,
-                      h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'USERNAME'),
+                      h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'SERVER WEBDAV URL'),
                       h('input', {
                         type: 'text',
-                        placeholder: 'Username',
-                        value: webdavUser,
-                        onChange: e => setWebdavUser(e.target.value.trim()),
+                        placeholder: 'https://cloud.example.com/remote.php/dav/files/username/',
+                        value: webdavUrl,
+                        onChange: e => setWebdavUrl(e.target.value.trim()),
+                        style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 12px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
+                      })
+                    ),
+                    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+                      h('div', null,
+                        h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'USERNAME'),
+                        h('input', {
+                          type: 'text',
+                          placeholder: 'Username',
+                          value: webdavUser,
+                          onChange: e => setWebdavUser(e.target.value.trim()),
+                          style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
+                        })
+                      ),
+                      h('div', null,
+                        h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'APP PASSWORD / TOKEN'),
+                        h('input', {
+                          type: 'password',
+                          placeholder: 'App Password / Token',
+                          value: webdavPass,
+                          onChange: e => setWebdavPass(e.target.value.trim()),
+                          style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
+                        })
+                      )
+                    ),
+                    h('div', null,
+                      h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'REMOTE FOLDER NAME'),
+                      h('input', {
+                        type: 'text',
+                        placeholder: 'GeminiTranslator',
+                        value: webdavPath,
+                        onChange: e => setWebdavPath(e.target.value.trim()),
                         style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
                       })
                     ),
-                    h('div', null,
-                      h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'APP PASSWORD / TOKEN'),
-                      h('input', {
-                        type: 'password',
-                        placeholder: 'App Password / Token',
-                        value: webdavPass,
-                        onChange: e => setWebdavPass(e.target.value.trim()),
-                        style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                      })
+                    switchRow('Auto-Backup on Translation Finish', webdavAutoSync, (v) => {
+                      setWebdavAutoSync(v);
+                      localStorage.setItem('webdavAutoSync', String(v));
+                    }),
+                    h('div', { className: 'set-row', style: { padding: '4px 0' } },
+                      h('span', { className: 'l', style: { fontSize: 11 } }, 'Last Cloud Sync:'),
+                      h('span', { className: 'count', style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 } }, webdavLastSync || 'Never synced')
+                    ),
+                    h('div', { className: 'toolbar-group', style: { width: '100%', marginTop: 6 } },
+                      h('button', {
+                        type: 'button',
+                        style: { flex: 1, textAlign: 'center' },
+                        disabled: webdavTesting,
+                        onClick: testWebDavConnection
+                      }, webdavTesting ? 'Testing…' : '⚡ Test Link'),
+                      h('button', {
+                        type: 'button',
+                        style: { flex: 1, textAlign: 'center', fontWeight: 600, color: 'var(--iris)' },
+                        disabled: webdavSyncing,
+                        onClick: backupToWebDav
+                      }, webdavSyncing ? 'Syncing…' : '☁️ Backup Now'),
+                      h('button', {
+                        type: 'button',
+                        style: { flex: 1, textAlign: 'center' },
+                        disabled: webdavSyncing,
+                        onClick: restoreFromWebDav
+                      }, '📥 Restore')
                     )
-                  ),
-                  h('div', null,
-                    h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'REMOTE FOLDER NAME'),
-                    h('input', {
-                      type: 'text',
-                      placeholder: 'GeminiTranslator',
-                      value: webdavPath,
-                      onChange: e => setWebdavPath(e.target.value.trim()),
-                      style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                    })
-                  ),
-                  switchRow('Auto-Backup on Translation Finish', webdavAutoSync, (v) => {
-                    setWebdavAutoSync(v);
-                    localStorage.setItem('webdavAutoSync', String(v));
-                  }),
-                  h('div', { className: 'set-row', style: { padding: '4px 0' } },
-                    h('span', { className: 'l', style: { fontSize: 11 } }, 'Last Cloud Sync:'),
-                    h('span', { className: 'count', style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 } }, webdavLastSync || 'Never synced')
-                  ),
-                  h('div', { className: 'toolbar-group', style: { width: '100%', marginTop: 6 } },
-                    h('button', {
-                      type: 'button',
-                      style: { flex: 1, textAlign: 'center' },
-                      disabled: webdavTesting,
-                      onClick: testWebDavConnection
-                    }, webdavTesting ? 'Testing…' : '⚡ Test Link'),
-                    h('button', {
-                      type: 'button',
-                      style: { flex: 1, textAlign: 'center', fontWeight: 600, color: 'var(--iris)' },
-                      disabled: webdavSyncing,
-                      onClick: backupToWebDav
-                    }, webdavSyncing ? 'Syncing…' : '☁️ Backup Now'),
-                    h('button', {
-                      type: 'button',
-                      style: { flex: 1, textAlign: 'center' },
-                      disabled: webdavSyncing,
-                      onClick: restoreFromWebDav
-                    }, '📥 Restore')
                   )
                 )
               ),
@@ -7823,6 +8335,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               }, activeGlossaryId ? `💾 Save "${activeGlossaryId}"` : '💾 Save Profile'),
               h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('ri') }, 'RI'),
               h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('lotm') }, 'LOTM'),
+              h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('cote') }, 'COTE'),
               h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia'),
               h('button', { type: 'button', className: 'chip-act accent', disabled: isOptimizingGlossary, onClick: handleAiOptimizeGlossary }, isOptimizingGlossary ? 'Optimizing…' : 'AI Optimize ✦'),
               h('button', { type: 'button', className: 'icon-btn', onClick: () => setGlossaryEditorOpen(false) }, '✕')
@@ -8125,6 +8638,74 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 className: 'mini-btn ghost',
                 onClick: () => setConsistencyModalOpen(false)
               }, 'Close')
+            )
+          )
+        ),
+
+        // ── GOOGLE DRIVE CONFIGURATION MODAL ──
+        gdriveConfigModalOpen && h('div', { className: 'modal-overlay', onClick: () => setGdriveConfigModalOpen(false) },
+          h('div', { className: 'modal-box', style: { maxWidth: 540 }, onClick: e => e.stopPropagation() },
+            h('div', { className: 'modal-hd' },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 18 } }, '☁️'),
+                h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'Google Drive Settings (Mihon/Komikku)')
+              ),
+              h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setGdriveConfigModalOpen(false) }, '✕')
+            ),
+            h('div', { className: 'modal-bd', style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+              h('p', { style: { fontSize: 11.5, color: 'var(--slate)', lineHeight: 1.5 } },
+                'By default, 1-Click Sign-in connects via Google OAuth 2.0 with private application data storage. If you prefer to supply your own Google Cloud Client ID or paste a direct OAuth token (for offline/custom environments), configure them below.'
+              ),
+              h('div', null,
+                h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'CUSTOM GOOGLE CLIENT ID (OPTIONAL)'),
+                h('input', {
+                  type: 'text',
+                  placeholder: 'xxxxxxxxxxxx.apps.googleusercontent.com',
+                  value: gdriveClientId,
+                  onChange: e => setGdriveClientId(e.target.value.trim()),
+                  style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
+                }),
+                h('div', { style: { fontSize: 10, color: 'var(--slate)', marginTop: 3 } }, 'OAuth Redirect: Current origin and callback')
+              ),
+              h('div', null,
+                h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'DIRECT ACCESS TOKEN (OPTIONAL / TESTING)'),
+                h('input', {
+                  type: 'password',
+                  placeholder: 'Paste ya29.a0... OAuth token',
+                  value: gdriveManualToken,
+                  onChange: e => setGdriveManualToken(e.target.value.trim()),
+                  style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
+                }),
+                h('div', { style: { fontSize: 10, color: 'var(--slate)', marginTop: 3 } }, 'Allows manual token override if OAuth popups are blocked by your environment.')
+              )
+            ),
+            h('div', { className: 'modal-ft' },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                onClick: () => setGdriveConfigModalOpen(false)
+              }, 'Cancel'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                onClick: async () => {
+                  if (gdriveClientId) {
+                    localStorage.setItem('gdrive_client_id', gdriveClientId);
+                    window.GoogleDriveSync?.setClientId?.(gdriveClientId);
+                  } else {
+                    localStorage.removeItem('gdrive_client_id');
+                    window.GoogleDriveSync?.setClientId?.('');
+                  }
+                  if (gdriveManualToken) {
+                    window.GoogleDriveSync?.setToken?.(gdriveManualToken, 3600);
+                    setGdriveConnected(true);
+                    await testGoogleDriveConnection();
+                  }
+                  setGdriveConfigModalOpen(false);
+                  toast('Google Drive settings applied!', 'success');
+                }
+              }, 'Save & Apply')
             )
           )
         ),

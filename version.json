@@ -1,7 +1,7 @@
 {
-  "version": "8.9.1",
-  "versionCode": 891,
+  "version": "8.10.0",
+  "versionCode": 8100,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.9.1: Universal Glossary Parser supporting '->', '=>', '→', and '=' delimiters for web novel presets (LOTM, COTE, RI); AI Chapter Sort regex & array parser fix; High-priority Completion Notifications with chime and vibration across Android & Web (translations, novel imports, and file exports)."
+  "releaseNotes": "v8.10.0: Web Novel Ingestion Controls (Pause, Cancel, Resume) with crash-proof persistence (chapter-by-chapter IndexedDB save, incomplete badges in Library, 1-tap continuation after app exit); Google Drive Cloud Sync & Auto-Backup engine modeled on Mihon/Komikku standard (OAuth 2.0, drive.appdata private storage, drive.file folder choice, test link, manual token override, and auto-sync on translation completion)."
 }

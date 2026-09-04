@@ -10,3 +10,6 @@ android/app/*.iml
 android/local.properties
 www/
 *.apk
+describe_ui.py
+poll-workflow.js
+screenshots/
