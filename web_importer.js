@@ -132,6 +132,18 @@
     let localProxyState = null; // null = unverified, true = active, false = unavailable
     let lastLocalProxyCheck = 0;
 
+    function isBlockOrChallenge(text) {
+        if (!text || typeof text !== 'string' || text.length < 80) return true;
+        const lower = text.toLowerCase();
+        // Detect genuine Cloudflare rate limit (1015) or block/challenge pages
+        if (lower.includes('error 1015') || (lower.includes('rate limit') && lower.includes('cloudflare'))) return true;
+        if (lower.includes('<title>just a moment...</title>') || lower.includes('attention required! | cloudflare') || lower.includes('cf-browser-verification')) return true;
+        if (lower.includes('401 unauthorized') || lower.includes('403 forbidden')) return true;
+        // If it's a tiny page containing Cloudflare challenge scripts without chapter content, it's a challenge interstitial
+        if (text.length < 3000 && lower.includes('/cdn-cgi/challenge-platform') && !lower.includes('id="content"') && !lower.includes('class="chapter-content"') && !lower.includes('class="entry-content"')) return true;
+        return false;
+    }
+
     async function fetchHtml(url, options = {}) {
         const timeoutMs = options.timeout || 25000;
         const controller = new AbortController();
@@ -146,7 +158,7 @@
                 ]);
                 if (res && res.data) {
                     const text = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
-                    if (!text.includes('Error 1015') && !text.includes('401 Unauthorized')) {
+                    if (!isBlockOrChallenge(text)) {
                         clearTimeout(timer);
                         return text;
                     }
@@ -170,10 +182,12 @@
                 clearTimeout(localTimer);
                 if (localRes.ok) {
                     const text = await localRes.text();
-                    if (!text.includes('Error 1015') && !text.includes('401 Unauthorized') && text.length >= 80) {
+                    if (!isBlockOrChallenge(text)) {
                         localProxyState = true;
                         clearTimeout(timer);
                         return text;
+                    } else {
+                        console.warn('[Local Proxy] Cloudflare challenge or block encountered, failing over to public proxy pool...');
                     }
                 }
             } catch (localErr) {
@@ -211,8 +225,8 @@
 
                 if (res.ok) {
                     const text = await res.text();
-                    if (text.includes('Error 1015') || (text.includes('rate limit') && text.includes('Cloudflare')) || text.includes('401 Unauthorized') || text.length < 80) {
-                        console.warn('[Proxy Failover] Cloudflare Error 1015 or block detected, switching to next proxy...');
+                    if (isBlockOrChallenge(text)) {
+                        console.warn('[Proxy Failover] Cloudflare challenge or block detected, switching to next proxy...');
                         continue;
                     }
                     clearTimeout(timer);
@@ -925,10 +939,10 @@
                 const chTitle = chDoc.querySelector('.chapter-title')?.textContent?.trim() || item.title;
                 return { title: chTitle, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
             },
-            4,
+            3,
             progressCb,
             { title, author, summary, chapterList: chapterLinks },
-            { delayMs: 120 }
+            { delayMs: 250 }
         );
 
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelFire (~${totalWords.toLocaleString()} words)!`, 100);
