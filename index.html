@@ -3909,11 +3909,19 @@ const formatModelName = (id, displayName) => {
       const inputTokenCount = useMemo(() => estimateTokens(inputText), [inputText]);
       const outputWordCount = useMemo(() => wordCount(assembledText), [assembledText]);
 
-      const handlePauseTranslation = () => {
+      const handlePauseTranslation = async () => {
         isPausingRef.current = true;
         setIsTranslationPaused(true);
         if (abortRef.current) {
           abortRef.current.abort();
+        }
+        if (activeSession) {
+          setSavedTranslationSession(activeSession);
+        } else if (window.GeminiNovelDB) {
+          try {
+            const s = await window.GeminiNovelDB.getActiveTranslationSession();
+            if (s) setSavedTranslationSession(s);
+          } catch(e) {}
         }
         window.NativeBridge?.clearProgressNotification?.(false);
         window.NativeBridge?.showCompletionNotification?.('Translation Paused ⏸', 'Translation paused. Progress safely saved.');
@@ -3921,21 +3929,28 @@ const formatModelName = (id, displayName) => {
       };
 
       const resumeSavedTranslation = async (session) => {
-        if (!session) return;
-        toast(`Resuming translation (${session.completedCount || 0} done)...`, 'info');
-        setActiveSession(session);
+        const s = session || savedTranslationSession || activeSession;
+        if (!s) {
+          toast('No saved translation session found.', 'warning');
+          return;
+        }
+        toast(`Resuming translation (${s.completedCount || 0} done)...`, 'info');
+        setActiveSession(s);
         setSavedTranslationSession(null);
-        if (session.type === 'ebook') {
-          if (session.newChapters && session.newChapters.length > 0) {
-            setTranslatedChapters(session.newChapters);
+        setIsTranslationPaused(false);
+        isPausingRef.current = false;
+        setActiveTab('text');
+        if (s.type === 'ebook') {
+          if (s.newChapters && s.newChapters.length > 0) {
+            setTranslatedChapters(s.newChapters);
           }
-          if (session.allParts && session.allParts.length > 0) {
-            setAssembledText(session.allParts.filter(Boolean).join('\n\n\n').trim());
+          if (s.allParts && s.allParts.length > 0) {
+            setAssembledText(s.allParts.filter(Boolean).join('\n\n\n').trim());
           }
-          const chs = (chapters && chapters.length > 0) ? chapters : (session.chapters || []);
-          handleTranslateEbook(chs, true, session.isEpub);
+          const chs = (chapters && chapters.length > 0) ? chapters : (s.chapters || []);
+          handleTranslateEbook(chs, true, s.isEpub);
         } else {
-          if (session.result) setAssembledText(session.result);
+          if (s.result) setAssembledText(s.result);
           handleTranslateText(true);
         }
       };
@@ -6446,6 +6461,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               if (res.length < 2000000) localStorage.setItem(jobId, JSON.stringify(state));
             } catch (e) {}
             setActiveSession(state);
+            setSavedTranslationSession(state);
             if (window.GeminiNovelDB) {
               await window.GeminiNovelDB.saveTranslationSession(state);
             }
@@ -6628,7 +6644,16 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             window.NativeBridge?.showCompletionNotification?.('Text Translation Complete! ✨', `Translated in ${durationStr} (${stats.totalTokens.toLocaleString()} tokens).`);
           } catch(e) {}
         } catch (e) {
-          if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error') } else toast('Translation paused.', 'info')
+          if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error'); }
+          else {
+            toast('Translation paused. Progress safely saved.', 'info');
+            if (activeSession) setSavedTranslationSession(activeSession);
+            else if (window.GeminiNovelDB) {
+              window.GeminiNovelDB.getActiveTranslationSession().then(s => {
+                if (s) setSavedTranslationSession(s);
+              });
+            }
+          }
         }
         finally {
           if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
@@ -6693,6 +6718,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             if (sStr.length < 2000000) localStorage.setItem(jobId, sStr);
           } catch(e) {}
           setActiveSession(state);
+          setSavedTranslationSession(state);
           if (window.GeminiNovelDB) {
             await window.GeminiNovelDB.saveTranslationSession(state);
           }
@@ -6987,7 +7013,15 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           }
         } catch (e) {
           if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error'); }
-          else { toast('Translation paused. Progress safely saved to database.', 'info'); }
+          else {
+            toast('Translation paused. Progress safely saved to database.', 'info');
+            if (activeSession) setSavedTranslationSession(activeSession);
+            else if (window.GeminiNovelDB) {
+              window.GeminiNovelDB.getActiveTranslationSession().then(s => {
+                if (s) setSavedTranslationSession(s);
+              });
+            }
+          }
           setTranslatedChapters(resume && activeSession ? activeSession.newChapters : (newChapters.length > 0 ? newChapters : []));
         }
         finally { 
@@ -7558,7 +7592,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
       const savedSpaceCount = useMemo(() => (filteredBooks || []).filter(b => !!b.inSavedSpace).length, [filteredBooks]);
       const transCount = useMemo(() => (filteredBooks || []).filter(b => !!b.isTranslated || (b.title || '').includes('(Translated)')).length, [filteredBooks]);
-      const incCount = useMemo(() => (filteredBooks || []).filter(b => !!b.isIncomplete).length, [filteredBooks]);
+      const incCount = useMemo(() => (filteredBooks || []).filter(b => !!b.isIncomplete).length + (savedTranslationSession ? 1 : 0), [filteredBooks, savedTranslationSession]);
       const displayedBooks = useMemo(() => {
         if (libTab === 'saved') return (filteredBooks || []).filter(b => !!b.inSavedSpace);
         if (libTab === 'translated') return (filteredBooks || []).filter(b => !!b.isTranslated || (b.title || '').includes('(Translated)'));
@@ -8205,7 +8239,26 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               chapters.length > 0 && h('div', { className: 'count', style: { margin: '0 2px 8px' } }, `${chapters.length} chapters loaded`),
 
               h('div', { className: 'actionbar' },
-                h('button', { type: 'button', className: 'primary', disabled: isTranslating || !inputText.trim(), onClick: () => handleStartTranslation() }, isTranslating ? 'Translating…' : '◐ Translate'),
+                savedTranslationSession && !isTranslating ? h(React.Fragment, null,
+                  h('button', {
+                    type: 'button',
+                    className: 'primary',
+                    style: { background: 'linear-gradient(135deg, var(--accent, #6366f1), #8b5cf6)', fontWeight: 700, flex: 1 },
+                    onClick: () => resumeSavedTranslation(savedTranslationSession)
+                  }, `▶ Resume Translation (${savedTranslationSession.completedCount || 0}/${savedTranslationSession.total || savedTranslationSession.totalChunks || '?'} done)`),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    style: { padding: '8px 12px', fontSize: 12 },
+                    title: 'Discard paused session and start fresh',
+                    onClick: () => discardSavedTranslation(savedTranslationSession.id)
+                  }, 'Start New')
+                ) : h('button', {
+                  type: 'button',
+                  className: 'primary',
+                  disabled: isTranslating || !inputText.trim(),
+                  onClick: () => handleStartTranslation()
+                }, isTranslating ? 'Translating…' : '◐ Translate'),
                 h('button', { type: 'button', className: 'overflow', title: 'More actions', onClick: () => setSheetOpen(true) }, '⋯')
               )
             ),
@@ -8251,7 +8304,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         if (chs.length === 0) return toast('No chapters available to download.', 'warning');
                         try {
                           toast(`Building EPUB from ${chs.length} chapters…`, 'info');
-                          const blob = await generateEpubFromChapters(chs, activeCrawlSession.title || 'Web Novel', activeCrawlSession.author || 'Author', 'en');
+                          const blob = await generateEpubFromChapters(chs, activeCrawlSession.title || 'Web Novel', activeCrawlSession.author || 'Author', 'en', (status) => toast(status, 'info'));
                           const cleanName = sanitizeFilename(activeCrawlSession.title || 'Web_Novel').replace(/\s+/g, '_');
                           await saveUniversalBlob(blob, `${cleanName}_(Ch1-${chs.length}).epub`, 'application/epub+zip');
                           toast(`EPUB (${chs.length} chapters) downloaded successfully!`, 'success');
@@ -8301,7 +8354,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         if (chs.length === 0) return toast('No chapters downloaded yet to export.', 'warning');
                         try {
                           toast(`Generating EPUB from ${chs.length} chapters…`, 'info');
-                          const blob = await generateEpubFromChapters(chs, activeNovelView.title || 'Web Novel', activeNovelView.author || 'Author', 'en');
+                          const blob = await generateEpubFromChapters(chs, activeNovelView.title || 'Web Novel', activeNovelView.author || 'Author', 'en', (status) => toast(status, 'info'));
                           const cleanName = sanitizeFilename(activeNovelView.title || 'Web_Novel').replace(/\s+/g, '_');
                           const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
                           const fileName = isInc ? `${cleanName}_(Ch1-${chs.length}).epub` : `${cleanName}.epub`;
@@ -8357,7 +8410,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         if (chs.length === 0) return toast('No chapters downloaded yet.', 'warning');
                         try {
                           toast(`Generating EPUB from currently fetched ${chs.length} chapters…`, 'info');
-                          const blob = await generateEpubFromChapters(chs, activeNovelView.title || 'Web Novel', activeNovelView.author || 'Author', 'en');
+                          const blob = await generateEpubFromChapters(chs, activeNovelView.title || 'Web Novel', activeNovelView.author || 'Author', 'en', (status) => toast(status, 'info'));
                           const cleanName = sanitizeFilename(activeNovelView.title || 'Web_Novel').replace(/\s+/g, '_');
                           await saveUniversalBlob(blob, `${cleanName}_(Ch1-${chs.length}).epub`, 'application/epub+zip');
                           toast(`EPUB (${chs.length} chapters) saved!`, 'success');
@@ -8433,7 +8486,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           if (!chs.length) return toast('No chapters available to download.', 'warning');
                           const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
                           toast(`Building ${isInc ? 'partial ' : ''}EPUB (${chs.length} chapters)…`, 'info');
-                          const blob = await generateEpubFromChapters(chs, activeNovelView.title, activeNovelView.author, 'en');
+                          const blob = await generateEpubFromChapters(chs, activeNovelView.title, activeNovelView.author, 'en', (status) => toast(status, 'info'));
                           const cleanName = sanitizeFilename(activeNovelView.title).replace(/\s+/g, '_');
                           const fileName = isInc ? `${cleanName}_(Ch1-${chs.length}).epub` : `${cleanName}.epub`;
                           await saveUniversalBlob(blob, fileName, 'application/epub+zip');
@@ -8546,6 +8599,42 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     className: 'mini-btn danger',
                     onClick: () => confirmAction('Clear all library history?', async () => { await clearAllNovelHistory(); toast('Library history cleared.'); })
                   }, 'Clear All')
+                )
+              ),
+              savedTranslationSession && (libTab === 'all' || libTab === 'incomplete') && h('div', {
+                className: 'card',
+                style: {
+                  border: '1.5px solid var(--accent, #6366f1)',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
+                  marginBottom: 12,
+                  padding: '12px 14px'
+                }
+              },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 } },
+                  h('div', null,
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13 } },
+                      h('span', null, '⏸ Paused Translation Session'),
+                      h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff' } }, `${savedTranslationSession.completedCount || 0} / ${savedTranslationSession.total || savedTranslationSession.totalChunks || '?'} done`)
+                    ),
+                    h('div', { style: { fontSize: 12, fontWeight: 500, color: 'var(--paper)', marginTop: 4 } }, savedTranslationSession.title || 'Translation'),
+                    h('div', { style: { fontSize: 11, opacity: 0.75, marginTop: 2 } }, `Saved in database · ${new Date(savedTranslationSession.timestamp || Date.now()).toLocaleTimeString()}`)
+                  ),
+                  h('div', { style: { display: 'flex', gap: 8 } },
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700, padding: '7px 16px' },
+                      onClick: () => {
+                        setActiveTab('text');
+                        resumeSavedTranslation(savedTranslationSession);
+                      }
+                    }, '▶ Resume Translation'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn danger',
+                      onClick: () => discardSavedTranslation(savedTranslationSession.id)
+                    }, 'Discard')
+                  )
                 )
               ),
               !libCollapsed.books && (displayedBooks.length === 0
@@ -8751,7 +8840,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             try {
                               const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
                               toast(`Generating ${isInc ? 'partial ' : ''}EPUB (${chs.length} chapters)…`, 'info');
-                              const blob = await generateEpubFromChapters(chs, item.title, item.author || 'Author', 'en');
+                              const blob = await generateEpubFromChapters(chs, item.title, item.author || 'Author', 'en', (status) => toast(status, 'info'));
                               const cleanName = sanitizeFilename(item.title).replace(/\s+/g, '_');
                               const fileName = isInc ? `${cleanName}_(Ch1-${chs.length}).epub` : `${cleanName}.epub`;
                               await saveUniversalBlob(blob, fileName, 'application/epub+zip');

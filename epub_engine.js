@@ -403,7 +403,7 @@ hr {
                   if (buffer && buffer.byteLength > 500) break;
                   try {
                     const ctrl = AC ? new AC() : null;
-                    const t = ctrl ? setTimeout(() => ctrl.abort(), 7000) : null;
+                    const t = ctrl ? setTimeout(() => ctrl.abort(), 4000) : null;
                     const res = await fetch(proxyFn(url), { signal: ctrl ? ctrl.signal : undefined });
                     if (t) clearTimeout(t);
                     if (res.ok) {
@@ -451,11 +451,15 @@ hr {
             }
           };
 
-          const concurrency = 4;
-          for (let i = 0; i < imgUrlList.length; i += concurrency) {
-            const chunk = imgUrlList.slice(i, i + concurrency);
-            await Promise.all(chunk.map(u => downloadWorker(u)));
-          }
+          const concurrency = 8;
+          const imgQueue = [...imgUrlList];
+          const pool = Array.from({ length: Math.min(concurrency, imgUrlList.length) }, async () => {
+            while (imgQueue.length > 0) {
+              const u = imgQueue.shift();
+              if (u) await downloadWorker(u);
+            }
+          });
+          await Promise.all(pool);
         }
 
         // Step 3: Fast In-Memory Chapter Assembly
