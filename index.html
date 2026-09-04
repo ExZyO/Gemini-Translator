@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.6';
+    const VERSION = '8.10.7';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -5627,12 +5627,14 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               if (now - lastPersistTime > 1500) {
                 lastPersistTime = now;
                 setActiveCrawlSession(sessionObj);
+                setWebImportData(sessionObj);
                 flushCrawlPersistence(sessionObj);
               } else {
                 if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
                 pendingSaveTimer = setTimeout(() => {
                   if (latestSessionSnapshot) {
                     setActiveCrawlSession(latestSessionSnapshot);
+                    setWebImportData(latestSessionSnapshot);
                     flushCrawlPersistence(latestSessionSnapshot);
                   }
                 }, 1200);
@@ -5652,15 +5654,23 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           if (ctrl?.isPaused) {
             setIsFetchingPaused(true);
             setIsFetchingUrl(false);
-            if (latestSessionSnapshot) setActiveCrawlSession(latestSessionSnapshot);
-            toast(`⏸ Fetch paused. ${data?.chapters?.length || initialChapters.length} chapters saved to Library.`, 'info');
+            const finalSession = latestSessionSnapshot || (data?.chapters ? { ...targetSession, chapters: data.chapters } : null);
+            if (finalSession) {
+              setActiveCrawlSession(finalSession);
+              setWebImportData(finalSession);
+              flushCrawlPersistence(finalSession);
+            }
+            toast(`⏸ Fetch paused. ${finalSession?.chapters?.length || data?.chapters?.length || initialChapters.length} chapters saved to Library.`, 'info');
             return;
           }
 
           if (ctrl?.isCancelled) {
             setIsFetchingPaused(false);
             setIsFetchingUrl(false);
-            if (latestSessionSnapshot) setActiveCrawlSession(latestSessionSnapshot);
+            if (latestSessionSnapshot) {
+              setActiveCrawlSession(latestSessionSnapshot);
+              setWebImportData(latestSessionSnapshot);
+            }
             toast(`✕ Fetch cancelled. Progress preserved in Library.`, 'warning');
             return;
           }
@@ -7538,7 +7548,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
             // ═══ TAB 2: WEB IMPORTER ═══
             activeTab === 'web_importer' && (() => {
-              const activeNovelView = webImportData || (activeCrawlSession?.chapters?.length > 0 ? activeCrawlSession : null);
+              const activeNovelView = (() => {
+                const sCh = activeCrawlSession?.chapters?.length || 0;
+                const dCh = webImportData?.chapters?.length || 0;
+                if (sCh > 0 && sCh >= dCh) return activeCrawlSession;
+                return webImportData || activeCrawlSession || null;
+              })();
               return h(React.Fragment, null,
                 // Incomplete Crawl Session Banner (only shown when returning to tab, suppressed when actively paused in card)
                 activeCrawlSession && !isFetchingPaused && !isFetchingUrl && h('div', {
