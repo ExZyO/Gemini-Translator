@@ -961,20 +961,26 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         url = new URL(loc);
                         conn = (HttpURLConnection) url.openConnection();
                         conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                        status = conn.getResponseCode();
                     }
                 }
 
-                InputStream is = conn.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    sb.append(line).append("\n");
+                InputStream is = (status >= 200 && status < 400) ? conn.getInputStream() : conn.getErrorStream();
+                if (is == null) {
+                    try { is = conn.getInputStream(); } catch (Exception ignored) {}
                 }
-                reader.close();
+                StringBuilder sb = new StringBuilder();
+                if (is != null) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line).append("\n");
+                    }
+                    reader.close();
+                }
 
                 JSObject ret = new JSObject();
-                ret.put("success", true);
+                ret.put("success", status >= 200 && status < 400);
                 ret.put("status", status);
                 ret.put("data", sb.toString());
                 call.resolve(ret);

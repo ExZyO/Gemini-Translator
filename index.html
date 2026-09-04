@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.2';
+    const VERSION = '8.10.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -5688,6 +5688,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               } catch (e) {}
             } else {
               // Not finished (e.g. rate limit, partial pause, or network interrupt) — retain active session
+              window.NativeBridge?.clearProgressNotification?.(false);
+              window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', `Saved ${data.chapters.length}/${totalExpected} chapters. Tap to resume.`);
               const partialSession = {
                 ...latestSessionSnapshot,
                 ...data,
@@ -5708,8 +5710,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           if (latestSessionSnapshot) flushCrawlPersistence(latestSessionSnapshot);
 
           const ctrl = window.WebNovelImporter?.getActiveController?.();
+          window.NativeBridge?.clearProgressNotification?.(false);
           if (ctrl?.isPaused) {
             setIsFetchingPaused(true);
+            window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', 'Fetch paused. Progress saved.');
             toast('Fetch paused.', 'info');
           } else if (ctrl?.isCancelled) {
             setIsFetchingPaused(false);
@@ -5725,6 +5729,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
       const handlePauseFetch = () => {
         window.WebNovelImporter?.pause?.();
+        window.NativeBridge?.clearProgressNotification?.(false);
+        window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', 'Fetch paused. Current progress saved.');
         setIsFetchingPaused(true);
         setIsFetchingUrl(false);
         setWebImportStatus('Pausing… progress saved.');
@@ -5733,6 +5739,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
       const handleCancelFetch = () => {
         window.WebNovelImporter?.cancel?.();
+        window.NativeBridge?.clearProgressNotification?.(false);
         setIsFetchingPaused(false);
         setIsFetchingUrl(false);
         setWebImportStatus('');

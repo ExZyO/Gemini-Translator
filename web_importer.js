@@ -137,48 +137,48 @@
         // 1. Android Native Bridge (Zero CORS / Full Chromium Engine)
         if (window.NativeBridge && window.NativeBridge.fetchNative) {
             try {
-                // The browser fallback behind NativeBridge can hang when a proxy blocks a site.
-                // Race it against the same timeout used by the regular fetch path.
                 const res = await Promise.race([
-                    window.NativeBridge.fetchNative(url, {
-                        headers: options.headers || {},
-                        userAgent: options.userAgent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-                    }),
+                    window.NativeBridge.fetchNative(url),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Native fetch timed out')), timeoutMs))
                 ]);
-                clearTimeout(timer);
-                if (res && res.data) return res.data;
+                if (res && res.data) {
+                    const text = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+                    if (!text.includes('Error 1015') && !text.includes('401 Unauthorized')) {
+                        clearTimeout(timer);
+                        return text;
+                    }
+                }
             } catch (e) {
                 console.warn('NativeBridge fetch error, fallback to proxy:', e);
             }
         }
 
-        if (window.NativeBridge && window.NativeBridge.fetchUrl) {
-            try {
-                const res = await window.NativeBridge.fetchUrl(url, options);
-                clearTimeout(timer);
-                return await res.text();
-            } catch (e) {
-                console.warn('NativeBridge fetchUrl error, fallback to proxy:', e);
-            }
-        }
-
-        // 2. Multi-Proxy Failover Pool
+        // 2. High-Speed Multi-Proxy Failover Pool with Round-Robin Rotation
         const proxyPool = [
+            (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
+            (u) => `https://proxy.cors.sh/${u}`,
             (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-            (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
             (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
         ];
 
-        for (const proxyFn of proxyPool) {
+        // Offset start index to distribute load across proxies
+        const startOffset = Math.floor(Math.random() * proxyPool.length);
+
+        for (let i = 0; i < proxyPool.length; i++) {
+            const proxyFn = proxyPool[(startOffset + i) % proxyPool.length];
             try {
                 const res = await fetch(proxyFn(url), {
                     signal: controller.signal,
                     headers: options.headers || {}
                 });
                 if (res.ok) {
+                    const text = await res.text();
+                    if (text.includes('Error 1015') || (text.includes('rate limit') && text.includes('Cloudflare')) || text.includes('401 Unauthorized') || text.length < 80) {
+                        console.warn('[Proxy Failover] Cloudflare Error 1015 or block detected, switching to next proxy...');
+                        continue;
+                    }
                     clearTimeout(timer);
-                    return await res.text();
+                    return text;
                 }
             } catch (proxyErr) {
                 // Continue to next proxy in pool
@@ -186,7 +186,7 @@
         }
 
         clearTimeout(timer);
-        throw new Error(`Failed to fetch ${url}. Please check internet connection or URL.`);
+        throw new Error(`Failed to fetch ${url}. All proxies exhausted or rate-limited.`);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -208,18 +208,26 @@
         return activeCrawlController;
     }
 
-    async function crawlChapterPool(chapterList, extractContentFn, concurrency = 4, progressCb, meta = {}) {
+    async function crawlChapterPool(chapterList, extractContentFn, concurrency = 4, progressCb, meta = {}, poolOptions = {}) {
         const ctrl = activeCrawlController || { isPaused: false, isCancelled: false, initialChapters: [] };
         if (meta && typeof meta === 'object') {
             ctrl.novelMeta = { ...(ctrl.novelMeta || {}), ...meta };
         }
-        let nextIndex = 0;
 
         // Restore downloaded chapters if resuming from a previous or paused session
         const chapters = Array.isArray(ctrl.initialChapters) ? [...ctrl.initialChapters] : [];
         const completedIndices = new Set(chapters.map(c => c.idx));
         let completedCount = completedIndices.size;
 
+        // Build resilient work queue of all pending chapter indices so NO chapter is ever skipped
+        const pendingQueue = [];
+        for (let i = 0; i < chapterList.length; i++) {
+            if (!completedIndices.has(i)) {
+                pendingQueue.push(i);
+            }
+        }
+
+        const interRequestDelay = poolOptions.delayMs !== undefined ? poolOptions.delayMs : 100;
         let totalWordsEstimate = chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)), 0);
         let totalImagesCount = chapters.reduce((acc, c) => acc + ((c.text && c.text.match(/!\[Illustration\]/g)) || []).length, 0);
         let wakeLockObj = null;
@@ -236,31 +244,30 @@
         let isBackingOff = false;
 
         const worker = async () => {
-            while (nextIndex < chapterList.length) {
-                if (ctrl.isPaused || ctrl.isCancelled) {
-                    break;
-                }
+            while (pendingQueue.length > 0) {
+                if (ctrl.isPaused || ctrl.isCancelled) break;
 
-                // If another worker encountered a rate limit (e.g. 1015), pause briefly
+                // If another worker encountered a rate limit (e.g. 1015), wait for cooldown
                 while (isBackingOff && !ctrl.isPaused && !ctrl.isCancelled) {
-                    await new Promise(r => setTimeout(r, 800));
+                    await new Promise(r => setTimeout(r, 600));
                 }
 
                 if (ctrl.isPaused || ctrl.isCancelled) break;
 
-                const currentIndex = nextIndex++;
-                if (completedIndices.has(currentIndex)) {
-                    continue; // Skip already downloaded chapter
-                }
-                const item = chapterList[currentIndex];
+                const currentIndex = pendingQueue.shift();
+                if (currentIndex === undefined) break;
+                if (completedIndices.has(currentIndex)) continue;
 
+                const item = chapterList[currentIndex];
                 let attempts = 0;
                 let chData = null;
-                while (attempts < 3 && !chData && !ctrl.isPaused && !ctrl.isCancelled) {
+                let rateLimitDetected = false;
+
+                while (attempts < 4 && !chData && !ctrl.isPaused && !ctrl.isCancelled) {
                     attempts++;
                     try {
-                        // Polite pacing to keep Cloudflare rate limiters satisfied
-                        await new Promise(r => setTimeout(r, 75));
+                        // Polite inter-request pacing
+                        await new Promise(r => setTimeout(r, interRequestDelay));
                         if (ctrl.isPaused || ctrl.isCancelled) break;
 
                         chData = await extractContentFn(item, currentIndex);
@@ -268,27 +275,32 @@
 
                         // Validate content: reject Cloudflare Error 1015 rate-limit block pages
                         if (chData && chData.text) {
-                            const sample = chData.text.slice(0, 300).toLowerCase();
+                            const sample = chData.text.slice(0, 350).toLowerCase();
                             if (sample.includes('error 1015') || (sample.includes('rate limit') && sample.includes('cloudflare'))) {
-                                console.warn(`[Cloudflare Rate Limit 1015] detected on chapter ${currentIndex + 1}`);
+                                rateLimitDetected = true;
                                 chData = null;
-                                isBackingOff = true;
-                                progressCb?.(`⚠️ Rate limit (Error 1015) detected. Pausing workers 3.5s to cool down...`);
-                                await new Promise(r => setTimeout(r, 3500));
-                                isBackingOff = false;
                             }
                         }
                     } catch (fetchErr) {
                         const errMsg = String(fetchErr?.message || '').toLowerCase();
                         if (errMsg.includes('1015') || errMsg.includes('rate limit') || errMsg.includes('429')) {
-                            console.warn(`[Rate Limit] on chapter ${currentIndex + 1}: ${fetchErr.message}`);
-                            isBackingOff = true;
-                            progressCb?.(`⚠️ Rate limit encountered. Backing off for 3.5s...`);
-                            await new Promise(r => setTimeout(r, 3500));
-                            isBackingOff = false;
-                        } else if (attempts < 3) {
-                            await new Promise(r => setTimeout(r, 1000 * attempts));
+                            rateLimitDetected = true;
+                        } else if (attempts < 4) {
+                            await new Promise(r => setTimeout(r, 600 * attempts));
                         }
+                    }
+
+                    if (rateLimitDetected && !ctrl.isPaused && !ctrl.isCancelled) {
+                        rateLimitDetected = false;
+                        isBackingOff = true;
+                        const cooldownSec = Math.min(20, 6 + (attempts * 4));
+                        console.warn(`[Cloudflare Rate Limit 1015] detected on chapter ${currentIndex + 1}. Cooling down ${cooldownSec}s...`);
+                        for (let c = cooldownSec; c > 0; c--) {
+                            if (ctrl.isPaused || ctrl.isCancelled) break;
+                            progressCb?.(`⏳ Cloudflare rate limit (1015) cooldown: resuming in ${c}s... (${completedIndices.size}/${chapterList.length} ch done)`);
+                            await new Promise(r => setTimeout(r, 1000));
+                        }
+                        isBackingOff = false;
                     }
                 }
 
@@ -326,6 +338,11 @@
                             console.warn('onChapterDone callback error:', cbErr);
                         }
                     }
+                } else if (!ctrl.isPaused && !ctrl.isCancelled) {
+                    // Re-queue chapter so it is never lost or skipped
+                    console.warn(`Chapter ${currentIndex + 1} incomplete/rate-limited; re-queueing to retry.`);
+                    pendingQueue.push(currentIndex);
+                    await new Promise(r => setTimeout(r, 1200));
                 }
 
                 completedCount = completedIndices.size;
@@ -857,9 +874,10 @@
                 const chTitle = chDoc.querySelector('.chapter-title')?.textContent?.trim() || item.title;
                 return { title: chTitle, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
             },
-            4,
+            2,
             progressCb,
-            { title, author, summary, chapterList: chapterLinks }
+            { title, author, summary, chapterList: chapterLinks },
+            { delayMs: 350 }
         );
 
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelFire (~${totalWords.toLocaleString()} words)!`, 100);

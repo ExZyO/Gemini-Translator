@@ -100,23 +100,32 @@
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.fetchNative) {
-                    return await bridge.fetchNative({ url });
+                    const res = await bridge.fetchNative({ url });
+                    if (res && res.data) {
+                        return { success: res.success, status: res.status || 200, data: res.data };
+                    }
                 }
             } catch (e) {
                 console.warn('Native fetch bridge error:', e);
             }
-            // Browser CORS fallback
-            const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 15000);
-            let res;
-            try {
-                res = await fetch(proxy, { signal: controller.signal });
-            } finally {
-                clearTimeout(timer);
+            // Multi-proxy fallback with verified fast endpoints
+            const proxies = [
+                (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
+                (u) => `https://proxy.cors.sh/${u}`,
+                (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+            ];
+            for (const pFn of proxies) {
+                try {
+                    const res = await fetch(pFn(url), { signal: AbortSignal.timeout(12000) });
+                    if (res.ok) {
+                        const text = await res.text();
+                        if (!text.includes('Error 1015') && !text.includes('401 Unauthorized')) {
+                            return { success: true, status: 200, data: text };
+                        }
+                    }
+                } catch(e) {}
             }
-            const text = await res.text();
-            return { success: true, data: text };
+            throw new Error(`Failed to fetch ${url} via native bridge and proxy pool.`);
         },
 
         shareFile: async (fileName, path, mimeType) => {
