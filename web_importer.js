@@ -258,6 +258,7 @@
         activeCrawlController = {
             isPaused: false,
             isCancelled: false,
+            tocOnly: !!options.tocOnly,
             abortController,
             initialChapters: options.initialChapters || (options.resumeSession ? (options.resumeSession.downloadedChapters || options.resumeSession.chapters || options.resumeSession.rawChapters) : []) || [],
             chapterList: options.chapterList || options.resumeSession?.chapterList || [],
@@ -273,9 +274,28 @@
             ctrl.novelMeta = { ...(ctrl.novelMeta || {}), ...meta };
         }
 
-        // Restore downloaded chapters if resuming from a previous or paused session
-        const chapters = Array.isArray(ctrl.initialChapters) ? [...ctrl.initialChapters] : [];
+        // Fast-path: TOC-only check for updates
+        if (ctrl.tocOnly) {
+            progressCb?.(` Table of contents verified: ${chapterList.length} remote chapters found.`, 100);
+            ctrl.chapterList = chapterList;
+            ctrl.totalChapterCount = chapterList.length;
+            return { chapters: [], totalWords: 0, chapterList, totalChapterCount: chapterList.length };
+        }
+
+        // Restore downloaded chapters if resuming from a previous or paused session or incremental update
+        const chapters = Array.isArray(ctrl.initialChapters) ? ctrl.initialChapters.map((c, i) => ({ ...c, idx: c.idx !== undefined ? c.idx : i })) : [];
         const completedIndices = new Set(chapters.map(c => c.idx));
+
+        // Also match existing chapters by URL and normalized title for robust incremental updates
+        const completedUrls = new Set(chapters.map(c => c.url).filter(Boolean));
+        const completedTitles = new Set(chapters.map(c => (c.title || '').trim().toLowerCase()).filter(Boolean));
+
+        for (let i = 0; i < chapterList.length; i++) {
+            const item = chapterList[i];
+            if (item && ((item.url && completedUrls.has(item.url)) || (item.title && completedTitles.has(item.title.trim().toLowerCase())))) {
+                completedIndices.add(i);
+            }
+        }
         let completedCount = completedIndices.size;
 
         // Build resilient work queue of all pending chapter indices so NO chapter is ever skipped
@@ -1435,10 +1455,11 @@
         return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
-    // --- H. LNORI TEMPLATE (lnori.com - Single Book & Multi-Volume Series) ---
+    // --- H. LNORI TEMPLATE (lnori.org / lnori.com - Single Book & Multi-Volume Series) ---
     async function crawlLnori(url, progressCb) {
         progressCb?.('Connecting to Lnori...', 15);
-        const origin = 'https://lnori.com';
+        let origin = 'https://lnori.org';
+        try { origin = new URL(url).origin; } catch (e) {}
         const isSeries = url.includes('/series/');
 
         function parseChaptersFromBookHtml(bookHtml, bookPageUrl) {
@@ -1472,7 +1493,7 @@
         if (!isSeries) {
             // Single Book / Volume page (/book/{id}/{slug})
             progressCb?.('Ingesting entire Lnori book volume...', 25);
-            const html = await fetchHtml(url, { headers: { 'Referer': 'https://lnori.com/' } });
+            const html = await fetchHtml(url, { headers: { 'Referer': origin + '/' } });
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
             const title = doc.querySelector('title')?.textContent?.replace(/\s*-\s*Lnori\s*$/i, '').trim() || doc.querySelector('h1')?.textContent?.trim() || 'Lnori Book';
@@ -1498,7 +1519,7 @@
         } else {
             // Series page (/series/{id}/{slug})
             progressCb?.('Reading Lnori series volume index...', 20);
-            const html = await fetchHtml(url, { headers: { 'Referer': 'https://lnori.com/' } });
+            const html = await fetchHtml(url, { headers: { 'Referer': origin + '/' } });
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
             const title = doc.querySelector('h1, title')?.textContent?.replace(/\s*-\s*Lnori\s*$/i, '').trim() || 'Lnori Series';
@@ -1520,6 +1541,21 @@
             });
 
             if (bookUrls.length === 0) throw new Error('No readable volumes found for this Lnori series.');
+
+            if (activeCrawlController?.tocOnly) {
+                progressCb?.(` Found ${bookUrls.length} volumes in Lnori series.`, 100);
+                return {
+                    title,
+                    author,
+                    summary,
+                    tags,
+                    chapters: [],
+                    chapterList: bookUrls,
+                    totalChapterCount: bookUrls.length,
+                    isEpub: false,
+                    sourceUrl: url
+                };
+            }
 
             progressCb?.(`Found ${bookUrls.length} volumes in Lnori series! Ingesting volumes...`, 30);
 
@@ -1950,7 +1986,7 @@
         if (!url || typeof url !== 'string') return 'unknown';
         const clean = url.trim().toLowerCase();
         if (clean.includes('novelbuddy.') || clean.includes('novel-buddy.')) return 'novelbuddy';
-        if (clean.includes('lnori.com')) return 'lnori';
+        if (clean.includes('lnori.')) return 'lnori';
         if (clean.includes('wuxiabox.com') || clean.includes('wuxiap.com') || clean.includes('wuxiaclick.com')) return 'wuxiabox';
         if (clean.includes('wtr-lab.com') || clean.includes('wtrlab.com')) return 'wtrlab';
         if (clean.includes('fucknovelpia.com') || clean.includes('novelpia.com')) return 'fucknovelpia';
@@ -2016,8 +2052,39 @@
             if (result && activeCrawlController) {
                 result.isPaused = !!activeCrawlController.isPaused;
                 result.isCancelled = !!activeCrawlController.isCancelled;
+                result.totalChapterCount = result.totalChapterCount || activeCrawlController.totalChapterCount || (activeCrawlController.chapterList ? activeCrawlController.chapterList.length : (result.chapterList ? result.chapterList.length : (result.chapters ? result.chapters.length : 0)));
+                result.chapterList = result.chapterList || activeCrawlController.chapterList || [];
             }
             return result;
+        },
+        checkNovelUpdates: async (novelRecord, progressCb) => {
+            if (!novelRecord || !novelRecord.sourceUrl) {
+                return { hasUpdates: false, error: 'No remote source URL associated with this novel.' };
+            }
+            try {
+                progressCb?.(`Checking remote chapters for "${novelRecord.title || 'novel'}"...`, 15);
+                const remote = await window.WebNovelImporter.importUrl(novelRecord.sourceUrl, progressCb, { tocOnly: true });
+                const remoteCount = (remote && typeof remote.totalChapterCount === 'number')
+                    ? remote.totalChapterCount
+                    : (remote?.chapterList ? remote.chapterList.length : (remote?.chapters ? remote.chapters.length : 0));
+                if (!remote || remoteCount === 0) {
+                    return { hasUpdates: false, error: 'Failed to retrieve remote table of contents.' };
+                }
+                const localChapters = novelRecord.rawChapters || novelRecord.chapters || [];
+                const localCount = novelRecord.chapterCount || localChapters.length;
+                const hasUpdates = remoteCount > localCount;
+                const newCount = Math.max(0, remoteCount - localCount);
+                return {
+                    hasUpdates,
+                    newCount,
+                    localCount,
+                    remoteCount,
+                    remoteChapterList: remote.chapterList || [],
+                    remoteTitle: remote.title || novelRecord.title
+                };
+            } catch (err) {
+                return { hasUpdates: false, error: err.message };
+            }
         }
     };
 

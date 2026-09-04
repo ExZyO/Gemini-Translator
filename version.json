@@ -1,7 +1,7 @@
 {
-  "version": "8.10.19",
-  "versionCode": 8119,
+  "version": "8.10.20",
+  "versionCode": 8120,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.19: Added dedicated high-speed crawlers for NovelBuddy, Lnori, Wuxia Box, WTR-LAB, and FUCKNOVELPIA with REST API indexing, WAF bypass, and lossless illustration support."
+  "releaseNotes": "v8.10.20: Mihon-style 1-tap chapter update tracking with delta fetching, dedicated Saved Space library shelf, crash-proof translation pause & resume via IndexedDB v2, 60fps lag-free input for massive texts, and robust Lnori multi-proxy illustration downloads."
 }

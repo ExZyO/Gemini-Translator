@@ -321,29 +321,120 @@ hr {
           const downloadWorker = async (url) => {
             try {
               let buffer = null;
-              const imgTimeout = 3500;
+              let detectedMime = null;
+              const imgTimeout = 15000;
               const AC = typeof AbortController !== 'undefined' ? AbortController : (typeof window !== 'undefined' ? window.AbortController : null);
-              const controller = AC ? new AC() : null;
-              const timer = controller ? setTimeout(() => controller.abort(), imgTimeout) : null;
+
+              // Helper: sniff image magic bytes
+              const sniffMime = (buf) => {
+                if (!buf || buf.byteLength < 12) return null;
+                const bytes = new Uint8Array(buf.slice(0, 16));
+                if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return { ext: 'png', mime: 'image/png' };
+                if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return { ext: 'jpg', mime: 'image/jpeg' };
+                if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return { ext: 'gif', mime: 'image/gif' };
+                if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+                    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return { ext: 'webp', mime: 'image/webp' };
+                // AVIF check
+                const str = String.fromCharCode(...bytes.slice(4, 12));
+                if (str.includes('ftyp') || str.includes('avif')) return { ext: 'avif', mime: 'image/avif' };
+                return null;
+              };
+
+              let referer = 'https://lnori.com/';
               try {
-                if (window.NativeBridge && window.NativeBridge.downloadBinary) {
+                const parsedUrl = new URL(url);
+                referer = parsedUrl.origin + '/';
+              } catch(_) {}
+
+              // Strategy 1: Android NativeBridge
+              if (window.NativeBridge && window.NativeBridge.downloadBinary) {
+                try {
                   buffer = await Promise.race([
                     window.NativeBridge.downloadBinary(url),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), imgTimeout))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
                   ]);
-                } else {
-                  const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-                  const res = await fetch(proxy, controller ? { signal: controller.signal } : {});
-                  if (res.ok) buffer = await res.arrayBuffer();
+                } catch(_) {}
+              }
+
+              // Strategy 2: Local Telemetry / Socket Proxy (Desktop port 9090)
+              if (!buffer || buffer.byteLength < 500) {
+                try {
+                  const ctrl = AC ? new AC() : null;
+                  const t = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
+                  const res = await fetch(`http://127.0.0.1:9090/proxy?url=${encodeURIComponent(url)}`, {
+                    signal: ctrl ? ctrl.signal : undefined,
+                    headers: { 'Referer': referer }
+                  });
+                  if (t) clearTimeout(t);
+                  if (res.ok) {
+                    const ct = res.headers.get('content-type') || '';
+                    if (ct.includes('image/')) detectedMime = ct.split(';')[0].trim();
+                    buffer = await res.arrayBuffer();
+                  }
+                } catch(_) {}
+              }
+
+              // Strategy 3: Direct Fetch (Node / Capacitor / CORS-enabled)
+              if (!buffer || buffer.byteLength < 500) {
+                try {
+                  const ctrl = AC ? new AC() : null;
+                  const t = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
+                  const res = await fetch(url, {
+                    signal: ctrl ? ctrl.signal : undefined,
+                    headers: { 'Referer': referer }
+                  });
+                  if (t) clearTimeout(t);
+                  if (res.ok) {
+                    const ct = res.headers.get('content-type') || '';
+                    if (ct.includes('image/')) detectedMime = ct.split(';')[0].trim();
+                    buffer = await res.arrayBuffer();
+                  }
+                } catch(_) {}
+              }
+
+              // Strategy 4: Public Proxy Failover Pool
+              if (!buffer || buffer.byteLength < 500) {
+                const proxies = [
+                  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+                  u => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
+                  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+                ];
+                for (const proxyFn of proxies) {
+                  if (buffer && buffer.byteLength > 500) break;
+                  try {
+                    const ctrl = AC ? new AC() : null;
+                    const t = ctrl ? setTimeout(() => ctrl.abort(), 7000) : null;
+                    const res = await fetch(proxyFn(url), { signal: ctrl ? ctrl.signal : undefined });
+                    if (t) clearTimeout(t);
+                    if (res.ok) {
+                      const ct = res.headers.get('content-type') || '';
+                      if (ct.includes('image/')) detectedMime = ct.split(';')[0].trim();
+                      const b = await res.arrayBuffer();
+                      if (b && b.byteLength > 500) {
+                        buffer = b;
+                        break;
+                      }
+                    }
+                  } catch(_) {}
                 }
-              } finally {
-                if (timer) clearTimeout(timer);
               }
 
               if (buffer && buffer.byteLength > 500) {
                 imgSeq++;
-                const ext = url.includes('.png') ? 'png' : (url.includes('.webp') ? 'webp' : (url.includes('.gif') ? 'gif' : 'jpg'));
-                const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : 'image/jpeg'));
+                const sniffed = sniffMime(buffer);
+                let ext = 'jpg';
+                let mime = 'image/jpeg';
+                if (sniffed) {
+                  ext = sniffed.ext;
+                  mime = sniffed.mime;
+                } else if (detectedMime) {
+                  mime = detectedMime;
+                  ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : (mime.includes('gif') ? 'gif' : (mime.includes('avif') ? 'avif' : 'jpg')));
+                } else {
+                  ext = url.includes('.png') ? 'png' : (url.includes('.webp') ? 'webp' : (url.includes('.gif') ? 'gif' : (url.includes('.avif') ? 'avif' : 'jpg')));
+                  mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : (ext === 'avif' ? 'image/avif' : 'image/jpeg')));
+                }
+
                 const imgFilename = `img_${imgSeq}.${ext}`;
                 const manifestId = `img_${imgSeq}`;
                 imgFolder.file(imgFilename, buffer, { compression: 'STORE' });
@@ -352,7 +443,7 @@ hr {
               }
             } catch (e) {}
             downloadedCount++;
-            if (downloadedCount - lastReportedImg >= 5 || downloadedCount === imgUrlList.length) {
+            if (downloadedCount - lastReportedImg >= 2 || downloadedCount === imgUrlList.length) {
               lastReportedImg = downloadedCount;
               const pct = Math.min(30, Math.round(5 + (downloadedCount / imgUrlList.length) * 25));
               onProgress?.(` Pre-caching illustrations (${downloadedCount}/${imgUrlList.length}) • ${getElapsed()}...`, pct, getElapsed());
@@ -360,7 +451,7 @@ hr {
             }
           };
 
-          const concurrency = 6;
+          const concurrency = 4;
           for (let i = 0; i < imgUrlList.length; i += concurrency) {
             const chunk = imgUrlList.slice(i, i + concurrency);
             await Promise.all(chunk.map(u => downloadWorker(u)));
