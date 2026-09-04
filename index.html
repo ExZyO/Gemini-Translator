@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.7';
+    const VERSION = '8.10.8';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3791,8 +3791,8 @@ const formatModelName = (id, displayName) => {
         toast(`🎉 Successfully imported ${newProfiles.length} ${provName} API keys!`, 'success');
       };
 
-      const getReportSummaryText = () => {
-        const s = lastUsageStats;
+      const getReportSummaryText = (overrideStats = null) => {
+        const s = overrideStats || lastUsageStats;
         const lines = [
           '=== 📊 TRANSLATION DIAGNOSTICS REPORT ===',
           s ? `Model: ${s.provider || ''} · ${s.model || ''}` : `Model: ${provider} · ${provider === 'gemini' ? (geminiModel || 'gemini-3.7-flash') : deepseekModel}`,
@@ -6137,6 +6137,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             hasInstructions: Boolean(customInstructions && customInstructions.trim())
           };
           setLastUsageStats(stats);
+          window.sendTelemetry?.('REPORT', '\n' + getReportSummaryText(stats));
           addToHistory(srcLang, tgtLang, provider, inputText, result, stats);
           toast(`Translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
           try {
@@ -6374,6 +6375,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             hasInstructions: Boolean(customInstructions && customInstructions.trim())
           };
           setLastUsageStats(stats);
+          window.sendTelemetry?.('REPORT', '\n' + getReportSummaryText(stats));
           addToHistory(srcLang, tgtLang, provider, inputText || (chapters || []).map(c => c.text).join('\n\n'), final, stats);
           if (newChapters && newChapters.length > 0) {
             const bTitle = (chapters && chapters[0]?.title) || 'Translated Novel';
@@ -6927,7 +6929,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         try {
           const cleanUrl = (telemetryServerUrl || 'http://192.168.1.216:9090').replace(/\/+$/, '');
           await fetch(`${cleanUrl}/clear`, { method: 'POST' });
-          toast('Telemetry log file cleared on PC.', 'info');
+          window.AppLogger?.clear();
+          toast('Telemetry logs cleared on PC & device.', 'info');
         } catch(e) {
           toast('Could not clear server logs: ' + e.message, 'error');
         }
