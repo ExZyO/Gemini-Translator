@@ -1,7 +1,7 @@
 {
-  "version": "8.8.6",
-  "versionCode": 886,
+  "version": "8.8.7",
+  "versionCode": 887,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.8.6: Major progressive modularization: Extracted Reader Engine, EPUB Engine, Master Glossary Presets, and Telemetry Logger into standalone modules."
+  "releaseNotes": "v8.8.7 (Option A - Refined Precision): Clean geometric radii (10px cards, 7px buttons/inputs), comfortable ergonomic touch targets, and accessible typography scale."
 }
