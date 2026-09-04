@@ -195,17 +195,20 @@
     let activeCrawlController = null;
 
     function createCrawlController(options = {}) {
+        const abortController = new AbortController();
         activeCrawlController = {
             isPaused: false,
             isCancelled: false,
+            abortController,
             initialChapters: options.initialChapters || (options.resumeSession ? (options.resumeSession.downloadedChapters || options.resumeSession.chapters || options.resumeSession.rawChapters) : []) || [],
+            chapterList: options.chapterList || options.resumeSession?.chapterList || [],
             onChapterDone: options.onChapterDone || null,
             novelMeta: options.novelMeta || {}
         };
         return activeCrawlController;
     }
 
-    async function crawlChapterPool(chapterList, extractContentFn, concurrency = 12, progressCb, meta = {}) {
+    async function crawlChapterPool(chapterList, extractContentFn, concurrency = 4, progressCb, meta = {}) {
         const ctrl = activeCrawlController || { isPaused: false, isCancelled: false, initialChapters: [] };
         if (meta && typeof meta === 'object') {
             ctrl.novelMeta = { ...(ctrl.novelMeta || {}), ...meta };
@@ -230,55 +233,99 @@
 
         let lastNotifTime = 0;
         const startTime = Date.now();
+        let isBackingOff = false;
 
         const worker = async () => {
             while (nextIndex < chapterList.length) {
                 if (ctrl.isPaused || ctrl.isCancelled) {
                     break;
                 }
+
+                // If another worker encountered a rate limit (e.g. 1015), pause briefly
+                while (isBackingOff && !ctrl.isPaused && !ctrl.isCancelled) {
+                    await new Promise(r => setTimeout(r, 800));
+                }
+
+                if (ctrl.isPaused || ctrl.isCancelled) break;
+
                 const currentIndex = nextIndex++;
                 if (completedIndices.has(currentIndex)) {
                     continue; // Skip already downloaded chapter
                 }
                 const item = chapterList[currentIndex];
-                try {
-                    const chData = await extractContentFn(item, currentIndex);
-                    if (ctrl.isCancelled) break;
-                    if (chData && chData.text && chData.text.length > 30) {
-                        const words = chData.text.split(/\s+/).filter(Boolean).length;
-                        const imgCount = (chData.text.match(/!\[Illustration\]/g) || []).length;
-                        totalImagesCount += imgCount;
-                        totalWordsEstimate += words;
-                        const newChapterObj = {
-                            idx: currentIndex,
-                            title: chData.title || item.title || `Chapter ${currentIndex + 1}`,
-                            text: chData.text,
-                            content: chData.text,
-                            words
-                        };
-                        chapters.push(newChapterObj);
-                        completedIndices.add(currentIndex);
 
-                        if (ctrl.onChapterDone) {
-                            try {
-                                ctrl.onChapterDone(newChapterObj, chapters, {
-                                    current: completedIndices.size,
-                                    completedCount: completedIndices.size,
-                                    total: chapterList.length,
-                                    totalCount: chapterList.length,
-                                    totalWords: totalWordsEstimate,
-                                    chapterList: chapterList,
-                                    title: ctrl.novelMeta?.title || meta?.title || '',
-                                    author: ctrl.novelMeta?.author || meta?.author || '',
-                                    summary: ctrl.novelMeta?.summary || meta?.summary || ''
-                                });
-                            } catch (cbErr) {
-                                console.warn('onChapterDone callback error:', cbErr);
+                let attempts = 0;
+                let chData = null;
+                while (attempts < 3 && !chData && !ctrl.isPaused && !ctrl.isCancelled) {
+                    attempts++;
+                    try {
+                        // Polite pacing to keep Cloudflare rate limiters satisfied
+                        await new Promise(r => setTimeout(r, 75));
+                        if (ctrl.isPaused || ctrl.isCancelled) break;
+
+                        chData = await extractContentFn(item, currentIndex);
+                        if (ctrl.isPaused || ctrl.isCancelled) break;
+
+                        // Validate content: reject Cloudflare Error 1015 rate-limit block pages
+                        if (chData && chData.text) {
+                            const sample = chData.text.slice(0, 300).toLowerCase();
+                            if (sample.includes('error 1015') || (sample.includes('rate limit') && sample.includes('cloudflare'))) {
+                                console.warn(`[Cloudflare Rate Limit 1015] detected on chapter ${currentIndex + 1}`);
+                                chData = null;
+                                isBackingOff = true;
+                                progressCb?.(`⚠️ Rate limit (Error 1015) detected. Pausing workers 3.5s to cool down...`);
+                                await new Promise(r => setTimeout(r, 3500));
+                                isBackingOff = false;
                             }
                         }
+                    } catch (fetchErr) {
+                        const errMsg = String(fetchErr?.message || '').toLowerCase();
+                        if (errMsg.includes('1015') || errMsg.includes('rate limit') || errMsg.includes('429')) {
+                            console.warn(`[Rate Limit] on chapter ${currentIndex + 1}: ${fetchErr.message}`);
+                            isBackingOff = true;
+                            progressCb?.(`⚠️ Rate limit encountered. Backing off for 3.5s...`);
+                            await new Promise(r => setTimeout(r, 3500));
+                            isBackingOff = false;
+                        } else if (attempts < 3) {
+                            await new Promise(r => setTimeout(r, 1000 * attempts));
+                        }
                     }
-                } catch (e) {
-                    console.warn(`Error on chapter ${currentIndex + 1} (${item.title || item.url}):`, e);
+                }
+
+                if (ctrl.isPaused || ctrl.isCancelled) break;
+
+                if (chData && chData.text && chData.text.length > 30) {
+                    const words = chData.text.split(/\s+/).filter(Boolean).length;
+                    const imgCount = (chData.text.match(/!\[Illustration\]/g) || []).length;
+                    totalImagesCount += imgCount;
+                    totalWordsEstimate += words;
+                    const newChapterObj = {
+                        idx: currentIndex,
+                        title: chData.title || item.title || `Chapter ${currentIndex + 1}`,
+                        text: chData.text,
+                        content: chData.text,
+                        words
+                    };
+                    chapters.push(newChapterObj);
+                    completedIndices.add(currentIndex);
+
+                    if (ctrl.onChapterDone && !ctrl.isPaused && !ctrl.isCancelled) {
+                        try {
+                            ctrl.onChapterDone(newChapterObj, chapters, {
+                                current: completedIndices.size,
+                                completedCount: completedIndices.size,
+                                total: chapterList.length,
+                                totalCount: chapterList.length,
+                                totalWords: totalWordsEstimate,
+                                chapterList: chapterList,
+                                title: ctrl.novelMeta?.title || meta?.title || '',
+                                author: ctrl.novelMeta?.author || meta?.author || '',
+                                summary: ctrl.novelMeta?.summary || meta?.summary || ''
+                            });
+                        } catch (cbErr) {
+                            console.warn('onChapterDone callback error:', cbErr);
+                        }
+                    }
                 }
 
                 completedCount = completedIndices.size;
@@ -289,12 +336,14 @@
                 const timeStr = (min > 0 ? `${min}m ` : '') + `${sec}s`;
                 const speed = (completedCount / elapsedSec).toFixed(1);
 
-                progressCb?.(` Ingested: ${chapters.length}/${chapterList.length} ch (${pct}%) • ${timeStr} (${speed} ch/s) • ~${totalWordsEstimate.toLocaleString()} words`, pct);
+                if (!ctrl.isPaused && !ctrl.isCancelled) {
+                    progressCb?.(` Ingested: ${chapters.length}/${chapterList.length} ch (${pct}%) • ${timeStr} (${speed} ch/s) • ~${totalWordsEstimate.toLocaleString()} words`, pct);
 
-                const now = Date.now();
-                if (now - lastNotifTime > 2000 || completedCount === chapterList.length) {
-                    lastNotifTime = now;
-                    window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Ingesting novel: ${chapters.length}/${chapterList.length} ch (${pct}%) • ${timeStr}`, pct, true);
+                    const now = Date.now();
+                    if (now - lastNotifTime > 2000 || completedCount === chapterList.length) {
+                        lastNotifTime = now;
+                        window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Ingesting novel: ${chapters.length}/${chapterList.length} ch (${pct}%) • ${timeStr}`, pct, true);
+                    }
                 }
 
                 if (ctrl.isPaused || ctrl.isCancelled) {
@@ -676,93 +725,118 @@
             if (txt && !tags.includes(txt)) tags.push(txt);
         });
 
-        // Scan all chapter pages through pagination
+        // Check if TOC is already known (e.g. from an existing or resumed session)
         let chapterLinks = [];
-        const seenUrls = new Set();
-        let volUrl = `${bookUrl}/chapters`;
-        let pageNum = 1;
+        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
+            console.log(`⚡ [NovelFire] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            chapterLinks = [...existingTOC];
+        } else {
+            // Scan all chapter pages through pagination
+            const seenUrls = new Set();
+            let volUrl = `${bookUrl}/chapters`;
+            let pageNum = 1;
 
-        progressCb?.('Scanning NovelFire chapter archive...', 20);
+            progressCb?.('Scanning NovelFire chapter archive...', 20);
 
-        while (volUrl) {
-            try {
-                progressCb?.(`Scanning NovelFire chapters (Page ${pageNum})...`, Math.min(28, 20 + pageNum));
-                const chPageHtml = await fetchHtml(volUrl);
-                const pDoc = new DOMParser().parseFromString(chPageHtml, 'text/html');
-                
-                // Target specifically the chapter archive list to ignore "Latest Release" teaser links in the header
-                let aTags = Array.from(pDoc.querySelectorAll('#chpagedlist ul.chapter-list li a, ul.chapter-list li a, .list-chapter li a'));
-                if (aTags.length === 0) {
-                    aTags = Array.from(pDoc.querySelectorAll('.chapter-list a, .chapters-list a, #tab-chapters a'));
+            while (volUrl) {
+                if (activeCrawlController?.isPaused || activeCrawlController?.isCancelled) break;
+                try {
+                    progressCb?.(`Scanning NovelFire chapters (Page ${pageNum})...`, Math.min(28, 20 + pageNum));
+                    
+                    // Polite 180ms delay between TOC pages to avoid Cloudflare Error 1015 rate limit
+                    await new Promise(r => setTimeout(r, 180));
+                    if (activeCrawlController?.isPaused || activeCrawlController?.isCancelled) break;
+
+                    const chPageHtml = await fetchHtml(volUrl);
+                    if (chPageHtml.includes('Error 1015') || (chPageHtml.includes('rate limit') && chPageHtml.includes('Cloudflare'))) {
+                        console.warn(`[NovelFire TOC] Rate limit 1015 on page ${pageNum}. Cooling down 3.5s...`);
+                        progressCb?.(`⚠️ Rate limit (1015) on page ${pageNum}. Pausing 3.5s to cool down...`);
+                        await new Promise(r => setTimeout(r, 3500));
+                        continue; // Retry this page
+                    }
+
+                    const pDoc = new DOMParser().parseFromString(chPageHtml, 'text/html');
+                    
+                    // Target specifically the chapter archive list to ignore "Latest Release" teaser links in the header
+                    let aTags = Array.from(pDoc.querySelectorAll('#chpagedlist ul.chapter-list li a, ul.chapter-list li a, .list-chapter li a'));
+                    if (aTags.length === 0) {
+                        aTags = Array.from(pDoc.querySelectorAll('.chapter-list a, .chapters-list a, #tab-chapters a'));
+                    }
+                    if (aTags.length === 0) {
+                        aTags = Array.from(pDoc.querySelectorAll('a[href*="/chapter-"]')).filter(a => !a.closest('header, footer, nav, .latest, .filters, #header'));
+                    }
+
+                    let pageFound = 0;
+                    for (const a of aTags) {
+                        const href = a.getAttribute('href');
+                        if (href && !seenUrls.has(href)) {
+                            seenUrls.add(href);
+                            const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                            const chTitle = a.getAttribute('title') || a.querySelector('.chapter-title')?.textContent?.trim() || a.textContent?.trim();
+                            chapterLinks.push({ url: fullUrl, title: chTitle });
+                            pageFound++;
+                        }
+                    }
+
+                    if (pageFound === 0) break;
+
+                    const nextA = pDoc.querySelector('a.page-link[rel="next"], .pagination a[rel="next"]');
+                    if (nextA && nextA.getAttribute('href')) {
+                        const nextHref = nextA.getAttribute('href');
+                        volUrl = nextHref.startsWith('http') ? nextHref : new URL(nextHref, origin).href;
+                        pageNum++;
+                    } else {
+                        volUrl = null;
+                    }
+                } catch (pageErr) {
+                    console.warn(`NovelFire page ${pageNum} fetch error:`, pageErr);
+                    // If error is rate-limit related, wait and retry up to once
+                    if (String(pageErr?.message || '').includes('1015')) {
+                        await new Promise(r => setTimeout(r, 3500));
+                        continue;
+                    }
+                    break;
                 }
-                if (aTags.length === 0) {
-                    aTags = Array.from(pDoc.querySelectorAll('a[href*="/chapter-"]')).filter(a => !a.closest('header, footer, nav, .latest, .filters, #header'));
-                }
+            }
 
-                let pageFound = 0;
-                for (const a of aTags) {
+            // Fallback: check chapters directly on book page if /chapters wasn't reached
+            if (chapterLinks.length === 0) {
+                let fallbackTags = Array.from(doc.querySelectorAll('#chpagedlist ul.chapter-list li a, ul.chapter-list li a, .list-chapter li a'));
+                if (fallbackTags.length === 0) {
+                    fallbackTags = Array.from(doc.querySelectorAll('a[href*="/chapter-"]')).filter(a => !a.closest('header, footer, nav, .latest, .filters, #header'));
+                }
+                fallbackTags.forEach(a => {
                     const href = a.getAttribute('href');
                     if (href && !seenUrls.has(href)) {
                         seenUrls.add(href);
                         const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
-                        const chTitle = a.getAttribute('title') || a.querySelector('.chapter-title')?.textContent?.trim() || a.textContent?.trim();
-                        chapterLinks.push({ url: fullUrl, title: chTitle });
-                        pageFound++;
+                        chapterLinks.push({ url: fullUrl, title: a.getAttribute('title') || a.textContent?.trim() });
                     }
-                }
+                });
+            }
 
-                if (pageFound === 0) break;
+            if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
 
-                const nextA = pDoc.querySelector('a.page-link[rel="next"], .pagination a[rel="next"]');
-                if (nextA && nextA.getAttribute('href')) {
-                    const nextHref = nextA.getAttribute('href');
-                    volUrl = nextHref.startsWith('http') ? nextHref : new URL(nextHref, origin).href;
-                    pageNum++;
-                } else {
-                    volUrl = null;
+            // Self-healing: if the first link is an out-of-order high chapter (e.g. Chapter 861 preceding Chapter 1), auto-sort naturally
+            if (chapterLinks.length > 2) {
+                const getChWeight = (item, idx) => {
+                    const t = (item.title || '').trim().toLowerCase();
+                    if (/^(prologue|preface|intro|foreword|序章|序)\b/i.test(t)) return -999999 + idx * 0.001;
+                    if (/^(epilogue|afterword|postscript|终章|尾声)\b/i.test(t) && !/chapter\s*\d+/i.test(t)) return 999999 + idx * 0.001;
+                    const m = (item.title || '').match(/(?:chapter|ch\.?|ep\.?|part)\s*(\d+(?:\.\d+)?)/i) || (item.url || '').match(/\/chapter-(\d+(?:\.\d+)?)/i);
+                    return m ? parseFloat(m[1]) : idx;
+                };
+                const firstW = getChWeight(chapterLinks[0], 0);
+                const secondW = getChWeight(chapterLinks[1], 1);
+                if (firstW > secondW && firstW > 20) {
+                    console.log(` [NovelFire] Detected out-of-order teaser link (${chapterLinks[0].title}), sorting chapters naturally.`);
+                    chapterLinks.sort((a, b) => getChWeight(a, 0) - getChWeight(b, 0));
                 }
-            } catch (pageErr) {
-                console.warn(`NovelFire page ${pageNum} fetch error:`, pageErr);
-                break;
             }
         }
 
-        // Fallback: check chapters directly on book page if /chapters wasn't reached
-        if (chapterLinks.length === 0) {
-            let fallbackTags = Array.from(doc.querySelectorAll('#chpagedlist ul.chapter-list li a, ul.chapter-list li a, .list-chapter li a'));
-            if (fallbackTags.length === 0) {
-                fallbackTags = Array.from(doc.querySelectorAll('a[href*="/chapter-"]')).filter(a => !a.closest('header, footer, nav, .latest, .filters, #header'));
-            }
-            fallbackTags.forEach(a => {
-                const href = a.getAttribute('href');
-                if (href && !seenUrls.has(href)) {
-                    seenUrls.add(href);
-                    const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
-                    chapterLinks.push({ url: fullUrl, title: a.getAttribute('title') || a.textContent?.trim() });
-                }
-            });
-        }
-
-        if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
-
-        // Self-healing: if the first link is an out-of-order high chapter (e.g. Chapter 861 preceding Chapter 1), auto-sort naturally
-        if (chapterLinks.length > 2) {
-            const getChWeight = (item, idx) => {
-                const t = (item.title || '').trim().toLowerCase();
-                if (/^(prologue|preface|intro|foreword|序章|序)\b/i.test(t)) return -999999 + idx * 0.001;
-                if (/^(epilogue|afterword|postscript|终章|尾声)\b/i.test(t) && !/chapter\s*\d+/i.test(t)) return 999999 + idx * 0.001;
-                const m = (item.title || '').match(/(?:chapter|ch\.?|ep\.?|part)\s*(\d+(?:\.\d+)?)/i) || (item.url || '').match(/\/chapter-(\d+(?:\.\d+)?)/i);
-                return m ? parseFloat(m[1]) : idx;
-            };
-            const firstW = getChWeight(chapterLinks[0], 0);
-            const secondW = getChWeight(chapterLinks[1], 1);
-            if (firstW > secondW && firstW > 20) {
-                console.log(` [NovelFire] Detected out-of-order teaser link (${chapterLinks[0].title}), sorting chapters naturally.`);
-                chapterLinks.sort((a, b) => getChWeight(a, 0) - getChWeight(b, 0));
-            }
-        }
-
-        progressCb?.(`Found ${chapterLinks.length} chapters on NovelFire! Fetching in parallel...`, 30);
+        progressCb?.(`Found ${chapterLinks.length} chapters on NovelFire! Fetching chapters...`, 30);
 
         const { chapters, totalWords } = await crawlChapterPool(
             chapterLinks,
@@ -783,12 +857,13 @@
                 const chTitle = chDoc.querySelector('.chapter-title')?.textContent?.trim() || item.title;
                 return { title: chTitle, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
             },
-            12,
-            progressCb
+            4,
+            progressCb,
+            { title, author, summary, chapterList: chapterLinks }
         );
 
-        progressCb?.(` Loaded ${chapters.length} chapters from NovelFire (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
+        progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelFire (~${totalWords.toLocaleString()} words)!`, 100);
+        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
     // --- F. LOFTER (乐乎 WITH HIGH-RES ARTWORK) ---
@@ -1184,6 +1259,7 @@
         pause: () => {
             if (activeCrawlController) {
                 activeCrawlController.isPaused = true;
+                try { activeCrawlController.abortController?.abort(); } catch(e) {}
                 try { window.NativeBridge?.releaseWakeLock?.(); } catch(e) {}
                 return true;
             }
@@ -1192,6 +1268,7 @@
         cancel: () => {
             if (activeCrawlController) {
                 activeCrawlController.isCancelled = true;
+                try { activeCrawlController.abortController?.abort(); } catch(e) {}
                 try { window.NativeBridge?.releaseWakeLock?.(); } catch(e) {}
                 return true;
             }

@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.1';
+    const VERSION = '8.10.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3046,16 +3046,30 @@ const formatModelName = (id, displayName) => {
       const [customInstructions, setCustomInstructions] = useState(() => localStorage.getItem('customInstructions') || '');
       const [smartGlossary, setSmartGlossary] = useState(() => localStorage.getItem('smartGlossary') !== 'false');
       const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'text');
-      const [webImportUrl, setWebImportUrl] = useState('');
       const [isFetchingUrl, setIsFetchingUrl] = useState(false);
       const [isFetchingPaused, setIsFetchingPaused] = useState(false);
       const [webImportStatus, setWebImportStatus] = useState('');
-      const [webImportData, setWebImportData] = useState(null);
       const [activeCrawlSession, setActiveCrawlSession] = useState(() => {
         try {
           const s = localStorage.getItem('gemini_active_crawl_session');
           return s ? JSON.parse(s) : null;
         } catch (e) { return null; }
+      });
+      const [webImportData, setWebImportData] = useState(() => {
+        try {
+          const s = localStorage.getItem('gemini_active_crawl_session');
+          return s ? JSON.parse(s) : null;
+        } catch (e) { return null; }
+      });
+      const [webImportUrl, setWebImportUrl] = useState(() => {
+        try {
+          const s = localStorage.getItem('gemini_active_crawl_session');
+          if (s) {
+            const parsed = JSON.parse(s);
+            return parsed.url || parsed.sourceUrl || '';
+          }
+          return '';
+        } catch (e) { return ''; }
       });
       const [isAiSorting, setIsAiSorting] = useState(false);
       const [webImportHistory, setWebImportHistory] = useState(() => {
@@ -4592,26 +4606,95 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         }
       };
 
+      const formatExtractedTermsIntoMasterGlossary = (terms) => {
+        const characters = [];
+        const factions = [];
+        const termsList = [];
+        const locations = [];
+        const other = [];
+
+        terms.forEach(t => {
+          const cat = (t.category || '').toLowerCase();
+          const line = `${t.orig} = ${t.trans}${t.note ? ` # ${t.category}: ${t.note}` : ''}`;
+          if (cat.includes('char') || cat.includes('person') || cat.includes('protagonist') || cat.includes('antagonist')) {
+            characters.push(line);
+          } else if (cat.includes('faction') || cat.includes('sect') || cat.includes('guild') || cat.includes('clan') || cat.includes('org')) {
+            factions.push(line);
+          } else if (cat.includes('loc') || cat.includes('place') || cat.includes('city') || cat.includes('realm') || cat.includes('world') || cat.includes('school')) {
+            locations.push(line);
+          } else if (cat.includes('rank') || cat.includes('skill') || cat.includes('item') || cat.includes('term') || cat.includes('magic') || cat.includes('artifact')) {
+            termsList.push(line);
+          } else {
+            other.push(line);
+          }
+        });
+
+        const sections = [
+          '## I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES',
+          '- Maintain strict character gender continuity and pronoun fidelity across all chapters.',
+          '- Preserve original Japanese/Chinese honorifics (-san, -kun, -sama, Shixiong, Shidi) where appropriate, or translate consistently.',
+          '- Keep specialized cultivation, magical techniques, and artifact names consistent with this glossary.',
+          '- Retain raw untranslated text structure, dialog formatting, and paragraph line breaks without omitting sentences.'
+        ];
+
+        let sectionNum = 2;
+        const roman = ['II', 'III', 'IV', 'V', 'VI'];
+
+        if (characters.length > 0 || factions.length > 0) {
+          sections.push('', `## ${roman[sectionNum - 2]}. CHARACTER & FACTION DIRECTORY`);
+          if (characters.length > 0) sections.push(...characters);
+          if (factions.length > 0) sections.push('', '# Factions & Organizations', ...factions);
+          sectionNum++;
+        }
+
+        if (termsList.length > 0) {
+          sections.push('', `## ${roman[sectionNum - 2]}. CORE CONCEPTS & SYSTEM TERMS`);
+          sections.push(...termsList);
+          sectionNum++;
+        }
+
+        if (locations.length > 0) {
+          sections.push('', `## ${roman[sectionNum - 2]}. LOCATIONS & GEOGRAPHY`);
+          sections.push(...locations);
+          sectionNum++;
+        }
+
+        if (other.length > 0) {
+          sections.push('', `## ${roman[sectionNum - 2]}. ADDITIONAL ENTITIES & TERMINOLOGY`);
+          sections.push(...other);
+        }
+
+        return sections.join('\n');
+      };
+
       const handleApplyExtractedTerms = (asNewProfile = false) => {
         const selected = extractedTerms.filter(t => t.checked);
         if (selected.length === 0) return toast('No terms selected', 'warning');
         
+        const structuredGlossary = formatExtractedTermsIntoMasterGlossary(selected);
         const formattedLines = selected.map(t => `${t.orig} = ${t.trans}${t.note ? ` # ${t.category}: ${t.note}` : ''}`).join('\n');
         
         if (asNewProfile) {
           const defaultName = (chapters && chapters[0]?.title) ? `${chapters[0].title.slice(0, 20)} Glossary` : 'Auto Extracted Glossary';
           const name = prompt('Enter profile name for these terms:', defaultName);
           if (!name || !name.trim()) return;
-          handleSaveGlossary(name.trim(), formattedLines);
+          handleSaveGlossary(name.trim(), structuredGlossary);
           setAutoGlossaryModalOpen(false);
           toast(`Saved ${selected.length} terms as "${name.trim()}"!`, 'success');
         } else {
           const current = (terminology || '').trim();
-          const updated = current ? `${current}\n${formattedLines}` : formattedLines;
+          let updated = '';
+          if (!current) {
+            updated = structuredGlossary;
+          } else if (current.includes('## I.') || current.includes('## II.')) {
+            updated = `${current}\n\n${formattedLines}`;
+          } else {
+            updated = `${current}\n${formattedLines}`;
+          }
           setTerminology(updated);
           localStorage.setItem('terminology', updated);
           setAutoGlossaryModalOpen(false);
-          toast(`Appended ${selected.length} terms to active glossary!`, 'success');
+          toast(`Applied ${selected.length} terms to active glossary!`, 'success');
         }
       };
 
@@ -5582,21 +5665,43 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             return;
           }
 
-          // Fetch completed 100%
+          // Fetch completed or returned
           if (data) {
+            const totalExpected = data.totalChapterCount || latestSessionSnapshot?.totalChapterCount || targetSession?.totalChapterCount || data.chapterList?.length || 0;
+            const isActuallyFinished = totalExpected > 0 ? (data.chapters.length >= totalExpected) : true;
+
             data.id = novelId;
-            data.isIncomplete = false;
+            data.isIncomplete = !isActuallyFinished;
+            data.totalChapterCount = totalExpected || data.chapters.length;
             setWebImportData(data);
             saveNovelToHistory(data);
-            localStorage.removeItem('gemini_active_crawl_session');
-            setActiveCrawlSession(null);
-            setIsFetchingPaused(false);
-            setIsFetchingUrl(false);
-            setWebImportStatus('');
-            toast(`Imported "${data.title}" — ${data.chapters.length} chapters! 🎉`, 'success');
-            try {
-              window.NativeBridge?.showCompletionNotification?.('Novel Import Complete! 📥', `Imported "${data.title}" (${data.chapters.length} chapters).`);
-            } catch (e) {}
+
+            if (isActuallyFinished) {
+              localStorage.removeItem('gemini_active_crawl_session');
+              setActiveCrawlSession(null);
+              setIsFetchingPaused(false);
+              setIsFetchingUrl(false);
+              setWebImportStatus('');
+              toast(`Imported "${data.title}" — ${data.chapters.length} chapters! 🎉`, 'success');
+              try {
+                window.NativeBridge?.showCompletionNotification?.('Novel Import Complete! 📥', `Imported "${data.title}" (${data.chapters.length} chapters).`);
+              } catch (e) {}
+            } else {
+              // Not finished (e.g. rate limit, partial pause, or network interrupt) — retain active session
+              const partialSession = {
+                ...latestSessionSnapshot,
+                ...data,
+                id: novelId,
+                isIncomplete: true,
+                totalChapterCount: totalExpected,
+                completedCount: data.chapters.length
+              };
+              setActiveCrawlSession(partialSession);
+              flushCrawlPersistence(partialSession);
+              setIsFetchingPaused(true);
+              setIsFetchingUrl(false);
+              toast(`⚠️ Partial import: Saved ${data.chapters.length}/${totalExpected} chapters. Click "Resume Fetch" to continue.`, 'warning');
+            }
           }
         } catch (err) {
           if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
@@ -5622,14 +5727,16 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         window.WebNovelImporter?.pause?.();
         setIsFetchingPaused(true);
         setIsFetchingUrl(false);
-        toast('Pausing fetch… current chapter will finish and state will be saved.', 'info');
+        setWebImportStatus('Pausing… progress saved.');
+        toast('Pausing fetch… current progress has been saved.', 'info');
       };
 
       const handleCancelFetch = () => {
         window.WebNovelImporter?.cancel?.();
         setIsFetchingPaused(false);
         setIsFetchingUrl(false);
-        toast('Cancelled fetch. Progress has been preserved.', 'warning');
+        setWebImportStatus('');
+        toast('Cancelled fetch. Progress has been preserved in Library.', 'warning');
       };
 
       const resumeCrawlFromSession = async (sessionOrNovel) => {
@@ -5654,6 +5761,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         };
         setWebImportUrl(sessionData.url || '');
         setActiveCrawlSession(sessionData);
+        setWebImportData(sessionData);
         try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(sessionData)); } catch(e) {}
         handleStartFetch(true, sessionData);
       };
@@ -7381,163 +7489,195 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             ),
 
             // ═══ TAB 2: WEB IMPORTER ═══
-            activeTab === 'web_importer' && h(React.Fragment, null,
-              // Incomplete Crawl Session Banner
-              activeCrawlSession && h('div', {
-                className: 'card',
-                style: {
-                  background: 'rgba(234, 179, 8, 0.08)',
-                  borderColor: 'rgba(234, 179, 8, 0.3)',
-                  marginBottom: 12,
-                  padding: '12px 14px'
-                }
-              },
-                h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 } },
-                  h('span', { style: { fontSize: 12, fontWeight: 600, color: '#eab308' } }, '⏸ Incomplete Crawl Session Detected'),
-                  h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, `${(activeCrawlSession.chapters || []).length} / ${activeCrawlSession.totalChapterCount || '?'} chapters`)
-                ),
-                h('div', { style: { fontSize: 12, fontWeight: 500, marginBottom: 8, color: 'var(--paper)' } }, activeCrawlSession.title || 'Untitled Web Novel'),
-                h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn',
-                    style: { background: 'var(--accent, #6366f1)', color: '#fff' },
-                    disabled: isFetchingUrl,
-                    onClick: () => handleStartFetch(true)
-                  }, '▶ Resume Fetch'),
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn ghost',
-                    onClick: () => {
-                      const chs = activeCrawlSession.chapters || [];
-                      const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
-                      setInputText(fullText);
-                      setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
-                      setActiveTab('text');
-                      toast(`Loaded ${chs.length} chapters to Translator tab!`, 'info');
-                    }
-                  }, 'Send to Translator'),
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn danger',
-                    disabled: isFetchingUrl,
-                    onClick: dismissCrawlSession
-                  }, '✕ Dismiss')
-                )
-              ),
-
-              h('div', { className: 'src-chips' }, ['NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', { key: s, className: 'src-chip' }, s))),
-              h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel URL (NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
-              
-              !isFetchingUrl ? (
-                h('button', {
-                  type: 'button',
-                  className: 'primary block',
-                  disabled: !webImportUrl.trim(),
-                  onClick: () => handleStartFetch(false)
-                }, isFetchingPaused ? '▶ Resume Fetch' : '⤓ Fetch Novel')
-              ) : (
-                h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '6px 0' } },
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn',
-                    style: { padding: '10px 14px', background: 'rgba(234, 179, 8, 0.2)', color: '#eab308', borderColor: 'rgba(234, 179, 8, 0.4)', fontWeight: 600 },
-                    onClick: handlePauseFetch
-                  }, '⏸ Pause Fetch'),
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn danger',
-                    style: { padding: '10px 14px', fontWeight: 600 },
-                    onClick: handleCancelFetch
-                  }, '✕ Cancel')
-                )
-              ),
-
-              isFetchingUrl && h('div', { className: 'status-row' },
-                h('span', null, webImportStatus || 'Extracting chapters…'),
-                h('div', { className: 'mini-progress' }, h('i'))
-              ),
-
-              isFetchingPaused && !isFetchingUrl && h('div', {
-                className: 'status-row',
-                style: { background: 'rgba(234, 179, 8, 0.1)', borderColor: 'rgba(234, 179, 8, 0.25)', color: '#eab308', borderRadius: 4, padding: '8px 12px' }
-              },
-                h('span', null, `⏸ Ingestion paused. ${activeCrawlSession?.completedCount || activeCrawlSession?.chapters?.length || 0} chapters saved. Click "Resume Fetch" to continue.`)
-              ),
-
-              h('div', { className: 'note-row' },
-                h('span', null, 'Scrape images with chapters'),
-                h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                  h('span', { className: 'hint' }, 'saved with the book'),
-                  h('button', { type: 'button', className: `switch ${scrapeImages ? 'on' : ''}`, onClick: () => setScrapeImages(!scrapeImages) })
-                )
-              ),
-              h(InfoTooltip, {
-                title: 'Supported Sources',
-                text: 'Extracts full works and multi-chapter stories from Pixiv, AO3, Syosetu, Lofter, Witch Cult Translations, and standard WordPress/Tumblr webnovels directly to EPUB.',
-                tip: 'For Pixiv, paste either a novel URL or a /novel/series/ URL to fetch the entire story.'
-              }),
-              webImportData && h('div', { className: 'book-card' },
-                h('div', { className: 't' }, webImportData.title || 'Untitled Web Novel'),
-                h('div', { className: 'm' }, `By ${webImportData.author || 'Unknown'} · ${(webImportData.chapters || []).length} chapter(s) · ${(webImportData.chapters || []).reduce((a, c) => a + ((c.text || c.content || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
-                h('div', { className: 'book-acts' },
-                  h('button', { type: 'button', className: 'mini-btn', onClick: () => {
-                    const fullText = webImportData.chapters.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
-                    setInputText(fullText);
-                    setChapters(webImportData.chapters.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
-                    setActiveTab('text');
-                    toast('Imported to Translator tab!', 'info');
-                  } }, 'Send to Translator'),
-                  h('button', { type: 'button', className: 'mini-btn ghost', onClick: async () => {
-                    try {
-                      const blob = await generateEpubFromChapters(webImportData.chapters, webImportData.title, webImportData.author, 'en');
-                      const cleanName = sanitizeFilename(webImportData.title).replace(/\s+/g, '_');
-                      await saveUniversalBlob(blob, `${cleanName}.epub`, 'application/epub+zip');
-                      toast('EPUB downloaded successfully!', 'success');
-                    } catch (e) { toast('EPUB export error: ' + e.message, 'error'); }
-                  } }, 'Download Raw EPUB')
-                )
-              ),
-              webImportData && webImportData.chapters && webImportData.chapters.length > 0 && h('div', { className: 'card' },
-                h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: '8px' } },
-                  h('span', null, `Chapters (${webImportData.chapters.length})`),
-                  h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },
+            activeTab === 'web_importer' && (() => {
+              const activeNovelView = webImportData || (activeCrawlSession?.chapters?.length > 0 ? activeCrawlSession : null);
+              return h(React.Fragment, null,
+                // Incomplete Crawl Session Banner (only shown when returning to tab, suppressed when actively paused in card)
+                activeCrawlSession && !isFetchingPaused && !isFetchingUrl && h('div', {
+                  className: 'card',
+                  style: {
+                    background: 'rgba(234, 179, 8, 0.08)',
+                    borderColor: 'rgba(234, 179, 8, 0.3)',
+                    marginBottom: 12,
+                    padding: '12px 14px'
+                  }
+                },
+                  h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 } },
+                    h('span', { style: { fontSize: 12, fontWeight: 600, color: '#eab308' } }, '⏸ Incomplete Crawl Session Detected'),
+                    h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, `${(activeCrawlSession.chapters || []).length} / ${activeCrawlSession.totalChapterCount || '?'} chapters`)
+                  ),
+                  h('div', { style: { fontSize: 12, fontWeight: 500, marginBottom: 8, color: 'var(--paper)' } }, activeCrawlSession.title || 'Untitled Web Novel'),
+                  h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
                     h('button', {
                       type: 'button',
-                      className: 'chip-act',
-                      title: 'Auto-sort chapters chronologically by number (Prologue → Ch 1 → Ch N)',
-                      onClick: autoSortImportChapters
-                    }, '🔢 Auto-Sort'),
+                      className: 'mini-btn',
+                      style: { background: 'var(--accent, #6366f1)', color: '#fff' },
+                      disabled: isFetchingUrl,
+                      onClick: () => handleStartFetch(true)
+                    }, '▶ Resume Fetch'),
                     h('button', {
                       type: 'button',
-                      className: 'chip-act',
-                      title: 'Use AI to analyze and order chapters into canonical reading sequence',
-                      disabled: isAiSorting,
-                      onClick: aiReorderImportChapters
-                    }, isAiSorting ? '🤖 Sorting…' : '🤖 AI Sort'),
+                      className: 'mini-btn ghost',
+                      onClick: () => {
+                        const chs = activeCrawlSession.chapters || [];
+                        const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
+                        setInputText(fullText);
+                        setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
+                        setActiveTab('text');
+                        toast(`Loaded ${chs.length} chapters to Translator tab!`, 'info');
+                      }
+                    }, 'Send to Translator'),
                     h('button', {
                       type: 'button',
-                      className: 'chip-act',
-                      title: 'Reverse entire chapter order (1 ↔ N)',
-                      onClick: reverseImportChapters
-                    }, '⇄ Reverse')
+                      className: 'mini-btn danger',
+                      disabled: isFetchingUrl,
+                      onClick: dismissCrawlSession
+                    }, '✕ Dismiss')
                   )
                 ),
-                h('div', { className: 'custom-scrollbar', style: { maxHeight: 360, overflowY: 'auto' } },
-                  webImportData.chapters.map((c, i) => h('div', { key: i, className: 'set-row', style: { alignItems: 'center', gap: '10px', padding: '8px 0' } },
-                    h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, fontSize: '13.5px' } }, `${i + 1}. ${c.title || `Chapter ${i + 1}`}`),
-                    h('div', { className: 'pane-acts', style: { flexWrap: 'nowrap', flexShrink: 0, gap: '4px' } },
-                      h('span', { className: 'count', style: { marginRight: '4px' } }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()}w`),
-                      h('button', { type: 'button', className: 'ch-btn', title: 'Move to Top (Start)', disabled: i === 0, onClick: () => moveImportChapterToEdge(i, 'top') }, '⤒'),
-                      h('button', { type: 'button', className: 'ch-btn', title: 'Move Up 1', disabled: i === 0, onClick: () => moveImportChapter(i, -1) }, '↑'),
-                      h('button', { type: 'button', className: 'ch-btn', title: 'Move Down 1', disabled: i >= webImportData.chapters.length - 1, onClick: () => moveImportChapter(i, 1) }, '↓'),
-                      h('button', { type: 'button', className: 'ch-btn', title: 'Move to Bottom (End)', disabled: i >= webImportData.chapters.length - 1, onClick: () => moveImportChapterToEdge(i, 'bottom') }, '⤓'),
-                      h('button', { type: 'button', className: 'ch-btn danger', title: 'Remove Chapter', onClick: () => removeImportChapter(i) }, '✕')
+
+                h('div', { className: 'src-chips' }, ['NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', { key: s, className: 'src-chip' }, s))),
+                h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel URL (NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
+                
+                isFetchingPaused ? (
+                  h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, margin: '8px 0' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { padding: '10px 6px', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                      onClick: () => handleStartFetch(true)
+                    }, '▶ Resume Fetch'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { padding: '10px 6px', fontWeight: 600 },
+                      onClick: () => {
+                        const chs = activeNovelView?.chapters || [];
+                        if (chs.length === 0) return toast('No chapters downloaded yet to send.', 'warning');
+                        const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
+                        setInputText(fullText);
+                        setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
+                        setActiveTab('text');
+                        toast(`Loaded ${chs.length} chapters to Translator tab!`, 'info');
+                      }
+                    }, `📥 Send to Translate (${activeNovelView?.chapters?.length || 0})`),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn danger',
+                      style: { padding: '10px 6px', fontWeight: 600 },
+                      onClick: handleCancelFetch
+                    }, '✕ Cancel')
+                  )
+                ) : !isFetchingUrl ? (
+                  h('button', {
+                    type: 'button',
+                    className: 'primary block',
+                    disabled: !webImportUrl.trim(),
+                    onClick: () => handleStartFetch(false)
+                  }, '⤓ Fetch Novel')
+                ) : (
+                  h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '6px 0' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { padding: '10px 14px', background: 'rgba(234, 179, 8, 0.2)', color: '#eab308', borderColor: 'rgba(234, 179, 8, 0.4)', fontWeight: 600 },
+                      onClick: handlePauseFetch
+                    }, '⏸ Pause Fetch'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn danger',
+                      style: { padding: '10px 14px', fontWeight: 600 },
+                      onClick: handleCancelFetch
+                    }, '✕ Cancel')
+                  )
+                ),
+
+                isFetchingUrl && h('div', { className: 'status-row' },
+                  h('span', null, webImportStatus || 'Extracting chapters…'),
+                  h('div', { className: 'mini-progress' }, h('i'))
+                ),
+
+                isFetchingPaused && !isFetchingUrl && h('div', {
+                  className: 'status-row',
+                  style: { background: 'rgba(234, 179, 8, 0.1)', borderColor: 'rgba(234, 179, 8, 0.25)', color: '#eab308', borderRadius: 4, padding: '8px 12px' }
+                },
+                  h('span', null, `⏸ Ingestion paused. ${activeNovelView?.chapters?.length || 0} chapters saved. Click "Resume Fetch" to continue.`)
+                ),
+
+                h('div', { className: 'note-row' },
+                  h('span', null, 'Scrape images with chapters'),
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('span', { className: 'hint' }, 'saved with the book'),
+                    h('button', { type: 'button', className: `switch ${scrapeImages ? 'on' : ''}`, onClick: () => setScrapeImages(!scrapeImages) })
+                  )
+                ),
+                h(InfoTooltip, {
+                  title: 'Supported Sources',
+                  text: 'Extracts full works and multi-chapter stories from Pixiv, AO3, Syosetu, Lofter, Witch Cult Translations, and standard WordPress/Tumblr webnovels directly to EPUB.',
+                  tip: 'For Pixiv, paste either a novel URL or a /novel/series/ URL to fetch the entire story.'
+                }),
+                activeNovelView && h('div', { className: 'book-card' },
+                  h('div', { className: 't' }, activeNovelView.title || 'Untitled Web Novel'),
+                  h('div', { className: 'm' }, `By ${activeNovelView.author || 'Unknown'} · ${(activeNovelView.chapters || []).length} chapter(s) · ${(activeNovelView.chapters || []).reduce((a, c) => a + ((c.text || c.content || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
+                  h('div', { className: 'book-acts' },
+                    h('button', { type: 'button', className: 'mini-btn', onClick: () => {
+                      const fullText = (activeNovelView.chapters || []).map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
+                      setInputText(fullText);
+                      setChapters((activeNovelView.chapters || []).map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
+                      setActiveTab('text');
+                      toast('Imported to Translator tab!', 'info');
+                    } }, 'Send to Translator'),
+                    h('button', { type: 'button', className: 'mini-btn ghost', onClick: async () => {
+                      try {
+                        const blob = await generateEpubFromChapters(activeNovelView.chapters, activeNovelView.title, activeNovelView.author, 'en');
+                        const cleanName = sanitizeFilename(activeNovelView.title).replace(/\s+/g, '_');
+                        await saveUniversalBlob(blob, `${cleanName}.epub`, 'application/epub+zip');
+                        toast('EPUB downloaded successfully!', 'success');
+                      } catch (e) { toast('EPUB export error: ' + e.message, 'error'); }
+                    } }, 'Download Raw EPUB')
+                  )
+                ),
+                activeNovelView && activeNovelView.chapters && activeNovelView.chapters.length > 0 && h('div', { className: 'card' },
+                  h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: '8px' } },
+                    h('span', null, `Chapters (${activeNovelView.chapters.length})`),
+                    h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },
+                      h('button', {
+                        type: 'button',
+                        className: 'chip-act',
+                        title: 'Auto-sort chapters chronologically by number (Prologue → Ch 1 → Ch N)',
+                        onClick: autoSortImportChapters
+                      }, '🔢 Auto-Sort'),
+                      h('button', {
+                        type: 'button',
+                        className: 'chip-act',
+                        title: 'Use AI to analyze and order chapters into canonical reading sequence',
+                        disabled: isAiSorting,
+                        onClick: aiReorderImportChapters
+                      }, isAiSorting ? '🤖 Sorting…' : '🤖 AI Sort'),
+                      h('button', {
+                        type: 'button',
+                        className: 'chip-act',
+                        title: 'Reverse entire chapter order (1 ↔ N)',
+                        onClick: reverseImportChapters
+                      }, '⇄ Reverse')
                     )
-                  ))
+                  ),
+                  h('div', { className: 'custom-scrollbar', style: { maxHeight: 360, overflowY: 'auto' } },
+                    activeNovelView.chapters.map((c, i) => h('div', { key: i, className: 'set-row', style: { alignItems: 'center', gap: '10px', padding: '8px 0' } },
+                      h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, fontSize: '13.5px' } }, `${i + 1}. ${c.title || `Chapter ${i + 1}`}`),
+                      h('div', { className: 'pane-acts', style: { flexWrap: 'nowrap', flexShrink: 0, gap: '4px' } },
+                        h('span', { className: 'count', style: { marginRight: '4px' } }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()}w`),
+                        h('button', { type: 'button', className: 'ch-btn', title: 'Move to Top (Start)', disabled: i === 0, onClick: () => moveImportChapterToEdge(i, 'top') }, '⤒'),
+                        h('button', { type: 'button', className: 'ch-btn', title: 'Move Up 1', disabled: i === 0, onClick: () => moveImportChapter(i, -1) }, '↑'),
+                        h('button', { type: 'button', className: 'ch-btn', title: 'Move Down 1', disabled: i >= activeNovelView.chapters.length - 1, onClick: () => moveImportChapter(i, 1) }, '↓'),
+                        h('button', { type: 'button', className: 'ch-btn', title: 'Move to Bottom (End)', disabled: i >= activeNovelView.chapters.length - 1, onClick: () => moveImportChapterToEdge(i, 'bottom') }, '⤓'),
+                        h('button', { type: 'button', className: 'ch-btn danger', title: 'Remove Chapter', onClick: () => removeImportChapter(i) }, '✕')
+                      )
+                    ))
+                  )
                 )
-              )
-            ),
+              );
+            })(),
 
             // ═══ TAB 3: EPUB STUDIO ═══
             activeTab === 'studio' && h(React.Fragment, null,
@@ -7880,10 +8020,46 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 ),
 
                 cloudProvider === 'gdrive' ? (
-                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-                    h('div', { className: 'card-title' },
-                      h('span', null, 'Google Drive Cloud Sync'),
-                      h('span', { className: 'count' }, 'Private App Folder · Mihon/Komikku Standard')
+                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+                    // Primary Hero Card: Mihon/Komikku Standard 1-Tap Drive Backup (Zero Setup)
+                    h('div', {
+                      style: {
+                        background: 'rgba(99, 102, 241, 0.08)',
+                        border: '1px solid rgba(99, 102, 241, 0.28)',
+                        borderRadius: 6,
+                        padding: '12px 14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8
+                      }
+                    },
+                      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                        h('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--iris)' } }, '📁 1-Tap Google Drive Backup (Mihon Style)'),
+                        h('span', { style: { fontSize: 9.5, padding: '2px 6px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600 } }, '✨ Zero Setup')
+                      ),
+                      h('p', { style: { fontSize: 11, color: 'var(--slate)', margin: 0, lineHeight: 1.45 } },
+                        'Save and restore your entire novel library, translation history, and glossaries directly into your Google Drive folder using Android\'s system storage (exactly like Mihon and Komikku). No Google Developer account, tokens, or Client IDs needed!'
+                      ),
+                      h('div', { style: { display: 'flex', gap: 8, marginTop: 2 } },
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn',
+                          style: { flex: 1, textAlign: 'center', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '9px 12px' },
+                          onClick: backupToGoogleDriveFile
+                        }, '💾 Save to Drive Folder'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { flex: 1, textAlign: 'center', padding: '9px 12px' },
+                          onClick: () => document.getElementById('full-backup-input')?.click()
+                        }, '📥 Restore from File')
+                      )
+                    ),
+
+                    // Advanced: Direct Google Cloud OAuth API Sync
+                    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 } },
+                      h('span', { style: { fontSize: 11, fontWeight: 600, color: 'var(--paper-dim)' } }, '☁️ Direct Google Cloud API Sync (Advanced)'),
+                      h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Requires OAuth Client ID')
                     ),
 
                     // Connection Status Box
@@ -7909,10 +8085,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         }),
                         h('div', null,
                           h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)' } },
-                            gdriveConnected ? (gdriveUser?.displayName || gdriveUser?.emailAddress || 'Connected to Google Drive') : 'Not Connected'
+                            gdriveConnected ? (gdriveUser?.displayName || gdriveUser?.emailAddress || 'Connected to Google Drive') : 'Not Connected (Direct API)'
                           ),
-                          gdriveConnected && gdriveUser?.emailAddress && h('div', { style: { fontSize: 10, color: 'var(--slate)' } },
-                            gdriveUser.emailAddress
+                          h('div', { style: { fontSize: 10, color: 'var(--slate)' } },
+                            gdriveConnected ? (gdriveUser?.emailAddress || 'Google Cloud OAuth active') : 'Optional background REST API sync'
                           )
                         )
                       ),
@@ -7927,45 +8103,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         h('button', {
                           type: 'button',
                           className: 'mini-btn',
-                          style: { background: 'var(--accent, #6366f1)', color: '#fff', padding: '6px 12px', fontWeight: 600 },
+                          style: { background: 'var(--ember-1)', color: 'var(--paper-dim)', border: '1px solid var(--hairline)', padding: '6px 10px', fontSize: 10.5 },
                           onClick: connectGoogleDrive
-                        }, 'Sign in with Google')
-                      )
-                    ),
-
-                    // Mihon/Komikku Standard Drive Storage Backup (Zero Setup)
-                    h('div', {
-                      style: {
-                        background: 'rgba(99, 102, 241, 0.08)',
-                        border: '1px solid rgba(99, 102, 241, 0.25)',
-                        borderRadius: 4,
-                        padding: '10px 12px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 6,
-                        marginTop: 4
-                      }
-                    },
-                      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-                        h('span', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--iris)' } }, '📁 1-Tap Google Drive File Backup (Mihon Style)'),
-                        h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Zero Setup Required')
-                      ),
-                      h('p', { style: { fontSize: 11, color: 'var(--slate)', margin: 0, lineHeight: 1.4 } },
-                        'Save your entire novel library and glossaries to Google Drive using the Android / browser system file picker (exactly like Mihon and Komikku). No Google Cloud developer account needed.'
-                      ),
-                      h('div', { style: { display: 'flex', gap: 8, marginTop: 4 } },
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn',
-                          style: { flex: 1, textAlign: 'center', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
-                          onClick: backupToGoogleDriveFile
-                        }, '💾 Save to Drive Folder'),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: { flex: 1, textAlign: 'center' },
-                          onClick: () => document.getElementById('full-backup-input')?.click()
-                        }, '📥 Restore from File')
+                        }, 'Connect OAuth')
                       )
                     ),
 
