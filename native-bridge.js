@@ -240,14 +240,68 @@
             }
         },
 
-        clearProgressNotification: async (notifyDone = false, title = "Completed! ", message = "Tap to view in reader.") => {
+        requestNotificationPermission: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.requestNotificationPermission) {
+                    const res = await bridge.requestNotificationPermission();
+                    return res?.granted;
+                }
+            } catch (e) {
+                console.warn('Native Notification Permission Bridge:', e);
+            }
+            try {
+                if ('Notification' in window) {
+                    const perm = await Notification.requestPermission();
+                    return perm === 'granted';
+                }
+            } catch (e) {}
+            return false;
+        },
+
+        showCompletionNotification: async (title = "Completed! 🎉", message = "Action finished successfully.") => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.showCompletionNotification) {
+                    await bridge.showCompletionNotification({ title, message });
+                    try { window.NativeBridge?.haptic?.('success'); } catch(e) {}
+                    return;
+                }
+            } catch (e) {
+                console.warn('Native Completion Notification Bridge:', e);
+            }
+            try {
+                if ('Notification' in window) {
+                    if (Notification.permission === 'granted') {
+                        new Notification(title, { body: message, icon: './icon-192.png' });
+                    } else if (Notification.permission !== 'denied') {
+                        const perm = await Notification.requestPermission();
+                        if (perm === 'granted') {
+                            new Notification(title, { body: message, icon: './icon-192.png' });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Web Notification Fallback:', e);
+            }
+            try { window.NativeBridge?.haptic?.('success'); } catch(e) {}
+        },
+
+        clearProgressNotification: async (notifyDone = false, title = "Completed! 🎉", message = "Tap to view in reader.") => {
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.clearProgressNotification) {
                     await bridge.clearProgressNotification({ notifyDone, title, message });
+                    if (notifyDone) {
+                        try { window.NativeBridge?.haptic?.('success'); } catch(e) {}
+                    }
+                    return;
                 }
             } catch (e) {
                 console.warn('Clear Notification Bridge:', e);
+            }
+            if (notifyDone) {
+                await window.NativeBridge?.showCompletionNotification?.(title, message);
             }
         },
 

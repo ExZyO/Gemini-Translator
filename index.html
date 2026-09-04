@@ -807,7 +807,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.9.0';
+    const VERSION = '8.9.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4538,6 +4538,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           } else {
             setExtractedTerms(parsed);
             toast(`Extracted ${parsed.length} terms from novel!`, 'success');
+            try { window.NativeBridge?.showCompletionNotification?.('AI Glossary Extracted! ⚡', `Discovered ${parsed.length} character names and lore terms.`); } catch(e) {}
           }
         } catch (err) {
           console.error('Auto-glossary extraction error:', err);
@@ -4571,27 +4572,61 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       };
 
       // --- Feature 4: Name Consistency Verifier Engine ---
-      const handleRunConsistencyCheck = () => {
-        const termLines = (terminology || '').split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#') && !l.startsWith('//'));
-        if (termLines.length === 0) {
-          return toast('No glossary terms to check. Add terms to your glossary first!', 'warning');
-        }
+      const parseUniversalGlossaryPairs = (text) => {
+        if (!text) return [];
+        const lines = text.split(/\r?\n/);
+        const pairs = [];
+        const seen = new Set();
 
-        const glossaryPairs = [];
-        termLines.forEach(line => {
-          let clean = line;
-          const hash = clean.indexOf('#');
-          if (hash !== -1) clean = clean.slice(0, hash).trim();
-          const eq = clean.indexOf('=');
-          if (eq !== -1) {
-            const orig = clean.slice(0, eq).trim();
-            const target = clean.slice(eq + 1).trim();
-            if (orig && target) glossaryPairs.push({ orig, target });
+        for (let line of lines) {
+          line = line.trim();
+          if (!line || line.startsWith('#') || line.startsWith('//') || line.startsWith('/*')) continue;
+          
+          // Strip inline comments (# comment or // comment)
+          const hashIdx = line.indexOf('#');
+          if (hashIdx !== -1) line = line.slice(0, hashIdx).trim();
+          const slashIdx = line.indexOf('//');
+          if (slashIdx !== -1) line = line.slice(0, slashIdx).trim();
+
+          // Strip leading list bullets: "- ", "* ", "• ", "1. ", "1) "
+          line = line.replace(/^[-*•\s]+/, '').replace(/^\d+[\.\)]\s+/, '').trim();
+          if (!line) continue;
+
+          let orig = '';
+          let target = '';
+
+          const arrowMatch = line.match(/\s*(?:->|=>|→)\s*/);
+          if (arrowMatch) {
+            const idx = line.indexOf(arrowMatch[0]);
+            orig = line.slice(0, idx).trim();
+            target = line.slice(idx + arrowMatch[0].length).trim();
+          } else {
+            const eqIdx = line.indexOf('=');
+            if (eqIdx !== -1) {
+              orig = line.slice(0, eqIdx).trim();
+              target = line.slice(eqIdx + 1).trim();
+            }
           }
-        });
 
+          if (!orig || !target) continue;
+          if (/^(?:Example|Legend|Note|Rule|Warning)/i.test(orig)) continue;
+
+          const origClean = orig.replace(/\s*\([^)]*\)\s*$/, '').trim();
+          const targetClean = target.replace(/\s*\[[MFmf]\]\s*$/, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+          const primaryTarget = targetClean.split(/\s*[\/\;]\s*/)[0].replace(/^["']|["']$/g, '').trim();
+
+          if (origClean && primaryTarget && !seen.has(origClean)) {
+            seen.add(origClean);
+            pairs.push({ orig: origClean, target: primaryTarget });
+          }
+        }
+        return pairs;
+      };
+
+      const handleRunConsistencyCheck = () => {
+        const glossaryPairs = parseUniversalGlossaryPairs(terminology || '');
         if (glossaryPairs.length === 0) {
-          return toast('No "Original = Translation" pairs found in glossary.', 'info');
+          return toast('No glossary pairs found in active glossary. Use format "Original -> Translation" or "Original = Translation".', 'warning');
         }
 
         const chs = (translatedChapters && translatedChapters.length > 0)
@@ -4685,6 +4720,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         }
 
         toast(`Replaced ${replacedCount} occurrences of "${foundWord}" with "${targetWord}"!`, 'success');
+        try { window.NativeBridge?.showCompletionNotification?.('Name Drift Fixed! 🔍', `Replaced ${replacedCount} occurrences of "${foundWord}" with "${targetWord}".`); } catch(e) {}
         handleRunConsistencyCheck();
       };
 
@@ -4905,6 +4941,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           if (uploadRes.status >= 200 && uploadRes.status < 300) {
             const timeStr = new Date().toLocaleString();
             toast(`☁️ WebDAV Backup Successful! Saved to /${targetFolder}/`, 'success');
+            try { window.NativeBridge?.showCompletionNotification?.('Cloud Backup Complete! ☁️', `Backup saved to WebDAV /${targetFolder}/.`); } catch(e) {}
             setWebdavLastSync(timeStr);
             localStorage.setItem('webdavLastSync', timeStr);
           } else {
@@ -4948,6 +4985,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           if (confirm(`Found WebDAV backup (${countNovels} novels, ${countGloss} glossaries). Restore now? This will safely merge and update your data.`)) {
             await applyRestoredData(data);
             toast(`Restored ${countNovels} novels and ${countGloss} glossaries from WebDAV!`, 'success');
+            try { window.NativeBridge?.showCompletionNotification?.('Cloud Restore Complete! 📥', `Restored ${countNovels} novels and ${countGloss} glossaries from WebDAV.`); } catch(e) {}
           }
         } catch (e) {
           toast(`WebDAV Restore failed: ${e.message}`, 'error');
@@ -5638,6 +5676,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           setLastUsageStats(stats);
           addToHistory(srcLang, tgtLang, provider, inputText, result, stats);
           toast(`Translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
+          try {
+            window.NativeBridge?.releaseWakeLock?.();
+            window.NativeBridge?.showCompletionNotification?.('Text Translation Complete! ✨', `Translated in ${durationStr} (${stats.totalTokens.toLocaleString()} tokens).`);
+          } catch(e) {}
         } catch (e) {
           if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error') } else toast('Translation paused.', 'info')
         }
@@ -5884,9 +5926,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           }
           localStorage.removeItem(jobId); setActiveSession(null);
           toast(`Ebook translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
-          window.NativeBridge?.releaseWakeLock();
-          window.NativeBridge?.clearProgressNotification(true, 'Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${durationStr}.`);
-          window.NativeBridge?.haptic('success');
+          try {
+            window.NativeBridge?.releaseWakeLock?.();
+            window.NativeBridge?.clearProgressNotification?.(true, 'Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${durationStr}. Tap to read!`);
+            window.NativeBridge?.showCompletionNotification?.('Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${durationStr}. Tap to read!`);
+            window.NativeBridge?.haptic?.('success');
+          } catch(e) {}
           if (webdavAutoSync && webdavUrl.trim()) {
             backupToWebDav().catch(e => console.warn('Auto WebDAV sync error:', e));
           }
@@ -6413,6 +6458,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         return () => window.removeEventListener('keydown', esc);
       }, []);
 
+      useEffect(() => {
+        try {
+          window.NativeBridge?.requestNotificationPermission?.();
+        } catch (e) {}
+      }, []);
+
       const importGlossaryFile = (e) => {
         const f = e.target.files && e.target.files[0];
         if (!f) return;
@@ -6576,11 +6627,23 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           }
 
           const cleanJson = jsonStr.replace(/```json/gi, '').replace(/```/g, '').trim();
-          const matchArray = cleanJson.match(/\\[[\\s\\d,]+\\]/);
-          if (!matchArray) throw new Error('Could not parse index array from AI response.');
-          const orderArray = JSON.parse(matchArray[0]);
+          const matchArray = cleanJson.match(/\[[\s\d,]+\]/);
+          let orderArray = null;
+          if (matchArray) {
+            try { orderArray = JSON.parse(matchArray[0]); } catch(e) {}
+          }
+          if (!orderArray) {
+            const bracketMatch = cleanJson.match(/\[([^\]]+)\]/);
+            if (bracketMatch) {
+              const nums = bracketMatch[1].match(/\d+/g);
+              if (nums) orderArray = nums.map(Number);
+            }
+          }
+          if (!orderArray || !Array.isArray(orderArray)) {
+            throw new Error('Could not parse index array from AI response.');
+          }
 
-          if (!Array.isArray(orderArray) || orderArray.length !== webImportData.chapters.length) {
+          if (orderArray.length !== webImportData.chapters.length) {
             throw new Error(`AI returned ${orderArray.length} items (expected ${webImportData.chapters.length}). Using Auto-Sort.`);
           }
 
@@ -6595,6 +6658,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           });
 
           toast('✨ AI successfully reorganized chapters in reading order!', 'success');
+          try {
+            window.NativeBridge?.showCompletionNotification?.('Chapters Sorted! 🤖', `Successfully reorganized ${orderArray.length} chapters into reading order.`);
+          } catch(e) {}
         } catch (aiErr) {
           console.warn('AI Reorder error:', aiErr);
           toast('AI sort notice: ' + aiErr.message + '. Running instant Auto-Sort instead.', 'warn');
@@ -6988,6 +7054,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     setWebImportData(data);
                     saveNovelToHistory(data);
                     toast(`Imported "${data.title}" — ${data.chapters.length} chapters!`, 'success');
+                    try {
+                      window.NativeBridge?.showCompletionNotification?.('Novel Import Complete! 📥', `Imported "${data.title}" (${data.chapters.length} chapters).`);
+                    } catch (e) {}
                   } catch (err) {
                     toast('Failed to fetch URL: ' + err.message, 'error');
                   } finally {
@@ -7576,6 +7645,22 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               h('div', { className: 'card' },
                 h('div', { className: 'card-title' }, h('span', null, 'App Version & Runtime')),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Check for updates'), h('button', { type: 'button', className: 'chip-act', onClick: () => checkForAppUpdate(true) }, `v${VERSION}`)),
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'Notifications & Sound'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    onClick: async () => {
+                      const granted = await window.NativeBridge?.requestNotificationPermission?.();
+                      if (granted) {
+                        toast('Notifications enabled! 🎉', 'success');
+                        window.NativeBridge?.showCompletionNotification?.('Gemini Notifications Active 🔔', 'Completion alerts with sound & vibration are ready.');
+                      } else {
+                        toast('Notification permission not granted. Check Android App Permissions.', 'warning');
+                      }
+                    }
+                  }, '🔔 Enable Alerts')
+                ),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Install App (PWA)'), h('button', { type: 'button', className: 'chip-act', onClick: handleInstallPWA }, 'Install')),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Keyboard Shortcuts'), h('span', { className: 'count' }, 'Ctrl+Enter · Ctrl+Shift+C · Ctrl+Alt+R'))
               )

@@ -1,6 +1,9 @@
 package com.exzyo.geminitranslator;
 
+import android.Manifest;
+import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -65,6 +68,7 @@ import java.util.List;
 public class NativeAndroidBridgePlugin extends Plugin {
     private static final String TAG = "NativeAndroidBridge";
     private static final String CHANNEL_ID = "gemini_translator_progress";
+    private static final String CHANNEL_ID_COMPLETION = "gemini_completion_alerts";
     private static final int NOTIFICATION_ID = 1001;
     private static final int COMPLETE_NOTIFICATION_ID = 1002;
     private static final String DEFAULT_UA = "Mozilla/5.0 (Linux; Android 14; Mobile; rv:125.0) Gecko/125.0 Firefox/125.0";
@@ -76,19 +80,54 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private void ensureNotificationChannel() {
         if (isChannelCreated || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         Context context = getContext();
-        NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID,
-                "Translation & Merge Progress",
-                NotificationManager.IMPORTANCE_LOW
-        );
-        channel.setDescription("Shows real-time progress for active book translations and EPUB merges");
-        channel.setSound(null, null);
-        channel.enableVibration(false);
-
         notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (notificationManager != null) {
-            notificationManager.createNotificationChannel(channel);
+            // 1. Progress channel (silent ongoing)
+            NotificationChannel progressChannel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Translation & Task Progress",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            progressChannel.setDescription("Shows real-time progress for active book translations and EPUB merges");
+            progressChannel.setSound(null, null);
+            progressChannel.enableVibration(false);
+            notificationManager.createNotificationChannel(progressChannel);
+
+            // 2. Completion alert channel (high priority with chime & vibration)
+            NotificationChannel completionChannel = new NotificationChannel(
+                    CHANNEL_ID_COMPLETION,
+                    "Task Completion Alerts",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            completionChannel.setDescription("Alerts when translations, novel downloads, and EPUB exports finish");
+            completionChannel.enableVibration(true);
+            completionChannel.setVibrationPattern(new long[]{0, 250, 100, 250});
+            completionChannel.enableLights(true);
+            notificationManager.createNotificationChannel(completionChannel);
+
             isChannelCreated = true;
+        }
+    }
+
+    @PluginMethod
+    public void requestNotificationPermission(PluginCall call) {
+        try {
+            Context context = getContext();
+            boolean granted = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    granted = false;
+                    Activity activity = getActivity();
+                    if (activity != null) {
+                        activity.requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+                    }
+                }
+            }
+            JSObject ret = new JSObject();
+            ret.put("granted", granted);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Permission error: " + e.getMessage());
         }
     }
 
@@ -141,6 +180,47 @@ public class NativeAndroidBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void showCompletionNotification(PluginCall call) {
+        try {
+            ensureNotificationChannel();
+            Context context = getContext();
+            String title = call.getString("title", "Task Finished! 🎉");
+            String message = call.getString("message", "Your action has completed.");
+
+            Intent launchIntent = new Intent(context, MainActivity.class);
+            launchIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                    context, 0, launchIntent,
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT
+            );
+
+            NotificationCompat.Builder doneBuilder = new NotificationCompat.Builder(context, CHANNEL_ID_COMPLETION)
+                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                    .setContentTitle(title)
+                    .setContentText(message)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+                    .setDefaults(Notification.DEFAULT_ALL)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH);
+
+            if (notificationManager == null) {
+                notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            }
+            if (notificationManager != null) {
+                notificationManager.cancel(NOTIFICATION_ID);
+                notificationManager.notify(COMPLETE_NOTIFICATION_ID, doneBuilder.build());
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Completion Notification Error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void clearProgressNotification(PluginCall call) {
         try {
             Context context = getContext();
@@ -153,22 +233,25 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
             boolean notifyDone = call.getBoolean("notifyDone", false);
             if (notifyDone) {
-                String title = call.getString("title", "Book Completed! ");
+                String title = call.getString("title", "Book Completed! 🎉");
                 String message = call.getString("message", "Translation completed successfully. Tap to open.");
                 
                 Intent launchIntent = new Intent(context, MainActivity.class);
+                launchIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 PendingIntent pendingIntent = PendingIntent.getActivity(
                         context, 0, launchIntent,
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT
                 );
 
-                NotificationCompat.Builder doneBuilder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                NotificationCompat.Builder doneBuilder = new NotificationCompat.Builder(context, CHANNEL_ID_COMPLETION)
                         .setSmallIcon(android.R.drawable.stat_sys_download_done)
                         .setContentTitle(title)
                         .setContentText(message)
+                        .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
                         .setContentIntent(pendingIntent)
                         .setAutoCancel(true)
-                        .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+                        .setDefaults(Notification.DEFAULT_ALL)
+                        .setPriority(NotificationCompat.PRIORITY_HIGH);
 
                 if (notificationManager != null) {
                     notificationManager.notify(COMPLETE_NOTIFICATION_ID, doneBuilder.build());

@@ -1,7 +1,7 @@
 {
-  "version": "8.9.0",
-  "versionCode": 890,
+  "version": "8.9.1",
+  "versionCode": 891,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.9.0 Studio Pro: AI Auto-Glossary & Character Extractor with dynamic chapter slider; Name Consistency & Untranslated Leak Verifier with 1-click batch fix; Cloud & WebDAV Auto-Sync (Nextcloud/NAS); AMOLED Pitch Black (#000000) theme; Dual WakeLock & dynamic chapter/chunk live notifications; Studio IDE flat aesthetic."
+  "releaseNotes": "v8.9.1: Universal Glossary Parser supporting '->', '=>', '→', and '=' delimiters for web novel presets (LOTM, COTE, RI); AI Chapter Sort regex & array parser fix; High-priority Completion Notifications with chime and vibration across Android & Web (translations, novel imports, and file exports)."
 }
