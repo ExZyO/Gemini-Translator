@@ -329,7 +329,7 @@
     // ═══════════════════════════════════════
     // UTILITY FUNCTIONS
     // ═══════════════════════════════════════
-    const fetchRetry = async (url, opts, retries = 3, timeoutMs = 45000) => {
+    const fetchRetry = async (url, opts, retries = 3, timeoutMs = 75000) => {
       let delay = 1500;
       for (let i = 0; i < retries; i++) {
         if (opts?.signal?.aborted) {
@@ -340,7 +340,7 @@
 
         const attemptController = new AbortController();
         let timeoutId = setTimeout(() => {
-          attemptController.abort(new Error('Request timed out (45s).'));
+          attemptController.abort(new Error(`Request timed out (${Math.round(timeoutMs / 1000)}s).`));
         }, timeoutMs);
 
         const onParentAbort = () => {
@@ -1366,7 +1366,7 @@
         } catch (err) {
           if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
           const errMsg = (err.message || '').toLowerCase();
-          const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand');
+          const isRateLimit = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') || errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('demand') || errMsg.includes('timed out') || errMsg.includes('timeout') || errMsg.includes('aborted');
           if (isRateLimit) {
             if (typeof rotateFn === 'function') {
               const nextKey = rotateFn(currentOpts.apiKey);

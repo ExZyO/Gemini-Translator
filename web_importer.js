@@ -1239,8 +1239,9 @@
             // If heading matches the novel title and contains summary, notes, or tags, label it "Summary"
             const lowerBody = (bodyText || '').toLowerCase();
             const isSummaryBlock = chDoc.querySelector('.meta, .tags, [class*="summary"], [class*="preface"], dl.tags') ||
+                                   /(?:^|\n)\s*(?:by\s+[^\n]+\r?\n+)?\s*(?:summary|synopsis|warning|notes|author'?s?\s*note|简介|内容简介|前言|文案)[:：\s]/i.test(bodyText || '') ||
                                    lowerBody.includes('summary:') || lowerBody.includes('notes:') || lowerBody.includes('tags:');
-            if (heading.toLowerCase() === title.toLowerCase() && isSummaryBlock) {
+            if ((heading.toLowerCase() === title.toLowerCase() || !heading || /^chapter\s+\d+$/i.test(heading)) && isSummaryBlock) {
                 heading = 'Summary';
             }
 

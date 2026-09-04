@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.14';
+    const VERSION = '8.10.15';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1048,7 +1048,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // UTILITY FUNCTIONS
     // ═══════════════════════════════════════
-    const fetchRetry = async (url, opts, retries = 3, timeoutMs = 45000) => {
+    const fetchRetry = async (url, opts, retries = 3, timeoutMs = 75000) => {
       let delay = 1500;
       for (let i = 0; i < retries; i++) {
         if (opts?.signal?.aborted) {
@@ -1059,7 +1059,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 
         const attemptController = new AbortController();
         let timeoutId = setTimeout(() => {
-          attemptController.abort(new Error('Request timed out (45s).'));
+          attemptController.abort(new Error(`Request timed out (${Math.round(timeoutMs / 1000)}s).`));
         }, timeoutMs);
 
         const onParentAbort = () => {
@@ -2460,7 +2460,8 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
               errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('500') ||
               errMsg.includes('502') || errMsg.includes('504') || errMsg.includes('demand') ||
               errMsg.includes('overloaded') || errMsg.includes('unavailable') || errMsg.includes('empty response') ||
-              errMsg.includes('empty stream') || errMsg.includes('network') || errMsg.includes('failed to fetch');
+              errMsg.includes('empty stream') || errMsg.includes('network') || errMsg.includes('failed to fetch') ||
+              errMsg.includes('timed out') || errMsg.includes('timeout') || errMsg.includes('aborted');
             if (isRetryable) {
               if (allKeys.length > 1) {
                 const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
@@ -6197,7 +6198,20 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 if (opts?.strictModel) {
                   throw new Error(`Strict Model: Could not complete chunk ${i + 1}/${chunks.length} with ${opts.model || 'chosen model'}: ${err.message}. Progress safely preserved. Tap Resume to retry.`);
                 }
-                translated = { text: `\n\n[Error on chunk ${i + 1}: ${err.message}]\n\n` };
+                let recText = '';
+                try {
+                  const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
+                  const fallbackLeased = (availableKeys?.length > 1) ? await KeyPool.acquireKey(availableKeys) : null;
+                  const fallbackOpts = { ...opts, apiKey: fallbackLeased || opts.apiKey, context: undefined, needContextUpdate: false };
+                  const recRes = await translateWithRotation(chunks[i], fallbackOpts);
+                  if (fallbackLeased) KeyPool.releaseKey(fallbackLeased);
+                  recText = (recRes && typeof recRes === 'object') ? (recRes.text || '') : (typeof recRes === 'string' ? recRes : '');
+                } catch (recErr) {}
+                if (recText && recText.trim()) {
+                  translated = { text: recText };
+                } else {
+                  translated = { text: `\n\n[Error on chunk ${i + 1}: ${err.message}]\n\n` };
+                }
               }
               result += (result ? '\n' : '') + (translated.text || translated);
               ctx = translated.newContext || ctx;
@@ -6342,6 +6356,21 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         try {
           let totalChunks = 0;
 
+          // Disambiguate duplicate adjacent chapter titles in chapters array (e.g. AO3 summary block vs story chapter)
+          for (let idx = 0; idx < chapters.length - 1; idx++) {
+            const cur = chapters[idx];
+            const next = chapters[idx + 1];
+            const curTitle = (cur?.title || '').trim().toLowerCase();
+            const nextTitle = (next?.title || '').trim().toLowerCase();
+            if (curTitle && curTitle === nextTitle) {
+              const curText = (typeof cur === 'string' ? cur : (cur?.text || cur?.content || ''));
+              const curIsSummary = /(?:^|\n)\s*(?:by\s+[^\n]+\r?\n+)?\s*(?:Summary|Synopsis|Warning|Notes|简介|内容简介|前言)[:：\s]/i.test(curText);
+              if (curIsSummary) {
+                if (typeof cur === 'object') cur.title = 'Summary';
+              }
+            }
+          }
+
           // Prepare chapter chunks with clean paragraph boundary splitting
           const chapterData = chapters.map(c => {
             const effectiveTerm = enableGlossary ? terminology : '';
@@ -6380,6 +6409,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
           // User requested full parallel speed (up to 20 workers)
           const effectiveConcurrency = Math.max(1, concurrency || 3);
+          const translatedTitleCache = new Map();
 
           setProgress(Math.floor((done / totalChunks) * 100));
           setProgressLabel(`Translating ${chapterItems.length} chapter(s) with ${Math.min(effectiveConcurrency, chapterItems.length)} parallel multi-key stream(s)${useContext ? ' (intra-chapter context)' : ''}...`);
@@ -6391,18 +6421,26 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             const chunks = ch.chunks;
             let chapterCtx = '';
 
-            // 1. Translate title if needed
+            // 1. Translate title if needed (cached so duplicate chapter titles match exactly)
             if (title && String(title).trim()) {
               if (!(resume && newChapters[i]?.title)) {
-                try {
-                  const tRes = await translateWithRotation(title, { ...workerOpts, context: undefined, needContextUpdate: false });
-                  title = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
-                  if (tRes?.usage) {
-                    totalPromptTokens += tRes.usage.promptTokens || 0;
-                    totalOutputTokens += tRes.usage.outputTokens || 0;
-                    totalTokensUsed += tRes.usage.totalTokens || 0;
-                  }
-                } catch (e) { console.warn('Title translation failed, keeping original title:', e.message); }
+                if (translatedTitleCache.has(title)) {
+                  title = translatedTitleCache.get(title);
+                } else {
+                  try {
+                    const tRes = await translateWithRotation(title, { ...workerOpts, context: undefined, needContextUpdate: false });
+                    const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
+                    if (trans && trans.trim()) {
+                      translatedTitleCache.set(title, trans.trim());
+                      title = trans.trim();
+                    }
+                    if (tRes?.usage) {
+                      totalPromptTokens += tRes.usage.promptTokens || 0;
+                      totalOutputTokens += tRes.usage.outputTokens || 0;
+                      totalTokensUsed += tRes.usage.totalTokens || 0;
+                    }
+                  } catch (e) { console.warn('Title translation failed, keeping original title:', e.message); }
+                }
                 done++;
                 const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
                 setProgress(curPct);
@@ -6450,7 +6488,24 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 if (opts?.strictModel) {
                   throw new Error(`Strict Model: Failed translating chunk ${j + 1}/${chunks.length} of "${title || `Chapter ${i + 1}`}": ${e.message}. Progress safely saved. Tap Resume to retry.`);
                 }
-                translatedText = `\n\n[Error: ${e.message}]\n\n`;
+                // When strictModel is OFF, attempt one fresh-key fallback before writing error placeholder
+                let recovered = false;
+                try {
+                  const fallbackLeased = (availableKeys.length > 1) ? await KeyPool.acquireKey(availableKeys) : null;
+                  const fallbackOpts = { ...workerOpts, apiKey: fallbackLeased || workerOpts.apiKey, context: undefined, needContextUpdate: false };
+                  const recRes = await translateWithRotation(chunks[j].text, fallbackOpts);
+                  if (fallbackLeased) KeyPool.releaseKey(fallbackLeased);
+                  const recText = (recRes && typeof recRes === 'object') ? (recRes.text || '') : (typeof recRes === 'string' ? recRes : '');
+                  if (recText && recText.trim()) {
+                    translatedText = recText;
+                    recovered = true;
+                  }
+                } catch (recErr) {
+                  console.warn(`Chunk fallback recovery failed: ${recErr.message}`);
+                }
+                if (!recovered) {
+                  translatedText = `\n\n[Error: ${e.message}]\n\n`;
+                }
               }
               parts.push(translatedText);
               
@@ -6634,6 +6689,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         const od = rp.substring(0, rp.lastIndexOf('/') + 1);
         const of2 = zip.file(rp); if (!of2) throw new Error('OPF not found');
         const oc = await of2.async('text'); const opf = new DOMParser().parseFromString(oc, 'text/xml');
+        const bookTitle = (opf.querySelector('title, dc\\:title')?.textContent || '').trim();
         const ncxI = opf.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
         const ncxH = ncxI ? od + ncxI.getAttribute('href') : null;
         const navI = Array.from(opf.querySelectorAll('manifest item')).find(i => (i.getAttribute('properties') || '').split(/\s+/).includes('nav'));
@@ -6695,12 +6751,32 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   }
                 }
                 if (!title) title = `Chapter ${chapters.length + 1}`;
+
+                // AO3 / EPUB Summary & Foreword Disambiguation:
+                // If chapter body is primarily a summary/synopsis/warning/metadata block, label it "Summary"
+                const isSummaryBlock = doc.querySelector('.meta, .tags, [class*="summary"], [class*="preface"], dl.tags') ||
+                  /(?:^|\n)\s*(?:by\s+[^\n]+\r?\n+)?\s*(?:Summary|Synopsis|Warning|Notes|Author'?s?\s*Note|内容简介|简介|前言|文案)[:：\s]/i.test(txt || '');
+                if (isSummaryBlock && (title.toLowerCase() === bookTitle.toLowerCase() || !title || /^chapter\s+\d+$/i.test(title))) {
+                  title = 'Summary';
+                }
+
                 const key = chapterKey(txt);
                 if (txt.trim() && key && !seenChapterKeys.has(key)) {
                   seenChapterKeys.add(key);
                   chapters.push({ title, text: txt, doc, zipPath: cp });
                 }
               } catch (e) { }
+            }
+          }
+        }
+        // Deduplicate adjacent identical chapter titles (e.g. AO3 summary page and chapter 1 both titled with book name)
+        for (let idx = 0; idx < chapters.length - 1; idx++) {
+          const cur = chapters[idx];
+          const next = chapters[idx + 1];
+          if (cur.title.trim().toLowerCase() === next.title.trim().toLowerCase()) {
+            const curIsSummary = /(?:^|\n)\s*(?:by\s+[^\n]+\r?\n+)?\s*(?:Summary|Synopsis|Warning|Notes|简介|内容简介|前言)[:：\s]/i.test(cur.text || '');
+            if (curIsSummary) {
+              cur.title = 'Summary';
             }
           }
         }
