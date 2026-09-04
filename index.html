@@ -6534,14 +6534,18 @@ FORMATTING & STRUCTURE RULES:
                 switchRow('Drop Caps', epubDropCaps, setEpubDropCaps),
                 switchRow('Smart Quotes', epubSmartQuotes, setEpubSmartQuotes),
                 switchRow('Clean Web Junk', epubCleanWebArtifacts, setEpubCleanWebArtifacts),
-                switchRow('Live Diagnostics Logs', showLiveLogs, setShowLiveLogs),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Diagnostics & Logs'),
-                  h('button', { type: 'button', className: 'chip-act', onClick: () => setLogsModalOpen(true) }, '📜 View Live Logs')
-                ),
                 switchRow('Justify Text', epubJustifyText, setEpubJustifyText),
                 h('div', { className: 'seg', style: { paddingTop: 8 } },
                   fontThemes.map(f => h('button', { key: f.id, type: 'button', className: `seg-btn ${epubFontTheme === f.id ? 'on' : ''}`, onClick: () => setEpubFontTheme(f.id) }, f.label))
+                )
+              ),
+
+              h('div', { className: 'card' },
+                h('div', { className: 'card-title' }, h('span', null, 'Diagnostics & Telemetry')),
+                switchRow('Show Live Logs on Translate Tab', showLiveLogs, setShowLiveLogs),
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'System & API Logs'),
+                  h('button', { type: 'button', className: 'chip-act', onClick: () => setLogsModalOpen(true) }, '📜 View Live Logs')
                 )
               ),
 
