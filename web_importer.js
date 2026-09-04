@@ -626,7 +626,15 @@
                 const chPageHtml = await fetchHtml(volUrl);
                 const pDoc = new DOMParser().parseFromString(chPageHtml, 'text/html');
                 
-                const aTags = Array.from(pDoc.querySelectorAll('ul.chapter-list li a, .list-chapter li a, a[href*="/chapter-"]'));
+                // Target specifically the chapter archive list to ignore "Latest Release" teaser links in the header
+                let aTags = Array.from(pDoc.querySelectorAll('#chpagedlist ul.chapter-list li a, ul.chapter-list li a, .list-chapter li a'));
+                if (aTags.length === 0) {
+                    aTags = Array.from(pDoc.querySelectorAll('.chapter-list a, .chapters-list a, #tab-chapters a'));
+                }
+                if (aTags.length === 0) {
+                    aTags = Array.from(pDoc.querySelectorAll('a[href*="/chapter-"]')).filter(a => !a.closest('header, footer, nav, .latest, .filters, #header'));
+                }
+
                 let pageFound = 0;
                 for (const a of aTags) {
                     const href = a.getAttribute('href');
@@ -657,7 +665,11 @@
 
         // Fallback: check chapters directly on book page if /chapters wasn't reached
         if (chapterLinks.length === 0) {
-            doc.querySelectorAll('ul.chapter-list li a, .list-chapter li a, a[href*="/chapter-"]').forEach(a => {
+            let fallbackTags = Array.from(doc.querySelectorAll('#chpagedlist ul.chapter-list li a, ul.chapter-list li a, .list-chapter li a'));
+            if (fallbackTags.length === 0) {
+                fallbackTags = Array.from(doc.querySelectorAll('a[href*="/chapter-"]')).filter(a => !a.closest('header, footer, nav, .latest, .filters, #header'));
+            }
+            fallbackTags.forEach(a => {
                 const href = a.getAttribute('href');
                 if (href && !seenUrls.has(href)) {
                     seenUrls.add(href);
@@ -668,6 +680,23 @@
         }
 
         if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
+
+        // Self-healing: if the first link is an out-of-order high chapter (e.g. Chapter 861 preceding Chapter 1), auto-sort naturally
+        if (chapterLinks.length > 2) {
+            const getChWeight = (item, idx) => {
+                const t = (item.title || '').trim().toLowerCase();
+                if (/^(prologue|preface|intro|foreword|序章|序)\b/i.test(t)) return -999999 + idx * 0.001;
+                if (/^(epilogue|afterword|postscript|终章|尾声)\b/i.test(t) && !/chapter\s*\d+/i.test(t)) return 999999 + idx * 0.001;
+                const m = (item.title || '').match(/(?:chapter|ch\.?|ep\.?|part)\s*(\d+(?:\.\d+)?)/i) || (item.url || '').match(/\/chapter-(\d+(?:\.\d+)?)/i);
+                return m ? parseFloat(m[1]) : idx;
+            };
+            const firstW = getChWeight(chapterLinks[0], 0);
+            const secondW = getChWeight(chapterLinks[1], 1);
+            if (firstW > secondW && firstW > 20) {
+                console.log(` [NovelFire] Detected out-of-order teaser link (${chapterLinks[0].title}), sorting chapters naturally.`);
+                chapterLinks.sort((a, b) => getChWeight(a, 0) - getChWeight(b, 0));
+            }
+        }
 
         progressCb?.(`Found ${chapterLinks.length} chapters on NovelFire! Fetching in parallel...`, 30);
 

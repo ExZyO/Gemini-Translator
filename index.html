@@ -518,7 +518,7 @@ textarea:focus, input:focus, select:focus { outline: 1px solid rgba(124,135,255,
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.8.4';
+    const VERSION = '8.8.5';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3897,6 +3897,7 @@ ${tocNavLinks.join('\n')}
       const [isFetchingUrl, setIsFetchingUrl] = useState(false);
       const [webImportStatus, setWebImportStatus] = useState('');
       const [webImportData, setWebImportData] = useState(null);
+      const [isAiSorting, setIsAiSorting] = useState(false);
       const [webImportHistory, setWebImportHistory] = useState(() => {
         try {
           const saved = localStorage.getItem('gemini_web_import_history_meta') || localStorage.getItem('gemini_web_import_history');
@@ -12927,6 +12928,169 @@ FORMATTING & STRUCTURE RULES:
         });
       };
 
+      const moveImportChapterToEdge = (idx, edge) => {
+        setWebImportData(prev => {
+          if (!prev || !prev.chapters || prev.chapters.length <= 1) return prev;
+          const chapters = [...prev.chapters];
+          const [target] = chapters.splice(idx, 1);
+          if (edge === 'top') {
+            chapters.unshift(target);
+          } else {
+            chapters.push(target);
+          }
+          return { ...prev, chapters };
+        });
+        toast(edge === 'top' ? 'Moved chapter to start.' : 'Moved chapter to end.', 'info');
+      };
+
+      const autoSortImportChapters = () => {
+        setWebImportData(prev => {
+          if (!prev || !prev.chapters || prev.chapters.length <= 1) return prev;
+
+          const parseChapterWeight = (title, idx) => {
+            const raw = (title || '').trim().toLowerCase();
+
+            // 1. Prologue / Preface / Intro / 序
+            if (/^(prologue|preface|intro|introduction|foreword|序章|序)\b/i.test(raw)) {
+              return -999999 + idx * 0.001;
+            }
+
+            // 2. Epilogue / Afterword / 终章 / 尾声 (only if not an explicitly numbered chapter like "Chapter 861: Epilogue")
+            if (/^(epilogue|afterword|postscript|终章|尾声|后记)\b/i.test(raw) && !/chapter\s*\d+/i.test(raw)) {
+              return 999999 + idx * 0.001;
+            }
+
+            // 3. Volume / Book + Chapter: "Volume 2 Chapter 15" -> 2 * 100000 + 15
+            const volChMatch = raw.match(/vol(?:ume)?\.?\s*(\d+).*?ch(?:apter)?\.?\s*(\d+(?:\.\d+)?)/i);
+            if (volChMatch) {
+              return parseFloat(volChMatch[1]) * 100000 + parseFloat(volChMatch[2]);
+            }
+
+            // 4. Standard "Chapter 123", "Ch. 123", "c123", "第123章", or leading number
+            const chMatch = raw.match(/(?:chapter|ch\.?|ep\.?|episode|c|part)\s*(\d+(?:\.\d+)?)/i) ||
+                            raw.match(/第\s*(\d+)\s*[章话話集]/) ||
+                            raw.match(/^(\d+(?:\.\d+)?)\b/);
+            if (chMatch) {
+              return parseFloat(chMatch[1]);
+            }
+
+            // If no explicit number, keep original relative index
+            return idx;
+          };
+
+          const chaptersWithWeights = prev.chapters.map((c, originalIdx) => ({
+            chapter: c,
+            weight: parseChapterWeight(c.title || '', originalIdx),
+            originalIdx
+          }));
+
+          chaptersWithWeights.sort((a, b) => {
+            if (a.weight !== b.weight) return a.weight - b.weight;
+            return a.originalIdx - b.originalIdx;
+          });
+
+          return { ...prev, chapters: chaptersWithWeights.map(x => x.chapter) };
+        });
+        toast('✨ Chapters auto-sorted chronologically!', 'success');
+      };
+
+      const reverseImportChapters = () => {
+        setWebImportData(prev => {
+          if (!prev || !prev.chapters || prev.chapters.length <= 1) return prev;
+          const chapters = [...prev.chapters].reverse();
+          return { ...prev, chapters };
+        });
+        toast('Chapters order reversed (1 ↔ N).', 'info');
+      };
+
+      const aiReorderImportChapters = async () => {
+        if (!webImportData || !webImportData.chapters || webImportData.chapters.length <= 1) {
+          toast('No chapters to reorder.', 'info');
+          return;
+        }
+
+        const key = getActiveApiKey('gemini') || getActiveApiKey(provider);
+        if (!key) {
+          toast('Please add an API key in Settings for AI Reorder, or use Auto-Sort.', 'error');
+          return;
+        }
+
+        setIsAiSorting(true);
+        toast('🤖 AI analyzing chapter reading order...', 'info');
+
+        try {
+          const titleItems = webImportData.chapters.map((c, i) => `${i}: "${(c.title || `Chapter ${i + 1}`).replace(/"/g, "'")}"`);
+          const systemPrompt = "You are an expert novel editor and reading order analyzer. The user will provide a list of chapter titles with their 0-based indices from an imported web novel. Some chapters may be out of chronological reading order (such as a latest release teaser or side story placed at the top, or prologue out of place).\\n\\nOutput a valid JSON array of the original integer indices arranged in their proper, chronological reading order (from first chapter to last chapter).\\nInclude every single index from 0 to N-1 exactly once. Output ONLY the raw JSON array (e.g. [1, 2, 3, 0]), with NO extra commentary or markdown backticks.";
+          const userPrompt = `Reorder these ${webImportData.chapters.length} chapter titles into proper chronological reading order:\\n${titleItems.join('\\n')}`;
+
+          let jsonStr = '';
+          if (provider === 'deepseek') {
+            const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+              body: JSON.stringify({
+                model: useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : 'deepseek-chat',
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: userPrompt }
+                ],
+                stream: false
+              })
+            });
+            if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`API error ${r.status}: ${b.substring(0, 150)}`); }
+            const j = await r.json();
+            jsonStr = j.choices?.[0]?.message?.content || '';
+          } else {
+            const model = useCustomModel && customModel ? customModel : geminiModel;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+            const r = await fetchRetry(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                generationConfig: {
+                  temperature: 0.1,
+                  maxOutputTokens: 8192
+                }
+              })
+            });
+            if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`Gemini API error ${r.status}: ${b.substring(0, 150)}`); }
+            const j = await r.json();
+            const candidateParts = j?.candidates?.[0]?.content?.parts || [];
+            const actualParts = candidateParts.filter(p => !p.thought);
+            jsonStr = actualParts.length > 0 ? actualParts.map(p => p.text || '').join('') : candidateParts.map(p => p.text || '').join('');
+          }
+
+          const cleanJson = jsonStr.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const matchArray = cleanJson.match(/\\[[\\s\\d,]+\\]/);
+          if (!matchArray) throw new Error('Could not parse index array from AI response.');
+          const orderArray = JSON.parse(matchArray[0]);
+
+          if (!Array.isArray(orderArray) || orderArray.length !== webImportData.chapters.length) {
+            throw new Error(`AI returned ${orderArray.length} items (expected ${webImportData.chapters.length}). Using Auto-Sort.`);
+          }
+
+          const indexSet = new Set(orderArray);
+          if (indexSet.size !== webImportData.chapters.length) {
+            throw new Error('AI returned duplicate indices. Using Auto-Sort.');
+          }
+
+          setWebImportData(prev => {
+            const reordered = orderArray.map(idx => prev.chapters[idx]);
+            return { ...prev, chapters: reordered };
+          });
+
+          toast('✨ AI successfully reorganized chapters in reading order!', 'success');
+        } catch (aiErr) {
+          console.warn('AI Reorder error:', aiErr);
+          toast('AI sort notice: ' + aiErr.message + '. Running instant Auto-Sort instead.', 'warn');
+          autoSortImportChapters();
+        } finally {
+          setIsAiSorting(false);
+        }
+      };
+
       const handleExportRow = async (kind) => {
         if (kind === 'epub') { setSheetOpen(false); await handleDownloadEPUB(); return; }
         if (kind === 'reader') {
@@ -13344,18 +13508,43 @@ FORMATTING & STRUCTURE RULES:
                 )
               ),
               webImportData && webImportData.chapters && webImportData.chapters.length > 0 && h('div', { className: 'card' },
-                h('div', { className: 'card-title' },
+                h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: '8px' } },
                   h('span', null, `Chapters (${webImportData.chapters.length})`),
-                  h('span', { className: 'count' }, '↑↓ reorder · ✕ remove')
+                  h('div', { style: { display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      style: { padding: '4px 9px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' },
+                      title: 'Auto-sort chapters chronologically by number (Prologue → Ch 1 → Ch N)',
+                      onClick: autoSortImportChapters
+                    }, '🔢 Auto-Sort'),
+                    h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      style: { padding: '4px 9px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' },
+                      title: 'Use AI to analyze and order chapters into canonical reading sequence',
+                      disabled: isAiSorting,
+                      onClick: aiReorderImportChapters
+                    }, isAiSorting ? '🤖 Sorting…' : '🤖 AI Sort'),
+                    h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      style: { padding: '4px 9px', fontSize: '11px' },
+                      title: 'Reverse entire chapter order (1 ↔ N)',
+                      onClick: reverseImportChapters
+                    }, '⇄ Reverse')
+                  )
                 ),
-                h('div', { className: 'custom-scrollbar', style: { maxHeight: 320, overflowY: 'auto' } },
-                  webImportData.chapters.map((c, i) => h('div', { key: i, className: 'set-row' },
-                    h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${i + 1}. ${c.title || `Chapter ${i + 1}`}`),
-                    h('div', { className: 'pane-acts' },
-                      h('span', { className: 'count' }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()}w`),
-                      h('button', { type: 'button', className: 'chip-act', disabled: i === 0, onClick: () => moveImportChapter(i, -1) }, '↑'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: i >= webImportData.chapters.length - 1, onClick: () => moveImportChapter(i, 1) }, '↓'),
-                      h('button', { type: 'button', className: 'chip-act', style: { color: 'var(--rose)' }, onClick: () => removeImportChapter(i) }, '✕')
+                h('div', { className: 'custom-scrollbar', style: { maxHeight: 340, overflowY: 'auto' } },
+                  webImportData.chapters.map((c, i) => h('div', { key: i, className: 'set-row', style: { alignItems: 'center', gap: '8px' } },
+                    h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 } }, `${i + 1}. ${c.title || `Chapter ${i + 1}`}`),
+                    h('div', { className: 'pane-acts', style: { flexWrap: 'nowrap', flexShrink: 0, gap: '4px' } },
+                      h('span', { className: 'count', style: { marginRight: '2px' } }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()}w`),
+                      h('button', { type: 'button', className: 'chip-act', style: { padding: '3px 6px', fontSize: '11px' }, title: 'Move to Top (Start)', disabled: i === 0, onClick: () => moveImportChapterToEdge(i, 'top') }, '⤒'),
+                      h('button', { type: 'button', className: 'chip-act', style: { padding: '3px 6px', fontSize: '11px' }, title: 'Move Up 1', disabled: i === 0, onClick: () => moveImportChapter(i, -1) }, '↑'),
+                      h('button', { type: 'button', className: 'chip-act', style: { padding: '3px 6px', fontSize: '11px' }, title: 'Move Down 1', disabled: i >= webImportData.chapters.length - 1, onClick: () => moveImportChapter(i, 1) }, '↓'),
+                      h('button', { type: 'button', className: 'chip-act', style: { padding: '3px 6px', fontSize: '11px' }, title: 'Move to Bottom (End)', disabled: i >= webImportData.chapters.length - 1, onClick: () => moveImportChapterToEdge(i, 'bottom') }, '⤓'),
+                      h('button', { type: 'button', className: 'chip-act', style: { color: 'var(--rose)', padding: '3px 6px', fontSize: '11px' }, title: 'Remove Chapter', onClick: () => removeImportChapter(i) }, '✕')
                     )
                   ))
                 )
