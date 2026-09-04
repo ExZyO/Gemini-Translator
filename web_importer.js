@@ -127,8 +127,11 @@
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // 3. UNIFIED HTTP NETWORK CLIENT (MULTI-PROXY & NATIVE BRIDGE)
+    // 3. UNIFIED HTTP NETWORK CLIENT (LOCAL DIRECT PROXY, NATIVE BRIDGE & MULTI-PROXY)
     // ══════════════════════════════════════════════════════════════════════
+    let localProxyState = null; // null = unverified, true = active, false = unavailable
+    let lastLocalProxyCheck = 0;
+
     async function fetchHtml(url, options = {}) {
         const timeoutMs = options.timeout || 25000;
         const controller = new AbortController();
@@ -153,24 +156,59 @@
             }
         }
 
-        // 2. High-Speed Multi-Proxy Failover Pool with Round-Robin Rotation
+        // 2. High-Speed Local Direct-Socket Proxy (lncrawl Parity on Desktop)
+        // Runs on http://127.0.0.1:9090 when running alongside telemetry-server.js
+        const now = Date.now();
+        if (localProxyState !== false || (now - lastLocalProxyCheck > 30000)) {
+            try {
+                lastLocalProxyCheck = now;
+                const localCtrl = new AbortController();
+                const localTimer = setTimeout(() => localCtrl.abort(), 4500);
+                const localRes = await fetch(`http://127.0.0.1:9090/proxy?url=${encodeURIComponent(url)}`, {
+                    signal: localCtrl.signal
+                });
+                clearTimeout(localTimer);
+                if (localRes.ok) {
+                    const text = await localRes.text();
+                    if (!text.includes('Error 1015') && !text.includes('401 Unauthorized') && text.length >= 80) {
+                        localProxyState = true;
+                        clearTimeout(timer);
+                        return text;
+                    }
+                }
+            } catch (localErr) {
+                if (localProxyState === null) {
+                    localProxyState = false;
+                }
+            }
+        }
+
+        // 3. Tiered Public Proxy Failover Pool (Fast sub-second proxies prioritized)
         const proxyPool = [
             (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
-            (u) => `https://proxy.cors.sh/${u}`,
             (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
             (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
         ];
 
-        // Offset start index to distribute load across proxies
-        const startOffset = Math.floor(Math.random() * proxyPool.length);
-
         for (let i = 0; i < proxyPool.length; i++) {
-            const proxyFn = proxyPool[(startOffset + i) % proxyPool.length];
+            const proxyFn = proxyPool[i];
             try {
+                const proxyCtrl = new AbortController();
+                const proxyTimer = setTimeout(() => proxyCtrl.abort(), 3500); // Strict 3.5s per proxy attempt
+
+                const onParentAbort = () => {
+                    clearTimeout(proxyTimer);
+                    proxyCtrl.abort();
+                };
+                controller.signal.addEventListener('abort', onParentAbort, { once: true });
+
                 const res = await fetch(proxyFn(url), {
-                    signal: controller.signal,
+                    signal: proxyCtrl.signal,
                     headers: options.headers || {}
                 });
+                clearTimeout(proxyTimer);
+                controller.signal.removeEventListener('abort', onParentAbort);
+
                 if (res.ok) {
                     const text = await res.text();
                     if (text.includes('Error 1015') || (text.includes('rate limit') && text.includes('Cloudflare')) || text.includes('401 Unauthorized') || text.length < 80) {
@@ -181,7 +219,7 @@
                     return text;
                 }
             } catch (proxyErr) {
-                // Continue to next proxy in pool
+                // Strict 3.5s timeout aborts immediately and switches to next proxy without stalling
             }
         }
 
@@ -887,10 +925,10 @@
                 const chTitle = chDoc.querySelector('.chapter-title')?.textContent?.trim() || item.title;
                 return { title: chTitle, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
             },
-            2,
+            4,
             progressCb,
             { title, author, summary, chapterList: chapterLinks },
-            { delayMs: 350 }
+            { delayMs: 120 }
         );
 
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelFire (~${totalWords.toLocaleString()} words)!`, 100);
@@ -959,14 +997,22 @@
                     if (seriesName) title = seriesName;
 
                     const rawPosts = cData.data?.posts || [];
-                    for (let i = 0; i < rawPosts.length; i++) {
-                        const item = rawPosts[i];
-                        const chTitle = item.title || `Chapter ${i + 1}`;
-                        if (item.permalink === permalink && mainText) {
-                            chapters.push({ title: chTitle, text: mainText });
-                        } else {
+                    const postItems = rawPosts.map((item, idx) => ({
+                        item,
+                        permalink: item.permalink,
+                        title: item.title || `Chapter ${idx + 1}`,
+                        url: `https://www.lofter.com/front/post/${item.permalink}`
+                    }));
+
+                    const { chapters: poolChapters } = await crawlChapterPool(
+                        postItems,
+                        async (pObj) => {
+                            const { item, permalink: pLink, title: chTitle } = pObj;
+                            if (pLink === permalink && mainText) {
+                                return { title: chTitle, text: mainText };
+                            }
                             try {
-                                const postUrl = `https://www.lofter.com/front/post/${item.permalink}`;
+                                const postUrl = `https://www.lofter.com/front/post/${pLink}`;
                                 const pHtml = await fetchHtml(postUrl, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
                                 const pStart = pHtml.indexOf('window.__initialize_data__');
                                 let chText = '';
@@ -985,11 +1031,15 @@
                                     if (raw) chText = cleanChapterHtmlWithImages(raw);
                                 }
                                 if (!chText && item.digest) chText = cleanChapterHtmlWithImages(item.digest);
-                                if (chText) chapters.push({ title: chTitle, text: chText });
-                            } catch (e) {}
-                        }
-                        progressCb?.(`Loaded chapter ${i + 1}/${rawPosts.length}: "${chTitle}"`, Math.round(30 + ((i + 1) / rawPosts.length) * 65));
-                    }
+                                return { title: chTitle, text: chText || '' };
+                            } catch (e) {
+                                return { title: chTitle, text: item.digest ? cleanChapterHtmlWithImages(item.digest) : '' };
+                            }
+                        },
+                        8,
+                        progressCb
+                    );
+                    chapters.push(...poolChapters.filter(c => c && c.text));
                 }
             } catch (e) {}
         }

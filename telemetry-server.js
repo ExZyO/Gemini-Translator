@@ -8,7 +8,7 @@ const LOG_FILE = path.join(__dirname, 'debug-live.log');
 
 fs.writeFileSync(LOG_FILE, `=== LIVE DEBUG SESSION STARTED AT ${new Date().toISOString()} ===\n`, 'utf8');
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -28,6 +28,49 @@ const server = http.createServer((req, res) => {
             logSize: fs.existsSync(LOG_FILE) ? fs.statSync(LOG_FILE).size : 0
         }));
         return;
+    }
+
+    if (req.method === 'GET' && req.url.startsWith('/proxy?')) {
+        try {
+            const reqUrl = new URL(req.url, `http://${req.headers.host || '127.0.0.1:9090'}`);
+            const targetUrl = reqUrl.searchParams.get('url');
+            if (!targetUrl) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing url parameter' }));
+                return;
+            }
+
+            const abortCtrl = new AbortController();
+            const timer = setTimeout(() => abortCtrl.abort(), 20000);
+
+            const upstreamRes = await fetch(targetUrl, {
+                signal: abortCtrl.signal,
+                redirect: 'follow',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,ja;q=0.7',
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            clearTimeout(timer);
+
+            const contentType = upstreamRes.headers.get('content-type') || 'text/html; charset=utf-8';
+            const arrayBuffer = await upstreamRes.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
+            res.writeHead(upstreamRes.status, {
+                'Content-Type': contentType,
+                'Content-Length': buffer.length,
+                'X-Proxied-By': 'Gemini-Telemetry-Engine'
+            });
+            res.end(buffer);
+            return;
+        } catch (err) {
+            res.writeHead(502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Proxy fetch failed: ${err.message}` }));
+            return;
+        }
     }
 
     if (req.method === 'POST' && req.url === '/clear') {

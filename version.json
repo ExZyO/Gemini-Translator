@@ -1,7 +1,7 @@
 {
-  "version": "8.10.15",
-  "versionCode": 8115,
+  "version": "8.10.16",
+  "versionCode": 8116,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.15: Extended fetchRetry timeout to 75s with key pool rotation on timeouts. Added AO3 summary block disambiguation and chapter title caching to eliminate duplicate title translations."
+  "releaseNotes": "v8.10.16: High-speed novel ingestion engine (lncrawl parity). Direct local socket proxying via telemetry-server, sub-second public proxy tiering with strict 3.5s failovers, NovelFire 4 workers with 120ms pacing, and parallel Lofter crawling."
 }

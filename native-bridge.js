@@ -108,18 +108,19 @@
             } catch (e) {
                 console.warn('Native fetch bridge error:', e);
             }
-            // Multi-proxy fallback with verified fast endpoints
+            // Local direct proxy check + prioritized fast public proxies
             const proxies = [
+                (u) => `http://127.0.0.1:9090/proxy?url=${encodeURIComponent(u)}`,
                 (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
-                (u) => `https://proxy.cors.sh/${u}`,
-                (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+                (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+                (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
             ];
             for (const pFn of proxies) {
                 try {
-                    const res = await fetch(pFn(url), { signal: AbortSignal.timeout(12000) });
+                    const res = await fetch(pFn(url), { signal: AbortSignal.timeout(4000) });
                     if (res.ok) {
                         const text = await res.text();
-                        if (!text.includes('Error 1015') && !text.includes('401 Unauthorized')) {
+                        if (!text.includes('Error 1015') && !text.includes('401 Unauthorized') && text.length >= 80) {
                             return { success: true, status: 200, data: text };
                         }
                     }
@@ -433,10 +434,11 @@
                 };
             }
             
-            // Browser Fallback with multi-proxy redundancy
+            // Browser Fallback with local proxy and sub-second multi-proxy redundancy
             const proxies = [
+                (u) => `http://127.0.0.1:9090/proxy?url=${encodeURIComponent(u)}`,
+                (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
                 (u) => u, // Direct fetch
-                (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
                 (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
                 (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
             ];
@@ -445,10 +447,7 @@
             for (const proxyFn of proxies) {
                 try {
                     const target = proxyFn(url);
-                    const controller = new AbortController();
-                    const timer = setTimeout(() => controller.abort(), options.timeout || 15000);
-                    const res = await fetch(target, { ...options, signal: controller.signal });
-                    clearTimeout(timer);
+                    const res = await fetch(target, { ...options, signal: AbortSignal.timeout(options.timeout || 4500) });
                     if (res.ok) {
                         return res;
                     }
@@ -476,17 +475,18 @@
                 }
             }
             
-            // Browser Fallback with multi-proxy redundancy
+            // Browser Fallback with local proxy and multi-proxy redundancy
             const proxies = [
+                (u) => `http://127.0.0.1:9090/proxy?url=${encodeURIComponent(u)}`,
+                (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
                 (u) => u,
-                (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
                 (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u)
             ];
 
             for (const proxyFn of proxies) {
                 try {
                     const target = proxyFn(url);
-                    const res = await fetch(target, options);
+                    const res = await fetch(target, { ...options, signal: AbortSignal.timeout(options.timeout || 6000) });
                     if (res.ok) {
                         return await res.arrayBuffer();
                     }
