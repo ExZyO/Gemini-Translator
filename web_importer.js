@@ -1494,7 +1494,7 @@
     }
 
     // --- H. LNORI TEMPLATE (lnori.org / lnori.com - Single Book & Multi-Volume Series) ---
-    async function crawlLnori(url, progressCb) {
+    async function crawlLnori(url, progressCb, options = {}) {
         progressCb?.('Connecting to Lnori...', 15);
         let origin = 'https://lnori.org';
         try { origin = new URL(url).origin; } catch (e) {}
@@ -1645,7 +1645,7 @@
                 },
                 3, // Concurrency limit 3 to prevent website anti-bot rate limits
                 progressCb,
-                null,
+                { title, author, summary, chapterList: bookUrls },
                 { delayMs: 150 } // Delay between worker bursts
             );
 
@@ -2116,7 +2116,7 @@
 
             let result;
             if (type === 'novelbuddy') result = await crawlNovelBuddy(url, progressCb);
-            else if (type === 'lnori') result = await crawlLnori(url, progressCb);
+            else if (type === 'lnori') result = await crawlLnori(url, progressCb, options);
             else if (type === 'wuxiabox') result = await crawlWuxiaBox(url, progressCb);
             else if (type === 'wtrlab') result = await crawlWtrLab(url, progressCb);
             else if (type === 'fucknovelpia') result = await crawlFuckNovelPia(url, progressCb);

@@ -819,7 +819,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.26';
+    const VERSION = '8.10.27';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6345,6 +6345,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               setWebImportStatus('');
               toast(`Imported "${data.title}" — ${data.chapters.length} chapters! 🎉`, 'success');
               try {
+                window.NativeBridge?.clearProgressNotification?.(true);
                 window.NativeBridge?.showCompletionNotification?.('Novel Import Complete! 📥', `Imported "${data.title}" (${data.chapters.length} chapters).`);
               } catch (e) {}
             } else {
