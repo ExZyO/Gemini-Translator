@@ -335,7 +335,15 @@ function decodeHtmlEntities(str) {
 
 function cleanNovelProse(text) {
     if (!text || typeof text !== 'string') return '';
-    let t = decodeHtmlEntities(text);
+    // Mask out protected tokens (Markdown illustrations, HTML images, and raw URLs) so prose typography never corrupts them
+    const placeholders = [];
+    let t = text.replace(/(?:!\[[^\]]*\]\([^\)]+\)|<img\b[^>]*>|https?:\/\/[^\s<>"'()]+)/gi, (match) => {
+        const ph = `__PROTECTED_TOKEN_${placeholders.length}__`;
+        placeholders.push(match);
+        return ph;
+    });
+
+    t = decodeHtmlEntities(t);
     t = t.replace(/\u00a0/g, ' ');
     // Clean standalone markdown italic sound effects like *Rip!*, *Crack!*, *Whoosh!*
     t = t.replace(/^(\s*)\*([A-Za-z0-9!?,.\s'-]{1,30})\*(\s*)$/gm, '$1$2$3');
@@ -365,6 +373,12 @@ function cleanNovelProse(text) {
     t = t.replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n');
     // Restore spaces lost when a model or chunk boundary joins sentences.
     t = t.replace(/([.!?\u2026]+)(["'\u201d\u2019)]?)(?=[A-Za-z])/g, '$1$2 ');
+
+    // Restore protected tokens exactly as originally formatted
+    placeholders.forEach((token, idx) => {
+        t = t.replace(`__PROTECTED_TOKEN_${idx}__`, token);
+    });
+
     return t.trim();
 }
 

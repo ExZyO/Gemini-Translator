@@ -819,7 +819,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.34';
+    const VERSION = '8.10.35';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1704,9 +1704,16 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       ? window.cleanNovelProse
       : (text => {
           if (!text) return '';
-          let t = (typeof window !== 'undefined' && window.decodeHtmlEntities)
-            ? window.decodeHtmlEntities(text)
-            : text.replace(/&(?:#x([0-9a-fA-F]+)|#([0-9]+)|([a-zA-Z]+));/g, '');
+          const placeholders = [];
+          let t = text.replace(/(?:!\[[^\]]*\]\([^\)]+\)|<img\b[^>]*>|https?:\/\/[^\s<>"'()]+)/gi, (match) => {
+            const ph = `__PROTECTED_TOKEN_${placeholders.length}__`;
+            placeholders.push(match);
+            return ph;
+          });
+
+          t = (typeof window !== 'undefined' && window.decodeHtmlEntities)
+            ? window.decodeHtmlEntities(t)
+            : t.replace(/&(?:#x([0-9a-fA-F]+)|#([0-9]+)|([a-zA-Z]+));/g, '');
           t = t.replace(/\u00a0/g, ' ');
           t = t.replace(/^(\s*)\*([A-Za-z0-9!?,.\s'-]{1,30})\*(\s*)$/gm, '$1$2$3');
           t = t.replace(/^\s*(?:Previous Chapter|Next Chapter|Table of Contents|Prev|Next|TOC|Back to Top|Share this:?|Like this:?|Related|Loading\.\.\.|Leave a (?:Reply|Comment)|Click here to .+)\s*$/gim, '');
@@ -1725,6 +1732,11 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
           t = t.replace(/([\u201c\u2018"])\s+(?=[A-Za-z])/g, '$1');
           t = t.replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n');
           t = t.replace(/([.!?\u2026]+)(["'\u201d\u2019)]?)(?=[A-Za-z])/g, '$1$2 ');
+
+          placeholders.forEach((token, idx) => {
+            t = t.replace(`__PROTECTED_TOKEN_${idx}__`, token);
+          });
+
           return t.trim();
         });
     if (typeof window !== 'undefined' && !window.cleanNovelProse) window.cleanNovelProse = cleanNovelProse;

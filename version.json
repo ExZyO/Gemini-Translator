@@ -1,7 +1,7 @@
 {
-  "version": "8.10.34",
-  "versionCode": 8134,
+  "version": "8.10.35",
+  "versionCode": 8135,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.34: Restored real-time chapter progress UI updates for Lnori series, fixed images folder bundling in exported EPUBs, and ensured [Download Image] links render properly."
+  "releaseNotes": "v8.10.35: Restored build 199 Lnori series crawler architecture, fixed cleanNovelProse URL/image corruption so OEBPS/images bundles illustrations, and provided clean [Download Image] fallback."
 }

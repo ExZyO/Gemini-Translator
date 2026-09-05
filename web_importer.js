@@ -1634,38 +1634,30 @@
                 };
             }
 
-            progressCb?.(`Found ${bookUrls.length} volumes in Lnori series! Ingesting volumes concurrently...`, 30);
+            progressCb?.(`Found ${bookUrls.length} volumes in Lnori series! Ingesting volumes...`, 30);
 
-            // Ingest volumes with crawlChapterPool to update live UI progress bar & telemetry logs in real time
-            const { chapters: volumeResults } = await crawlChapterPool(
-                bookUrls,
-                async (bItem) => {
-                    const bHtml = await fetchHtml(bItem.url, { headers: { 'Referer': url } });
-                    const volChs = parseChaptersFromBookHtml(bHtml, bItem.url);
-                    // Joined text string ensures crawlChapterPool validates chapter content length
-                    const fullVolText = volChs.map(c => `### ${c.title}\n\n${c.text}`).join('\n\n---\n\n');
-                    return {
-                        title: bItem.title,
-                        text: fullVolText,
-                        volChapters: volChs
-                    };
-                },
-                8, // High-speed 8 parallel workers (matching build 199 speed)
-                progressCb,
-                { title, author, summary, chapterList: bookUrls },
-                { delayMs: 40 }
-            );
-
+            // Fetch each book page and extract chapters (clean, fast sequential loop from build 199)
             let allChapters = [];
-            volumeResults.forEach(v => {
-                if (v && Array.isArray(v.volChapters)) {
-                    allChapters = allChapters.concat(v.volChapters);
+            for (let i = 0; i < bookUrls.length; i++) {
+                if (activeCrawlController?.isPaused || activeCrawlController?.isCancelled) break;
+                const bItem = bookUrls[i];
+                const pct = Math.min(95, Math.round(30 + ((i / bookUrls.length) * 65)));
+                progressCb?.(`Fetching Lnori Volume ${i + 1}/${bookUrls.length}: ${bItem.title.slice(0, 35)}...`, pct);
+                window.sendTelemetry?.('CHAPTER_OK', `Saved Lnori Volume ${i + 1}/${bookUrls.length}: ${bItem.title} (${i + 1}/${bookUrls.length} done)`);
+                window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Fetching Lnori Volume ${i + 1}/${bookUrls.length} (${pct}%)`, pct, true);
+                try {
+                    const bHtml = await fetchHtml(bItem.url, { headers: { 'Referer': url } });
+                    const volChapters = parseChaptersFromBookHtml(bHtml, bItem.url);
+                    allChapters = allChapters.concat(volChapters);
+                } catch (bErr) {
+                    console.warn(`Failed to fetch Lnori volume ${bItem.url}:`, bErr);
                 }
-            });
+            }
 
-            // Set totalChapterCount to match return array size so index.html completion check evaluates (15 >= 15) -> 100% complete
+            // Sync controller expected count to actual extracted individual chapters so ingestion finishes 100%
             if (activeCrawlController) {
-                activeCrawlController.totalChapterCount = bookUrls.length;
+                activeCrawlController.totalChapterCount = allChapters.length;
+                activeCrawlController.chapterList = allChapters.map(c => ({ url: c.url, title: c.title }));
             }
 
             const totalWords = allChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
@@ -1676,8 +1668,8 @@
                 summary,
                 tags,
                 chapters: allChapters,
-                chapterList: bookUrls,
-                totalChapterCount: bookUrls.length,
+                chapterList: allChapters.map(c => ({ url: c.url, title: c.title })),
+                totalChapterCount: allChapters.length,
                 isEpub: false,
                 sourceUrl: url
             };

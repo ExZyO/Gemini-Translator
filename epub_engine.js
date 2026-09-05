@@ -587,7 +587,7 @@ hr {
                 if (cached) {
                   return `<div class="illustration-wrap"><img src="${cached.localHref}" alt="${escapeXml(altText)}" class="illustration"/></div>`;
                 }
-                return `<div class="illustration-wrap"><img src="${imgUrl}" alt="${escapeXml(altText)}" class="illustration"/></div>`;
+                return `<div class="illustration-wrap"><img src="${imgUrl}" alt="${escapeXml(altText)}" class="illustration"/><br/><a href="${imgUrl}" style="font-size:11px; color:#6366f1; text-decoration:underline;">[Download Image]</a></div>`;
               });
               if (/^<div class="illustration-wrap">/.test(lineHtml)) {
                 bodyHtml.push(lineHtml);
@@ -609,7 +609,7 @@ hr {
                 if (cached) {
                   return `<div class="illustration-wrap"><img src="${cached.localHref}" alt="Illustration" class="illustration"/></div>`;
                 }
-                return `<div class="illustration-wrap"><img src="${cleanUrl}" alt="Illustration" class="illustration"/></div>`;
+                return `<div class="illustration-wrap"><img src="${cleanUrl}" alt="Illustration" class="illustration"/><br/><a href="${cleanUrl}" style="font-size:11px; color:#6366f1; text-decoration:underline;">[Download Image]</a></div>`;
               });
               bodyHtml.push(updatedLine);
               continue;
