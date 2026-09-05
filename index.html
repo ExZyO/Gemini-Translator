@@ -823,7 +823,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.39';
+    const VERSION = '8.10.40';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6316,6 +6316,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         setWebImportStatus(isResume ? 'Resuming novel crawl…' : 'Connecting to source…');
         window.__scrapeImages = scrapeImages;
 
+        try {
+          window.NativeBridge?.acquireWakeLock?.('Gemini Web Importer', isResume ? 'Resuming novel crawl...' : 'Starting novel download...');
+        } catch (e) {}
+
         const initialChapters = targetSession?.chapters || targetSession?.rawChapters || [];
         const novelId = targetSession?.id || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
 
@@ -6473,6 +6477,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           }
         } finally {
           setIsFetchingUrl(false);
+          const ctrl = window.WebNovelImporter?.getActiveController?.();
+          if (!ctrl?.isPaused) {
+            try { window.NativeBridge?.releaseWakeLock?.(); } catch (e) {}
+          }
         }
       };
 
@@ -6480,6 +6488,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         window.WebNovelImporter?.pause?.();
         window.NativeBridge?.clearProgressNotification?.(false);
         window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', 'Fetch paused. Current progress saved.');
+        try { window.NativeBridge?.releaseWakeLock?.(); } catch (e) {}
         setIsFetchingPaused(true);
         setIsFetchingUrl(false);
         setWebImportStatus('Pausing… progress saved.');
@@ -6489,6 +6498,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       const handleCancelFetch = () => {
         window.WebNovelImporter?.cancel?.();
         window.NativeBridge?.clearProgressNotification?.(false);
+        try { window.NativeBridge?.releaseWakeLock?.(); } catch (e) {}
         setIsFetchingPaused(false);
         setIsFetchingUrl(false);
         setWebImportStatus('');
@@ -7049,6 +7059,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           if (!isPausingRef.current) {
             setProgress(0);
             setProgressLabel('');
+            try { window.NativeBridge?.releaseWakeLock?.(); } catch(e) {}
           }
           abortRef.current = null;
           isPausingRef.current = false;
@@ -10612,6 +10623,22 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       }
                     }
                   }, '🔔 Enable Alerts')
+                ),
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'Background Execution (Battery)'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    onClick: async () => {
+                      const isIgnored = await window.NativeBridge?.isBatteryOptimizationIgnored?.();
+                      if (isIgnored) {
+                        toast('Battery optimization is already unrestricted! App will run uninterrupted in background.', 'success');
+                      } else {
+                        toast('Opening Battery Settings — select "Unrestricted" / "Don\'t optimize" for uninterrupted background downloads & translations.', 'info');
+                        await window.NativeBridge?.requestIgnoreBatteryOptimizations?.();
+                      }
+                    }
+                  }, '🔋 Unrestricted Battery')
                 ),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Install App (PWA)'), h('button', { type: 'button', className: 'chip-act', onClick: handleInstallPWA }, 'Install')),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Keyboard Shortcuts'), h('span', { className: 'count' }, 'Ctrl+Enter · Ctrl+Shift+C · Ctrl+Alt+R'))

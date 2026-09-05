@@ -3,6 +3,168 @@
     const isCapacitor = () => !!(window.Capacitor && window.Capacitor.Plugins);
     const getBridge = () => window.Capacitor?.Plugins?.NativeAndroidBridge;
 
+    // ══════════════════════════════════════════════════════════════════════
+    // UNIVERSAL BACKGROUND KEEP-ALIVE ENGINE (Audio & WakeLock Shield)
+    // Prevents Chromium, WebKit, and Android WebView from suspending timers,
+    // killing network sockets, or freezing background chapter downloads & translations.
+    // ══════════════════════════════════════════════════════════════════════
+    class BackgroundKeepAliveEngine {
+        constructor() {
+            this._isActive = false;
+            this._audioEl = null;
+            this._audioCtx = null;
+            this._oscillator = null;
+            this._gainNode = null;
+            this._heartbeatTimer = null;
+            this._screenWakeLock = null;
+        }
+
+        async start(title = "Gemini Translator", message = "Working in background...") {
+            if (this._isActive) return;
+            this._isActive = true;
+
+            // 1. Silent HTML5 Audio Loop (Forces browser media pipeline active; prevents tab freezing)
+            try {
+                if (!this._audioEl) {
+                    this._audioEl = document.createElement('audio');
+                    this._audioEl.setAttribute('playsinline', 'true');
+                    this._audioEl.setAttribute('loop', 'true');
+                    this._audioEl.volume = 0.001; // Inaudible volume to bypass zero-gain heuristics
+                    // 1-sample silent 44.1kHz PCM WAV
+                    this._audioEl.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+                }
+                const playPromise = this._audioEl.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(e => {
+                        console.debug('[KeepAlive] Audio autoplay pending user gesture:', e.message);
+                    });
+                }
+            } catch (e) {
+                console.debug('[KeepAlive] Audio element error:', e);
+            }
+
+            // 2. Web Audio API Continuous Silent Stream (Keeps audio thread alive)
+            try {
+                const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtxClass && !this._audioCtx) {
+                    this._audioCtx = new AudioCtxClass();
+                    this._oscillator = this._audioCtx.createOscillator();
+                    this._gainNode = this._audioCtx.createGain();
+
+                    this._oscillator.type = 'sine';
+                    this._oscillator.frequency.value = 1; // 1Hz infrasound (completely inaudible)
+                    this._gainNode.gain.value = 0.00001;
+
+                    this._oscillator.connect(this._gainNode);
+                    this._gainNode.connect(this._audioCtx.destination);
+                    this._oscillator.start();
+                }
+                if (this._audioCtx && this._audioCtx.state === 'suspended') {
+                    this._audioCtx.resume().catch(() => {});
+                }
+            } catch (e) {
+                console.debug('[KeepAlive] Web Audio API error:', e);
+            }
+
+            // 3. MediaSession OS Integration (Displays active media badge in Android notification drawer)
+            try {
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: title || "Gemini Translator Active",
+                        artist: message || "Scraping & Translating novel...",
+                        album: "Gemini Novel Studio",
+                        artwork: [{ src: './icon-192.png', sizes: '192x192', type: 'image/png' }]
+                    });
+                    navigator.mediaSession.playbackState = 'playing';
+                }
+            } catch (e) {}
+
+            // 4. Browser Screen Wake Lock API
+            try {
+                if ('wakeLock' in navigator && !this._screenWakeLock) {
+                    this._screenWakeLock = await navigator.wakeLock.request('screen');
+                    this._screenWakeLock.addEventListener('release', () => {
+                        this._screenWakeLock = null;
+                        if (this._isActive && document.visibilityState === 'visible') {
+                            navigator.wakeLock?.request?.('screen').then(lock => {
+                                this._screenWakeLock = lock;
+                            }).catch(() => {});
+                        }
+                    });
+                }
+            } catch (e) {
+                console.debug('[KeepAlive] Screen wakeLock:', e.message);
+            }
+
+            // 5. Watchdog Heartbeat to prevent timer suspension
+            if (!this._heartbeatTimer) {
+                this._heartbeatTimer = setInterval(() => {
+                    if (!this._isActive) return;
+                    try {
+                        if (this._audioEl && this._audioEl.paused) {
+                            this._audioEl.play().catch(() => {});
+                        }
+                        if (this._audioCtx && this._audioCtx.state === 'suspended') {
+                            this._audioCtx.resume().catch(() => {});
+                        }
+                    } catch (e) {}
+                }, 5000);
+            }
+
+            console.log('[KeepAlive] Background execution shield armed.');
+        }
+
+        stop() {
+            if (!this._isActive) return;
+            this._isActive = false;
+
+            if (this._heartbeatTimer) {
+                clearInterval(this._heartbeatTimer);
+                this._heartbeatTimer = null;
+            }
+
+            try {
+                if (this._audioEl) {
+                    this._audioEl.pause();
+                    this._audioEl.currentTime = 0;
+                }
+            } catch (e) {}
+
+            try {
+                if (this._oscillator) {
+                    this._oscillator.stop();
+                    this._oscillator.disconnect();
+                    this._oscillator = null;
+                }
+                if (this._gainNode) {
+                    this._gainNode.disconnect();
+                    this._gainNode = null;
+                }
+                if (this._audioCtx && this._audioCtx.state !== 'closed') {
+                    this._audioCtx.close().catch(() => {});
+                    this._audioCtx = null;
+                }
+            } catch (e) {}
+
+            try {
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = 'none';
+                }
+            } catch (e) {}
+
+            try {
+                if (this._screenWakeLock) {
+                    this._screenWakeLock.release().catch(() => {});
+                    this._screenWakeLock = null;
+                }
+            } catch (e) {}
+
+            console.log('[KeepAlive] Background execution shield disarmed.');
+        }
+    }
+
+    window.BackgroundKeepAlive = new BackgroundKeepAliveEngine();
+
     window.NativeBridge = {
         installApk: async (url = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk") => {
             const bridge = getBridge();
@@ -328,42 +490,66 @@
             return false;
         },
 
-        acquireWakeLock: async () => {
+        acquireWakeLock: async (title = "Gemini Translator Active", message = "Processing tasks in background...") => {
+            try {
+                if (window.BackgroundKeepAlive) {
+                    await window.BackgroundKeepAlive.start(title, message);
+                }
+            } catch (e) {
+                console.warn('KeepAlive start error:', e);
+            }
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.acquireWakeLock) {
-                    await bridge.acquireWakeLock();
+                    await bridge.acquireWakeLock({ title, message });
                 }
             } catch (e) {
-                console.warn('WakeLock Bridge:', e);
-            }
-            try {
-                if ('wakeLock' in navigator && !window.__activeScreenWakeLock) {
-                    window.__activeScreenWakeLock = await navigator.wakeLock.request('screen');
-                    window.__activeScreenWakeLock.addEventListener('release', () => { window.__activeScreenWakeLock = null; });
-                }
-            } catch (e) {
-                console.warn('Screen WakeLock API:', e);
+                console.warn('Native WakeLock Bridge:', e);
             }
         },
 
         releaseWakeLock: async () => {
+            try {
+                if (window.BackgroundKeepAlive) {
+                    window.BackgroundKeepAlive.stop();
+                }
+            } catch (e) {
+                console.warn('KeepAlive stop error:', e);
+            }
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.releaseWakeLock) {
                     await bridge.releaseWakeLock();
                 }
             } catch (e) {
-                console.warn('WakeLock Release Bridge:', e);
+                console.warn('Native WakeLock Release Bridge:', e);
             }
+        },
+
+        isBatteryOptimizationIgnored: async () => {
             try {
-                if (window.__activeScreenWakeLock) {
-                    await window.__activeScreenWakeLock.release();
-                    window.__activeScreenWakeLock = null;
+                const bridge = getBridge();
+                if (bridge && bridge.isBatteryOptimizationIgnored) {
+                    const res = await bridge.isBatteryOptimizationIgnored();
+                    return !!res?.ignored;
                 }
             } catch (e) {
-                console.warn('Screen WakeLock Release:', e);
+                console.warn('Battery optimization check error:', e);
             }
+            return true;
+        },
+
+        requestIgnoreBatteryOptimizations: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.requestIgnoreBatteryOptimizations) {
+                    await bridge.requestIgnoreBatteryOptimizations();
+                    return true;
+                }
+            } catch (e) {
+                console.warn('Request ignore battery optimizations error:', e);
+            }
+            return false;
         },
 
         webDavRequest: async ({ url, method = 'GET', headers = {}, body = null }) => {
@@ -496,14 +682,6 @@
                 }
             }
             throw new Error('Could not download binary file across network.');
-        },
-
-        installApk: async (apkUrl) => {
-            const bridge = getBridge();
-            if (bridge && bridge.installApk) {
-                return await bridge.installApk({ url: apkUrl });
-            }
-            window.open(apkUrl, '_blank');
         }
     };
 

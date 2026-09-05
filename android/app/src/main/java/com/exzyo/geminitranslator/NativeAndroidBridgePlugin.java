@@ -170,6 +170,18 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 notificationManager.notify(NOTIFICATION_ID, builder.build());
             }
 
+            // Also update Foreground Service notification if running
+            if (BackgroundWorkerService.isServiceRunning()) {
+                try {
+                    Intent updateIntent = new Intent(context, BackgroundWorkerService.class);
+                    updateIntent.setAction(BackgroundWorkerService.ACTION_UPDATE);
+                    updateIntent.putExtra("title", title);
+                    updateIntent.putExtra("message", message);
+                    updateIntent.putExtra("progress", progress);
+                    context.startService(updateIntent);
+                } catch (Exception ignored) {}
+            }
+
             JSObject ret = new JSObject();
             ret.put("success", true);
             call.resolve(ret);
@@ -212,6 +224,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 notificationManager.notify(COMPLETE_NOTIFICATION_ID, doneBuilder.build());
             }
 
+            // Stop background foreground service if running
+            if (BackgroundWorkerService.isServiceRunning()) {
+                try {
+                    Intent stopIntent = new Intent(context, BackgroundWorkerService.class);
+                    stopIntent.setAction(BackgroundWorkerService.ACTION_STOP);
+                    context.startService(stopIntent);
+                } catch (Exception ignored) {}
+            }
+
             JSObject ret = new JSObject();
             ret.put("success", true);
             call.resolve(ret);
@@ -229,6 +250,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
             }
             if (notificationManager != null) {
                 notificationManager.cancel(NOTIFICATION_ID);
+            }
+
+            // Stop background foreground service if running
+            if (BackgroundWorkerService.isServiceRunning()) {
+                try {
+                    Intent stopIntent = new Intent(context, BackgroundWorkerService.class);
+                    stopIntent.setAction(BackgroundWorkerService.ACTION_STOP);
+                    context.startService(stopIntent);
+                } catch (Exception ignored) {}
             }
 
             boolean notifyDone = call.getBoolean("notifyDone", false);
@@ -319,16 +349,35 @@ public class NativeAndroidBridgePlugin extends Plugin {
     public void acquireWakeLock(PluginCall call) {
         try {
             Context context = getContext();
+            String title = call.getString("title", "Gemini Translator Active");
+            String message = call.getString("message", "Processing tasks in background...");
+
             PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
             if (pm != null) {
                 if (wakeLock == null) {
                     wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GeminiTranslator::WorkLock");
                 }
                 if (!wakeLock.isHeld()) {
-                    wakeLock.acquire(2 * 60 * 60 * 1000L);
+                    wakeLock.acquire(4 * 60 * 60 * 1000L);
                     Log.d(TAG, " WakeLock Acquired - Background execution locked active!");
                 }
             }
+
+            // Start Foreground Service to elevate Android process priority & prevent OS killing
+            try {
+                Intent serviceIntent = new Intent(context, BackgroundWorkerService.class);
+                serviceIntent.setAction(BackgroundWorkerService.ACTION_START);
+                serviceIntent.putExtra("title", title);
+                serviceIntent.putExtra("message", message);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent);
+                } else {
+                    context.startService(serviceIntent);
+                }
+            } catch (Exception se) {
+                Log.w(TAG, "Could not start BackgroundWorkerService: " + se.getMessage());
+            }
+
             JSObject ret = new JSObject();
             ret.put("success", true);
             ret.put("locked", true);
@@ -345,12 +394,63 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 wakeLock.release();
                 Log.d(TAG, " WakeLock Released.");
             }
+
+            Context context = getContext();
+            try {
+                Intent serviceIntent = new Intent(context, BackgroundWorkerService.class);
+                serviceIntent.setAction(BackgroundWorkerService.ACTION_STOP);
+                context.startService(serviceIntent);
+            } catch (Exception se) {
+                Log.w(TAG, "Could not stop BackgroundWorkerService: " + se.getMessage());
+            }
+
             JSObject ret = new JSObject();
             ret.put("success", true);
             ret.put("locked", false);
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("WakeLock Release Error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void isBatteryOptimizationIgnored(PluginCall call) {
+        try {
+            Context context = getContext();
+            boolean isIgnored = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                if (pm != null) {
+                    isIgnored = pm.isIgnoringBatteryOptimizations(context.getPackageName());
+                }
+            }
+            JSObject ret = new JSObject();
+            ret.put("ignored", isIgnored);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Battery optimization check error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void requestIgnoreBatteryOptimizations(PluginCall call) {
+        try {
+            Context context = getContext();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(context.getPackageName())) {
+                    Intent intent = new Intent();
+                    intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + context.getPackageName()));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    context.startActivity(intent);
+                }
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Request ignore battery optimizations error: " + e.getMessage());
         }
     }
 

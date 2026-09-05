@@ -23,4 +23,28 @@ public class MainActivity extends BridgeActivity {
             }
         }
     }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        // Prevent Chromium / Android WebView from pausing timers, RAF, and Promises when backgrounded
+        try {
+            if (bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().onResume();
+            }
+            android.webkit.WebView.resumeTimers();
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        // Keep timers alive even when activity is completely stopped/covered
+        try {
+            if (bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().onResume();
+            }
+            android.webkit.WebView.resumeTimers();
+        } catch (Exception ignored) {}
+    }
 }

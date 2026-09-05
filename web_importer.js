@@ -1507,7 +1507,14 @@
         try { origin = new URL(url).origin; } catch (e) {}
         const isSeries = url.includes('/series/');
 
-        function parseChaptersFromBookHtml(bookHtml, bookPageUrl, volIndex = null) {
+        if (!options.tocOnly) {
+            try {
+                await window.NativeBridge?.acquireWakeLock?.('Ingesting Lnori Light Novel', 'Downloading volumes & illustrations in background');
+            } catch (e) {}
+        }
+
+        try {
+            function parseChaptersFromBookHtml(bookHtml, bookPageUrl, volIndex = null) {
             const bDoc = new DOMParser().parseFromString(bookHtml, 'text/html');
             
             // 1. Primary Strategy: Check Lnori Table of Contents navigation (<nav class="toc-view" ...> <a href="#pageXX">)
@@ -1856,6 +1863,11 @@
                 isEpub: false,
                 sourceUrl: url
             };
+        }
+        } finally {
+            if (!activeCrawlController?.isPaused && !options.tocOnly) {
+                try { window.NativeBridge?.releaseWakeLock?.(); } catch (e) {}
+            }
         }
     }
 
@@ -2301,30 +2313,42 @@
             const type = detectUrlType(url);
             console.log(`⚡ [LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
 
-            let result;
-            if (type === 'novelbuddy') result = await crawlNovelBuddy(url, progressCb);
-            else if (type === 'lnori') result = await crawlLnori(url, progressCb, options);
-            else if (type === 'wuxiabox') result = await crawlWuxiaBox(url, progressCb);
-            else if (type === 'wtrlab') result = await crawlWtrLab(url, progressCb);
-            else if (type === 'fucknovelpia') result = await crawlFuckNovelPia(url, progressCb);
-            else if (type === 'novelbin') result = await crawlNovelBin(url, progressCb);
-            else if (type === 'novelfire') result = await crawlNovelFire(url, progressCb);
-            else if (type === 'witchcult') result = await crawlWitchCult(url, progressCb);
-            else if (type === 'ao3') result = await crawlAO3(url, progressCb);
-            else if (type === 'royalroad') result = await crawlRoyalRoad(url, progressCb);
-            else if (type === 'syosetu') result = await crawlSyosetu(url, progressCb);
-            else if (type === 'novelfull') result = await crawlNovelFull(url, progressCb);
-            else if (type === 'lofter') result = await crawlLofter(url, progressCb);
-            else if (type === 'pixiv') result = await crawlPixiv(url, progressCb);
-            else result = await crawlUniversal(url, progressCb);
-
-            if (result && activeCrawlController) {
-                result.isPaused = !!activeCrawlController.isPaused;
-                result.isCancelled = !!activeCrawlController.isCancelled;
-                result.totalChapterCount = (typeof result.totalChapterCount === 'number' && result.totalChapterCount > 0) ? result.totalChapterCount : (activeCrawlController.totalChapterCount || (activeCrawlController.chapterList ? activeCrawlController.chapterList.length : (result.chapterList ? result.chapterList.length : (result.chapters ? result.chapters.length : 0))));
-                result.chapterList = result.chapterList || activeCrawlController.chapterList || [];
+            if (!options.tocOnly) {
+                try {
+                    await window.NativeBridge?.acquireWakeLock?.(`Ingesting Novel (${type.toUpperCase()})`, 'Downloading chapters in background...');
+                } catch (e) {}
             }
-            return result;
+
+            try {
+                let result;
+                if (type === 'novelbuddy') result = await crawlNovelBuddy(url, progressCb);
+                else if (type === 'lnori') result = await crawlLnori(url, progressCb, options);
+                else if (type === 'wuxiabox') result = await crawlWuxiaBox(url, progressCb);
+                else if (type === 'wtrlab') result = await crawlWtrLab(url, progressCb);
+                else if (type === 'fucknovelpia') result = await crawlFuckNovelPia(url, progressCb);
+                else if (type === 'novelbin') result = await crawlNovelBin(url, progressCb);
+                else if (type === 'novelfire') result = await crawlNovelFire(url, progressCb);
+                else if (type === 'witchcult') result = await crawlWitchCult(url, progressCb);
+                else if (type === 'ao3') result = await crawlAO3(url, progressCb);
+                else if (type === 'royalroad') result = await crawlRoyalRoad(url, progressCb);
+                else if (type === 'syosetu') result = await crawlSyosetu(url, progressCb);
+                else if (type === 'novelfull') result = await crawlNovelFull(url, progressCb);
+                else if (type === 'lofter') result = await crawlLofter(url, progressCb);
+                else if (type === 'pixiv') result = await crawlPixiv(url, progressCb);
+                else result = await crawlUniversal(url, progressCb);
+
+                if (result && activeCrawlController) {
+                    result.isPaused = !!activeCrawlController.isPaused;
+                    result.isCancelled = !!activeCrawlController.isCancelled;
+                    result.totalChapterCount = (typeof result.totalChapterCount === 'number' && result.totalChapterCount > 0) ? result.totalChapterCount : (activeCrawlController.totalChapterCount || (activeCrawlController.chapterList ? activeCrawlController.chapterList.length : (result.chapterList ? result.chapterList.length : (result.chapters ? result.chapters.length : 0))));
+                    result.chapterList = result.chapterList || activeCrawlController.chapterList || [];
+                }
+                return result;
+            } finally {
+                if (options.tocOnly) {
+                    try { window.NativeBridge?.releaseWakeLock?.(); } catch (e) {}
+                }
+            }
         },
         checkNovelUpdates: async (novelRecord, progressCb) => {
             if (!novelRecord || !novelRecord.sourceUrl) {
