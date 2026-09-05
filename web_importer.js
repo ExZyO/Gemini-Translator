@@ -2146,7 +2146,7 @@
             if (result && activeCrawlController) {
                 result.isPaused = !!activeCrawlController.isPaused;
                 result.isCancelled = !!activeCrawlController.isCancelled;
-                result.totalChapterCount = result.totalChapterCount || activeCrawlController.totalChapterCount || (activeCrawlController.chapterList ? activeCrawlController.chapterList.length : (result.chapterList ? result.chapterList.length : (result.chapters ? result.chapters.length : 0)));
+                result.totalChapterCount = (typeof result.totalChapterCount === 'number' && result.totalChapterCount > 0) ? result.totalChapterCount : (activeCrawlController.totalChapterCount || (activeCrawlController.chapterList ? activeCrawlController.chapterList.length : (result.chapterList ? result.chapterList.length : (result.chapters ? result.chapters.length : 0))));
                 result.chapterList = result.chapterList || activeCrawlController.chapterList || [];
             }
             return result;

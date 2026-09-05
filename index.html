@@ -819,7 +819,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.29';
+    const VERSION = '8.10.30';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6328,7 +6328,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
           // Fetch completed or returned
           if (data) {
-            const totalExpected = data.totalChapterCount || latestSessionSnapshot?.totalChapterCount || targetSession?.totalChapterCount || data.chapterList?.length || 0;
+            const totalExpected = (data.totalChapterCount && data.totalChapterCount >= data.chapters.length) 
+              ? data.totalChapterCount 
+              : (data.chapters ? data.chapters.length : (latestSessionSnapshot?.totalChapterCount || targetSession?.totalChapterCount || 0));
             const isActuallyFinished = totalExpected > 0 ? (data.chapters.length >= totalExpected) : true;
 
             data.id = novelId;

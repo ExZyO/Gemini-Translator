@@ -1,7 +1,7 @@
 {
-  "version": "8.10.29",
-  "versionCode": 8129,
+  "version": "8.10.30",
+  "versionCode": 8130,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.29: Increased Lnori volume ingestion worker concurrency to 8 (matching build 199 speed) and synced totalChapterCount to complete ingestion without pausing/restarting."
+  "releaseNotes": "v8.10.30: Fixed totalChapterCount override in importUrl and totalExpected check in index.html to ensure 15/15 volume series finish 100% complete without pausing."
 }
