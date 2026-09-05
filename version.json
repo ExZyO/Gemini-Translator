@@ -1,7 +1,7 @@
 {
-  "version": "8.10.36",
-  "versionCode": 8136,
+  "version": "8.10.37",
+  "versionCode": 8137,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.36: Replaced full-screen EPUB packaging modal with non-modal floating main-screen progress dock with dismiss button, added Embed Images toggle switch directly in Import menu, and sanitized EPUB export titles and authors."
+  "releaseNotes": "v8.10.37: Added volume-based hierarchical Table of Contents (TOC) with expandable/collapsible volumes in exported EPUBs (NCX dtb:depth=2 & nav.xhtml), in-app Moon+ Reader TOC drawer, and Web Importer chapter manager with Expand/Collapse All toggle."
 }

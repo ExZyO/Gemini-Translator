@@ -3,6 +3,16 @@
  * Generates validated EPUB 3.0 archives with styling, navigation, and illustrations
  */
 (function(window) {
+    const escapeXml = (unsafe) => {
+      if (!unsafe) return '';
+      return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
+
     const updateOriginalEpubNavigation = async (zip, translatedChapters) => {
       if (!zip || !Array.isArray(translatedChapters) || typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') return;
       const containerFile = zip.file('META-INF/container.xml');
@@ -286,8 +296,7 @@ hr {
           '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>'
         ];
         const spineItems = [];
-        const tocNavPoints = [];
-        const tocNavLinks = [];
+        const tocEntries = [];
 
         // Step 1: Scan and strictly filter unique illustration URLs (supports Markdown & HTML img tags)
         const uniqueImgUrls = new Set();
@@ -511,12 +520,7 @@ hr {
 
           manifestItems.push(`<item id="${chId}" href="${chFilename}" media-type="application/xhtml+xml"/>`);
           spineItems.push(`<itemref idref="${chId}"/>`);
-          tocNavPoints.push(`
-  <navPoint id="nav_${chId}" playOrder="${idx + 1}">
-    <navLabel><text>${escapeXml(chTitle)}</text></navLabel>
-    <content src="${chFilename}"/>
-  </navPoint>`);
-          tocNavLinks.push('  <li><a href="' + chFilename + '">' + escapeXml(chTitle) + '</a></li>');
+          tocEntries.push({ id: chId, filename: chFilename, title: chTitle, idx });
 
           const rawLines = ch.content.split(/\r?\n/);
           const bodyHtml = [];
@@ -693,6 +697,93 @@ ${bodyHtml.join('\n ')}
           oebps.file(chFilename, xhtmlContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
         }
 
+        // ── HIERARCHICAL TABLE OF CONTENTS (Volume Collapsible Hierarchy) ──
+        const useHierarchicalToc = options.hierarchicalToc !== false;
+        const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s:–—-]*(.*)$/i;
+        const volumeGroups = [];
+        let curVolGroup = null;
+
+        for (let i = 0; i < tocEntries.length; i++) {
+          const entry = tocEntries[i];
+          const match = entry.title.match(volRegex);
+          let volName = null;
+          let cleanTitle = entry.title;
+
+          if (match) {
+            const prefix = match[1].toLowerCase().startsWith('vol') ? 'Volume' : (match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase());
+            const num = parseInt(match[2], 10) || match[2];
+            volName = `${prefix} ${num}`;
+            cleanTitle = match[3] ? match[3].trim() : entry.title;
+          }
+
+          if (!curVolGroup || (volName && curVolGroup.volName !== volName)) {
+            curVolGroup = {
+              volName: volName || 'General',
+              hasRealVolume: Boolean(volName),
+              firstFilename: entry.filename,
+              items: []
+            };
+            volumeGroups.push(curVolGroup);
+          }
+
+          curVolGroup.items.push({
+            id: entry.id,
+            filename: entry.filename,
+            cleanTitle: cleanTitle || entry.title,
+            fullTitle: entry.title
+          });
+        }
+
+        const distinctNamedVolumes = volumeGroups.filter(v => v.hasRealVolume);
+        const isMultiVolume = useHierarchicalToc && (distinctNamedVolumes.length >= 2 || (volumeGroups.length >= 2 && distinctNamedVolumes.length >= 1));
+
+        const tocNavPoints = [];
+        const tocNavLinks = [];
+        let playOrder = 1;
+        let dtbDepth = 1;
+
+        if (isMultiVolume) {
+          dtbDepth = 2;
+          volumeGroups.forEach((vol, vIdx) => {
+            const volId = `vol_${vIdx + 1}`;
+            const firstFile = vol.items[0]?.filename || `chapter_1.xhtml`;
+            const parentPlayOrder = playOrder++;
+
+            // Nested navPoints for EPUB 2 NCX (renders as collapsible volume tree in Moon+ Reader)
+            const childNavPoints = vol.items.map(item => `
+    <navPoint id="nav_${item.id}" playOrder="${playOrder++}">
+      <navLabel><text>${escapeXml(item.cleanTitle)}</text></navLabel>
+      <content src="${item.filename}"/>
+    </navPoint>`).join('');
+
+            tocNavPoints.push(`
+  <navPoint id="${volId}" playOrder="${parentPlayOrder}">
+    <navLabel><text>${escapeXml(vol.volName)}</text></navLabel>
+    <content src="${firstFile}"/>${childNavPoints}
+  </navPoint>`);
+
+            // Nested <ol> for EPUB 3 navigation (nav.xhtml)
+            const childNavLinks = vol.items.map(item => `      <li><a href="${item.filename}">${escapeXml(item.cleanTitle)}</a></li>`).join('\n');
+            tocNavLinks.push(`  <li>
+    <a href="${firstFile}">${escapeXml(vol.volName)}</a>
+    <ol>
+${childNavLinks}
+    </ol>
+  </li>`);
+          });
+        } else {
+          // Standard flat TOC for single-volume books
+          dtbDepth = 1;
+          tocEntries.forEach(entry => {
+            tocNavPoints.push(`
+  <navPoint id="nav_${entry.id}" playOrder="${playOrder++}">
+    <navLabel><text>${escapeXml(entry.title)}</text></navLabel>
+    <content src="${entry.filename}"/>
+  </navPoint>`);
+            tocNavLinks.push(`  <li><a href="${entry.filename}">${escapeXml(entry.title)}</a></li>`);
+          });
+        }
+
         const opfContent = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="3.0">
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -715,7 +806,7 @@ ${bodyHtml.join('\n ')}
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
 <head>
   <meta name="dtb:uid" content="${uuid}"/>
-  <meta name="dtb:depth" content="1"/>
+  <meta name="dtb:depth" content="${dtbDepth}"/>
   <meta name="dtb:totalPageCount" content="0"/>
   <meta name="dtb:maxPageNumber" content="0"/>
 </head>
@@ -771,4 +862,7 @@ ${tocNavLinks.join('\n')}
 
   window.updateOriginalEpubNavigation = updateOriginalEpubNavigation;
   window.generateEpubFromChapters = generateEpubFromChapters;
-})(window);
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { updateOriginalEpubNavigation, generateEpubFromChapters };
+  }
+})(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));

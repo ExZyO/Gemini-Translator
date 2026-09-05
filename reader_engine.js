@@ -47,6 +47,72 @@
 
       const [activeIdx, setActiveIdx] = useState(typeof currentIdx === 'number' && currentIdx >= 0 ? currentIdx : 0);
       const [showToc, setShowToc] = useState(false);
+      const [collapsedReaderVolumes, setCollapsedReaderVolumes] = useState({});
+
+      const { groups: readerVolumeGroups, isMultiVolume: readerIsMultiVolume } = useMemo(() => {
+        const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s:–—-]*(.*)$/i;
+        const groups = [];
+        let curGroup = null;
+
+        safeChapters.forEach((ch, globalIdx) => {
+          const title = ch.title || '';
+          const match = title.match(volRegex);
+          let volName = null;
+          let cleanTitle = title;
+
+          if (match) {
+            const prefix = match[1].toLowerCase().startsWith('vol') ? 'Volume' : (match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase());
+            const num = parseInt(match[2], 10) || match[2];
+            volName = `${prefix} ${num}`;
+            cleanTitle = match[3] ? match[3].trim() : title;
+          }
+
+          if (!curGroup || (volName && curGroup.volName !== volName)) {
+            curGroup = {
+              volKey: volName ? `vol_${volName.replace(/\s+/g, '_')}` : `group_${groups.length + 1}`,
+              volName: volName || (groups.length === 0 ? 'Prologue / General' : 'Extra / Other'),
+              hasRealVolume: Boolean(volName),
+              items: []
+            };
+            groups.push(curGroup);
+          }
+
+          curGroup.items.push({
+            chapter: ch,
+            globalIdx,
+            cleanTitle: cleanTitle || title,
+            fullTitle: title
+          });
+        });
+
+        const distinctNamedVolumes = groups.filter(g => g.hasRealVolume);
+        const isMulti = distinctNamedVolumes.length >= 2 || (groups.length >= 2 && distinctNamedVolumes.length >= 1);
+        return { groups, isMultiVolume: isMulti };
+      }, [safeChapters]);
+
+      const isReaderVolCollapsed = (volKey, vol) => {
+        if (collapsedReaderVolumes[volKey] !== undefined) {
+          return collapsedReaderVolumes[volKey];
+        }
+        // Active volume containing current active chapter is open, other volumes collapsed
+        const containsActive = vol.items.some(it => it.globalIdx === activeIdx);
+        return !containsActive;
+      };
+
+      const areAllReaderCollapsed = useMemo(() => {
+        if (!readerIsMultiVolume) return false;
+        return readerVolumeGroups.every(g => isReaderVolCollapsed(g.volKey, g));
+      }, [readerIsMultiVolume, readerVolumeGroups, collapsedReaderVolumes, activeIdx]);
+
+      const toggleExpandAllReaderVolumes = () => {
+        const targetCollapse = !areAllReaderCollapsed;
+        const next = {};
+        readerVolumeGroups.forEach(g => {
+          next[g.volKey] = targetCollapse;
+        });
+        setCollapsedReaderVolumes(next);
+      };
+
       const [showMenu, setShowMenu] = useState(false);
       const [showVisual, setShowVisual] = useState(false);
       const [showTtsBar, setShowTtsBar] = useState(false);
@@ -363,27 +429,94 @@
         // Slide-over TOC
         showToc && h('div', { className: 'toc-drawer', onClick: (e) => e.stopPropagation() },
           h('div', { className: 'hd' },
-            `Contents (${safeChapters.length})`,
-            h('button', { type: 'button', className: 'icon-btn', onClick: () => setShowToc(false) }, '✕')
+            h('span', null, `Contents (${safeChapters.length})`),
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+              readerIsMultiVolume && h('button', {
+                type: 'button',
+                className: 'chip-act',
+                style: { fontSize: '11px', padding: '3px 8px', height: 'auto', lineHeight: 'normal' },
+                title: areAllReaderCollapsed ? 'Expand all volumes' : 'Collapse all volumes',
+                onClick: toggleExpandAllReaderVolumes
+              }, areAllReaderCollapsed ? '▼ Expand All' : '▲ Collapse All'),
+              h('button', { type: 'button', className: 'icon-btn', onClick: () => setShowToc(false) }, '✕')
+            )
           ),
           h('div', { className: 'toc-list' },
-            safeChapters.map((ch, idx) => {
-              const isActive = idx === activeIdx;
-              return h('div', {
-                key: idx,
-                className: `toc-row ${isActive ? 'cur' : ''}`,
-                onClick: () => {
-                  setActiveIdx(idx);
-                  onChapterChange?.(idx);
-                  setShowToc(false);
-                  if (containerRef.current) containerRef.current.scrollTop = 0;
-                  if (ttsPlayingRef.current) setTimeout(() => speakSentence(0), 300);
-                }
-              },
-                h('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ch.title || `Chapter ${idx + 1}`),
-                h('span', { className: 'pg' }, `${Math.round(((idx + 1) / safeChapters.length) * 100)}%`)
-              );
-            })
+            readerIsMultiVolume
+              ? readerVolumeGroups.map((vol, vIdx) => {
+                  const collapsed = isReaderVolCollapsed(vol.volKey, vol);
+                  const containsActive = vol.items.some(it => it.globalIdx === activeIdx);
+                  return h('div', { key: vol.volKey || vIdx, style: { marginBottom: '6px' } },
+                    h('div', {
+                      className: 'toc-vol-hdr',
+                      style: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '9px 12px',
+                        background: containsActive ? 'rgba(255, 180, 84, 0.08)' : 'rgba(255, 255, 255, 0.04)',
+                        border: containsActive ? '1px solid rgba(255, 180, 84, 0.35)' : '1px solid var(--hairline)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: containsActive ? 'var(--lamp)' : 'var(--paper)',
+                        transition: 'all 0.15s ease'
+                      },
+                      onClick: () => {
+                        setCollapsedReaderVolumes(prev => ({
+                          ...prev,
+                          [vol.volKey]: !collapsed
+                        }));
+                      }
+                    },
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+                        h('span', { style: { fontSize: '11px', color: 'var(--lamp)' } }, collapsed ? '▸' : '▾'),
+                        h('span', null, `📁 ${vol.volName}`),
+                        h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', color: 'var(--slate)', fontWeight: 400 } }, `(${vol.items.length})`)
+                      ),
+                      h('span', { style: { fontSize: '11px', color: 'var(--slate)' } }, collapsed ? 'Expand' : 'Collapse')
+                    ),
+                    !collapsed && h('div', { style: { paddingLeft: '8px', borderLeft: '2px solid rgba(255, 180, 84, 0.25)', marginLeft: '6px', marginTop: '2px' } },
+                      vol.items.map(it => {
+                        const idx = it.globalIdx;
+                        const isActive = idx === activeIdx;
+                        return h('div', {
+                          key: idx,
+                          className: `toc-row ${isActive ? 'cur' : ''}`,
+                          onClick: () => {
+                            setActiveIdx(idx);
+                            onChapterChange?.(idx);
+                            setShowToc(false);
+                            if (containerRef.current) containerRef.current.scrollTop = 0;
+                            if (ttsPlayingRef.current) setTimeout(() => speakSentence(0), 300);
+                          }
+                        },
+                          h('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.cleanTitle || it.fullTitle || `Chapter ${idx + 1}`),
+                          h('span', { className: 'pg' }, `${Math.round(((idx + 1) / safeChapters.length) * 100)}%`)
+                        );
+                      })
+                    )
+                  );
+                })
+              : safeChapters.map((ch, idx) => {
+                  const isActive = idx === activeIdx;
+                  return h('div', {
+                    key: idx,
+                    className: `toc-row ${isActive ? 'cur' : ''}`,
+                    onClick: () => {
+                      setActiveIdx(idx);
+                      onChapterChange?.(idx);
+                      setShowToc(false);
+                      if (containerRef.current) containerRef.current.scrollTop = 0;
+                      if (ttsPlayingRef.current) setTimeout(() => speakSentence(0), 300);
+                    }
+                  },
+                    h('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ch.title || `Chapter ${idx + 1}`),
+                    h('span', { className: 'pg' }, `${Math.round(((idx + 1) / safeChapters.length) * 100)}%`)
+                  );
+                })
           )
         ),
 
@@ -542,5 +675,10 @@
       );
     };
 
-  window.MoonReaderModal = MoonReaderModal;
-})(window);
+  if (typeof window !== 'undefined') {
+    window.MoonReaderModal = MoonReaderModal;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { MoonReaderModal };
+  }
+})(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));
