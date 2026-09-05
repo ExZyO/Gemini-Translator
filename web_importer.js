@@ -1630,15 +1630,31 @@
             progressCb?.(`Found ${bookUrls.length} volumes in Lnori series! Ingesting volumes concurrently...`, 30);
 
             // High-speed concurrent volume fetching with crawlChapterPool
-            const { chapters: allChapters } = await crawlChapterPool(
+            const { chapters: volumeResults } = await crawlChapterPool(
                 bookUrls,
                 async (bItem) => {
                     const bHtml = await fetchHtml(bItem.url, { headers: { 'Referer': url } });
-                    return parseChaptersFromBookHtml(bHtml, bItem.url);
+                    const volChs = parseChaptersFromBookHtml(bHtml, bItem.url);
+                    // Return concatenated text block so crawlChapterPool validation passes (chData.text.length > 30)
+                    const fullVolText = volChs.map(c => `### ${c.title}\n\n${c.text}`).join('\n\n---\n\n');
+                    return {
+                        title: bItem.title,
+                        text: fullVolText,
+                        volChapters: volChs
+                    };
                 },
-                4, // Concurrency limit 4 for instant parallel ingestion
-                progressCb
+                3, // Concurrency limit 3 to prevent website anti-bot rate limits
+                progressCb,
+                null,
+                { delayMs: 150 } // Delay between worker bursts
             );
+
+            let allChapters = [];
+            volumeResults.forEach(v => {
+                if (v && Array.isArray(v.volChapters)) {
+                    allChapters = allChapters.concat(v.volChapters);
+                }
+            });
 
             const totalWords = allChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
             progressCb?.(` Loaded ${allChapters.length} chapters across ${bookUrls.length} Lnori volumes (~${totalWords.toLocaleString()} words)!`, 100);

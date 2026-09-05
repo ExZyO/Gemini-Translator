@@ -1,7 +1,7 @@
 {
-  "version": "8.10.25",
-  "versionCode": 8125,
+  "version": "8.10.26",
+  "versionCode": 8126,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.25: Enhanced Lnori light novel illustration ingestion and EPUB image bundling. Restored illustration display in Moon+ Reader Pro by preserving relative dynamic image URLs, data-src attributes, and preventing anchor text artifact stripping; updated EPUB scanner to bundle all chapter illustrations offline."
+  "releaseNotes": "v8.10.26: Fixed Lnori rate-limiting retry loop by adapting volume crawler data structure for crawlChapterPool and adding burst delays between requests."
 }
