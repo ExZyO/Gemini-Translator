@@ -31,8 +31,8 @@ public class MainActivity extends BridgeActivity {
         try {
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.getWebView().onResume();
+                bridge.getWebView().resumeTimers();
             }
-            android.webkit.WebView.resumeTimers();
         } catch (Exception ignored) {}
     }
 
@@ -43,8 +43,8 @@ public class MainActivity extends BridgeActivity {
         try {
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.getWebView().onResume();
+                bridge.getWebView().resumeTimers();
             }
-            android.webkit.WebView.resumeTimers();
         } catch (Exception ignored) {}
     }
 }
