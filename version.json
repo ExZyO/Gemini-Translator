@@ -1,7 +1,7 @@
 {
-  "version": "8.10.21",
-  "versionCode": 8121,
+  "version": "8.10.22",
+  "versionCode": 8122,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.21: Dedicated EPUB packaging progress bar with real-time illustration pre-caching stats (zero toast spam), unified novel translation data model, and 1-click '⚡ Update & Translate' pipeline to delta-crawl new chapters, translate delta with Gemini, and update EPUB archives."
+  "releaseNotes": "v8.10.22: Guaranteed Resume Translation button visibility immediately upon tapping Pause across in-place progress card, top banner, bottom action bar, and Library. Fixed critical reference errors, eliminated stale state closures, and added millisecond-zero translation session snapshotting."
 }

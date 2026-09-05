@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.21';
+    const VERSION = '8.10.22';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3946,12 +3946,16 @@ const formatModelName = (id, displayName) => {
 
       // --- Session/Resume State ---
       const [activeSession, setActiveSession] = useState(null);
+      const activeSessionRef = useRef(null);
+      useEffect(() => { activeSessionRef.current = activeSession; }, [activeSession]);
       const [savedTranslationSession, setSavedTranslationSession] = useState(null);
       const [isTranslationPaused, setIsTranslationPaused] = useState(false);
       const isPausingRef = useRef(false);
       const [currentFileHash, setCurrentFileHash] = useState('');
       const [currentOriginalZip, setCurrentOriginalZip] = useState(null);
       const [currentIsEpub, setCurrentIsEpub] = useState(false);
+      const [fileName, setFileName] = useState('');
+      const [currentDocTitle, setCurrentDocTitle] = useState('');
 
       // Check for active / paused translation in IndexedDB on launch
       useEffect(() => {
@@ -3960,7 +3964,10 @@ const formatModelName = (id, displayName) => {
             try {
               const active = await window.GeminiNovelDB.getActiveTranslationSession();
               if (active) {
+                activeSessionRef.current = active;
+                setActiveSession(active);
                 setSavedTranslationSession(active);
+                setIsTranslationPaused(true);
               }
             } catch(e) {}
           }
@@ -3992,15 +3999,56 @@ const formatModelName = (id, displayName) => {
         isPausingRef.current = true;
         setIsTranslationPaused(true);
         if (abortRef.current) {
-          abortRef.current.abort();
+          try { abortRef.current.abort(); } catch(e) {}
         }
-        if (activeSession) {
-          setSavedTranslationSession(activeSession);
-        } else if (window.GeminiNovelDB) {
+        let session = activeSessionRef.current || activeSession;
+        if (!session && window.GeminiNovelDB) {
           try {
-            const s = await window.GeminiNovelDB.getActiveTranslationSession();
-            if (s) setSavedTranslationSession(s);
+            session = await window.GeminiNovelDB.getActiveTranslationSession();
           } catch(e) {}
+        }
+        // Fallback: If still no session, synthesize one from current state so Resume is GUARANTEED to exist
+        if (!session) {
+          if (chapters && chapters.length > 0) {
+            const bTitle = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || (chapters[0] && chapters[0].title) || 'Web Novel';
+            const jId = currentFileHash || ('job_' + String(bTitle).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30) + '_' + chapters.length);
+            const compCount = (translatedChapters || []).filter(c => c && (c.content || c.text)).length;
+            session = {
+              id: jId,
+              type: 'ebook',
+              title: bTitle,
+              ctx: '',
+              completedCount: compCount,
+              currentChapterIdx: compCount,
+              currentChunkIdx: 0,
+              allParts: (translatedChapters || []).map(c => c ? `${c.title || ''}\n\n${c.content || c.text || ''}` : ''),
+              newChapters: translatedChapters || [],
+              totalChunks: chapters.length,
+              chapters: chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, text: c.text || c.content || '' })),
+              isEpub: currentIsEpub,
+              timestamp: Date.now()
+            };
+          } else if (inputText.trim()) {
+            const jId = generateJobId(inputText);
+            session = {
+              id: jId,
+              type: 'text',
+              title: 'Text Translation',
+              result: assembledText,
+              ctx: '',
+              completedCount: assembledText ? 1 : 0,
+              total: 1,
+              timestamp: Date.now()
+            };
+          }
+        }
+        if (session) {
+          activeSessionRef.current = session;
+          setActiveSession(session);
+          setSavedTranslationSession(session);
+          if (window.GeminiNovelDB) {
+            window.GeminiNovelDB.saveTranslationSession(session).catch(() => {});
+          }
         }
         window.NativeBridge?.clearProgressNotification?.(false);
         window.NativeBridge?.showCompletionNotification?.('Translation Paused ⏸', 'Translation paused. Progress safely saved.');
@@ -4008,14 +4056,15 @@ const formatModelName = (id, displayName) => {
       };
 
       const resumeSavedTranslation = async (session) => {
-        const s = session || savedTranslationSession || activeSession;
+        const s = session || savedTranslationSession || activeSessionRef.current || activeSession;
         if (!s) {
           toast('No saved translation session found.', 'warning');
           return;
         }
         toast(`Resuming translation (${s.completedCount || 0} done)...`, 'info');
+        activeSessionRef.current = s;
         setActiveSession(s);
-        setSavedTranslationSession(null);
+        setSavedTranslationSession(s);
         setIsTranslationPaused(false);
         isPausingRef.current = false;
         setActiveTab('text');
@@ -4041,8 +4090,10 @@ const formatModelName = (id, displayName) => {
         if (sessionId) {
           try { localStorage.removeItem(sessionId); } catch(e) {}
         }
+        activeSessionRef.current = null;
         setSavedTranslationSession(null);
         setActiveSession(null);
+        setIsTranslationPaused(false);
         toast('Discarded saved translation session.', 'info');
       };
 
@@ -4051,7 +4102,7 @@ const formatModelName = (id, displayName) => {
           toast('No translated text to save.', 'warning');
           return;
         }
-        const title = currentDocTitle || (translatedChapters && translatedChapters[0]?.title && !isGenericTitle(translatedChapters[0].title) ? translatedChapters[0].title : 'Translated Document');
+        const title = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || (translatedChapters && translatedChapters[0]?.title && !isGenericTitle(translatedChapters[0].title) ? translatedChapters[0].title : 'Translated Document');
         const chs = (translatedChapters && translatedChapters.length > 0)
           ? translatedChapters.map((c, i) => ({
               idx: i,
@@ -4580,12 +4631,20 @@ const formatModelName = (id, displayName) => {
       useEffect(() => { localStorage.setItem('chunkSizePreset', chunkSizePreset) }, [chunkSizePreset]);
 
       useEffect(() => {
-        if (!inputText && !currentFileHash) { setActiveSession(null); return; }
+        if (isTranslating || isTranslationPaused) return;
+        if (!inputText && !currentFileHash) {
+          if (!savedTranslationSession) {
+            setActiveSession(null);
+            activeSessionRef.current = null;
+          }
+          return;
+        }
         const id = inputText ? generateJobId(inputText) : currentFileHash;
         const saved = localStorage.getItem(id);
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
+            activeSessionRef.current = parsed;
             setActiveSession(parsed);
             if (parsed.result) {
               setAssembledText(parsed.result);
@@ -4597,7 +4656,10 @@ const formatModelName = (id, displayName) => {
             }
           } catch(e) {}
         } else {
-          setActiveSession(null);
+          if (!savedTranslationSession) {
+            setActiveSession(null);
+            activeSessionRef.current = null;
+          }
         }
       }, [inputText, currentFileHash, provider, contextAware]);
 
@@ -6528,9 +6590,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const isAIProvider = provider === 'gemini' || provider === 'deepseek';
           const useContext = contextAware && chunks.length > 1 && isAIProvider;
 
-          let result = resume && activeSession ? activeSession.result : '';
-          let ctx = resume && activeSession ? activeSession.ctx : '';
-          let startIndex = resume && activeSession ? activeSession.completedCount : 0;
+          const curSession = (resume ? (activeSessionRef.current || activeSession) : null);
+          let result = curSession ? curSession.result : '';
+          let ctx = curSession ? curSession.ctx : '';
+          let startIndex = curSession ? (curSession.completedCount || 0) : 0;
           let totalPromptTokens = 0;
           let totalOutputTokens = 0;
           let totalTokensUsed = 0;
@@ -6540,12 +6603,16 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             try {
               if (res.length < 2000000) localStorage.setItem(jobId, JSON.stringify(state));
             } catch (e) {}
+            activeSessionRef.current = state;
             setActiveSession(state);
             setSavedTranslationSession(state);
             if (window.GeminiNovelDB) {
               await window.GeminiNovelDB.saveTranslationSession(state);
             }
           };
+
+          // Snapshot state immediately so pausing at any point captures the session
+          await saveState(result, ctx, startIndex);
 
           if (isAIProvider && enableStreaming) {
             for (let i = startIndex; i < chunks.length; i++) {
@@ -6589,7 +6656,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             result = stripContextLeak(result);
             if (!(result || '').trim()) throw new Error('Provider returned an empty stream. Check the selected model in Settings · Engine.');
             setTranslatedChapters([{ title: 'Translated Document', content: result }]);
-            localStorage.removeItem(jobId); setActiveSession(null); setSavedTranslationSession(null);
+            localStorage.removeItem(jobId); activeSessionRef.current = null; setActiveSession(null); setSavedTranslationSession(null); setIsTranslationPaused(false);
             if (window.GeminiNovelDB) { window.GeminiNovelDB.deleteTranslationSession(jobId); }
           } else if (useContext) {
             for (let i = startIndex; i < chunks.length; i++) {
@@ -6682,7 +6749,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             result = stripContextLeak(result ? result + '\n\n' + combinedNew : combinedNew);
 
             setAssembledText(result); setTranslatedChapters([{ title: 'Translated Document', content: result }]);
-            localStorage.removeItem(jobId); setActiveSession(null);
+            localStorage.removeItem(jobId); activeSessionRef.current = null; setActiveSession(null); setSavedTranslationSession(null); setIsTranslationPaused(false);
+            if (window.GeminiNovelDB) { window.GeminiNovelDB.deleteTranslationSession(jobId); }
           }
 
           const elapsedMs = performance.now() - startTime;
@@ -6726,18 +6794,27 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         } catch (e) {
           if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error'); }
           else {
-            toast('Translation paused. Progress safely saved.', 'info');
-            if (activeSession) setSavedTranslationSession(activeSession);
-            else if (window.GeminiNovelDB) {
+            setIsTranslationPaused(true);
+            const session = activeSessionRef.current || activeSession;
+            if (session) {
+              setSavedTranslationSession(session);
+            } else if (window.GeminiNovelDB) {
               window.GeminiNovelDB.getActiveTranslationSession().then(s => {
                 if (s) setSavedTranslationSession(s);
               });
             }
+            toast('Translation paused. Progress safely saved.', 'info');
           }
         }
         finally {
           if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
-          setIsTranslating(false); setProgress(0); setProgressLabel(''); abortRef.current = null;
+          setIsTranslating(false);
+          if (!isPausingRef.current) {
+            setProgress(0);
+            setProgressLabel('');
+          }
+          abortRef.current = null;
+          isPausingRef.current = false;
         }
       };
 
@@ -6760,53 +6837,26 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         const ctrl = new AbortController(); abortRef.current = ctrl;
         const opts = getTranslateOpts(ctrl.signal);
         const useContext = contextAware && (provider === 'gemini' || provider === 'deepseek');
-        let ctx = resume && activeSession ? activeSession.ctx : '';
-        let done = resume && activeSession ? activeSession.completedCount : 0;
+        const curSession = (resume ? (activeSessionRef.current || activeSession) : null);
+        let ctx = curSession ? curSession.ctx : '';
+        let done = curSession ? (curSession.completedCount || 0) : 0;
         let totalPromptTokens = 0;
         let totalOutputTokens = 0;
         let totalTokensUsed = 0;
 
-        const allParts = resume && activeSession ? [...activeSession.allParts] : [];
-        const newChapters = resume && activeSession ? [...activeSession.newChapters] : [];
-        const startChapterIdx = resume && activeSession ? activeSession.currentChapterIdx : 0;
-        const startChunkIdx = resume && activeSession ? activeSession.currentChunkIdx : 0;
+        const allParts = curSession ? [...curSession.allParts] : [];
+        const newChapters = curSession ? [...curSession.newChapters] : [];
+        const startChapterIdx = curSession ? (curSession.currentChapterIdx || 0) : 0;
+        const startChunkIdx = curSession ? (curSession.currentChunkIdx || 0) : 0;
 
         const bookTitle = (chapters && chapters[0]?.title && !isGenericTitle(chapters[0].title))
           ? chapters[0].title
-          : (currentDocTitle || 'Web Novel');
+          : ((fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || 'Web Novel');
         const jobId = currentFileHash || ('job_' + String(bookTitle).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30) + '_' + chapters.length);
         let lastUiAssembledUpdate = performance.now();
-
-        const saveState = async (c, count, chIdx, ckIdx, ap, nc) => {
-          const state = {
-            id: jobId,
-            type: 'ebook',
-            title: bookTitle,
-            ctx: c,
-            completedCount: count,
-            currentChapterIdx: chIdx,
-            currentChunkIdx: ckIdx,
-            allParts: ap,
-            newChapters: nc,
-            totalChunks,
-            chapters: chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, text: c.text || c.content || '' })),
-            isEpub,
-            timestamp: Date.now()
-          };
-          try {
-            const sStr = JSON.stringify(state);
-            if (sStr.length < 2000000) localStorage.setItem(jobId, sStr);
-          } catch(e) {}
-          setActiveSession(state);
-          setSavedTranslationSession(state);
-          if (window.GeminiNovelDB) {
-            await window.GeminiNovelDB.saveTranslationSession(state);
-          }
-        };
+        let totalChunks = 0;
 
         try {
-          let totalChunks = 0;
-
           // Disambiguate duplicate adjacent chapter titles in chapters array (e.g. AO3 summary block vs story chapter)
           for (let idx = 0; idx < chapters.length - 1; idx++) {
             const cur = chapters[idx];
@@ -6837,14 +6887,45 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             return { title: chapterTitle, chunks: ch.map(text => ({ text })), doc: c?.doc, zipPath: c?.zipPath };
           });
 
-          let done = 0;
           if (resume && newChapters.length > 0) {
+            done = 0;
             newChapters.forEach((nc, idx) => {
               if (nc && nc.content) {
                 done += (chapterData[idx]?.chunks?.length || 1) + (chapterData[idx]?.title?.trim() ? 1 : 0);
               }
             });
           }
+
+          const saveState = async (c, count, chIdx, ckIdx, ap, nc) => {
+            const state = {
+              id: jobId,
+              type: 'ebook',
+              title: bookTitle,
+              ctx: c,
+              completedCount: count,
+              currentChapterIdx: chIdx,
+              currentChunkIdx: ckIdx,
+              allParts: ap,
+              newChapters: nc,
+              totalChunks,
+              chapters: chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, text: c.text || c.content || '' })),
+              isEpub,
+              timestamp: Date.now()
+            };
+            try {
+              const sStr = JSON.stringify(state);
+              if (sStr.length < 2000000) localStorage.setItem(jobId, sStr);
+            } catch(e) {}
+            activeSessionRef.current = state;
+            setActiveSession(state);
+            setSavedTranslationSession(state);
+            if (window.GeminiNovelDB) {
+              await window.GeminiNovelDB.saveTranslationSession(state);
+            }
+          };
+
+          // Snapshot state immediately at millisecond zero so pausing during chapter 1 never yields null
+          await saveState(ctx, done, startChapterIdx, startChunkIdx, allParts, newChapters);
 
           const chapterItems = chapterData.map((ch, idx) => ({ ch, idx })).filter(({ idx }) => {
             if (!resume) return true;
@@ -7095,7 +7176,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               }).catch(e => console.warn('History save error:', e));
             }
           }
-          localStorage.removeItem(jobId); setActiveSession(null); setSavedTranslationSession(null);
+          localStorage.removeItem(jobId); activeSessionRef.current = null; setActiveSession(null); setSavedTranslationSession(null); setIsTranslationPaused(false);
           if (window.GeminiNovelDB) { window.GeminiNovelDB.deleteTranslationSession(jobId); }
           toast(`Ebook translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
           try {
@@ -7113,18 +7194,27 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         } catch (e) {
           if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error'); }
           else {
-            toast('Translation paused. Progress safely saved to database.', 'info');
-            if (activeSession) setSavedTranslationSession(activeSession);
-            else if (window.GeminiNovelDB) {
+            setIsTranslationPaused(true);
+            const session = activeSessionRef.current || activeSession;
+            if (session) {
+              setSavedTranslationSession(session);
+            } else if (window.GeminiNovelDB) {
               window.GeminiNovelDB.getActiveTranslationSession().then(s => {
                 if (s) setSavedTranslationSession(s);
               });
             }
+            toast('Translation paused. Progress safely saved to database.', 'info');
           }
-          setTranslatedChapters(resume && activeSession ? activeSession.newChapters : (newChapters.length > 0 ? newChapters : []));
+          const finalChapters = (activeSessionRef.current || activeSession)?.newChapters || (newChapters.length > 0 ? newChapters : []);
+          setTranslatedChapters(finalChapters);
         }
         finally { 
-          setIsTranslating(false); setProgress(0); setProgressLabel(''); abortRef.current = null;
+          setIsTranslating(false);
+          if (!isPausingRef.current) {
+            setProgress(0);
+            setProgressLabel('');
+          }
+          abortRef.current = null;
           isPausingRef.current = false;
           window.NativeBridge?.releaseWakeLock();
         }
@@ -8019,40 +8109,46 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
             // ═══ TAB 1: TRANSLATE ═══
             activeTab === 'text' && h(React.Fragment, null,
-              savedTranslationSession && !isTranslating && h('div', {
-                className: 'card',
-                style: {
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
-                  borderColor: 'var(--accent, #6366f1)',
-                  marginBottom: 14
-                }
-              },
-                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
-                  h('div', null,
-                    h('div', { style: { fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 } },
-                      h('span', null, '⏸ Saved Translation Session'),
-                      h('span', { className: 'badge', style: { background: 'var(--accent)', color: '#fff' } }, `${savedTranslationSession.completedCount || 0} / ${savedTranslationSession.total || savedTranslationSession.totalChunks || '?'} completed`)
+              (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && !isTranslating && (() => {
+                const s = savedTranslationSession || activeSessionRef.current || activeSession;
+                if (!s) return null;
+                const cCount = s.completedCount || 0;
+                const tCount = s.total || s.totalChunks || '?';
+                return h('div', {
+                  className: 'card',
+                  style: {
+                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
+                    borderColor: 'var(--accent, #6366f1)',
+                    marginBottom: 14
+                  }
+                },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
+                    h('div', null,
+                      h('div', { style: { fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 } },
+                        h('span', null, '⏸ Saved Translation Session'),
+                        h('span', { className: 'badge', style: { background: 'var(--accent)', color: '#fff' } }, `${cCount} / ${tCount} completed`)
+                      ),
+                      h('div', { style: { fontSize: 11.5, opacity: 0.8, marginTop: 2 } },
+                        `${s.title || 'Translation'} · Saved ${new Date(s.timestamp || Date.now()).toLocaleTimeString()}`
+                      )
                     ),
-                    h('div', { style: { fontSize: 11.5, opacity: 0.8, marginTop: 2 } },
-                      `${savedTranslationSession.title || 'Translation'} · Saved ${new Date(savedTranslationSession.timestamp || Date.now()).toLocaleTimeString()}`
+                    h('div', { style: { display: 'flex', gap: 6 } },
+                      h('button', {
+                        type: 'button',
+                        className: 'btn-primary',
+                        style: { padding: '5px 14px', fontSize: 12, background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700 },
+                        onClick: () => resumeSavedTranslation(s)
+                      }, '▶ Resume Translation'),
+                      h('button', {
+                        type: 'button',
+                        className: 'chip-act',
+                        style: { padding: '5px 10px', fontSize: 12 },
+                        onClick: () => discardSavedTranslation(s.id)
+                      }, 'Discard')
                     )
-                  ),
-                  h('div', { style: { display: 'flex', gap: 6 } },
-                    h('button', {
-                      type: 'button',
-                      className: 'btn-primary',
-                      style: { padding: '5px 14px', fontSize: 12 },
-                      onClick: () => resumeSavedTranslation(savedTranslationSession)
-                    }, '▶ Resume Translation'),
-                    h('button', {
-                      type: 'button',
-                      className: 'chip-act',
-                      style: { padding: '5px 10px', fontSize: 12 },
-                      onClick: () => discardSavedTranslation(savedTranslationSession.id)
-                    }, 'Discard')
                   )
-                )
-              ),
+                );
+              })(),
 
               h('div', { className: 'langrow' },
                 h('select', { className: 'lang', value: srcLang, onChange: e => setSrcLang(e.target.value), disabled }, LANGUAGES.map(l => h('option', { key: l, value: l }, l))),
@@ -8252,6 +8348,74 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 h('div', { className: 'count', style: { marginTop: 8 } }, `${progress}%`)
               ),
 
+              !isTranslating && (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && (() => {
+                const session = savedTranslationSession || activeSessionRef.current || activeSession;
+                const completedCount = session?.completedCount || (translatedChapters || []).filter(c => c && (c.content || c.text)).length || 0;
+                const totalCount = session?.total || session?.totalChunks || (chapters ? chapters.length : 1);
+                const pct = totalCount > 0 ? Math.min(100, Math.round((completedCount / totalCount) * 100)) : (progress || 0);
+                const sessionTitle = session?.title || (fileName && fileName.trim()) || activeNovelRecord?.title || 'Novel Translation';
+                return h('div', {
+                  className: 'card',
+                  style: {
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(99, 102, 241, 0.10))',
+                    borderColor: '#f59e0b',
+                    borderWidth: '1.5px',
+                    boxShadow: '0 4px 16px rgba(245, 158, 11, 0.15)',
+                    marginBottom: 14,
+                    padding: '14px 16px'
+                  }
+                },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                      h('span', { style: { fontSize: 16 } }, '⏸'),
+                      h('div', null,
+                        h('div', { style: { fontWeight: 800, fontSize: 13.5, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
+                          'Translation Paused',
+                          h('span', { className: 'badge', style: { background: '#f59e0b', color: '#000', fontWeight: 700 } }, `${completedCount} / ${totalCount} completed`)
+                        ),
+                        h('div', { style: { fontSize: 11.5, opacity: 0.8, marginTop: 2 } },
+                          `${sessionTitle} · Progress safely preserved in database`
+                        )
+                      )
+                    ),
+                    h('span', { className: 'count', style: { fontWeight: 700, color: '#f59e0b' } }, `${pct}%`)
+                  ),
+                  h('div', { className: 'mini-progress', style: { background: 'rgba(245, 158, 11, 0.2)', height: 8, borderRadius: 4, marginBottom: 12 } },
+                    h('i', { style: { width: `${pct}%`, background: 'linear-gradient(90deg, #f59e0b, #6366f1)', borderRadius: 4 } })
+                  ),
+                  h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'btn-primary',
+                      style: {
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        padding: '9px 18px',
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        boxShadow: '0 2px 10px rgba(16, 185, 129, 0.35)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        borderRadius: 8
+                      },
+                      onClick: () => resumeSavedTranslation(session)
+                    }, '▶ Resume Translation'),
+                    h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      style: { padding: '9px 14px', fontSize: 12, borderRadius: 8 },
+                      title: 'Discard paused session and start over',
+                      onClick: () => discardSavedTranslation(session?.id)
+                    }, 'Discard')
+                  )
+                );
+              })(),
+
               lastUsageStats && !isTranslating && h('div', { className: 'card', style: { borderColor: 'var(--accent, #6366f1)' } },
                 h('div', { className: 'card-title' },
                   h('span', null, '📊 Last Translation Summary'),
@@ -8338,24 +8502,29 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               chapters.length > 0 && h('div', { className: 'count', style: { margin: '0 2px 8px' } }, `${chapters.length} chapters loaded`),
 
               h('div', { className: 'actionbar' },
-                savedTranslationSession && !isTranslating ? h(React.Fragment, null,
-                  h('button', {
-                    type: 'button',
-                    className: 'primary',
-                    style: { background: 'linear-gradient(135deg, var(--accent, #6366f1), #8b5cf6)', fontWeight: 700, flex: 1 },
-                    onClick: () => resumeSavedTranslation(savedTranslationSession)
-                  }, `▶ Resume Translation (${savedTranslationSession.completedCount || 0}/${savedTranslationSession.total || savedTranslationSession.totalChunks || '?'} done)`),
-                  h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    style: { padding: '8px 12px', fontSize: 12 },
-                    title: 'Discard paused session and start fresh',
-                    onClick: () => discardSavedTranslation(savedTranslationSession.id)
-                  }, 'Start New')
-                ) : h('button', {
+                (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && !isTranslating ? (() => {
+                  const s = savedTranslationSession || activeSessionRef.current || activeSession;
+                  const cCount = s?.completedCount || 0;
+                  const tCount = s?.total || s?.totalChunks || '?';
+                  return h(React.Fragment, null,
+                    h('button', {
+                      type: 'button',
+                      className: 'primary',
+                      style: { background: 'linear-gradient(135deg, #10b981, #059669)', fontWeight: 700, flex: 1 },
+                      onClick: () => resumeSavedTranslation(s)
+                    }, `▶ Resume Translation (${cCount}/${tCount} done)`),
+                    h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      style: { padding: '8px 12px', fontSize: 12 },
+                      title: 'Discard paused session and start fresh',
+                      onClick: () => discardSavedTranslation(s?.id)
+                    }, 'Start New')
+                  );
+                })() : h('button', {
                   type: 'button',
                   className: 'primary',
-                  disabled: isTranslating || !inputText.trim(),
+                  disabled: isTranslating || (!inputText.trim() && (!chapters || chapters.length === 0)),
                   onClick: () => handleStartTranslation()
                 }, isTranslating ? 'Translating…' : '◐ Translate'),
                 h('button', { type: 'button', className: 'overflow', title: 'More actions', onClick: () => setSheetOpen(true) }, '⋯')
@@ -8727,42 +8896,48 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   }, 'Clear All')
                 )
               ),
-              savedTranslationSession && (libTab === 'all' || libTab === 'incomplete') && h('div', {
-                className: 'card',
-                style: {
-                  border: '1.5px solid var(--accent, #6366f1)',
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
-                  marginBottom: 12,
-                  padding: '12px 14px'
-                }
-              },
-                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 } },
-                  h('div', null,
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13 } },
-                      h('span', null, '⏸ Paused Translation Session'),
-                      h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff' } }, `${savedTranslationSession.completedCount || 0} / ${savedTranslationSession.total || savedTranslationSession.totalChunks || '?'} done`)
+              (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && (libTab === 'all' || libTab === 'incomplete' || libTab === 'saved') && (() => {
+                const s = savedTranslationSession || activeSessionRef.current || activeSession;
+                if (!s) return null;
+                const cCount = s.completedCount || 0;
+                const tCount = s.total || s.totalChunks || '?';
+                return h('div', {
+                  className: 'card',
+                  style: {
+                    border: '1.5px solid var(--accent, #6366f1)',
+                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
+                    marginBottom: 12,
+                    padding: '12px 14px'
+                  }
+                },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 } },
+                    h('div', null,
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13 } },
+                        h('span', null, '⏸ Paused Translation Session'),
+                        h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff' } }, `${cCount} / ${tCount} done`)
+                      ),
+                      h('div', { style: { fontSize: 12, fontWeight: 500, color: 'var(--paper)', marginTop: 4 } }, s.title || 'Translation'),
+                      h('div', { style: { fontSize: 11, opacity: 0.75, marginTop: 2 } }, `Saved in database · ${new Date(s.timestamp || Date.now()).toLocaleTimeString()}`)
                     ),
-                    h('div', { style: { fontSize: 12, fontWeight: 500, color: 'var(--paper)', marginTop: 4 } }, savedTranslationSession.title || 'Translation'),
-                    h('div', { style: { fontSize: 11, opacity: 0.75, marginTop: 2 } }, `Saved in database · ${new Date(savedTranslationSession.timestamp || Date.now()).toLocaleTimeString()}`)
-                  ),
-                  h('div', { style: { display: 'flex', gap: 8 } },
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn',
-                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700, padding: '7px 16px' },
-                      onClick: () => {
-                        setActiveTab('text');
-                        resumeSavedTranslation(savedTranslationSession);
-                      }
-                    }, '▶ Resume Translation'),
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn danger',
-                      onClick: () => discardSavedTranslation(savedTranslationSession.id)
-                    }, 'Discard')
+                    h('div', { style: { display: 'flex', gap: 8 } },
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn',
+                        style: { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700, padding: '7px 16px', border: 'none', borderRadius: 6 },
+                        onClick: () => {
+                          setActiveTab('text');
+                          resumeSavedTranslation(s);
+                        }
+                      }, '▶ Resume Translation'),
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn danger',
+                        onClick: () => discardSavedTranslation(s.id)
+                      }, 'Discard')
+                    )
                   )
-                )
-              ),
+                );
+              })(),
               !libCollapsed.books && (displayedBooks.length === 0
                 ? h('div', { className: 'card', style: { textAlign: 'center', padding: '44px 16px' } },
                     h('p', { style: { fontSize: 13, color: 'var(--slate)' } }, libQuery ? 'No saved books match your search.' : (libTab === 'saved' ? 'Your Saved Space is empty. Star any book to pin it here!' : 'Your library is empty.')),
