@@ -1636,42 +1636,36 @@
 
             progressCb?.(`Found ${bookUrls.length} volumes in Lnori series! Ingesting volumes concurrently...`, 30);
 
-            // Fetch volume pages concurrently in parallel bursts
-            const concurrency = 8;
-            const volumeResults = new Array(bookUrls.length);
-            let doneCount = 0;
-
-            const fetchVolumeTask = async (index) => {
-                const bItem = bookUrls[index];
-                try {
+            // Ingest volumes with crawlChapterPool to update live UI progress bar & telemetry logs in real time
+            const { chapters: volumeResults } = await crawlChapterPool(
+                bookUrls,
+                async (bItem) => {
                     const bHtml = await fetchHtml(bItem.url, { headers: { 'Referer': url } });
                     const volChs = parseChaptersFromBookHtml(bHtml, bItem.url);
-                    volumeResults[index] = volChs;
-                } catch (err) {
-                    console.warn(`[Lnori] Failed to fetch volume ${index + 1} (${bItem.url}):`, err);
-                    volumeResults[index] = [];
-                }
-                doneCount++;
-                const pct = Math.min(99, Math.round(30 + ((doneCount / bookUrls.length) * 69)));
-                progressCb?.(` Ingested Lnori volumes: ${doneCount}/${bookUrls.length} (${pct}%)`, pct);
-            };
-
-            for (let i = 0; i < bookUrls.length; i += concurrency) {
-                if (activeCrawlController?.isPaused || activeCrawlController?.isCancelled) break;
-                const batch = bookUrls.slice(i, i + concurrency).map((_, idx) => fetchVolumeTask(i + idx));
-                await Promise.all(batch);
-            }
+                    // Joined text string ensures crawlChapterPool validates chapter content length
+                    const fullVolText = volChs.map(c => `### ${c.title}\n\n${c.text}`).join('\n\n---\n\n');
+                    return {
+                        title: bItem.title,
+                        text: fullVolText,
+                        volChapters: volChs
+                    };
+                },
+                8, // High-speed 8 parallel workers (matching build 199 speed)
+                progressCb,
+                { title, author, summary, chapterList: bookUrls },
+                { delayMs: 40 }
+            );
 
             let allChapters = [];
-            volumeResults.forEach(vChs => {
-                if (Array.isArray(vChs)) {
-                    allChapters = allChapters.concat(vChs);
+            volumeResults.forEach(v => {
+                if (v && Array.isArray(v.volChapters)) {
+                    allChapters = allChapters.concat(v.volChapters);
                 }
             });
 
-            // Sync controller expected count to actual extracted individual chapters so ingestion finishes 100%
+            // Set totalChapterCount to match return array size so index.html completion check evaluates (15 >= 15) -> 100% complete
             if (activeCrawlController) {
-                activeCrawlController.totalChapterCount = allChapters.length;
+                activeCrawlController.totalChapterCount = bookUrls.length;
             }
 
             const totalWords = allChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
@@ -1682,8 +1676,8 @@
                 summary,
                 tags,
                 chapters: allChapters,
-                chapterList: allChapters.map(c => ({ url: c.url, title: c.title })),
-                totalChapterCount: allChapters.length,
+                chapterList: bookUrls,
+                totalChapterCount: bookUrls.length,
                 isEpub: false,
                 sourceUrl: url
             };

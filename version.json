@@ -1,7 +1,7 @@
 {
-  "version": "8.10.33",
-  "versionCode": 8133,
+  "version": "8.10.34",
+  "versionCode": 8134,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.33: Restored direct high-speed volume batch fetching for Lnori series, fixed volume vs chapter count completion synchronization to prevent unexpected pauses."
+  "releaseNotes": "v8.10.34: Restored real-time chapter progress UI updates for Lnori series, fixed images folder bundling in exported EPUBs, and ensured [Download Image] links render properly."
 }

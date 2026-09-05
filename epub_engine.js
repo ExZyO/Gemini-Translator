@@ -573,23 +573,28 @@ hr {
               continue;
             }
 
-            // Illustration
-            const imgMatch = trimmed.match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
-            if (imgMatch) {
+            // Illustration matching (markdown ![]() anywhere on line or standalone)
+            if (/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/i.test(trimmed)) {
               if (!useIncludeImages) continue;
-              const altText = imgMatch[1] || 'Illustration';
-              const rawImgUrl = imgMatch[2];
-              const imgUrl = rawImgUrl.trim()
-                .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
-                .replace(/\s+/g, '')
-                .replace(/\.jppg$/i, '.jpg');
+              let lineHtml = trimmed.replace(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/gi, (fullMd, alt, rawImgUrl) => {
+                const altText = alt || 'Illustration';
+                const imgUrl = rawImgUrl.trim()
+                  .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
+                  .replace(/\s+/g, '')
+                  .replace(/\.jppg$/i, '.jpg');
 
-              const cached = imageCache.get(imgUrl) || imageCache.get(rawImgUrl);
-              if (cached) {
-                bodyHtml.push(`<div class="illustration-wrap"><img src="${cached.localHref}" alt="${escapeXml(altText)}" class="illustration"/></div>`);
+                const cached = imageCache.get(imgUrl) || imageCache.get(rawImgUrl);
+                if (cached) {
+                  return `<div class="illustration-wrap"><img src="${cached.localHref}" alt="${escapeXml(altText)}" class="illustration"/></div>`;
+                }
+                return `<div class="illustration-wrap"><img src="${imgUrl}" alt="${escapeXml(altText)}" class="illustration"/></div>`;
+              });
+              if (/^<div class="illustration-wrap">/.test(lineHtml)) {
+                bodyHtml.push(lineHtml);
               } else {
-                bodyHtml.push(`<div class="illustration-wrap"><img src="${imgUrl}" alt="${escapeXml(altText)}" class="illustration"/></div>`);
+                bodyHtml.push(`<p>${smartFormat(lineHtml)}</p>`);
               }
+              hasEncounteredParagraph = true;
               continue;
             }
 
