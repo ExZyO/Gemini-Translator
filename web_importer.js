@@ -1636,7 +1636,7 @@
 
             progressCb?.(`Found ${bookUrls.length} volumes in Lnori series! Ingesting volumes concurrently...`, 30);
 
-            // High-speed concurrent volume fetching with crawlChapterPool
+            // Max-speed concurrent volume fetching with crawlChapterPool
             const { chapters: volumeResults } = await crawlChapterPool(
                 bookUrls,
                 async (bItem) => {
@@ -1650,10 +1650,10 @@
                         volChapters: volChs
                     };
                 },
-                3, // Concurrency limit 3 to prevent website anti-bot rate limits
+                8, // Max-speed concurrency limit 8
                 progressCb,
                 { title, author, summary, chapterList: bookUrls },
-                { delayMs: 150 } // Delay between worker bursts
+                { delayMs: 40 } // Fast 40ms micro-delay between worker bursts
             );
 
             let allChapters = [];
@@ -1662,6 +1662,11 @@
                     allChapters = allChapters.concat(v.volChapters);
                 }
             });
+
+            // Sync controller expected count to actual extracted individual chapters so ingestion finishes 100%
+            if (activeCrawlController) {
+                activeCrawlController.totalChapterCount = allChapters.length;
+            }
 
             const totalWords = allChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
             progressCb?.(` Loaded ${allChapters.length} chapters across ${bookUrls.length} Lnori volumes (~${totalWords.toLocaleString()} words)!`, 100);
