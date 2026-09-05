@@ -289,26 +289,41 @@ hr {
         const tocNavPoints = [];
         const tocNavLinks = [];
 
-        // Step 1: Scan and strictly filter unique illustration URLs
+        // Step 1: Scan and strictly filter unique illustration URLs (supports Markdown & HTML img tags)
         const uniqueImgUrls = new Set();
         for (const ch of exportChapters) {
-          const rawLines = ch.content.split(/\r?\n/);
-          for (const line of rawLines) {
-            const matches = line.matchAll(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/g);
-            for (const imgMatch of matches) {
-              if (imgMatch && imgMatch[2]) {
-                let u = imgMatch[2].trim()
-                  .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
-                  .replace(/\s+/g, '')
-                  .replace(/\.jppg$/i, '.jpg');
-                if (!u.includes('avatar') && !u.includes('emoji') && !u.includes('gravatar') &&
-                    !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
-                    !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
-                    !u.includes('paypal') && !u.includes('patreon') && !u.includes('discord') &&
-                    !u.includes('sharedaddy') && !u.includes('logo') && !u.includes('banner') &&
-                    !u.includes('reaction') && !u.includes('smilies') && !u.includes('jp-carousel')) {
-                  uniqueImgUrls.add(u);
-                }
+          const contentStr = ch.content || '';
+          const mdMatches = contentStr.matchAll(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/g);
+          for (const imgMatch of mdMatches) {
+            if (imgMatch && imgMatch[2]) {
+              let u = imgMatch[2].trim()
+                .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
+                .replace(/\s+/g, '')
+                .replace(/\.jppg$/i, '.jpg');
+              if (!u.includes('avatar') && !u.includes('emoji') && !u.includes('gravatar') &&
+                  !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
+                  !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
+                  !u.includes('paypal') && !u.includes('patreon') && !u.includes('discord') &&
+                  !u.includes('sharedaddy') && !u.includes('logo') && !u.includes('banner') &&
+                  !u.includes('reaction') && !u.includes('smilies') && !u.includes('jp-carousel')) {
+                uniqueImgUrls.add(u);
+              }
+            }
+          }
+          const htmlMatches = contentStr.matchAll(/<img\s+[^>]*src=["'](https?:\/\/[^"']+)["']/gi);
+          for (const imgMatch of htmlMatches) {
+            if (imgMatch && imgMatch[1]) {
+              let u = imgMatch[1].trim()
+                .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
+                .replace(/\s+/g, '')
+                .replace(/\.jppg$/i, '.jpg');
+              if (!u.includes('avatar') && !u.includes('emoji') && !u.includes('gravatar') &&
+                  !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
+                  !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
+                  !u.includes('paypal') && !u.includes('patreon') && !u.includes('discord') &&
+                  !u.includes('sharedaddy') && !u.includes('logo') && !u.includes('banner') &&
+                  !u.includes('reaction') && !u.includes('smilies') && !u.includes('jp-carousel')) {
+                uniqueImgUrls.add(u);
               }
             }
           }
@@ -575,6 +590,23 @@ hr {
               } else {
                 bodyHtml.push(`<div class="illustration-wrap"><img src="${imgUrl}" alt="${escapeXml(altText)}" class="illustration"/></div>`);
               }
+              continue;
+            }
+
+            // HTML img tag replacement for cached local images
+            if (/<img\s+/i.test(trimmed)) {
+              let updatedLine = trimmed.replace(/<img\s+([^>]*src=["']([^"']+)["'][^>]*)>/gi, (fullImg, attrs, srcUrl) => {
+                const cleanUrl = srcUrl.trim()
+                  .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
+                  .replace(/\s+/g, '')
+                  .replace(/\.jppg$/i, '.jpg');
+                const cached = imageCache.get(cleanUrl) || imageCache.get(srcUrl);
+                if (cached) {
+                  return `<div class="illustration-wrap"><img src="${cached.localHref}" alt="Illustration" class="illustration"/></div>`;
+                }
+                return `<div class="illustration-wrap"><img src="${cleanUrl}" alt="Illustration" class="illustration"/></div>`;
+              });
+              bodyHtml.push(updatedLine);
               continue;
             }
 

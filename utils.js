@@ -348,8 +348,8 @@ function cleanNovelProse(text) {
     t = t.replace(/^\s*---\s*Page\s*End\s*---\s*$/gim, '');
     // Strip residual WordPress / Tumblr / social widget lines
     t = t.replace(/^\s*(?:Advertisements?|Sponsored|Share on (?:Facebook|Twitter|Reddit)|Follow us on .+|Join our Discord.+|Support (?:us|me) on .+|Donate .+|Patreon .+|Buy me a coffee.+)\s*$/gim, '');
-    // Strip orphaned HTML tags
-    t = t.replace(/<\/?(?:div|span|br|a|img|script|style|iframe|button|input|form|nav|header|footer|aside|section|figure|figcaption)[^>]*>/gi, '');
+    // Strip orphaned HTML tags (preserve markdown ![]() and html img if needed)
+    t = t.replace(/<\/?(?:div|span|br|a|script|style|iframe|button|input|form|nav|header|footer|aside|section|figure|figcaption)[^>]*>/gi, '');
     // Normalize double+ blank lines into single blank line
     t = t.replace(/\n{3,}/g, '\n\n');
     // Fix broken hyphenation from OCR/web scrape (e.g. "trans-\nlation" -> "translation")

@@ -819,7 +819,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.31';
+    const VERSION = '8.10.32';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1715,7 +1715,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
           t = t.replace(/^\s*(?:#{1,6}\s*)?\[(?:Chapter\s*Name|Chapter\s*Title|Name|Title)\]\s*$/gim, '');
           t = t.replace(/^\s*---\s*Page\s*End\s*---\s*$/gim, '');
           t = t.replace(/^\s*(?:Advertisements?|Sponsored|Share on (?:Facebook|Twitter|Reddit)|Follow us on .+|Join our Discord.+|Support (?:us|me) on .+|Donate .+|Patreon .+|Buy me a coffee.+)\s*$/gim, '');
-          t = t.replace(/<\/?(?:div|span|br|a|img|script|style|iframe|button|input|form|nav|header|footer|aside|section|figure|figcaption)[^>]*>/gi, '');
+          t = t.replace(/<\/?(?:div|span|br|a|script|style|iframe|button|input|form|nav|header|footer|aside|section|figure|figcaption)[^>]*>/gi, '');
           t = t.replace(/\n{3,}/g, '\n\n');
           t = t.replace(/(\w)-\s*\n\s*(\w)/g, '$1$2');
           t = t.replace(/"([^"]*?)"/g, '\u201c$1\u201d');

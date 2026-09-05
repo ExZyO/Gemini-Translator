@@ -1,7 +1,7 @@
 {
-  "version": "8.10.31",
-  "versionCode": 8131,
+  "version": "8.10.32",
+  "versionCode": 8132,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.31: Added URL hostname sanitization inside EPUB compilation engine (epub_engine.js) to strip spaces from image URLs when generating EPUB files."
+  "releaseNotes": "v8.10.32: Fixed image pre-caching scanner to support both HTML <img src='...'> tags and Markdown images, bundling offline images into OEBPS/images and preserving illustration tags in cleanNovelProse."
 }
