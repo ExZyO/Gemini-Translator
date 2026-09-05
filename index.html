@@ -823,7 +823,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.37';
+    const VERSION = '8.10.38';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6263,7 +6263,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       };
 
       // --- Web Novel Crawl Pause, Cancel & Resume Controls ---
-      const handleStartFetch = async (isResume = false, resumeSessionData = null) => {
+      const handleStartFetch = async (isResume = false, resumeSessionData = null, autoExportEpub = false) => {
         const targetSession = resumeSessionData || (isResume ? activeCrawlSession : null);
         const targetUrl = (targetSession?.url || (targetSession?.sourceUrl) || webImportUrl).trim();
 
@@ -6393,6 +6393,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 window.NativeBridge?.clearProgressNotification?.(true);
                 window.NativeBridge?.showCompletionNotification?.('Novel Import Complete! 📥', `Imported "${data.title}" (${data.chapters.length} chapters).`);
               } catch (e) {}
+              if (autoExportEpub && data.chapters && data.chapters.length > 0) {
+                exportCleanLnoriEpub(data);
+              }
             } else {
               // Not finished (e.g. rate limit, partial pause, or network interrupt) — retain active session
               window.NativeBridge?.clearProgressNotification?.(false);
@@ -6451,6 +6454,62 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         setIsFetchingUrl(false);
         setWebImportStatus('');
         toast('Cancelled fetch. Progress has been preserved in Library.', 'warning');
+      };
+
+      const exportCleanLnoriEpub = async (novelData) => {
+        if (!novelData || !novelData.chapters || novelData.chapters.length === 0) {
+          toast('No chapters downloaded to export.', 'warning');
+          return;
+        }
+        const chs = novelData.chapters;
+        const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(novelData.title, chs) : (novelData.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+        const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(novelData.author) : (novelData.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+        const coverUrl = novelData.cover || (chs[0]?.content?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || (chs[0]?.text?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || '';
+
+        try {
+          setEpubPackagingModal({ title: novelTitle, status: `Packaging clean EPUB (${chs.length} chapters)…`, pct: 5 });
+          const opts = typeof getEpubOptions === 'function' ? { ...getEpubOptions() } : {};
+          opts.hierarchicalToc = true;
+          opts.cleanWebArtifacts = true;
+          opts.includeImages = true;
+          if (coverUrl) opts.coverUrl = coverUrl;
+
+          const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
+            setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
+          }, opts);
+
+          const cleanName = sanitizeFilename(novelTitle).replace(/\s+/g, '_');
+          const isInc = novelData.isIncomplete || (novelData.totalChapterCount && chs.length < novelData.totalChapterCount);
+          const fileName = isInc ? `${cleanName}_(Ch1-${chs.length})_Lnori.epub` : `${cleanName}.epub`;
+          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+          toast(`Clean Lnori EPUB downloaded! (${chs.length} chapters)`, 'success');
+        } catch (e) {
+          toast('EPUB export error: ' + e.message, 'error');
+        } finally {
+          setEpubPackagingModal(null);
+        }
+      };
+
+      const handleLnoriDirectEpubDownload = async (targetUrl) => {
+        const url = (targetUrl || webImportUrl || '').trim();
+        if (!url) return toast('Please enter an Lnori URL', 'warning');
+
+        // Automatically ensure illustrations are enabled
+        setScrapeImages(true);
+        localStorage.setItem('scrapeImages', 'true');
+        if (typeof window !== 'undefined') window.__scrapeImages = true;
+        setEpubIncludeImages(true);
+        localStorage.setItem('epubIncludeImages', 'true');
+
+        // Check if current active novel view is already this novel and complete
+        if (activeNovelView && activeNovelView.chapters && activeNovelView.chapters.length > 0 &&
+            (activeNovelView.sourceUrl === url || activeNovelView.url === url) && !activeNovelView.isIncomplete) {
+          toast('Novel already downloaded — packaging clean EPUB…', 'info');
+          return exportCleanLnoriEpub(activeNovelView);
+        }
+
+        toast('Starting 1-click download for clean Lnori EPUB…', 'info');
+        await handleStartFetch(false, null, true);
       };
 
       const resumeCrawlFromSession = async (sessionOrNovel) => {
@@ -8270,6 +8329,42 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
             // ═══ TAB 1: TRANSLATE ═══
             activeTab === 'text' && h(React.Fragment, null,
+              /lnori\.(?:org|com)/i.test(inputText) && h('div', {
+                className: 'card',
+                style: {
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.12))',
+                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                  padding: '12px 14px',
+                  marginBottom: 14,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 8,
+                  flexWrap: 'wrap'
+                }
+              },
+                h('div', null,
+                  h('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
+                    h('span', null, '✨ Lnori Link Detected (English Light Novel)'),
+                    h('span', { className: 'chip', style: { color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)', fontSize: '10.5px' } }, '🇬🇧 English Original')
+                  ),
+                  h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } },
+                    'Lnori light novels are already in official English! You can download the clean EPUB directly without translating.'
+                  )
+                ),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn',
+                  style: { background: 'linear-gradient(90deg, #6366f1, #10b981)', color: '#fff', fontWeight: 700, border: 'none', padding: '7px 14px' },
+                  onClick: () => {
+                    const match = inputText.match(/https?:\/\/[^\s\n"']+/);
+                    const url = match ? match[0] : inputText.trim();
+                    setWebImportUrl(url);
+                    setActiveTab('web_importer');
+                    handleLnoriDirectEpubDownload(url);
+                  }
+                }, '⚡ Download Clean EPUB')
+              ),
               (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && !isTranslating && (() => {
                 const s = savedTranslationSession || activeSessionRef.current || activeSession;
                 if (!s) return null;
@@ -8812,6 +8907,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 if (sCh > 0 && sCh >= dCh) return activeCrawlSession;
                 return webImportData || activeCrawlSession || null;
               })();
+              const isLnoriUrl = /lnori\.(?:org|com)/i.test(webImportUrl);
+              const isLnoriNovel = Boolean(
+                (activeNovelView?.sourceUrl && /lnori\.(?:org|com)/i.test(activeNovelView.sourceUrl)) ||
+                (activeNovelView?.url && /lnori\.(?:org|com)/i.test(activeNovelView.url)) ||
+                (activeNovelView?.tags && activeNovelView.tags.some(t => /lnori/i.test(t))) ||
+                isLnoriUrl
+              );
               return h(React.Fragment, null,
                 // Incomplete Crawl Session Banner (only shown when returning to tab, suppressed when actively paused in card)
                 activeCrawlSession && !isFetchingPaused && !isFetchingUrl && h('div', {
@@ -8881,8 +8983,56 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   )
                 ),
 
-                h('div', { className: 'src-chips' }, ['NovelBin', 'NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', { key: s, className: 'src-chip' }, s))),
-                h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel URL (NovelBin, NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
+                h('div', { className: 'src-chips' }, ['Lnori', 'NovelBin', 'NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', {
+                  key: s,
+                  className: 'src-chip',
+                  onClick: () => {
+                    if (s === 'Lnori' && !webImportUrl) setWebImportUrl('https://lnori.com/');
+                  }
+                }, s))),
+                h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel URL (Lnori, NovelBin, NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
+
+                // Lnori Detection Card & Direct 1-Click EPUB Button
+                isLnoriUrl && !isFetchingUrl && h('div', {
+                  className: 'card',
+                  style: {
+                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.12))',
+                    border: '1px solid rgba(99, 102, 241, 0.4)',
+                    padding: '12px 14px',
+                    margin: '8px 0 10px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 10,
+                    flexWrap: 'wrap'
+                  }
+                },
+                  h('div', { style: { flex: '1 1 240px' } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--paper)', fontSize: 13.5 } },
+                      h('span', null, '✨ Lnori Light Novel Detected'),
+                      h('span', { className: 'chip', style: { color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)', fontSize: 10.5 } }, '🇬🇧 English Original')
+                    ),
+                    h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } },
+                      'Lnori books are in official English with illustrations & volume hierarchy. Direct EPUB export produces a 100% clean book without translating!'
+                    )
+                  ),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    style: {
+                      background: 'linear-gradient(90deg, #6366f1, #10b981)',
+                      color: '#fff',
+                      fontWeight: 700,
+                      padding: '8px 14px',
+                      border: 'none',
+                      fontSize: 12,
+                      boxShadow: '0 2px 10px rgba(99, 102, 241, 0.35)',
+                      cursor: 'pointer'
+                    },
+                    title: 'Directly download from Lnori and package clean EPUB with cover art and volume hierarchy',
+                    onClick: () => handleLnoriDirectEpubDownload(webImportUrl)
+                  }, '⚡ 1-Click Download Clean EPUB')
+                ),
                 
                 // In-line Packaging Progress on Main Screen
                 epubPackagingModal && h('div', {
@@ -9074,7 +9224,32 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 activeNovelView && h('div', { className: 'book-card' },
                   h('div', { className: 't' }, activeNovelView.title || 'Untitled Web Novel'),
                   h('div', { className: 'm' }, `By ${activeNovelView.author || 'Unknown'} · ${(activeNovelView.chapters || []).length} chapter(s) · ${(activeNovelView.chapters || []).reduce((a, c) => a + ((c.text || c.content || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
+                  isLnoriNovel && h('div', {
+                    style: {
+                      fontSize: '11.5px',
+                      color: '#10b981',
+                      margin: '4px 0 8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontWeight: 600
+                    }
+                  }, h('span', null, '✨ Official English Light Novel · Direct Clean EPUB Export Recommended (No Translation Needed)')),
                   h('div', { className: 'book-acts' },
+                    isLnoriNovel && h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: {
+                        background: 'linear-gradient(90deg, #6366f1, #10b981)',
+                        color: '#fff',
+                        fontWeight: 700,
+                        border: 'none',
+                        boxShadow: '0 2px 10px rgba(99, 102, 241, 0.35)',
+                        padding: '9px 14px'
+                      },
+                      title: 'Directly download clean English EPUB with full illustrations, volume hierarchy, and cover art',
+                      onClick: () => exportCleanLnoriEpub(activeNovelView)
+                    }, `⚡ Download Clean Lnori EPUB (${(activeNovelView.chapters || []).length} Ch)`),
                     h('button', { type: 'button', className: 'mini-btn', onClick: () => {
                       const chs = activeNovelView.chapters || [];
                       const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
@@ -9084,7 +9259,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       setFileName(activeNovelView.title || 'Web Novel');
                       setActiveTab('text');
                       toast(`Loaded "${activeNovelView.title || 'Novel'}" (${chs.length} ch) to Translator!`, 'info');
-                    } }, 'Send to Translator'),
+                    } }, isLnoriNovel ? '🌐 Translate to Other Lang' : 'Send to Translator'),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
@@ -9098,7 +9273,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         }
                       }
                     }, (activeNovelView.inSavedSpace ? '⭐ In Saved Space' : '☆ Save to Space')),
-                    h('button', {
+                    !isLnoriNovel && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
                       style: { borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600 },

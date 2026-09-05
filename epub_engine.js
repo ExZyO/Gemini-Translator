@@ -338,6 +338,19 @@ hr {
           }
         }
 
+        // Scan for cover image
+        let coverUrl = (options.coverUrl || options.cover || '').trim();
+        if (!coverUrl) {
+          const firstCh = exportChapters[0];
+          if (firstCh && /cover/i.test(firstCh.title || '')) {
+            const m = (firstCh.content || '').match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
+            if (m && m[1]) coverUrl = m[1].trim();
+          }
+        }
+        if (coverUrl) {
+          uniqueImgUrls.add(coverUrl);
+        }
+
         const imageCache = new Map();
         let imgSeq = 0;
 
@@ -512,7 +525,41 @@ hr {
         onProgress?.(`Assembling ${chaptersList.length} chapter(s)...`, 60, getElapsed());
         window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Assembling ${chaptersList.length} chapters • ${getElapsed()}`, 60, true);
 
-        for (let idx = 0; idx < exportChapters.length; idx++) {
+        const coverCached = coverUrl ? imageCache.get(coverUrl) : null;
+        if (coverCached) {
+          manifestItems.push(`<item id="cover-image" href="${coverCached.localHref}" media-type="${coverCached.mime}" properties="cover-image"/>`);
+          manifestItems.push(`<item id="cover_page" href="cover.xhtml" media-type="application/xhtml+xml"/>`);
+          spineItems.push('<itemref idref="cover_page"/>');
+
+          const coverXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${safeLang}">
+<head>
+<meta charset="utf-8" />
+<title>Cover</title>
+<style type="text/css">
+  @page { margin: 0; padding: 0; }
+  html, body { margin: 0; padding: 0; height: 100%; text-align: center; background-color: #000000; }
+  .cover-wrap { height: 100vh; display: flex; align-items: center; justify-content: center; }
+  img.cover-img { max-width: 100%; max-height: 100%; height: auto; width: auto; object-fit: contain; margin: 0 auto; display: block; }
+</style>
+</head>
+<body>
+  <div class="cover-wrap">
+    <img src="${coverCached.localHref}" alt="Cover" class="cover-img" />
+  </div>
+</body>
+</html>`;
+          oebps.file('cover.xhtml', coverXhtml, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
+        }
+
+        // Skip redundant standalone cover chapter if cover.xhtml was already generated
+        let chStartIndex = 0;
+        if (coverCached && exportChapters.length > 1 && /^cover$/i.test(exportChapters[0].title.trim())) {
+          chStartIndex = 1;
+        }
+
+        for (let idx = chStartIndex; idx < exportChapters.length; idx++) {
           const ch = exportChapters[idx];
           const chId = `chapter_${idx + 1}`;
           const chFilename = `${chId}.xhtml`;
@@ -792,6 +839,7 @@ ${childNavLinks}
   <dc:language>${safeLang}</dc:language>
   <dc:identifier id="BookID">${uuid}</dc:identifier>
   <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
+  ${coverCached ? '<meta name="cover" content="cover-image"/>' : ''}
 </metadata>
 <manifest>
   ${manifestItems.join('\n ')}

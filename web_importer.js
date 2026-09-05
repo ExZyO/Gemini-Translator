@@ -1664,7 +1664,11 @@
             const author = doc.querySelector('meta[name="author"]')?.getAttribute('content')?.trim() ||
                            doc.querySelector('.author')?.textContent?.trim() || 'Lnori Author';
             const summary = doc.querySelector('meta[name="description"]')?.getAttribute('content') || 'Imported from Lnori';
-            const tags = ['Lnori', 'Light Novel', 'Illustrated'];
+            const tags = ['Lnori', 'Light Novel', 'Illustrated', 'English'];
+            const cover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+                          doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
+                          doc.querySelector('link[rel="image_src"]')?.getAttribute('href') ||
+                          doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i]')?.getAttribute('src') || '';
 
             const bookChapters = parseChaptersFromBookHtml(html, url);
             const totalWords = bookChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
@@ -1673,6 +1677,8 @@
             return {
                 title,
                 author,
+                cover,
+                language: 'en',
                 summary,
                 tags,
                 chapters: bookChapters,
@@ -1815,9 +1821,15 @@
 
             const totalWords = allChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
             progressCb?.(` Loaded ${allChapters.length} chapters across ${bookUrls.length} Lnori volumes (~${totalWords.toLocaleString()} words)!`, 100);
+            const cover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+                          doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
+                          doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i]')?.getAttribute('src') || '';
+
             return {
                 title,
                 author,
+                cover,
+                language: 'en',
                 summary,
                 tags,
                 chapters: allChapters,

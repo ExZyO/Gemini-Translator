@@ -1,7 +1,7 @@
 {
-  "version": "8.10.37",
-  "versionCode": 8137,
+  "version": "8.10.38",
+  "versionCode": 8138,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.37: Added volume-based hierarchical Table of Contents (TOC) with expandable/collapsible volumes in exported EPUBs (NCX dtb:depth=2 & nav.xhtml), in-app Moon+ Reader TOC drawer, and Web Importer chapter manager with Expand/Collapse All toggle."
+  "releaseNotes": "v8.10.38: Added 1-Click Clean EPUB download and automatic Lnori detection for official English light novels, including high-resolution cover extraction, properties='cover-image' metadata, and direct clean packaging bypassing translation."
 }
