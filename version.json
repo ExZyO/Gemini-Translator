@@ -1,7 +1,7 @@
 {
-  "version": "8.10.30",
-  "versionCode": 8130,
+  "version": "8.10.31",
+  "versionCode": 8131,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.30: Fixed totalChapterCount override in importUrl and totalExpected check in index.html to ensure 15/15 volume series finish 100% complete without pausing."
+  "releaseNotes": "v8.10.31: Added URL hostname sanitization inside EPUB compilation engine (epub_engine.js) to strip spaces from image URLs when generating EPUB files."
 }

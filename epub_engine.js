@@ -297,7 +297,10 @@ hr {
             const matches = line.matchAll(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/g);
             for (const imgMatch of matches) {
               if (imgMatch && imgMatch[2]) {
-                const u = imgMatch[2];
+                let u = imgMatch[2].trim()
+                  .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
+                  .replace(/\s+/g, '')
+                  .replace(/\.jppg$/i, '.jpg');
                 if (!u.includes('avatar') && !u.includes('emoji') && !u.includes('gravatar') &&
                     !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
                     !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
@@ -560,8 +563,13 @@ hr {
             if (imgMatch) {
               if (!useIncludeImages) continue;
               const altText = imgMatch[1] || 'Illustration';
-              const imgUrl = imgMatch[2];
-              const cached = imageCache.get(imgUrl);
+              const rawImgUrl = imgMatch[2];
+              const imgUrl = rawImgUrl.trim()
+                .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
+                .replace(/\s+/g, '')
+                .replace(/\.jppg$/i, '.jpg');
+
+              const cached = imageCache.get(imgUrl) || imageCache.get(rawImgUrl);
               if (cached) {
                 bodyHtml.push(`<div class="illustration-wrap"><img src="${cached.localHref}" alt="${escapeXml(altText)}" class="illustration"/></div>`);
               } else {
