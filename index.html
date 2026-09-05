@@ -808,7 +808,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.22';
+    const VERSION = '8.10.23';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3373,26 +3373,49 @@ const formatModelName = (id, displayName) => {
         toast(`Fetching new chapters for "${item.title}"...`, 'info');
         try {
           const res = await window.WebNovelImporter?.importUrl(item.sourceUrl, (msg, pct) => {
-            // Live update progress toast or notification
+            // Live update progress
           }, {
             initialChapters: full.rawChapters || full.chapters || [],
             resumeSession: full
           });
           if (res && res.chapters) {
-            await saveNovelToHistory({
+            const updatedNovel = {
               ...full,
               chapters: res.chapters,
               rawChapters: res.chapters,
               chapterCount: res.chapters.length,
               totalChapterCount: res.chapters.length,
               isIncomplete: false
-            });
+            };
+            await saveNovelToHistory(updatedNovel);
             setNovelUpdateBadges(prev => {
               const next = { ...prev };
               delete next[item.id];
               return next;
             });
-            toast(`Updated "${item.title}"! (${res.chapters.length} chapters total)`, 'success');
+            toast(`Updated "${item.title}" in library! (${res.chapters.length} chapters total)`, 'success');
+
+            // Packaging & Download updated raw EPUB
+            const bookTitle = item.title || 'Novel';
+            const chs = res.chapters;
+            try {
+              if (typeof setEpubPackagingModal === 'function') {
+                setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
+              }
+              const blob = await generateEpubFromChapters(chs, bookTitle, item.author || 'Author', full.targetLang || 'en', (status, pct, elapsed) => {
+                if (typeof setEpubPackagingModal === 'function') {
+                  setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
+                }
+              });
+              const cleanName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(bookTitle) : bookTitle).replace(/\s+/g, '_');
+              const fileName = `${cleanName}_(Ch1-${chs.length}).epub`;
+              await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+              toast(`Downloaded updated raw EPUB (${chs.length} chapters)!`, 'success');
+            } catch (epubErr) {
+              toast(`Raw EPUB packaging error: ${epubErr.message}`, 'error');
+            } finally {
+              if (typeof setEpubPackagingModal === 'function') setEpubPackagingModal(null);
+            }
           }
         } catch (err) {
           toast(`Update failed: ${err.message}`, 'error');
@@ -3406,7 +3429,7 @@ const formatModelName = (id, displayName) => {
 
         const existingRaw = full.rawChapters || full.chapters || [];
         const prevCount = existingRaw.length;
-        toast(`Step 1: Fetching newly published chapters for "${item.title}"…`, 'info');
+        toast(`Fetching newly published chapters for "${item.title}"…`, 'info');
 
         let updatedNovel = full;
         try {
@@ -3446,7 +3469,7 @@ const formatModelName = (id, displayName) => {
           return (typeof stripFn === 'function' && c?.title) ? stripFn(raw, c.title, c.originalTitle) : raw;
         };
 
-        const existingTranslated = updatedNovel.translatedChapters || full.originalChapters || [];
+        const existingTranslated = updatedNovel.translatedChapters || full.translatedChapters || full.originalChapters || [];
         const prefilledChapters = allRawChs.map(c => ({
           title: c.title,
           text: cleanCh(c),
@@ -3463,16 +3486,50 @@ const formatModelName = (id, displayName) => {
           return null;
         });
 
+        const prefilledAssembled = prefilledNewChapters.filter(Boolean).map(c => `${c.title}\n\n${c.content}`).join('\n\n\n');
         setInputText(prefilledChapters.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
         setChapters(prefilledChapters);
         setTranslatedChapters(prefilledNewChapters);
-        const prefilledAssembled = prefilledNewChapters.filter(Boolean).map(c => `${c.title}\n\n${c.content}`).join('\n\n\n');
         setAssembledText(prefilledAssembled);
         setActiveNovelRecord(updatedNovel);
         setFileName(updatedNovel.title);
-        setActiveTab('text');
 
-        toast(`Fetched ${newCount} new chapters! Existing ${prevCount} chapters preserved. Click "Resume / Translate" to translate new chapters and export EPUB.`, 'success');
+        const jobId = 'update_' + String(updatedNovel.id || updatedNovel.title).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30) + '_' + allRawChs.length;
+        const sessionObj = {
+          id: jobId,
+          type: 'ebook',
+          title: updatedNovel.title,
+          ctx: '',
+          completedCount: prevCount,
+          currentChapterIdx: prevCount,
+          currentChunkIdx: 0,
+          allParts: prefilledNewChapters.map(c => c ? `${c.title}\n\n${c.content}` : ''),
+          newChapters: prefilledNewChapters,
+          totalChunks: allRawChs.length,
+          total: allRawChs.length,
+          chapters: prefilledChapters,
+          isEpub: false,
+          timestamp: Date.now(),
+          isDeltaUpdate: true,
+          deltaStart: prevCount + 1,
+          deltaEnd: allRawChs.length,
+          novelId: updatedNovel.id
+        };
+
+        activeSessionRef.current = sessionObj;
+        setActiveSession(sessionObj);
+        setSavedTranslationSession(sessionObj);
+        setIsTranslationPaused(true);
+
+        if (window.GeminiNovelDB) {
+          await window.GeminiNovelDB.saveTranslationSession(sessionObj);
+        }
+        try {
+          localStorage.setItem(jobId, JSON.stringify(sessionObj));
+        } catch(e) {}
+
+        setActiveTab('text');
+        toast(`Staged ${newCount} new chapters! Chapters 1–${prevCount} preserved. Review below and tap "Translate Only New Chapters".`, 'success');
       };
 
       const handleCheckAllUpdates = async () => {
@@ -6910,7 +6967,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               totalChunks,
               chapters: chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, text: c.text || c.content || '' })),
               isEpub,
-              timestamp: Date.now()
+              timestamp: Date.now(),
+              isDeltaUpdate: Boolean(curSession?.isDeltaUpdate),
+              deltaStart: curSession?.deltaStart,
+              deltaEnd: curSession?.deltaEnd,
+              novelId: curSession?.novelId
             };
             try {
               const sStr = JSON.stringify(state);
@@ -7162,6 +7223,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               };
               saveNovelToHistory(updatedRec).catch(e => console.warn('History save error:', e));
               setActiveNovelRecord(updatedRec);
+              setNovelUpdateBadges(prev => {
+                const next = { ...prev };
+                delete next[activeNovelRecord.id];
+                return next;
+              });
             } else {
               const bTitle = (fileName && fileName.trim()) ? fileName.replace(/\.[^/.]+$/, '') : ((chapters && chapters[0]?.title) || 'Translated Novel');
               saveNovelToHistory({
@@ -7580,10 +7646,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         setDownloadingEpub(true);
         setError('');
         try {
-          const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title)
-            ? chaptersToExport[0].title.trim()
+          const rawBaseTitle = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || (chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : null);
+          const docTitle = rawBaseTitle
+            ? (rawBaseTitle.includes('(Translated)') ? rawBaseTitle : `${rawBaseTitle} (Translated)`)
             : `Translated Novel (${tgtLang})`;
-          const author = 'Gemini Translator';
+          const author = (activeNovelRecord && activeNovelRecord.author) || 'Gemini Translator';
           const lang = tgtLang.split(/[-_ ]/)[0].toLowerCase() || 'en';
 
           // Preserve the ORIGINAL EPUB structure (OPF/TOC/format) when translating from an EPUB file
@@ -8114,31 +8181,48 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 if (!s) return null;
                 const cCount = s.completedCount || 0;
                 const tCount = s.total || s.totalChunks || '?';
+                const isDelta = Boolean(s.isDeltaUpdate);
+                const deltaLabel = `Ch ${s.deltaStart || (cCount + 1)}–${s.deltaEnd || tCount}`;
                 return h('div', {
                   className: 'card',
                   style: {
-                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
-                    borderColor: 'var(--accent, #6366f1)',
+                    background: isDelta
+                      ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(124, 58, 237, 0.12))'
+                      : 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
+                    borderColor: isDelta ? '#3b82f6' : 'var(--accent, #6366f1)',
                     marginBottom: 14
                   }
                 },
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
                     h('div', null,
                       h('div', { style: { fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 } },
-                        h('span', null, '⏸ Saved Translation Session'),
-                        h('span', { className: 'badge', style: { background: 'var(--accent)', color: '#fff' } }, `${cCount} / ${tCount} completed`)
+                        h('span', null, isDelta ? '⚡ New Chapters Staged for Update' : '⏸ Saved Translation Session'),
+                        h('span', { className: 'badge', style: { background: isDelta ? '#3b82f6' : 'var(--accent)', color: '#fff' } },
+                          isDelta ? `${deltaLabel} waiting (${cCount} translated)` : `${cCount} / ${tCount} completed`
+                        )
                       ),
                       h('div', { style: { fontSize: 11.5, opacity: 0.8, marginTop: 2 } },
-                        `${s.title || 'Translation'} · Saved ${new Date(s.timestamp || Date.now()).toLocaleTimeString()}`
+                        isDelta
+                          ? `${s.title || 'Novel'} · Chapters 1–${cCount} preserved in library`
+                          : `${s.title || 'Translation'} · Saved ${new Date(s.timestamp || Date.now()).toLocaleTimeString()}`
                       )
                     ),
                     h('div', { style: { display: 'flex', gap: 6 } },
                       h('button', {
                         type: 'button',
                         className: 'btn-primary',
-                        style: { padding: '5px 14px', fontSize: 12, background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700 },
+                        style: {
+                          padding: '5px 14px',
+                          fontSize: 12,
+                          background: isDelta ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 6,
+                          fontWeight: 700,
+                          boxShadow: isDelta ? '0 2px 8px rgba(124, 58, 237, 0.35)' : 'none'
+                        },
                         onClick: () => resumeSavedTranslation(s)
-                      }, '▶ Resume Translation'),
+                      }, isDelta ? `▶ Translate Only New Chapters (${deltaLabel})` : '▶ Resume Translation'),
                       h('button', {
                         type: 'button',
                         className: 'chip-act',
@@ -8352,43 +8436,51 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 const session = savedTranslationSession || activeSessionRef.current || activeSession;
                 const completedCount = session?.completedCount || (translatedChapters || []).filter(c => c && (c.content || c.text)).length || 0;
                 const totalCount = session?.total || session?.totalChunks || (chapters ? chapters.length : 1);
+                const isDelta = Boolean(session?.isDeltaUpdate);
                 const pct = totalCount > 0 ? Math.min(100, Math.round((completedCount / totalCount) * 100)) : (progress || 0);
                 const sessionTitle = session?.title || (fileName && fileName.trim()) || activeNovelRecord?.title || 'Novel Translation';
+                const deltaLabel = `Ch ${session?.deltaStart || (completedCount + 1)}–${session?.deltaEnd || totalCount}`;
                 return h('div', {
                   className: 'card',
                   style: {
-                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(99, 102, 241, 0.10))',
-                    borderColor: '#f59e0b',
+                    background: isDelta
+                      ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.10))'
+                      : 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(99, 102, 241, 0.10))',
+                    borderColor: isDelta ? '#3b82f6' : '#f59e0b',
                     borderWidth: '1.5px',
-                    boxShadow: '0 4px 16px rgba(245, 158, 11, 0.15)',
+                    boxShadow: isDelta ? '0 4px 16px rgba(59, 130, 246, 0.15)' : '0 4px 16px rgba(245, 158, 11, 0.15)',
                     marginBottom: 14,
                     padding: '14px 16px'
                   }
                 },
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 } },
                     h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                      h('span', { style: { fontSize: 16 } }, '⏸'),
+                      h('span', { style: { fontSize: 16 } }, isDelta ? '⚡' : '⏸'),
                       h('div', null,
                         h('div', { style: { fontWeight: 800, fontSize: 13.5, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
-                          'Translation Paused',
-                          h('span', { className: 'badge', style: { background: '#f59e0b', color: '#000', fontWeight: 700 } }, `${completedCount} / ${totalCount} completed`)
+                          isDelta ? 'Novel Update Staged' : 'Translation Paused',
+                          h('span', { className: 'badge', style: { background: isDelta ? '#2563eb' : '#f59e0b', color: isDelta ? '#fff' : '#000', fontWeight: 700 } },
+                            isDelta ? `${deltaLabel} waiting to translate` : `${completedCount} / ${totalCount} completed`
+                          )
                         ),
                         h('div', { style: { fontSize: 11.5, opacity: 0.8, marginTop: 2 } },
-                          `${sessionTitle} · Progress safely preserved in database`
+                          isDelta
+                            ? `${sessionTitle} · ${completedCount} chapters already translated · ${Math.max(0, totalCount - completedCount)} new chapters staged`
+                            : `${sessionTitle} · Progress safely preserved in database`
                         )
                       )
                     ),
-                    h('span', { className: 'count', style: { fontWeight: 700, color: '#f59e0b' } }, `${pct}%`)
+                    h('span', { className: 'count', style: { fontWeight: 700, color: isDelta ? '#3b82f6' : '#f59e0b' } }, `${pct}%`)
                   ),
-                  h('div', { className: 'mini-progress', style: { background: 'rgba(245, 158, 11, 0.2)', height: 8, borderRadius: 4, marginBottom: 12 } },
-                    h('i', { style: { width: `${pct}%`, background: 'linear-gradient(90deg, #f59e0b, #6366f1)', borderRadius: 4 } })
+                  h('div', { className: 'mini-progress', style: { background: isDelta ? 'rgba(59, 130, 246, 0.2)' : 'rgba(245, 158, 11, 0.2)', height: 8, borderRadius: 4, marginBottom: 12 } },
+                    h('i', { style: { width: `${pct}%`, background: isDelta ? 'linear-gradient(90deg, #2563eb, #7c3aed)' : 'linear-gradient(90deg, #f59e0b, #6366f1)', borderRadius: 4 } })
                   ),
                   h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
                     h('button', {
                       type: 'button',
                       className: 'btn-primary',
                       style: {
-                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        background: isDelta ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
                         color: '#fff',
                         fontWeight: 700,
                         fontSize: 13,
@@ -8398,20 +8490,100 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: 8,
-                        boxShadow: '0 2px 10px rgba(16, 185, 129, 0.35)',
+                        boxShadow: isDelta ? '0 2px 10px rgba(124, 58, 237, 0.35)' : '0 2px 10px rgba(16, 185, 129, 0.35)',
                         border: 'none',
                         cursor: 'pointer',
                         borderRadius: 8
                       },
                       onClick: () => resumeSavedTranslation(session)
-                    }, '▶ Resume Translation'),
+                    }, isDelta ? `▶ Translate Only New Chapters (${deltaLabel})` : '▶ Resume Translation'),
                     h('button', {
                       type: 'button',
                       className: 'chip-act',
                       style: { padding: '9px 14px', fontSize: 12, borderRadius: 8 },
-                      title: 'Discard paused session and start over',
+                      title: 'Discard staged/paused session and start over',
                       onClick: () => discardSavedTranslation(session?.id)
                     }, 'Discard')
+                  )
+                );
+              })(),
+
+              // ═══ CELEBRATORY COMPLETION & EXPORT CARD ═══
+              !isTranslating && !(savedTranslationSession || isTranslationPaused || activeSessionRef.current) && assembledText && translatedChapters && translatedChapters.filter(c => c && (c.content || c.text)).length > 0 && (activeNovelRecord || (chapters && chapters.length > 0)) && (() => {
+                const transCount = translatedChapters.filter(c => c && (c.content || c.text)).length;
+                const novelTitle = (activeNovelRecord && activeNovelRecord.title) || (fileName && fileName.trim()) || 'Translated Novel';
+                return h('div', {
+                  className: 'card',
+                  style: {
+                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(99, 102, 241, 0.12))',
+                    borderColor: '#22c55e',
+                    borderWidth: '1.5px',
+                    boxShadow: '0 4px 16px rgba(34, 197, 94, 0.15)',
+                    marginBottom: 14,
+                    padding: '16px 18px'
+                  }
+                },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                      h('div', {
+                        style: {
+                          width: 38,
+                          height: 38,
+                          borderRadius: 10,
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 20,
+                          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)'
+                        }
+                      }, '🎉'),
+                      h('div', null,
+                        h('div', { style: { fontWeight: 800, fontSize: 14, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 8 } },
+                          'Translation Complete & Saved to Library',
+                          h('span', { className: 'badge', style: { background: '#22c55e', color: '#000', fontWeight: 700 } }, `${transCount} Chapters`)
+                        ),
+                        h('div', { style: { fontSize: 11.5, opacity: 0.85, marginTop: 2 } },
+                          `${novelTitle} · All progress safely preserved in database`
+                        )
+                      )
+                    )
+                  ),
+                  h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'btn-primary',
+                      style: {
+                        background: 'linear-gradient(135deg, #22c55e, #15803d)',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        padding: '9px 18px',
+                        flex: 1,
+                        minWidth: 200,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        boxShadow: '0 2px 10px rgba(34, 197, 94, 0.35)',
+                        border: 'none',
+                        borderRadius: 8,
+                        cursor: 'pointer'
+                      },
+                      onClick: handleDownloadEPUB
+                    }, `📥 Download Updated EPUB (${transCount} Chapters)`),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '9px 16px', borderRadius: 8 },
+                      onClick: () => { setReaderOpen(true); setReaderChapterIdx(0); }
+                    }, '📖 Read in Reader'),
+                    h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      style: { borderColor: 'rgba(245, 158, 11, 0.5)', color: '#f59e0b', fontWeight: 600, padding: '9px 14px', borderRadius: 8 },
+                      onClick: handleSaveTranslationToLibrarySpace
+                    }, '⭐ Save to Space')
                   )
                 );
               })(),
@@ -8506,18 +8678,25 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   const s = savedTranslationSession || activeSessionRef.current || activeSession;
                   const cCount = s?.completedCount || 0;
                   const tCount = s?.total || s?.totalChunks || '?';
+                  const isDelta = Boolean(s?.isDeltaUpdate);
+                  const deltaLabel = `Ch ${s?.deltaStart || (cCount + 1)}–${s?.deltaEnd || tCount}`;
                   return h(React.Fragment, null,
                     h('button', {
                       type: 'button',
                       className: 'primary',
-                      style: { background: 'linear-gradient(135deg, #10b981, #059669)', fontWeight: 700, flex: 1 },
+                      style: {
+                        background: isDelta ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
+                        fontWeight: 700,
+                        flex: 1,
+                        boxShadow: isDelta ? '0 2px 10px rgba(124, 58, 237, 0.4)' : undefined
+                      },
                       onClick: () => resumeSavedTranslation(s)
-                    }, `▶ Resume Translation (${cCount}/${tCount} done)`),
+                    }, isDelta ? `▶ Translate Only New Chapters (${deltaLabel})` : `▶ Resume Translation (${cCount}/${tCount} done)`),
                     h('button', {
                       type: 'button',
                       className: 'chip-act',
                       style: { padding: '8px 12px', fontSize: 12 },
-                      title: 'Discard paused session and start fresh',
+                      title: 'Discard staged/paused session and start fresh',
                       onClick: () => discardSavedTranslation(s?.id)
                     }, 'Start New')
                   );
@@ -8901,11 +9080,15 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 if (!s) return null;
                 const cCount = s.completedCount || 0;
                 const tCount = s.total || s.totalChunks || '?';
+                const isDelta = Boolean(s.isDeltaUpdate);
+                const deltaLabel = `Ch ${s.deltaStart || (cCount + 1)}–${s.deltaEnd || tCount}`;
                 return h('div', {
                   className: 'card',
                   style: {
-                    border: '1.5px solid var(--accent, #6366f1)',
-                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
+                    border: isDelta ? '1.5px solid #3b82f6' : '1.5px solid var(--accent, #6366f1)',
+                    background: isDelta
+                      ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(124, 58, 237, 0.12))'
+                      : 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
                     marginBottom: 12,
                     padding: '12px 14px'
                   }
@@ -8913,22 +9096,34 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 } },
                     h('div', null,
                       h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13 } },
-                        h('span', null, '⏸ Paused Translation Session'),
-                        h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff' } }, `${cCount} / ${tCount} done`)
+                        h('span', null, isDelta ? '⚡ Novel Update Staged' : '⏸ Paused Translation Session'),
+                        h('span', { className: 'badge', style: { background: isDelta ? '#2563eb' : 'var(--accent, #6366f1)', color: '#fff' } },
+                          isDelta ? `${deltaLabel} staged` : `${cCount} / ${tCount} done`
+                        )
                       ),
                       h('div', { style: { fontSize: 12, fontWeight: 500, color: 'var(--paper)', marginTop: 4 } }, s.title || 'Translation'),
-                      h('div', { style: { fontSize: 11, opacity: 0.75, marginTop: 2 } }, `Saved in database · ${new Date(s.timestamp || Date.now()).toLocaleTimeString()}`)
+                      h('div', { style: { fontSize: 11, opacity: 0.75, marginTop: 2 } },
+                        isDelta ? `Chapters 1–${cCount} already translated · New chapters waiting` : `Saved in database · ${new Date(s.timestamp || Date.now()).toLocaleTimeString()}`
+                      )
                     ),
                     h('div', { style: { display: 'flex', gap: 8 } },
                       h('button', {
                         type: 'button',
                         className: 'mini-btn',
-                        style: { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700, padding: '7px 16px', border: 'none', borderRadius: 6 },
+                        style: {
+                          background: isDelta ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
+                          color: '#fff',
+                          fontWeight: 700,
+                          padding: '7px 16px',
+                          border: 'none',
+                          borderRadius: 6,
+                          boxShadow: isDelta ? '0 2px 8px rgba(124, 58, 237, 0.35)' : 'none'
+                        },
                         onClick: () => {
                           setActiveTab('text');
                           resumeSavedTranslation(s);
                         }
-                      }, '▶ Resume Translation'),
+                      }, isDelta ? `▶ Translate New Chapters (${deltaLabel})` : '▶ Resume Translation'),
                       h('button', {
                         type: 'button',
                         className: 'mini-btn danger',
@@ -9012,15 +9207,15 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                               boxShadow: '0 2px 8px rgba(124, 58, 237, 0.35)'
                             },
                             onClick: () => handleUpdateTranslateAndMakeEpub(item),
-                            title: 'Fetch new chapters, translate with Gemini, and update EPUB'
-                          }, `⚡ Update & Translate (+${novelUpdateBadges[item.id].newCount})`),
+                            title: 'Fetch new chapters, preserve existing translations, and stage in Translator'
+                          }, `⚡ Stage New Chapters (+${novelUpdateBadges[item.id].newCount})`),
                           h('button', {
                             type: 'button',
                             className: 'mini-btn ghost',
-                            style: { fontSize: 11 },
+                            style: { borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600, fontSize: 11 },
                             onClick: () => handleDownloadNewChapters(item),
-                            title: 'Fetch raw chapters without translating'
-                          }, `⬇ Raw (+${novelUpdateBadges[item.id].newCount})`)
+                            title: 'Fetch new chapters and download updated raw EPUB (no translation, zero AI tokens)'
+                          }, `📥 Fetch & Download Raw EPUB (+${novelUpdateBadges[item.id].newCount})`)
                         ),
                         item.sourceUrl && h('button', {
                           type: 'button',
