@@ -304,6 +304,73 @@ function stripLeadingTitleFromContent(content, title, originalTitle) {
     return lines.slice(startIdx).join('\n').trim();
 }
 
+const NAMED_ENTITIES = {
+    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+    mdash: '\u2014', ndash: '\u2013', hellip: '\u2026',
+    ldquo: '\u201c', rdquo: '\u201d', lsquo: '\u2018', rsquo: '\u2019',
+    laquo: '\u00ab', raquo: '\u00bb', bull: '\u2022',
+    cent: '\u00a2', pound: '\u00a3', yen: '\u00a5', euro: '\u20ac',
+    copy: '\u00a9', reg: '\u00ae', deg: '\u00b0', plusmn: '\u00b1',
+    times: '\u00d7', divide: '\u00f7'
+};
+
+function decodeHtmlEntities(str) {
+    if (!str || typeof str !== 'string') return '';
+    return str.replace(/&(?:#x([0-9a-fA-F]+)|#([0-9]+)|([a-zA-Z]+));/g, (match, hex, dec, named) => {
+        if (hex) {
+            const code = parseInt(hex, 16);
+            return (code > 0 && code <= 0x10ffff) ? String.fromCodePoint(code) : match;
+        }
+        if (dec) {
+            const code = parseInt(dec, 10);
+            return (code > 0 && code <= 0x10ffff) ? String.fromCodePoint(code) : match;
+        }
+        if (named) {
+            const lower = named.toLowerCase();
+            if (NAMED_ENTITIES[lower]) return NAMED_ENTITIES[lower];
+        }
+        return match;
+    });
+}
+
+function cleanNovelProse(text) {
+    if (!text || typeof text !== 'string') return '';
+    let t = decodeHtmlEntities(text);
+    t = t.replace(/\u00a0/g, ' ');
+    // Clean standalone markdown italic sound effects like *Rip!*, *Crack!*, *Whoosh!*
+    t = t.replace(/^(\s*)\*([A-Za-z0-9!?,.\s'-]{1,30})\*(\s*)$/gm, '$1$2$3');
+    // Strip residual web navigation artifacts
+    t = t.replace(/^\s*(?:Previous Chapter|Next Chapter|Table of Contents|Prev|Next|TOC|Back to Top|Share this:?|Like this:?|Related|Loading\.\.\.|Leave a (?:Reply|Comment)|Click here to .+)\s*$/gim, '');
+    // Strip prompt template / placeholder hallucinations like "Chapter [number]: [Name]", "[number]: [Name]", etc.
+    t = t.replace(/^\s*(?:#{1,6}\s*)?Chapter\s*\[(?:number|\d+)\](?:\s*[:\-–—]\s*\[(?:name|title)\])?\s*$/gim, '');
+    t = t.replace(/^\s*(?:#{1,6}\s*)?\[(?:chapter|number)\](?:\s*[:\-–—]\s*\[(?:name|title)\])?\s*$/gim, '');
+    t = t.replace(/^\s*(?:#{1,6}\s*)?\[(?:Chapter\s*Name|Chapter\s*Title|Name|Title)\]\s*$/gim, '');
+    t = t.replace(/^\s*---\s*Page\s*End\s*---\s*$/gim, '');
+    // Strip residual WordPress / Tumblr / social widget lines
+    t = t.replace(/^\s*(?:Advertisements?|Sponsored|Share on (?:Facebook|Twitter|Reddit)|Follow us on .+|Join our Discord.+|Support (?:us|me) on .+|Donate .+|Patreon .+|Buy me a coffee.+)\s*$/gim, '');
+    // Strip orphaned HTML tags
+    t = t.replace(/<\/?(?:div|span|br|a|img|script|style|iframe|button|input|form|nav|header|footer|aside|section|figure|figcaption)[^>]*>/gi, '');
+    // Normalize double+ blank lines into single blank line
+    t = t.replace(/\n{3,}/g, '\n\n');
+    // Fix broken hyphenation from OCR/web scrape (e.g. "trans-\nlation" -> "translation")
+    t = t.replace(/(\w)-\s*\n\s*(\w)/g, '$1$2');
+    // Normalize straight quotes to smart quotes
+    t = t.replace(/"([^"]*?)"/g, '\u201c$1\u201d');
+    t = t.replace(/(\w)'(\w)/g, '$1\u2019$2');
+    // Normalize dashes and ellipsis
+    t = t.replace(/---?/g, '\u2014');
+    t = t.replace(/\.{3,}/g, '\u2026');
+    // Remove accidental whitespace after opening quotation marks and at line edges.
+    t = t.replace(/([\u201c\u2018"])\s+(?=[A-Za-z])/g, '$1');
+    t = t.replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n');
+    // Restore spaces lost when a model or chunk boundary joins sentences.
+    t = t.replace(/([.!?\u2026]+)(["'\u201d\u2019)]?)(?=[A-Za-z])/g, '$1$2 ');
+    return t.trim();
+}
+
+window.decodeHtmlEntities = decodeHtmlEntities;
+window.cleanNovelProse = cleanNovelProse;
+
 window.normalizeTextForComparison = normalizeTextForComparison;
 window.isSimilarToTitle = isSimilarToTitle;
 window.isTitleEcho = isTitleEcho;

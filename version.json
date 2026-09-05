@@ -1,7 +1,7 @@
 {
-  "version": "8.10.23",
-  "versionCode": 8123,
+  "version": "8.10.24",
+  "versionCode": 8124,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.23: Explicit button-controlled novel update and delta translation workflow. In Library, choose between 'Stage New Chapters (+N)' to translate new chapters while preserving all existing translations, or 'Fetch & Download Raw EPUB (+N)' with dedicated packaging progress bar and zero AI token usage. In Translator, explicit 'Translate Only New Chapters (Ch X–Y)' button prevents re-translation, and post-translation export cards provide 1-tap download and reader opening."
+  "releaseNotes": "v8.10.24: Core performance optimizations and UI polish. Fixed cleanNovelProse reference error and replaced DOM textarea decoder with high-speed zero-DOM parser; replaced 500k-array allocation wordCount with zero-allocation char scanner; throttled AppLogger live logs with requestAnimationFrame; memoized library search filtering; guarded Moon+ Reader scroll auto-advance against short chapters and added previous/next chapter navigation bar; integrated Android MediaSession for TTS lock-screen/headphone controls; added safe-area insets for Android gesture bar; enabled 1-tap direct reading from Library for all books."
 }

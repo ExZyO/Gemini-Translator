@@ -85,10 +85,13 @@
       const zip = new JSZipClass();
       const uuid = 'urn:uuid:' + (crypto.randomUUID ? crypto.randomUUID() : ('uuid_' + Date.now()));
       const startTime = Date.now();
+      const cleanFn = (typeof window !== 'undefined' && window.cleanNovelProse)
+        ? window.cleanNovelProse
+        : ((typeof cleanNovelProse === 'function') ? cleanNovelProse : (t => String(t || '')));
       const exportChapters = (Array.isArray(chaptersList) ? chaptersList : []).map((ch, idx) => ({
         ...ch,
         title: String(ch?.title || '').trim() || ('Chapter ' + (idx + 1)),
-        content: cleanNovelProse(String(ch?.text ?? ch?.content ?? '').replace(/\r\n?/g, '\n')).trim()
+        content: cleanFn(String(ch?.text ?? ch?.content ?? '').replace(/\r\n?/g, '\n')).trim()
       }));
       if (!exportChapters.length) throw new Error('No chapters to package');
       const safeLang = String(bookLang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en';

@@ -209,11 +209,13 @@
 
         for (let i = 0; i < proxyPool.length; i++) {
             const proxyFn = proxyPool[i];
+            let proxyTimer = null;
+            let onParentAbort = null;
             try {
                 const proxyCtrl = new AbortController();
-                const proxyTimer = setTimeout(() => proxyCtrl.abort(), 3500); // Strict 3.5s per proxy attempt
+                proxyTimer = setTimeout(() => proxyCtrl.abort(), 3500); // Strict 3.5s per proxy attempt
 
-                const onParentAbort = () => {
+                onParentAbort = () => {
                     clearTimeout(proxyTimer);
                     proxyCtrl.abort();
                 };
@@ -227,8 +229,6 @@
                 if (options.body) fetchOpts.body = options.body;
 
                 const res = await fetch(proxyFn(url), fetchOpts);
-                clearTimeout(proxyTimer);
-                controller.signal.removeEventListener('abort', onParentAbort);
 
                 if (res.ok) {
                     const text = await res.text();
@@ -241,6 +241,9 @@
                 }
             } catch (proxyErr) {
                 // Strict 3.5s timeout aborts immediately and switches to next proxy without stalling
+            } finally {
+                if (proxyTimer) clearTimeout(proxyTimer);
+                if (onParentAbort) controller.signal.removeEventListener('abort', onParentAbort);
             }
         }
 

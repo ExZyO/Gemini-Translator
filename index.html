@@ -551,7 +551,8 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
   display: flex; border-top: 1px solid var(--hairline);
   background: rgba(9, 10, 15, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  padding: 10px 8px 18px;
+  padding: 10px 8px max(18px, env(safe-area-inset-bottom, 18px));
+  padding-bottom: max(18px, env(safe-area-inset-bottom, 18px));
 }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: var(--slate); background: none; border: none; cursor: pointer; transition: color .15s ease; }
 .nav-item.active { color: var(--iris); font-weight: 700; }
@@ -808,7 +809,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.23';
+    const VERSION = '8.10.24';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1146,11 +1147,33 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         }
       }
     };
-        const wordCount = (t) => {
-      if (!t || !t.trim()) return 0;
-      const cjk = (t.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
-      const nonCjk = (t.replace(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\b\w+\b/g) || []).length;
-      return cjk + nonCjk;
+    const wordCount = (t) => {
+      if (!t) return 0;
+      let count = 0;
+      let inWord = false;
+      for (let i = 0; i < t.length; i++) {
+        const code = t.charCodeAt(i);
+        if ((code >= 0x4e00 && code <= 0x9fa5) ||
+            (code >= 0x3040 && code <= 0x30ff) ||
+            (code >= 0xac00 && code <= 0xd7af)) {
+          if (inWord) inWord = false;
+          count++;
+        } else if (
+          (code >= 48 && code <= 57) ||
+          (code >= 65 && code <= 90) ||
+          (code >= 97 && code <= 122) ||
+          code === 95 ||
+          (code > 127 && /\w/.test(t[i]))
+        ) {
+          if (!inWord) {
+            inWord = true;
+            count++;
+          }
+        } else {
+          inWord = false;
+        }
+      }
+      return count;
     };
     const charCount = t => t.length;
     const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -1667,48 +1690,34 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       return p;
     };
 
-    const cleanNovelProse = (text) => {
-      if (!text) return '';
-      let t = text;
-      // Decode HTML entities left by web imports or model output, including numeric entities such as &#x20;.
-      if (typeof document !== 'undefined') {
-        const entityDecoder = document.createElement('textarea');
-        t = t.replace(/&(?:#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, entity => {
-          entityDecoder.innerHTML = entity;
-          return entityDecoder.value;
+    const cleanNovelProse = (typeof window !== 'undefined' && window.cleanNovelProse)
+      ? window.cleanNovelProse
+      : (text => {
+          if (!text) return '';
+          let t = (typeof window !== 'undefined' && window.decodeHtmlEntities)
+            ? window.decodeHtmlEntities(text)
+            : text.replace(/&(?:#x([0-9a-fA-F]+)|#([0-9]+)|([a-zA-Z]+));/g, '');
+          t = t.replace(/\u00a0/g, ' ');
+          t = t.replace(/^(\s*)\*([A-Za-z0-9!?,.\s'-]{1,30})\*(\s*)$/gm, '$1$2$3');
+          t = t.replace(/^\s*(?:Previous Chapter|Next Chapter|Table of Contents|Prev|Next|TOC|Back to Top|Share this:?|Like this:?|Related|Loading\.\.\.|Leave a (?:Reply|Comment)|Click here to .+)\s*$/gim, '');
+          t = t.replace(/^\s*(?:#{1,6}\s*)?Chapter\s*\[(?:number|\d+)\](?:\s*[:\-–—]\s*\[(?:name|title)\])?\s*$/gim, '');
+          t = t.replace(/^\s*(?:#{1,6}\s*)?\[(?:chapter|number)\](?:\s*[:\-–—]\s*\[(?:name|title)\])?\s*$/gim, '');
+          t = t.replace(/^\s*(?:#{1,6}\s*)?\[(?:Chapter\s*Name|Chapter\s*Title|Name|Title)\]\s*$/gim, '');
+          t = t.replace(/^\s*---\s*Page\s*End\s*---\s*$/gim, '');
+          t = t.replace(/^\s*(?:Advertisements?|Sponsored|Share on (?:Facebook|Twitter|Reddit)|Follow us on .+|Join our Discord.+|Support (?:us|me) on .+|Donate .+|Patreon .+|Buy me a coffee.+)\s*$/gim, '');
+          t = t.replace(/<\/?(?:div|span|br|a|img|script|style|iframe|button|input|form|nav|header|footer|aside|section|figure|figcaption)[^>]*>/gi, '');
+          t = t.replace(/\n{3,}/g, '\n\n');
+          t = t.replace(/(\w)-\s*\n\s*(\w)/g, '$1$2');
+          t = t.replace(/"([^"]*?)"/g, '\u201c$1\u201d');
+          t = t.replace(/(\w)'(\w)/g, '$1\u2019$2');
+          t = t.replace(/---?/g, '\u2014');
+          t = t.replace(/\.{3,}/g, '\u2026');
+          t = t.replace(/([\u201c\u2018"])\s+(?=[A-Za-z])/g, '$1');
+          t = t.replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n');
+          t = t.replace(/([.!?\u2026]+)(["'\u201d\u2019)]?)(?=[A-Za-z])/g, '$1$2 ');
+          return t.trim();
         });
-      }
-      t = t.replace(/\u00a0/g, ' ');
-      // Clean standalone markdown italic sound effects like *Rip!*, *Crack!*, *Whoosh!*
-      t = t.replace(/^(\s*)\*([A-Za-z0-9!?,.\s'-]{1,30})\*(\s*)$/gm, '$1$2$3');
-      // Strip residual web navigation artifacts
-      t = t.replace(/^\s*(?:Previous Chapter|Next Chapter|Table of Contents|Prev|Next|TOC|Back to Top|Share this:?|Like this:?|Related|Loading\.\.\.|Leave a (?:Reply|Comment)|Click here to .+)\s*$/gim, '');
-      // Strip prompt template / placeholder hallucinations like "Chapter [number]: [Name]", "[number]: [Name]", etc.
-      t = t.replace(/^\s*(?:#{1,6}\s*)?Chapter\s*\[(?:number|\d+)\](?:\s*[:\-–—]\s*\[(?:name|title)\])?\s*$/gim, '');
-      t = t.replace(/^\s*(?:#{1,6}\s*)?\[(?:chapter|number)\](?:\s*[:\-–—]\s*\[(?:name|title)\])?\s*$/gim, '');
-      t = t.replace(/^\s*(?:#{1,6}\s*)?\[(?:Chapter\s*Name|Chapter\s*Title|Name|Title)\]\s*$/gim, '');
-      t = t.replace(/^\s*---\s*Page\s*End\s*---\s*$/gim, '');
-      // Strip residual WordPress / Tumblr / social widget lines
-      t = t.replace(/^\s*(?:Advertisements?|Sponsored|Share on (?:Facebook|Twitter|Reddit)|Follow us on .+|Join our Discord.+|Support (?:us|me) on .+|Donate .+|Patreon .+|Buy me a coffee.+)\s*$/gim, '');
-      // Strip orphaned HTML tags
-      t = t.replace(/<\/?(?:div|span|br|a|img|script|style|iframe|button|input|form|nav|header|footer|aside|section|figure|figcaption)[^>]*>/gi, '');
-      // Normalize double+ blank lines into single blank line
-      t = t.replace(/\n{3,}/g, '\n\n');
-      // Fix broken hyphenation from OCR/web scrape (e.g. "trans-\nlation" -> "translation")
-      t = t.replace(/(\w)-\s*\n\s*(\w)/g, '$1$2');
-      // Normalize straight quotes to smart quotes
-      t = t.replace(/"([^"]*?)"/g, '\u201c$1\u201d');
-      t = t.replace(/(\w)'(\w)/g, '$1\u2019$2');
-      // Normalize dashes and ellipsis
-      t = t.replace(/---?/g, '\u2014');
-      t = t.replace(/\.{3,}/g, '\u2026');
-      // Remove accidental whitespace after opening quotation marks and at line edges.
-      t = t.replace(/([\u201c\u2018"])\s+(?=[A-Za-z])/g, '$1');
-      t = t.replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n');
-      // Restore spaces lost when a model or chunk boundary joins sentences.
-      t = t.replace(/([.!?\u2026]+)(["'\u201d\u2019)]?)(?=[A-Za-z])/g, '$1$2 ');
-      return t.trim();
-    };
+    if (typeof window !== 'undefined' && !window.cleanNovelProse) window.cleanNovelProse = cleanNovelProse;
 
     const parseTranslationOutput = (rawText, context, usage = null) => {
       let text = cleanNovelProse(rawText || '');
@@ -7789,12 +7798,26 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       const [liveLogs, setLiveLogs] = useState(() => window.AppLogger ? [...window.AppLogger.logs] : []);
       useEffect(() => {
         if (!window.AppLogger) return;
-        return window.AppLogger.subscribe(logs => {
-          setLiveLogs([...logs]);
-          if (logsContainerRef.current) {
-            logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+        let rafId = null;
+        let latestLogs = null;
+        const unsub = window.AppLogger.subscribe(logs => {
+          latestLogs = logs;
+          if (!rafId) {
+            rafId = requestAnimationFrame(() => {
+              rafId = null;
+              if (latestLogs) {
+                setLiveLogs([...latestLogs]);
+                if (logsContainerRef.current) {
+                  logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+                }
+              }
+            });
           }
         });
+        return () => {
+          if (rafId) cancelAnimationFrame(rafId);
+          if (unsub) unsub();
+        };
       }, []);
 
       // Live Agent Telemetry & Debugging (Method 2 Wireless Wi-Fi)
@@ -7843,8 +7866,21 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       const [libQuery, setLibQuery] = useState('');
       const [libTab, setLibTab] = useState('all');
       const libQ = libQuery.trim().toLowerCase();
-      const filteredBooks = libQ ? webImportHistory.filter(item => `${item.title || ''} ${item.chapterCount || ''} ${new Date(item.timestamp || 0).toLocaleDateString()} ${new Date(item.timestamp || 0).toLocaleString()}`.toLowerCase().includes(libQ)) : webImportHistory;
-      const filteredHistory = libQ ? history.filter(entry => `${new Date(entry.ts).toLocaleDateString()} ${new Date(entry.ts).toLocaleString()} ${entry.srcLang || ''} ${entry.tgtLang || ''} ${entry.outputPreview || ''}`.toLowerCase().includes(libQ)) : history;
+      const filteredBooks = useMemo(() => {
+        if (!libQ) return webImportHistory || [];
+        return (webImportHistory || []).filter(item => {
+          const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleDateString() : '';
+          return `${item.title || ''} ${item.chapterCount || ''} ${dateStr}`.toLowerCase().includes(libQ);
+        });
+      }, [webImportHistory, libQ]);
+
+      const filteredHistory = useMemo(() => {
+        if (!libQ) return history || [];
+        return (history || []).filter(entry => {
+          const dateStr = entry.ts ? new Date(entry.ts).toLocaleDateString() : '';
+          return `${dateStr} ${entry.srcLang || ''} ${entry.tgtLang || ''} ${entry.outputPreview || ''}`.toLowerCase().includes(libQ);
+        });
+      }, [history, libQ]);
 
       const savedSpaceCount = useMemo(() => (filteredBooks || []).filter(b => !!b.inSavedSpace).length, [filteredBooks]);
       const transCount = useMemo(() => (filteredBooks || []).filter(b => !!b.isTranslated || (b.title || '').includes('(Translated)')).length, [filteredBooks]);
@@ -8605,7 +8641,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Tokens'), h('span', { className: 'count' }, `${(lastUsageStats.totalTokens || 0).toLocaleString()} (${(lastUsageStats.promptTokens || 0).toLocaleString()} in · ${(lastUsageStats.outputTokens || 0).toLocaleString()} out)`)),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Cost'), h('span', { className: 'count' }, lastUsageStats.cost || '$0.0000')),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Time & Speed'), h('span', { className: 'count' }, `${lastUsageStats.duration || ''}${lastUsageStats.speed ? ' · ' + lastUsageStats.speed : ''}`)),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Words Translated'), h('span', { className: 'count' }, wordCount(assembledText).toLocaleString()))
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Words Translated'), h('span', { className: 'count' }, outputWordCount.toLocaleString()))
               ),
 
               // ═══ TRANSLATOR BOTTOM LOGS PANEL ═══
@@ -9252,26 +9288,38 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             return (typeof stripFn === 'function' && c?.title) ? stripFn(raw, c.title, c.originalTitle) : raw;
                           };
                           return h(React.Fragment, null,
-                            isTrans && h('button', {
+                            h('button', {
                               type: 'button',
                               className: 'mini-btn',
                               style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
                               onClick: async () => {
                                 const full = await loadFullNovel(item);
                                 if (!full) { toast('Novel data not found in local store.', 'error'); return; }
-                                const tgtChs = full.rawChapters || full.chapters || [];
-                                setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
-                                setTranslatedChapters(tgtChs.map(c => ({ title: c.title, content: cleanCh(c) })));
-                                if (full.originalChapters && full.originalChapters.length > 0) {
-                                  const srcChs = full.originalChapters;
-                                  setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
-                                  setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c) })));
+                                const chs = (full.translatedChapters && full.translatedChapters.length > 0)
+                                  ? full.translatedChapters
+                                  : (full.rawChapters || full.chapters || []);
+                                if (chs.length === 0) { toast('No chapters available to read.', 'warning'); return; }
+                                const cleanedChs = chs.map(c => ({ title: c.title, content: cleanCh(c) }));
+                                if (isTrans) {
+                                  setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+                                  setTranslatedChapters(cleanedChs);
+                                  if (full.originalChapters && full.originalChapters.length > 0) {
+                                    const srcChs = full.originalChapters;
+                                    setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
+                                    setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c) })));
+                                  } else {
+                                    setInputText('');
+                                    setChapters([]);
+                                  }
                                 } else {
-                                  setInputText('');
-                                  setChapters([]);
+                                  setChapters(cleanedChs);
+                                  setInputText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+                                  setAssembledText('');
+                                  setTranslatedChapters([]);
                                 }
-                                setActiveTab('text');
-                                toast(`Opened "${item.title}" in Reader / Output!`, 'success');
+                                setReaderChapterIdx(0);
+                                setReaderOpen(true);
+                                toast(`Reading "${item.title}" (${chs.length} ch)!`, 'success');
                               }
                             }, '📖 Read'),
                             h('button', {

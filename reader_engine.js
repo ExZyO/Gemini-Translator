@@ -259,6 +259,33 @@
         };
       }, []);
 
+      // Android MediaSession / Bluetooth Headphone integration for TTS
+      useEffect(() => {
+        if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+        if (ttsPlaying && !ttsPaused) {
+          try {
+            navigator.mediaSession.metadata = new MediaMetadata({
+              title: firstChapterTitle || 'Chapter',
+              artist: 'Gemini Reader TTS',
+              album: (safeChapters && safeChapters.length > 1) ? `Chapter ${activeIdx + 1} of ${safeChapters.length}` : 'Audio Reader'
+            });
+            navigator.mediaSession.playbackState = 'playing';
+            navigator.mediaSession.setActionHandler('play', () => handlePlayPause());
+            navigator.mediaSession.setActionHandler('pause', () => handlePlayPause());
+            navigator.mediaSession.setActionHandler('previoustrack', () => handlePrevSentence());
+            navigator.mediaSession.setActionHandler('nexttrack', () => handleNextSentence());
+          } catch(e) {}
+        } else if (ttsPaused) {
+          try {
+            navigator.mediaSession.playbackState = 'paused';
+          } catch(e) {}
+        } else {
+          try {
+            navigator.mediaSession.playbackState = 'none';
+          } catch(e) {}
+        }
+      }, [ttsPlaying, ttsPaused, activeIdx, firstChapterTitle]);
+
       // Moon+ scroll flow: chapter continues into the next one
       const advanceChapter = () => {
         if (advancingRef.current) return;
@@ -274,10 +301,23 @@
         }
       };
 
+      const prevChapter = () => {
+        if (advancingRef.current || activeIdxRef.current <= 0) return;
+        advancingRef.current = true;
+        const prev = activeIdxRef.current - 1;
+        setActiveIdx(prev);
+        onChapterChange?.(prev);
+        if (containerRef.current) containerRef.current.scrollTop = 0;
+        setTimeout(() => { advancingRef.current = false; }, 600);
+        if (ttsPlayingRef.current) {
+          setTimeout(() => speakSentence(0), 300);
+        }
+      };
+
       const handleScroll = () => {
         const el = containerRef.current;
         if (!el) return;
-        if (el.scrollHeight - el.scrollTop - el.clientHeight < 48) {
+        if (el.scrollHeight > el.clientHeight + 120 && el.scrollHeight - el.scrollTop - el.clientHeight < 48) {
           advanceChapter();
         }
       };
@@ -382,6 +422,38 @@
               }
             }, item.text);
           }),
+          h('div', { className: 'ch-nav-bar', style: { display: 'flex', gap: 12, justifyContent: 'space-between', alignItems: 'center', margin: '32px 0 16px', padding: '0 4px' } },
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              disabled: activeIdx <= 0,
+              style: {
+                opacity: activeIdx <= 0 ? 0.35 : 1,
+                cursor: activeIdx <= 0 ? 'default' : 'pointer',
+                padding: '10px 18px',
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: 8
+              },
+              onClick: (e) => { e.stopPropagation(); prevChapter(); }
+            }, '← Previous Chapter'),
+            h('button', {
+              type: 'button',
+              className: 'mini-btn',
+              disabled: activeIdx >= safeChapters.length - 1,
+              style: {
+                background: activeIdx >= safeChapters.length - 1 ? 'var(--hairline)' : 'var(--accent, #6366f1)',
+                color: '#fff',
+                opacity: activeIdx >= safeChapters.length - 1 ? 0.5 : 1,
+                cursor: activeIdx >= safeChapters.length - 1 ? 'default' : 'pointer',
+                padding: '10px 18px',
+                fontSize: 13,
+                fontWeight: 700,
+                borderRadius: 8
+              },
+              onClick: (e) => { e.stopPropagation(); advanceChapter(); }
+            }, activeIdx >= safeChapters.length - 1 ? '★ End of Book' : `Next Chapter (${activeIdx + 2}/${safeChapters.length}) →`)
+          ),
           h('div', { className: 'next-ch', onClick: advanceChapter },
             h('span', null, activeIdx >= safeChapters.length - 1 ? (endReached ? 'End of book' : 'You reached the end') : 'scroll · flows into the next chapter'),
             h('b', null, activeIdx >= safeChapters.length - 1 ? '★' : `Chapter ${activeIdx + 2} →`)
