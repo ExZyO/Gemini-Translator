@@ -55,14 +55,19 @@
             best.includes('smilies') || best.includes('reaction') || best.includes('jp-carousel') ||
             best.includes('advertisement') || best.includes('rating')) return '';
 
-        // Resolve relative URLs if baseUrl provided
-        best = best.replace(/^https?:\/\/[^\/]+\/\s+/i, (m) => m.trim()).replace(/\.jppg$/i, '.jpg');
+        // Resolve relative URLs if baseUrl provided & aggressively sanitize malformed host/path spaces (e.g., 'https://img. lnori. com/ 13125-06. jpg')
+        best = best.trim()
+            .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, '')) // Remove spaces inside hostname
+            .replace(/^https?:\/\/[^\/]+\/\s+/i, (m) => m.trim()) // Remove leading slash spaces
+            .replace(/\s+/g, '') // Strip remaining interior whitespace in image URL
+            .replace(/\.jppg$/i, '.jpg');
+
         if (baseUrl && (best.startsWith('/') || best.startsWith('./') || !/^https?:\/\//i.test(best))) {
             try {
-                best = new URL(best.trim(), baseUrl).href;
+                best = new URL(best, baseUrl).href;
             } catch (e) {}
         } else if (best.startsWith('//')) {
-            best = 'https:' + best.trim();
+            best = 'https:' + best;
         }
 
         // Strip resize/thumbnail query params for full original uncompressed resolution
@@ -107,16 +112,18 @@
                     imgUrl = getBestImageUrl(inner, baseUrl);
                 }
                 if (!imgUrl && targetUrl) {
-                    // Clean spaces, spaces in host/filename (e.g., 'https://img.lnori.com/ 13125-01.jppg' or malformed 'jppg' / spaces)
-                    imgUrl = targetUrl.replace(/\?w=\d+.*$/i, '').replace(/\?resize=\d+.*$/i, '').replace(/\?fit=\d+.*$/i, '').trim();
-                    imgUrl = imgUrl.replace(/^https?:\/\/[^\/]+\/\s+/i, (m) => m.trim()); // Remove space right after origin domain
+                    // Aggressively clean spaces, host spaces (e.g. 'https://img. lnori. com/ 13125-06. jpg') and typos
+                    imgUrl = targetUrl.trim()
+                        .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
+                        .replace(/\s+/g, '')
+                        .replace(/\?w=\d+.*$/i, '').replace(/\?resize=\d+.*$/i, '').replace(/\?fit=\d+.*$/i, '');
+
                     if (baseUrl && (imgUrl.startsWith('/') || imgUrl.startsWith('./') || !/^https?:\/\//i.test(imgUrl))) {
-                        try { imgUrl = new URL(imgUrl.trim(), baseUrl).href; } catch (e) {}
+                        try { imgUrl = new URL(imgUrl, baseUrl).href; } catch (e) {}
                     } else if (imgUrl.startsWith('//')) {
-                        imgUrl = 'https:' + imgUrl.trim();
+                        imgUrl = 'https:' + imgUrl;
                     }
-                    // Fix double extensions like .jppg -> .jpg or spaces in filename
-                    imgUrl = imgUrl.replace(/\.jppg$/i, '.jpg').replace(/(\/|\=)\s+/g, '$1');
+                    imgUrl = imgUrl.replace(/\.jppg$/i, '.jpg');
                 }
                 if (imgUrl && (imgUrl.startsWith('http://') || imgUrl.startsWith('https://') || imgUrl.startsWith('data:image/'))) {
                     return '\n\n![Illustration](' + imgUrl.trim() + ')\n\n';
