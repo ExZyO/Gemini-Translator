@@ -823,7 +823,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.38';
+    const VERSION = '8.10.39';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3272,16 +3272,31 @@ const formatModelName = (id, displayName) => {
         const cleanChapters = novelData.chapters.map((c, i) => ({
           idx: c.idx !== undefined ? c.idx : i,
           title: c.title || `Chapter ${i + 1}`,
+          url: c.url || '',
           text: typeof c === 'string' ? c : (c.text || c.content || ''),
           content: typeof c === 'string' ? c : (c.content || c.text || ''),
           words: c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)
         }));
+
+        // Compute volume count if multi-volume
+        let detectedVolumeCount = 0;
+        if (typeof novelData.volumeCount === 'number' && novelData.volumeCount > 0) {
+          detectedVolumeCount = novelData.volumeCount;
+        } else {
+          const volNums = new Set();
+          cleanChapters.forEach(c => {
+            const m = (c.title || '').match(/(?:Volume|Vol\.?|Book)\s*(\d+)/i);
+            if (m) volNums.add(parseInt(m[1], 10));
+          });
+          detectedVolumeCount = volNums.size;
+        }
 
         // Clean originalChapters if provided
         const cleanOriginalChapters = Array.isArray(novelData.originalChapters) && novelData.originalChapters.length > 0
           ? novelData.originalChapters.map((c, i) => ({
               idx: c.idx !== undefined ? c.idx : i,
               title: c.title || `Chapter ${i + 1}`,
+              url: c.url || '',
               text: typeof c === 'string' ? c : (c.text || c.content || ''),
               content: typeof c === 'string' ? c : (c.content || c.text || ''),
               words: c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)
@@ -3303,6 +3318,7 @@ const formatModelName = (id, displayName) => {
           tags: novelData.tags || [],
           chapterCount: cleanChapters.length,
           totalChapterCount: totalChapters,
+          volumeCount: detectedVolumeCount,
           isIncomplete,
           isTranslated,
           inSavedSpace,
@@ -3335,6 +3351,7 @@ const formatModelName = (id, displayName) => {
           tags: novelRecord.tags,
           chapterCount: novelRecord.chapterCount,
           totalChapterCount: novelRecord.totalChapterCount,
+          volumeCount: novelRecord.volumeCount,
           isIncomplete: novelRecord.isIncomplete,
           isTranslated: novelRecord.isTranslated,
           inSavedSpace: novelRecord.inSavedSpace,
@@ -3384,15 +3401,24 @@ const formatModelName = (id, displayName) => {
             toast(msg, 'info');
           });
           if (res && res.hasUpdates) {
-            setNovelUpdateBadges(prev => ({ ...prev, [item.id]: { newCount: res.newCount, remoteTotal: res.remoteCount } }));
-            toast(`Found ${res.newCount} new chapters for "${item.title}"!`, 'success');
+            setNovelUpdateBadges(prev => ({
+              ...prev,
+              [item.id]: {
+                newCount: res.newCount,
+                remoteTotal: res.remoteCount,
+                isVolumeBased: !!res.isVolumeBased
+              }
+            }));
+            const unit = res.isVolumeBased ? (res.newCount === 1 ? 'new volume' : 'new volumes') : (res.newCount === 1 ? 'new chapter' : 'new chapters');
+            toast(`Found ${res.newCount} ${unit} for "${item.title}"! 🎉`, 'success');
           } else if (res && !res.error) {
             setNovelUpdateBadges(prev => {
               const next = { ...prev };
               delete next[item.id];
               return next;
             });
-            toast(`"${item.title}" is already up to date (${res.localCount || item.chapterCount} ch).`, 'info');
+            const unit = res.isVolumeBased ? 'vol' : 'ch';
+            toast(`"${item.title}" is already up to date (${res.localCount || item.chapterCount} ${unit}).`, 'info');
           } else if (res && res.error) {
             toast(`Check failed: ${res.error}`, 'error');
           }
@@ -3406,7 +3432,8 @@ const formatModelName = (id, displayName) => {
       const handleDownloadNewChapters = async (item) => {
         const full = await loadFullNovel(item);
         if (!full) return;
-        toast(`Fetching new chapters for "${item.title}"...`, 'info');
+        const isLnori = (item.sourceUrl && /lnori\.(?:org|com)/i.test(item.sourceUrl)) || (full.sourceUrl && /lnori\.(?:org|com)/i.test(full.sourceUrl));
+        toast(`Fetching updates for "${item.title}"...`, 'info');
         try {
           const res = await window.WebNovelImporter?.importUrl(item.sourceUrl, (msg, pct) => {
             // Live update progress
@@ -3431,27 +3458,32 @@ const formatModelName = (id, displayName) => {
             });
             toast(`Updated "${item.title}" in library! (${res.chapters.length} chapters total)`, 'success');
 
-            // Packaging & Download updated raw EPUB
-            const chs = res.chapters;
-            const bookTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(item.title, chs) : (item.title || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-            const bookAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(item.author) : (item.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-            try {
-              if (typeof setEpubPackagingModal === 'function') {
-                setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-              }
-              const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
+            if (isLnori) {
+              // Direct clean Lnori EPUB packaging with volume TOC & cover art
+              await exportCleanLnoriEpub(updatedNovel);
+            } else {
+              // Packaging & Download updated raw EPUB
+              const chs = res.chapters;
+              const bookTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(item.title, chs) : (item.title || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+              const bookAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(item.author) : (item.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+              try {
                 if (typeof setEpubPackagingModal === 'function') {
-                  setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
+                  setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
                 }
-              }, typeof getEpubOptions === 'function' ? getEpubOptions() : {});
-              const cleanName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(bookTitle) : bookTitle).replace(/\s+/g, '_');
-              const fileName = `${cleanName}_(Ch1-${chs.length}).epub`;
-              await saveUniversalBlob(blob, fileName, 'application/epub+zip');
-              toast(`Downloaded updated raw EPUB (${chs.length} chapters)!`, 'success');
-            } catch (epubErr) {
-              toast(`Raw EPUB packaging error: ${epubErr.message}`, 'error');
-            } finally {
-              if (typeof setEpubPackagingModal === 'function') setEpubPackagingModal(null);
+                const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
+                  if (typeof setEpubPackagingModal === 'function') {
+                    setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
+                  }
+                }, typeof getEpubOptions === 'function' ? getEpubOptions() : {});
+                const cleanName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(bookTitle) : bookTitle).replace(/\s+/g, '_');
+                const fileName = `${cleanName}_(Ch1-${chs.length}).epub`;
+                await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+                toast(`Downloaded updated raw EPUB (${chs.length} chapters)!`, 'success');
+              } catch (epubErr) {
+                toast(`Raw EPUB packaging error: ${epubErr.message}`, 'error');
+              } finally {
+                if (typeof setEpubPackagingModal === 'function') setEpubPackagingModal(null);
+              }
             }
           }
         } catch (err) {
@@ -3585,7 +3617,14 @@ const formatModelName = (id, displayName) => {
             const res = await window.WebNovelImporter?.checkNovelUpdates(b);
             if (res && res.hasUpdates) {
               updatesFound++;
-              setNovelUpdateBadges(prev => ({ ...prev, [b.id]: { newCount: res.newCount, remoteTotal: res.remoteCount } }));
+              setNovelUpdateBadges(prev => ({
+                ...prev,
+                [b.id]: {
+                  newCount: res.newCount,
+                  remoteTotal: res.remoteCount,
+                  isVolumeBased: !!res.isVolumeBased
+                }
+              }));
             }
           } catch(e) {}
           setCheckingUpdates(prev => ({ ...prev, [b.id]: false }));
@@ -6263,9 +6302,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       };
 
       // --- Web Novel Crawl Pause, Cancel & Resume Controls ---
-      const handleStartFetch = async (isResume = false, resumeSessionData = null, autoExportEpub = false) => {
+      const handleStartFetch = async (isResume = false, resumeSessionData = null, autoExportEpub = false, overrideUrl = null) => {
         const targetSession = resumeSessionData || (isResume ? activeCrawlSession : null);
-        const targetUrl = (targetSession?.url || (targetSession?.sourceUrl) || webImportUrl).trim();
+        const targetUrl = (overrideUrl || targetSession?.url || (targetSession?.sourceUrl) || webImportUrl).trim();
 
         if (!targetUrl) {
           toast('Please enter a novel URL to fetch.', 'warning');
@@ -6493,6 +6532,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       const handleLnoriDirectEpubDownload = async (targetUrl) => {
         const url = (targetUrl || webImportUrl || '').trim();
         if (!url) return toast('Please enter an Lnori URL', 'warning');
+        if (url !== webImportUrl) setWebImportUrl(url);
 
         // Automatically ensure illustrations are enabled
         setScrapeImages(true);
@@ -6501,15 +6541,31 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         setEpubIncludeImages(true);
         localStorage.setItem('epubIncludeImages', 'true');
 
-        // Check if current active novel view is already this novel and complete
-        if (activeNovelView && activeNovelView.chapters && activeNovelView.chapters.length > 0 &&
-            (activeNovelView.sourceUrl === url || activeNovelView.url === url) && !activeNovelView.isIncomplete) {
-          toast('Novel already downloaded — packaging clean EPUB…', 'info');
-          return exportCleanLnoriEpub(activeNovelView);
+        // Check if novel data is already loaded in memory (activeCrawlSession or webImportData)
+        const currentData = (activeCrawlSession?.chapters?.length >= (webImportData?.chapters?.length || 0))
+          ? activeCrawlSession
+          : (webImportData || activeCrawlSession);
+
+        if (currentData && currentData.chapters && currentData.chapters.length > 0 &&
+            (!url || currentData.sourceUrl === url || currentData.url === url || url === webImportUrl)) {
+          toast('Novel already loaded — packaging clean EPUB…', 'info');
+          return exportCleanLnoriEpub(currentData);
+        }
+
+        // Check if novel already exists in Library history
+        const existingInHistory = (webImportHistory || []).find(h => (h.sourceUrl && h.sourceUrl === url) || (h.url && h.url === url));
+        if (existingInHistory) {
+          try {
+            const full = await loadFullNovel(existingInHistory);
+            if (full && full.chapters && full.chapters.length > 0 && !full.isIncomplete) {
+              toast('Loaded from Library — packaging clean EPUB…', 'info');
+              return exportCleanLnoriEpub(full);
+            }
+          } catch (_) {}
         }
 
         toast('Starting 1-click download for clean Lnori EPUB…', 'info');
-        await handleStartFetch(false, null, true);
+        await handleStartFetch(false, null, true, url);
       };
 
       const resumeCrawlFromSession = async (sessionOrNovel) => {
@@ -9604,7 +9660,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                               fontWeight: 700,
                               whiteSpace: 'nowrap'
                             }
-                          }, `+${novelUpdateBadges[item.id].newCount} New`),
+                          }, `+${novelUpdateBadges[item.id].newCount} ${novelUpdateBadges[item.id].isVolumeBased ? 'Vol' : ''} New`),
                           item.isIncomplete ? h('span', {
                             style: {
                               fontSize: 10,
@@ -9632,29 +9688,44 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           )
                         )
                       ),
-                      h('div', { className: 'm' }, `${item.chapterCount || 0}${item.totalChapterCount ? ` / ${item.totalChapterCount}` : ''} chapters · ${new Date(item.timestamp || Date.now()).toLocaleDateString()}`),
+                      h('div', { className: 'm' }, `${item.chapterCount || 0}${item.totalChapterCount ? ` / ${item.totalChapterCount}` : ''} chapters${item.volumeCount ? ` · ${item.volumeCount} vols` : ''} · ${new Date(item.timestamp || Date.now()).toLocaleDateString()}`),
                       h('div', { className: 'book-acts' },
-                        novelUpdateBadges[item.id] && h(React.Fragment, null,
-                          h('button', {
-                            type: 'button',
-                            className: 'mini-btn',
-                            style: {
-                              background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
-                              color: '#fff',
-                              fontWeight: 700,
-                              boxShadow: '0 2px 8px rgba(124, 58, 237, 0.35)'
-                            },
-                            onClick: () => handleUpdateTranslateAndMakeEpub(item),
-                            title: 'Fetch new chapters, preserve existing translations, and stage in Translator'
-                          }, `⚡ Stage New Chapters (+${novelUpdateBadges[item.id].newCount})`),
-                          h('button', {
-                            type: 'button',
-                            className: 'mini-btn ghost',
-                            style: { borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600, fontSize: 11 },
-                            onClick: () => handleDownloadNewChapters(item),
-                            title: 'Fetch new chapters and download updated raw EPUB (no translation, zero AI tokens)'
-                          }, `📥 Fetch & Download Raw EPUB (+${novelUpdateBadges[item.id].newCount})`)
-                        ),
+                        novelUpdateBadges[item.id] && (() => {
+                          const badge = novelUpdateBadges[item.id];
+                          const isLnori = item.sourceUrl && /lnori\.(?:org|com)/i.test(item.sourceUrl);
+                          const unit = badge.isVolumeBased ? 'Vol' : 'Ch';
+                          return h(React.Fragment, null,
+                            !isLnori && h('button', {
+                              type: 'button',
+                              className: 'mini-btn',
+                              style: {
+                                background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                                color: '#fff',
+                                fontWeight: 700,
+                                boxShadow: '0 2px 8px rgba(124, 58, 237, 0.35)'
+                              },
+                              onClick: () => handleUpdateTranslateAndMakeEpub(item),
+                              title: 'Fetch new chapters, preserve existing translations, and stage in Translator'
+                            }, `⚡ Stage New Chapters (+${badge.newCount})`),
+                            h('button', {
+                              type: 'button',
+                              className: isLnori ? 'mini-btn' : 'mini-btn ghost',
+                              style: {
+                                background: isLnori ? 'linear-gradient(90deg, #6366f1, #10b981)' : undefined,
+                                borderColor: isLnori ? 'transparent' : 'rgba(34, 197, 94, 0.4)',
+                                color: isLnori ? '#fff' : '#22c55e',
+                                fontWeight: 700,
+                                fontSize: 11
+                              },
+                              onClick: () => handleDownloadNewChapters(item),
+                              title: isLnori
+                                ? 'Fetch new volumes and download clean EPUB (no translation needed)'
+                                : 'Fetch new chapters and download updated raw EPUB (no translation, zero AI tokens)'
+                            }, isLnori
+                              ? `⚡ Download Clean EPUB (+${badge.newCount} ${unit})`
+                              : `📥 Fetch & Download Raw EPUB (+${badge.newCount})`)
+                          );
+                        })(),
                         item.sourceUrl && h('button', {
                           type: 'button',
                           className: 'mini-btn ghost',

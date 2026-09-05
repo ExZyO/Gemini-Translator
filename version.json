@@ -1,7 +1,7 @@
 {
-  "version": "8.10.38",
-  "versionCode": 8138,
+  "version": "8.10.39",
+  "versionCode": 8139,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.38: Added 1-Click Clean EPUB download and automatic Lnori detection for official English light novels, including high-resolution cover extraction, properties='cover-image' metadata, and direct clean packaging bypassing translation."
+  "releaseNotes": "v8.10.39: Fixed 1-Click Clean EPUB download button scope error; added volume-aware novel update detection for Lnori multi-volume series with 1-click clean EPUB updating."
 }

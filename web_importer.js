@@ -1671,6 +1671,22 @@
                           doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i]')?.getAttribute('src') || '';
 
             const bookChapters = parseChaptersFromBookHtml(html, url);
+            if (activeCrawlController?.tocOnly) {
+                progressCb?.(` Found ${bookChapters.length} chapters in Lnori volume.`, 100);
+                return {
+                    title,
+                    author,
+                    cover,
+                    language: 'en',
+                    summary,
+                    tags,
+                    chapters: [],
+                    chapterList: bookChapters.map(c => ({ url: c.url, title: c.title })),
+                    totalChapterCount: bookChapters.length,
+                    isEpub: false,
+                    sourceUrl: url
+                };
+            }
             const totalWords = bookChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
             progressCb?.(`Parsed ${bookChapters.length} illustrated chapters from Lnori volume (~${totalWords.toLocaleString()} words)!`, 100);
 
@@ -1725,6 +1741,8 @@
                     chapters: [],
                     chapterList: bookUrls,
                     totalChapterCount: bookUrls.length,
+                    volumeCount: bookUrls.length,
+                    isLnoriSeries: true,
                     isEpub: false,
                     sourceUrl: url
                 };
@@ -2321,12 +2339,49 @@
                 if (!remote || remoteCount === 0) {
                     return { hasUpdates: false, error: 'Failed to retrieve remote table of contents.' };
                 }
+
+                // Check for Lnori multi-volume series
+                const isLnori = detectUrlType(novelRecord.sourceUrl) === 'lnori';
+                const isLnoriSeries = isLnori && (novelRecord.sourceUrl.includes('/series/') || !!remote.isLnoriSeries);
+
+                if (isLnoriSeries) {
+                    const localChapters = novelRecord.rawChapters || novelRecord.chapters || [];
+                    const localVolSet = new Set();
+                    let maxLocalVol = 0;
+                    localChapters.forEach(c => {
+                        const m = (c.title || '').match(/(?:Volume|Vol\.?|Book)\s*(\d+)/i);
+                        if (m) {
+                            const vNum = parseInt(m[1], 10);
+                            if (vNum > maxLocalVol) maxLocalVol = vNum;
+                            localVolSet.add(vNum);
+                        }
+                        if (c.url) {
+                            const u = c.url.split('#')[0];
+                            if (u) localVolSet.add(u);
+                        }
+                    });
+                    const localVolCount = Math.max(localVolSet.size > 0 ? (maxLocalVol || localVolSet.size) : 0, novelRecord.volumeCount || 0);
+                    const remoteVolCount = remote.volumeCount || (remote.chapterList ? remote.chapterList.length : remoteCount);
+                    const hasUpdates = remoteVolCount > localVolCount;
+                    const newCount = Math.max(0, remoteVolCount - localVolCount);
+                    return {
+                        hasUpdates,
+                        isVolumeBased: true,
+                        newCount,
+                        localCount: localVolCount,
+                        remoteCount: remoteVolCount,
+                        remoteChapterList: remote.chapterList || [],
+                        remoteTitle: remote.title || novelRecord.title
+                    };
+                }
+
                 const localChapters = novelRecord.rawChapters || novelRecord.chapters || [];
                 const localCount = novelRecord.chapterCount || localChapters.length;
                 const hasUpdates = remoteCount > localCount;
                 const newCount = Math.max(0, remoteCount - localCount);
                 return {
                     hasUpdates,
+                    isVolumeBased: false,
                     newCount,
                     localCount,
                     remoteCount,
