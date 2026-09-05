@@ -17,4 +17,11 @@ client_secret*.json
 client_secrets*.json
 credentials*.json
 *.secret.json
-debug-live.log
+check-block.js
+check-ids.js
+phase1-splice.js
+restore-v833.js
+temp_script.js
+lamplight-mockup.html
+new-reader.txt
+new-render.txt
