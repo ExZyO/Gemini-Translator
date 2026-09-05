@@ -342,49 +342,53 @@ hr {
           let lastReportedImg = 0;
 
           const downloadWorker = async (url) => {
+            let buffer = null;
+            let detectedMime = null;
+            const AC = typeof AbortController !== 'undefined' ? AbortController : (typeof window !== 'undefined' ? window.AbortController : null);
+
+            // Helper: sniff image magic bytes
+            const sniffMime = (buf) => {
+              if (!buf || buf.byteLength < 12) return null;
+              const bytes = new Uint8Array(buf.slice(0, 16));
+              if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return { ext: 'png', mime: 'image/png' };
+              if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return { ext: 'jpg', mime: 'image/jpeg' };
+              if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return { ext: 'gif', mime: 'image/gif' };
+              if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+                  bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return { ext: 'webp', mime: 'image/webp' };
+              const str = String.fromCharCode(...bytes.slice(4, 12));
+              if (str.includes('ftyp') || str.includes('avif')) return { ext: 'avif', mime: 'image/avif' };
+              return null;
+            };
+
+            let referer = 'https://lnori.com/';
             try {
-              let buffer = null;
-              let detectedMime = null;
-              const imgTimeout = 15000;
-              const AC = typeof AbortController !== 'undefined' ? AbortController : (typeof window !== 'undefined' ? window.AbortController : null);
+              const parsedUrl = new URL(url);
+              referer = parsedUrl.origin + '/';
+            } catch(_) {}
 
-              // Helper: sniff image magic bytes
-              const sniffMime = (buf) => {
-                if (!buf || buf.byteLength < 12) return null;
-                const bytes = new Uint8Array(buf.slice(0, 16));
-                if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return { ext: 'png', mime: 'image/png' };
-                if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return { ext: 'jpg', mime: 'image/jpeg' };
-                if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return { ext: 'gif', mime: 'image/gif' };
-                if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
-                    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return { ext: 'webp', mime: 'image/webp' };
-                // AVIF check
-                const str = String.fromCharCode(...bytes.slice(4, 12));
-                if (str.includes('ftyp') || str.includes('avif')) return { ext: 'avif', mime: 'image/avif' };
-                return null;
-              };
+            // Attempt with up to 3 tries per image to guarantee 100% download reliability
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              if (buffer && buffer.byteLength > 500) break;
+              if (attempt > 1) {
+                await new Promise(r => setTimeout(r, 600 * attempt));
+              }
 
-              let referer = 'https://lnori.com/';
-              try {
-                const parsedUrl = new URL(url);
-                referer = parsedUrl.origin + '/';
-              } catch(_) {}
-
-              // Strategy 1: Android NativeBridge
+              // Strategy 1: Android NativeBridge (generous 35s timeout for high-res novel images)
               if (window.NativeBridge && window.NativeBridge.downloadBinary) {
                 try {
                   buffer = await Promise.race([
-                    window.NativeBridge.downloadBinary(url),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
+                    window.NativeBridge.downloadBinary(url, { referer }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 35000))
                   ]);
                 } catch(_) {}
               }
 
-              // Strategy 2: Local Telemetry / Socket Proxy (Desktop port 9090)
+              // Strategy 2: Local Direct Fetch (Node / Capacitor / CORS-enabled)
               if (!buffer || buffer.byteLength < 500) {
                 try {
                   const ctrl = AC ? new AC() : null;
-                  const t = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
-                  const res = await fetch(`http://127.0.0.1:9090/proxy?url=${encodeURIComponent(url)}`, {
+                  const t = ctrl ? setTimeout(() => ctrl.abort(), 12000) : null;
+                  const res = await fetch(url, {
                     signal: ctrl ? ctrl.signal : undefined,
                     headers: { 'Referer': referer }
                   });
@@ -397,12 +401,12 @@ hr {
                 } catch(_) {}
               }
 
-              // Strategy 3: Direct Fetch (Node / Capacitor / CORS-enabled)
+              // Strategy 3: Local Telemetry / Socket Proxy (Desktop port 9090)
               if (!buffer || buffer.byteLength < 500) {
                 try {
                   const ctrl = AC ? new AC() : null;
-                  const t = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
-                  const res = await fetch(url, {
+                  const t = ctrl ? setTimeout(() => ctrl.abort(), 10000) : null;
+                  const res = await fetch(`http://127.0.0.1:9090/proxy?url=${encodeURIComponent(url)}`, {
                     signal: ctrl ? ctrl.signal : undefined,
                     headers: { 'Referer': referer }
                   });
@@ -417,17 +421,19 @@ hr {
 
               // Strategy 4: Public Proxy Failover Pool
               if (!buffer || buffer.byteLength < 500) {
+                const cleanNoProto = url.replace(/^https?:\/\//i, '');
                 const proxies = [
-                  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-                  u => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
-                  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+                  () => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`,
+                  () => `https://corsproxy.org/?url=${encodeURIComponent(url)}`,
+                  () => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                  () => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
                 ];
-                for (const proxyFn of proxies) {
+                for (const getProxyUrl of proxies) {
                   if (buffer && buffer.byteLength > 500) break;
                   try {
                     const ctrl = AC ? new AC() : null;
-                    const t = ctrl ? setTimeout(() => ctrl.abort(), 4000) : null;
-                    const res = await fetch(proxyFn(url), { signal: ctrl ? ctrl.signal : undefined });
+                    const t = ctrl ? setTimeout(() => ctrl.abort(), 9000) : null;
+                    const res = await fetch(getProxyUrl(), { signal: ctrl ? ctrl.signal : undefined });
                     if (t) clearTimeout(t);
                     if (res.ok) {
                       const ct = res.headers.get('content-type') || '';
@@ -441,30 +447,38 @@ hr {
                   } catch(_) {}
                 }
               }
+            }
 
-              if (buffer && buffer.byteLength > 500) {
-                imgSeq++;
-                const sniffed = sniffMime(buffer);
-                let ext = 'jpg';
-                let mime = 'image/jpeg';
-                if (sniffed) {
-                  ext = sniffed.ext;
-                  mime = sniffed.mime;
-                } else if (detectedMime) {
-                  mime = detectedMime;
-                  ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : (mime.includes('gif') ? 'gif' : (mime.includes('avif') ? 'avif' : 'jpg')));
-                } else {
-                  ext = url.includes('.png') ? 'png' : (url.includes('.webp') ? 'webp' : (url.includes('.gif') ? 'gif' : (url.includes('.avif') ? 'avif' : 'jpg')));
-                  mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : (ext === 'avif' ? 'image/avif' : 'image/jpeg')));
-                }
-
-                const imgFilename = `img_${imgSeq}.${ext}`;
-                const manifestId = `img_${imgSeq}`;
-                imgFolder.file(imgFilename, buffer, { compression: 'STORE' });
-                manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="${mime}"/>`);
-                imageCache.set(url, { localHref: `images/${imgFilename}`, manifestId });
+            if (buffer && buffer.byteLength > 500) {
+              imgSeq++;
+              const sniffed = sniffMime(buffer);
+              let ext = 'jpg';
+              let mime = 'image/jpeg';
+              if (sniffed) {
+                ext = sniffed.ext;
+                mime = sniffed.mime;
+              } else if (detectedMime) {
+                mime = detectedMime;
+                ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : (mime.includes('gif') ? 'gif' : (mime.includes('avif') ? 'avif' : 'jpg')));
+              } else {
+                ext = url.includes('.png') ? 'png' : (url.includes('.webp') ? 'webp' : (url.includes('.gif') ? 'gif' : (url.includes('.avif') ? 'avif' : 'jpg')));
+                mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : (ext === 'avif' ? 'image/avif' : 'image/jpeg')));
               }
-            } catch (e) {}
+
+              const imgFilename = `img_${imgSeq}.${ext}`;
+              const manifestId = `img_${imgSeq}`;
+              imgFolder.file(imgFilename, buffer, { compression: 'STORE' });
+              manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="${mime}"/>`);
+              const entry = { localHref: `images/${imgFilename}`, manifestId };
+              imageCache.set(url, entry);
+              try {
+                imageCache.set(encodeURI(url), entry);
+                imageCache.set(decodeURI(url), entry);
+                imageCache.set(url.split('?')[0], entry);
+                imageCache.set(url.replace(/^https?:\/\//i, '//'), entry);
+              } catch(_) {}
+            }
+
             downloadedCount++;
             if (downloadedCount - lastReportedImg >= 2 || downloadedCount === imgUrlList.length) {
               lastReportedImg = downloadedCount;
@@ -474,7 +488,7 @@ hr {
             }
           };
 
-          const concurrency = 8;
+          const concurrency = 4;
           const imgQueue = [...imgUrlList];
           const pool = Array.from({ length: Math.min(concurrency, imgUrlList.length) }, async () => {
             while (imgQueue.length > 0) {
@@ -573,6 +587,12 @@ hr {
               continue;
             }
 
+            // If images disabled, completely strip image markups from line
+            if (!useIncludeImages) {
+              trimmed = trimmed.replace(/!\[.*?\]\([^\)]+\)/gi, '').replace(/<img\b[^>]*>/gi, '').trim();
+              if (!trimmed) continue;
+            }
+
             // Illustration matching (markdown ![]() anywhere on line or standalone)
             if (/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/i.test(trimmed)) {
               if (!useIncludeImages) continue;
@@ -583,11 +603,13 @@ hr {
                   .replace(/\s+/g, '')
                   .replace(/\.jppg$/i, '.jpg');
 
-                const cached = imageCache.get(imgUrl) || imageCache.get(rawImgUrl);
+                const cached = imageCache.get(imgUrl) || imageCache.get(rawImgUrl) ||
+                               imageCache.get(encodeURI(imgUrl)) || imageCache.get(decodeURI(imgUrl)) ||
+                               imageCache.get(imgUrl.split('?')[0]);
                 if (cached) {
                   return `<div class="illustration-wrap"><img src="${cached.localHref}" alt="${escapeXml(altText)}" class="illustration"/></div>`;
                 }
-                return `<div class="illustration-wrap"><img src="${imgUrl}" alt="${escapeXml(altText)}" class="illustration"/><br/><a href="${imgUrl}" style="font-size:11px; color:#6366f1; text-decoration:underline;">[Download Image]</a></div>`;
+                return `<div class="illustration-wrap"><img src="${imgUrl}" alt="${escapeXml(altText)}" class="illustration"/></div>`;
               });
               if (/^<div class="illustration-wrap">/.test(lineHtml)) {
                 bodyHtml.push(lineHtml);
@@ -600,16 +622,19 @@ hr {
 
             // HTML img tag replacement for cached local images
             if (/<img\s+/i.test(trimmed)) {
+              if (!useIncludeImages) continue;
               let updatedLine = trimmed.replace(/<img\s+([^>]*src=["']([^"']+)["'][^>]*)>/gi, (fullImg, attrs, srcUrl) => {
                 const cleanUrl = srcUrl.trim()
                   .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
                   .replace(/\s+/g, '')
                   .replace(/\.jppg$/i, '.jpg');
-                const cached = imageCache.get(cleanUrl) || imageCache.get(srcUrl);
+                const cached = imageCache.get(cleanUrl) || imageCache.get(srcUrl) ||
+                               imageCache.get(encodeURI(cleanUrl)) || imageCache.get(decodeURI(cleanUrl)) ||
+                               imageCache.get(cleanUrl.split('?')[0]);
                 if (cached) {
                   return `<div class="illustration-wrap"><img src="${cached.localHref}" alt="Illustration" class="illustration"/></div>`;
                 }
-                return `<div class="illustration-wrap"><img src="${cleanUrl}" alt="Illustration" class="illustration"/><br/><a href="${cleanUrl}" style="font-size:11px; color:#6366f1; text-decoration:underline;">[Download Image]</a></div>`;
+                return `<div class="illustration-wrap"><img src="${cleanUrl}" alt="Illustration" class="illustration"/></div>`;
               });
               bodyHtml.push(updatedLine);
               continue;

@@ -1,7 +1,7 @@
 {
-  "version": "8.10.35",
-  "versionCode": 8135,
+  "version": "8.10.36",
+  "versionCode": 8136,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.35: Restored build 199 Lnori series crawler architecture, fixed cleanNovelProse URL/image corruption so OEBPS/images bundles illustrations, and provided clean [Download Image] fallback."
+  "releaseNotes": "v8.10.36: Replaced full-screen EPUB packaging modal with non-modal floating main-screen progress dock with dismiss button, added Embed Images toggle switch directly in Import menu, and sanitized EPUB export titles and authors."
 }

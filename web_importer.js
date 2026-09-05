@@ -1507,11 +1507,91 @@
         try { origin = new URL(url).origin; } catch (e) {}
         const isSeries = url.includes('/series/');
 
-        function parseChaptersFromBookHtml(bookHtml, bookPageUrl) {
+        function parseChaptersFromBookHtml(bookHtml, bookPageUrl, volIndex = null) {
             const bDoc = new DOMParser().parseFromString(bookHtml, 'text/html');
-            let sections = Array.from(bDoc.querySelectorAll('section.chapter, section[id^="page"], div.chapter-content, div.reading-content, article'));
             
-            // Fallback: If no dedicated chapter sections found, check __NEXT_DATA__ SSR JSON
+            // 1. Primary Strategy: Check Lnori Table of Contents navigation (<nav class="toc-view" ...> <a href="#pageXX">)
+            const tocAnchors = Array.from(bDoc.querySelectorAll('nav.toc-view a[href*="#page"], nav a[href*="#page"], #toc-list a[href*="#page"]'));
+            const toc = [];
+            const seenPages = new Set();
+            for (const a of tocAnchors) {
+                const href = a.getAttribute('href') || '';
+                const m = href.match(/#(page\d+)/i);
+                if (m) {
+                    const pageId = m[1];
+                    const rawTitle = a.getAttribute('title') || a.textContent || '';
+                    const title = rawTitle.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+                    if (title && !seenPages.has(pageId)) {
+                        seenPages.add(pageId);
+                        toc.push({ pageId, title });
+                    }
+                }
+            }
+
+            // Fallback: regex search on bookHtml for TOC links if querySelectorAll missed
+            if (toc.length === 0) {
+                const tocRegex = /<a\s+[^>]*href=["']#(page\d+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+                let match;
+                while ((match = tocRegex.exec(bookHtml)) !== null) {
+                    const pageId = match[1];
+                    const title = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+                    if (title && !seenPages.has(pageId)) {
+                        seenPages.add(pageId);
+                        toc.push({ pageId, title });
+                    }
+                }
+            }
+
+            // Extract all section[id^="page"] elements in DOM order
+            const pageSections = Array.from(bDoc.querySelectorAll('section[id^="page"]'));
+            const sectionMap = new Map();
+            pageSections.forEach(sec => {
+                sectionMap.set(sec.id, sec.innerHTML);
+            });
+
+            // If we have TOC entries and page sections, group pages by TOC ranges!
+            if (toc.length > 0 && sectionMap.size > 0) {
+                const allPageIds = Array.from(sectionMap.keys());
+                const assembled = [];
+                for (let i = 0; i < toc.length; i++) {
+                    const currentToc = toc[i];
+                    const nextToc = toc[i + 1];
+                    const startIdx = allPageIds.indexOf(currentToc.pageId);
+                    const endIdx = nextToc ? allPageIds.indexOf(nextToc.pageId) : allPageIds.length;
+
+                    const includedPages = (startIdx !== -1)
+                        ? allPageIds.slice(startIdx, endIdx !== -1 ? endIdx : allPageIds.length)
+                        : [currentToc.pageId];
+
+                    let combinedHtml = '';
+                    for (const pid of includedPages) {
+                        const secHtml = sectionMap.get(pid);
+                        if (secHtml) combinedHtml += '\n\n' + secHtml;
+                    }
+
+                    const cleaned = cleanChapterHtmlWithImages(combinedHtml, bookPageUrl);
+                    if (cleaned.length > 5 || /!\[Illustration\]/i.test(cleaned)) {
+                        let finalTitle = currentToc.title;
+                        if (volIndex !== null) {
+                            finalTitle = `Volume ${volIndex} - ${finalTitle}`;
+                        }
+                        assembled.push({
+                            title: finalTitle,
+                            text: cleaned,
+                            url: `${bookPageUrl}#${currentToc.pageId}`
+                        });
+                    }
+                }
+                if (assembled.length > 0) {
+                    window.AppLogger?.log('info', 'Lnori', `Extracted ${assembled.length} TOC-grouped chapters from ${bookPageUrl}`);
+                    return assembled;
+                }
+            }
+
+            // 2. Secondary Strategy: Individual page sections without article wrapper (CRITICAL: NEVER select <article> as a chapter!)
+            let sections = Array.from(bDoc.querySelectorAll('section.chapter, section[id^="page"], div.chapter-content, div.reading-content'));
+
+            // 3. Fallback: SSR __NEXT_DATA__ JSON
             if (sections.length === 0) {
                 const nextDataMatch = bookHtml.match(/<script\s+id=["']__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/i);
                 if (nextDataMatch) {
@@ -1522,19 +1602,23 @@
                         const chaptersData = book?.chapters || pageProps?.chapters || [];
                         if (Array.isArray(chaptersData) && chaptersData.length > 0) {
                             window.AppLogger?.log('info', 'Lnori', `Found ${chaptersData.length} chapters in SSR __NEXT_DATA__ JSON`);
-                            return chaptersData.map((ch, idx) => ({
-                                title: ch.name || ch.title || `Chapter ${idx + 1}`,
-                                text: cleanChapterHtmlWithImages(ch.content || ch.html || '', bookPageUrl),
-                                url: `${bookPageUrl}#${ch.id || idx}`
-                            }));
+                            return chaptersData.map((ch, idx) => {
+                                let title = ch.name || ch.title || `Chapter ${idx + 1}`;
+                                if (volIndex !== null) title = `Volume ${volIndex} - ${title}`;
+                                return {
+                                    title,
+                                    text: cleanChapterHtmlWithImages(ch.content || ch.html || '', bookPageUrl),
+                                    url: `${bookPageUrl}#${ch.id || idx}`
+                                };
+                            });
                         }
                     } catch (e) {
                         window.AppLogger?.log('warn', 'Lnori', `Failed to parse __NEXT_DATA__: ${e.message}`);
                     }
                 }
-                
-                // Fallback 2: Parse main body container directly
-                const mainBody = bDoc.querySelector('#chapter-article, .book-content, main, article, body');
+
+                // Fallback 4: Parse main body container directly ONLY if nothing else matched
+                const mainBody = bDoc.querySelector('#chapter-article, .book-content, article.content-body, main');
                 if (mainBody) {
                     sections = [mainBody];
                 }
@@ -1552,6 +1636,7 @@
                         chTitle = idx === 0 ? 'Cover' : `Part ${idx + 1}`;
                     }
                 }
+                if (volIndex !== null) chTitle = `Volume ${volIndex} - ${chTitle}`;
                 const cleaned = cleanChapterHtmlWithImages(sec.innerHTML, bookPageUrl);
                 if (cleaned.length > 15 || /!\[Illustration\]/i.test(cleaned)) {
                     extracted.push({
@@ -1573,8 +1658,11 @@
             const html = await fetchHtml(url, { headers: { 'Referer': origin + '/' } });
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
-            const title = doc.querySelector('title')?.textContent?.replace(/\s*-\s*Lnori\s*$/i, '').trim() || doc.querySelector('h1')?.textContent?.trim() || 'Lnori Book';
-            const author = doc.querySelector('meta[name="author"]')?.getAttribute('content') || doc.querySelector('.author')?.textContent?.trim() || 'Lnori Author';
+            const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.replace(/\s*[-|]\s*Lnori\s*$/i, '').trim() ||
+                          doc.querySelector('title')?.textContent?.replace(/\s*[-|]\s*Lnori\s*$/i, '').trim() ||
+                          doc.querySelector('h1')?.textContent?.trim() || 'Lnori Book';
+            const author = doc.querySelector('meta[name="author"]')?.getAttribute('content')?.trim() ||
+                           doc.querySelector('.author')?.textContent?.trim() || 'Lnori Author';
             const summary = doc.querySelector('meta[name="description"]')?.getAttribute('content') || 'Imported from Lnori';
             const tags = ['Lnori', 'Light Novel', 'Illustrated'];
 
@@ -1599,8 +1687,10 @@
             const html = await fetchHtml(url, { headers: { 'Referer': origin + '/' } });
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
-            const title = doc.querySelector('h1, title')?.textContent?.replace(/\s*-\s*Lnori\s*$/i, '').trim() || 'Lnori Series';
-            const author = doc.querySelector('meta[name="author"], .author')?.textContent?.trim() || 'Lnori Author';
+            let title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.replace(/\s*[-|]\s*Lnori\s*$/i, '').trim() ||
+                        doc.querySelector('h1, title')?.textContent?.replace(/\s*[-|]\s*Lnori\s*$/i, '').trim() || 'Lnori Series';
+            let author = doc.querySelector('meta[name="author"]')?.getAttribute('content')?.trim() ||
+                         doc.querySelector('.author')?.textContent?.trim() || 'Lnori Author';
             const summary = doc.querySelector('.description, .synopsis, meta[name="description"]')?.textContent?.trim() || 'Imported from Lnori Series';
             const tags = ['Lnori', 'Light Novel Series', 'Illustrated'];
 
@@ -1636,21 +1726,81 @@
 
             progressCb?.(`Found ${bookUrls.length} volumes in Lnori series! Ingesting volumes...`, 30);
 
-            // Fetch each book page and extract chapters (clean, fast sequential loop from build 199)
+            // Resume support: check if existing chapters from active session can be reused
+            const initialChapters = options.initialChapters || (options.resumeSession ? (options.resumeSession.downloadedChapters || options.resumeSession.chapters || options.resumeSession.rawChapters) : []) || [];
             let allChapters = [];
+
             for (let i = 0; i < bookUrls.length; i++) {
                 if (activeCrawlController?.isPaused || activeCrawlController?.isCancelled) break;
                 const bItem = bookUrls[i];
-                const pct = Math.min(95, Math.round(30 + ((i / bookUrls.length) * 65)));
-                progressCb?.(`Fetching Lnori Volume ${i + 1}/${bookUrls.length}: ${bItem.title.slice(0, 35)}...`, pct);
-                window.sendTelemetry?.('CHAPTER_OK', `Saved Lnori Volume ${i + 1}/${bookUrls.length}: ${bItem.title} (${i + 1}/${bookUrls.length} done)`);
-                window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Fetching Lnori Volume ${i + 1}/${bookUrls.length} (${pct}%)`, pct, true);
+                const volNum = i + 1;
+                const pct = Math.min(95, Math.round(15 + ((i / bookUrls.length) * 80)));
+
+                // Check if this volume was already fetched in initialChapters
+                const alreadyFetched = initialChapters.filter(c => c.url && c.url.startsWith(bItem.url));
+                if (alreadyFetched.length > 0) {
+                    allChapters = allChapters.concat(alreadyFetched);
+                    progressCb?.(`Volume ${volNum}/${bookUrls.length} already loaded (${allChapters.length} chapters so far)`, pct);
+                    window.sendTelemetry?.('CHAPTER_OK', `Volume ${volNum}/${bookUrls.length} restored from session cache`);
+                    if (options.onChapterDone) {
+                        options.onChapterDone(
+                            { title: `Volume ${volNum}: ${bItem.title}`, url: bItem.url },
+                            allChapters,
+                            {
+                                current: volNum,
+                                total: bookUrls.length,
+                                completedCount: allChapters.length,
+                                title,
+                                author,
+                                summary,
+                                chapterList: bookUrls
+                            }
+                        );
+                    }
+                    continue;
+                }
+
+                progressCb?.(`Fetching Lnori Volume ${volNum}/${bookUrls.length}: ${bItem.title.slice(0, 35)}...`, pct);
+                window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Fetching Lnori Volume ${volNum}/${bookUrls.length} (${pct}%)`, pct, true);
+
                 try {
                     const bHtml = await fetchHtml(bItem.url, { headers: { 'Referer': url } });
-                    const volChapters = parseChaptersFromBookHtml(bHtml, bItem.url);
+                    if (volNum === 1 || !author || author === 'Lnori Author' || author === 'Author' || author === 'Unknown') {
+                        try {
+                            const vDoc = new DOMParser().parseFromString(bHtml, 'text/html');
+                            const vAuthor = vDoc.querySelector('meta[name="author"]')?.getAttribute('content')?.trim() ||
+                                            vDoc.querySelector('.author')?.textContent?.trim();
+                            if (vAuthor && vAuthor !== 'Lnori Author') author = vAuthor;
+                            if (!title || title === 'Lnori Series' || title === 'Web Novel') {
+                                const vTitle = vDoc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
+                                                vDoc.querySelector('title')?.textContent?.replace(/\s*[-|]\s*Lnori\s*$/i, '') || '';
+                                const cleanVTitle = vTitle.replace(/:\s*Volume\s*\d+.*$/i, '').replace(/:\s*Vol\.\s*\d+.*$/i, '').trim();
+                                if (cleanVTitle) title = cleanVTitle;
+                            }
+                        } catch (_) {}
+                    }
+                    const volChapters = parseChaptersFromBookHtml(bHtml, bItem.url, volNum);
                     allChapters = allChapters.concat(volChapters);
+                    window.sendTelemetry?.('CHAPTER_OK', `Saved Lnori Volume ${volNum}/${bookUrls.length}: ${bItem.title} (+${volChapters.length} chapters, ${allChapters.length} total)`);
                 } catch (bErr) {
                     console.warn(`Failed to fetch Lnori volume ${bItem.url}:`, bErr);
+                }
+
+                // Fire onChapterDone callback after each volume so React UI updates live and persists to IndexedDB
+                if (options.onChapterDone) {
+                    options.onChapterDone(
+                        { title: `Volume ${volNum}: ${bItem.title}`, url: bItem.url },
+                        allChapters,
+                        {
+                            current: volNum,
+                            total: bookUrls.length,
+                            completedCount: allChapters.length,
+                            title,
+                            author,
+                            summary,
+                            chapterList: bookUrls
+                        }
+                    );
                 }
             }
 
@@ -1659,6 +1809,9 @@
                 activeCrawlController.totalChapterCount = allChapters.length;
                 activeCrawlController.chapterList = allChapters.map(c => ({ url: c.url, title: c.title }));
             }
+
+            window.sendTelemetry?.('CRAWL_DONE', `Lnori series ingestion completed: ${allChapters.length} chapters across ${bookUrls.length} volumes downloaded and saved.`);
+            window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Lnori series complete! (${allChapters.length} chapters)`, 100, false);
 
             const totalWords = allChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
             progressCb?.(` Loaded ${allChapters.length} chapters across ${bookUrls.length} Lnori volumes (~${totalWords.toLocaleString()} words)!`, 100);

@@ -463,7 +463,8 @@
             if (bridge && bridge.downloadBinaryNative) {
                 const res = await bridge.downloadBinaryNative({
                     url,
-                    userAgent: options.userAgent || undefined
+                    userAgent: options.userAgent || undefined,
+                    referer: options.referer || undefined
                 });
                 if (res && res.base64) {
                     const binaryString = atob(res.base64);

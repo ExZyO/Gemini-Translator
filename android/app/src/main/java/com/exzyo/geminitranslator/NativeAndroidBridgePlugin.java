@@ -709,6 +709,16 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     conn.setRequestProperty("User-Agent", userAgent);
                     conn.setRequestProperty("Accept", "*/*");
                     conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
+                    String referer = call.getString("referer");
+                    if (referer == null || referer.isEmpty()) {
+                        try {
+                            java.net.URI uri = new java.net.URI(currentUrl);
+                            referer = uri.getScheme() + "://" + uri.getHost() + "/";
+                        } catch (Exception ignored) {}
+                    }
+                    if (referer != null && !referer.isEmpty()) {
+                        conn.setRequestProperty("Referer", referer);
+                    }
                     if (!cookies.isEmpty()) {
                         conn.setRequestProperty("Cookie", cookies);
                     }
