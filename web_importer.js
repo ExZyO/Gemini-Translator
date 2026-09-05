@@ -1497,9 +1497,38 @@
 
         function parseChaptersFromBookHtml(bookHtml, bookPageUrl) {
             const bDoc = new DOMParser().parseFromString(bookHtml, 'text/html');
-            const sections = Array.from(bDoc.querySelectorAll('section.chapter, section[id^="page"]'));
-            const extracted = [];
+            let sections = Array.from(bDoc.querySelectorAll('section.chapter, section[id^="page"], div.chapter-content, div.reading-content, article'));
+            
+            // Fallback: If no dedicated chapter sections found, check __NEXT_DATA__ SSR JSON
+            if (sections.length === 0) {
+                const nextDataMatch = bookHtml.match(/<script\s+id=["']__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/i);
+                if (nextDataMatch) {
+                    try {
+                        const json = JSON.parse(nextDataMatch[1]);
+                        const pageProps = json?.props?.pageProps;
+                        const book = pageProps?.book || pageProps?.initialBook || pageProps;
+                        const chaptersData = book?.chapters || pageProps?.chapters || [];
+                        if (Array.isArray(chaptersData) && chaptersData.length > 0) {
+                            window.AppLogger?.log('info', 'Lnori', `Found ${chaptersData.length} chapters in SSR __NEXT_DATA__ JSON`);
+                            return chaptersData.map((ch, idx) => ({
+                                title: ch.name || ch.title || `Chapter ${idx + 1}`,
+                                text: cleanChapterHtmlWithImages(ch.content || ch.html || '', bookPageUrl),
+                                url: `${bookPageUrl}#${ch.id || idx}`
+                            }));
+                        }
+                    } catch (e) {
+                        window.AppLogger?.log('warn', 'Lnori', `Failed to parse __NEXT_DATA__: ${e.message}`);
+                    }
+                }
+                
+                // Fallback 2: Parse main body container directly
+                const mainBody = bDoc.querySelector('#chapter-article, .book-content, main, article, body');
+                if (mainBody) {
+                    sections = [mainBody];
+                }
+            }
 
+            const extracted = [];
             sections.forEach((sec, idx) => {
                 const titleEl = sec.querySelector('.chapter-title, h1, h2, h3, h4');
                 let chTitle = titleEl?.textContent?.trim();
@@ -1520,12 +1549,15 @@
                     });
                 }
             });
+
+            window.AppLogger?.log('info', 'Lnori', `Extracted ${extracted.length} chapters/parts from ${bookPageUrl}`);
             return extracted;
         }
 
         if (!isSeries) {
             // Single Book / Volume page (/book/{id}/{slug})
             progressCb?.('Ingesting entire Lnori book volume...', 25);
+            window.AppLogger?.log('info', 'Lnori', `Fetching Lnori URL: ${url}`);
             const html = await fetchHtml(url, { headers: { 'Referer': origin + '/' } });
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
