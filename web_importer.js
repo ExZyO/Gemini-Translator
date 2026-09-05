@@ -56,12 +56,13 @@
             best.includes('advertisement') || best.includes('rating')) return '';
 
         // Resolve relative URLs if baseUrl provided
+        best = best.replace(/^https?:\/\/[^\/]+\/\s+/i, (m) => m.trim()).replace(/\.jppg$/i, '.jpg');
         if (baseUrl && (best.startsWith('/') || best.startsWith('./') || !/^https?:\/\//i.test(best))) {
             try {
-                best = new URL(best, baseUrl).href;
+                best = new URL(best.trim(), baseUrl).href;
             } catch (e) {}
         } else if (best.startsWith('//')) {
-            best = 'https:' + best;
+            best = 'https:' + best.trim();
         }
 
         // Strip resize/thumbnail query params for full original uncompressed resolution
@@ -106,15 +107,19 @@
                     imgUrl = getBestImageUrl(inner, baseUrl);
                 }
                 if (!imgUrl && targetUrl) {
+                    // Clean spaces, spaces in host/filename (e.g., 'https://img.lnori.com/ 13125-01.jppg' or malformed 'jppg' / spaces)
                     imgUrl = targetUrl.replace(/\?w=\d+.*$/i, '').replace(/\?resize=\d+.*$/i, '').replace(/\?fit=\d+.*$/i, '').trim();
+                    imgUrl = imgUrl.replace(/^https?:\/\/[^\/]+\/\s+/i, (m) => m.trim()); // Remove space right after origin domain
                     if (baseUrl && (imgUrl.startsWith('/') || imgUrl.startsWith('./') || !/^https?:\/\//i.test(imgUrl))) {
-                        try { imgUrl = new URL(imgUrl, baseUrl).href; } catch (e) {}
+                        try { imgUrl = new URL(imgUrl.trim(), baseUrl).href; } catch (e) {}
                     } else if (imgUrl.startsWith('//')) {
-                        imgUrl = 'https:' + imgUrl;
+                        imgUrl = 'https:' + imgUrl.trim();
                     }
+                    // Fix double extensions like .jppg -> .jpg or spaces in filename
+                    imgUrl = imgUrl.replace(/\.jppg$/i, '.jpg').replace(/(\/|\=)\s+/g, '$1');
                 }
                 if (imgUrl && (imgUrl.startsWith('http://') || imgUrl.startsWith('https://') || imgUrl.startsWith('data:image/'))) {
-                    return '\n\n![Illustration](' + imgUrl + ')\n\n';
+                    return '\n\n![Illustration](' + imgUrl.trim() + ')\n\n';
                 }
             }
             return match;
@@ -1622,22 +1627,18 @@
                 };
             }
 
-            progressCb?.(`Found ${bookUrls.length} volumes in Lnori series! Ingesting volumes...`, 30);
+            progressCb?.(`Found ${bookUrls.length} volumes in Lnori series! Ingesting volumes concurrently...`, 30);
 
-            // Fetch each book page and extract chapters
-            let allChapters = [];
-            for (let i = 0; i < bookUrls.length; i++) {
-                if (activeCrawlController?.isPaused || activeCrawlController?.isCancelled) break;
-                const bItem = bookUrls[i];
-                progressCb?.(`Fetching Lnori Volume ${i + 1}/${bookUrls.length}: ${bItem.title.slice(0, 30)}...`, Math.min(95, 30 + Math.floor((i / bookUrls.length) * 65)));
-                try {
+            // High-speed concurrent volume fetching with crawlChapterPool
+            const { chapters: allChapters } = await crawlChapterPool(
+                bookUrls,
+                async (bItem) => {
                     const bHtml = await fetchHtml(bItem.url, { headers: { 'Referer': url } });
-                    const volChapters = parseChaptersFromBookHtml(bHtml, bItem.url);
-                    allChapters = allChapters.concat(volChapters);
-                } catch (bErr) {
-                    console.warn(`Failed to fetch Lnori volume ${bItem.url}:`, bErr);
-                }
-            }
+                    return parseChaptersFromBookHtml(bHtml, bItem.url);
+                },
+                4, // Concurrency limit 4 for instant parallel ingestion
+                progressCb
+            );
 
             const totalWords = allChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
             progressCb?.(` Loaded ${allChapters.length} chapters across ${bookUrls.length} Lnori volumes (~${totalWords.toLocaleString()} words)!`, 100);
