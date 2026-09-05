@@ -8,7 +8,7 @@
     // ══════════════════════════════════════════════════════════════════════
     // 1. BEST-QUALITY IMAGE EXTRACTION (Original Lossless Illustrations)
     // ══════════════════════════════════════════════════════════════════════
-    function getBestImageUrl(imgTagOrObj) {
+    function getBestImageUrl(imgTagOrObj, baseUrl) {
         if (!imgTagOrObj) return '';
         let src = '';
         let orig = '';
@@ -55,6 +55,15 @@
             best.includes('smilies') || best.includes('reaction') || best.includes('jp-carousel') ||
             best.includes('advertisement') || best.includes('rating')) return '';
 
+        // Resolve relative URLs if baseUrl provided
+        if (baseUrl && (best.startsWith('/') || best.startsWith('./') || !/^https?:\/\//i.test(best))) {
+            try {
+                best = new URL(best, baseUrl).href;
+            } catch (e) {}
+        } else if (best.startsWith('//')) {
+            best = 'https:' + best;
+        }
+
         // Strip resize/thumbnail query params for full original uncompressed resolution
         if (best.includes('wp.com') || best.includes('wordpress.com') || best.includes('witchculttranslation.com')) {
             best = best.replace(/\?w=\d+.*$/i, '').replace(/\?resize=\d+.*$/i, '').replace(/\?fit=\d+.*$/i, '');
@@ -70,7 +79,7 @@
     // ══════════════════════════════════════════════════════════════════════
     // 2. TEXT CLEANING & ILLUSTRATION PRESERVATION
     // ══════════════════════════════════════════════════════════════════════
-    function cleanChapterHtmlWithImages(html) {
+    function cleanChapterHtmlWithImages(html, baseUrl) {
         if (!html) return '';
 
         let processed = html
@@ -81,18 +90,39 @@
             .replace(/<p[^>]*>[\s\S]*?Previous Post[\s\S]*?<\/p>/gi, '')
             .replace(/<p[^>]*>[\s\S]*?(?:Read light novel|Lightnovelpub|NovelFull|Boxnovel)[\s\S]*?<\/p>/gi, '');
 
-        // 1. Convert linked image wrappers <a href="*.jpg"><img .../></a> or <a href="*.jpg">[Download Image]</a>
-        processed = processed.replace(/<a\s+[^>]*href="([^"]+\.(?:jpg|jpeg|png|webp|gif)(?:\?[^"]*)?)"[^>]*>([\s\S]*?)<\/a>/gi, (match, href, inner) => {
-            if (/<img\b/i.test(inner) || /download|view|image|illustration|art/i.test(inner.trim())) {
-                const cleanHref = href.replace(/\?w=\d+.*$/i, '').replace(/\?resize=\d+.*$/i, '').replace(/\?fit=\d+.*$/i, '').trim();
-                return '\n\n![Illustration](' + cleanHref + ')\n\n';
+        // 1. Convert linked image wrappers <a href="..."><img .../></a> or <a href="...">[Download Image]</a>
+        processed = processed.replace(/<a\s+([^>]+)>([\s\S]*?)<\/a>/gi, (match, attrs, inner) => {
+            const hrefMatch = attrs.match(/href=["']([^"']+)["']/i);
+            const dataSrcMatch = attrs.match(/data-(?:original|src|url)=["']([^"']+)["']/i);
+            let targetUrl = hrefMatch ? hrefMatch[1] : (dataSrcMatch ? dataSrcMatch[1] : '');
+
+            const isImageLink = /\.(?:jpg|jpeg|png|webp|gif)(?:\?[^"']*)?$/i.test(targetUrl) || 
+                                /<img\b/i.test(inner) || 
+                                /[\[\(]?\s*(?:Download|View|High-Res|Full Size|Original)\s*(?:Image|Illustration|Art|Resolution)?[\]\)]?/i.test(inner.trim());
+
+            if (isImageLink) {
+                let imgUrl = '';
+                if (/<img\b/i.test(inner)) {
+                    imgUrl = getBestImageUrl(inner, baseUrl);
+                }
+                if (!imgUrl && targetUrl) {
+                    imgUrl = targetUrl.replace(/\?w=\d+.*$/i, '').replace(/\?resize=\d+.*$/i, '').replace(/\?fit=\d+.*$/i, '').trim();
+                    if (baseUrl && (imgUrl.startsWith('/') || imgUrl.startsWith('./') || !/^https?:\/\//i.test(imgUrl))) {
+                        try { imgUrl = new URL(imgUrl, baseUrl).href; } catch (e) {}
+                    } else if (imgUrl.startsWith('//')) {
+                        imgUrl = 'https:' + imgUrl;
+                    }
+                }
+                if (imgUrl && (imgUrl.startsWith('http://') || imgUrl.startsWith('https://') || imgUrl.startsWith('data:image/'))) {
+                    return '\n\n![Illustration](' + imgUrl + ')\n\n';
+                }
             }
             return match;
         });
 
         // 2. Preserve remaining direct <img> tags
         processed = processed.replace(/<img\b[^>]*>/gi, (match) => {
-            const bestUrl = getBestImageUrl(match);
+            const bestUrl = getBestImageUrl(match, baseUrl);
             if (bestUrl && (bestUrl.startsWith('http://') || bestUrl.startsWith('https://') || bestUrl.startsWith('data:image/'))) {
                 return '\n\n![Illustration](' + bestUrl + ')\n\n';
             }
@@ -1481,7 +1511,7 @@
                         chTitle = idx === 0 ? 'Cover' : `Part ${idx + 1}`;
                     }
                 }
-                const cleaned = cleanChapterHtmlWithImages(sec.innerHTML);
+                const cleaned = cleanChapterHtmlWithImages(sec.innerHTML, bookPageUrl);
                 if (cleaned.length > 15 || /!\[Illustration\]/i.test(cleaned)) {
                     extracted.push({
                         title: chTitle,

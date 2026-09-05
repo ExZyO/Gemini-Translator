@@ -294,16 +294,18 @@ hr {
         for (const ch of exportChapters) {
           const rawLines = ch.content.split(/\r?\n/);
           for (const line of rawLines) {
-            const imgMatch = line.trim().match(/^!\[(.*?)\]\((https?:\/\/[^\)]+)\)$/);
-            if (imgMatch && imgMatch[2]) {
-              const u = imgMatch[2];
-              if (!u.includes('avatar') && !u.includes('emoji') && !u.includes('gravatar') &&
-                  !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
-                  !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
-                  !u.includes('paypal') && !u.includes('patreon') && !u.includes('discord') &&
-                  !u.includes('sharedaddy') && !u.includes('logo') && !u.includes('banner') &&
-                  !u.includes('reaction') && !u.includes('smilies') && !u.includes('jp-carousel')) {
-                uniqueImgUrls.add(u);
+            const matches = line.matchAll(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/g);
+            for (const imgMatch of matches) {
+              if (imgMatch && imgMatch[2]) {
+                const u = imgMatch[2];
+                if (!u.includes('avatar') && !u.includes('emoji') && !u.includes('gravatar') &&
+                    !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
+                    !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
+                    !u.includes('paypal') && !u.includes('patreon') && !u.includes('discord') &&
+                    !u.includes('sharedaddy') && !u.includes('logo') && !u.includes('banner') &&
+                    !u.includes('reaction') && !u.includes('smilies') && !u.includes('jp-carousel')) {
+                  uniqueImgUrls.add(u);
+                }
               }
             }
           }
