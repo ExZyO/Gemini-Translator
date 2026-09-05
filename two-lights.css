@@ -44,17 +44,24 @@ body {
 .version-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pine); animation: pulse-dot 2s infinite; }
 @keyframes pulse-dot { 50% { opacity: .4; } }
 
-/* ── Seamless Flat Sections (Zero Rounded Boxes) ── */
+/* ── Elevated Rounded Card Surfaces with Visual Separation ── */
 .card {
-  border: none;
-  border-bottom: 1px solid var(--hairline);
-  border-radius: 0;
-  background: transparent;
-  padding: 18px 0;
-  margin-bottom: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: rgba(18, 20, 29, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 20px 22px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card:hover {
+  border-color: rgba(99, 112, 255, 0.22);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .card:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 .card-title {
   font-size: 12.5px;
