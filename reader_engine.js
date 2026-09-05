@@ -109,6 +109,7 @@
       }, [tgtLang]);
 
       const currentChapter = safeChapters[activeIdx] || safeChapters[0];
+      const firstChapterTitle = currentChapter?.title || 'Chapter';
 
       const parsedParagraphs = useMemo(() => {
         let rawText = currentChapter?.text || '';
@@ -339,8 +340,6 @@
       const fontClasses = {
         sans: '', serif: 'serif', mono: 'mono'
       }[font || 'serif'] || 'serif';
-
-      const firstChapterTitle = currentChapter?.title || 'Chapter';
 
       return h('div', {
         className: 'reader-shell',
