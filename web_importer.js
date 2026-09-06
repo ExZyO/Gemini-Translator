@@ -840,7 +840,9 @@
             progressCb?.('Fetching complete chapter index from AJAX archive...', 25);
             try {
                 const origin = new URL(url).origin;
-                const archiveHtml = await fetchHtml(`${origin}/ajax/chapter-archive?novelId=${novelId}`);
+                const archiveHtml = await fetchHtml(`${origin}/ajax/chapter-archive?novelId=${novelId}&_t=${Date.now()}`, {
+                    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                });
                 const aDoc = new DOMParser().parseFromString(archiveHtml, 'text/html');
                 aDoc.querySelectorAll('ul.list-chapter li a, a[href*="/chapter"]').forEach(a => {
                     const href = a.getAttribute('href');
@@ -929,7 +931,9 @@
             if (novelId) {
                 try {
                     progressCb?.('Fetching complete chapter index from AJAX archive...', 25);
-                    const archiveHtml = await fetchHtml(`${origin}/ajax/chapter-archive?novelId=${novelId}`);
+                    const archiveHtml = await fetchHtml(`${origin}/ajax/chapter-archive?novelId=${novelId}&_t=${Date.now()}`, {
+                        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                    });
                     const aDoc = new DOMParser().parseFromString(archiveHtml, 'text/html');
                     const seen = new Set();
                     aDoc.querySelectorAll('ul.list-chapter li a, a[href*="/chapter"]').forEach(a => {
@@ -1444,8 +1448,8 @@
             // First fetch complete chapter index via official REST API
             try {
                 progressCb?.('Fetching complete chapter index from NovelBuddy API...', 25);
-                const resText = await fetchHtml(`${apiUrl}/titles/${mangaId}/chapters`, {
-                    headers: { 'Referer': bookUrl }
+                const resText = await fetchHtml(`${apiUrl}/titles/${mangaId}/chapters?limit=500&_t=${Date.now()}`, {
+                    headers: { 'Referer': bookUrl, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
                 });
                 const resJson = JSON.parse(resText);
                 const chItems = resJson?.data?.chapters || (Array.isArray(resJson?.data) ? resJson.data : []);
@@ -2023,8 +2027,8 @@
         } else if (rawId) {
             try {
                 progressCb?.('Fetching complete chapter index from WTR-LAB API...', 25);
-                const listText = await fetchHtml(`https://wtr-lab.com/api/chapters/${rawId}`, {
-                    headers: { 'Referer': bookUrl }
+                const listText = await fetchHtml(`https://wtr-lab.com/api/chapters/${rawId}?_t=${Date.now()}`, {
+                    headers: { 'Referer': bookUrl, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
                 });
                 const listJson = JSON.parse(listText);
                 const chList = listJson.chapters || [];

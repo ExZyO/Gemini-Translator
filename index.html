@@ -3552,24 +3552,32 @@ const formatModelName = (id, displayName) => {
         };
 
         const existingTranslated = updatedNovel.translatedChapters || full.translatedChapters || full.originalChapters || [];
-        const prefilledChapters = allRawChs.map(c => ({
-          title: c.title,
+        const prefilledChapters = allRawChs.map((c, i) => ({
+          title: c?.title || `Chapter ${i + 1}`,
           text: cleanCh(c),
           content: cleanCh(c)
         }));
         const prefilledNewChapters = allRawChs.map((c, i) => {
-          if (i < prevCount && existingTranslated[i] && (existingTranslated[i].content || existingTranslated[i].text)) {
+          if (i < prevCount) {
+            const prevTrans = existingTranslated[i];
+            if (prevTrans && (prevTrans.content || prevTrans.text)) {
+              return {
+                title: prevTrans.title || c?.title || `Chapter ${i + 1}`,
+                content: prevTrans.content || prevTrans.text,
+                originalTitle: c?.title
+              };
+            }
             return {
-              title: existingTranslated[i].title || c.title,
-              content: existingTranslated[i].content || existingTranslated[i].text,
-              originalTitle: c.title
+              title: c?.title || `Chapter ${i + 1}`,
+              content: cleanCh(c),
+              originalTitle: c?.title
             };
           }
           return null;
         });
 
-        const prefilledAssembled = prefilledNewChapters.filter(Boolean).map(c => `${c.title}\n\n${c.content}`).join('\n\n\n');
-        setInputText(prefilledChapters.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+        const prefilledAssembled = prefilledNewChapters.filter(Boolean).map(c => `${c?.title || ''}\n\n${c?.content || ''}`).join('\n\n\n');
+        setInputText(prefilledChapters.map(c => `# ${c?.title || ''}\n\n${c?.content || ''}`).join('\n\n'));
         setChapters(prefilledChapters);
         setTranslatedChapters(prefilledNewChapters);
         setAssembledText(prefilledAssembled);
@@ -3585,7 +3593,7 @@ const formatModelName = (id, displayName) => {
           completedCount: prevCount,
           currentChapterIdx: prevCount,
           currentChunkIdx: 0,
-          allParts: prefilledNewChapters.map(c => c ? `${c.title}\n\n${c.content}` : ''),
+          allParts: prefilledNewChapters.map(c => c ? `${c.title || ''}\n\n${c.content || ''}` : ''),
           newChapters: prefilledNewChapters,
           totalChunks: allRawChs.length,
           total: allRawChs.length,
@@ -4197,7 +4205,7 @@ const formatModelName = (id, displayName) => {
               allParts: (translatedChapters || []).map(c => c ? `${c.title || ''}\n\n${c.content || c.text || ''}` : ''),
               newChapters: translatedChapters || [],
               totalChunks: chapters.length,
-              chapters: chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, text: c.text || c.content || '' })),
+              chapters: (chapters || []).map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, text: c?.text || c?.content || '' })),
               isEpub: currentIsEpub,
               timestamp: Date.now()
             };
@@ -4277,12 +4285,12 @@ const formatModelName = (id, displayName) => {
         }
         const title = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || (translatedChapters && translatedChapters[0]?.title && !isGenericTitle(translatedChapters[0].title) ? translatedChapters[0].title : 'Translated Document');
         const chs = (translatedChapters && translatedChapters.length > 0)
-          ? translatedChapters.map((c, i) => ({
+          ? translatedChapters.filter(Boolean).map((c, i) => ({
               idx: i,
-              title: c.title || `Chapter ${i + 1}`,
-              text: c.content || c.text || '',
-              content: c.content || c.text || '',
-              words: (c.content || c.text || '').split(/\s+/).filter(Boolean).length
+              title: c?.title || `Chapter ${i + 1}`,
+              text: c?.content || c?.text || '',
+              content: c?.content || c?.text || '',
+              words: (c?.content || c?.text || '').split(/\s+/).filter(Boolean).length
             }))
           : [{
               idx: 0,
@@ -4292,12 +4300,12 @@ const formatModelName = (id, displayName) => {
               words: assembledText.split(/\s+/).filter(Boolean).length
             }];
         const origChs = (chapters && chapters.length > 0)
-          ? chapters.map((c, i) => ({
+          ? chapters.filter(Boolean).map((c, i) => ({
               idx: i,
-              title: c.title || `Chapter ${i + 1}`,
-              text: c.content || c.text || '',
-              content: c.content || c.text || '',
-              words: (c.content || c.text || '').split(/\s+/).filter(Boolean).length
+              title: c?.title || `Chapter ${i + 1}`,
+              text: c?.content || c?.text || '',
+              content: c?.content || c?.text || '',
+              words: (c?.content || c?.text || '').split(/\s+/).filter(Boolean).length
             }))
           : (inputText.trim() ? [{
               idx: 0,
@@ -4907,7 +4915,7 @@ const formatModelName = (id, displayName) => {
           }
           if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'r' || e.key === 'R')) {
             e.preventDefault();
-            const currentDisplay = assembledText || (translatedChapters || []).map(c => `${c.title}\n\n${c.content}`).join('\n\n\n').trim();
+            const currentDisplay = assembledText || (translatedChapters || []).filter(Boolean).map(c => `${c?.title || ''}\n\n${c?.content || c?.text || ''}`).join('\n\n\n').trim();
             if (currentDisplay) setReaderOpen(prev => !prev);
           }
           if (e.key === 'Escape') {
@@ -5575,7 +5583,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
         if (translatedChapters && translatedChapters.length > 0) {
           const updated = translatedChapters.map(ch => {
-            const c = ch.content || '';
+            if (!ch) return null;
+            const c = ch.content || ch.text || '';
             const matches = (c.match(regex) || []).length;
             replacedCount += matches;
             return { ...ch, content: c.replace(regex, targetWord) };
@@ -7169,7 +7178,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               allParts: ap,
               newChapters: nc,
               totalChunks,
-              chapters: chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, text: c.text || c.content || '' })),
+              chapters: (chapters || []).map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, text: c?.text || c?.content || '' })),
               isEpub,
               timestamp: Date.now(),
               isDeltaUpdate: Boolean(curSession?.isDeltaUpdate),
@@ -7404,14 +7413,14 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           addToHistory(srcLang, tgtLang, provider, inputText || (chapters || []).map(c => c.text).join('\n\n'), final, stats);
           if (newChapters && newChapters.length > 0) {
             const mappedTranslated = newChapters.map((nc, idx) => ({
-              title: nc.title || `Chapter ${idx + 1}`,
-              text: nc.content || '',
-              content: nc.content || ''
+              title: nc?.title || (chapters && chapters[idx]?.title) || `Chapter ${idx + 1}`,
+              text: nc?.content || nc?.text || (chapters && (chapters[idx]?.text || chapters[idx]?.content)) || '',
+              content: nc?.content || nc?.text || (chapters && (chapters[idx]?.content || chapters[idx]?.text)) || ''
             }));
             const srcChaps = (chapters || []).map((c, idx) => ({
-              title: c.title || `Chapter ${idx + 1}`,
-              text: typeof c === 'string' ? c : (c.text || c.content || ''),
-              content: typeof c === 'string' ? c : (c.content || c.text || '')
+              title: c?.title || `Chapter ${idx + 1}`,
+              text: typeof c === 'string' ? c : (c?.text || c?.content || ''),
+              content: typeof c === 'string' ? c : (c?.content || c?.text || '')
             }));
 
             if (activeNovelRecord && activeNovelRecord.id) {
@@ -7768,16 +7777,16 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
       const getExportChapters = () => {
         if (translatedChapters && translatedChapters.length > 0) {
-          const valid = translatedChapters.filter(ch => ch && ch.content && ch.content.trim() && !ch.content.startsWith('[Error:'));
+          const valid = translatedChapters.filter(ch => ch && (ch.content || ch.text) && String(ch.content || ch.text).trim() && !String(ch.content || ch.text).startsWith('[Error:'));
           if (valid.length > 0) return valid;
         }
-        const curText = assembledText || (translatedChapters || []).map(c => `${c.title}\n\n${c.content}`).join('\n\n\n').trim();
+        const curText = assembledText || (translatedChapters || []).filter(Boolean).map(c => `${c?.title || ''}\n\n${c?.content || c?.text || ''}`).join('\n\n\n').trim();
         if (curText && curText.trim()) {
           return [{ title: 'Translated Document', content: curText.trim() }];
         }
         // Fallback: allow exporting source/raw chapters as EPUB even if translation is incomplete or unstarted
         if (chapters && chapters.length > 0) {
-          return chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, content: c.text || c.content || '' }));
+          return chapters.filter(Boolean).map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, content: c?.text || c?.content || '' }));
         }
         return [];
       };
@@ -8079,14 +8088,14 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         });
       }, [history, libQ]);
 
-      const savedSpaceCount = useMemo(() => (filteredBooks || []).filter(b => !!b.inSavedSpace).length, [filteredBooks]);
-      const transCount = useMemo(() => (filteredBooks || []).filter(b => !!b.isTranslated || (b.title || '').includes('(Translated)')).length, [filteredBooks]);
-      const incCount = useMemo(() => (filteredBooks || []).filter(b => !!b.isIncomplete).length + (savedTranslationSession ? 1 : 0), [filteredBooks, savedTranslationSession]);
+      const savedSpaceCount = useMemo(() => (filteredBooks || []).filter(b => b && b.inSavedSpace).length, [filteredBooks]);
+      const transCount = useMemo(() => (filteredBooks || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)'))).length, [filteredBooks]);
+      const incCount = useMemo(() => (filteredBooks || []).filter(b => b && b.isIncomplete).length + (savedTranslationSession ? 1 : 0), [filteredBooks, savedTranslationSession]);
       const displayedBooks = useMemo(() => {
-        if (libTab === 'saved') return (filteredBooks || []).filter(b => !!b.inSavedSpace);
-        if (libTab === 'translated') return (filteredBooks || []).filter(b => !!b.isTranslated || (b.title || '').includes('(Translated)'));
-        if (libTab === 'incomplete') return (filteredBooks || []).filter(b => !!b.isIncomplete);
-        return filteredBooks || [];
+        if (libTab === 'saved') return (filteredBooks || []).filter(b => b && b.inSavedSpace);
+        if (libTab === 'translated') return (filteredBooks || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)')));
+        if (libTab === 'incomplete') return (filteredBooks || []).filter(b => b && b.isIncomplete);
+        return (filteredBooks || []).filter(Boolean);
       }, [filteredBooks, libTab]);
       useEffect(() => {
         if (!isTranslating) { setElapsedSec(0); return; }
@@ -8472,8 +8481,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       ),
                       h('div', { style: { fontSize: 11.5, opacity: 0.8, marginTop: 2 } },
                         isDelta
-                          ? `${s.title || 'Novel'} · Chapters 1–${cCount} preserved in library`
-                          : `${s.title || 'Translation'} · Saved ${new Date(s.timestamp || Date.now()).toLocaleTimeString()}`
+                          ? `${s?.title || 'Novel'} · Chapters 1–${cCount} preserved in library`
+                          : `${s?.title || 'Translation'} · Saved ${new Date(s?.timestamp || Date.now()).toLocaleTimeString()}`
                       )
                     ),
                     h('div', { style: { display: 'flex', gap: 6 } },
@@ -9390,7 +9399,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   let curGroup = null;
 
                   chs.forEach((ch, globalIdx) => {
-                    const title = ch.title || '';
+                    const title = ch?.title || '';
                     const match = title.match(volRegex);
                     let volName = null;
                     let cleanTitle = title;
@@ -9474,7 +9483,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       isMultiVolume
                         ? volumeGroups.map((vol, vIdx) => {
                             const collapsed = isVolCollapsed(vol.volKey, vIdx);
-                            const volWords = vol.items.reduce((acc, it) => acc + ((it.chapter.text || it.chapter.content || '').split(/\s+/).filter(Boolean).length), 0);
+                            const volWords = vol.items.reduce((acc, it) => acc + ((it.chapter?.text || it.chapter?.content || '').split(/\s+/).filter(Boolean).length), 0);
                             return h('div', { key: vol.volKey || vIdx, style: { marginBottom: '8px' } },
                               h('div', {
                                 className: 'toc-vol-hdr',
@@ -9499,11 +9508,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                   return h('div', { key: i, className: 'set-row', style: { alignItems: 'center', gap: '10px', padding: '7px 0' } },
                                     h('span', {
                                       className: 'l',
-                                      title: c.title,
+                                      title: c?.title || '',
                                       style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, fontSize: '13.5px' }
-                                    }, `${i + 1}. ${it.cleanTitle || c.title || `Chapter ${i + 1}`}`),
+                                    }, `${i + 1}. ${it.cleanTitle || c?.title || `Chapter ${i + 1}`}`),
                                     h('div', { className: 'pane-acts', style: { flexWrap: 'nowrap', flexShrink: 0, gap: '4px' } },
-                                      h('span', { className: 'count', style: { marginRight: '4px' } }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()}w`),
+                                      h('span', { className: 'count', style: { marginRight: '4px' } }, `${((c?.text || c?.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()}w`),
                                       h('button', { type: 'button', className: 'ch-btn', title: 'Move to Top (Start)', disabled: i === 0, onClick: () => moveImportChapterToEdge(i, 'top') }, '⤒'),
                                       h('button', { type: 'button', className: 'ch-btn', title: 'Move Up 1', disabled: i === 0, onClick: () => moveImportChapter(i, -1) }, '↑'),
                                       h('button', { type: 'button', className: 'ch-btn', title: 'Move Down 1', disabled: i >= chs.length - 1, onClick: () => moveImportChapter(i, 1) }, '↓'),
@@ -9516,7 +9525,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             );
                           })
                         : chs.map((c, i) => h('div', { key: i, className: 'set-row', style: { alignItems: 'center', gap: '10px', padding: '8px 0' } },
-                            h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, fontSize: '13.5px' } }, `${i + 1}. ${c.title || `Chapter ${i + 1}`}`),
+                            h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, fontSize: '13.5px' } }, `${i + 1}. ${c?.title || `Chapter ${i + 1}`}`),
                             h('div', { className: 'pane-acts', style: { flexWrap: 'nowrap', flexShrink: 0, gap: '4px' } },
                               h('span', { className: 'count', style: { marginRight: '4px' } }, `${((c.text || c.content || '').split(/\s+/).filter(Boolean).length).toLocaleString()}w`),
                               h('button', { type: 'button', className: 'ch-btn', title: 'Move to Top (Start)', disabled: i === 0, onClick: () => moveImportChapterToEdge(i, 'top') }, '⤒'),
@@ -9619,9 +9628,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           isDelta ? `${deltaLabel} staged` : `${cCount} / ${tCount} done`
                         )
                       ),
-                      h('div', { style: { fontSize: 12, fontWeight: 500, color: 'var(--paper)', marginTop: 4 } }, s.title || 'Translation'),
+                      h('div', { style: { fontSize: 12, fontWeight: 500, color: 'var(--paper)', marginTop: 4 } }, s?.title || 'Translation'),
                       h('div', { style: { fontSize: 11, opacity: 0.75, marginTop: 2 } },
-                        isDelta ? `Chapters 1–${cCount} already translated · New chapters waiting` : `Saved in database · ${new Date(s.timestamp || Date.now()).toLocaleTimeString()}`
+                        isDelta ? `Chapters 1–${cCount} already translated · New chapters waiting` : `Saved in database · ${new Date(s?.timestamp || Date.now()).toLocaleTimeString()}`
                       )
                     ),
                     h('div', { style: { display: 'flex', gap: 8 } },
