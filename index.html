@@ -3433,21 +3433,27 @@ const formatModelName = (id, displayName) => {
         const full = await loadFullNovel(item);
         if (!full) return;
         const isLnori = (item.sourceUrl && /lnori\.(?:org|com)/i.test(item.sourceUrl)) || (full.sourceUrl && /lnori\.(?:org|com)/i.test(full.sourceUrl));
+        const prevCount = (full.rawChapters || full.chapters || []).length;
+        const badge = novelUpdateBadges[item.id];
         toast(`Fetching updates for "${item.title}"...`, 'info');
         try {
           const res = await window.WebNovelImporter?.importUrl(item.sourceUrl, (msg, pct) => {
             // Live update progress
           }, {
             initialChapters: full.rawChapters || full.chapters || [],
-            resumeSession: full
+            resumeSession: full,
+            isUpdate: true,
+            refreshToc: true,
+            chapterList: badge?.remoteChapterList && badge.remoteChapterList.length > prevCount ? badge.remoteChapterList : undefined
           });
-          if (res && res.chapters) {
+          if (res && res.chapters && res.chapters.length > prevCount) {
             const updatedNovel = {
               ...full,
               chapters: res.chapters,
               rawChapters: res.chapters,
               chapterCount: res.chapters.length,
               totalChapterCount: res.chapters.length,
+              chapterList: res.chapterList || full.chapterList,
               isIncomplete: false
             };
             await saveNovelToHistory(updatedNovel);
@@ -3485,6 +3491,8 @@ const formatModelName = (id, displayName) => {
                 if (typeof setEpubPackagingModal === 'function') setEpubPackagingModal(null);
               }
             }
+          } else {
+            toast(`No new chapters were fetched for "${item.title}". (Current: ${prevCount} ch)`, 'warning');
           }
         } catch (err) {
           toast(`Update failed: ${err.message}`, 'error');
@@ -3498,13 +3506,17 @@ const formatModelName = (id, displayName) => {
 
         const existingRaw = full.rawChapters || full.chapters || [];
         const prevCount = existingRaw.length;
+        const badge = novelUpdateBadges[item.id];
         toast(`Fetching newly published chapters for "${item.title}"…`, 'info');
 
         let updatedNovel = full;
         try {
           const res = await window.WebNovelImporter?.importUrl(item.sourceUrl, null, {
             initialChapters: existingRaw,
-            resumeSession: full
+            resumeSession: full,
+            isUpdate: true,
+            refreshToc: true,
+            chapterList: badge?.remoteChapterList && badge.remoteChapterList.length > prevCount ? badge.remoteChapterList : undefined
           });
           if (res && res.chapters && res.chapters.length > prevCount) {
             updatedNovel = {
@@ -3513,6 +3525,7 @@ const formatModelName = (id, displayName) => {
               rawChapters: res.chapters,
               chapterCount: res.chapters.length,
               totalChapterCount: res.chapters.length,
+              chapterList: res.chapterList || full.chapterList,
               isIncomplete: false
             };
             await saveNovelToHistory(updatedNovel);
@@ -3522,7 +3535,7 @@ const formatModelName = (id, displayName) => {
               return next;
             });
           } else {
-            toast(`No new chapters found online for "${item.title}".`, 'info');
+            toast(`No new chapters found online for "${item.title}". (Local: ${prevCount} ch)`, 'info');
             return;
           }
         } catch (fetchErr) {
@@ -9715,7 +9728,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                 fontWeight: 700,
                                 boxShadow: '0 2px 8px rgba(124, 58, 237, 0.35)'
                               },
-                              onClick: () => handleUpdateTranslateAndMakeEpub(item),
+                              onClick: (e) => {
+                                e?.stopPropagation?.();
+                                handleUpdateTranslateAndMakeEpub(item);
+                              },
                               title: 'Fetch new chapters, preserve existing translations, and stage in Translator'
                             }, `⚡ Stage New Chapters (+${badge.newCount})`),
                             h('button', {
@@ -9728,7 +9744,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                 fontWeight: 700,
                                 fontSize: 11
                               },
-                              onClick: () => handleDownloadNewChapters(item),
+                              onClick: (e) => {
+                                e?.stopPropagation?.();
+                                handleDownloadNewChapters(item);
+                              },
                               title: isLnori
                                 ? 'Fetch new volumes and download clean EPUB (no translation needed)'
                                 : 'Fetch new chapters and download updated raw EPUB (no translation, zero AI tokens)'

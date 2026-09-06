@@ -300,13 +300,21 @@
 
     function createCrawlController(options = {}) {
         const abortController = new AbortController();
+        const isUpdate = !!options.isUpdate;
+        const refreshToc = !!options.refreshToc;
+        const tocOnly = !!options.tocOnly;
+        const reuseToc = !!options.reuseToc && !isUpdate && !refreshToc && !tocOnly;
+
         activeCrawlController = {
             isPaused: false,
             isCancelled: false,
-            tocOnly: !!options.tocOnly,
+            tocOnly,
+            refreshToc,
+            isUpdate,
+            reuseToc,
             abortController,
             initialChapters: options.initialChapters || (options.resumeSession ? (options.resumeSession.downloadedChapters || options.resumeSession.chapters || options.resumeSession.rawChapters) : []) || [],
-            chapterList: options.chapterList || options.resumeSession?.chapterList || [],
+            chapterList: (isUpdate || refreshToc || tocOnly) ? (options.chapterList || []) : (options.chapterList || options.resumeSession?.chapterList || []),
             onChapterDone: options.onChapterDone || null,
             novelMeta: options.novelMeta || {}
         };
@@ -345,6 +353,7 @@
 
         // Build resilient work queue of all pending chapter indices so NO chapter is ever skipped
         const pendingQueue = [];
+        const chapterRetryCounts = new Map();
         for (let i = 0; i < chapterList.length; i++) {
             if (!completedIndices.has(i)) {
                 pendingQueue.push(i);
@@ -468,11 +477,25 @@
                         }
                     }
                 } else if (!ctrl.isPaused && !ctrl.isCancelled) {
-                    // Re-queue chapter so it is never lost or skipped
-                    console.warn(`Chapter ${currentIndex + 1} incomplete/rate-limited; re-queueing to retry.`);
-                    window.sendTelemetry?.('CHAPTER_RETRY', `Ch ${currentIndex + 1} incomplete or rate-limited; re-queued to retry.`);
-                    pendingQueue.push(currentIndex);
-                    await new Promise(r => setTimeout(r, 1200));
+                    const retries = (chapterRetryCounts.get(currentIndex) || 0) + 1;
+                    chapterRetryCounts.set(currentIndex, retries);
+                    if (retries <= 3) {
+                        console.warn(`Chapter ${currentIndex + 1} incomplete/rate-limited; retry ${retries}/3.`);
+                        window.sendTelemetry?.('CHAPTER_RETRY', `Ch ${currentIndex + 1} retry ${retries}/3.`);
+                        pendingQueue.push(currentIndex);
+                        await new Promise(r => setTimeout(r, 1200));
+                    } else {
+                        console.warn(`Chapter ${currentIndex + 1} failed after 3 retries; generating placeholder.`);
+                        const placeholder = {
+                            idx: currentIndex,
+                            title: item.title || `Chapter ${currentIndex + 1}`,
+                            text: `<p>[Chapter content could not be retrieved from remote source: ${item.url || 'Network error'}]</p>`,
+                            content: `<p>[Chapter content could not be retrieved from remote source: ${item.url || 'Network error'}]</p>`,
+                            words: 10
+                        };
+                        chapters.push(placeholder);
+                        completedIndices.add(currentIndex);
+                    }
                 }
 
                 completedCount = completedIndices.size;
@@ -731,8 +754,12 @@
             progressCb
         );
 
+        if (activeCrawlController?.tocOnly) {
+            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        }
+
         progressCb?.(` Loaded ${chapters.length} RoyalRoad chapters (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
+        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
     // --- D. SYOSETU (小説家になろう) & KAKUYOMU (カクヨム) ---
@@ -783,8 +810,12 @@
             progressCb
         );
 
+        if (activeCrawlController?.tocOnly) {
+            return { title, author, summary, tags: ['Syosetu', 'Japanese Light Novel'], chapters: [], chapterList: indexLinks, totalChapterCount: indexLinks.length, isEpub: false, sourceUrl: url };
+        }
+
         progressCb?.(` Loaded ${chapters.length} Syosetu chapters (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags: ['Syosetu', 'Japanese Light Novel'], chapters, isEpub: false, sourceUrl: url };
+        return { title, author, summary, tags: ['Syosetu', 'Japanese Light Novel'], chapters, chapterList: indexLinks, totalChapterCount: indexLinks.length, isEpub: false, sourceUrl: url };
     }
 
     // --- E. NOVELFULL & BOXNOVEL & READLIGHTNOVEL TEMPLATE ---
@@ -852,8 +883,12 @@
             progressCb
         );
 
+        if (activeCrawlController?.tocOnly) {
+            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        }
+
         progressCb?.(` Loaded ${chapters.length} chapters (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
+        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
     // --- E1. NOVELBIN & MVLEMPYR TEMPLATE (novel-bin.com, novelbin.me, mvlempyr.com) ---
@@ -883,7 +918,8 @@
 
         // Check if TOC is already known from resume session
         let chapterLinks = [];
-        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
+        const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
             console.log(`⚡ [NovelBin] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
@@ -967,6 +1003,10 @@
             { delayMs: 100 }
         );
 
+        if (activeCrawlController?.tocOnly) {
+            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        }
+
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelBin (~${totalWords.toLocaleString()} words)!`, 100);
         return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
@@ -996,7 +1036,8 @@
 
         // Check if TOC is already known (e.g. from an existing or resumed session)
         let chapterLinks = [];
-        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
+        const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
             console.log(`⚡ [NovelFire] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
@@ -1131,6 +1172,10 @@
             { title, author, summary, chapterList: chapterLinks },
             { delayMs: 250 }
         );
+
+        if (activeCrawlController?.tocOnly) {
+            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        }
 
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelFire (~${totalWords.toLocaleString()} words)!`, 100);
         return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
@@ -1354,11 +1399,14 @@
             return { title: item.title || detail?.title, text: cleanPixivContent(detail?.content || detail?.novel?.content || '') };
         }, 8, progressCb);
 
-        if (!chapters.length) throw new Error('Pixiv chapters were found, but their content could not be read.');
         const title = seriesInfo?.title || firstNovel?.seriesNavData?.title || firstNovel?.title || 'Pixiv Novel';
         const author = seriesInfo?.userName || firstNovel?.userName || 'Pixiv Author';
+        if (activeCrawlController?.tocOnly) {
+            return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', tags: ['Pixiv', 'Web Novel'], chapters: [], chapterList, totalChapterCount: chapterList.length, isEpub: false, sourceUrl: url };
+        }
+        if (!chapters.length) throw new Error('Pixiv chapters were found, but their content could not be read.');
         progressCb?.(`Loaded ${chapters.length}/${chapterList.length} Pixiv chapters (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', tags: ['Pixiv', 'Web Novel'], chapters, isEpub: false, sourceUrl: url };
+        return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', tags: ['Pixiv', 'Web Novel'], chapters, chapterList, totalChapterCount: chapterList.length, isEpub: false, sourceUrl: url };
     }
 
     // --- G. NOVELBUDDY TEMPLATE (novelbuddy.me / novelbuddy.com) ---
@@ -1387,7 +1435,8 @@
 
         // Check if TOC is already known from resume session
         let chapterLinks = [];
-        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
+        const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
             console.log(`⚡ [NovelBuddy] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
@@ -1495,6 +1544,10 @@
             { title, author, summary, chapterList: chapterLinks },
             { delayMs: 50 }
         );
+
+        if (activeCrawlController?.tocOnly) {
+            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        }
 
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelBuddy (~${totalWords.toLocaleString()} words)!`, 100);
         return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
@@ -1889,7 +1942,8 @@
 
         // Check if TOC is already known
         let chapterLinks = [];
-        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
+        const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
             console.log(`⚡ [WuxiaBox] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
@@ -1929,6 +1983,10 @@
             { delayMs: 100 }
         );
 
+        if (activeCrawlController?.tocOnly) {
+            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        }
+
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from Wuxia Box (~${totalWords.toLocaleString()} words)!`, 100);
         return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
@@ -1957,7 +2015,8 @@
 
         // Check if TOC is already known
         let chapterLinks = [];
-        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
+        const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
             console.log(`⚡ [WTR-LAB] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
@@ -2027,6 +2086,10 @@
             { delayMs: 150 }
         );
 
+        if (activeCrawlController?.tocOnly) {
+            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        }
+
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from WTR-LAB (~${totalWords.toLocaleString()} words)!`, 100);
         return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
@@ -2047,7 +2110,8 @@
 
         // Check if TOC is already known
         let chapterLinks = [];
-        const existingTOC = activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList;
+        const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
+        const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
             console.log(`⚡ [FuckNovelPia] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
@@ -2096,6 +2160,10 @@
             { delayMs: 120 }
         );
 
+        if (activeCrawlController?.tocOnly) {
+            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        }
+
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from FuckNovelPia (~${totalWords.toLocaleString()} words)!`, 100);
         return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
@@ -2137,7 +2205,10 @@
                 12,
                 progressCb
             );
-            return { title, author, summary: `Imported from ${url}`, tags: ['Web Novel'], chapters, isEpub: false, sourceUrl: url };
+            if (activeCrawlController?.tocOnly) {
+                return { title, author, summary: `Imported from ${url}`, tags: ['Web Novel'], chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+            }
+            return { title, author, summary: `Imported from ${url}`, tags: ['Web Novel'], chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
         }
 
         // Single article / chapter extraction
