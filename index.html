@@ -3397,7 +3397,29 @@ const formatModelName = (id, displayName) => {
         if (!item.sourceUrl) { toast('This novel was not imported from a web URL.', 'warning'); return; }
         setCheckingUpdates(prev => ({ ...prev, [item.id]: true }));
         try {
-          const res = await window.WebNovelImporter?.checkNovelUpdates(item, (msg) => {
+          const full = await loadFullNovel(item);
+          const targetItem = full ? { ...item, ...full } : item;
+          // Self-heal: If volumeCount is missing in metadata, derive it from loaded chapters
+          const chaptersToCheck = targetItem.rawChapters || targetItem.chapters || [];
+          if (!targetItem.volumeCount && chaptersToCheck.length > 0) {
+            let maxV = 0;
+            chaptersToCheck.forEach(c => {
+              const m = (c.title || '').match(/(?:Volume|Vol\.?|Book)\s*(\d+)/i);
+              if (m) {
+                const v = parseInt(m[1], 10);
+                if (v > maxV) maxV = v;
+              }
+            });
+            if (maxV > 0) {
+              targetItem.volumeCount = maxV;
+              setWebImportHistory(prev => {
+                const upd = prev.map(p => p.id === item.id ? { ...p, volumeCount: maxV } : p);
+                try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(upd)); } catch(e) {}
+                return upd;
+              });
+            }
+          }
+          const res = await window.WebNovelImporter?.checkNovelUpdates(targetItem, (msg) => {
             toast(msg, 'info');
           });
           if (res && res.hasUpdates) {
@@ -3418,7 +3440,7 @@ const formatModelName = (id, displayName) => {
               return next;
             });
             const unit = res.isVolumeBased ? 'vol' : 'ch';
-            toast(`"${item.title}" is already up to date (${res.localCount || item.chapterCount} ${unit}).`, 'info');
+            toast(`"${item.title}" is already up to date (${res.localCount || targetItem.volumeCount || item.chapterCount} ${unit}).`, 'info');
           } else if (res && res.error) {
             toast(`Check failed: ${res.error}`, 'error');
           }
@@ -3635,7 +3657,9 @@ const formatModelName = (id, displayName) => {
           const b = webNovels[i];
           setCheckingUpdates(prev => ({ ...prev, [b.id]: true }));
           try {
-            const res = await window.WebNovelImporter?.checkNovelUpdates(b);
+            const full = await loadFullNovel(b);
+            const targetB = full ? { ...b, ...full } : b;
+            const res = await window.WebNovelImporter?.checkNovelUpdates(targetB);
             if (res && res.hasUpdates) {
               updatesFound++;
               setNovelUpdateBadges(prev => ({

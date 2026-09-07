@@ -1917,6 +1917,8 @@
                 chapters: allChapters,
                 chapterList: allChapters.map(c => ({ url: c.url, title: c.title })),
                 totalChapterCount: allChapters.length,
+                volumeCount: bookUrls.length,
+                isLnoriSeries: true,
                 isEpub: false,
                 sourceUrl: url
             };
@@ -2430,6 +2432,23 @@
                 return { hasUpdates: false, error: 'No remote source URL associated with this novel.' };
             }
             try {
+                // Auto-load full novel from IndexedDB if chapters or volumeCount are missing from a metadata stub
+                if ((!novelRecord.rawChapters || novelRecord.rawChapters.length === 0) && (!novelRecord.chapters || novelRecord.chapters.length === 0) && typeof window !== 'undefined' && window.GeminiNovelDB) {
+                    try {
+                        let full = null;
+                        if (novelRecord.id) full = await window.GeminiNovelDB.getNovel(novelRecord.id);
+                        if (!full && novelRecord.title) {
+                            const all = await window.GeminiNovelDB.getAllNovels();
+                            full = all?.find(n => n.id === novelRecord.id || n.title === novelRecord.title);
+                        }
+                        if (full) {
+                            novelRecord = { ...novelRecord, ...full };
+                        }
+                    } catch (e) {
+                        console.warn('checkNovelUpdates failed to load full novel:', e);
+                    }
+                }
+
                 progressCb?.(`Checking remote chapters for "${novelRecord.title || 'novel'}"...`, 15);
                 const remote = await window.WebNovelImporter.importUrl(novelRecord.sourceUrl, progressCb, { tocOnly: true });
                 const remoteCount = (remote && typeof remote.totalChapterCount === 'number')
@@ -2459,8 +2478,15 @@
                             if (u) localVolSet.add(u);
                         }
                     });
-                    const localVolCount = Math.max(localVolSet.size > 0 ? (maxLocalVol || localVolSet.size) : 0, novelRecord.volumeCount || 0);
+                    let localVolCount = Math.max(localVolSet.size > 0 ? (maxLocalVol || localVolSet.size) : 0, novelRecord.volumeCount || 0);
                     const remoteVolCount = remote.volumeCount || (remote.chapterList ? remote.chapterList.length : remoteCount);
+
+                    // Robust fallback: if local chapters were already ingested in full (~400 chapters for 15 volumes)
+                    // but volumeCount wasn't recorded, treat localVolCount as remoteVolCount if chapter count is substantial
+                    if (localVolCount === 0 && (novelRecord.chapterCount || localChapters.length) >= 100) {
+                        localVolCount = remoteVolCount;
+                    }
+
                     const hasUpdates = remoteVolCount > localVolCount;
                     const newCount = Math.max(0, remoteVolCount - localVolCount);
                     return {
