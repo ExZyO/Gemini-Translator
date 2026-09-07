@@ -92,8 +92,28 @@
     const generateEpubFromChapters = async (chaptersList, bookTitle = 'Web Novel', bookAuthor = 'Author', bookLang = 'en', onProgress = null, options = {}) => {
       const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
       if (!JSZipClass) throw new Error('JSZip library not loaded');
-      const zip = new JSZipClass();
-      const uuid = 'urn:uuid:' + (crypto.randomUUID ? crypto.randomUUID() : ('uuid_' + Date.now()));
+      // Deterministic RFC4122 v4 UUID for e-reader continuity (Moon+ Reader, Apple Books, Kindle)
+      const generateDeterministicUUID = (seed) => {
+        let h1 = 0xdeadbeef, h2 = 0x41c64e6d;
+        const s = String(seed || '').trim().toLowerCase();
+        for (let i = 0; i < s.length; i++) {
+          const ch = s.charCodeAt(i);
+          h1 = Math.imul(h1 ^ ch, 2654435761);
+          h2 = Math.imul(h2 ^ ch, 1597334677);
+        }
+        h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+        h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+        const p1 = (h1 >>> 0).toString(16).padStart(8, '0');
+        const p2 = ((h2 >>> 16) & 0xffff).toString(16).padStart(4, '0');
+        const p3 = ('4' + ((h2 >>> 4) & 0x0fff).toString(16).padStart(3, '0')).slice(0, 4);
+        const p4 = (((h1 & 0x3f) | 0x80).toString(16).padStart(2, '0') + ((h2 & 0xff).toString(16).padStart(2, '0'))).slice(0, 4);
+        const p5 = (((h1 >>> 4) & 0xffffffff).toString(16) + ((h2 >>> 8) & 0xffffffff).toString(16)).padStart(12, '0').slice(0, 12);
+        return `urn:uuid:${p1}-${p2}-${p3}-${p4}-${p5}`;
+      };
+
+      const uuid = options.uuid
+        ? (options.uuid.startsWith('urn:uuid:') ? options.uuid : ('urn:uuid:' + options.uuid))
+        : generateDeterministicUUID(options.novelId || options.sourceUrl || bookTitle);
       const startTime = Date.now();
       const cleanFn = (typeof window !== 'undefined' && window.cleanNovelProse)
         ? window.cleanNovelProse

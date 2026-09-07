@@ -823,7 +823,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.40';
+    const VERSION = '8.10.41';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3502,9 +3502,14 @@ const formatModelName = (id, displayName) => {
                   if (typeof setEpubPackagingModal === 'function') {
                     setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
                   }
-                }, typeof getEpubOptions === 'function' ? getEpubOptions() : {});
-                const cleanName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(bookTitle) : bookTitle).replace(/\s+/g, '_');
-                const fileName = `${cleanName}_(Ch1-${chs.length}).epub`;
+                const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle }) : { novelId: item.id };
+                const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
+                  if (typeof setEpubPackagingModal === 'function') {
+                    setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
+                  }
+                }, opts);
+                const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
+                const fileName = getEpubFileName(bookTitle, chs.length, isInc);
                 await saveUniversalBlob(blob, fileName, 'application/epub+zip');
                 toast(`Downloaded updated raw EPUB (${chs.length} chapters)!`, 'success');
               } catch (epubErr) {
@@ -4091,10 +4096,12 @@ const formatModelName = (id, displayName) => {
       const [epubFontTheme, setEpubFontTheme] = useState(() => localStorage.getItem('epubFontTheme') || 'literata');
       const [epubJustifyText, setEpubJustifyText] = useState(() => localStorage.getItem('epubJustifyText') !== 'false');
       const [epubIncludeImages, setEpubIncludeImages] = useState(() => localStorage.getItem('epubIncludeImages') !== 'false');
+      const [epubFixedFilename, setEpubFixedFilename] = useState(() => localStorage.getItem('epubFixedFilename') !== 'false');
       const [scrapeImages, setScrapeImages] = useState(() => localStorage.getItem('scrapeImages') !== 'false');
 
       useEffect(() => { localStorage.setItem('strictModel', String(strictModel)); }, [strictModel]);
       useEffect(() => { localStorage.setItem('epubIncludeImages', String(epubIncludeImages)); }, [epubIncludeImages]);
+      useEffect(() => { localStorage.setItem('epubFixedFilename', String(epubFixedFilename)); }, [epubFixedFilename]);
       useEffect(() => { localStorage.setItem('scrapeImages', String(scrapeImages)); if (typeof window !== 'undefined') window.__scrapeImages = scrapeImages; }, [scrapeImages]);
 
       useEffect(() => { localStorage.setItem('epubDropCaps', String(epubDropCaps)); }, [epubDropCaps]);
@@ -4103,14 +4110,24 @@ const formatModelName = (id, displayName) => {
       useEffect(() => { localStorage.setItem('epubFontTheme', epubFontTheme); }, [epubFontTheme]);
       useEffect(() => { localStorage.setItem('epubJustifyText', String(epubJustifyText)); }, [epubJustifyText]);
 
-      const getEpubOptions = () => ({
+      const getEpubOptions = (extraOpts = {}) => ({
         includeImages: (epubIncludeImages !== false) && (scrapeImages !== false),
         dropCaps: epubDropCaps,
         smartQuotes: epubSmartQuotes,
         cleanWebArtifacts: epubCleanWebArtifacts,
         fontTheme: epubFontTheme,
-        justifyText: epubJustifyText
+        justifyText: epubJustifyText,
+        fixedFilename: epubFixedFilename !== false,
+        ...extraOpts
       });
+
+      const getEpubFileName = (title, chapterCount = 0, isPartial = false) => {
+        const cleanName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(title) : String(title || 'Novel')).replace(/\s+/g, '_');
+        if (epubFixedFilename !== false || !isPartial) {
+          return `${cleanName}.epub`;
+        }
+        return `${cleanName}_(Ch1-${chapterCount}).epub`;
+      };
 
       const cleanBookTitle = (t, fallbackChs = []) => {
         let s = String(t || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
@@ -6562,8 +6579,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         const coverUrl = novelData.cover || (chs[0]?.content?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || (chs[0]?.text?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || '';
 
         try {
-          setEpubPackagingModal({ title: novelTitle, status: `Packaging clean EPUB (${chs.length} chapters)…`, pct: 5 });
-          const opts = typeof getEpubOptions === 'function' ? { ...getEpubOptions() } : {};
+          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: novelData.id || novelData.sourceUrl || novelTitle }) : {};
           opts.hierarchicalToc = true;
           opts.cleanWebArtifacts = true;
           opts.includeImages = true;
@@ -6573,9 +6589,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
           }, opts);
 
-          const cleanName = sanitizeFilename(novelTitle).replace(/\s+/g, '_');
           const isInc = novelData.isIncomplete || (novelData.totalChapterCount && chs.length < novelData.totalChapterCount);
-          const fileName = isInc ? `${cleanName}_(Ch1-${chs.length})_Lnori.epub` : `${cleanName}.epub`;
+          const fileName = getEpubFileName(novelTitle, chs.length, isInc);
           await saveUniversalBlob(blob, fileName, 'application/epub+zip');
           toast(`Clean Lnori EPUB downloaded! (${chs.length} chapters)`, 'success');
         } catch (e) {
@@ -9062,11 +9077,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeCrawlSession.author) : (activeCrawlSession.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeCrawlSession?.id || activeCrawlSession?.sourceUrl || novelTitle }) : {};
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
-                          }, typeof getEpubOptions === 'function' ? getEpubOptions() : {});
-                          const cleanName = sanitizeFilename(novelTitle).replace(/\s+/g, '_');
-                          await saveUniversalBlob(blob, `${cleanName}_(Ch1-${chs.length}).epub`, 'application/epub+zip');
+                          }, opts);
+                          const isInc = activeCrawlSession?.isIncomplete || (activeCrawlSession?.totalChapterCount && chs.length < activeCrawlSession.totalChapterCount);
+                          const fileName = getEpubFileName(novelTitle, chs.length, isInc);
+                          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
                           toast(`EPUB (${chs.length} chapters) downloaded successfully!`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -9191,12 +9208,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle }) : {};
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
-                          }, typeof getEpubOptions === 'function' ? getEpubOptions() : {});
-                          const cleanName = sanitizeFilename(novelTitle).replace(/\s+/g, '_');
+                          }, opts);
                           const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
-                          const fileName = isInc ? `${cleanName}_(Ch1-${chs.length}).epub` : `${cleanName}.epub`;
+                          const fileName = getEpubFileName(novelTitle, chs.length, isInc);
                           await saveUniversalBlob(blob, fileName, 'application/epub+zip');
                           toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                         } catch (e) {
@@ -9255,11 +9272,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle }) : {};
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
-                          }, typeof getEpubOptions === 'function' ? getEpubOptions() : {});
-                          const cleanName = sanitizeFilename(novelTitle).replace(/\s+/g, '_');
-                          await saveUniversalBlob(blob, `${cleanName}_(Ch1-${chs.length}).epub`, 'application/epub+zip');
+                          }, opts);
+                          const isInc = activeNovelView?.isIncomplete || (activeNovelView?.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
+                          const fileName = getEpubFileName(novelTitle, chs.length, isInc);
+                          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
                           toast(`EPUB (${chs.length} chapters) saved!`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -9398,11 +9417,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                           const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle }) : {};
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
-                          }, typeof getEpubOptions === 'function' ? getEpubOptions() : {});
-                          const cleanName = sanitizeFilename(novelTitle).replace(/\s+/g, '_');
-                          const fileName = isInc ? `${cleanName}_(Ch1-${chs.length}).epub` : `${cleanName}.epub`;
+                          }, opts);
+                          const fileName = getEpubFileName(novelTitle, chs.length, isInc);
                           await saveUniversalBlob(blob, fileName, 'application/epub+zip');
                           toast(`EPUB downloaded successfully! (${chs.length} chapters)`, 'success');
                         } catch (e) {
@@ -9939,11 +9958,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
                             try {
                               setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
+                              const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle }) : { novelId: item.id };
                               const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
                                 setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
-                              }, typeof getEpubOptions === 'function' ? getEpubOptions() : {});
-                              const cleanName = sanitizeFilename(bookTitle).replace(/\s+/g, '_');
-                              const fileName = isInc ? `${cleanName}_(Ch1-${chs.length}).epub` : `${cleanName}.epub`;
+                              }, opts);
+                              const fileName = getEpubFileName(bookTitle, chs.length, isInc);
                               await saveUniversalBlob(blob, fileName, 'application/epub+zip');
                               toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                             } catch (e) {
@@ -10160,6 +10179,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 switchRow('Smart Quotes', epubSmartQuotes, setEpubSmartQuotes),
                 switchRow('Clean Web Junk', epubCleanWebArtifacts, setEpubCleanWebArtifacts),
                 switchRow('Justify Text', epubJustifyText, setEpubJustifyText),
+                switchRow('Fixed Book Filename (Title.epub)', epubFixedFilename, setEpubFixedFilename),
                 h('div', { className: 'seg', style: { paddingTop: 8 } },
                   fontThemes.map(f => h('button', { key: f.id, type: 'button', className: `seg-btn ${epubFontTheme === f.id ? 'on' : ''}`, onClick: () => setEpubFontTheme(f.id) }, f.label))
                 )

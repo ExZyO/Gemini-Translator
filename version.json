@@ -1,7 +1,7 @@
 {
-  "version": "8.10.40",
-  "versionCode": 8140,
+  "version": "8.10.41",
+  "versionCode": 8141,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.40: True background execution on Android & Web: Android Foreground Service with dataSync & partial wake lock, WebView timer pause prevention on app background/screen lock, silent audio keep-alive shield, and 1-tap Unrestricted Battery exemption toggle."
+  "releaseNotes": "v8.10.41: Stage 1 Moon+ Reader continuity (deterministic EPUB UUID + Fixed Book Filename setting to preserve bookmarks & highlights across chapter updates) and resolved Lnori multi-volume update false positive."
 }
