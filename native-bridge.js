@@ -331,7 +331,7 @@
             return false;
         },
 
-        saveBlob: async (blob, fileName, mimeType = "application/epub+zip", openChooser = false) => {
+        saveBlob: async (blob, fileName, mimeType = "application/epub+zip", openChooser = false, options = {}) => {
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.saveBlobChunk) {
@@ -363,7 +363,9 @@
                             isFirst,
                             isLast,
                             mimeType,
-                            openChooser
+                            openChooser,
+                            subDir: options?.subDir || options?.folderPath || '',
+                            treeUri: options?.treeUri || options?.folderTreeUri || ''
                         });
 
                         if (isLast) return result;
@@ -399,6 +401,66 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        },
+
+        chooseFolder: async () => {
+            const bridge = getBridge();
+            if (bridge && bridge.chooseFolder) {
+                try {
+                    const res = await bridge.chooseFolder();
+                    return res; // { treeUri, displayPath }
+                } catch (e) {
+                    console.warn('Native folder picker error/canceled:', e);
+                    throw e;
+                }
+            }
+            // Browser showDirectoryPicker fallback
+            if (typeof window !== 'undefined' && window.showDirectoryPicker) {
+                try {
+                    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                    return {
+                        dirHandle: handle,
+                        displayPath: '/' + (handle.name || 'Selected Folder'),
+                        treeUri: ''
+                    };
+                } catch (e) {
+                    if (e.name === 'AbortError') throw new Error('Folder selection canceled');
+                    throw e;
+                }
+            }
+            throw new Error('Folder selection requires Android or a Chromium desktop browser.');
+        },
+
+        startOpdsServer: async (port = 8080) => {
+            const bridge = getBridge();
+            if (bridge && bridge.startOpdsServer) {
+                return await bridge.startOpdsServer({ port });
+            }
+            return { running: false, port: 8080, localUrl: 'http://127.0.0.1:8080/opds', wifiUrl: '' };
+        },
+
+        stopOpdsServer: async () => {
+            const bridge = getBridge();
+            if (bridge && bridge.stopOpdsServer) {
+                return await bridge.stopOpdsServer();
+            }
+            return { running: false };
+        },
+
+        getOpdsStatus: async () => {
+            const bridge = getBridge();
+            if (bridge && bridge.getOpdsStatus) {
+                return await bridge.getOpdsStatus();
+            }
+            return { running: false, port: 8080, localUrl: 'http://127.0.0.1:8080/opds', wifiUrl: '' };
+        },
+
+        updateOpdsCatalog: async (xml) => {
+            const bridge = getBridge();
+            if (bridge && bridge.updateOpdsCatalog) {
+                return await bridge.updateOpdsCatalog({ xml });
+            }
+            return { success: false };
         },
 
         showProgressNotification: async (title, message, progress = 0, ongoing = true) => {

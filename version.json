@@ -1,7 +1,7 @@
 {
-  "version": "8.10.42",
-  "versionCode": 8142,
+  "version": "8.10.43",
+  "versionCode": 8143,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.42: Urgent hotfix for black screen on startup. Restores full Stage 1 Moon+ Reader continuity (deterministic EPUB UUID + Fixed Book Filename setting) and resolved Lnori multi-volume update false positive."
+  "releaseNotes": "v8.10.43: Stage 2 Moon+ Reader Pro continuity — Per-novel folder binding with direct in-place overwrite (preserving all bookmarks & highlights) and embedded local OPDS 1.2 catalog feed for 1-tap wireless reading."
 }

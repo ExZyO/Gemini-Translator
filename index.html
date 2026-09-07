@@ -823,7 +823,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.42';
+    const VERSION = '8.10.43';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3332,7 +3332,9 @@ const formatModelName = (id, displayName) => {
           originalChapters: cleanOriginalChapters,
           originalText: novelData.originalText || '',
           translatedChapters: Array.isArray(novelData.translatedChapters) ? novelData.translatedChapters : (cleanChapters && isTranslated ? cleanChapters : null),
-          targetLang: novelData.targetLang || (isTranslated ? 'en' : null)
+          targetLang: novelData.targetLang || (isTranslated ? 'en' : null),
+          folderTreeUri: novelData.folderTreeUri || existingMeta?.folderTreeUri || '',
+          folderPath: novelData.folderPath || existingMeta?.folderPath || ''
         };
 
         if (window.GeminiNovelDB) {
@@ -3360,7 +3362,9 @@ const formatModelName = (id, displayName) => {
           wordCount: novelRecord.wordCount,
           timestamp: novelRecord.timestamp,
           isEpub: novelRecord.isEpub,
-          sourceUrl: novelRecord.sourceUrl
+          sourceUrl: novelRecord.sourceUrl,
+          folderTreeUri: novelRecord.folderTreeUri,
+          folderPath: novelRecord.folderPath
         };
 
         setWebImportHistory(prev => {
@@ -3506,7 +3510,7 @@ const formatModelName = (id, displayName) => {
                 }, opts);
                 const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
                 const fileName = getEpubFileName(bookTitle, chs.length, isInc);
-                await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+                await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(item));
                 toast(`Downloaded updated raw EPUB (${chs.length} chapters)!`, 'success');
               } catch (epubErr) {
                 toast(`Raw EPUB packaging error: ${epubErr.message}`, 'error');
@@ -4141,6 +4145,166 @@ const formatModelName = (id, displayName) => {
         let s = String(a || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
         if (!s || s === 'Author' || s === 'Unknown' || s === 'Lnori Author') return 'Author';
         return s;
+      };
+
+      // ══════════════════════════════════════════════════════════════════
+      // STAGE 2: MOON+ READER PRO FOLDER BINDING & LOCAL OPDS SERVER
+      // ══════════════════════════════════════════════════════════════════
+      const [opdsRunning, setOpdsRunning] = useState(false);
+      const [opdsUrl, setOpdsUrl] = useState('http://127.0.0.1:8080/opds');
+      const [opdsWifiUrl, setOpdsWifiUrl] = useState('');
+
+      useEffect(() => {
+        if (window.NativeBridge && window.NativeBridge.getOpdsStatus) {
+          window.NativeBridge.getOpdsStatus().then(status => {
+            if (status) {
+              setOpdsRunning(!!status.running);
+              if (status.localUrl) setOpdsUrl(status.localUrl);
+              if (status.wifiUrl) setOpdsWifiUrl(status.wifiUrl);
+            }
+          }).catch(() => {});
+        }
+      }, []);
+
+      const getNovelFolderOptions = (novel) => {
+        if (!novel) return {};
+        try {
+          const metaList = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
+          const meta = metaList.find(m => (novel.id && m.id === novel.id) || (m.title && novel.title && m.title.trim().toLowerCase() === novel.title.trim().toLowerCase()));
+          const treeUri = novel.folderTreeUri || meta?.folderTreeUri || '';
+          const folderPath = novel.folderPath || meta?.folderPath || '';
+          return {
+            treeUri,
+            folderTreeUri: treeUri,
+            subDir: folderPath,
+            folderPath
+          };
+        } catch (e) {
+          return {};
+        }
+      };
+
+      const updateNovelFolderRecord = async (novelIdOrTitle, treeUri, displayPath) => {
+        const metaList = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
+        const updatedMeta = metaList.map(m => {
+          if (m.id === novelIdOrTitle || m.title === novelIdOrTitle) {
+            return { ...m, folderTreeUri: treeUri, folderPath: displayPath };
+          }
+          return m;
+        });
+        localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updatedMeta));
+
+        if (window.GeminiNovelDB) {
+          try {
+            const all = await window.GeminiNovelDB.getAllNovels();
+            const full = (all || []).find(n => n.id === novelIdOrTitle || n.title === novelIdOrTitle);
+            if (full) {
+              await window.GeminiNovelDB.saveNovel({ ...full, folderTreeUri: treeUri, folderPath: displayPath });
+            }
+          } catch(e) {}
+        }
+
+        setWebImportHistory(prev => (prev || []).map(item => {
+          if (item.id === novelIdOrTitle || item.title === novelIdOrTitle) {
+            return { ...item, folderTreeUri: treeUri, folderPath: displayPath };
+          }
+          return item;
+        }));
+      };
+
+      const handleSetNovelFolder = async (novel) => {
+        if (!novel) return;
+        try {
+          if (window.NativeBridge && window.NativeBridge.chooseFolder) {
+            const res = await window.NativeBridge.chooseFolder();
+            if (res && res.treeUri) {
+              await updateNovelFolderRecord(novel.id || novel.title, res.treeUri, res.displayPath);
+              toast(`📁 Bound "${novel.title}" to ${res.displayPath}! Future EPUBs will overwrite here.`, 'success');
+            }
+          } else {
+            const cur = novel.folderPath || ('Books/' + (typeof sanitizeFilename === 'function' ? sanitizeFilename(novel.title) : novel.title));
+            const p = window.prompt('Enter folder path for "' + novel.title + '" (e.g. Books/' + (typeof sanitizeFilename === 'function' ? sanitizeFilename(novel.title) : novel.title) + '):', cur);
+            if (p !== null && p.trim()) {
+              await updateNovelFolderRecord(novel.id || novel.title, '', p.trim());
+              toast(`📁 Saved folder path for "${novel.title}"!`, 'success');
+            }
+          }
+        } catch (e) {
+          if (e.message && !e.message.toLowerCase().includes('cancel')) {
+            toast('Folder setup: ' + e.message, 'error');
+          }
+        }
+      };
+
+      const generateOpdsFeedXml = (novels) => {
+        const escapeXmlStr = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const now = new Date().toISOString();
+        let entries = '';
+        (novels || []).forEach(n => {
+          const cleanTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(n.title) : (n.title || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+          const cleanAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(n.author) : (n.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+          const fileName = getEpubFileName(cleanTitle, n.chapterCount || (n.chapters || []).length, false);
+          const uuid = 'urn:uuid:' + (n.id || cleanTitle.toLowerCase().replace(/\s+/g, '-'));
+          const updated = n.timestamp ? new Date(n.timestamp).toISOString() : now;
+          entries += `
+  <entry>
+    <title>${escapeXmlStr(cleanTitle)}</title>
+    <id>${escapeXmlStr(uuid)}</id>
+    <updated>${updated}</updated>
+    <author><name>${escapeXmlStr(cleanAuthor)}</name></author>
+    <summary>${escapeXmlStr(n.summary || `${n.chapterCount || (n.chapters || []).length} chapters`)}</summary>
+    <link rel="http://opds-spec.org/acquisition" href="/download/${encodeURIComponent(fileName)}" type="application/epub+zip" title="Download EPUB"/>
+    ${n.cover ? `<link rel="http://opds-spec.org/image" href="${escapeXmlStr(n.cover)}" type="image/jpeg"/>` : ''}
+  </entry>`;
+        });
+        return `<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog">
+  <id>urn:uuid:gemini-translator-library</id>
+  <title>Gemini Translator Library</title>
+  <updated>${now}</updated>
+  <author><name>Gemini Translator</name></author>
+  <link rel="self" href="/opds" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+  <link rel="start" href="/opds" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+  ${entries}
+</feed>`;
+      };
+
+      const syncOpdsCatalogToNative = useCallback((novelsList) => {
+        try {
+          if (window.NativeBridge && window.NativeBridge.updateOpdsCatalog) {
+            const xml = generateOpdsFeedXml(novelsList || webImportHistory);
+            window.NativeBridge.updateOpdsCatalog(xml);
+          }
+        } catch(e) {}
+      }, [webImportHistory]);
+
+      useEffect(() => {
+        if (webImportHistory && webImportHistory.length > 0) {
+          syncOpdsCatalogToNative(webImportHistory);
+        }
+      }, [webImportHistory, syncOpdsCatalogToNative]);
+
+      const toggleOpdsServer = async () => {
+        try {
+          if (opdsRunning) {
+            await window.NativeBridge?.stopOpdsServer?.();
+            setOpdsRunning(false);
+            toast('Moon+ Reader OPDS Feed stopped.', 'info');
+          } else {
+            syncOpdsCatalogToNative(webImportHistory);
+            const res = await window.NativeBridge?.startOpdsServer?.(8080);
+            if (res && res.running) {
+              setOpdsRunning(true);
+              if (res.localUrl) setOpdsUrl(res.localUrl);
+              if (res.wifiUrl) setOpdsWifiUrl(res.wifiUrl);
+              toast('Moon+ Reader OPDS Feed online! 📡 (' + (res.localUrl || 'port 8080') + ')', 'success');
+            } else {
+              toast('Could not start OPDS server on device.', 'warning');
+            }
+          }
+        } catch (e) {
+          toast('OPDS Error: ' + e.message, 'error');
+        }
       };
 
       // --- Language State ---
@@ -6587,7 +6751,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
           const isInc = novelData.isIncomplete || (novelData.totalChapterCount && chs.length < novelData.totalChapterCount);
           const fileName = getEpubFileName(novelTitle, chs.length, isInc);
-          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+          await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(novelData));
           toast(`Clean Lnori EPUB downloaded! (${chs.length} chapters)`, 'success');
         } catch (e) {
           toast('EPUB export error: ' + e.message, 'error');
@@ -9079,7 +9243,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           }, opts);
                           const isInc = activeCrawlSession?.isIncomplete || (activeCrawlSession?.totalChapterCount && chs.length < activeCrawlSession.totalChapterCount);
                           const fileName = getEpubFileName(novelTitle, chs.length, isInc);
-                          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+                          await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(activeCrawlSession));
                           toast(`EPUB (${chs.length} chapters) downloaded successfully!`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -9210,7 +9374,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           }, opts);
                           const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
                           const fileName = getEpubFileName(novelTitle, chs.length, isInc);
-                          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+                          await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
                           toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -9274,7 +9438,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           }, opts);
                           const isInc = activeNovelView?.isIncomplete || (activeNovelView?.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
                           const fileName = getEpubFileName(novelTitle, chs.length, isInc);
-                          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+                          await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
                           toast(`EPUB (${chs.length} chapters) saved!`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -9401,6 +9565,17 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         }
                       }
                     }, (activeNovelView.inSavedSpace ? '⭐ In Saved Space' : '☆ Save to Space')),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: {
+                        borderColor: (activeNovelView.folderPath || activeNovelView.folderTreeUri) ? '#10b981' : 'var(--hairline)',
+                        color: (activeNovelView.folderPath || activeNovelView.folderTreeUri) ? '#10b981' : 'var(--paper)',
+                        fontWeight: 600
+                      },
+                      title: 'Set designated folder on device for Moon+ Reader continuity',
+                      onClick: () => handleSetNovelFolder(activeNovelView)
+                    }, (activeNovelView.folderPath ? `📁 ${activeNovelView.folderPath}` : '📁 Set Folder')),
                     !isLnoriNovel && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
@@ -9418,7 +9593,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
                           const fileName = getEpubFileName(novelTitle, chs.length, isInc);
-                          await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+                          await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
                           toast(`EPUB downloaded successfully! (${chs.length} chapters)`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -9821,6 +9996,20 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           },
                           onClick: () => toggleNovelSavedSpace(item.id)
                         }, item.inSavedSpace ? '⭐ In Space' : '☆ Save to Space'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: {
+                            borderColor: (item.folderPath || item.folderTreeUri) ? '#10b981' : 'var(--hairline)',
+                            color: (item.folderPath || item.folderTreeUri) ? '#10b981' : 'var(--paper)',
+                            fontWeight: 600
+                          },
+                          title: 'Set designated folder on device for Moon+ Reader continuity',
+                          onClick: (e) => {
+                            e?.stopPropagation?.();
+                            handleSetNovelFolder(item);
+                          }
+                        }, (item.folderPath ? `📁 ${item.folderPath.length > 18 ? item.folderPath.slice(0, 16) + '…' : item.folderPath}` : '📁 Folder')),
                         item.isIncomplete && h('button', {
                           type: 'button',
                           className: 'mini-btn',
@@ -9959,7 +10148,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                 setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
                               }, opts);
                               const fileName = getEpubFileName(bookTitle, chs.length, isInc);
-                              await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+                              await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(item));
                               toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                             } catch (e) {
                               toast('EPUB export error: ' + e.message, 'error');
@@ -10178,6 +10367,71 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 switchRow('Fixed Book Filename (Title.epub)', epubFixedFilename, setEpubFixedFilename),
                 h('div', { className: 'seg', style: { paddingTop: 8 } },
                   fontThemes.map(f => h('button', { key: f.id, type: 'button', className: `seg-btn ${epubFontTheme === f.id ? 'on' : ''}`, onClick: () => setEpubFontTheme(f.id) }, f.label))
+                )
+              ),
+
+              // ── MOON+ READER & E-READER CONNECTIVITY SECTION ──
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'MOON+ READER & E-READER CONNECTIVITY')
+                ),
+                h('span', { style: { fontSize: 10, color: opdsRunning ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, opdsRunning ? 'ONLINE' : 'STOPPED')
+              ),
+              h('div', { className: 'card', style: { border: opdsRunning ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--hairline)' } },
+                h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                    h('span', null, '📡 Moon+ Reader OPDS Catalog Feed'),
+                    opdsRunning && h('span', { className: 'badge', style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontSize: 10 } }, '🟢 Active')
+                  ),
+                  h('span', { className: 'count' }, 'OPDS 1.2 Protocol')
+                ),
+                h('div', { style: { fontSize: 11, color: 'var(--slate)', lineHeight: 1.45, marginBottom: 8 } },
+                  'Run a lightweight local OPDS catalog feed directly inside the app. Moon+ Reader Pro (and other e-readers) can connect wirelessly via Net Library to browse your library and download or update novels with 1-tap.'
+                ),
+                switchRow('Enable Local OPDS Feed', opdsRunning, toggleOpdsServer),
+                opdsRunning && h('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 } },
+                  h('div', { style: { background: 'var(--panel)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--hairline)' } },
+                    h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'LOCAL DEVICE URL (MOON+ READER ON THIS PHONE)'),
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                      h('input', {
+                        type: 'text',
+                        readOnly: true,
+                        value: opdsUrl || 'http://127.0.0.1:8080/opds',
+                        style: { flex: 1, padding: '6px 8px', fontSize: 12, fontFamily: 'monospace', background: 'var(--bg)', border: '1px solid var(--hairline)', borderRadius: 6, color: 'var(--paper)' }
+                      }),
+                      h('button', {
+                        type: 'button',
+                        className: 'chip-act',
+                        onClick: () => {
+                          navigator.clipboard?.writeText(opdsUrl || 'http://127.0.0.1:8080/opds');
+                          toast('Copied OPDS URL!', 'success');
+                        }
+                      }, '📋 Copy')
+                    )
+                  ),
+                  opdsWifiUrl && h('div', { style: { background: 'var(--panel)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--hairline)' } },
+                    h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'WI-FI NETWORK URL (OTHER DEVICES / TABLET / E-INK)'),
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                      h('input', {
+                        type: 'text',
+                        readOnly: true,
+                        value: opdsWifiUrl,
+                        style: { flex: 1, padding: '6px 8px', fontSize: 12, fontFamily: 'monospace', background: 'var(--bg)', border: '1px solid var(--hairline)', borderRadius: 6, color: 'var(--paper)' }
+                      }),
+                      h('button', {
+                        type: 'button',
+                        className: 'chip-act',
+                        onClick: () => {
+                          navigator.clipboard?.writeText(opdsWifiUrl);
+                          toast('Copied Wi-Fi OPDS URL!', 'success');
+                        }
+                      }, '📋 Copy')
+                    )
+                  ),
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)', lineHeight: 1.4, padding: '4px 2px' } },
+                    '💡 In Moon+ Reader Pro: Open side menu ➔ "Net Library" ➔ tap "Add new catalog" ➔ enter the URL above and name it "Gemini Translator".'
+                  )
                 )
               ),
 

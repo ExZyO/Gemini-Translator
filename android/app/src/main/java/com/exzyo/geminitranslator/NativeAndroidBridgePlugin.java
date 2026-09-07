@@ -39,6 +39,16 @@ import android.widget.TextView;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.FileProvider;
+import androidx.activity.result.ActivityResult;
+import com.getcapacitor.annotation.ActivityCallback;
+import android.provider.DocumentsContract;
+import android.database.Cursor;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Enumeration;
+import java.text.SimpleDateFormat;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -1203,6 +1213,9 @@ public class NativeAndroidBridgePlugin extends Plugin {
             String mimeType = call.getString("mimeType", "application/epub+zip");
             boolean openChooser = call.getBoolean("openChooser", false);
 
+            String subDir = call.getString("subDir", "");
+            String treeUri = call.getString("treeUri", "");
+
             File cacheFile = new File(context.getCacheDir(), fileName);
             if (isFirst) {
                 if (cacheFile.exists()) cacheFile.delete();
@@ -1228,55 +1241,124 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 } catch (Exception ignored) {}
                 chunkStreams.remove(transferId);
 
-                boolean mediaStoreSaved = false;
+                boolean safSaved = false;
                 String savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+                // 1. Direct SAF Document Tree Overwrite (Custom Novel Folder)
+                if (treeUri != null && !treeUri.trim().isEmpty()) {
                     try {
-                        ContentValues values = new ContentValues();
-                        values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
-                        values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
-                        values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/GeminiTranslator");
-                        values.put(MediaStore.MediaColumns.IS_PENDING, 1);
-                        Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                        if (uri != null) {
-                            try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = context.getContentResolver().openOutputStream(uri)) {
+                        Uri parsedTree = Uri.parse(treeUri);
+                        String treeDocId = DocumentsContract.getTreeDocumentId(parsedTree);
+                        Uri parentDocUri = DocumentsContract.buildDocumentUriUsingTree(parsedTree, treeDocId);
+                        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parsedTree, treeDocId);
+
+                        Uri targetDocUri = null;
+                        try (Cursor cursor = context.getContentResolver().query(
+                                childrenUri,
+                                new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME},
+                                null, null, null)) {
+                            if (cursor != null) {
+                                int idIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
+                                int nameIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+                                while (cursor.moveToNext()) {
+                                    String name = cursor.getString(nameIdx);
+                                    if (fileName.equalsIgnoreCase(name)) {
+                                        String docId = cursor.getString(idIdx);
+                                        targetDocUri = DocumentsContract.buildDocumentUriUsingTree(parsedTree, docId);
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (Exception queryErr) {
+                            Log.w(TAG, "SAF children query warning: " + queryErr.getMessage());
+                        }
+
+                        if (targetDocUri == null) {
+                            targetDocUri = DocumentsContract.createDocument(context.getContentResolver(), parentDocUri, mimeType, fileName);
+                        }
+
+                        if (targetDocUri != null) {
+                            try (InputStream in = new java.io.FileInputStream(cacheFile);
+                                 OutputStream out = context.getContentResolver().openOutputStream(targetDocUri, "wt")) {
                                 byte[] buf = new byte[65536];
                                 int len;
                                 while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
                                 out.flush();
                             }
-                            values.clear();
-                            values.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                            context.getContentResolver().update(uri, values, null, null);
-                            mediaStoreSaved = true;
+                            safSaved = true;
+                            savedPath = "📁 Overwritten in custom novel folder: " + fileName;
                         }
-                    } catch (Exception msErr) {
-                        Log.w(TAG, "Chunked MediaStore save fallback: " + msErr.getMessage());
+                    } catch (Exception safErr) {
+                        Log.e(TAG, "SAF write failed: " + safErr.getMessage(), safErr);
                     }
                 }
 
-                if (!mediaStoreSaved) {
-                    try {
-                        File pubDownloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "GeminiTranslator");
-                        if (pubDownloads.exists() || pubDownloads.mkdirs()) {
-                            File dest = new File(pubDownloads, fileName);
-                            try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = new FileOutputStream(dest)) {
-                                byte[] buf = new byte[65536];
-                                int len;
-                                while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
-                                out.flush();
+                // 2. Relative Subdirectory or Default Downloads (MediaStore API)
+                if (!safSaved) {
+                    String relativeSubDir = "GeminiTranslator";
+                    if (subDir != null && !subDir.trim().isEmpty()) {
+                        String clean = subDir.trim().replaceAll("^[\\\\/]+", "").replaceAll("[\\\\/]+$", "");
+                        if (!clean.isEmpty()) {
+                            if (clean.toLowerCase().startsWith("download/") || clean.toLowerCase().startsWith("downloads/")) {
+                                relativeSubDir = clean.replaceFirst("^(?i)downloads?/", "");
+                            } else {
+                                relativeSubDir = clean;
                             }
-                            MediaScannerConnection.scanFile(context, new String[]{dest.getAbsolutePath()}, new String[]{mimeType}, null);
-                            savedPath = dest.getAbsolutePath();
                         }
-                    } catch (Exception pubErr) {
-                        Log.w(TAG, "Chunked public download save: " + pubErr.getMessage());
+                    }
+
+                    boolean mediaStoreSaved = false;
+                    savedPath = "/storage/emulated/0/Download/" + relativeSubDir + "/" + fileName;
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        try {
+                            ContentValues values = new ContentValues();
+                            values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                            values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+                            values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + relativeSubDir);
+                            values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                            Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                            if (uri != null) {
+                                try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = context.getContentResolver().openOutputStream(uri)) {
+                                    byte[] buf = new byte[65536];
+                                    int len;
+                                    while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                                    out.flush();
+                                }
+                                values.clear();
+                                values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                                context.getContentResolver().update(uri, values, null, null);
+                                mediaStoreSaved = true;
+                            }
+                        } catch (Exception msErr) {
+                            Log.w(TAG, "Chunked MediaStore save fallback: " + msErr.getMessage());
+                        }
+                    }
+
+                    if (!mediaStoreSaved) {
+                        try {
+                            File pubDownloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), relativeSubDir);
+                            if (pubDownloads.exists() || pubDownloads.mkdirs()) {
+                                File dest = new File(pubDownloads, fileName);
+                                try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = new FileOutputStream(dest)) {
+                                    byte[] buf = new byte[65536];
+                                    int len;
+                                    while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                                    out.flush();
+                                }
+                                MediaScannerConnection.scanFile(context, new String[]{dest.getAbsolutePath()}, new String[]{mimeType}, null);
+                                savedPath = dest.getAbsolutePath();
+                            }
+                        } catch (Exception pubErr) {
+                            Log.w(TAG, "Chunked public download save: " + pubErr.getMessage());
+                        }
                     }
                 }
 
-                final String finalToastPath = savedPath;
+                final boolean isSaf = safSaved;
+                final String finalSub = (subDir != null && !subDir.trim().isEmpty()) ? subDir : "Download/GeminiTranslator";
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    Toast.makeText(context, " Saved: " + fileName + "\n Download/GeminiTranslator", Toast.LENGTH_LONG).show();
+                    Toast.makeText(context, " Saved: " + fileName + "\n " + (isSaf ? "Novel Folder" : finalSub), Toast.LENGTH_LONG).show();
                 });
 
                 if (openChooser) {
@@ -1418,6 +1500,303 @@ public class NativeAndroidBridgePlugin extends Plugin {
         } catch (Exception e) {
             Log.e(TAG, "Save file error: " + e.getMessage(), e);
             call.reject("Failed to save file: " + e.getMessage());
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // STORAGE ACCESS FRAMEWORK (SAF) DIRECTORY PICKER
+    // ══════════════════════════════════════════════════════════════════════
+    @PluginMethod
+    public void chooseFolder(PluginCall call) {
+        try {
+            saveCall(call);
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            intent.addFlags(
+                Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
+                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+            );
+            startActivityForResult(call, intent, "folderPickerCallback");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to launch folder picker", e);
+            call.reject("Could not open folder picker: " + e.getMessage());
+        }
+    }
+
+    @ActivityCallback
+    public void folderPickerCallback(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        try {
+            if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null && result.getData().getData() != null) {
+                Uri treeUri = result.getData().getData();
+                Context context = getContext();
+                try {
+                    int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+                    context.getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
+                } catch (Exception e) {
+                    Log.w(TAG, "takePersistableUriPermission warning: " + e.getMessage());
+                }
+
+                String docId = "";
+                try {
+                    docId = DocumentsContract.getTreeDocumentId(treeUri);
+                } catch (Exception ignored) {
+                    docId = treeUri.getLastPathSegment();
+                }
+
+                String displayPath = "/Selected Folder";
+                if (docId != null && !docId.isEmpty()) {
+                    if (docId.contains(":")) {
+                        displayPath = "/" + docId.substring(docId.indexOf(":") + 1);
+                    } else {
+                        displayPath = "/" + docId;
+                    }
+                }
+
+                JSObject ret = new JSObject();
+                ret.put("treeUri", treeUri.toString());
+                ret.put("displayPath", displayPath);
+                call.resolve(ret);
+            } else {
+                call.reject("Folder selection canceled");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "folderPickerCallback error: " + e.getMessage(), e);
+            call.reject("Folder selection error: " + e.getMessage());
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // EMBEDDED LIGHTWEIGHT LOCAL OPDS SERVER (Moon+ Reader Pro Net Library)
+    // ══════════════════════════════════════════════════════════════════════
+    private static OpdsServer opdsServer = null;
+
+    @PluginMethod
+    public void startOpdsServer(PluginCall call) {
+        try {
+            int port = call.getInt("port", 8080);
+            if (opdsServer == null) {
+                opdsServer = new OpdsServer(getContext());
+            }
+            boolean ok = opdsServer.start(port);
+            JSObject ret = new JSObject();
+            ret.put("running", ok);
+            ret.put("port", opdsServer.getPort());
+            ret.put("localUrl", "http://127.0.0.1:" + opdsServer.getPort() + "/opds");
+            ret.put("wifiUrl", opdsServer.getWifiUrl());
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to start OPDS server: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void stopOpdsServer(PluginCall call) {
+        try {
+            if (opdsServer != null) {
+                opdsServer.stop();
+            }
+            JSObject ret = new JSObject();
+            ret.put("running", false);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Error stopping OPDS server: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void getOpdsStatus(PluginCall call) {
+        try {
+            JSObject ret = new JSObject();
+            if (opdsServer != null && opdsServer.isRunning()) {
+                ret.put("running", true);
+                ret.put("port", opdsServer.getPort());
+                ret.put("localUrl", "http://127.0.0.1:" + opdsServer.getPort() + "/opds");
+                ret.put("wifiUrl", opdsServer.getWifiUrl());
+            } else {
+                ret.put("running", false);
+                ret.put("port", 8080);
+                ret.put("localUrl", "http://127.0.0.1:8080/opds");
+                ret.put("wifiUrl", "");
+            }
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Error getting OPDS status: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void updateOpdsCatalog(PluginCall call) {
+        try {
+            String xml = call.getString("xml", "");
+            if (opdsServer == null) {
+                opdsServer = new OpdsServer(getContext());
+            }
+            opdsServer.updateCatalog(xml);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Error updating OPDS catalog: " + e.getMessage());
+        }
+    }
+
+    public static class OpdsServer {
+        private ServerSocket serverSocket;
+        private int port = 8080;
+        private volatile boolean running = false;
+        private Thread serverThread;
+        private String catalogXml = "";
+        private final Context context;
+
+        public OpdsServer(Context context) {
+            this.context = context;
+        }
+
+        public synchronized boolean start(int requestedPort) {
+            if (running && serverSocket != null && !serverSocket.isClosed()) return true;
+            this.port = requestedPort;
+            try {
+                serverSocket = new ServerSocket(this.port);
+                serverSocket.setReuseAddress(true);
+            } catch (Exception e1) {
+                try {
+                    this.port = 8085;
+                    serverSocket = new ServerSocket(this.port);
+                    serverSocket.setReuseAddress(true);
+                } catch (Exception e2) {
+                    Log.e("OpdsServer", "Cannot bind port 8080 or 8085", e2);
+                    return false;
+                }
+            }
+            running = true;
+            serverThread = new Thread(this::runServer, "GeminiOpdsThread");
+            serverThread.setDaemon(true);
+            serverThread.start();
+            return true;
+        }
+
+        public synchronized void stop() {
+            running = false;
+            if (serverSocket != null) {
+                try { serverSocket.close(); } catch (Exception ignored) {}
+                serverSocket = null;
+            }
+        }
+
+        public boolean isRunning() {
+            return running && serverSocket != null && !serverSocket.isClosed();
+        }
+
+        public int getPort() { return port; }
+
+        public void updateCatalog(String xml) {
+            if (xml != null) this.catalogXml = xml;
+        }
+
+        public String getWifiUrl() {
+            try {
+                Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+                while (interfaces.hasMoreElements()) {
+                    NetworkInterface iface = interfaces.nextElement();
+                    if (iface.isLoopback() || !iface.isUp()) continue;
+                    Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                    while (addresses.hasMoreElements()) {
+                        InetAddress addr = addresses.nextElement();
+                        if (addr instanceof java.net.Inet4Address && !addr.isLoopbackAddress()) {
+                            String host = addr.getHostAddress();
+                            if (host != null && !host.startsWith("127.")) {
+                                return "http://" + host + ":" + port + "/opds";
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+            return "";
+        }
+
+        private void runServer() {
+            while (running && serverSocket != null && !serverSocket.isClosed()) {
+                try {
+                    Socket socket = serverSocket.accept();
+                    new Thread(() -> handleClient(socket)).start();
+                } catch (Exception e) {
+                    if (!running) break;
+                }
+            }
+        }
+
+        private void handleClient(Socket socket) {
+            try (Socket s = socket;
+                 InputStream in = socket.getInputStream();
+                 OutputStream out = socket.getOutputStream();
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+
+                String line = reader.readLine();
+                if (line == null || line.trim().isEmpty()) return;
+
+                String[] parts = line.split(" ");
+                if (parts.length < 2) return;
+                String method = parts[0];
+                String path = parts[1];
+
+                while ((line = reader.readLine()) != null && !line.isEmpty()) {}
+
+                if ("GET".equalsIgnoreCase(method)) {
+                    if (path.startsWith("/opds") || path.equals("/") || path.startsWith("/catalog")) {
+                        String xml = catalogXml;
+                        if (xml == null || xml.trim().isEmpty()) {
+                            xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                                  "<feed xmlns=\"http://www.w3.org/2005/Atom\" xmlns:dc=\"http://purl.org/dc/terms/\" xmlns:opds=\"http://opds-spec.org/2010/catalog\">\n" +
+                                  "  <id>urn:uuid:gemini-translator-opds</id>\n" +
+                                  "  <title>Gemini Translator Library</title>\n" +
+                                  "  <updated>" + new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(new java.util.Date()) + "</updated>\n" +
+                                  "  <author><name>Gemini Translator</name></author>\n" +
+                                  "</feed>";
+                        }
+                        byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
+                        String header = "HTTP/1.1 200 OK\r\n" +
+                                        "Content-Type: application/atom+xml;profile=opds-catalog;kind=acquisition;charset=utf-8\r\n" +
+                                        "Access-Control-Allow-Origin: *\r\n" +
+                                        "Content-Length: " + bytes.length + "\r\n" +
+                                        "Connection: close\r\n\r\n";
+                        out.write(header.getBytes(StandardCharsets.UTF_8));
+                        out.write(bytes);
+                        out.flush();
+                    } else if (path.startsWith("/download/") || path.startsWith("/opds/download/")) {
+                        String fileName = Uri.decode(path.substring(path.lastIndexOf('/') + 1));
+                        File file = new File(context.getCacheDir(), fileName);
+                        if (!file.exists()) {
+                            File pubFile = new File(new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "GeminiTranslator"), fileName);
+                            if (pubFile.exists()) file = pubFile;
+                        }
+                        if (file.exists()) {
+                            long len = file.length();
+                            String header = "HTTP/1.1 200 OK\r\n" +
+                                            "Content-Type: application/epub+zip\r\n" +
+                                            "Content-Disposition: attachment; filename=\"" + fileName + "\"\r\n" +
+                                            "Access-Control-Allow-Origin: *\r\n" +
+                                            "Content-Length: " + len + "\r\n" +
+                                            "Connection: close\r\n\r\n";
+                            out.write(header.getBytes(StandardCharsets.UTF_8));
+                            try (InputStream fis = new java.io.FileInputStream(file)) {
+                                byte[] buf = new byte[65536];
+                                int r;
+                                while ((r = fis.read(buf)) > 0) out.write(buf, 0, r);
+                            }
+                            out.flush();
+                        } else {
+                            String notFound = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+                            out.write(notFound.getBytes(StandardCharsets.UTF_8));
+                            out.flush();
+                        }
+                    } else {
+                        String ok = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\nConnection: close\r\n\r\nGemini Translator";
+                        out.write(ok.getBytes(StandardCharsets.UTF_8));
+                        out.flush();
+                    }
+                }
+            } catch (Exception ignored) {}
         }
     }
 }

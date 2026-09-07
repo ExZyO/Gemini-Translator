@@ -92,21 +92,38 @@ function addExportEntry(title, type, details) {
 
 
 // Universal Native & Browser Blob Saver
-async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zip', openChooser = false) {
+async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zip', openChooser = false, options = {}) {
     try {
-        // 1. Native Android Bridge (Downloads folder via MediaStore)
+        // 1. Native Android Bridge (Custom SAF Folder or Downloads)
         if (window.NativeBridge && window.NativeBridge.saveBlob) {
-            const res = await window.NativeBridge.saveBlob(blob, fileName, mimeType, openChooser);
+            const res = await window.NativeBridge.saveBlob(blob, fileName, mimeType, openChooser, options);
+            const folderName = options?.folderPath || (options?.subDir ? options.subDir : 'Downloads');
             if (window.__setDownloadModal) {
-                window.__setDownloadModal({ fileName, path: res?.path || ('Download/GeminiTranslator/' + fileName), mimeType });
+                window.__setDownloadModal({ fileName, path: res?.path || (folderName + '/' + fileName), mimeType });
             }
             if (typeof showToast === 'function') {
-                showToast(` Saved "${fileName}" to Downloads!`, 'success');
+                showToast(` Saved "${fileName}"!`, 'success');
             }
             try {
-                window.NativeBridge?.showCompletionNotification?.('File Saved! 💾', `Saved "${fileName}" to Downloads.`);
+                window.NativeBridge?.showCompletionNotification?.('File Saved! 💾', `Saved "${fileName}".`);
             } catch(e) {}
             return res;
+        }
+
+        // 2. Browser Custom Directory Handle (if saved per novel)
+        if (options?.dirHandle && typeof options.dirHandle.getFileHandle === 'function') {
+            try {
+                const fileHandle = await options.dirHandle.getFileHandle(fileName, { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                if (typeof showToast === 'function') {
+                    showToast(` Saved "${fileName}" to ${options.folderPath || 'folder'}!`, 'success');
+                }
+                return;
+            } catch (err) {
+                console.warn('dirHandle write failed, falling back:', err);
+            }
         }
 
         // 2. Desktop Browser Native File System Access API
