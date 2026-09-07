@@ -823,7 +823,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.41';
+    const VERSION = '8.10.42';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3498,10 +3498,6 @@ const formatModelName = (id, displayName) => {
                 if (typeof setEpubPackagingModal === 'function') {
                   setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
                 }
-                const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
-                  if (typeof setEpubPackagingModal === 'function') {
-                    setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
-                  }
                 const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle }) : { novelId: item.id };
                 const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
                   if (typeof setEpubPackagingModal === 'function') {
