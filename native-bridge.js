@@ -401,6 +401,28 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+            return { success: true, fileName };
+        },
+
+        downloadFileDirect: async (url, fileName, options = {}) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.downloadFileDirect) {
+                    return await bridge.downloadFileDirect({
+                        url,
+                        fileName,
+                        subDir: options?.subDir || options?.folderPath || '',
+                        treeUri: options?.treeUri || options?.folderTreeUri || '',
+                        mimeType: options?.mimeType || 'audio/mpeg'
+                    });
+                }
+            } catch (e) {
+                console.warn('Native downloadFileDirect error, falling back to blob save:', e);
+            }
+            // Browser Fallback: Stream/fetch to blob and save
+            const res = await fetch(url);
+            const blob = await res.blob();
+            return await window.NativeBridge.saveBlob(blob, fileName, options?.mimeType || 'audio/mpeg', false, options);
         },
 
         chooseFolder: async () => {

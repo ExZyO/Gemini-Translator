@@ -33,6 +33,9 @@
   <script src="./vendor/react.production.min.js"></script>
   <script src="./vendor/react-dom.production.min.js"></script>
   <script src="./icons.js"></script>
+  <link rel="stylesheet" href="./vendor/plyr.css">
+  <script src="./vendor/plyr.min.js"></script>
+  <script src="./swiftaudio_engine.js"></script>
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -41,6 +44,17 @@
 
     html.dark body {
       background-color: #030712;
+    }
+
+    :root {
+      --plyr-color-main: #6366f1;
+      --plyr-audio-controls-background: #0f172a;
+      --plyr-audio-control-color: #f8fafc;
+      --plyr-audio-control-color-hover: #ffffff;
+    }
+    [data-theme="amoled"] {
+      --plyr-audio-controls-background: #000000;
+      --plyr-audio-control-color: #f1f5f9;
     }
 
     @keyframes toastIn {
@@ -823,7 +837,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.43';
+    const VERSION = '8.10.44';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3248,6 +3262,27 @@ const formatModelName = (id, displayName) => {
           return '';
         } catch (e) { return ''; }
       });
+
+      // --- SwiftAudio Engine & Player State ---
+      const [swiftAudioResults, setSwiftAudioResults] = useState([]);
+      const [isSwiftAudioSearching, setIsSwiftAudioSearching] = useState(false);
+      const [activeAudiobook, setActiveAudiobook] = useState(null);
+      const [audioPlayerState, setAudioPlayerState] = useState(() => window.SwiftAudioEngine?.Player?.getState() || { isLoaded: false });
+      const [isFullPlayerOpen, setIsFullPlayerOpen] = useState(false);
+      const [audioDownloadModal, setAudioDownloadModal] = useState(null);
+
+      useEffect(() => {
+        if (window.SwiftAudioEngine && window.SwiftAudioEngine.Player) {
+          const unsub = window.SwiftAudioEngine.Player.subscribe(st => {
+            setAudioPlayerState(st);
+            if (st.currentBook && !activeAudiobook) {
+              setActiveAudiobook(st.currentBook);
+            }
+          });
+          return unsub;
+        }
+      }, []);
+
       const [isAiSorting, setIsAiSorting] = useState(false);
       const [webImportHistory, setWebImportHistory] = useState(() => {
         try {
@@ -4304,6 +4339,98 @@ const formatModelName = (id, displayName) => {
           }
         } catch (e) {
           toast('OPDS Error: ' + e.message, 'error');
+        }
+      };
+
+      // ── SWIFTAUDIO HANDLERS ──
+      const handleSwiftAudioSearch = async (queryOrUrl) => {
+        const target = (queryOrUrl || webImportUrl || '').trim();
+        if (!target) return toast('Please enter an audiobook title or SwiftAudiobooks URL', 'warning');
+
+        setIsSwiftAudioSearching(true);
+        setWebImportStatus('Searching SwiftAudiobooks…');
+        try {
+          if (/^https?:\/\/swiftaudiobooks\.com\/.+/i.test(target) && !target.includes('/?s=')) {
+            toast('Fetching audiobook tracks…', 'info');
+            const book = await window.SwiftAudioEngine.Scraper.getBookDetails(target);
+            setActiveAudiobook(book);
+            setSwiftAudioResults([book]);
+            toast(`Loaded "${book.title}" (${book.totalTracks} chapters)!`, 'success');
+          } else {
+            const q = target.replace(/^https?:\/\/swiftaudiobooks\.com\/\?s=/i, '');
+            const results = await window.SwiftAudioEngine.Scraper.search(q);
+            setSwiftAudioResults(results);
+            if (results.length === 0) {
+              toast('No audiobooks found matching query.', 'info');
+            } else {
+              toast(`Found ${results.length} audiobooks on SwiftAudiobooks!`, 'success');
+            }
+          }
+        } catch (e) {
+          toast('SwiftAudio error: ' + e.message, 'error');
+        } finally {
+          setIsSwiftAudioSearching(false);
+          setWebImportStatus('');
+        }
+      };
+
+      const handleStartPlayAudiobook = async (bookOrResult, startTrack = 0) => {
+        try {
+          let fullBook = bookOrResult;
+          if (!fullBook.tracks || fullBook.tracks.length === 0) {
+            toast('Loading chapter audio streams…', 'info');
+            fullBook = await window.SwiftAudioEngine.Scraper.getBookDetails(bookOrResult.url);
+          }
+          setActiveAudiobook(fullBook);
+          window.SwiftAudioEngine.Player.loadBook(fullBook, startTrack, true);
+          setIsFullPlayerOpen(true);
+          toast(`Playing: ${fullBook.title}`, 'success');
+        } catch (e) {
+          toast('Could not play audiobook: ' + e.message, 'error');
+        }
+      };
+
+      const handleOpenAudioDownload = async (bookOrResult) => {
+        try {
+          let fullBook = bookOrResult;
+          if (!fullBook.tracks || fullBook.tracks.length === 0) {
+            toast('Loading chapter audio streams…', 'info');
+            fullBook = await window.SwiftAudioEngine.Scraper.getBookDetails(bookOrResult.url);
+          }
+          setActiveAudiobook(fullBook);
+          const opts = getNovelFolderOptions(fullBook);
+          setAudioDownloadModal({
+            book: fullBook,
+            folderOptions: opts,
+            status: `Ready to download ${fullBook.tracks.length} chapters`,
+            percent: 0,
+            active: false
+          });
+        } catch (e) {
+          toast('Could not load audiobook for download: ' + e.message, 'error');
+        }
+      };
+
+      const handleExecuteAudioBatchDownload = async () => {
+        if (!audioDownloadModal || !audioDownloadModal.book) return;
+        const book = audioDownloadModal.book;
+        const opts = audioDownloadModal.folderOptions || getNovelFolderOptions(book);
+
+        setAudioDownloadModal(prev => ({ ...prev, active: true, status: 'Starting download…', percent: 0 }));
+
+        try {
+          await window.SwiftAudioEngine.Downloader.downloadAllTracks(book, opts, (progress) => {
+            setAudioDownloadModal(prev => ({
+              ...prev,
+              status: progress.status,
+              percent: progress.percent,
+              completed: progress.completed
+            }));
+          });
+          toast(`All chapters of "${book.title}" downloaded!`, 'success');
+        } catch (e) {
+          toast('Audiobook download error: ' + e.message, 'error');
+          setAudioDownloadModal(prev => ({ ...prev, active: false, status: 'Download failed: ' + e.message }));
         }
       };
 
@@ -9196,6 +9323,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 return webImportData || activeCrawlSession || null;
               })();
               const isLnoriUrl = /lnori\.(?:org|com)/i.test(webImportUrl);
+              const isSwiftAudioUrl = /swiftaudiobooks\.com|ipaudio7\.com/i.test(webImportUrl);
               const isLnoriNovel = Boolean(
                 (activeNovelView?.sourceUrl && /lnori\.(?:org|com)/i.test(activeNovelView.sourceUrl)) ||
                 (activeNovelView?.url && /lnori\.(?:org|com)/i.test(activeNovelView.url)) ||
@@ -9273,14 +9401,28 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   )
                 ),
 
-                h('div', { className: 'src-chips' }, ['Lnori', 'NovelBin', 'NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', {
+                h('div', { className: 'src-chips' }, ['Lnori', 'SwiftAudio', 'NovelBin', 'NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', {
                   key: s,
-                  className: 'src-chip',
+                  className: `src-chip ${s === 'SwiftAudio' ? 'accent' : ''}`,
+                  style: s === 'SwiftAudio' ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : { cursor: 'pointer' },
                   onClick: () => {
-                    if (s === 'Lnori' && !webImportUrl) setWebImportUrl('https://lnori.com/');
+                    if (s === 'SwiftAudio') {
+                      if (!webImportUrl || !webImportUrl.includes('swiftaudiobooks.com')) {
+                        setWebImportUrl('https://swiftaudiobooks.com/');
+                      }
+                      toast('SwiftAudiobooks selected! Enter title or paste link.', 'info');
+                    } else if (s === 'Lnori' && !webImportUrl) {
+                      setWebImportUrl('https://lnori.com/');
+                    }
                   }
-                }, s))),
-                h('input', { className: 'url-input', type: 'url', placeholder: 'Paste novel URL (Lnori, NovelBin, NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)', value: webImportUrl, onChange: (e) => setWebImportUrl(e.target.value) }),
+                }, s === 'SwiftAudio' ? '🎧 SwiftAudio' : s))),
+                h('input', {
+                  className: 'url-input',
+                  type: 'url',
+                  placeholder: isSwiftAudioUrl ? 'Paste SwiftAudiobooks URL or type book title to search…' : 'Paste novel URL (Lnori, SwiftAudio, NovelBin, NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)',
+                  value: webImportUrl,
+                  onChange: (e) => setWebImportUrl(e.target.value)
+                }),
 
                 // Lnori Detection Card & Direct 1-Click EPUB Button
                 isLnoriUrl && !isFetchingUrl && h('div', {
@@ -9322,6 +9464,48 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     title: 'Directly download from Lnori and package clean EPUB with cover art and volume hierarchy',
                     onClick: () => handleLnoriDirectEpubDownload(webImportUrl)
                   }, '⚡ 1-Click Download Clean EPUB')
+                ),
+
+                // SwiftAudiobooks Detection Card
+                isSwiftAudioUrl && !isFetchingUrl && h('div', {
+                  className: 'card',
+                  style: {
+                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(236, 72, 153, 0.12))',
+                    border: '1px solid rgba(99, 102, 241, 0.4)',
+                    padding: '12px 14px',
+                    margin: '8px 0 10px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 10,
+                    flexWrap: 'wrap'
+                  }
+                },
+                  h('div', { style: { flex: '1 1 220px' } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--paper)', fontSize: 13.5 } },
+                      h('span', null, '🎧 SwiftAudiobooks Detected'),
+                      h('span', { className: 'chip', style: { color: '#ec4899', borderColor: 'rgba(236, 72, 153, 0.4)', fontSize: 10.5 } }, 'Audiobook Stream')
+                    ),
+                    h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } },
+                      'Stream with 5-second jump controls, sleep timer, and batch MP3 downloading directly to novel folders!'
+                    )
+                  ),
+                  h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'linear-gradient(90deg, #6366f1, #ec4899)', color: '#fff', fontWeight: 700, padding: '8px 14px', border: 'none' },
+                      disabled: isSwiftAudioSearching,
+                      onClick: () => handleStartPlayAudiobook({ url: webImportUrl })
+                    }, '🎧 Listen Now'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { fontWeight: 600, padding: '8px 12px' },
+                      disabled: isSwiftAudioSearching,
+                      onClick: () => handleOpenAudioDownload({ url: webImportUrl })
+                    }, '📥 Download MP3s')
+                  )
                 ),
                 
                 // In-line Packaging Progress on Main Screen
@@ -9407,12 +9591,31 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     }, '✕ Cancel')
                   )
                 ) : !isFetchingUrl ? (
-                  h('button', {
-                    type: 'button',
-                    className: 'primary block',
-                    disabled: !webImportUrl.trim(),
-                    onClick: () => handleStartFetch(false)
-                  }, '⤓ Fetch Novel')
+                  isSwiftAudioUrl ? (
+                    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, margin: '6px 0' } },
+                      h('button', {
+                        type: 'button',
+                        className: 'primary',
+                        style: { background: 'linear-gradient(90deg, #6366f1, #ec4899)' },
+                        disabled: !webImportUrl.trim() || isSwiftAudioSearching,
+                        onClick: () => handleSwiftAudioSearch(webImportUrl)
+                      }, isSwiftAudioSearching ? 'Searching…' : '🔍 Search Audiobooks'),
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn',
+                        style: { background: 'var(--panel)', border: '1px solid var(--hairline)', color: 'var(--paper)', fontWeight: 600 },
+                        disabled: !webImportUrl.trim() || isSwiftAudioSearching,
+                        onClick: () => handleStartPlayAudiobook({ url: webImportUrl })
+                      }, '🎧 Play Stream')
+                    )
+                  ) : (
+                    h('button', {
+                      type: 'button',
+                      className: 'primary block',
+                      disabled: !webImportUrl.trim(),
+                      onClick: () => handleStartFetch(false)
+                    }, '⤓ Fetch Novel')
+                  )
                 ) : (
                   h('div', { style: { display: 'grid', gridTemplateColumns: (activeNovelView?.chapters?.length || 0) > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
                     h('button', {
@@ -9466,6 +9669,65 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   style: { background: 'rgba(234, 179, 8, 0.1)', borderColor: 'rgba(234, 179, 8, 0.25)', color: '#eab308', borderRadius: 4, padding: '8px 12px' }
                 },
                   h('span', null, `⏸ Ingestion paused. ${activeNovelView?.chapters?.length || 0} chapters saved. Click "Resume Fetch" to continue.`)
+                ),
+                // SwiftAudiobooks Search Results Grid / List
+                swiftAudioResults && swiftAudioResults.length > 0 && h('div', { style: { margin: '14px 0 16px' } },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--paper)' } },
+                      h('span', null, '🎧 SwiftAudiobooks Results'),
+                      h('span', { className: 'badge', style: { fontSize: 10.5, background: 'rgba(99, 102, 241, 0.2)', color: 'var(--accent, #6366f1)' } }, `${swiftAudioResults.length}`)
+                    ),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { fontSize: 10.5, padding: '2px 8px' },
+                      onClick: () => setSwiftAudioResults([])
+                    }, '✕ Clear')
+                  ),
+                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 } },
+                    swiftAudioResults.map((item, idx) => h('div', {
+                      key: idx,
+                      className: 'card',
+                      style: {
+                        padding: 12,
+                        display: 'flex',
+                        gap: 12,
+                        alignItems: 'flex-start',
+                        background: 'var(--card-bg)',
+                        border: '1px solid var(--hairline)'
+                      }
+                    },
+                      item.cover ? h('img', {
+                        src: item.cover,
+                        alt: 'Cover',
+                        style: { width: 64, height: 92, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
+                      }) : h('div', {
+                        style: { width: 64, height: 92, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
+                      }, '🎧'),
+
+                      h('div', { style: { flex: 1, minWidth: 0 } },
+                        h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
+                        h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, item.author ? `by ${item.author}` : ''),
+                        item.duration && h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent, #6366f1)', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600, marginBottom: 8 } },
+                          `⏱ ${item.duration}`
+                        ),
+                        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn',
+                            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
+                            onClick: () => handleStartPlayAudiobook(item)
+                          }, '🎧 Listen Now'),
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                            onClick: () => handleOpenAudioDownload(item)
+                          }, '📥 Download')
+                        )
+                      )
+                    ))
+                  )
                 ),
 
                 h('div', { className: 'note-row' },
@@ -11676,6 +11938,409 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   toast('Google Drive settings applied!', 'success');
                 }
               }, 'Save & Apply')
+            )
+          )
+        ),
+
+        // ── SWIFTAUDIO FLOATING MINI-PLAYER ──
+        (audioPlayerState?.currentBook) && h('div', {
+          className: 'swift-mini-player',
+          style: {
+            position: 'fixed',
+            bottom: 58,
+            left: 0,
+            right: 0,
+            height: 60,
+            background: amoledMode ? '#000000' : 'rgba(15, 23, 42, 0.96)',
+            borderTop: '1px solid var(--hairline)',
+            borderBottom: '1px solid var(--hairline)',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 12px',
+            gap: 10,
+            zIndex: 995,
+            boxShadow: '0 -4px 20px rgba(0,0,0,0.45)',
+            cursor: 'pointer'
+          },
+          onClick: () => setIsFullPlayerOpen(true)
+        },
+          audioPlayerState.currentBook.cover ? h('img', {
+            src: audioPlayerState.currentBook.cover,
+            alt: 'Cover',
+            style: { width: 42, height: 42, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
+          }) : h('div', {
+            style: { width: 42, height: 42, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }
+          }, '🎧'),
+
+          h('div', { style: { flex: 1, minWidth: 0 } },
+            h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+              audioPlayerState.currentTrack?.title || audioPlayerState.currentBook.title
+            ),
+            h('div', { style: { fontSize: 11, color: 'var(--slate)', display: 'flex', alignItems: 'center', gap: 6 } },
+              h('span', null, `${audioPlayerState.currentTrackIndex + 1}/${audioPlayerState.totalTracks || 1}`),
+              h('span', null, '•'),
+              h('span', null, `${window.SwiftAudioEngine?.formatDuration(audioPlayerState.currentTime) || '0:00'} / ${window.SwiftAudioEngine?.formatDuration(audioPlayerState.duration) || '0:00'}`)
+            )
+          ),
+
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 }, onClick: e => e.stopPropagation() },
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { padding: '6px 8px', fontSize: 11, fontWeight: 700 },
+              title: 'Skip back 5 seconds',
+              onClick: () => window.SwiftAudioEngine?.Player?.skipBackward5()
+            }, '-5s'),
+
+            h('button', {
+              type: 'button',
+              className: 'mini-btn',
+              style: {
+                background: 'var(--accent, #6366f1)',
+                color: '#fff',
+                width: 38,
+                height: 38,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 14,
+                padding: 0
+              },
+              title: audioPlayerState.isPlaying ? 'Pause' : 'Play',
+              onClick: () => window.SwiftAudioEngine?.Player?.togglePlay()
+            }, audioPlayerState.isPlaying ? '⏸' : '▶'),
+
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { padding: '6px 8px', fontSize: 11, fontWeight: 700 },
+              title: 'Skip forward 5 seconds',
+              onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
+            }, '+5s'),
+
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { padding: '6px 8px', fontSize: 12 },
+              title: 'Open full audiobook player',
+              onClick: () => setIsFullPlayerOpen(true)
+            }, '▲')
+          )
+        ),
+
+        // ── SWIFTAUDIO FULL PLAYER MODAL ──
+        isFullPlayerOpen && audioPlayerState?.currentBook && h('div', {
+          className: 'modal-bg',
+          style: { zIndex: 1000 },
+          onClick: () => setIsFullPlayerOpen(false)
+        },
+          h('div', {
+            className: 'modal',
+            style: {
+              maxWidth: 480,
+              width: '94%',
+              maxHeight: '92vh',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: 0,
+              overflow: 'hidden'
+            },
+            onClick: e => e.stopPropagation()
+          },
+            h('div', {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 18px',
+                borderBottom: '1px solid var(--hairline)'
+              }
+            },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 18 } }, '🎧'),
+                h('div', null,
+                  h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--paper)' } }, 'Audiobook Player'),
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Powered by Open-Source Plyr')
+                )
+              ),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { border: 'none', fontSize: 16 },
+                onClick: () => setIsFullPlayerOpen(false)
+              }, '✕')
+            ),
+
+            h('div', { style: { padding: '16px 20px', overflowY: 'auto', flex: 1 } },
+              h('div', { style: { textAlign: 'center', marginBottom: 14 } },
+                audioPlayerState.currentBook.cover ? h('img', {
+                  src: audioPlayerState.currentBook.cover,
+                  alt: 'Cover',
+                  style: { width: 160, height: 230, borderRadius: 12, objectFit: 'cover', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', margin: '0 auto' }
+                }) : h('div', {
+                  style: { width: 160, height: 210, borderRadius: 12, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, margin: '0 auto' }
+                }, '🎧')
+              ),
+
+              h('div', { style: { textAlign: 'center', marginBottom: 16 } },
+                h('div', { style: { fontSize: 16, fontWeight: 800, color: 'var(--paper)', lineHeight: 1.3 } }, audioPlayerState.currentBook.title),
+                h('div', { style: { fontSize: 12.5, color: 'var(--slate)', marginTop: 4 } }, audioPlayerState.currentBook.author ? `by ${audioPlayerState.currentBook.author}` : 'SwiftAudiobooks'),
+                h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--accent, #6366f1)', marginTop: 4 } },
+                  audioPlayerState.currentTrack?.title || `Track ${audioPlayerState.currentTrackIndex + 1}`
+                )
+              ),
+
+              h('div', { style: { marginBottom: 12 } },
+                h('input', {
+                  type: 'range',
+                  min: 0,
+                  max: audioPlayerState.duration || 100,
+                  step: 0.5,
+                  value: audioPlayerState.currentTime || 0,
+                  onChange: e => window.SwiftAudioEngine?.Player?.seekTo(parseFloat(e.target.value)),
+                  style: { width: '100%', accentColor: 'var(--accent, #6366f1)', cursor: 'pointer' }
+                }),
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--slate)', fontFamily: "'IBM Plex Mono', monospace", marginTop: 2 } },
+                  h('span', null, window.SwiftAudioEngine?.formatDuration(audioPlayerState.currentTime) || '0:00'),
+                  h('span', null, window.SwiftAudioEngine?.formatDuration(audioPlayerState.duration) || '0:00')
+                )
+              ),
+
+              h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 16 } },
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { fontSize: 16, padding: '8px 12px' },
+                  title: 'Previous Chapter',
+                  onClick: () => window.SwiftAudioEngine?.Player?.previousTrack()
+                }, '⏮'),
+
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { fontSize: 12, fontWeight: 700, padding: '8px 12px' },
+                  title: 'Rewind 5 seconds',
+                  onClick: () => window.SwiftAudioEngine?.Player?.skipBackward5()
+                }, '-5s'),
+
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn',
+                  style: {
+                    background: 'var(--accent, #6366f1)',
+                    color: '#fff',
+                    width: 52,
+                    height: 52,
+                    borderRadius: '50%',
+                    fontSize: 20,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                    boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
+                  },
+                  title: audioPlayerState.isPlaying ? 'Pause' : 'Play',
+                  onClick: () => window.SwiftAudioEngine?.Player?.togglePlay()
+                }, audioPlayerState.isPlaying ? '⏸' : '▶'),
+
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { fontSize: 12, fontWeight: 700, padding: '8px 12px' },
+                  title: 'Forward 5 seconds',
+                  onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
+                }, '+5s'),
+
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { fontSize: 16, padding: '8px 12px' },
+                  title: 'Next Chapter',
+                  onClick: () => window.SwiftAudioEngine?.Player?.nextTrack()
+                }, '⏭')
+              ),
+
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--panel)', padding: '10px 14px', borderRadius: 8, marginBottom: 14 } },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                  h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 600 } }, 'Speed:'),
+                  [0.75, 1.0, 1.25, 1.5, 2.0].map(sp => h('button', {
+                    key: sp,
+                    type: 'button',
+                    className: `mini-btn ${audioPlayerState.playbackRate === sp ? '' : 'ghost'}`,
+                    style: {
+                      padding: '4px 7px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      background: audioPlayerState.playbackRate === sp ? 'var(--accent, #6366f1)' : 'transparent',
+                      color: audioPlayerState.playbackRate === sp ? '#fff' : 'var(--paper-dim)'
+                    },
+                    onClick: () => window.SwiftAudioEngine?.Player?.setPlaybackRate(sp)
+                  }, `${sp}x`))
+                ),
+
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                  h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 600 } }, 'Sleep:'),
+                  h('select', {
+                    value: audioPlayerState.sleepAtEndOfChapter ? 'end_of_chapter' : (audioPlayerState.sleepTimerRemainingSeconds ? String(Math.ceil(audioPlayerState.sleepTimerRemainingSeconds / 60)) : 'off'),
+                    onChange: e => {
+                      const val = e.target.value;
+                      if (val === 'off') window.SwiftAudioEngine?.Player?.clearSleepTimer();
+                      else window.SwiftAudioEngine?.Player?.setSleepTimer(val);
+                    },
+                    style: { background: 'var(--bg)', color: 'var(--paper)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '4px 6px', fontSize: 11 }
+                  },
+                    h('option', { value: 'off' }, 'Off'),
+                    h('option', { value: '15' }, '15 min'),
+                    h('option', { value: '30' }, '30 min'),
+                    h('option', { value: '45' }, '45 min'),
+                    h('option', { value: '60' }, '60 min'),
+                    h('option', { value: 'end_of_chapter' }, 'End of Chapter')
+                  )
+                )
+              ),
+
+              h('div', { style: { marginTop: 10 } },
+                h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--paper)', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                  h('span', null, `Chapters (${audioPlayerState.totalTracks})`),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn ghost',
+                    style: { fontSize: 11, padding: '3px 8px' },
+                    onClick: () => handleOpenAudioDownload(audioPlayerState.currentBook)
+                  }, '📥 Download All MP3s')
+                ),
+                h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 180, overflowY: 'auto' } },
+                  (audioPlayerState.currentBook.tracks || []).map((t, idx) => {
+                    const isCur = idx === audioPlayerState.currentTrackIndex;
+                    return h('div', {
+                      key: idx,
+                      style: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 10px',
+                        borderRadius: 6,
+                        background: isCur ? 'rgba(99, 102, 241, 0.15)' : 'var(--panel)',
+                        border: isCur ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+                        cursor: 'pointer'
+                      },
+                      onClick: () => window.SwiftAudioEngine?.Player?.playTrack(idx)
+                    },
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
+                        h('span', { style: { fontSize: 11, color: isCur ? 'var(--accent, #6366f1)' : 'var(--slate)', width: 22, fontWeight: 700 } }, `${idx + 1}`),
+                        h('span', { style: { fontSize: 12, color: isCur ? 'var(--accent, #6366f1)' : 'var(--paper)', fontWeight: isCur ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t.title)
+                      ),
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 } },
+                        t.duration && h('span', { style: { fontSize: 11, color: 'var(--slate)', fontFamily: "'IBM Plex Mono', monospace" } }, t.duration),
+                        isCur && h('span', { style: { fontSize: 11, color: 'var(--accent, #6366f1)' } }, audioPlayerState.isPlaying ? '▶' : '⏸')
+                      )
+                    );
+                  })
+                )
+              )
+            )
+          )
+        ),
+
+        // ── SWIFTAUDIO BATCH DOWNLOAD MODAL ──
+        audioDownloadModal && h('div', {
+          className: 'modal-bg',
+          style: { zIndex: 1010 },
+          onClick: () => !audioDownloadModal.active && setAudioDownloadModal(null)
+        },
+          h('div', {
+            className: 'modal',
+            style: { maxWidth: 440, width: '92%' },
+            onClick: e => e.stopPropagation()
+          },
+            h('div', { className: 'modal-hd' },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 20 } }, '📥'),
+                h('span', { className: 't' }, 'Download Audiobook MP3s')
+              ),
+              !audioDownloadModal.active && h('button', { type: 'button', className: 'x-btn', onClick: () => setAudioDownloadModal(null) }, '✕')
+            ),
+            h('div', { className: 'modal-bd' },
+              h('div', { style: { display: 'flex', gap: 12, marginBottom: 12 } },
+                audioDownloadModal.book?.cover && h('img', {
+                  src: audioDownloadModal.book.cover,
+                  alt: 'Cover',
+                  style: { width: 56, height: 80, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
+                }),
+                h('div', { style: { flex: 1, minWidth: 0 } },
+                  h('div', { style: { fontSize: 13.5, fontWeight: 700, color: 'var(--paper)' } }, audioDownloadModal.book?.title || 'Audiobook'),
+                  h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } }, `Total: ${audioDownloadModal.book?.tracks?.length || 0} tracks`),
+                  h('div', { style: { fontSize: 11, color: '#10b981', marginTop: 4, fontWeight: 600 } }, 'Zero-memory direct device stream')
+                )
+              ),
+
+              h('div', { style: { background: 'var(--panel)', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--hairline)', marginBottom: 12 } },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
+                  h('span', { style: { fontSize: 11, fontWeight: 600, color: 'var(--slate)' } }, 'SAVE LOCATION'),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn ghost',
+                    style: { fontSize: 10.5, padding: '2px 6px' },
+                    disabled: audioDownloadModal.active,
+                    onClick: async () => {
+                      if (window.NativeBridge && window.NativeBridge.chooseFolder) {
+                        const res = await window.NativeBridge.chooseFolder();
+                        if (res && res.treeUri) {
+                          setAudioDownloadModal(prev => ({
+                            ...prev,
+                            folderOptions: { treeUri: res.treeUri, folderPath: res.displayPath }
+                          }));
+                          toast(`Bound to ${res.displayPath}!`, 'success');
+                        }
+                      } else {
+                        const cur = audioDownloadModal.folderOptions?.folderPath || `Audiobooks/${audioDownloadModal.book?.title}`;
+                        const p = window.prompt('Enter folder path for audiobook:', cur);
+                        if (p !== null && p.trim()) {
+                          setAudioDownloadModal(prev => ({
+                            ...prev,
+                            folderOptions: { subDir: p.trim(), folderPath: p.trim() }
+                          }));
+                        }
+                      }
+                    }
+                  }, '📁 Change Folder')
+                ),
+                h('div', { style: { fontSize: 11.5, fontFamily: 'monospace', color: 'var(--paper)', wordBreak: 'break-all' } },
+                  audioDownloadModal.folderOptions?.folderPath || `Download/GeminiTranslator/Audiobooks/${audioDownloadModal.book?.title}`
+                )
+              ),
+
+              h('div', { style: { marginBottom: 8 } },
+                h('div', { style: { fontSize: 11.5, color: 'var(--paper-dim)', marginBottom: 4 } }, audioDownloadModal.status || 'Ready'),
+                h('div', { style: { width: '100%', height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' } },
+                  h('div', { style: { height: '100%', width: `${Math.min(100, Math.max(0, audioDownloadModal.percent || 0))}%`, background: 'linear-gradient(90deg, #6366f1, #10b981)', transition: 'width 0.25s' } })
+                )
+              )
+            ),
+            h('div', { className: 'modal-ft' },
+              audioDownloadModal.active ? h('button', {
+                type: 'button',
+                className: 'mini-btn danger',
+                onClick: () => {
+                  window.SwiftAudioEngine?.Downloader?.cancel();
+                  toast('Cancelling download…', 'info');
+                }
+              }, '✕ Cancel Download') : [
+                h('button', {
+                  key: 'close',
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  onClick: () => setAudioDownloadModal(null)
+                }, 'Close'),
+                h('button', {
+                  key: 'start',
+                  type: 'button',
+                  className: 'mini-btn',
+                  style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700 },
+                  onClick: handleExecuteAudioBatchDownload
+                }, '⚡ Start Download')
+              ]
             )
           )
         ),

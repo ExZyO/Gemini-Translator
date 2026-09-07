@@ -893,6 +893,203 @@ public class NativeAndroidBridgePlugin extends Plugin {
         }).start();
     }
 
+    @PluginMethod
+    public void downloadFileDirect(PluginCall call) {
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            InputStream in = null;
+            OutputStream out = null;
+            Uri pendingUri = null;
+            Context context = getContext();
+
+            try {
+                String targetUrl = call.getString("url");
+                String fileName = call.getString("fileName");
+                String treeUri = call.getString("treeUri");
+                String subDir = call.getString("subDir");
+                String mimeType = call.getString("mimeType", "audio/mpeg");
+                String userAgent = call.getString("userAgent", DEFAULT_UA);
+
+                if (targetUrl == null || targetUrl.trim().isEmpty()) {
+                    call.reject("Missing download URL");
+                    return;
+                }
+                if (fileName == null || fileName.trim().isEmpty()) {
+                    fileName = "audiobook_track_" + System.currentTimeMillis() + ".mp3";
+                }
+
+                // 1. Establish HTTP connection following redirects
+                String currentUrl = targetUrl;
+                int redirects = 0;
+                int statusCode = 0;
+
+                while (redirects < 10) {
+                    URL url = new URL(currentUrl);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(30000);
+                    conn.setReadTimeout(60000);
+                    conn.setInstanceFollowRedirects(false);
+                    conn.setRequestProperty("User-Agent", userAgent);
+                    conn.setRequestProperty("Accept", "*/*");
+                    conn.setRequestProperty("Referer", "https://swiftaudiobooks.com/");
+
+                    statusCode = conn.getResponseCode();
+                    if (statusCode == HttpURLConnection.HTTP_MOVED_TEMP || 
+                        statusCode == HttpURLConnection.HTTP_MOVED_PERM || 
+                        statusCode == 307 || statusCode == 308) {
+                        String loc = conn.getHeaderField("Location");
+                        if (loc != null && !loc.isEmpty()) {
+                            if (!loc.startsWith("http")) {
+                                loc = new URL(url, loc).toString();
+                            }
+                            currentUrl = loc;
+                            conn.disconnect();
+                            redirects++;
+                            continue;
+                        }
+                    }
+                    break;
+                }
+
+                if (conn == null || statusCode >= 400) {
+                    call.reject("HTTP Error " + statusCode + " fetching audio from " + currentUrl);
+                    return;
+                }
+
+                long totalBytes = conn.getContentLengthLong();
+                in = conn.getInputStream();
+
+                boolean safSaved = false;
+                String savedPath = "";
+
+                // 2. Open destination stream: SAF Document Tree
+                if (treeUri != null && !treeUri.trim().isEmpty()) {
+                    try {
+                        Uri parsedTree = Uri.parse(treeUri);
+                        String treeDocId = DocumentsContract.getTreeDocumentId(parsedTree);
+                        Uri parentDocUri = DocumentsContract.buildDocumentUriUsingTree(parsedTree, treeDocId);
+                        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parsedTree, treeDocId);
+
+                        Uri targetDocUri = null;
+                        try (Cursor cursor = context.getContentResolver().query(
+                                childrenUri,
+                                new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME},
+                                null, null, null)) {
+                            if (cursor != null) {
+                                int idIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
+                                int nameIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+                                while (cursor.moveToNext()) {
+                                    String name = cursor.getString(nameIdx);
+                                    if (fileName.equalsIgnoreCase(name)) {
+                                        String docId = cursor.getString(idIdx);
+                                        targetDocUri = DocumentsContract.buildDocumentUriUsingTree(parsedTree, docId);
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (Exception queryErr) {
+                            Log.w(TAG, "SAF children query warning: " + queryErr.getMessage());
+                        }
+
+                        if (targetDocUri == null) {
+                            targetDocUri = DocumentsContract.createDocument(context.getContentResolver(), parentDocUri, mimeType, fileName);
+                        }
+
+                        if (targetDocUri != null) {
+                            out = context.getContentResolver().openOutputStream(targetDocUri, "wt");
+                            safSaved = true;
+                            savedPath = "📁 Saved in novel folder: " + fileName;
+                        }
+                    } catch (Exception safErr) {
+                        Log.e(TAG, "SAF download output failed: " + safErr.getMessage(), safErr);
+                    }
+                }
+
+                // 3. Fallback: MediaStore / Download folder
+                if (!safSaved) {
+                    String relativeSubDir = "GeminiTranslator/Audiobooks";
+                    if (subDir != null && !subDir.trim().isEmpty()) {
+                        String clean = subDir.trim().replaceAll("^[\\\\/]+", "").replaceAll("[\\\\/]+$", "");
+                        if (!clean.isEmpty()) {
+                            if (clean.toLowerCase().startsWith("download/") || clean.toLowerCase().startsWith("downloads/")) {
+                                relativeSubDir = clean.replaceFirst("^(?i)downloads?/", "");
+                            } else {
+                                relativeSubDir = clean;
+                            }
+                        }
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                        values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+                        values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + relativeSubDir);
+                        values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                        pendingUri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                        if (pendingUri != null) {
+                            out = context.getContentResolver().openOutputStream(pendingUri);
+                            savedPath = "/storage/emulated/0/Download/" + relativeSubDir + "/" + fileName;
+                        }
+                    } else {
+                        File pubDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), relativeSubDir);
+                        if (!pubDir.exists()) pubDir.mkdirs();
+                        File destFile = new File(pubDir, fileName);
+                        out = new FileOutputStream(destFile);
+                        savedPath = destFile.getAbsolutePath();
+                    }
+                }
+
+                if (out == null) {
+                    call.reject("Could not create output stream for file: " + fileName);
+                    return;
+                }
+
+                // 4. Stream chunks directly: Zero-memory RAM buffer
+                byte[] buffer = new byte[65536];
+                int bytesRead;
+                long bytesDownloaded = 0;
+                long lastNotifyTime = System.currentTimeMillis();
+
+                while ((bytesRead = in.read(buffer)) > 0) {
+                    out.write(buffer, 0, bytesRead);
+                    bytesDownloaded += bytesRead;
+
+                    long now = System.currentTimeMillis();
+                    if (now - lastNotifyTime > 800) {
+                        lastNotifyTime = now;
+                        int pct = totalBytes > 0 ? (int) ((bytesDownloaded * 100) / totalBytes) : 0;
+                        updateNotification("Downloading " + fileName, (pct > 0 ? pct + "% (" : "(") + (bytesDownloaded / 1048576) + " MB)", pct, true);
+                    }
+                }
+
+                out.flush();
+
+                if (pendingUri != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentValues finishValues = new ContentValues();
+                    finishValues.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                    context.getContentResolver().update(pendingUri, finishValues, null, null);
+                }
+
+                updateNotification("Audio Download Complete", fileName, 100, false);
+
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("fileName", fileName);
+                ret.put("size", bytesDownloaded);
+                ret.put("path", savedPath);
+                call.resolve(ret);
+
+            } catch (Exception e) {
+                Log.e(TAG, "Direct audio download error: " + e.getMessage(), e);
+                call.reject("Direct Download Error: " + e.getMessage());
+            } finally {
+                try { if (in != null) in.close(); } catch (Exception ignored) {}
+                try { if (out != null) out.close(); } catch (Exception ignored) {}
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
+    }
+
         private void updateNotification(String title, String message, int progress, boolean ongoing) {
         try {
             Context context = getContext();

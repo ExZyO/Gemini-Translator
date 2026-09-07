@@ -92,6 +92,7 @@
     const generateEpubFromChapters = async (chaptersList, bookTitle = 'Web Novel', bookAuthor = 'Author', bookLang = 'en', onProgress = null, options = {}) => {
       const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
       if (!JSZipClass) throw new Error('JSZip library not loaded');
+      const zip = new JSZipClass();
       // Deterministic RFC4122 v4 UUID for e-reader continuity (Moon+ Reader, Apple Books, Kindle)
       const generateDeterministicUUID = (seed) => {
         let h1 = 0xdeadbeef, h2 = 0x41c64e6d;
