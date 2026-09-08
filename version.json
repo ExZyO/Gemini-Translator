@@ -1,7 +1,7 @@
 {
-  "version": "8.10.53",
-  "versionCode": 8153,
+  "version": "8.10.54",
+  "versionCode": 8154,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.53: Guarantee novel cover extraction & embedding in all downloaded EPUBs across all web novel sources; persist designated novel folder locations seamlessly across fetching, Add to Space, and Library without re-selection."
+  "releaseNotes": "v8.10.54: Fix ReferenceError during EPUB packaging where activeNovelView was scoped to the importer tab; elevated activeNovelView to top-level state and added safe fallback resolution in getEpubOptions."
 }

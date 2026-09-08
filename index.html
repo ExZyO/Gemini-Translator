@@ -838,7 +838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.53';
+    const VERSION = '8.10.54';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3264,6 +3264,13 @@ const formatModelName = (id, displayName) => {
         } catch (e) { return ''; }
       });
 
+      const activeNovelView = useMemo(() => {
+        const sCh = activeCrawlSession?.chapters?.length || 0;
+        const dCh = webImportData?.chapters?.length || 0;
+        if (sCh > 0 && sCh >= dCh) return activeCrawlSession;
+        return webImportData || activeCrawlSession || null;
+      }, [activeCrawlSession, webImportData]);
+
       // --- SwiftAudio Engine & Player State ---
       const [swiftAudioResults, setSwiftAudioResults] = useState([]);
       const [isSwiftAudioSearching, setIsSwiftAudioSearching] = useState(false);
@@ -4303,7 +4310,8 @@ const formatModelName = (id, displayName) => {
       useEffect(() => { localStorage.setItem('epubJustifyText', String(epubJustifyText)); }, [epubJustifyText]);
 
       const getEpubOptions = (extraOpts = {}) => {
-        const coverCandidate = extraOpts.coverUrl || extraOpts.cover || activeNovelView?.cover || activeCrawlSession?.cover || activeNovelRecord?.cover || coverImage || '';
+        const activeNovel = (typeof activeNovelView !== 'undefined' && activeNovelView) ? activeNovelView : ((activeCrawlSession?.chapters?.length >= (webImportData?.chapters?.length || 0)) ? activeCrawlSession : (webImportData || activeCrawlSession));
+        const coverCandidate = extraOpts.coverUrl || extraOpts.cover || activeNovel?.cover || (typeof activeCrawlSession !== 'undefined' ? activeCrawlSession?.cover : '') || (typeof activeNovelRecord !== 'undefined' ? activeNovelRecord?.cover : '') || (typeof coverImage !== 'undefined' ? coverImage : '') || '';
         return {
           includeImages: (epubIncludeImages !== false) && (scrapeImages !== false),
           dropCaps: epubDropCaps,
@@ -9589,12 +9597,6 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
             // ═══ TAB 2: WEB IMPORTER ═══
             activeTab === 'web_importer' && (() => {
-              const activeNovelView = (() => {
-                const sCh = activeCrawlSession?.chapters?.length || 0;
-                const dCh = webImportData?.chapters?.length || 0;
-                if (sCh > 0 && sCh >= dCh) return activeCrawlSession;
-                return webImportData || activeCrawlSession || null;
-              })();
               const isLnoriUrl = /lnori\.(?:org|com)/i.test(webImportUrl);
               const isSwiftAudioDetected = isSwiftAudioMode || /swiftaudiobooks\.com|ipaudio7\.com/i.test(webImportUrl);
               const isSpecificSwiftAudioBook = /^https?:\/\/(?:www\.)?(?:swiftaudiobooks\.com|ipaudio7\.com)\/[a-z0-9-]+/i.test((webImportUrl || '').trim()) &&
