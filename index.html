@@ -838,7 +838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.52';
+    const VERSION = '8.10.53';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3381,6 +3381,30 @@ const formatModelName = (id, displayName) => {
       const [isBatchChecking, setIsBatchChecking] = useState(false);
       const [collapsedVolumes, setCollapsedVolumes] = useState({});
 
+      const getNovelFolderOptions = (novel) => {
+        if (!novel) return {};
+        try {
+          const mappingStore = JSON.parse(localStorage.getItem('gemini_novel_folder_mappings') || '{}');
+          const titleKey = (novel.title || '').trim().toLowerCase();
+          const idKey = novel.id || '';
+          const urlKey = novel.sourceUrl || novel.url || '';
+          const mapped = (idKey && mappingStore[idKey]) || (titleKey && mappingStore[titleKey]) || (urlKey && mappingStore[urlKey]);
+
+          const metaList = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
+          const meta = metaList.find(m => (novel.id && m.id === novel.id) || (m.title && novel.title && m.title.trim().toLowerCase() === novel.title.trim().toLowerCase()));
+          const treeUri = novel.folderTreeUri || mapped?.treeUri || mapped?.folderTreeUri || meta?.folderTreeUri || '';
+          const folderPath = novel.folderPath || mapped?.folderPath || mapped?.subDir || meta?.folderPath || '';
+          return {
+            treeUri,
+            folderTreeUri: treeUri,
+            subDir: folderPath,
+            folderPath
+          };
+        } catch (e) {
+          return {};
+        }
+      };
+
       const saveNovelToHistory = async (novelData) => {
         if (!novelData || !novelData.chapters || novelData.chapters.length === 0) return;
         const totalWords = novelData.chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : (c.content ? c.content.split(/\s+/).filter(Boolean).length : 0))), 0);
@@ -3423,16 +3447,21 @@ const formatModelName = (id, displayName) => {
         const totalChapters = novelData.totalChapterCount || (novelData.chapterList ? novelData.chapterList.length : cleanChapters.length);
         const isIncomplete = novelData.isIncomplete !== undefined ? !!novelData.isIncomplete : (cleanChapters.length < totalChapters);
         const isTranslated = !!novelData.isTranslated || (novelData.title || '').includes('(Translated)');
-        const existingMeta = (webImportHistory || []).find(n => n.id === novelId || n.title === novelData.title);
+        const existingMeta = (webImportHistory || []).find(n => (novelId && n.id === novelId) || (n.title && novelData.title && n.title.trim().toLowerCase() === novelData.title.trim().toLowerCase()));
         const inSavedSpace = novelData.inSavedSpace !== undefined
           ? !!novelData.inSavedSpace
           : (existingMeta?.inSavedSpace !== undefined ? !!existingMeta.inSavedSpace : false);
+        const folderOpts = getNovelFolderOptions(novelData);
+        const folderTreeUri = novelData.folderTreeUri || folderOpts.treeUri || existingMeta?.folderTreeUri || '';
+        const folderPath = novelData.folderPath || folderOpts.folderPath || existingMeta?.folderPath || '';
+        const coverArt = novelData.cover || existingMeta?.cover || '';
 
         const novelRecord = {
           id: novelId,
           title: novelData.title || 'Untitled Novel',
           author: novelData.author || 'Author',
           summary: (novelData.summary || '').substring(0, 300),
+          cover: coverArt,
           tags: novelData.tags || [],
           chapterCount: cleanChapters.length,
           totalChapterCount: totalChapters,
@@ -3451,8 +3480,8 @@ const formatModelName = (id, displayName) => {
           originalText: novelData.originalText || '',
           translatedChapters: Array.isArray(novelData.translatedChapters) ? novelData.translatedChapters : (cleanChapters && isTranslated ? cleanChapters : null),
           targetLang: novelData.targetLang || (isTranslated ? 'en' : null),
-          folderTreeUri: novelData.folderTreeUri || existingMeta?.folderTreeUri || '',
-          folderPath: novelData.folderPath || existingMeta?.folderPath || ''
+          folderTreeUri,
+          folderPath
         };
 
         if (window.GeminiNovelDB) {
@@ -3468,6 +3497,7 @@ const formatModelName = (id, displayName) => {
           title: novelRecord.title,
           author: novelRecord.author,
           summary: novelRecord.summary,
+          cover: coverArt,
           tags: novelRecord.tags,
           chapterCount: novelRecord.chapterCount,
           totalChapterCount: novelRecord.totalChapterCount,
@@ -3486,7 +3516,7 @@ const formatModelName = (id, displayName) => {
         };
 
         setWebImportHistory(prev => {
-          const updated = [metaRecord, ...prev.filter(n => n.id !== metaRecord.id && n.title !== novelData.title)].slice(0, 50);
+          const updated = [metaRecord, ...prev.filter(n => n.id !== metaRecord.id && (!metaRecord.title || (n.title || '').trim().toLowerCase() !== metaRecord.title.trim().toLowerCase()))].slice(0, 50);
           try {
             localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updated));
           } catch (e) {}
@@ -3499,19 +3529,63 @@ const formatModelName = (id, displayName) => {
         }
       };
 
-      const toggleNovelSavedSpace = async (novelId) => {
-        const full = await loadFullNovel({ id: novelId });
+      const toggleNovelSavedSpace = async (novelId, novelFallback = null) => {
+        let full = await loadFullNovel({ id: novelId, title: novelFallback?.title });
+        if (!full && novelFallback) {
+          full = { ...novelFallback };
+        }
         if (!full) return;
         const newSaved = !full.inSavedSpace;
         full.inSavedSpace = newSaved;
+
+        // Guarantee folder options and cover are preserved
+        const folderOpts = getNovelFolderOptions(full);
+        if (folderOpts.folderPath) full.folderPath = folderOpts.folderPath;
+        if (folderOpts.treeUri) full.folderTreeUri = folderOpts.treeUri;
+        if (!full.cover && novelFallback?.cover) full.cover = novelFallback.cover;
+
         if (window.GeminiNovelDB) {
-          await window.GeminiNovelDB.saveNovel(full);
+          try { await window.GeminiNovelDB.saveNovel(full); } catch(e) {}
         }
         setWebImportHistory(prev => {
-          const updated = prev.map(m => m.id === novelId ? { ...m, inSavedSpace: newSaved } : m);
+          const list = prev || [];
+          const exists = list.some(m => (full.id && m.id === full.id) || (m.title && full.title && m.title.trim().toLowerCase() === full.title.trim().toLowerCase()));
+          let updated;
+          if (exists) {
+            updated = list.map(m => ((full.id && m.id === full.id) || (m.title && full.title && m.title.trim().toLowerCase() === full.title.trim().toLowerCase()))
+              ? { ...m, inSavedSpace: newSaved, cover: full.cover || m.cover, folderPath: full.folderPath || m.folderPath, folderTreeUri: full.folderTreeUri || m.folderTreeUri }
+              : m);
+          } else {
+            updated = [{ ...full, inSavedSpace: newSaved }, ...list];
+          }
           try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updated)); } catch(e) {}
           return updated;
         });
+
+        // Also update active session / import data states so UI stays reactive
+        setActiveCrawlSession(prev => {
+          if (prev && ((full.id && prev.id === full.id) || (full.title && prev.title && prev.title.trim().toLowerCase() === full.title.trim().toLowerCase()))) {
+            const next = { ...prev, inSavedSpace: newSaved, folderPath: full.folderPath || prev.folderPath, folderTreeUri: full.folderTreeUri || prev.folderTreeUri };
+            try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(next)); } catch(e) {}
+            return next;
+          }
+          return prev;
+        });
+        setWebImportData(prev => {
+          if (prev && ((full.id && prev.id === full.id) || (full.title && prev.title && prev.title.trim().toLowerCase() === full.title.trim().toLowerCase()))) {
+            return { ...prev, inSavedSpace: newSaved, folderPath: full.folderPath || prev.folderPath, folderTreeUri: full.folderTreeUri || prev.folderTreeUri };
+          }
+          return prev;
+        });
+        if (typeof setActiveNovelRecord === 'function') {
+          setActiveNovelRecord(prev => {
+            if (prev && ((full.id && prev.id === full.id) || (full.title && prev.title && prev.title.trim().toLowerCase() === full.title.trim().toLowerCase()))) {
+              return { ...prev, inSavedSpace: newSaved, folderPath: full.folderPath || prev.folderPath, folderTreeUri: full.folderTreeUri || prev.folderTreeUri };
+            }
+            return prev;
+          });
+        }
+
         toast(newSaved ? `"${full.title}" saved to your Special Space! ⭐` : `Removed from Special Space.`, 'info');
       };
 
@@ -3620,7 +3694,7 @@ const formatModelName = (id, displayName) => {
                 if (typeof setEpubPackagingModal === 'function') {
                   setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
                 }
-                const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle }) : { novelId: item.id };
+                const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle, coverUrl: item.cover || full?.cover || '' }) : { novelId: item.id, coverUrl: item.cover || full?.cover || '' };
                 const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
                   if (typeof setEpubPackagingModal === 'function') {
                     setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
@@ -4228,16 +4302,20 @@ const formatModelName = (id, displayName) => {
       useEffect(() => { localStorage.setItem('epubFontTheme', epubFontTheme); }, [epubFontTheme]);
       useEffect(() => { localStorage.setItem('epubJustifyText', String(epubJustifyText)); }, [epubJustifyText]);
 
-      const getEpubOptions = (extraOpts = {}) => ({
-        includeImages: (epubIncludeImages !== false) && (scrapeImages !== false),
-        dropCaps: epubDropCaps,
-        smartQuotes: epubSmartQuotes,
-        cleanWebArtifacts: epubCleanWebArtifacts,
-        fontTheme: epubFontTheme,
-        justifyText: epubJustifyText,
-        fixedFilename: epubFixedFilename !== false,
-        ...extraOpts
-      });
+      const getEpubOptions = (extraOpts = {}) => {
+        const coverCandidate = extraOpts.coverUrl || extraOpts.cover || activeNovelView?.cover || activeCrawlSession?.cover || activeNovelRecord?.cover || coverImage || '';
+        return {
+          includeImages: (epubIncludeImages !== false) && (scrapeImages !== false),
+          dropCaps: epubDropCaps,
+          smartQuotes: epubSmartQuotes,
+          cleanWebArtifacts: epubCleanWebArtifacts,
+          fontTheme: epubFontTheme,
+          justifyText: epubJustifyText,
+          fixedFilename: epubFixedFilename !== false,
+          coverUrl: coverCandidate,
+          ...extraOpts
+        };
+      };
 
       const getEpubFileName = (title, chapterCount = 0, isPartial = false) => {
         const cleanName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(title) : String(title || 'Novel')).replace(/\s+/g, ' ').trim();
@@ -4284,50 +4362,108 @@ const formatModelName = (id, displayName) => {
         }
       }, []);
 
-      const getNovelFolderOptions = (novel) => {
-        if (!novel) return {};
+      const updateNovelFolderRecord = async (novel, treeUri, displayPath) => {
+        const novelId = typeof novel === 'object' ? (novel.id || '') : (novel || '');
+        const novelTitle = typeof novel === 'object' ? (novel.title || '') : (novel || '');
+        const novelUrl = typeof novel === 'object' ? (novel.sourceUrl || novel.url || '') : '';
+        const normTitle = (novelTitle || '').trim().toLowerCase();
+
+        // 1. Dedicated persistent folder mapping dictionary
+        try {
+          const mappingStore = JSON.parse(localStorage.getItem('gemini_novel_folder_mappings') || '{}');
+          const entry = { treeUri, folderTreeUri: treeUri, folderPath: displayPath, subDir: displayPath };
+          if (novelId) mappingStore[novelId] = entry;
+          if (normTitle) mappingStore[normTitle] = entry;
+          if (novelUrl) mappingStore[novelUrl] = entry;
+          localStorage.setItem('gemini_novel_folder_mappings', JSON.stringify(mappingStore));
+        } catch (e) {}
+
+        // 2. Metadata list in localStorage
         try {
           const metaList = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
-          const meta = metaList.find(m => (novel.id && m.id === novel.id) || (m.title && novel.title && m.title.trim().toLowerCase() === novel.title.trim().toLowerCase()));
-          const treeUri = novel.folderTreeUri || meta?.folderTreeUri || '';
-          const folderPath = novel.folderPath || meta?.folderPath || '';
-          return {
-            treeUri,
-            folderTreeUri: treeUri,
-            subDir: folderPath,
-            folderPath
-          };
-        } catch (e) {
-          return {};
-        }
-      };
-
-      const updateNovelFolderRecord = async (novelIdOrTitle, treeUri, displayPath) => {
-        const metaList = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
-        const updatedMeta = metaList.map(m => {
-          if (m.id === novelIdOrTitle || m.title === novelIdOrTitle) {
-            return { ...m, folderTreeUri: treeUri, folderPath: displayPath };
+          let matched = false;
+          const updatedMeta = metaList.map(m => {
+            const mId = m.id || '';
+            const mTitle = (m.title || '').trim().toLowerCase();
+            if ((novelId && mId === novelId) || (normTitle && mTitle === normTitle)) {
+              matched = true;
+              return { ...m, folderTreeUri: treeUri, folderPath: displayPath };
+            }
+            return m;
+          });
+          if (!matched && typeof novel === 'object' && novel) {
+            updatedMeta.unshift({ ...novel, folderTreeUri: treeUri, folderPath: displayPath });
           }
-          return m;
-        });
-        localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updatedMeta));
+          localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updatedMeta));
+        } catch (e) {}
 
+        // 3. Update IndexedDB full record
         if (window.GeminiNovelDB) {
           try {
             const all = await window.GeminiNovelDB.getAllNovels();
-            const full = (all || []).find(n => n.id === novelIdOrTitle || n.title === novelIdOrTitle);
+            const full = (all || []).find(n => (novelId && n.id === novelId) || (normTitle && (n.title || '').trim().toLowerCase() === normTitle));
             if (full) {
               await window.GeminiNovelDB.saveNovel({ ...full, folderTreeUri: treeUri, folderPath: displayPath });
+            } else if (typeof novel === 'object' && novel && (novel.chapters || novel.rawChapters)) {
+              await window.GeminiNovelDB.saveNovel({ ...novel, folderTreeUri: treeUri, folderPath: displayPath });
             }
           } catch(e) {}
         }
 
-        setWebImportHistory(prev => (prev || []).map(item => {
-          if (item.id === novelIdOrTitle || item.title === novelIdOrTitle) {
-            return { ...item, folderTreeUri: treeUri, folderPath: displayPath };
+        // 4. Update webImportHistory state
+        setWebImportHistory(prev => {
+          const list = prev || [];
+          const exists = list.some(item => (novelId && item.id === novelId) || (normTitle && (item.title || '').trim().toLowerCase() === normTitle));
+          if (exists) {
+            return list.map(item => {
+              if ((novelId && item.id === novelId) || (normTitle && (item.title || '').trim().toLowerCase() === normTitle)) {
+                return { ...item, folderTreeUri: treeUri, folderPath: displayPath };
+              }
+              return item;
+            });
           }
-          return item;
-        }));
+          if (typeof novel === 'object' && novel) {
+            return [{ ...novel, folderTreeUri: treeUri, folderPath: displayPath }, ...list];
+          }
+          return list;
+        });
+
+        // 5. Update activeCrawlSession state and localStorage if currently active
+        setActiveCrawlSession(prev => {
+          if (!prev) return prev;
+          const matchId = novelId && prev.id === novelId;
+          const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
+          if (matchId || matchTitle || !novelId) {
+            const updated = { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
+            try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(updated)); } catch(e) {}
+            return updated;
+          }
+          return prev;
+        });
+
+        // 6. Update webImportData state
+        setWebImportData(prev => {
+          if (!prev) return prev;
+          const matchId = novelId && prev.id === novelId;
+          const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
+          if (matchId || matchTitle || !novelId) {
+            return { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
+          }
+          return prev;
+        });
+
+        // 7. Update activeNovelRecord state if present
+        if (typeof setActiveNovelRecord === 'function') {
+          setActiveNovelRecord(prev => {
+            if (!prev) return prev;
+            const matchId = novelId && prev.id === novelId;
+            const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
+            if (matchId || matchTitle || !novelId) {
+              return { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
+            }
+            return prev;
+          });
+        }
       };
 
       const handleSetNovelFolder = async (novel) => {
@@ -4336,14 +4472,14 @@ const formatModelName = (id, displayName) => {
           if (window.NativeBridge && window.NativeBridge.chooseFolder) {
             const res = await window.NativeBridge.chooseFolder();
             if (res && res.treeUri) {
-              await updateNovelFolderRecord(novel.id || novel.title, res.treeUri, res.displayPath);
+              await updateNovelFolderRecord(novel, res.treeUri, res.displayPath);
               toast(`📁 Bound "${novel.title}" to ${res.displayPath}! Future EPUBs will overwrite here.`, 'success');
             }
           } else {
             const cur = novel.folderPath || ('Books/' + (typeof sanitizeFilename === 'function' ? sanitizeFilename(novel.title) : novel.title));
             const p = window.prompt('Enter folder path for "' + novel.title + '" (e.g. Books/' + (typeof sanitizeFilename === 'function' ? sanitizeFilename(novel.title) : novel.title) + '):', cur);
             if (p !== null && p.trim()) {
-              await updateNovelFolderRecord(novel.id || novel.title, '', p.trim());
+              await updateNovelFolderRecord(novel, '', p.trim());
               toast(`📁 Saved folder path for "${novel.title}"!`, 'success');
             }
           }
@@ -6814,6 +6950,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               const currentTotal = totalChs > 0 ? totalChs : Math.max(allChapters.length + 1, targetSession?.totalChapterCount || 0);
               const isIncomplete = totalChs > 0 ? (allChapters.length < totalChs) : true;
 
+              const existingFolder = getNovelFolderOptions({ id: novelId, title: stats.title || targetSession?.title, sourceUrl: targetUrl });
               const sessionObj = {
                 id: novelId,
                 url: targetUrl,
@@ -6821,11 +6958,15 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 title: stats.title || targetSession?.title || 'Web Novel',
                 author: stats.author || targetSession?.author || 'Unknown',
                 summary: stats.summary || targetSession?.summary || '',
+                cover: stats.cover || targetSession?.cover || '',
                 chapters: allChapters,
                 chapterList: stats.chapterList || targetSession?.chapterList || [],
                 completedCount: allChapters.length,
                 totalChapterCount: currentTotal,
                 isIncomplete: isIncomplete,
+                folderTreeUri: targetSession?.folderTreeUri || existingFolder.treeUri || '',
+                folderPath: targetSession?.folderPath || existingFolder.folderPath || '',
+                inSavedSpace: targetSession?.inSavedSpace !== undefined ? targetSession.inSavedSpace : undefined,
                 timestamp: new Date().toISOString()
               };
               latestSessionSnapshot = sessionObj;
@@ -6889,6 +7030,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             const isActuallyFinished = totalExpected > 0 ? (data.chapters.length >= totalExpected || (data.chapterList && data.chapterList.length > 0 && data.chapters.length >= data.chapterList.length)) : true;
 
             data.id = novelId;
+            data.cover = data.cover || stats?.cover || targetSession?.cover || latestSessionSnapshot?.cover || '';
+            const existingFolder = getNovelFolderOptions(data);
+            data.folderTreeUri = data.folderTreeUri || targetSession?.folderTreeUri || latestSessionSnapshot?.folderTreeUri || existingFolder.treeUri || '';
+            data.folderPath = data.folderPath || targetSession?.folderPath || latestSessionSnapshot?.folderPath || existingFolder.folderPath || '';
             data.isIncomplete = !isActuallyFinished;
             data.totalChapterCount = totalExpected || data.chapters.length;
             setWebImportData(data);
@@ -6918,7 +7063,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 id: novelId,
                 isIncomplete: true,
                 totalChapterCount: totalExpected,
-                completedCount: data.chapters.length
+                completedCount: data.chapters.length,
+                folderTreeUri: data.folderTreeUri || latestSessionSnapshot?.folderTreeUri || existingFolder.treeUri || '',
+                folderPath: data.folderPath || latestSessionSnapshot?.folderPath || existingFolder.folderPath || ''
               };
               setActiveCrawlSession(partialSession);
               flushCrawlPersistence(partialSession);
@@ -8330,7 +8477,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           setEpubPackagingModal({ title: cleanDocTitle, status: ' Assembling translated EPUB archive...', pct: 10 });
           const blob = await generateEpubFromChapters(chaptersToExport, cleanDocTitle, cleanAuthor, lang, (status, pct, elapsed) => {
             setEpubPackagingModal({ title: cleanDocTitle, status, pct, elapsed });
-          }, typeof getEpubOptions === 'function' ? getEpubOptions() : {});
+          }, typeof getEpubOptions === 'function' ? getEpubOptions({ coverUrl: activeNovelRecord?.cover || coverImage || '' }) : { coverUrl: activeNovelRecord?.cover || coverImage || '' });
           setEpubPackagingModal(null);
           toast(' EPUB downloaded successfully!', 'success');
           const cleanDocName = cleanDocTitle && !isGenericTitle(cleanDocTitle) ? sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
@@ -9494,7 +9641,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeCrawlSession.author) : (activeCrawlSession.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeCrawlSession?.id || activeCrawlSession?.sourceUrl || novelTitle }) : {};
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeCrawlSession?.id || activeCrawlSession?.sourceUrl || novelTitle, coverUrl: activeCrawlSession?.cover || '' }) : { coverUrl: activeCrawlSession?.cover || '' };
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
@@ -9688,7 +9835,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle }) : {};
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: activeNovelView?.cover || '' }) : { coverUrl: activeNovelView?.cover || '' };
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
@@ -9765,7 +9912,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle }) : {};
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: activeNovelView?.cover || '' }) : { coverUrl: activeNovelView?.cover || '' };
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
@@ -9968,25 +10115,25 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       className: 'mini-btn ghost',
                       style: { borderColor: activeNovelView.inSavedSpace ? '#f59e0b' : 'var(--hairline)', color: activeNovelView.inSavedSpace ? '#f59e0b' : 'var(--paper)', fontWeight: 600 },
                       onClick: async () => {
-                        if (activeNovelView.id) {
-                          await toggleNovelSavedSpace(activeNovelView.id);
-                        } else {
-                          await saveNovelToHistory({ ...activeNovelView, inSavedSpace: true });
-                          toast(`"${activeNovelView.title}" saved to your Saved Space! ⭐`, 'success');
-                        }
+                        await toggleNovelSavedSpace(activeNovelView.id, activeNovelView);
                       }
                     }, (activeNovelView.inSavedSpace ? '⭐ In Saved Space' : '☆ Save to Space')),
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn ghost',
-                      style: {
-                        borderColor: (activeNovelView.folderPath || activeNovelView.folderTreeUri) ? '#10b981' : 'var(--hairline)',
-                        color: (activeNovelView.folderPath || activeNovelView.folderTreeUri) ? '#10b981' : 'var(--paper)',
-                        fontWeight: 600
-                      },
-                      title: 'Set designated folder on device for Moon+ Reader continuity',
-                      onClick: () => handleSetNovelFolder(activeNovelView)
-                    }, (activeNovelView.folderPath ? `📁 ${activeNovelView.folderPath}` : '📁 Set Folder')),
+                    (() => {
+                      const fOpts = getNovelFolderOptions(activeNovelView);
+                      const dispPath = activeNovelView.folderPath || fOpts.folderPath || '';
+                      const hasFolder = !!(dispPath || activeNovelView.folderTreeUri || fOpts.treeUri);
+                      return h('button', {
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: {
+                          borderColor: hasFolder ? '#10b981' : 'var(--hairline)',
+                          color: hasFolder ? '#10b981' : 'var(--paper)',
+                          fontWeight: 600
+                        },
+                        title: 'Set designated folder on device for Moon+ Reader continuity',
+                        onClick: () => handleSetNovelFolder(activeNovelView)
+                      }, (dispPath ? `📁 ${dispPath.length > 22 ? dispPath.slice(0, 20) + '…' : dispPath}` : '📁 Set Folder'));
+                    })(),
                     !isLnoriNovel && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
@@ -9999,7 +10146,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                           const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle }) : {};
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: activeNovelView?.cover || '' }) : { coverUrl: activeNovelView?.cover || '' };
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
@@ -10528,22 +10675,27 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             color: item.inSavedSpace ? '#f59e0b' : 'var(--paper)',
                             fontWeight: 600
                           },
-                          onClick: () => toggleNovelSavedSpace(item.id)
+                          onClick: () => toggleNovelSavedSpace(item.id, item)
                         }, item.inSavedSpace ? '⭐ In Space' : '☆ Save to Space'),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: {
-                            borderColor: (item.folderPath || item.folderTreeUri) ? '#10b981' : 'var(--hairline)',
-                            color: (item.folderPath || item.folderTreeUri) ? '#10b981' : 'var(--paper)',
-                            fontWeight: 600
-                          },
-                          title: 'Set designated folder on device for Moon+ Reader continuity',
-                          onClick: (e) => {
-                            e?.stopPropagation?.();
-                            handleSetNovelFolder(item);
-                          }
-                        }, (item.folderPath ? `📁 ${item.folderPath.length > 18 ? item.folderPath.slice(0, 16) + '…' : item.folderPath}` : '📁 Folder')),
+                        (() => {
+                          const fOpts = getNovelFolderOptions(item);
+                          const dispPath = item.folderPath || fOpts.folderPath || '';
+                          const hasFolder = !!(dispPath || item.folderTreeUri || fOpts.treeUri);
+                          return h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: {
+                              borderColor: hasFolder ? '#10b981' : 'var(--hairline)',
+                              color: hasFolder ? '#10b981' : 'var(--paper)',
+                              fontWeight: 600
+                            },
+                            title: 'Set designated folder on device for Moon+ Reader continuity',
+                            onClick: (e) => {
+                              e?.stopPropagation?.();
+                              handleSetNovelFolder(item);
+                            }
+                          }, (dispPath ? `📁 ${dispPath.length > 18 ? dispPath.slice(0, 16) + '…' : dispPath}` : '📁 Folder'));
+                        })(),
                         item.isIncomplete && h('button', {
                           type: 'button',
                           className: 'mini-btn',
@@ -10677,12 +10829,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
                             try {
                               setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                              const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle }) : { novelId: item.id };
+                              const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle, coverUrl: item.cover || full?.cover || '' }) : { novelId: item.id, coverUrl: item.cover || full?.cover || '' };
                               const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
                                 setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
                               }, opts);
                               const fileName = getEpubFileName(bookTitle, chs.length, isInc);
-                              await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(item));
+                              await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(item || full));
                               toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                             } catch (e) {
                               toast('EPUB export error: ' + e.message, 'error');

@@ -362,10 +362,13 @@ hr {
         // Scan for cover image
         let coverUrl = (options.coverUrl || options.cover || '').trim();
         if (!coverUrl) {
-          const firstCh = exportChapters[0];
-          if (firstCh && /cover/i.test(firstCh.title || '')) {
-            const m = (firstCh.content || '').match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
-            if (m && m[1]) coverUrl = m[1].trim();
+          for (let i = 0; i < Math.min(3, exportChapters.length); i++) {
+            const ch = exportChapters[i];
+            const m = (ch.content || '').match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
+            if (m && m[1] && (/cover/i.test(ch.title || '') || i === 0)) {
+              coverUrl = m[1].trim();
+              break;
+            }
           }
         }
         if (coverUrl) {
@@ -375,10 +378,15 @@ hr {
         const imageCache = new Map();
         let imgSeq = 0;
 
-        // Step 2: Download all unique illustrations
-        const imgUrlList = Array.from(uniqueImgUrls);
+        // Step 2: Download illustrations & guarantee book cover download
+        let imgUrlList = [];
+        if (useIncludeImages) {
+          imgUrlList = Array.from(uniqueImgUrls);
+        } else if (coverUrl) {
+          imgUrlList = [coverUrl];
+        }
 
-        if (useIncludeImages && imgUrlList.length > 0) {
+        if (imgUrlList.length > 0) {
           onProgress?.(` Pre-caching ${imgUrlList.length} illustration(s) • ${getElapsed()}...`, 5, getElapsed());
           window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Pre-caching ${imgUrlList.length} images • ${getElapsed()}`, 5, true);
           let downloadedCount = 0;
@@ -388,6 +396,23 @@ hr {
             let buffer = null;
             let detectedMime = null;
             const AC = typeof AbortController !== 'undefined' ? AbortController : (typeof window !== 'undefined' ? window.AbortController : null);
+
+            // Directly decode base64 data URIs without network fetch
+            if (url && url.startsWith('data:')) {
+              try {
+                const parts = url.split(',');
+                const mimeMatch = parts[0].match(/:(.*?);/);
+                detectedMime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+                const b64 = parts[1];
+                const binaryStr = atob(b64);
+                const len = binaryStr.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                  bytes[i] = binaryStr.charCodeAt(i);
+                }
+                buffer = bytes.buffer;
+              } catch (_) {}
+            }
 
             // Helper: sniff image magic bytes
             const sniffMime = (buf) => {

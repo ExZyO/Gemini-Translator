@@ -82,6 +82,27 @@
         return best.trim();
     }
 
+    function extractPageCover(doc, baseUrl, customCover) {
+        if (customCover && typeof customCover === 'string' && customCover.trim()) {
+            try { return new URL(customCover.trim(), baseUrl).href; } catch (_) { return customCover.trim(); }
+        }
+        if (!doc) return '';
+        try {
+            const og = doc.querySelector('meta[property="og:image"], meta[name="og:image"], meta[property="twitter:image"], meta[name="twitter:image"]')?.getAttribute('content');
+            if (og && og.trim() && !og.includes('placeholder') && !og.includes('default-avatar') && !og.includes('logo') && !og.includes('favicon')) {
+                try { return new URL(og.trim(), baseUrl).href; } catch (_) { return og.trim(); }
+            }
+            const img = doc.querySelector('.book-cover img, .cover img, .novel-cover img, .manga-cover img, img.cover, .thumb img, .book-info-pic img, .fixed-img img, #bookCover img, .fic-header img, img[alt*="cover" i], img[src*="cover" i]');
+            if (img) {
+                const src = img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('src');
+                if (src && src.trim() && !src.includes('placeholder') && !src.includes('logo')) {
+                    try { return new URL(src.trim(), baseUrl).href; } catch (_) { return src.trim(); }
+                }
+            }
+        } catch (_) {}
+        return '';
+    }
+
     // ══════════════════════════════════════════════════════════════════════
     // 2. TEXT CLEANING & ILLUSTRATION PRESERVATION
     // ══════════════════════════════════════════════════════════════════════
@@ -473,7 +494,8 @@
                                 chapterList: chapterList,
                                 title: ctrl.novelMeta?.title || meta?.title || '',
                                 author: ctrl.novelMeta?.author || meta?.author || '',
-                                summary: ctrl.novelMeta?.summary || meta?.summary || ''
+                                summary: ctrl.novelMeta?.summary || meta?.summary || '',
+                                cover: ctrl.novelMeta?.cover || meta?.cover || ''
                             });
                         } catch (cbErr) {
                             console.warn('onChapterDone callback error:', cbErr);
@@ -708,8 +730,9 @@
             appendUniqueImportedChapter(chapters, { title, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') }, seenChapterKeys);
         }
 
+        const cover = extractPageCover(doc, url);
         progressCb?.(`Loaded ${chapters.length} chapters from AO3!`, 100);
-        return { title, author, summary, tags, chapters, isEpub: false, sourceUrl: url };
+        return { title, author, summary, cover, tags, chapters, isEpub: false, sourceUrl: url };
     }
 
     // --- C. ROYAL ROAD & SCRIBBLEHUB TEMPLATE ---
@@ -721,6 +744,7 @@
         const title = doc.querySelector('h1')?.textContent?.trim() || 'RoyalRoad Novel';
         const author = doc.querySelector('.fic-header h4 a, a[href*="/profile/"]')?.textContent?.trim() || 'Author';
         const summary = doc.querySelector('.description .hidden-content, .description')?.textContent?.trim() || '';
+        const cover = extractPageCover(doc, 'https://www.royalroad.com');
 
         const tags = [];
         doc.querySelectorAll('.tags .tag, .fiction-tag').forEach(t => {
@@ -754,15 +778,16 @@
                 return { title: item.title, text: txt };
             },
             12,
-            progressCb
+            progressCb,
+            { title, author, summary, cover, chapterList: chapterLinks }
         );
 
         if (activeCrawlController?.tocOnly) {
-            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+            return { title, author, summary, cover, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
         }
 
         progressCb?.(` Loaded ${chapters.length} RoyalRoad chapters (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        return { title, author, summary, cover, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
     // --- D. SYOSETU (小説家になろう) & KAKUYOMU (カクヨム) ---
@@ -774,6 +799,7 @@
         const title = doc.querySelector('.novel_title, h1, .widget-toc-main-header')?.textContent?.trim() || 'Japanese Web Novel';
         const author = doc.querySelector('.novel_writername, .writer, .partialGiftWidget_authorName')?.textContent?.trim() || 'Author';
         const summary = doc.querySelector('#novel_ex, .widget-toc-workIntroduction')?.textContent?.trim() || '';
+        const cover = extractPageCover(doc, url);
 
         const indexLinks = [];
         const baseUrl = url.endsWith('/') ? url : url + '/';
@@ -792,6 +818,7 @@
                 title,
                 author,
                 summary,
+                cover,
                 tags: ['Syosetu', 'Web Novel'],
                 chapters: [{ title, text: cleanChapterHtmlWithImages(body.innerHTML || body.textContent || '') }],
                 isEpub: false,
@@ -810,15 +837,16 @@
                 return { title: item.title, text: cleanChapterHtmlWithImages(chBody.innerHTML || chBody.textContent || '') };
             },
             12,
-            progressCb
+            progressCb,
+            { title, author, summary, cover, chapterList: indexLinks }
         );
 
         if (activeCrawlController?.tocOnly) {
-            return { title, author, summary, tags: ['Syosetu', 'Japanese Light Novel'], chapters: [], chapterList: indexLinks, totalChapterCount: indexLinks.length, isEpub: false, sourceUrl: url };
+            return { title, author, summary, cover, tags: ['Syosetu', 'Japanese Light Novel'], chapters: [], chapterList: indexLinks, totalChapterCount: indexLinks.length, isEpub: false, sourceUrl: url };
         }
 
         progressCb?.(` Loaded ${chapters.length} Syosetu chapters (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags: ['Syosetu', 'Japanese Light Novel'], chapters, chapterList: indexLinks, totalChapterCount: indexLinks.length, isEpub: false, sourceUrl: url };
+        return { title, author, summary, cover, tags: ['Syosetu', 'Japanese Light Novel'], chapters, chapterList: indexLinks, totalChapterCount: indexLinks.length, isEpub: false, sourceUrl: url };
     }
 
     // --- E. NOVELFULL & BOXNOVEL & READLIGHTNOVEL TEMPLATE ---
@@ -830,6 +858,7 @@
         const title = doc.querySelector('h3.title, .books .desc h3, .novel-title')?.textContent?.trim() || 'Novel';
         const author = doc.querySelector('.info div:has(h3:contains("Author")) a, .author a, .info a[href*="/author/"]')?.textContent?.trim() || 'Author';
         const summary = doc.querySelector('.desc-text, #tab-description, .summary')?.textContent?.trim() || '';
+        const cover = extractPageCover(doc, url);
 
         const tags = [];
         doc.querySelectorAll('.info a[href*="/genre/"], .tags a').forEach(t => {
@@ -885,15 +914,16 @@
                 return { title: item.title, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
             },
             12,
-            progressCb
+            progressCb,
+            { title, author, summary, cover, chapterList: chapterLinks }
         );
 
         if (activeCrawlController?.tocOnly) {
-            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+            return { title, author, summary, cover, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
         }
 
         progressCb?.(` Loaded ${chapters.length} chapters (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        return { title, author, summary, cover, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
     // --- E1. NOVELBIN & MVLEMPYR TEMPLATE (novel-bin.com, novelbin.me, mvlempyr.com) ---
@@ -914,6 +944,7 @@
         const author = doc.querySelector('meta[property="og:novel:author"]')?.getAttribute('content')?.trim() ||
                        doc.querySelector('.info li:has(h3) a, .info a[href*="/author/"], .author a')?.textContent?.trim() || 'Author';
         const summary = doc.querySelector('.desc-text, #tab-description, .summary')?.textContent?.trim() || '';
+        const cover = extractPageCover(doc, origin);
 
         const tags = [];
         doc.querySelectorAll('.info a[href*="/genre/"], .tags a').forEach(t => {
@@ -1006,16 +1037,16 @@
             },
             8,
             progressCb,
-            { title, author, summary, chapterList: chapterLinks },
+            { title, author, summary, cover, chapterList: chapterLinks },
             { delayMs: 100 }
         );
 
         if (activeCrawlController?.tocOnly) {
-            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+            return { title, author, summary, cover, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
         }
 
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelBin (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        return { title, author, summary, cover, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
     // --- F. NOVELFIRE TEMPLATE (novelfire.net) ---
@@ -1034,6 +1065,7 @@
         const title = doc.querySelector('h1.novel-title, h1, .book-title')?.textContent?.trim() || 'NovelFire Novel';
         const author = doc.querySelector('span[itemprop="author"], .author a, a[href*="/author/"]')?.textContent?.trim() || 'Author';
         const summary = doc.querySelector('.description, .summary, .synopsis, #tab-description')?.textContent?.trim() || '';
+        const cover = extractPageCover(doc, origin);
 
         const tags = [];
         doc.querySelectorAll('a[href*="/genre/"], a[href*="/tag/"], .categories a').forEach(t => {
@@ -1176,16 +1208,16 @@
             },
             3,
             progressCb,
-            { title, author, summary, chapterList: chapterLinks },
+            { title, author, summary, cover, chapterList: chapterLinks },
             { delayMs: 250 }
         );
 
         if (activeCrawlController?.tocOnly) {
-            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+            return { title, author, summary, cover, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
         }
 
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelFire (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        return { title, author, summary, cover, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
     // --- F. LOFTER (乐乎 WITH HIGH-RES ARTWORK) ---
@@ -1439,6 +1471,7 @@
         const author = Array.isArray(manga.authors) ? manga.authors.map(a => a.name).filter(Boolean).join(', ') : (doc.querySelector('.authors, .author')?.textContent?.trim() || 'NovelBuddy Author');
         const summary = manga.summary || doc.querySelector('.summary, .description, #summary')?.textContent?.trim() || '';
         const tags = (manga.genres || []).map(g => g.name || g).concat(['NovelBuddy', 'Web Novel']);
+        const cover = manga.cover || extractPageCover(doc, origin);
 
         // Check if TOC is already known from resume session
         let chapterLinks = [];
@@ -1548,16 +1581,16 @@
             },
             8,
             progressCb,
-            { title, author, summary, chapterList: chapterLinks },
+            { title, author, summary, cover, chapterList: chapterLinks },
             { delayMs: 50 }
         );
 
         if (activeCrawlController?.tocOnly) {
-            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+            return { title, author, summary, cover, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
         }
 
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from NovelBuddy (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        return { title, author, summary, cover, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
     // --- H. LNORI TEMPLATE (lnori.org / lnori.com - Single Book & Multi-Volume Series) ---
@@ -2165,16 +2198,16 @@
             },
             6,
             progressCb,
-            { title, author, summary, chapterList: chapterLinks },
+            { title, author, summary, cover: extractPageCover(chDoc, bookUrl), chapterList: chapterLinks },
             { delayMs: 120 }
         );
 
         if (activeCrawlController?.tocOnly) {
-            return { title, author, summary, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+            return { title, author, summary, cover: extractPageCover(doc, bookUrl), tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
         }
 
         progressCb?.(` Loaded ${chapters.length}/${chapterLinks.length} chapters from FuckNovelPia (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        return { title, author, summary, cover: extractPageCover(doc, bookUrl), tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
     async function crawlUniversal(url, progressCb) {
@@ -2184,6 +2217,7 @@
 
         const title = doc.querySelector('title, h1, .title, meta[property="og:title"]')?.textContent?.trim() || 'Web Novel';
         const author = doc.querySelector('meta[name="author"], .author, .byline')?.getAttribute('content') || doc.querySelector('.author, .byline')?.textContent?.trim() || 'Author';
+        const cover = extractPageCover(doc, url);
 
         doc.querySelectorAll('script, style, nav, footer, header, .advertisement, .ads, .comment').forEach(el => el.remove());
 
@@ -2212,12 +2246,13 @@
                     return { title: item.title, text: cleanChapterHtmlWithImages(el.innerHTML || el.textContent || '') };
                 },
                 12,
-                progressCb
+                progressCb,
+                { title, author, summary: `Imported from ${url}`, cover, chapterList: chapterLinks }
             );
             if (activeCrawlController?.tocOnly) {
-                return { title, author, summary: `Imported from ${url}`, tags: ['Web Novel'], chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+                return { title, author, summary: `Imported from ${url}`, cover, tags: ['Web Novel'], chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
             }
-            return { title, author, summary: `Imported from ${url}`, tags: ['Web Novel'], chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+            return { title, author, summary: `Imported from ${url}`, cover, tags: ['Web Novel'], chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
         }
 
         // Single article / chapter extraction
@@ -2229,6 +2264,7 @@
             title,
             author,
             summary: text.substring(0, 250) + '...',
+            cover,
             tags: ['Web Article'],
             chapters: [{ title, text }],
             isEpub: false,
