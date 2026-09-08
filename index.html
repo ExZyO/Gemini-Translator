@@ -838,7 +838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.48';
+    const VERSION = '8.10.49';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3271,6 +3271,8 @@ const formatModelName = (id, displayName) => {
       const [activeAudiobook, setActiveAudiobook] = useState(null);
       const [audioPlayerState, setAudioPlayerState] = useState(() => window.SwiftAudioEngine?.Player?.getState() || { isLoaded: false });
       const [isFullPlayerOpen, setIsFullPlayerOpen] = useState(false);
+      const [isPlayerFullscreen, setIsPlayerFullscreen] = useState(false);
+      const [downloadingTrackId, setDownloadingTrackId] = useState(null);
       const [audioDownloadModal, setAudioDownloadModal] = useState(null);
 
       useEffect(() => {
@@ -4436,12 +4438,15 @@ const formatModelName = (id, displayName) => {
           }
           setActiveAudiobook(fullBook);
           const opts = getNovelFolderOptions(fullBook);
+          const allIndices = (fullBook.tracks || []).map((_, i) => i);
           setAudioDownloadModal({
             book: fullBook,
             folderOptions: opts,
+            selectedIndices: allIndices,
             status: `Ready to download ${fullBook.tracks.length} chapters`,
             percent: 0,
-            active: false
+            active: false,
+            isMinimized: false
           });
         } catch (e) {
           toast('Could not load audiobook for download: ' + e.message, 'error');
@@ -4452,28 +4457,32 @@ const formatModelName = (id, displayName) => {
         if (!audioDownloadModal || !audioDownloadModal.book) return;
         const book = audioDownloadModal.book;
         const opts = audioDownloadModal.folderOptions || getNovelFolderOptions(book);
+        const selected = audioDownloadModal.selectedIndices || (book.tracks || []).map((_, i) => i);
+        if (selected.length === 0) {
+          return toast('Please select at least one chapter to download.', 'warning');
+        }
 
-        setAudioDownloadModal(prev => ({ ...prev, active: true, status: 'Starting download…', percent: 0 }));
+        setAudioDownloadModal(prev => ({ ...prev, active: true, status: `Starting download (${selected.length} ch)…`, percent: 0 }));
 
         try {
           const res = await window.SwiftAudioEngine.Downloader.downloadAllTracks(book, opts, (progress) => {
-            setAudioDownloadModal(prev => ({
+            setAudioDownloadModal(prev => prev ? ({
               ...prev,
               status: progress.status,
               percent: progress.percent,
               completed: progress.completed
-            }));
-          });
-          setAudioDownloadModal(prev => ({
+            }) : prev);
+          }, selected);
+          setAudioDownloadModal(prev => prev ? ({
             ...prev,
             active: false,
-            status: res && res.count ? `Complete! Downloaded ${res.count} chapters.` : 'Download completed.',
+            status: res && res.count ? `Complete! Downloaded ${res.count} chapter(s).` : 'Download completed.',
             percent: 100
-          }));
-          toast(`All chapters of "${book.title}" downloaded!`, 'success');
+          }) : null);
+          toast(`Chapters of "${book.title}" downloaded!`, 'success');
         } catch (e) {
           toast('Audiobook download error: ' + e.message, 'error');
-          setAudioDownloadModal(prev => ({ ...prev, active: false, status: 'Download failed: ' + e.message }));
+          setAudioDownloadModal(prev => prev ? ({ ...prev, active: false, status: 'Download failed: ' + e.message }) : null);
         }
       };
 
@@ -9644,22 +9653,16 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     }, '✕ Cancel')
                   )
                 ) : !isFetchingUrl ? (
+                  isSpecificSwiftAudioBook ? null : (
                   isSwiftAudioDetected ? (
-                    h('div', { style: { display: 'grid', gridTemplateColumns: isSpecificSwiftAudioBook ? '1fr 1fr' : '1fr', gap: 6, margin: '6px 0' } },
+                    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr', gap: 6, margin: '6px 0' } },
                       h('button', {
                         type: 'button',
                         className: 'primary',
                         style: { background: 'linear-gradient(90deg, #6366f1, #ec4899)', width: '100%' },
                         disabled: !webImportUrl.trim() || isSwiftAudioSearching,
                         onClick: () => handleSwiftAudioSearch(webImportUrl)
-                      }, isSwiftAudioSearching ? 'Searching…' : '🔍 Search Audiobooks'),
-                      isSpecificSwiftAudioBook && h('button', {
-                        type: 'button',
-                        className: 'mini-btn',
-                        style: { background: 'var(--panel)', border: '1px solid var(--hairline)', color: 'var(--paper)', fontWeight: 600 },
-                        disabled: isSwiftAudioSearching,
-                        onClick: () => handleStartPlayAudiobook({ url: webImportUrl })
-                      }, '🎧 Play Stream')
+                      }, isSwiftAudioSearching ? 'Searching…' : '🔍 Search Audiobooks')
                     )
                   ) : (
                     h('button', {
@@ -9668,7 +9671,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       disabled: !webImportUrl.trim(),
                       onClick: () => handleStartFetch(false)
                     }, '⤓ Fetch Novel')
-                  )
+                  ))
                 ) : (
                   h('div', { style: { display: 'grid', gridTemplateColumns: (activeNovelView?.chapters?.length || 0) > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
                     h('button', {
@@ -12090,29 +12093,41 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               style: { padding: '6px 8px', fontSize: 12 },
               title: 'Open full audiobook player',
               onClick: () => setIsFullPlayerOpen(true)
-            }, '▲')
+            }, '▲'),
+
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { padding: '6px 8px', fontSize: 13, color: 'var(--slate)' },
+              title: 'Close and stop player',
+              onClick: (e) => {
+                e.stopPropagation();
+                window.SwiftAudioEngine?.Player?.close();
+              }
+            }, '✕')
           )
         ),
 
-        // ── SWIFTAUDIO FULL PLAYER MODAL (MOBILE BOTTOM-SHEET DRAWER) ──
+        // ── SWIFTAUDIO FULL PLAYER MODAL & FULLSCREEN ──
         isFullPlayerOpen && audioPlayerState?.currentBook && h('div', {
           className: 'modal-overlay',
           style: {
             zIndex: 1000,
-            alignItems: 'flex-end',
+            alignItems: isPlayerFullscreen ? 'center' : 'flex-end',
             padding: 0,
-            background: 'rgba(0, 0, 0, 0.75)'
+            background: isPlayerFullscreen ? '#0b0f19' : 'rgba(0, 0, 0, 0.75)'
           },
           onClick: () => setIsFullPlayerOpen(false)
         },
           h('div', {
             className: 'modal-box swift-player-drawer',
             style: {
-              maxWidth: 480,
+              maxWidth: isPlayerFullscreen ? '100%' : 480,
               width: '100%',
-              maxHeight: '92vh',
-              borderTopLeftRadius: 18,
-              borderTopRightRadius: 18,
+              height: isPlayerFullscreen ? '100%' : 'auto',
+              maxHeight: isPlayerFullscreen ? '100vh' : '92vh',
+              borderTopLeftRadius: isPlayerFullscreen ? 0 : 18,
+              borderTopRightRadius: isPlayerFullscreen ? 0 : 18,
               borderBottomLeftRadius: 0,
               borderBottomRightRadius: 0,
               display: 'flex',
@@ -12124,15 +12139,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             },
             onClick: e => e.stopPropagation()
           },
-            h('div', {
+            !isPlayerFullscreen && h('div', {
               style: {
                 width: 38,
                 height: 4,
                 borderRadius: 99,
                 background: 'rgba(255,255,255,0.25)',
                 margin: '10px auto 2px',
-                flexShrink: 0
-              }
+                flexShrink: 0,
+                cursor: 'pointer'
+              },
+              title: 'Double-tap to toggle fullscreen',
+              onDoubleClick: () => setIsPlayerFullscreen(prev => !prev)
             }),
             h('div', {
               style: {
@@ -12143,19 +12161,38 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 borderBottom: '1px solid var(--hairline)'
               }
             },
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h('span', { style: { fontSize: 18 } }, '🎧'),
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { padding: '4px 8px', fontSize: 13, fontWeight: 700 },
+                  title: 'Minimize player to bottom',
+                  onClick: () => setIsFullPlayerOpen(false)
+                }, '▼'),
                 h('div', null,
                   h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--paper)' } }, 'Audiobook Player'),
-                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Powered by Open-Source Plyr')
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, isPlayerFullscreen ? 'Fullscreen Mode' : 'Powered by Open-Source Plyr')
                 )
               ),
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: { border: 'none', fontSize: 16 },
-                onClick: () => setIsFullPlayerOpen(false)
-              }, '✕')
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { padding: '4px 8px', fontSize: 13 },
+                  title: isPlayerFullscreen ? 'Exit Fullscreen' : 'Fullscreen Player',
+                  onClick: () => setIsPlayerFullscreen(prev => !prev)
+                }, isPlayerFullscreen ? '🗗' : '⛶'),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { border: 'none', fontSize: 16, color: 'var(--slate)' },
+                  title: 'Close and stop player',
+                  onClick: () => {
+                    setIsFullPlayerOpen(false);
+                    window.SwiftAudioEngine?.Player?.close();
+                  }
+                }, '✕')
+              )
             ),
 
             h('div', { style: { padding: '16px 20px', overflowY: 'auto', overflowX: 'hidden', flex: 1, boxSizing: 'border-box' } },
@@ -12165,7 +12202,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   alt: 'Cover',
                   referrerPolicy: 'no-referrer',
                   onError: (e) => { e.target.style.display = 'none'; },
-                  style: { width: 160, height: 230, borderRadius: 12, objectFit: 'cover', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', margin: '0 auto' }
+                  style: { width: isPlayerFullscreen ? 180 : 160, height: isPlayerFullscreen ? 260 : 230, borderRadius: 12, objectFit: 'cover', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', margin: '0 auto' }
                 }) : h('div', {
                   style: { width: 160, height: 210, borderRadius: 12, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, margin: '0 auto' }
                 }, '🎧')
@@ -12296,9 +12333,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     className: 'mini-btn ghost',
                     style: { fontSize: 11, padding: '3px 8px' },
                     onClick: () => handleOpenAudioDownload(audioPlayerState.currentBook)
-                  }, '📥 Download All MP3s')
+                  }, '📥 Download MP3s')
                 ),
-                h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 180, overflowY: 'auto' } },
+                h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, maxHeight: isPlayerFullscreen ? 360 : 180, overflowY: 'auto' } },
                   (audioPlayerState.currentBook.tracks || []).map((t, idx) => {
                     const isCur = idx === audioPlayerState.currentTrackIndex;
                     return h('div', {
@@ -12321,6 +12358,26 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       ),
                       h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 } },
                         t.duration && h('span', { style: { fontSize: 11, color: 'var(--slate)', fontFamily: "'IBM Plex Mono', monospace" } }, t.duration),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { padding: '3px 6px', fontSize: 11, color: downloadingTrackId === idx ? '#fbbf24' : 'var(--slate)' },
+                          title: `Download Track ${idx + 1}: ${t.title}`,
+                          disabled: downloadingTrackId === idx,
+                          onClick: async (e) => {
+                            e.stopPropagation();
+                            try {
+                              setDownloadingTrackId(idx);
+                              toast(`Downloading Track ${idx + 1}: "${t.title}"…`, 'info');
+                              await window.SwiftAudioEngine.Downloader.downloadSingleTrack(t, audioPlayerState.currentBook, getNovelFolderOptions(audioPlayerState.currentBook));
+                              toast(`Downloaded Track ${idx + 1}: "${t.title}"!`, 'success');
+                            } catch (err) {
+                              toast(`Download failed: ${err.message}`, 'error');
+                            } finally {
+                              setDownloadingTrackId(null);
+                            }
+                          }
+                        }, downloadingTrackId === idx ? '⏳' : '📥'),
                         isCur && h('span', { style: { fontSize: 11, color: 'var(--accent, #6366f1)' } }, audioPlayerState.isPlaying ? '▶' : '⏸')
                       )
                     );
@@ -12331,15 +12388,57 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           )
         ),
 
+        // ── SWIFTAUDIO BACKGROUND DOWNLOAD PROGRESS BAR ──
+        audioDownloadModal?.active && audioDownloadModal?.isMinimized && h('div', {
+          style: {
+            position: 'fixed',
+            bottom: audioPlayerState?.currentBook ? 122 : 62,
+            left: 12,
+            right: 12,
+            maxWidth: 480,
+            margin: '0 auto',
+            background: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(99, 102, 241, 0.4)',
+            borderRadius: 12,
+            padding: '10px 14px',
+            zIndex: 998,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12
+          },
+          onClick: () => setAudioDownloadModal(prev => ({ ...prev, isMinimized: false }))
+        },
+          h('span', { style: { fontSize: 18 } }, '📥'),
+          h('div', { style: { flex: 1, minWidth: 0 } },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'var(--paper)' } },
+              h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, audioDownloadModal.status || 'Downloading audio tracks...'),
+              h('span', { style: { fontFamily: 'monospace', color: 'var(--accent, #6366f1)', marginLeft: 8 } }, `${audioDownloadModal.percent || 0}%`)
+            ),
+            h('div', { style: { width: '100%', height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.1)', overflow: 'hidden', marginTop: 6 } },
+              h('div', { style: { height: '100%', width: `${audioDownloadModal.percent || 0}%`, background: 'linear-gradient(90deg, #6366f1, #10b981)', transition: 'width 0.25s' } })
+            )
+          ),
+          h('span', { style: { fontSize: 11, color: 'var(--accent, #6366f1)', fontWeight: 600, flexShrink: 0 } }, 'Expand ↗')
+        ),
+
         // ── SWIFTAUDIO BATCH DOWNLOAD MODAL ──
-        audioDownloadModal && h('div', {
+        audioDownloadModal && !audioDownloadModal.isMinimized && h('div', {
           className: 'modal-overlay',
           style: { zIndex: 1050, background: 'rgba(0, 0, 0, 0.85)' },
-          onClick: () => !audioDownloadModal.active && setAudioDownloadModal(null)
+          onClick: () => {
+            if (audioDownloadModal.active) {
+              setAudioDownloadModal(prev => ({ ...prev, isMinimized: true }));
+            } else {
+              setAudioDownloadModal(null);
+            }
+          }
         },
           h('div', {
             className: 'modal-box',
-            style: { maxWidth: 440, width: '92%', maxHeight: '88vh', boxSizing: 'border-box', overflowX: 'hidden' },
+            style: { maxWidth: 460, width: '92%', maxHeight: '88vh', boxSizing: 'border-box', overflowX: 'hidden' },
             onClick: e => e.stopPropagation()
           },
             h('div', { className: 'modal-hd' },
@@ -12347,7 +12446,27 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 h('span', { style: { fontSize: 20 } }, '📥'),
                 h('span', { className: 't' }, 'Download Audiobook MP3s')
               ),
-              !audioDownloadModal.active && h('button', { type: 'button', className: 'x-btn', onClick: () => setAudioDownloadModal(null) }, '✕')
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                audioDownloadModal.active && h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { fontSize: 11, padding: '3px 8px' },
+                  title: 'Continue downloading in background',
+                  onClick: () => setAudioDownloadModal(prev => ({ ...prev, isMinimized: true }))
+                }, 'Run in Background ─'),
+                h('button', {
+                  type: 'button',
+                  className: 'x-btn',
+                  title: audioDownloadModal.active ? 'Run in background' : 'Close',
+                  onClick: () => {
+                    if (audioDownloadModal.active) {
+                      setAudioDownloadModal(prev => ({ ...prev, isMinimized: true }));
+                    } else {
+                      setAudioDownloadModal(null);
+                    }
+                  }
+                }, '✕')
+              )
             ),
             h('div', { className: 'modal-bd' },
               h('div', { style: { display: 'flex', gap: 12, marginBottom: 12 } },
@@ -12361,7 +12480,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 h('div', { style: { flex: 1, minWidth: 0 } },
                   h('div', { style: { fontSize: 13.5, fontWeight: 700, color: 'var(--paper)' } }, audioDownloadModal.book?.title || 'Audiobook'),
                   h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } }, `Total: ${audioDownloadModal.book?.tracks?.length || 0} tracks`),
-                  h('div', { style: { fontSize: 11, color: '#10b981', marginTop: 4, fontWeight: 600 } }, 'Zero-memory direct device stream')
+                  h('div', { style: { fontSize: 11, color: '#10b981', marginTop: 4, fontWeight: 600 } }, 'Direct storage stream • Background safe')
                 )
               ),
 
@@ -12401,6 +12520,89 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 )
               ),
 
+              // Chapter checklist selector
+              h('div', { style: { marginBottom: 12 } },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+                  h('span', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--paper)' } },
+                    `Select Chapters (${(audioDownloadModal.selectedIndices || []).length}/${audioDownloadModal.book?.tracks?.length || 0})`
+                  ),
+                  !audioDownloadModal.active && h('div', { style: { display: 'flex', gap: 6 } },
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { fontSize: 10.5, padding: '2px 6px' },
+                      onClick: () => {
+                        const allIdx = (audioDownloadModal.book?.tracks || []).map((_, i) => i);
+                        const isAll = (audioDownloadModal.selectedIndices || []).length === allIdx.length;
+                        setAudioDownloadModal(prev => ({
+                          ...prev,
+                          selectedIndices: isAll ? [] : allIdx
+                        }));
+                      }
+                    }, (audioDownloadModal.selectedIndices || []).length === (audioDownloadModal.book?.tracks?.length || 0) ? 'Deselect All' : 'Select All')
+                  )
+                ),
+                h('div', { style: { maxHeight: 160, overflowY: 'auto', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--hairline)', borderRadius: 6, padding: '4px 6px', display: 'flex', flexDirection: 'column', gap: 2 } },
+                  (audioDownloadModal.book?.tracks || []).map((track, tIdx) => {
+                    const isChecked = (audioDownloadModal.selectedIndices || []).includes(tIdx);
+                    return h('div', {
+                      key: tIdx,
+                      style: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '4px 6px',
+                        borderRadius: 4,
+                        background: isChecked ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                        fontSize: 11.5
+                      }
+                    },
+                      h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: audioDownloadModal.active ? 'default' : 'pointer', minWidth: 0, flex: 1 } },
+                        h('input', {
+                          type: 'checkbox',
+                          checked: isChecked,
+                          disabled: audioDownloadModal.active,
+                          onChange: () => {
+                            setAudioDownloadModal(prev => {
+                              const cur = prev.selectedIndices || [];
+                              const next = isChecked ? cur.filter(i => i !== tIdx) : [...cur, tIdx];
+                              return { ...prev, selectedIndices: next };
+                            });
+                          },
+                          style: { accentColor: 'var(--accent, #6366f1)', cursor: audioDownloadModal.active ? 'default' : 'pointer' }
+                        }),
+                        h('span', { style: { color: isChecked ? 'var(--paper)' : 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                          `${tIdx + 1}. ${track.title}`
+                        )
+                      ),
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 } },
+                        track.duration && h('span', { style: { fontSize: 10.5, color: 'var(--slate)', fontFamily: 'monospace' } }, track.duration),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { padding: '2px 5px', fontSize: 10.5, color: downloadingTrackId === tIdx ? '#fbbf24' : 'var(--slate)' },
+                          title: `Download ${track.title}`,
+                          disabled: audioDownloadModal.active || downloadingTrackId === tIdx,
+                          onClick: async (e) => {
+                            e.stopPropagation();
+                            try {
+                              setDownloadingTrackId(tIdx);
+                              toast(`Downloading "${track.title}"…`, 'info');
+                              await window.SwiftAudioEngine.Downloader.downloadSingleTrack(track, audioDownloadModal.book, audioDownloadModal.folderOptions || getNovelFolderOptions(audioDownloadModal.book));
+                              toast(`Downloaded "${track.title}"!`, 'success');
+                            } catch (err) {
+                              toast(`Download failed: ${err.message}`, 'error');
+                            } finally {
+                              setDownloadingTrackId(null);
+                            }
+                          }
+                        }, downloadingTrackId === tIdx ? '⏳' : '📥')
+                      )
+                    );
+                  })
+                )
+              ),
+
               h('div', { style: { marginBottom: 8 } },
                 h('div', { style: { fontSize: 11.5, color: 'var(--paper-dim)', marginBottom: 4 } }, audioDownloadModal.status || 'Ready'),
                 h('div', { style: { width: '100%', height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' } },
@@ -12409,14 +12611,24 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               )
             ),
             h('div', { className: 'modal-ft' },
-              audioDownloadModal.active ? h('button', {
-                type: 'button',
-                className: 'mini-btn danger',
-                onClick: () => {
-                  window.SwiftAudioEngine?.Downloader?.cancel();
-                  toast('Cancelling download…', 'info');
-                }
-              }, '✕ Cancel Download') : [
+              audioDownloadModal.active ? [
+                h('button', {
+                  key: 'bg',
+                  type: 'button',
+                  className: 'mini-btn',
+                  style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                  onClick: () => setAudioDownloadModal(prev => ({ ...prev, isMinimized: true }))
+                }, 'Run in Background ─'),
+                h('button', {
+                  key: 'cancel',
+                  type: 'button',
+                  className: 'mini-btn danger',
+                  onClick: () => {
+                    window.SwiftAudioEngine?.Downloader?.cancel();
+                    toast('Cancelling download…', 'info');
+                  }
+                }, '✕ Cancel Download')
+              ] : [
                 h('button', {
                   key: 'close',
                   type: 'button',
@@ -12429,7 +12641,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   className: 'mini-btn',
                   style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700 },
                   onClick: handleExecuteAudioBatchDownload
-                }, '⚡ Start Download')
+                }, `⚡ Download Selected (${(audioDownloadModal.selectedIndices || []).length})`)
               ]
             )
           )

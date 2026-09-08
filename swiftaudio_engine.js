@@ -429,6 +429,36 @@
             else this.play();
         }
 
+        close() {
+            this.pause();
+            if (this.audioEl) {
+                try {
+                    this.audioEl.pause();
+                    this.audioEl.removeAttribute('src');
+                    this.audioEl.load();
+                } catch(e) {}
+            }
+            if (this.plyrInstance) {
+                try { this.plyrInstance.stop(); } catch(e) {}
+            }
+            this.clearSleepTimer();
+            this.currentBook = null;
+            this.currentTrackIndex = 0;
+            this.currentTime = 0;
+            this.duration = 0;
+            this.isPlaying = false;
+            try {
+                localStorage.removeItem('gemini_last_audiobook_position');
+            } catch(e) {}
+            try {
+                window.NativeBridge?.hideAudioNotification?.();
+            } catch(e) {}
+            try {
+                window.NativeBridge?.releaseWakeLock?.();
+            } catch(e) {}
+            this._notify();
+        }
+
         seekRelative(seconds) {
             if (!this.audioEl) return;
             try {
@@ -696,14 +726,24 @@
             });
         },
 
-        downloadAllTracks: async function(book, folderOptions = {}, progressCb) {
+        downloadAllTracks: async function(book, folderOptions = {}, progressCb, selectedIndices = null) {
             if (!book || !book.tracks || book.tracks.length === 0) throw new Error('No tracks to download');
             if (this._isDownloading) throw new Error('A download is already in progress');
 
             this._isDownloading = true;
             this._cancelRequested = false;
 
-            const total = book.tracks.length;
+            const allTracks = book.tracks;
+            const tracksToProcess = (Array.isArray(selectedIndices) && selectedIndices.length > 0)
+                ? allTracks.filter((_, idx) => selectedIndices.includes(idx))
+                : allTracks;
+
+            if (tracksToProcess.length === 0) {
+                this._isDownloading = false;
+                throw new Error('No tracks selected for download');
+            }
+
+            const total = tracksToProcess.length;
             const bookTitle = book.title || 'Audiobook';
             const cleanBookTitle = typeof sanitizeFilename === 'function' ? sanitizeFilename(bookTitle) : bookTitle.replace(/[/\\?%*:|"<>]/g, '-');
             const subDir = folderOptions.subDir || folderOptions.folderPath || `GeminiTranslator/Audiobooks/${cleanBookTitle}`;
@@ -721,21 +761,33 @@
                         break;
                     }
 
-                    const track = book.tracks[i];
+                    const track = tracksToProcess[i];
                     const currentNum = i + 1;
                     const padIndex = String(track.index || currentNum).padStart(2, '0');
                     const cleanTrackTitle = typeof sanitizeFilename === 'function' ? sanitizeFilename(track.title) : track.title.replace(/[/\\?%*:|"<>]/g, '-');
                     const fileName = `${padIndex} - ${cleanTrackTitle}.mp3`;
+                    const pct = Math.round(((i) / total) * 100);
 
                     if (progressCb) {
                         progressCb({
                             status: `Downloading track ${currentNum} of ${total}: ${track.title}`,
                             currentTrack: track.title,
-                            percent: Math.round(((i) / total) * 100),
+                            percent: pct,
                             current: currentNum,
                             total
                         });
                     }
+
+                    try {
+                        if (window.NativeBridge?.showProgressNotification) {
+                            window.NativeBridge.showProgressNotification(
+                                'Downloading Audiobook MP3s',
+                                `${cleanBookTitle}: Track ${currentNum}/${total} (${pct}%)`,
+                                pct,
+                                true
+                            );
+                        }
+                    } catch(e) {}
 
                     try {
                         await window.NativeBridge.downloadFileDirect(track.src, fileName, {
@@ -770,6 +822,16 @@
                         completed: true
                     });
                 }
+
+                try {
+                    if (window.NativeBridge?.clearProgressNotification) {
+                        window.NativeBridge.clearProgressNotification(
+                            true,
+                            'Audiobook Downloaded! 🎉',
+                            `Downloaded ${downloadedFiles.length} chapter(s) of "${cleanBookTitle}".`
+                        );
+                    }
+                } catch(e) {}
 
                 return { success: !this._cancelRequested, count: downloadedFiles.length };
 
