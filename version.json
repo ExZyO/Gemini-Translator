@@ -1,7 +1,7 @@
 {
-  "version": "8.10.44",
-  "versionCode": 8144,
+  "version": "8.10.45",
+  "versionCode": 8145,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.44: SwiftAudiobooks 3-in-1 integration — Search & browse audiobooks, open-source Plyr player with exact 5s quick jumps, lockscreen controls, and zero-RAM native batch track downloader into novel folders."
+  "releaseNotes": "v8.10.45: Preserve natural spaces in EPUB, PDF, and DOCX filenames (no underscores); SwiftAudiobooks 3-in-1 integration with open-source Plyr player (exact 5s jump), search & native downloader."
 }

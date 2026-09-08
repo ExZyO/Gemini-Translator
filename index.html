@@ -837,7 +837,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.44';
+    const VERSION = '8.10.45';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4157,11 +4157,11 @@ const formatModelName = (id, displayName) => {
       });
 
       const getEpubFileName = (title, chapterCount = 0, isPartial = false) => {
-        const cleanName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(title) : String(title || 'Novel')).replace(/\s+/g, '_');
+        const cleanName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(title) : String(title || 'Novel')).replace(/\s+/g, ' ').trim();
         if (epubFixedFilename !== false || !isPartial) {
           return `${cleanName}.epub`;
         }
-        return `${cleanName}_(Ch1-${chapterCount}).epub`;
+        return `${cleanName} (Ch1-${chapterCount}).epub`;
       };
 
       const cleanBookTitle = (t, fallbackChs = []) => {
@@ -8171,7 +8171,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           });
           const pdfBlob = doc.output('blob');
           const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
-          const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, '_') : `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}`;
+          const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
           const fileName = `${cleanDocName}.pdf`;
           await saveUniversalBlob(pdfBlob, fileName, 'application/pdf');
         } catch (e) { setError(`PDF error: ${e.message}`) } finally { setDownloadingPdf(false) }
@@ -8200,7 +8200,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             await updateOriginalEpubNavigation(currentOriginalZip, chaptersToExport);
             const zipBlob = await currentOriginalZip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
             setEpubPackagingModal(null);
-            const cleanDocName = sanitizeFilename(cleanDocTitle).replace(/\s+/g, '_');
+            const cleanDocName = sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim();
             const fileName = `${cleanDocName}.epub`;
             const res = await saveUniversalBlob(zipBlob, fileName, 'application/epub+zip');
             toast(' EPUB downloaded with the original structure!', 'success');
@@ -8214,7 +8214,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           }, typeof getEpubOptions === 'function' ? getEpubOptions() : {});
           setEpubPackagingModal(null);
           toast(' EPUB downloaded successfully!', 'success');
-          const cleanDocName = cleanDocTitle && !isGenericTitle(cleanDocTitle) ? sanitizeFilename(cleanDocTitle).replace(/\s+/g, '_') : `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}`;
+          const cleanDocName = cleanDocTitle && !isGenericTitle(cleanDocTitle) ? sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
           const fileName = `${cleanDocName}.epub`;
           const res = await saveUniversalBlob(blob, fileName, 'application/epub+zip');
           return { blob, fileName, path: res?.path };
@@ -8289,7 +8289,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           });
           const blob = await Packer.toBlob(doc);
           const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
-          const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, '_') : `translated_${tgtLang.toLowerCase().replace(/\s/g, '-')}`;
+          const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
           const fileName = `${cleanDocName}.docx`;
           await saveUniversalBlob(blob, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         } catch (e) {
