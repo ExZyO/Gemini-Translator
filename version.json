@@ -1,7 +1,7 @@
 {
-  "version": "8.10.51",
-  "versionCode": 8151,
+  "version": "8.10.52",
+  "versionCode": 8152,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.51: Persistent Audiobook Library Shelf with real-time playback resume & MP3 chapter downloads; one-tap 'Add to Library' / 'In Library' bookmarking from search cards and player drawer; version-tagged GitHub releases history alongside latest tag."
+  "releaseNotes": "v8.10.52: Fix text truncation bug in web importer where words like 'Viewers' and 'viewer' were corrupted into 'ers' and 'er' by an over-broad image artifact cleanup regex; precise noun matching with word boundaries restored."
 }

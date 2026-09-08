@@ -104,7 +104,7 @@
 
             const isImageLink = /\.(?:jpg|jpeg|png|webp|gif)(?:\?[^"']*)?$/i.test(targetUrl) || 
                                 /<img\b/i.test(inner) || 
-                                /[\[\(]?\s*(?:Download|View|High-Res|Full Size|Original)\s*(?:Image|Illustration|Art|Resolution)?[\]\)]?/i.test(inner.trim());
+                                /^[\[\(]?\s*(?:Download|View|Click to view|High-Res|Full Size|Original)?\s*(?:Image|Illustration|Art|Artwork|Resolution|Photo|Picture)\s*[\]\)]?$/i.test(inner.trim());
 
             if (isImageLink) {
                 let imgUrl = '';
@@ -141,8 +141,11 @@
             return '';
         });
 
-        // 3. Strip all residual "[Download Image]", "Download Image", "[View Image]" anchor text artifacts
-        processed = processed.replace(/[\[\(]?\s*(?:Download|View|High-Res|Full Size|Original)\s*(?:Image|Illustration|Art|Resolution)?[\]\)]?/gi, '');
+        // 3. Strip residual "[Download Image]", "Download Image", "[View Image]", "[Illustration]" anchor text artifacts
+        processed = processed
+            .replace(/[\[\(]\s*(?:Download|View|Click to view|High-Res|Full Size|Original)?\s*(?:Image|Illustration|Artwork|Resolution|Photo|Picture)\s*[\]\)]/gi, '')
+            .replace(/\b(?:Download|View|Click to view)\s+(?:High-Res\s+|Full Size\s+|Original\s+)?(?:Image|Illustration|Artwork|Photo|Picture)\b/gi, '')
+            .replace(/\b(?:High-Res|Full Size)\s+(?:Image|Illustration|Artwork|Photo|Picture)\b/gi, '');
 
         return processed
             .replace(/<br\s*[\/]?>/gi, '\n')
