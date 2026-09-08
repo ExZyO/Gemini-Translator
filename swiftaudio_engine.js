@@ -562,31 +562,51 @@
         // ANDROID MEDIASESSION & LOCKSCREEN INTEGRATION (5-SEC JUMP)
         // ══════════════════════════════════════════════════════════════
         _updateMediaSession() {
-            if (!('mediaSession' in navigator) || !this.currentBook) return;
+            if (!this.currentBook) {
+                try { window.NativeBridge?.hideAudioNotification?.(); } catch(e) {}
+                return;
+            }
             const track = this.currentBook.tracks?.[this.currentTrackIndex];
             const trackTitle = track ? track.title : this.currentBook.title;
 
+            // 1. Browser MediaSession API (for Web & Desktop)
+            if ('mediaSession' in navigator) {
+                try {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: trackTitle,
+                        artist: this.currentBook.author || 'SwiftAudiobooks',
+                        album: this.currentBook.title,
+                        artwork: this.currentBook.cover ? [
+                            { src: this.currentBook.cover, sizes: '512x512', type: 'image/jpeg' }
+                        ] : [{ src: './icon-192.png', sizes: '192x192', type: 'image/png' }]
+                    });
+
+                    navigator.mediaSession.playbackState = this.isPlaying ? 'playing' : 'paused';
+
+                    // Lockscreen Actions: EXACT 5-SECOND JUMPS!
+                    navigator.mediaSession.setActionHandler('play', () => this.play());
+                    navigator.mediaSession.setActionHandler('pause', () => this.pause());
+                    navigator.mediaSession.setActionHandler('seekbackward', () => this.skipBackward5());
+                    navigator.mediaSession.setActionHandler('seekforward', () => this.skipForward5());
+                    navigator.mediaSession.setActionHandler('previoustrack', () => this.previousTrack());
+                    navigator.mediaSession.setActionHandler('nexttrack', () => this.nextTrack());
+                } catch (e) {
+                    console.debug('MediaSession update warning:', e);
+                }
+            }
+
+            // 2. Native Android Notification Center & Lockscreen Media Controls
             try {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: trackTitle,
-                    artist: this.currentBook.author || 'SwiftAudiobooks',
-                    album: this.currentBook.title,
-                    artwork: this.currentBook.cover ? [
-                        { src: this.currentBook.cover, sizes: '512x512', type: 'image/jpeg' }
-                    ] : [{ src: './icon-192.png', sizes: '192x192', type: 'image/png' }]
-                });
-
-                navigator.mediaSession.playbackState = this.isPlaying ? 'playing' : 'paused';
-
-                // Lockscreen Actions: EXACT 5-SECOND JUMPS!
-                navigator.mediaSession.setActionHandler('play', () => this.play());
-                navigator.mediaSession.setActionHandler('pause', () => this.pause());
-                navigator.mediaSession.setActionHandler('seekbackward', () => this.skipBackward5());
-                navigator.mediaSession.setActionHandler('seekforward', () => this.skipForward5());
-                navigator.mediaSession.setActionHandler('previoustrack', () => this.previousTrack());
-                navigator.mediaSession.setActionHandler('nexttrack', () => this.nextTrack());
+                if (window.NativeBridge && window.NativeBridge.showAudioNotification) {
+                    window.NativeBridge.showAudioNotification({
+                        title: trackTitle,
+                        bookTitle: this.currentBook.title,
+                        author: this.currentBook.author || '',
+                        isPlaying: this.isPlaying
+                    });
+                }
             } catch (e) {
-                console.debug('MediaSession update warning:', e);
+                console.debug('Native audio notification warning:', e);
             }
         }
 
@@ -717,13 +737,16 @@
                         });
                     }
 
-                    await window.NativeBridge.downloadFileDirect(track.src, fileName, {
-                        ...folderOptions,
-                        subDir,
-                        mimeType: 'audio/mpeg'
-                    });
-
-                    downloadedFiles.push(fileName);
+                    try {
+                        await window.NativeBridge.downloadFileDirect(track.src, fileName, {
+                            ...folderOptions,
+                            subDir,
+                            mimeType: 'audio/mpeg'
+                        });
+                        downloadedFiles.push(fileName);
+                    } catch (trackErr) {
+                        console.warn(`[SwiftAudio] Error downloading track ${currentNum} (${fileName}):`, trackErr);
+                    }
                 }
 
                 // Generate M3U Playlist file

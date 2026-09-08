@@ -838,7 +838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.47';
+    const VERSION = '8.10.48';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -12094,31 +12094,52 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           )
         ),
 
-        // ── SWIFTAUDIO FULL PLAYER MODAL ──
+        // ── SWIFTAUDIO FULL PLAYER MODAL (MOBILE BOTTOM-SHEET DRAWER) ──
         isFullPlayerOpen && audioPlayerState?.currentBook && h('div', {
-          className: 'modal-bg',
-          style: { zIndex: 1000 },
+          className: 'modal-overlay',
+          style: {
+            zIndex: 1000,
+            alignItems: 'flex-end',
+            padding: 0,
+            background: 'rgba(0, 0, 0, 0.75)'
+          },
           onClick: () => setIsFullPlayerOpen(false)
         },
           h('div', {
-            className: 'modal',
+            className: 'modal-box swift-player-drawer',
             style: {
               maxWidth: 480,
-              width: '94%',
+              width: '100%',
               maxHeight: '92vh',
+              borderTopLeftRadius: 18,
+              borderTopRightRadius: 18,
+              borderBottomLeftRadius: 0,
+              borderBottomRightRadius: 0,
               display: 'flex',
               flexDirection: 'column',
               padding: 0,
-              overflow: 'hidden'
+              overflow: 'hidden',
+              overflowX: 'hidden',
+              boxSizing: 'border-box'
             },
             onClick: e => e.stopPropagation()
           },
             h('div', {
               style: {
+                width: 38,
+                height: 4,
+                borderRadius: 99,
+                background: 'rgba(255,255,255,0.25)',
+                margin: '10px auto 2px',
+                flexShrink: 0
+              }
+            }),
+            h('div', {
+              style: {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '14px 18px',
+                padding: '12px 18px',
                 borderBottom: '1px solid var(--hairline)'
               }
             },
@@ -12137,7 +12158,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               }, '✕')
             ),
 
-            h('div', { style: { padding: '16px 20px', overflowY: 'auto', flex: 1 } },
+            h('div', { style: { padding: '16px 20px', overflowY: 'auto', overflowX: 'hidden', flex: 1, boxSizing: 'border-box' } },
               h('div', { style: { textAlign: 'center', marginBottom: 14 } },
                 audioPlayerState.currentBook.cover ? h('img', {
                   src: audioPlayerState.currentBook.cover,
@@ -12228,7 +12249,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 }, '⏭')
               ),
 
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--panel)', padding: '10px 14px', borderRadius: 8, marginBottom: 14 } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--panel)', padding: '10px 14px', borderRadius: 8, marginBottom: 14, flexWrap: 'wrap', gap: 8 } },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
                   h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 600 } }, 'Speed:'),
                   [0.75, 1.0, 1.25, 1.5, 2.0].map(sp => h('button', {
@@ -12312,13 +12333,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
         // ── SWIFTAUDIO BATCH DOWNLOAD MODAL ──
         audioDownloadModal && h('div', {
-          className: 'modal-bg',
-          style: { zIndex: 1010 },
+          className: 'modal-overlay',
+          style: { zIndex: 1050, background: 'rgba(0, 0, 0, 0.85)' },
           onClick: () => !audioDownloadModal.active && setAudioDownloadModal(null)
         },
           h('div', {
-            className: 'modal',
-            style: { maxWidth: 440, width: '92%' },
+            className: 'modal-box',
+            style: { maxWidth: 440, width: '92%', maxHeight: '88vh', boxSizing: 'border-box', overflowX: 'hidden' },
             onClick: e => e.stopPropagation()
           },
             h('div', { className: 'modal-hd' },

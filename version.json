@@ -1,7 +1,7 @@
 {
-  "version": "8.10.47",
-  "versionCode": 8147,
+  "version": "8.10.48",
+  "versionCode": 8148,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.47: Fix ipaudio7 403 Forbidden blocking audiobook covers, streams, and controls via no-referrer policy; add Next Chapter control in mini-player; fix download modal active state lifecycle."
+  "releaseNotes": "v8.10.48: Mobile bottom-sheet player drawer with swipe pill; fix drawer modal overlay rendering; native Android notification center and lockscreen media playback controls with ±5s jumps and wake lock; multi-tier resilient batch MP3 downloader."
 }

@@ -425,6 +425,28 @@
             return await window.NativeBridge.saveBlob(blob, fileName, options?.mimeType || 'audio/mpeg', false, options);
         },
 
+        showAudioNotification: async (options = {}) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.showAudioPlayerNotification) {
+                    return await bridge.showAudioPlayerNotification(options);
+                }
+            } catch (e) {
+                console.warn('Native showAudioNotification error:', e);
+            }
+        },
+
+        hideAudioNotification: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.hideAudioPlayerNotification) {
+                    return await bridge.hideAudioPlayerNotification();
+                }
+            } catch (e) {
+                console.warn('Native hideAudioNotification error:', e);
+            }
+        },
+
         chooseFolder: async () => {
             const bridge = getBridge();
             if (bridge && bridge.chooseFolder) {

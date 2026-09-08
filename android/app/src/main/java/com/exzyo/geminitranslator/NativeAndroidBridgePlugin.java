@@ -15,6 +15,8 @@ import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
 import java.util.Locale;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
 import android.net.Uri;
 import android.media.MediaScannerConnection;
 import android.widget.Toast;
@@ -79,12 +81,22 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private static final String TAG = "NativeAndroidBridge";
     private static final String CHANNEL_ID = "gemini_translator_progress";
     private static final String CHANNEL_ID_COMPLETION = "gemini_completion_alerts";
+    private static final String CHANNEL_ID_AUDIO = "gemini_audio_playback";
     private static final int NOTIFICATION_ID = 1001;
     private static final int COMPLETE_NOTIFICATION_ID = 1002;
+    private static final int AUDIO_NOTIFICATION_ID = 8888;
     private static final String DEFAULT_UA = "Mozilla/5.0 (Linux; Android 14; Mobile; rv:125.0) Gecko/125.0 Firefox/125.0";
 
+    public static final String ACTION_AUDIO_PLAY_PAUSE = "com.exzyo.geminitranslator.AUDIO_PLAY_PAUSE";
+    public static final String ACTION_AUDIO_REWIND_5 = "com.exzyo.geminitranslator.AUDIO_REWIND_5";
+    public static final String ACTION_AUDIO_FORWARD_5 = "com.exzyo.geminitranslator.AUDIO_FORWARD_5";
+    public static final String ACTION_AUDIO_NEXT = "com.exzyo.geminitranslator.AUDIO_NEXT";
+    public static final String ACTION_AUDIO_PREV = "com.exzyo.geminitranslator.AUDIO_PREV";
+
     private PowerManager.WakeLock wakeLock = null;
+    private PowerManager.WakeLock audioWakeLock = null;
     private NotificationManager notificationManager = null;
+    private BroadcastReceiver audioActionReceiver = null;
     private boolean isChannelCreated = false;
 
     private void ensureNotificationChannel() {
@@ -114,6 +126,18 @@ public class NativeAndroidBridgePlugin extends Plugin {
             completionChannel.setVibrationPattern(new long[]{0, 250, 100, 250});
             completionChannel.enableLights(true);
             notificationManager.createNotificationChannel(completionChannel);
+
+            // 3. Audio playback channel (media controls in notification center & lockscreen)
+            NotificationChannel audioChannel = new NotificationChannel(
+                    CHANNEL_ID_AUDIO,
+                    "Audiobook Playback",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            audioChannel.setDescription("Audiobook player controls in notification center");
+            audioChannel.setSound(null, null);
+            audioChannel.enableVibration(false);
+            audioChannel.setShowBadge(false);
+            notificationManager.createNotificationChannel(audioChannel);
 
             isChannelCreated = true;
         }
@@ -303,6 +327,185 @@ public class NativeAndroidBridgePlugin extends Plugin {
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Clear Notification Error: " + e.getMessage());
+        }
+    }
+
+    private synchronized void ensureAudioReceiver() {
+        if (audioActionReceiver != null) return;
+        Context context = getContext();
+        if (context == null) return;
+        audioActionReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context ctx, Intent intent) {
+                String action = intent.getAction();
+                if (action == null) return;
+                String js = null;
+                if (ACTION_AUDIO_PLAY_PAUSE.equals(action)) {
+                    js = "window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.togglePlay()";
+                } else if (ACTION_AUDIO_REWIND_5.equals(action)) {
+                    js = "window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.skipBackward5()";
+                } else if (ACTION_AUDIO_FORWARD_5.equals(action)) {
+                    js = "window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.skipForward5()";
+                } else if (ACTION_AUDIO_NEXT.equals(action)) {
+                    js = "window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.nextTrack()";
+                } else if (ACTION_AUDIO_PREV.equals(action)) {
+                    js = "window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.previousTrack()";
+                }
+                if (js != null) {
+                    final String evalJs = js;
+                    Activity act = getActivity();
+                    if (act != null) {
+                        act.runOnUiThread(() -> {
+                            try {
+                                if (getBridge() != null && getBridge().getWebView() != null) {
+                                    getBridge().getWebView().evaluateJavascript(evalJs, null);
+                                }
+                            } catch (Exception e) {
+                                Log.w(TAG, "Audio receiver eval error: " + e.getMessage());
+                            }
+                        });
+                    }
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_AUDIO_PLAY_PAUSE);
+        filter.addAction(ACTION_AUDIO_REWIND_5);
+        filter.addAction(ACTION_AUDIO_FORWARD_5);
+        filter.addAction(ACTION_AUDIO_NEXT);
+        filter.addAction(ACTION_AUDIO_PREV);
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(audioActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                context.registerReceiver(audioActionReceiver, filter);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Register audio receiver error: " + e.getMessage());
+        }
+    }
+
+    private synchronized void acquireAudioWakeLock(String tag) {
+        try {
+            if (audioWakeLock == null) {
+                PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+                if (pm != null) {
+                    audioWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GeminiTranslator:AudioPlaybackWakeLock");
+                    audioWakeLock.setReferenceCounted(false);
+                }
+            }
+            if (audioWakeLock != null && !audioWakeLock.isHeld()) {
+                audioWakeLock.acquire(12 * 60 * 60 * 1000L); // 12 hours
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Audio wake lock acquire warning: " + e.getMessage());
+        }
+    }
+
+    private synchronized void releaseAudioWakeLock() {
+        try {
+            if (audioWakeLock != null && audioWakeLock.isHeld()) {
+                audioWakeLock.release();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @PluginMethod
+    public void showAudioPlayerNotification(PluginCall call) {
+        try {
+            ensureNotificationChannel();
+            ensureAudioReceiver();
+            Context context = getContext();
+
+            String title = call.getString("title", "Audiobook");
+            String bookTitle = call.getString("bookTitle", "");
+            String author = call.getString("author", "");
+            boolean isPlaying = Boolean.TRUE.equals(call.getBoolean("isPlaying", false));
+
+            String contentText = bookTitle;
+            if (author != null && !author.isEmpty()) {
+                contentText = contentText.isEmpty() ? author : contentText + " • " + author;
+            }
+            if (contentText.isEmpty()) contentText = "SwiftAudiobooks Player";
+
+            // Tapping notification body brings app to foreground
+            Intent openAppIntent = new Intent(context, MainActivity.class);
+            openAppIntent.setAction(Intent.ACTION_MAIN);
+            openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+            openAppIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                flags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+            PendingIntent contentPendingIntent = PendingIntent.getActivity(context, 0, openAppIntent, flags);
+
+            // Notification action intents
+            Intent prevIntent = new Intent(ACTION_AUDIO_PREV);
+            PendingIntent prevPending = PendingIntent.getBroadcast(context, 10, prevIntent, flags);
+
+            Intent rewIntent = new Intent(ACTION_AUDIO_REWIND_5);
+            PendingIntent rewPending = PendingIntent.getBroadcast(context, 11, rewIntent, flags);
+
+            Intent playPauseIntent = new Intent(ACTION_AUDIO_PLAY_PAUSE);
+            PendingIntent playPausePending = PendingIntent.getBroadcast(context, 12, playPauseIntent, flags);
+
+            Intent fwdIntent = new Intent(ACTION_AUDIO_FORWARD_5);
+            PendingIntent fwdPending = PendingIntent.getBroadcast(context, 13, fwdIntent, flags);
+
+            Intent nextIntent = new Intent(ACTION_AUDIO_NEXT);
+            PendingIntent nextPending = PendingIntent.getBroadcast(context, 14, nextIntent, flags);
+
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID_AUDIO)
+                    .setContentTitle(title)
+                    .setContentText(contentText)
+                    .setSmallIcon(android.R.drawable.ic_media_play)
+                    .setContentIntent(contentPendingIntent)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setOngoing(isPlaying)
+                    .setOnlyAlertOnce(true)
+                    .addAction(android.R.drawable.ic_media_previous, "⏮", prevPending)
+                    .addAction(android.R.drawable.ic_media_rew, "-5s", rewPending)
+                    .addAction(isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
+                               isPlaying ? "Pause ⏸" : "Play ▶", playPausePending)
+                    .addAction(android.R.drawable.ic_media_ff, "+5s", fwdPending)
+                    .addAction(android.R.drawable.ic_media_next, "⏭", nextPending);
+
+            Notification notification = builder.build();
+            if (notificationManager != null) {
+                notificationManager.notify(AUDIO_NOTIFICATION_ID, notification);
+            }
+
+            if (isPlaying) {
+                acquireAudioWakeLock(title);
+            } else {
+                releaseAudioWakeLock();
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "showAudioPlayerNotification error: " + e.getMessage(), e);
+            call.reject("Audio notification error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void hideAudioPlayerNotification(PluginCall call) {
+        try {
+            ensureNotificationChannel();
+            if (notificationManager != null) {
+                notificationManager.cancel(AUDIO_NOTIFICATION_ID);
+            }
+            releaseAudioWakeLock();
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            if (call != null) call.resolve(ret);
+        } catch (Exception e) {
+            if (call != null) call.reject(e.getMessage());
         }
     }
 
@@ -1021,22 +1224,61 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     }
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        ContentValues values = new ContentValues();
-                        values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
-                        values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
-                        values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + relativeSubDir);
-                        values.put(MediaStore.MediaColumns.IS_PENDING, 1);
-                        pendingUri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                        if (pendingUri != null) {
-                            out = context.getContentResolver().openOutputStream(pendingUri);
-                            savedPath = "/storage/emulated/0/Download/" + relativeSubDir + "/" + fileName;
+                        try {
+                            ContentValues values = new ContentValues();
+                            values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                            values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+                            values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + relativeSubDir);
+                            values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                            pendingUri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                            if (pendingUri != null) {
+                                out = context.getContentResolver().openOutputStream(pendingUri);
+                                savedPath = "/storage/emulated/0/Download/" + relativeSubDir + "/" + fileName;
+                            }
+                        } catch (Exception msErr) {
+                            Log.w(TAG, "MediaStore.Downloads insert failed: " + msErr.getMessage());
                         }
-                    } else {
-                        File pubDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), relativeSubDir);
-                        if (!pubDir.exists()) pubDir.mkdirs();
-                        File destFile = new File(pubDir, fileName);
-                        out = new FileOutputStream(destFile);
-                        savedPath = destFile.getAbsolutePath();
+
+                        if (out == null) {
+                            try {
+                                ContentValues values = new ContentValues();
+                                values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                                values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+                                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/" + relativeSubDir);
+                                values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                                pendingUri = context.getContentResolver().insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
+                                if (pendingUri != null) {
+                                    out = context.getContentResolver().openOutputStream(pendingUri);
+                                    savedPath = "/storage/emulated/0/Music/" + relativeSubDir + "/" + fileName;
+                                }
+                            } catch (Exception audioMsErr) {
+                                Log.w(TAG, "MediaStore.Audio insert failed: " + audioMsErr.getMessage());
+                            }
+                        }
+                    }
+
+                    if (out == null) {
+                        try {
+                            File pubDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), relativeSubDir);
+                            if (!pubDir.exists()) pubDir.mkdirs();
+                            File destFile = new File(pubDir, fileName);
+                            out = new FileOutputStream(destFile);
+                            savedPath = destFile.getAbsolutePath();
+                        } catch (Exception fileErr) {
+                            Log.w(TAG, "Public downloads direct file output failed: " + fileErr.getMessage());
+                        }
+                    }
+
+                    if (out == null) {
+                        try {
+                            File appDir = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), relativeSubDir);
+                            if (!appDir.exists()) appDir.mkdirs();
+                            File destFile = new File(appDir, fileName);
+                            out = new FileOutputStream(destFile);
+                            savedPath = destFile.getAbsolutePath();
+                        } catch (Exception appErr) {
+                            Log.e(TAG, "App external files dir output failed: " + appErr.getMessage());
+                        }
                     }
                 }
 
@@ -1996,5 +2238,17 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
             } catch (Exception ignored) {}
         }
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        super.handleOnDestroy();
+        try {
+            if (audioActionReceiver != null && getContext() != null) {
+                getContext().unregisterReceiver(audioActionReceiver);
+                audioActionReceiver = null;
+            }
+        } catch (Exception ignored) {}
+        releaseAudioWakeLock();
     }
 }
