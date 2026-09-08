@@ -2564,55 +2564,6 @@
         return results;
     }
 
-    async function searchAO3(query) {
-        const url = `https://archiveofourown.org/works/search?work_search%5Bquery%5D=${encodeURIComponent(query)}`;
-        const html = await fetchHtml(url);
-        if (!html) return [];
-
-        const results = [];
-        const itemMatches = [...html.matchAll(/<li[^>]+id="work_(\d+)"[^>]*>([\s\S]*?)<\/li>/gi)];
-
-        for (const m of itemMatches) {
-            const block = m[2];
-            const headM = block.match(/<h4[^>]*class="heading"[^>]*>([\s\S]*?)<\/h4>/i);
-            if (!headM) continue;
-
-            const workLinkM = headM[1].match(/<a[^>]+href="(\/works\/\d+)"[^>]*>([\s\S]*?)<\/a>/i);
-            if (!workLinkM) continue;
-
-            const url = `https://archiveofourown.org${workLinkM[1]}`;
-            const title = stripSearchHtml(workLinkM[2]);
-
-            const authorM = headM[1].match(/rel="author"[^>]*>([\s\S]*?)<\/a>/i);
-            const author = authorM ? stripSearchHtml(authorM[1]) : 'Anonymous';
-
-            const chM = block.match(/<dd class="chapters">([^<]+)<\/dd>/i);
-            const chapters = chM ? `${stripSearchHtml(chM[1])} chapters` : '';
-
-            const wordsM = block.match(/<dd class="words">([^<]+)<\/dd>/i);
-            const words = wordsM ? `${stripSearchHtml(wordsM[1])} words` : '';
-
-            const summaryM = block.match(/<blockquote class="userstuff summary">([\s\S]*?)<\/blockquote>/i);
-            const summary = summaryM ? stripSearchHtml(summaryM[1]).substring(0, 240) + '…' : '';
-
-            const fandoms = [...block.matchAll(/class="fandoms[^"]*"[^>]*>([\s\S]*?)<\/h5>/gi)].map(f => stripSearchHtml(f[1])).slice(0, 2);
-
-            results.push({
-                source: 'AO3',
-                title,
-                url,
-                cover: '',
-                author,
-                chapters: chapters || words,
-                rating: words,
-                tags: fandoms.concat(['Fanfiction']),
-                summary
-            });
-        }
-
-        return results;
-    }
-
     async function searchNovels(query, source = 'all') {
         if (!query || !query.trim()) return [];
         const cleanQ = query.trim();
@@ -2627,9 +2578,6 @@
         }
         if (src === 'all' || src === 'novelfire') {
             runners.push(searchNovelFire(cleanQ).catch(() => []));
-        }
-        if (src === 'all' || src === 'ao3') {
-            runners.push(searchAO3(cleanQ).catch(() => []));
         }
 
         const settled = await Promise.allSettled(runners);

@@ -4632,7 +4632,7 @@ const formatModelName = (id, displayName) => {
         }
 
         setIsSearchingNovels(true);
-        setWebImportStatus('Searching novel sources (NovelBuddy, RoyalRoad, NovelFire, AO3)…');
+        setWebImportStatus('Searching novel sources (NovelBuddy, RoyalRoad, NovelFire)…');
         try {
           const q = target.replace(/^https?:\/\/[^\/]+\/(?:search|fictions\/search)\?[^=]+=/i, '');
           const results = await window.WebNovelImporter.searchNovels(q || target, sourceOverride || 'all');
@@ -9734,13 +9734,15 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       setIsSwiftAudioMode(false);
                       if (s === 'Lnori' && !webImportUrl) {
                         setWebImportUrl('https://lnori.com/');
-                      } else if (['NovelBuddy', 'RoyalRoad', 'NovelFire', 'AO3'].includes(s)) {
+                      } else if (['NovelBuddy', 'RoyalRoad', 'NovelFire'].includes(s)) {
                         setNovelSearchFilter(s);
                         if (webImportUrl && !/^https?:\/\//i.test(webImportUrl.trim())) {
                           handleSearchNovels(webImportUrl, s);
                         } else if (!webImportUrl) {
                           toast(`${s} selected! Type a title or keyword to search.`, 'info');
                         }
+                      } else if (s === 'AO3') {
+                        toast('AO3 works via direct work links (e.g. archiveofourown.org/works/...). Paste any link to import!', 'info');
                       }
                     }
                   }
@@ -10039,7 +10041,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       h('span', { className: 'badge', style: { fontSize: 10.5, background: 'rgba(99, 102, 241, 0.2)', color: 'var(--accent, #6366f1)' } }, `${novelSearchResults.length}`)
                     ),
                     h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
-                      ['all', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'AO3'].map(f => {
+                      ['all', 'NovelBuddy', 'RoyalRoad', 'NovelFire'].map(f => {
                         const count = f === 'all' ? novelSearchResults.length : novelSearchResults.filter(n => (n.source || '').toLowerCase() === f.toLowerCase()).length;
                         if (f !== 'all' && count === 0) return null;
                         const isSel = (novelSearchFilter || 'all').toLowerCase() === f.toLowerCase();
