@@ -312,11 +312,17 @@
                 this.currentTime = this.audioEl.currentTime || 0;
                 this.duration = this.audioEl.duration || this.duration || 0;
                 this._savePosition();
+                // Periodic lightweight sync every 20s during active playback to keep Android SystemUI in perfect lockstep
+                if (this.isPlaying && Math.abs(this.currentTime - (this._lastMediaSessionSyncTime || 0)) >= 20) {
+                    this._lastMediaSessionSyncTime = this.currentTime;
+                    this._updateMediaSession();
+                }
                 this._notify();
             });
 
             this.audioEl.addEventListener('loadedmetadata', () => {
                 this.duration = this.audioEl.duration || 0;
+                this._updateMediaSession();
                 this._notify();
             });
 
@@ -476,6 +482,7 @@
                     try { this.plyrInstance.currentTime = target; } catch(e) {}
                 }
                 this._notify();
+                this._updateMediaSession();
             } catch (e) {
                 console.warn('Seek error:', e);
             }
@@ -499,6 +506,7 @@
                     try { this.plyrInstance.currentTime = target; } catch(e) {}
                 }
                 this._notify();
+                this._updateMediaSession();
             }
         }
 
@@ -598,6 +606,9 @@
             }
             const track = this.currentBook.tracks?.[this.currentTrackIndex];
             const trackTitle = track ? track.title : this.currentBook.title;
+            const curTime = this.currentTime || (this.audioEl ? this.audioEl.currentTime : 0) || 0;
+            const dur = this.duration || (this.audioEl ? this.audioEl.duration : 0) || 0;
+            const rate = this.playbackRate || (this.audioEl ? this.audioEl.playbackRate : 1.0) || 1.0;
 
             // 1. Browser MediaSession API (for Web & Desktop)
             if ('mediaSession' in navigator) {
@@ -620,19 +631,32 @@
                     navigator.mediaSession.setActionHandler('seekforward', () => this.skipForward5());
                     navigator.mediaSession.setActionHandler('previoustrack', () => this.previousTrack());
                     navigator.mediaSession.setActionHandler('nexttrack', () => this.nextTrack());
+                    if ('setPositionState' in navigator.mediaSession && dur > 0) {
+                        try {
+                            navigator.mediaSession.setPositionState({
+                                duration: dur,
+                                playbackRate: rate,
+                                position: Math.min(curTime, dur)
+                            });
+                        } catch (e) {}
+                    }
                 } catch (e) {
                     console.debug('MediaSession update warning:', e);
                 }
             }
 
-            // 2. Native Android Notification Center & Lockscreen Media Controls
+            // 2. Native Android Notification Center & Quick Settings Media Player
             try {
                 if (window.NativeBridge && window.NativeBridge.showAudioNotification) {
                     window.NativeBridge.showAudioNotification({
                         title: trackTitle,
-                        bookTitle: this.currentBook.title,
+                        bookTitle: this.currentBook.title || '',
                         author: this.currentBook.author || '',
-                        isPlaying: this.isPlaying
+                        cover: this.currentBook.cover || '',
+                        isPlaying: this.isPlaying,
+                        currentTime: curTime,
+                        duration: dur,
+                        playbackRate: rate
                     });
                 }
             } catch (e) {

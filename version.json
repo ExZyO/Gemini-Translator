@@ -1,7 +1,7 @@
 {
-  "version": "8.10.49",
-  "versionCode": 8149,
+  "version": "8.10.50",
+  "versionCode": 8150,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.49: True fullscreen audio player with toggle; minimize & close player buttons; floating background MP3 download progress with non-blocking modal; individual chapter downloads in player list and download modal; clean non-redundant import buttons."
+  "releaseNotes": "v8.10.50: Real Android System Media Player in Quick Settings and Lockscreen with MediaSession & Notification.MediaStyle; real-time interactive scrubber seekbar; high-resolution album artwork; Bluetooth headset & car controls; true fullscreen drawer toggle; individual chapter downloads."
 }

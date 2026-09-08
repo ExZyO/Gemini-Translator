@@ -19,6 +19,13 @@ import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 import android.net.Uri;
 import android.media.MediaScannerConnection;
+import android.media.session.MediaSession;
+import android.media.session.PlaybackState;
+import android.media.MediaMetadata;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Icon;
+import android.os.SystemClock;
 import android.widget.Toast;
 import android.os.Build;
 import android.os.Environment;
@@ -97,6 +104,17 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private PowerManager.WakeLock audioWakeLock = null;
     private NotificationManager notificationManager = null;
     private BroadcastReceiver audioActionReceiver = null;
+    private MediaSession mediaSession = null;
+    private Bitmap cachedCoverBitmap = null;
+    private String cachedCoverUrl = null;
+    private boolean isFetchingCover = false;
+    private String lastAudioTitle = "Audiobook";
+    private String lastAudioBookTitle = "";
+    private String lastAudioAuthor = "";
+    private double lastAudioCurrentTime = 0.0;
+    private double lastAudioDuration = 0.0;
+    private double lastAudioRate = 1.0;
+    private boolean lastAudioIsPlaying = false;
     private boolean isChannelCreated = false;
 
     private void ensureNotificationChannel() {
@@ -330,6 +348,21 @@ public class NativeAndroidBridgePlugin extends Plugin {
         }
     }
 
+    private void evalAudioJs(final String js) {
+        Activity act = getActivity();
+        if (act != null) {
+            act.runOnUiThread(() -> {
+                try {
+                    if (getBridge() != null && getBridge().getWebView() != null) {
+                        getBridge().getWebView().evaluateJavascript(js, null);
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "evalAudioJs error: " + e.getMessage());
+                }
+            });
+        }
+    }
+
     private synchronized void ensureAudioReceiver() {
         if (audioActionReceiver != null) return;
         Context context = getContext();
@@ -339,32 +372,16 @@ public class NativeAndroidBridgePlugin extends Plugin {
             public void onReceive(Context ctx, Intent intent) {
                 String action = intent.getAction();
                 if (action == null) return;
-                String js = null;
                 if (ACTION_AUDIO_PLAY_PAUSE.equals(action)) {
-                    js = "window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.togglePlay()";
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.togglePlay()");
                 } else if (ACTION_AUDIO_REWIND_5.equals(action)) {
-                    js = "window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.skipBackward5()";
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.skipBackward5()");
                 } else if (ACTION_AUDIO_FORWARD_5.equals(action)) {
-                    js = "window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.skipForward5()";
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.skipForward5()");
                 } else if (ACTION_AUDIO_NEXT.equals(action)) {
-                    js = "window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.nextTrack()";
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.nextTrack()");
                 } else if (ACTION_AUDIO_PREV.equals(action)) {
-                    js = "window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.previousTrack()";
-                }
-                if (js != null) {
-                    final String evalJs = js;
-                    Activity act = getActivity();
-                    if (act != null) {
-                        act.runOnUiThread(() -> {
-                            try {
-                                if (getBridge() != null && getBridge().getWebView() != null) {
-                                    getBridge().getWebView().evaluateJavascript(evalJs, null);
-                                }
-                            } catch (Exception e) {
-                                Log.w(TAG, "Audio receiver eval error: " + e.getMessage());
-                            }
-                        });
-                    }
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.previousTrack()");
                 }
             }
         };
@@ -385,6 +402,312 @@ public class NativeAndroidBridgePlugin extends Plugin {
         } catch (Exception e) {
             Log.w(TAG, "Register audio receiver error: " + e.getMessage());
         }
+    }
+
+    private synchronized void ensureMediaSession() {
+        if (mediaSession != null) return;
+        Context context = getContext();
+        if (context == null) return;
+        try {
+            mediaSession = new MediaSession(context, "GeminiAudioSession");
+            mediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+            mediaSession.setCallback(new MediaSession.Callback() {
+                @Override
+                public void onPlay() {
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.play()");
+                }
+
+                @Override
+                public void onPause() {
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.pause()");
+                }
+
+                @Override
+                public void onSkipToNext() {
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.nextTrack()");
+                }
+
+                @Override
+                public void onSkipToPrevious() {
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.previousTrack()");
+                }
+
+                @Override
+                public void onFastForward() {
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.skipForward5()");
+                }
+
+                @Override
+                public void onRewind() {
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.skipBackward5()");
+                }
+
+                @Override
+                public void onSeekTo(long pos) {
+                    double seconds = pos / 1000.0;
+                    lastAudioCurrentTime = seconds;
+                    updatePlaybackState(lastAudioIsPlaying, lastAudioCurrentTime, lastAudioRate);
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.seekTo(" + seconds + ")");
+                }
+
+                @Override
+                public void onStop() {
+                    evalAudioJs("window.SwiftAudioEngine && window.SwiftAudioEngine.Player && window.SwiftAudioEngine.Player.pause()");
+                }
+
+                @Override
+                public boolean onMediaButtonEvent(Intent mediaButtonIntent) {
+                    return super.onMediaButtonEvent(mediaButtonIntent);
+                }
+            });
+
+            Intent openAppIntent = new Intent(context, MainActivity.class);
+            openAppIntent.setAction(Intent.ACTION_MAIN);
+            openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+            openAppIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                flags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+            PendingIntent contentPendingIntent = PendingIntent.getActivity(context, 0, openAppIntent, flags);
+            mediaSession.setSessionActivity(contentPendingIntent);
+
+            mediaSession.setActive(true);
+        } catch (Exception e) {
+            Log.e(TAG, "ensureMediaSession error: " + e.getMessage(), e);
+        }
+    }
+
+    private void updatePlaybackState(boolean isPlaying, double currentTimeSec, double rate) {
+        if (mediaSession == null) return;
+        try {
+            long posMs = (long) (Math.max(0, currentTimeSec) * 1000L);
+            float speed = rate > 0 ? (float) rate : 1.0f;
+            int state = isPlaying ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED;
+            long actions = PlaybackState.ACTION_PLAY
+                    | PlaybackState.ACTION_PAUSE
+                    | PlaybackState.ACTION_PLAY_PAUSE
+                    | PlaybackState.ACTION_SKIP_TO_NEXT
+                    | PlaybackState.ACTION_SKIP_TO_PREVIOUS
+                    | PlaybackState.ACTION_FAST_FORWARD
+                    | PlaybackState.ACTION_REWIND
+                    | PlaybackState.ACTION_SEEK_TO
+                    | PlaybackState.ACTION_STOP;
+
+            PlaybackState.Builder stateBuilder = new PlaybackState.Builder()
+                    .setActions(actions)
+                    .setState(state, posMs, speed, SystemClock.elapsedRealtime());
+            mediaSession.setPlaybackState(stateBuilder.build());
+        } catch (Exception e) {
+            Log.w(TAG, "updatePlaybackState error: " + e.getMessage());
+        }
+    }
+
+    private void updateMediaMetadata(String title, String bookTitle, String author, double durationSec, Bitmap art) {
+        if (mediaSession == null) return;
+        try {
+            long durMs = durationSec > 0 ? (long) (durationSec * 1000L) : -1L;
+            String artist = (author != null && !author.isEmpty()) ? author : bookTitle;
+            MediaMetadata.Builder metaBuilder = new MediaMetadata.Builder()
+                    .putString(MediaMetadata.METADATA_KEY_TITLE, title != null ? title : "Audiobook")
+                    .putString(MediaMetadata.METADATA_KEY_ARTIST, artist != null ? artist : "")
+                    .putString(MediaMetadata.METADATA_KEY_ALBUM, bookTitle != null ? bookTitle : "")
+                    .putLong(MediaMetadata.METADATA_KEY_DURATION, durMs);
+
+            if (art != null && !art.isRecycled()) {
+                metaBuilder.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, art);
+                metaBuilder.putBitmap(MediaMetadata.METADATA_KEY_ART, art);
+                metaBuilder.putBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON, art);
+            }
+            mediaSession.setMetadata(metaBuilder.build());
+        } catch (Exception e) {
+            Log.w(TAG, "updateMediaMetadata error: " + e.getMessage());
+        }
+    }
+
+    private void fetchCoverBitmapAsync(final String coverUrl) {
+        if (coverUrl == null || coverUrl.trim().isEmpty()) {
+            cachedCoverBitmap = null;
+            cachedCoverUrl = null;
+            return;
+        }
+        final String cleanUrl = coverUrl.trim();
+        if (cleanUrl.equals(cachedCoverUrl) && cachedCoverBitmap != null && !cachedCoverBitmap.isRecycled()) {
+            return;
+        }
+        if (isFetchingCover) return;
+        isFetchingCover = true;
+
+        new Thread(() -> {
+            Bitmap decoded = null;
+            try {
+                if (cleanUrl.startsWith("data:image/")) {
+                    int commaIdx = cleanUrl.indexOf(',');
+                    if (commaIdx > 0) {
+                        byte[] decodedBytes = Base64.decode(cleanUrl.substring(commaIdx + 1), Base64.DEFAULT);
+                        decoded = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+                    }
+                } else if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
+                    URL url = new URL(cleanUrl);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(8000);
+                    conn.setReadTimeout(10000);
+                    conn.setRequestProperty("User-Agent", DEFAULT_UA);
+                    conn.connect();
+                    if (conn.getResponseCode() == 200) {
+                        try (InputStream is = conn.getInputStream()) {
+                            decoded = BitmapFactory.decodeStream(is);
+                        }
+                    }
+                    conn.disconnect();
+                } else if (cleanUrl.startsWith("file://") || cleanUrl.startsWith("/")) {
+                    String path = cleanUrl.startsWith("file://") ? cleanUrl.substring(7) : cleanUrl;
+                    File f = new File(path);
+                    if (f.exists()) {
+                        decoded = BitmapFactory.decodeFile(f.getAbsolutePath());
+                    }
+                }
+
+                if (decoded != null) {
+                    int w = decoded.getWidth();
+                    int h = decoded.getHeight();
+                    int maxDim = Math.max(w, h);
+                    if (maxDim > 512) {
+                        float ratio = 512f / maxDim;
+                        int newW = Math.max(1, Math.round(w * ratio));
+                        int newH = Math.max(1, Math.round(h * ratio));
+                        Bitmap scaled = Bitmap.createScaledBitmap(decoded, newW, newH, true);
+                        if (scaled != decoded) {
+                            decoded.recycle();
+                            decoded = scaled;
+                        }
+                    }
+
+                    if (cachedCoverBitmap != null && cachedCoverBitmap != decoded && !cachedCoverBitmap.isRecycled()) {
+                        try { cachedCoverBitmap.recycle(); } catch (Exception ignored) {}
+                    }
+                    cachedCoverBitmap = decoded;
+                    cachedCoverUrl = cleanUrl;
+
+                    Activity act = getActivity();
+                    if (act != null) {
+                        act.runOnUiThread(() -> {
+                            try {
+                                buildAndPostAudioNotification();
+                            } catch (Exception e) {
+                                Log.w(TAG, "Failed to repost audio notification after cover fetch: " + e.getMessage());
+                            }
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "fetchCoverBitmapAsync error: " + e.getMessage());
+            } finally {
+                isFetchingCover = false;
+            }
+        }).start();
+    }
+
+    private synchronized void buildAndPostAudioNotification() {
+        Context context = getContext();
+        if (context == null) return;
+        if (notificationManager == null) {
+            notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        }
+        if (notificationManager == null) return;
+
+        ensureMediaSession();
+        updatePlaybackState(lastAudioIsPlaying, lastAudioCurrentTime, lastAudioRate);
+        updateMediaMetadata(lastAudioTitle, lastAudioBookTitle, lastAudioAuthor, lastAudioDuration, cachedCoverBitmap);
+
+        Intent openAppIntent = new Intent(context, MainActivity.class);
+        openAppIntent.setAction(Intent.ACTION_MAIN);
+        openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+        openAppIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        PendingIntent contentPendingIntent = PendingIntent.getActivity(context, 0, openAppIntent, flags);
+
+        Intent prevIntent = new Intent(ACTION_AUDIO_PREV);
+        PendingIntent prevPending = PendingIntent.getBroadcast(context, 10, prevIntent, flags);
+
+        Intent rewIntent = new Intent(ACTION_AUDIO_REWIND_5);
+        PendingIntent rewPending = PendingIntent.getBroadcast(context, 11, rewIntent, flags);
+
+        Intent playPauseIntent = new Intent(ACTION_AUDIO_PLAY_PAUSE);
+        PendingIntent playPausePending = PendingIntent.getBroadcast(context, 12, playPauseIntent, flags);
+
+        Intent fwdIntent = new Intent(ACTION_AUDIO_FORWARD_5);
+        PendingIntent fwdPending = PendingIntent.getBroadcast(context, 13, fwdIntent, flags);
+
+        Intent nextIntent = new Intent(ACTION_AUDIO_NEXT);
+        PendingIntent nextPending = PendingIntent.getBroadcast(context, 14, nextIntent, flags);
+
+        String artistOrBook = (lastAudioAuthor != null && !lastAudioAuthor.isEmpty()) ? lastAudioAuthor : lastAudioBookTitle;
+        if (artistOrBook == null || artistOrBook.isEmpty()) artistOrBook = "SwiftAudiobooks";
+
+        Notification.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder = new Notification.Builder(context, CHANNEL_ID_AUDIO);
+        } else {
+            builder = new Notification.Builder(context);
+        }
+
+        Notification.MediaStyle mediaStyle = new Notification.MediaStyle();
+        if (mediaSession != null) {
+            mediaStyle.setMediaSession(mediaSession.getSessionToken());
+        }
+        mediaStyle.setShowActionsInCompactView(1, 2, 3);
+
+        builder.setStyle(mediaStyle)
+                .setContentTitle(lastAudioTitle)
+                .setContentText(artistOrBook)
+                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setContentIntent(contentPendingIntent)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setPriority(Notification.PRIORITY_LOW)
+                .setOngoing(lastAudioIsPlaying)
+                .setOnlyAlertOnce(true);
+
+        if (lastAudioBookTitle != null && !lastAudioBookTitle.isEmpty()) {
+            builder.setSubText(lastAudioBookTitle);
+        }
+
+        if (cachedCoverBitmap != null && !cachedCoverBitmap.isRecycled()) {
+            builder.setLargeIcon(cachedCoverBitmap);
+        }
+
+        int playPauseIcon = lastAudioIsPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
+        String playPauseText = lastAudioIsPlaying ? "Pause ⏸" : "Play ▶";
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            builder.addAction(new Notification.Action.Builder(
+                    Icon.createWithResource(context, android.R.drawable.ic_media_previous),
+                    "⏮ Previous", prevPending).build());
+            builder.addAction(new Notification.Action.Builder(
+                    Icon.createWithResource(context, android.R.drawable.ic_media_rew),
+                    "-5s", rewPending).build());
+            builder.addAction(new Notification.Action.Builder(
+                    Icon.createWithResource(context, playPauseIcon),
+                    playPauseText, playPausePending).build());
+            builder.addAction(new Notification.Action.Builder(
+                    Icon.createWithResource(context, android.R.drawable.ic_media_ff),
+                    "+5s", fwdPending).build());
+            builder.addAction(new Notification.Action.Builder(
+                    Icon.createWithResource(context, android.R.drawable.ic_media_next),
+                    "⏭ Next", nextPending).build());
+        } else {
+            builder.addAction(android.R.drawable.ic_media_previous, "⏮ Previous", prevPending);
+            builder.addAction(android.R.drawable.ic_media_rew, "-5s", rewPending);
+            builder.addAction(playPauseIcon, playPauseText, playPausePending);
+            builder.addAction(android.R.drawable.ic_media_ff, "+5s", fwdPending);
+            builder.addAction(android.R.drawable.ic_media_next, "⏭ Next", nextPending);
+        }
+
+        Notification notification = builder.build();
+        notificationManager.notify(AUDIO_NOTIFICATION_ID, notification);
     }
 
     private synchronized void acquireAudioWakeLock(String tag) {
@@ -417,72 +740,40 @@ public class NativeAndroidBridgePlugin extends Plugin {
         try {
             ensureNotificationChannel();
             ensureAudioReceiver();
-            Context context = getContext();
+            ensureMediaSession();
 
             String title = call.getString("title", "Audiobook");
             String bookTitle = call.getString("bookTitle", "");
             String author = call.getString("author", "");
+            String cover = call.getString("cover", "");
             boolean isPlaying = Boolean.TRUE.equals(call.getBoolean("isPlaying", false));
+            Double currentTime = call.getDouble("currentTime", 0.0);
+            Double duration = call.getDouble("duration", 0.0);
+            Double playbackRate = call.getDouble("playbackRate", 1.0);
 
-            String contentText = bookTitle;
-            if (author != null && !author.isEmpty()) {
-                contentText = contentText.isEmpty() ? author : contentText + " • " + author;
-            }
-            if (contentText.isEmpty()) contentText = "SwiftAudiobooks Player";
+            lastAudioTitle = title != null ? title : "Audiobook";
+            lastAudioBookTitle = bookTitle != null ? bookTitle : "";
+            lastAudioAuthor = author != null ? author : "";
+            lastAudioIsPlaying = isPlaying;
+            if (currentTime != null) lastAudioCurrentTime = currentTime;
+            if (duration != null) lastAudioDuration = duration;
+            if (playbackRate != null && playbackRate > 0) lastAudioRate = playbackRate;
 
-            // Tapping notification body brings app to foreground
-            Intent openAppIntent = new Intent(context, MainActivity.class);
-            openAppIntent.setAction(Intent.ACTION_MAIN);
-            openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-            openAppIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                flags |= PendingIntent.FLAG_IMMUTABLE;
-            }
-            PendingIntent contentPendingIntent = PendingIntent.getActivity(context, 0, openAppIntent, flags);
-
-            // Notification action intents
-            Intent prevIntent = new Intent(ACTION_AUDIO_PREV);
-            PendingIntent prevPending = PendingIntent.getBroadcast(context, 10, prevIntent, flags);
-
-            Intent rewIntent = new Intent(ACTION_AUDIO_REWIND_5);
-            PendingIntent rewPending = PendingIntent.getBroadcast(context, 11, rewIntent, flags);
-
-            Intent playPauseIntent = new Intent(ACTION_AUDIO_PLAY_PAUSE);
-            PendingIntent playPausePending = PendingIntent.getBroadcast(context, 12, playPauseIntent, flags);
-
-            Intent fwdIntent = new Intent(ACTION_AUDIO_FORWARD_5);
-            PendingIntent fwdPending = PendingIntent.getBroadcast(context, 13, fwdIntent, flags);
-
-            Intent nextIntent = new Intent(ACTION_AUDIO_NEXT);
-            PendingIntent nextPending = PendingIntent.getBroadcast(context, 14, nextIntent, flags);
-
-            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID_AUDIO)
-                    .setContentTitle(title)
-                    .setContentText(contentText)
-                    .setSmallIcon(android.R.drawable.ic_media_play)
-                    .setContentIntent(contentPendingIntent)
-                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                    .setPriority(NotificationCompat.PRIORITY_LOW)
-                    .setOngoing(isPlaying)
-                    .setOnlyAlertOnce(true)
-                    .addAction(android.R.drawable.ic_media_previous, "⏮", prevPending)
-                    .addAction(android.R.drawable.ic_media_rew, "-5s", rewPending)
-                    .addAction(isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
-                               isPlaying ? "Pause ⏸" : "Play ▶", playPausePending)
-                    .addAction(android.R.drawable.ic_media_ff, "+5s", fwdPending)
-                    .addAction(android.R.drawable.ic_media_next, "⏭", nextPending);
-
-            Notification notification = builder.build();
-            if (notificationManager != null) {
-                notificationManager.notify(AUDIO_NOTIFICATION_ID, notification);
+            if (mediaSession != null) {
+                mediaSession.setActive(true);
             }
 
             if (isPlaying) {
-                acquireAudioWakeLock(title);
+                acquireAudioWakeLock(lastAudioTitle);
             } else {
                 releaseAudioWakeLock();
             }
+
+            if (cover != null && !cover.isEmpty() && !cover.equals(cachedCoverUrl)) {
+                fetchCoverBitmapAsync(cover);
+            }
+
+            buildAndPostAudioNotification();
 
             JSObject ret = new JSObject();
             ret.put("success", true);
@@ -499,6 +790,9 @@ public class NativeAndroidBridgePlugin extends Plugin {
             ensureNotificationChannel();
             if (notificationManager != null) {
                 notificationManager.cancel(AUDIO_NOTIFICATION_ID);
+            }
+            if (mediaSession != null) {
+                mediaSession.setActive(false);
             }
             releaseAudioWakeLock();
             JSObject ret = new JSObject();
@@ -2249,6 +2543,19 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 audioActionReceiver = null;
             }
         } catch (Exception ignored) {}
+        try {
+            if (mediaSession != null) {
+                mediaSession.setActive(false);
+                mediaSession.release();
+                mediaSession = null;
+            }
+        } catch (Exception ignored) {}
+        if (cachedCoverBitmap != null && !cachedCoverBitmap.isRecycled()) {
+            try {
+                cachedCoverBitmap.recycle();
+            } catch (Exception ignored) {}
+            cachedCoverBitmap = null;
+        }
         releaseAudioWakeLock();
     }
 }
