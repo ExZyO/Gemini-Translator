@@ -249,6 +249,14 @@
         _initAudioElement() {
             if (typeof document === 'undefined') return;
             if (this.audioEl) return;
+            if (!document.body) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => this._initAudioElement(), { once: true });
+                    return;
+                }
+                setTimeout(() => this._initAudioElement(), 50);
+                return;
+            }
             let el = document.getElementById('swift-plyr-audio');
             if (!el) {
                 el = document.createElement('audio');

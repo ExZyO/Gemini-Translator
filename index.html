@@ -35,7 +35,6 @@
   <script src="./icons.js"></script>
   <link rel="stylesheet" href="./vendor/plyr.css">
   <script src="./vendor/plyr.min.js"></script>
-  <script src="./swiftaudio_engine.js"></script>
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -734,6 +733,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="epub_engine.js"></script>
   <script src="glossary_presets.js"></script>
   <script src="gdrive_sync.js"></script>
+  <script src="swiftaudio_engine.js"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -837,7 +837,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.45';
+    const VERSION = '8.10.46';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3266,21 +3266,34 @@ const formatModelName = (id, displayName) => {
       // --- SwiftAudio Engine & Player State ---
       const [swiftAudioResults, setSwiftAudioResults] = useState([]);
       const [isSwiftAudioSearching, setIsSwiftAudioSearching] = useState(false);
+      const [isSwiftAudioMode, setIsSwiftAudioMode] = useState(false);
       const [activeAudiobook, setActiveAudiobook] = useState(null);
       const [audioPlayerState, setAudioPlayerState] = useState(() => window.SwiftAudioEngine?.Player?.getState() || { isLoaded: false });
       const [isFullPlayerOpen, setIsFullPlayerOpen] = useState(false);
       const [audioDownloadModal, setAudioDownloadModal] = useState(null);
 
       useEffect(() => {
-        if (window.SwiftAudioEngine && window.SwiftAudioEngine.Player) {
-          const unsub = window.SwiftAudioEngine.Player.subscribe(st => {
-            setAudioPlayerState(st);
-            if (st.currentBook && !activeAudiobook) {
-              setActiveAudiobook(st.currentBook);
-            }
-          });
-          return unsub;
+        const attachAudio = () => {
+          if (window.SwiftAudioEngine && window.SwiftAudioEngine.Player) {
+            return window.SwiftAudioEngine.Player.subscribe(st => {
+              setAudioPlayerState(st);
+              if (st.currentBook && !activeAudiobook) {
+                setActiveAudiobook(st.currentBook);
+              }
+            });
+          }
+          return null;
+        };
+
+        let unsub = attachAudio();
+        if (!unsub) {
+          const timer = setInterval(() => {
+            unsub = attachAudio();
+            if (unsub) clearInterval(timer);
+          }, 200);
+          return () => { clearInterval(timer); if (unsub) unsub(); };
         }
+        return unsub;
       }, []);
 
       const [isAiSorting, setIsAiSorting] = useState(false);
@@ -4345,20 +4358,29 @@ const formatModelName = (id, displayName) => {
       // ── SWIFTAUDIO HANDLERS ──
       const handleSwiftAudioSearch = async (queryOrUrl) => {
         const target = (queryOrUrl || webImportUrl || '').trim();
-        if (!target) return toast('Please enter an audiobook title or SwiftAudiobooks URL', 'warning');
+        if (!target || target === 'https://swiftaudiobooks.com/' || target === 'https://swiftaudiobooks.com') {
+          return toast('Please enter an audiobook title to search (e.g. Shadow Slave, Harry Potter)', 'warning');
+        }
+        if (!window.SwiftAudioEngine || !window.SwiftAudioEngine.Scraper) {
+          return toast('Audio engine is initializing, please try again in a moment…', 'info');
+        }
 
         setIsSwiftAudioSearching(true);
         setWebImportStatus('Searching SwiftAudiobooks…');
         try {
-          if (/^https?:\/\/swiftaudiobooks\.com\/.+/i.test(target) && !target.includes('/?s=')) {
+          const isBookUrl = /^https?:\/\/(?:www\.)?(?:swiftaudiobooks\.com|ipaudio7\.com)\/[a-z0-9-]+/i.test(target) &&
+            !/https?:\/\/(?:www\.)?swiftaudiobooks\.com\/?$/i.test(target) &&
+            !target.includes('/?s=');
+
+          if (isBookUrl) {
             toast('Fetching audiobook tracks…', 'info');
             const book = await window.SwiftAudioEngine.Scraper.getBookDetails(target);
             setActiveAudiobook(book);
             setSwiftAudioResults([book]);
             toast(`Loaded "${book.title}" (${book.totalTracks} chapters)!`, 'success');
           } else {
-            const q = target.replace(/^https?:\/\/swiftaudiobooks\.com\/\?s=/i, '');
-            const results = await window.SwiftAudioEngine.Scraper.search(q);
+            const q = target.replace(/^https?:\/\/swiftaudiobooks\.com\/\?s=/i, '').replace(/^https?:\/\/[^\/]+\/?/i, '');
+            const results = await window.SwiftAudioEngine.Scraper.search(q || target);
             setSwiftAudioResults(results);
             if (results.length === 0) {
               toast('No audiobooks found matching query.', 'info');
@@ -4376,10 +4398,17 @@ const formatModelName = (id, displayName) => {
 
       const handleStartPlayAudiobook = async (bookOrResult, startTrack = 0) => {
         try {
+          const targetUrl = bookOrResult?.url || (typeof bookOrResult === 'string' ? bookOrResult : webImportUrl || '').trim();
+          if (!targetUrl || targetUrl === 'https://swiftaudiobooks.com/' || targetUrl === 'https://swiftaudiobooks.com') {
+            return toast('Please enter an audiobook title to search (e.g. Shadow Slave) or select a book.', 'warning');
+          }
+          if (!window.SwiftAudioEngine || !window.SwiftAudioEngine.Scraper || !window.SwiftAudioEngine.Player) {
+            return toast('Audio engine is initializing, please try again in a moment…', 'info');
+          }
           let fullBook = bookOrResult;
-          if (!fullBook.tracks || fullBook.tracks.length === 0) {
+          if (!fullBook || !fullBook.tracks || fullBook.tracks.length === 0) {
             toast('Loading chapter audio streams…', 'info');
-            fullBook = await window.SwiftAudioEngine.Scraper.getBookDetails(bookOrResult.url);
+            fullBook = await window.SwiftAudioEngine.Scraper.getBookDetails(targetUrl);
           }
           setActiveAudiobook(fullBook);
           window.SwiftAudioEngine.Player.loadBook(fullBook, startTrack, true);
@@ -4392,10 +4421,17 @@ const formatModelName = (id, displayName) => {
 
       const handleOpenAudioDownload = async (bookOrResult) => {
         try {
+          const targetUrl = bookOrResult?.url || (typeof bookOrResult === 'string' ? bookOrResult : webImportUrl || '').trim();
+          if (!targetUrl || targetUrl === 'https://swiftaudiobooks.com/' || targetUrl === 'https://swiftaudiobooks.com') {
+            return toast('Please enter an audiobook title to search (e.g. Shadow Slave) or select a book.', 'warning');
+          }
+          if (!window.SwiftAudioEngine || !window.SwiftAudioEngine.Scraper) {
+            return toast('Audio engine is initializing, please try again in a moment…', 'info');
+          }
           let fullBook = bookOrResult;
-          if (!fullBook.tracks || fullBook.tracks.length === 0) {
+          if (!fullBook || !fullBook.tracks || fullBook.tracks.length === 0) {
             toast('Loading chapter audio streams…', 'info');
-            fullBook = await window.SwiftAudioEngine.Scraper.getBookDetails(bookOrResult.url);
+            fullBook = await window.SwiftAudioEngine.Scraper.getBookDetails(targetUrl);
           }
           setActiveAudiobook(fullBook);
           const opts = getNovelFolderOptions(fullBook);
@@ -9323,7 +9359,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 return webImportData || activeCrawlSession || null;
               })();
               const isLnoriUrl = /lnori\.(?:org|com)/i.test(webImportUrl);
-              const isSwiftAudioUrl = /swiftaudiobooks\.com|ipaudio7\.com/i.test(webImportUrl);
+              const isSwiftAudioDetected = isSwiftAudioMode || /swiftaudiobooks\.com|ipaudio7\.com/i.test(webImportUrl);
+              const isSpecificSwiftAudioBook = /^https?:\/\/(?:www\.)?(?:swiftaudiobooks\.com|ipaudio7\.com)\/[a-z0-9-]+/i.test((webImportUrl || '').trim()) &&
+                !/https?:\/\/(?:www\.)?swiftaudiobooks\.com\/?$/i.test((webImportUrl || '').trim()) &&
+                !(webImportUrl || '').includes('/?s=');
               const isLnoriNovel = Boolean(
                 (activeNovelView?.sourceUrl && /lnori\.(?:org|com)/i.test(activeNovelView.sourceUrl)) ||
                 (activeNovelView?.url && /lnori\.(?:org|com)/i.test(activeNovelView.url)) ||
@@ -9403,25 +9442,32 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
                 h('div', { className: 'src-chips' }, ['Lnori', 'SwiftAudio', 'NovelBin', 'NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', {
                   key: s,
-                  className: `src-chip ${s === 'SwiftAudio' ? 'accent' : ''}`,
-                  style: s === 'SwiftAudio' ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : { cursor: 'pointer' },
+                  className: `src-chip ${(s === 'SwiftAudio' && isSwiftAudioDetected) ? 'accent' : ''}`,
+                  style: (s === 'SwiftAudio' && isSwiftAudioDetected) ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : { cursor: 'pointer' },
                   onClick: () => {
                     if (s === 'SwiftAudio') {
-                      if (!webImportUrl || !webImportUrl.includes('swiftaudiobooks.com')) {
-                        setWebImportUrl('https://swiftaudiobooks.com/');
+                      setIsSwiftAudioMode(true);
+                      if (!webImportUrl || webImportUrl === 'https://swiftaudiobooks.com/') {
+                        setWebImportUrl('');
                       }
-                      toast('SwiftAudiobooks selected! Enter title or paste link.', 'info');
-                    } else if (s === 'Lnori' && !webImportUrl) {
-                      setWebImportUrl('https://lnori.com/');
+                      toast('SwiftAudiobooks selected! Type any book title or paste link.', 'info');
+                    } else {
+                      setIsSwiftAudioMode(false);
+                      if (s === 'Lnori' && !webImportUrl) {
+                        setWebImportUrl('https://lnori.com/');
+                      }
                     }
                   }
                 }, s === 'SwiftAudio' ? '🎧 SwiftAudio' : s))),
                 h('input', {
                   className: 'url-input',
-                  type: 'url',
-                  placeholder: isSwiftAudioUrl ? 'Paste SwiftAudiobooks URL or type book title to search…' : 'Paste novel URL (Lnori, SwiftAudio, NovelBin, NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)',
+                  type: 'text',
+                  placeholder: isSwiftAudioDetected ? 'Type audiobook title (e.g. Shadow Slave, Harry Potter) or paste link…' : 'Paste novel URL (Lnori, SwiftAudio, NovelBin, NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)',
                   value: webImportUrl,
-                  onChange: (e) => setWebImportUrl(e.target.value)
+                  onChange: (e) => {
+                    setWebImportUrl(e.target.value);
+                    if (!e.target.value.trim()) setIsSwiftAudioMode(false);
+                  }
                 }),
 
                 // Lnori Detection Card & Direct 1-Click EPUB Button
@@ -9466,8 +9512,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   }, '⚡ 1-Click Download Clean EPUB')
                 ),
 
-                // SwiftAudiobooks Detection Card
-                isSwiftAudioUrl && !isFetchingUrl && h('div', {
+                // SwiftAudiobooks Detection Card (only for specific book URLs)
+                isSpecificSwiftAudioBook && !isFetchingUrl && h('div', {
                   className: 'card',
                   style: {
                     background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(236, 72, 153, 0.12))',
@@ -9591,20 +9637,20 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     }, '✕ Cancel')
                   )
                 ) : !isFetchingUrl ? (
-                  isSwiftAudioUrl ? (
-                    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, margin: '6px 0' } },
+                  isSwiftAudioDetected ? (
+                    h('div', { style: { display: 'grid', gridTemplateColumns: isSpecificSwiftAudioBook ? '1fr 1fr' : '1fr', gap: 6, margin: '6px 0' } },
                       h('button', {
                         type: 'button',
                         className: 'primary',
-                        style: { background: 'linear-gradient(90deg, #6366f1, #ec4899)' },
+                        style: { background: 'linear-gradient(90deg, #6366f1, #ec4899)', width: '100%' },
                         disabled: !webImportUrl.trim() || isSwiftAudioSearching,
                         onClick: () => handleSwiftAudioSearch(webImportUrl)
                       }, isSwiftAudioSearching ? 'Searching…' : '🔍 Search Audiobooks'),
-                      h('button', {
+                      isSpecificSwiftAudioBook && h('button', {
                         type: 'button',
                         className: 'mini-btn',
                         style: { background: 'var(--panel)', border: '1px solid var(--hairline)', color: 'var(--paper)', fontWeight: 600 },
-                        disabled: !webImportUrl.trim() || isSwiftAudioSearching,
+                        disabled: isSwiftAudioSearching,
                         onClick: () => handleStartPlayAudiobook({ url: webImportUrl })
                       }, '🎧 Play Stream')
                     )
