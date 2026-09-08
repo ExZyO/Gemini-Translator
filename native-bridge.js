@@ -420,7 +420,7 @@
                 console.warn('Native downloadFileDirect error, falling back to blob save:', e);
             }
             // Browser Fallback: Stream/fetch to blob and save
-            const res = await fetch(url);
+            const res = await fetch(url, { referrerPolicy: 'no-referrer' });
             const blob = await res.blob();
             return await window.NativeBridge.saveBlob(blob, fileName, options?.mimeType || 'audio/mpeg', false, options);
         },

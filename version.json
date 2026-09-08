@@ -1,7 +1,7 @@
 {
-  "version": "8.10.46",
-  "versionCode": 8146,
+  "version": "8.10.47",
+  "versionCode": 8147,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.46: Fix SwiftAudioEngine initialization lifecycle (guard document.body and DOMContentLoaded), clean audiobook search UX, and eliminate undefined Scraper error."
+  "releaseNotes": "v8.10.47: Fix ipaudio7 403 Forbidden blocking audiobook covers, streams, and controls via no-referrer policy; add Next Chapter control in mini-player; fix download modal active state lifecycle."
 }

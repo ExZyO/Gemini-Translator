@@ -31,7 +31,7 @@
 
         // Direct fetch attempt (works in Node, Capacitor, and CORS-enabled contexts)
         try {
-            const directRes = await fetch(url, { signal: AbortSignal.timeout(6000) });
+            const directRes = await fetch(url, { signal: AbortSignal.timeout(6000), referrerPolicy: 'no-referrer' });
             if (directRes.ok) {
                 const text = await directRes.text();
                 if (text && text.length > 100 && !text.includes('Error 1015')) return text;
@@ -263,8 +263,11 @@
                 el.id = 'swift-plyr-audio';
                 el.setAttribute('playsinline', 'true');
                 el.setAttribute('preload', 'metadata');
+                el.setAttribute('referrerpolicy', 'no-referrer');
                 el.style.display = 'none';
                 document.body.appendChild(el);
+            } else {
+                el.setAttribute('referrerpolicy', 'no-referrer');
             }
             this.audioEl = el;
 
@@ -273,6 +276,24 @@
             } else {
                 window.addEventListener('load', () => this._mountPlyr(), { once: true });
             }
+
+            this.audioEl.addEventListener('error', () => {
+                const err = this.audioEl ? this.audioEl.error : null;
+                let errMsg = 'Audio stream error';
+                if (err) {
+                    switch (err.code) {
+                        case MediaError.MEDIA_ERR_ABORTED: errMsg = 'Playback aborted by user'; break;
+                        case MediaError.MEDIA_ERR_NETWORK: errMsg = 'Network error downloading audio stream'; break;
+                        case MediaError.MEDIA_ERR_DECODE: errMsg = 'Audio decoding error'; break;
+                        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errMsg = 'Audio stream blocked or format unsupported'; break;
+                        default: errMsg = `Audio error code ${err.code}`; break;
+                    }
+                }
+                console.error('[SwiftAudio] Audio element error:', errMsg, err);
+                this.isPlaying = false;
+                this._notify();
+                if (window.toast) window.toast(errMsg, 'error');
+            });
 
             this.audioEl.addEventListener('play', () => {
                 this.isPlaying = true;
@@ -372,12 +393,32 @@
         }
 
         play() {
+            if (this.plyrInstance) {
+                try {
+                    const p = this.plyrInstance.play();
+                    if (p && p.catch) {
+                        p.catch(e => {
+                            console.debug('Plyr play error:', e);
+                            if (this.audioEl) this.audioEl.play().catch(err => console.debug('Fallback play error:', err));
+                        });
+                    }
+                    return;
+                } catch(e) {}
+            }
             if (this.audioEl) {
-                this.audioEl.play().catch(e => console.debug('Play error:', e));
+                this.audioEl.play().catch(e => {
+                    console.debug('Play error:', e);
+                    if (e.name === 'NotAllowedError' && window.toast) {
+                        window.toast('Tap Play to start audio', 'info');
+                    }
+                });
             }
         }
 
         pause() {
+            if (this.plyrInstance) {
+                try { this.plyrInstance.pause(); return; } catch(e) {}
+            }
             if (this.audioEl) {
                 this.audioEl.pause();
             }
@@ -390,8 +431,24 @@
 
         seekRelative(seconds) {
             if (!this.audioEl) return;
-            const newTime = Math.max(0, Math.min(this.audioEl.currentTime + seconds, this.duration || Infinity));
-            this.audioEl.currentTime = newTime;
+            try {
+                const cur = this.audioEl.currentTime || 0;
+                const dur = this.audioEl.duration || this.duration || 0;
+                let target = cur + seconds;
+                if (dur > 0) {
+                    target = Math.max(0, Math.min(target, dur));
+                } else {
+                    target = Math.max(0, target);
+                }
+                this.audioEl.currentTime = target;
+                this.currentTime = target;
+                if (this.plyrInstance) {
+                    try { this.plyrInstance.currentTime = target; } catch(e) {}
+                }
+                this._notify();
+            } catch (e) {
+                console.warn('Seek error:', e);
+            }
         }
 
         skipBackward5() {
@@ -403,8 +460,15 @@
         }
 
         seekTo(seconds) {
-            if (this.audioEl && typeof seconds === 'number') {
-                this.audioEl.currentTime = Math.max(0, Math.min(seconds, this.duration || Infinity));
+            if (typeof seconds !== 'number' || isNaN(seconds)) return;
+            if (this.audioEl) {
+                const target = Math.max(0, Math.min(seconds, this.duration || Infinity));
+                this.audioEl.currentTime = target;
+                this.currentTime = target;
+                if (this.plyrInstance) {
+                    try { this.plyrInstance.currentTime = target; } catch(e) {}
+                }
+                this._notify();
             }
         }
 

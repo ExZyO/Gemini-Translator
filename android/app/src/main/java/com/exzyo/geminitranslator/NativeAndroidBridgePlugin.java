@@ -919,7 +919,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
 
                 // 1. Establish HTTP connection following redirects
-                String currentUrl = targetUrl;
+                String currentUrl = targetUrl != null ? targetUrl.trim().replace(" ", "%20") : "";
                 int redirects = 0;
                 int statusCode = 0;
 
@@ -942,6 +942,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             if (!loc.startsWith("http")) {
                                 loc = new URL(url, loc).toString();
                             }
+                            loc = loc.replace(" ", "%20");
                             currentUrl = loc;
                             conn.disconnect();
                             redirects++;

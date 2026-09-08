@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
   <title>Gemini Translator</title>
   <meta name="description"
     content="AI-powered translation with Gemini, DeepSeek, DeepL, and LibreTranslate. Supports PDF, EPUB, TXT files with glossary management.">
@@ -837,7 +838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.46';
+    const VERSION = '8.10.47';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4455,7 +4456,7 @@ const formatModelName = (id, displayName) => {
         setAudioDownloadModal(prev => ({ ...prev, active: true, status: 'Starting download…', percent: 0 }));
 
         try {
-          await window.SwiftAudioEngine.Downloader.downloadAllTracks(book, opts, (progress) => {
+          const res = await window.SwiftAudioEngine.Downloader.downloadAllTracks(book, opts, (progress) => {
             setAudioDownloadModal(prev => ({
               ...prev,
               status: progress.status,
@@ -4463,6 +4464,12 @@ const formatModelName = (id, displayName) => {
               completed: progress.completed
             }));
           });
+          setAudioDownloadModal(prev => ({
+            ...prev,
+            active: false,
+            status: res && res.count ? `Complete! Downloaded ${res.count} chapters.` : 'Download completed.',
+            percent: 100
+          }));
           toast(`All chapters of "${book.title}" downloaded!`, 'success');
         } catch (e) {
           toast('Audiobook download error: ' + e.message, 'error');
@@ -9746,6 +9753,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       item.cover ? h('img', {
                         src: item.cover,
                         alt: 'Cover',
+                        referrerPolicy: 'no-referrer',
+                        onError: (e) => { e.target.style.display = 'none'; },
                         style: { width: 64, height: 92, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
                       }) : h('div', {
                         style: { width: 64, height: 92, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
@@ -12013,6 +12022,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           audioPlayerState.currentBook.cover ? h('img', {
             src: audioPlayerState.currentBook.cover,
             alt: 'Cover',
+            referrerPolicy: 'no-referrer',
+            onError: (e) => { e.target.style.display = 'none'; },
             style: { width: 42, height: 42, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
           }) : h('div', {
             style: { width: 42, height: 42, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }
@@ -12064,6 +12075,14 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               title: 'Skip forward 5 seconds',
               onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
             }, '+5s'),
+
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { padding: '6px 8px', fontSize: 13 },
+              title: 'Next Chapter',
+              onClick: () => window.SwiftAudioEngine?.Player?.nextTrack()
+            }, '⏭'),
 
             h('button', {
               type: 'button',
@@ -12123,6 +12142,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 audioPlayerState.currentBook.cover ? h('img', {
                   src: audioPlayerState.currentBook.cover,
                   alt: 'Cover',
+                  referrerPolicy: 'no-referrer',
+                  onError: (e) => { e.target.style.display = 'none'; },
                   style: { width: 160, height: 230, borderRadius: 12, objectFit: 'cover', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', margin: '0 auto' }
                 }) : h('div', {
                   style: { width: 160, height: 210, borderRadius: 12, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, margin: '0 auto' }
@@ -12312,6 +12333,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 audioDownloadModal.book?.cover && h('img', {
                   src: audioDownloadModal.book.cover,
                   alt: 'Cover',
+                  referrerPolicy: 'no-referrer',
+                  onError: (e) => { e.target.style.display = 'none'; },
                   style: { width: 56, height: 80, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
                 }),
                 h('div', { style: { flex: 1, minWidth: 0 } },
