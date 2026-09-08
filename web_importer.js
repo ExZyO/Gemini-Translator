@@ -175,11 +175,12 @@
             return '';
         });
 
-        // 3. Strip residual "[Download Image]", "Download Image", "[View Image]", "[Illustration]" anchor text artifacts
+        // 3. Strip residual "[Download Image]", "Download Image", "[View Image]", "[Illustration]" anchor text artifacts (excluding markdown images ![...])
         processed = processed
-            .replace(/[\[\(]\s*(?:Download|View|Click to view|High-Res|Full Size|Original)?\s*(?:Image|Illustration|Artwork|Resolution|Photo|Picture)\s*[\]\)]/gi, '')
+            .replace(/(?<!\!)[\[\(]\s*(?:Download|View|Click to view|High-Res|Full Size|Original)?\s*(?:Image|Illustration|Artwork|Resolution|Photo|Picture)\s*[\]\)]/gi, '')
             .replace(/\b(?:Download|View|Click to view)\s+(?:High-Res\s+|Full Size\s+|Original\s+)?(?:Image|Illustration|Artwork|Photo|Picture)\b/gi, '')
-            .replace(/\b(?:High-Res|Full Size)\s+(?:Image|Illustration|Artwork|Photo|Picture)\b/gi, '');
+            .replace(/\b(?:High-Res|Full Size)\s+(?:Image|Illustration|Artwork|Photo|Picture)\b/gi, '')
+            .replace(/!\(https?:\/\/[^\s)]*the-artifice\.com[^\s)]*\)/gi, '');
 
         return processed
             .replace(/<br\s*[\/]?>/gi, '\n')
@@ -596,12 +597,41 @@
     // ══════════════════════════════════════════════════════════════════════
 
     // --- A. WITCH CULT TRANSLATIONS (Re:Zero Web Novel Pipeline) ---
+    // --- A. WITCH CULT TRANSLATIONS (Re:Zero Web Novel Pipeline) ---
+    function cleanWitchCultChapter(rawHtml) {
+        let content = rawHtml || '';
+
+        // 1. Strip legacy the-artifice.com translator avatars and broken markdown artifacts
+        content = content.replace(/<p[^>]*>\s*<img[^>]*the-artifice\.com[^>]*>\s*<\/p>/gi, '');
+        content = content.replace(/<img[^>]*the-artifice\.com[^>]*>/gi, '');
+        content = content.replace(/!\[.*?\]\([^\)]*the-artifice\.com[^\)]*\)/gi, '');
+        content = content.replace(/!\([^\)]*the-artifice\.com[^\)]*\)/gi, '');
+
+        // 2. Strip decorative WCT website logos and pins
+        content = content.replace(/<p[^>]*>\s*<img[^>]*(?:wct_logo|Satella_Pin|Emilia_Pin)[^>]*>\s*<\/p>/gi, '');
+        content = content.replace(/<img[^>]*(?:wct_logo|Satella_Pin|Emilia_Pin)[^>]*>/gi, '');
+
+        // 3. Strip the credit/disclaimer boilerplate header at the top of the chapter:
+        // Matches from the opening divider(s) (※ or △▼) through credit lines to the closing divider before the story starts
+        content = content.replace(/(?:<p[^>]*>\s*[※　*#_\-△▼\s]{3,}\s*<\/p>[\s\S]*?){1,5}<p[^>]*>\s*[※　*#_\-△▼\s]{3,}\s*<\/p>/i, (match) => {
+            if (/translated\s+by|proofread|proofreaders?|all\s+rights\s+belong|japanese\s+web\s+novel\s+source|art\s+sources?|archbishop|snuser/i.test(match)) {
+                return '';
+            }
+            return match;
+        });
+
+        return cleanChapterHtmlWithImages(content);
+    }
+
     async function crawlWitchCult(url, progressCb) {
         progressCb?.('Connecting to Witch Cult Translations...', 5);
         const targetSlug = url.replace(/\/$/, '').split('/').filter(Boolean).pop();
 
         progressCb?.(' Indexing chapters from Witch Cult Translations...', 10);
         let chapterList = [];
+        const defaultCover = 'https://witchculttranslation.com/wp-content/uploads/2024/09/png-echidna-beatrice-2-editado-2.jpg';
+        let cover = defaultCover;
+
         try {
             const isArcPage = url.includes('/arc-') || url.includes('witchculttranslation.com/arc');
             let targetHtml = '';
@@ -612,6 +642,12 @@
             }
             if (!targetHtml) {
                 targetHtml = await fetchHtml('https://witchculttranslation.com/table-of-content/');
+            }
+
+            const doc = new DOMParser().parseFromString(targetHtml, 'text/html');
+            const extractedCover = extractPageCover(doc, url);
+            if (extractedCover && !extractedCover.includes('wct_logo') && !extractedCover.includes('Pin')) {
+                cover = extractedCover;
             }
 
             const linkRegex = /<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
@@ -641,6 +677,26 @@
 
         if (chapterList.length === 0) chapterList = [{ url, title: 'Re:Zero Chapter' }];
 
+        const isFullToc = url.includes('table-of-content') || !targetSlug || targetSlug === 'table-of-content';
+        const title = isFullToc
+            ? 'Re:Zero Starting Life in Another World — Web Novel Complete Edition'
+            : `Re:Zero Web Novel — ${chapterList[0]?.title || 'Arc Edition'}`;
+
+        if (activeCrawlController?.tocOnly) {
+            return {
+                title,
+                author: 'Tappei Nagatsuki (Witch Cult Translations)',
+                summary: `Re:Zero Starting Life in Another World Web Novel. ${chapterList.length} complete chapters from Witch Cult Translations.`,
+                cover,
+                tags: ['Re:Zero', 'Witch Cult Translations', 'Web Novel', 'Complete Edition'],
+                chapters: [],
+                chapterList,
+                totalChapterCount: chapterList.length,
+                isEpub: false,
+                sourceUrl: url
+            };
+        }
+
         progressCb?.(` Discovered ${chapterList.length} chapters! Launching continuous streaming pipeline...`, 15);
 
         const { chapters, totalWords, totalImages } = await crawlChapterPool(
@@ -648,21 +704,25 @@
             async (item) => {
                 const html = await fetchHtml(item.url);
                 const cMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-                const txt = cleanChapterHtmlWithImages(cMatch ? cMatch[1] : html);
+                const txt = cleanWitchCultChapter(cMatch ? cMatch[1] : html);
                 return { title: item.title, text: txt };
             },
             12,
-            progressCb
+            progressCb,
+            { title, author: 'Tappei Nagatsuki (Witch Cult Translations)', summary: `Re:Zero Starting Life in Another World Web Novel. ${chapterList.length} complete chapters.`, cover, chapterList }
         );
 
         progressCb?.(` Compiled ${chapters.length} Re:Zero chapters with ${totalImages} illustrations! (~${totalWords.toLocaleString()} words)`, 100);
 
         return {
-            title: 'Re:Zero Web Novel — ' + (chapterList[0]?.title || 'Complete Edition'),
+            title,
             author: 'Tappei Nagatsuki (Witch Cult Translations)',
             summary: `Re:Zero Starting Life in Another World Web Novel. ${chapters.length} complete chapters (~${totalWords.toLocaleString()} words, ${totalImages} illustrations) starting from ${chapterList[0]?.title}.`,
+            cover,
             tags: ['Re:Zero', 'Witch Cult Translations', 'Web Novel', 'Complete Edition'],
             chapters: chapters.map(c => ({ title: c.title, text: c.text })),
+            chapterList,
+            totalChapterCount: chapterList.length,
             isEpub: false,
             sourceUrl: url
         };
@@ -838,9 +898,13 @@
             if (url.includes('syosetu.org') || err.message?.includes('403') || err.message?.includes('Cloudflare')) {
                 if (window.NativeBridge?.resolveCloudflare) {
                     progressCb?.('Syosetu.org (Hameln) requires Cloudflare verification. Complete in Android window...', 10);
-                    await window.NativeBridge.resolveCloudflare(url);
-                    progressCb?.('Verification complete! Fetching Syosetu.org...', 15);
-                    html = await fetchHtml(url);
+                    const cfRes = await window.NativeBridge.resolveCloudflare(url);
+                    progressCb?.('Verification complete! Reading table of contents...', 15);
+                    if (cfRes && cfRes.html && !cfRes.html.includes('cf-browser-verification')) {
+                        html = cfRes.html;
+                    } else {
+                        html = await fetchHtml(url);
+                    }
                 } else {
                     throw new Error('syosetu.org (Hameln) is protected by Cloudflare bot detection. On Android, this can be solved automatically via the built-in browser solver; desktop browsers are blocked by Cloudflare.');
                 }
@@ -852,8 +916,12 @@
         if (html && (html.includes('<title>Just a moment...</title>') || html.includes('cf-browser-verification'))) {
             if (window.NativeBridge?.resolveCloudflare) {
                 progressCb?.('Solving Cloudflare challenge for Syosetu.org...', 10);
-                await window.NativeBridge.resolveCloudflare(url);
-                html = await fetchHtml(url);
+                const cfRes = await window.NativeBridge.resolveCloudflare(url);
+                if (cfRes && cfRes.html && !cfRes.html.includes('cf-browser-verification')) {
+                    html = cfRes.html;
+                } else {
+                    html = await fetchHtml(url);
+                }
             } else {
                 throw new Error('syosetu.org (Hameln) is protected by Cloudflare bot detection. On Android, this can be solved automatically via the built-in browser solver; desktop browsers are blocked by Cloudflare.');
             }
@@ -898,7 +966,11 @@
         const { chapters, totalWords } = await crawlChapterPool(
             indexLinks,
             async (item) => {
-                const chHtml = await fetchHtml(item.url);
+                let chHtml = await fetchHtml(item.url);
+                if (chHtml && (chHtml.includes('<title>Just a moment...</title>') || chHtml.includes('cf-browser-verification')) && window.NativeBridge?.resolveCloudflare) {
+                    const cfRes = await window.NativeBridge.resolveCloudflare(item.url);
+                    if (cfRes && cfRes.html && !cfRes.html.includes('cf-browser-verification')) chHtml = cfRes.html;
+                }
                 const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
                 const chBody = chDoc.querySelector('#novel_honbun, .novel_honbun, #honbun, .honbun, .widget-episodeBody') || chDoc.body;
                 return { title: item.title, text: cleanChapterHtmlWithImages(chBody.innerHTML || chBody.textContent || '') };

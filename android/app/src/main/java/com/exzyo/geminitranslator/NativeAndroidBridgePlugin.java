@@ -1803,9 +1803,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 conn.setConnectTimeout(20000);
                 conn.setReadTimeout(20000);
                 conn.setInstanceFollowRedirects(true);
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                conn.setRequestProperty("User-Agent", DEFAULT_UA);
                 conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-                conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
+                conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ja;q=0.8");
+
+                CookieManager cookieManager = CookieManager.getInstance();
+                String cookies = cookieManager != null ? cookieManager.getCookie(urlStr) : null;
+                if (cookies != null && !cookies.isEmpty()) {
+                    conn.setRequestProperty("Cookie", cookies);
+                }
 
                 int status = conn.getResponseCode();
                 if (status >= 300 && status < 400) {
@@ -1814,7 +1820,13 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         conn.disconnect();
                         url = new URL(loc);
                         conn = (HttpURLConnection) url.openConnection();
-                        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                        conn.setRequestProperty("User-Agent", DEFAULT_UA);
+                        conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+                        conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ja;q=0.8");
+                        String redirectCookies = cookieManager != null ? cookieManager.getCookie(loc) : null;
+                        if (redirectCookies != null && !redirectCookies.isEmpty()) {
+                            conn.setRequestProperty("Cookie", redirectCookies);
+                        }
                         status = conn.getResponseCode();
                     }
                 }
