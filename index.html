@@ -838,7 +838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.55';
+    const VERSION = '8.10.56';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -7078,7 +7078,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             const isActuallyFinished = totalExpected > 0 ? (data.chapters.length >= totalExpected || (data.chapterList && data.chapterList.length > 0 && data.chapters.length >= data.chapterList.length)) : true;
 
             data.id = novelId;
-            data.cover = data.cover || stats?.cover || targetSession?.cover || latestSessionSnapshot?.cover || '';
+            data.cover = data.cover || (typeof stats !== 'undefined' ? stats?.cover : '') || targetSession?.cover || latestSessionSnapshot?.cover || '';
             const existingFolder = getNovelFolderOptions(data);
             data.folderTreeUri = data.folderTreeUri || targetSession?.folderTreeUri || latestSessionSnapshot?.folderTreeUri || existingFolder.treeUri || '';
             data.folderPath = data.folderPath || targetSession?.folderPath || latestSessionSnapshot?.folderPath || existingFolder.folderPath || '';
@@ -9719,7 +9719,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   )
                 ),
 
-                h('div', { className: 'src-chips' }, ['Lnori', 'SwiftAudio', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'NovelBin', 'NovelFull', 'AO3', 'Pixiv', 'Syosetu', 'Witch Cult'].map(s => h('span', {
+                h('div', { className: 'src-chips' }, ['Lnori', 'SwiftAudio', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'NovelBin', 'AO3', 'Pixiv', 'Syosetu', 'Witch Cult'].map(s => h('span', {
                   key: s,
                   className: `src-chip ${(s === 'SwiftAudio' && isSwiftAudioDetected) ? 'accent' : ''}`,
                   style: (s === 'SwiftAudio' && isSwiftAudioDetected) ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : { cursor: 'pointer' },

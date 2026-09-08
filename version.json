@@ -1,7 +1,7 @@
 {
-  "version": "8.10.54",
-  "versionCode": 8154,
+  "version": "8.10.56",
+  "versionCode": 8156,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.54: Fix ReferenceError during EPUB packaging where activeNovelView was scoped to the importer tab; elevated activeNovelView to top-level state and added safe fallback resolution in getEpubOptions."
+  "releaseNotes": "v8.10.56: Fix RoyalRoad TOC date injection ('7 years ago') and upgrade cover to HD; fix AO3 stats ReferenceError on completion; add Pixiv cover extraction and hotlink mirror; add syosetu.org (Hameln) support & Cloudflare handling; clean Witch Cult injected avatar banners; remove NovelFull from source list."
 }

@@ -53,6 +53,7 @@
             best.includes('paypal') || best.includes('patreon') || best.includes('discord') ||
             best.includes('sharedaddy') || best.includes('logo') || best.includes('banner') ||
             best.includes('smilies') || best.includes('reaction') || best.includes('jp-carousel') ||
+            best.includes('the-artifice.com') ||
             best.includes('advertisement') || best.includes('rating')) return '';
 
         // Resolve relative URLs if baseUrl provided & aggressively sanitize malformed host/path spaces (e.g., 'https://img. lnori. com/ 13125-06. jpg')
@@ -77,6 +78,8 @@
             best = best.replace(/\?imageView.*$/i, '');
         } else if (best.includes('tumblr.com')) {
             best = best.replace(/_\d+\.(jpg|png|webp|gif)/i, '_1280.$1');
+        } else if (best.includes('royalroad') && best.includes('/covers-full/')) {
+            best = best.replace(/\/covers-full\//i, '/covers-large/');
         }
 
         return best.trim();
@@ -88,14 +91,21 @@
         }
         if (!doc) return '';
         try {
-            const og = doc.querySelector('meta[property="og:image"], meta[name="og:image"], meta[property="twitter:image"], meta[name="twitter:image"]')?.getAttribute('content');
+            let og = doc.querySelector('meta[property="og:image"], meta[name="og:image"], meta[property="twitter:image"], meta[name="twitter:image"]')?.getAttribute('content');
             if (og && og.trim() && !og.includes('placeholder') && !og.includes('default-avatar') && !og.includes('logo') && !og.includes('favicon')) {
+                // RoyalRoad covers: upgrade /covers-full/ to /covers-large/ for lossless 3x resolution
+                if (og.includes('royalroad') && og.includes('/covers-full/')) {
+                    og = og.replace(/\/covers-full\//i, '/covers-large/');
+                }
                 try { return new URL(og.trim(), baseUrl).href; } catch (_) { return og.trim(); }
             }
-            const img = doc.querySelector('.book-cover img, .cover img, .novel-cover img, .manga-cover img, img.cover, .thumb img, .book-info-pic img, .fixed-img img, #bookCover img, .fic-header img, img[alt*="cover" i], img[src*="cover" i]');
+            const img = doc.querySelector('.book-cover img, .cover img, .novel-cover img, .manga-cover img, img.cover, .thumb img, .book-info-pic img, .fixed-img img, #bookCover img, .fic-header img, img[data-type="cover"], img[alt*="cover" i], img[src*="cover" i]');
             if (img) {
-                const src = img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('src');
+                let src = img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('src');
                 if (src && src.trim() && !src.includes('placeholder') && !src.includes('logo')) {
+                    if (src.includes('royalroad') && src.includes('/covers-full/')) {
+                        src = src.replace(/\/covers-full\//i, '/covers-large/');
+                    }
                     try { return new URL(src.trim(), baseUrl).href; } catch (_) { return src.trim(); }
                 }
             }
@@ -115,7 +125,10 @@
             .replace(/<div[^>]*class="[^"]*(?:sharedaddy|wpcnt|nav-links|post-navigation|likes-widget|ads|advertisement|report-chapter)[^"]*"[\s\S]*?<\/div>/gi, '')
             .replace(/<p[^>]*>[\s\S]*?Next Post[\s\S]*?<\/p>/gi, '')
             .replace(/<p[^>]*>[\s\S]*?Previous Post[\s\S]*?<\/p>/gi, '')
-            .replace(/<p[^>]*>[\s\S]*?(?:Read light novel|Lightnovelpub|NovelFull|Boxnovel)[\s\S]*?<\/p>/gi, '');
+            .replace(/<p[^>]*>[\s\S]*?(?:Read light novel|Lightnovelpub|NovelFull|Boxnovel)[\s\S]*?<\/p>/gi, '')
+            .replace(/<p[^>]*>\s*<img[^>]*the-artifice\.com[^>]*>\s*<\/p>/gi, '')
+            .replace(/<img[^>]*the-artifice\.com[^>]*>/gi, '')
+            .replace(/!\[.*?\]\(https?:\/\/[^\s)]*the-artifice\.com[^\s)]*\)/gi, '');
 
         // 1. Convert linked image wrappers <a href="..."><img .../></a> or <a href="...">[Download Image]</a>
         processed = processed.replace(/<a\s+([^>]+)>([\s\S]*?)<\/a>/gi, (match, attrs, inner) => {
@@ -753,14 +766,39 @@
         });
 
         const chapterLinks = [];
-        doc.querySelectorAll('table#chapters tbody tr[data-url], .chapter-row a[href*="/chapter/"]').forEach(el => {
-            const href = el.getAttribute('data-url') || el.getAttribute('href');
-            const linkText = el.querySelector('a')?.textContent?.trim() || el.textContent?.trim();
-            if (href) {
-                const fullUrl = href.startsWith('http') ? href : new URL(href, 'https://www.royalroad.com').href;
-                chapterLinks.push({ url: fullUrl, title: linkText });
+        const seenUrls = new Set();
+        // Target chapter title link: td:not(.text-right) a[href*="/chapter/"] to avoid matching date columns (<time>7 years ago</time>)
+        doc.querySelectorAll('table#chapters tbody tr, tr.chapter-row').forEach(tr => {
+            const a = tr.querySelector('td:not(.text-right) a[href*="/chapter/"]') || tr.querySelector('a[href*="/chapter/"]');
+            const dataUrl = tr.getAttribute('data-url');
+            const href = a?.getAttribute('href') || dataUrl;
+            if (!href) return;
+            const fullUrl = href.startsWith('http') ? href : new URL(href, 'https://www.royalroad.com').href;
+            if (seenUrls.has(fullUrl)) return;
+
+            let linkText = a?.textContent?.trim() || tr.querySelector('td:not(.text-right)')?.textContent?.trim() || '';
+            if (/^\d+\s+(?:years?|months?|weeks?|days?|hours?|mins?|minutes?|seconds?)\s+ago$/i.test(linkText)) {
+                return;
             }
+            if (!linkText) linkText = `Chapter ${chapterLinks.length + 1}`;
+            seenUrls.add(fullUrl);
+            chapterLinks.push({ url: fullUrl, title: linkText });
         });
+
+        // Fallback for non-table RoyalRoad themes
+        if (chapterLinks.length === 0) {
+            doc.querySelectorAll('a[href*="/chapter/"]').forEach(a => {
+                const href = a.getAttribute('href');
+                if (!href) return;
+                const fullUrl = href.startsWith('http') ? href : new URL(href, 'https://www.royalroad.com').href;
+                if (seenUrls.has(fullUrl)) return;
+                const txt = a.textContent?.trim() || '';
+                if (/^\d+\s+(?:years?|months?|weeks?|days?|hours?|mins?|minutes?|seconds?)\s+ago$/i.test(txt)) return;
+                if (!txt || txt.toLowerCase().includes('read latest') || txt.toLowerCase().includes('next chapter')) return;
+                seenUrls.add(fullUrl);
+                chapterLinks.push({ url: fullUrl, title: txt });
+            });
+        }
 
         if (chapterLinks.length === 0) {
             chapterLinks.push({ url, title: 'Chapter 1' });
@@ -790,30 +828,59 @@
         return { title, author, summary, cover, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
-    // --- D. SYOSETU (小説家になろう) & KAKUYOMU (カクヨム) ---
+    // --- D. SYOSETU (小説家になろう) & KAKUYOMU (カクヨム) & HAMELN (ハーメルン) ---
     async function crawlSyosetu(url, progressCb) {
-        progressCb?.('Connecting to Syosetu / Kakuyomu...', 15);
-        const html = await fetchHtml(url);
+        progressCb?.('Connecting to Syosetu / Kakuyomu / Hameln...', 15);
+        let html;
+        try {
+            html = await fetchHtml(url);
+        } catch (err) {
+            if (url.includes('syosetu.org') || err.message?.includes('403') || err.message?.includes('Cloudflare')) {
+                if (window.NativeBridge?.resolveCloudflare) {
+                    progressCb?.('Syosetu.org (Hameln) requires Cloudflare verification. Complete in Android window...', 10);
+                    await window.NativeBridge.resolveCloudflare(url);
+                    progressCb?.('Verification complete! Fetching Syosetu.org...', 15);
+                    html = await fetchHtml(url);
+                } else {
+                    throw new Error('syosetu.org (Hameln) is protected by Cloudflare bot detection. On Android, this can be solved automatically via the built-in browser solver; desktop browsers are blocked by Cloudflare.');
+                }
+            } else {
+                throw err;
+            }
+        }
+
+        if (html && (html.includes('<title>Just a moment...</title>') || html.includes('cf-browser-verification'))) {
+            if (window.NativeBridge?.resolveCloudflare) {
+                progressCb?.('Solving Cloudflare challenge for Syosetu.org...', 10);
+                await window.NativeBridge.resolveCloudflare(url);
+                html = await fetchHtml(url);
+            } else {
+                throw new Error('syosetu.org (Hameln) is protected by Cloudflare bot detection. On Android, this can be solved automatically via the built-in browser solver; desktop browsers are blocked by Cloudflare.');
+            }
+        }
+
         const doc = new DOMParser().parseFromString(html, 'text/html');
 
-        const title = doc.querySelector('.novel_title, h1, .widget-toc-main-header')?.textContent?.trim() || 'Japanese Web Novel';
-        const author = doc.querySelector('.novel_writername, .writer, .partialGiftWidget_authorName')?.textContent?.trim() || 'Author';
-        const summary = doc.querySelector('#novel_ex, .widget-toc-workIntroduction')?.textContent?.trim() || '';
+        const title = doc.querySelector('.novel_title, h1, .widget-toc-main-header, #novel_header h1')?.textContent?.trim() || 'Japanese Web Novel';
+        const author = doc.querySelector('.novel_writername, .writer, .partialGiftWidget_authorName, #novel_header a[href*="/user/"], a[href*="/user/"]')?.textContent?.trim() || 'Author';
+        const summary = doc.querySelector('#novel_ex, .widget-toc-workIntroduction, #novel_synopsis')?.textContent?.trim() || '';
         const cover = extractPageCover(doc, url);
 
         const indexLinks = [];
         const baseUrl = url.endsWith('/') ? url : url + '/';
 
-        doc.querySelectorAll('.novel_sublist2 .subtitle a, .index_box a, .widget-toc-items a').forEach(a => {
+        doc.querySelectorAll('.novel_sublist2 .subtitle a, .index_box a, .widget-toc-items a, table tr td a[href*="/novel/"], table tr td a[href^="./"], table tr td a[href^="/novel/"]').forEach(a => {
             const href = a.getAttribute('href');
             if (href) {
                 const fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
-                indexLinks.push({ url: fullUrl, title: a.textContent?.trim() });
+                if (!indexLinks.some(l => l.url === fullUrl)) {
+                    indexLinks.push({ url: fullUrl, title: a.textContent?.trim() || `Chapter ${indexLinks.length + 1}` });
+                }
             }
         });
 
         if (indexLinks.length === 0) {
-            const body = doc.querySelector('#novel_honbun, .novel_honbun, .widget-episodeBody') || doc.body;
+            const body = doc.querySelector('#novel_honbun, .novel_honbun, #honbun, .honbun, .widget-episodeBody') || doc.body;
             return {
                 title,
                 author,
@@ -833,7 +900,7 @@
             async (item) => {
                 const chHtml = await fetchHtml(item.url);
                 const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
-                const chBody = chDoc.querySelector('#novel_honbun, .novel_honbun, .widget-episodeBody') || chDoc.body;
+                const chBody = chDoc.querySelector('#novel_honbun, .novel_honbun, #honbun, .honbun, .widget-episodeBody') || chDoc.body;
                 return { title: item.title, text: cleanChapterHtmlWithImages(chBody.innerHTML || chBody.textContent || '') };
             },
             12,
@@ -1440,12 +1507,26 @@
 
         const title = seriesInfo?.title || firstNovel?.seriesNavData?.title || firstNovel?.title || 'Pixiv Novel';
         const author = seriesInfo?.userName || firstNovel?.userName || 'Pixiv Author';
+        let cover = seriesInfo?.cover?.urls?.original ||
+                    seriesInfo?.cover?.urls?.['1200x1200'] ||
+                    seriesInfo?.cover?.urls?.regular ||
+                    seriesInfo?.cover?.urls?.['480mw'] ||
+                    seriesInfo?.firstEpisode?.url ||
+                    seriesInfo?.coverUrl ||
+                    firstNovel?.coverUrl ||
+                    firstNovel?.cover?.urls?.original ||
+                    firstNovel?.cover?.urls?.regular ||
+                    firstNovel?.url || '';
+        if (cover && cover.includes('i.pximg.net')) {
+            cover = cover.replace('i.pximg.net', 'i.pixiv.re');
+        }
+
         if (activeCrawlController?.tocOnly) {
-            return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', tags: ['Pixiv', 'Web Novel'], chapters: [], chapterList, totalChapterCount: chapterList.length, isEpub: false, sourceUrl: url };
+            return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', cover, tags: ['Pixiv', 'Web Novel'], chapters: [], chapterList, totalChapterCount: chapterList.length, isEpub: false, sourceUrl: url };
         }
         if (!chapters.length) throw new Error('Pixiv chapters were found, but their content could not be read.');
         progressCb?.(`Loaded ${chapters.length}/${chapterList.length} Pixiv chapters (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', tags: ['Pixiv', 'Web Novel'], chapters, chapterList, totalChapterCount: chapterList.length, isEpub: false, sourceUrl: url };
+        return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', cover, tags: ['Pixiv', 'Web Novel'], chapters, chapterList, totalChapterCount: chapterList.length, isEpub: false, sourceUrl: url };
     }
 
     // --- G. NOVELBUDDY TEMPLATE (novelbuddy.me / novelbuddy.com) ---
@@ -2393,7 +2474,7 @@
         if (clean.includes('witchculttranslation.com')) return 'witchcult';
         if (clean.includes('lofter.com')) return 'lofter';
         if (clean.includes('royalroad.com') || clean.includes('scribblehub.com')) return 'royalroad';
-        if (clean.includes('syosetu.com') || clean.includes('kakuyomu.jp')) return 'syosetu';
+        if (clean.includes('syosetu.com') || clean.includes('syosetu.org') || clean.includes('kakuyomu.jp')) return 'syosetu';
         if (clean.includes('novelfull.com') || clean.includes('boxnovel.com') || clean.includes('readlightnovel') || clean.includes('allnovelfull.') || clean.includes('readnovelfull.') || clean.includes('freewebnovel.') || clean.includes('lightnovelpub.')) return 'novelfull';
         if (clean.includes('pixiv.net/novel/')) return 'pixiv';
         return 'universal';
@@ -2489,6 +2570,9 @@
             const coverMatch = block.match(/<img[^>]+src="([^"]+)"/i);
             let cover = coverMatch ? coverMatch[1] : '';
             if (cover.includes('nocover-new-min.png')) cover = '';
+            if (cover.includes('/covers-full/')) {
+                cover = cover.replace(/\/covers-full\//i, '/covers-large/');
+            }
 
             const chMatch = block.match(/(\d[\d,]*)\s*Chapters/i);
             const pageMatch = block.match(/(\d[\d,]*)\s*Pages/i);
