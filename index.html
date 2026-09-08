@@ -838,7 +838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.50';
+    const VERSION = '8.10.51';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3274,6 +3274,73 @@ const formatModelName = (id, displayName) => {
       const [isPlayerFullscreen, setIsPlayerFullscreen] = useState(false);
       const [downloadingTrackId, setDownloadingTrackId] = useState(null);
       const [audioDownloadModal, setAudioDownloadModal] = useState(null);
+
+      // --- Saved Audiobooks Library State ---
+      const [savedAudiobooks, setSavedAudiobooks] = useState(() => {
+        try {
+          const raw = localStorage.getItem('gemini_saved_audiobooks');
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+          return [];
+        }
+      });
+
+      const isAudiobookInLibrary = useCallback((bookOrUrl) => {
+        if (!bookOrUrl) return false;
+        const targetUrl = typeof bookOrUrl === 'string' ? bookOrUrl : bookOrUrl.url;
+        const targetTitle = typeof bookOrUrl === 'object' ? bookOrUrl.title : '';
+        return (savedAudiobooks || []).some(b => (targetUrl && b.url === targetUrl) || (targetTitle && b.title === targetTitle));
+      }, [savedAudiobooks]);
+
+      const saveAudiobookToLibrary = useCallback((book) => {
+        if (!book || (!book.title && !book.url)) return;
+        setSavedAudiobooks(prev => {
+          const list = prev || [];
+          const exists = list.some(b => (b.url && b.url === book.url) || (b.title && b.title === book.title));
+          if (exists) return list;
+          const newEntry = {
+            id: 'audio_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            title: book.title || 'Untitled Audiobook',
+            author: book.author || '',
+            cover: book.cover || '',
+            url: book.url || '',
+            duration: book.duration || '',
+            totalTracks: book.totalTracks || (book.tracks ? book.tracks.length : 0),
+            tracks: book.tracks || null,
+            addedAt: Date.now(),
+            lastPlayedTrackIndex: 0,
+            lastPlayedTrackTitle: '',
+            lastPlayedTime: 0,
+            lastListenedAt: null
+          };
+          const next = [newEntry, ...list];
+          try {
+            localStorage.setItem('gemini_saved_audiobooks', JSON.stringify(next));
+          } catch (e) {}
+          toast(`Added "${newEntry.title}" to Library!`, 'success');
+          return next;
+        });
+      }, []);
+
+      const removeAudiobookFromLibrary = useCallback((bookOrUrl) => {
+        if (!bookOrUrl) return;
+        const targetUrl = typeof bookOrUrl === 'string' ? bookOrUrl : bookOrUrl.url;
+        const targetTitle = typeof bookOrUrl === 'object' ? bookOrUrl.title : '';
+        const targetId = typeof bookOrUrl === 'object' ? bookOrUrl.id : '';
+        setSavedAudiobooks(prev => {
+          const next = (prev || []).filter(b => {
+            if (targetId && b.id === targetId) return false;
+            if (targetUrl && b.url === targetUrl) return false;
+            if (targetTitle && b.title === targetTitle) return false;
+            return true;
+          });
+          try {
+            localStorage.setItem('gemini_saved_audiobooks', JSON.stringify(next));
+          } catch (e) {}
+          toast('Removed audiobook from Library.', 'info');
+          return next;
+        });
+      }, []);
 
       useEffect(() => {
         const attachAudio = () => {
@@ -8466,6 +8533,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         });
       }, [history, libQ]);
 
+      const filteredAudiobooks = useMemo(() => {
+        if (!libQ) return savedAudiobooks || [];
+        return (savedAudiobooks || []).filter(item => {
+          return `${item.title || ''} ${item.author || ''}`.toLowerCase().includes(libQ);
+        });
+      }, [savedAudiobooks, libQ]);
+
       const savedSpaceCount = useMemo(() => (filteredBooks || []).filter(b => b && b.inSavedSpace).length, [filteredBooks]);
       const transCount = useMemo(() => (filteredBooks || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)'))).length, [filteredBooks]);
       const incCount = useMemo(() => (filteredBooks || []).filter(b => b && b.isIncomplete).length + (savedTranslationSession ? 1 : 0), [filteredBooks, savedTranslationSession]);
@@ -9781,7 +9855,24 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             className: 'mini-btn ghost',
                             style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
                             onClick: () => handleOpenAudioDownload(item)
-                          }, '📥 Download')
+                          }, '📥 Download'),
+                          (() => {
+                            const inLib = isAudiobookInLibrary(item);
+                            return h('button', {
+                              type: 'button',
+                              className: `mini-btn ${inLib ? '' : 'ghost'}`,
+                              style: {
+                                fontSize: 11,
+                                fontWeight: 600,
+                                padding: '5px 8px',
+                                color: inLib ? '#f59e0b' : 'var(--paper-dim)',
+                                borderColor: inLib ? 'rgba(245, 158, 11, 0.4)' : 'var(--hairline)',
+                                background: inLib ? 'rgba(245, 158, 11, 0.12)' : undefined
+                              },
+                              title: inLib ? 'In Library (tap to remove)' : 'Save to Library for later',
+                              onClick: () => inLib ? removeAudiobookFromLibrary(item) : saveAudiobookToLibrary(item)
+                            }, inLib ? '⭐ In Library' : '☆ Add to Library');
+                          })()
                         )
                       )
                     ))
@@ -10099,6 +10190,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 }, `📚 All (${filteredBooks.length})`),
                 h('button', {
                   type: 'button',
+                  className: `seg-btn ${libTab === 'audio' ? 'active' : ''}`,
+                  style: libTab === 'audio' ? { background: '#8b5cf6', color: '#fff', fontWeight: 700 } : {},
+                  onClick: () => setLibTab('audio')
+                }, `🎧 Audiobooks (${filteredAudiobooks.length})`),
+                h('button', {
+                  type: 'button',
                   className: `seg-btn ${libTab === 'saved' ? 'active' : ''}`,
                   style: libTab === 'saved' ? { background: '#f59e0b', color: '#000', fontWeight: 700 } : {},
                   onClick: () => setLibTab('saved')
@@ -10116,10 +10213,127 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   onClick: () => setLibTab('incomplete')
                 }, `⏸ Incomplete (${incCount})`)
               ),
-              h('div', { className: 'card-title', style: { marginTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
-                h('span', { style: { cursor: 'pointer', fontWeight: 700 }, onClick: () => setLibCollapsed(s => ({ ...s, books: !s.books })) },
-                  `${libCollapsed.books ? '▸' : '▾'} ${libTab === 'saved' ? 'Special Saved Space' : libTab === 'translated' ? 'Translated Books' : libTab === 'incomplete' ? 'Incomplete Crawls' : 'Books Library'} (${displayedBooks.length})`
+
+              // 🎧 AUDIOBOOK SHELF IN LIBRARY
+              libTab === 'audio' && h(React.Fragment, null,
+                h('div', { className: 'card-title', style: { marginTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
+                  h('span', { style: { fontWeight: 700 } }, `🎧 Saved Audiobooks (${filteredAudiobooks.length})`),
+                  savedAudiobooks.length > 0 && h('button', {
+                    type: 'button',
+                    className: 'mini-btn danger',
+                    onClick: () => confirmAction('Clear all saved audiobooks from your library?', () => {
+                      setSavedAudiobooks([]);
+                      try { localStorage.removeItem('gemini_saved_audiobooks'); } catch (e) {}
+                      toast('Audiobook library cleared.');
+                    })
+                  }, 'Clear All')
                 ),
+                filteredAudiobooks.length === 0
+                  ? h('div', { className: 'card', style: { textAlign: 'center', padding: '44px 16px' } },
+                      h('div', { style: { fontSize: 36, marginBottom: 10 } }, '🎧'),
+                      h('p', { style: { fontSize: 13.5, color: 'var(--paper)', fontWeight: 600 } }, libQuery ? 'No saved audiobooks match your search.' : 'Your Audiobook Library is empty.'),
+                      h('p', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 6, maxWidth: 360, margin: '6px auto 0', lineHeight: 1.5 } },
+                        libQuery ? 'Try another search keyword.' : 'Search for any audiobook in the Import tab and tap "☆ Add to Library" to keep it here for quick listening and downloading!'
+                      )
+                    )
+                  : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+                      filteredAudiobooks.map((b, idx) => {
+                        const isCurrentlyPlaying = audioPlayerState?.isPlaying && audioPlayerState?.currentBook?.url === b.url;
+                        const progressPercent = (b.totalTracks && b.lastPlayedTrackIndex !== undefined)
+                          ? Math.round(((b.lastPlayedTrackIndex + 1) / b.totalTracks) * 100)
+                          : 0;
+
+                        return h('div', {
+                          key: b.id || b.url || idx,
+                          className: 'book-card',
+                          style: {
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 10,
+                            borderColor: isCurrentlyPlaying ? 'var(--iris)' : 'var(--hairline)'
+                          }
+                        },
+                          h('div', { style: { display: 'flex', gap: 12, alignItems: 'flex-start' } },
+                            b.cover ? h('img', {
+                              src: b.cover,
+                              alt: 'Cover',
+                              referrerPolicy: 'no-referrer',
+                              onError: (e) => { e.target.style.display = 'none'; },
+                              style: { width: 62, height: 88, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
+                            }) : h('div', {
+                              style: { width: 62, height: 88, borderRadius: 6, background: 'var(--ember-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
+                            }, '🎧'),
+
+                            h('div', { style: { flex: 1, minWidth: 0 } },
+                              h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 } },
+                                h('div', { style: { fontSize: 14.5, fontWeight: 700, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, b.title),
+                                h('span', {
+                                  style: {
+                                    fontSize: 10,
+                                    padding: '2px 6px',
+                                    borderRadius: 4,
+                                    background: 'rgba(139, 92, 246, 0.15)',
+                                    color: '#a78bfa',
+                                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap'
+                                  }
+                                }, '🎧 Audiobook')
+                              ),
+                              h('div', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 2 } }, b.author ? `by ${b.author}` : 'SwiftAudiobooks'),
+                              h('div', { style: { fontSize: 11.5, color: 'var(--paper-dim)', marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                                h('span', null, `📚 ${b.totalTracks || (b.tracks ? b.tracks.length : '?')} chapters`),
+                                b.duration && h('span', null, `⏱ ${b.duration}`)
+                              ),
+                              b.lastPlayedTrackTitle ? h('div', {
+                                style: {
+                                  fontSize: 11,
+                                  color: 'var(--lamp)',
+                                  marginTop: 4,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 4
+                                }
+                              }, `▶ Resumes at: ${b.lastPlayedTrackTitle}${progressPercent > 0 ? ` (${progressPercent}%)` : ''}`) : null
+                            )
+                          ),
+
+                          h('div', { className: 'book-acts', style: { marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' } },
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn',
+                              style: {
+                                background: isCurrentlyPlaying ? '#10b981' : 'var(--accent, #6366f1)',
+                                color: '#fff',
+                                fontWeight: 700,
+                                padding: '6px 12px'
+                              },
+                              onClick: () => handleStartPlayAudiobook(b, b.lastPlayedTrackIndex || 0)
+                            }, isCurrentlyPlaying ? '⏸ Now Playing' : (b.lastPlayedTrackIndex ? '▶ Resume Playing' : '▶ Start Listening')),
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn ghost',
+                              style: { fontWeight: 600, padding: '6px 10px' },
+                              onClick: () => handleOpenAudioDownload(b)
+                            }, '📥 Download MP3s'),
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn danger',
+                              style: { marginLeft: 'auto', padding: '6px 10px' },
+                              title: 'Remove this audiobook from Library',
+                              onClick: () => confirmAction(`Remove "${b.title}" from your Library?`, () => removeAudiobookFromLibrary(b))
+                            }, '🗑 Remove')
+                          )
+                        );
+                      })
+                    )
+              ),
+
+              libTab !== 'audio' && h(React.Fragment, null,
+                h('div', { className: 'card-title', style: { marginTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
+                  h('span', { style: { cursor: 'pointer', fontWeight: 700 }, onClick: () => setLibCollapsed(s => ({ ...s, books: !s.books })) },
+                    `${libCollapsed.books ? '▸' : '▾'} ${libTab === 'saved' ? 'Special Saved Space' : libTab === 'translated' ? 'Translated Books' : libTab === 'incomplete' ? 'Incomplete Crawls' : 'Books Library'} (${displayedBooks.length})`
+                  ),
                 h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
                   webImportHistory.some(b => b.sourceUrl && b.sourceUrl.startsWith('http')) && h('button', {
                     type: 'button',
@@ -10498,6 +10712,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 ))
               )
             ),
+          ),
 
             // ═══ TAB 5: SETTINGS ═══
             activeTab === 'settings' && h(React.Fragment, null,
@@ -12175,6 +12390,28 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 )
               ),
               h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                (() => {
+                  const inLib = isAudiobookInLibrary(audioPlayerState.currentBook);
+                  return h('button', {
+                    type: 'button',
+                    className: 'mini-btn ghost',
+                    style: {
+                      padding: '4px 8px',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: inLib ? '#f59e0b' : 'var(--paper)',
+                      borderColor: inLib ? '#f59e0b' : 'var(--hairline)'
+                    },
+                    title: inLib ? 'Saved in Library (tap to remove)' : 'Add audiobook to Library',
+                    onClick: () => {
+                      if (inLib) {
+                        removeAudiobookFromLibrary(audioPlayerState.currentBook);
+                      } else {
+                        saveAudiobookToLibrary(audioPlayerState.currentBook);
+                      }
+                    }
+                  }, inLib ? '⭐ In Library' : '☆ Add to Library');
+                })(),
                 h('button', {
                   type: 'button',
                   className: 'mini-btn ghost',

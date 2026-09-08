@@ -692,6 +692,31 @@
                     updatedAt: Date.now()
                 };
                 localStorage.setItem('gemini_last_audiobook_position', JSON.stringify(pos));
+
+                // Auto-sync progress to Library if this audiobook was saved
+                try {
+                    const rawSaved = localStorage.getItem('gemini_saved_audiobooks');
+                    if (rawSaved) {
+                        const list = JSON.parse(rawSaved);
+                        let changed = false;
+                        for (let i = 0; i < list.length; i++) {
+                            if (list[i].url === this.currentBook.url || list[i].title === this.currentBook.title) {
+                                list[i].lastPlayedTrackIndex = this.currentTrackIndex;
+                                list[i].lastPlayedTrackTitle = this.currentBook?.tracks?.[this.currentTrackIndex]?.title || '';
+                                list[i].lastPlayedTime = this.currentTime;
+                                list[i].lastListenedAt = Date.now();
+                                if (!list[i].tracks && this.currentBook.tracks) {
+                                    list[i].tracks = this.currentBook.tracks;
+                                }
+                                changed = true;
+                                break;
+                            }
+                        }
+                        if (changed) {
+                            localStorage.setItem('gemini_saved_audiobooks', JSON.stringify(list));
+                        }
+                    }
+                } catch(e) {}
             } catch (e) {}
         }
 

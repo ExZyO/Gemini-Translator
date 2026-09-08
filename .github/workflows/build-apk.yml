@@ -52,7 +52,24 @@ jobs:
         id: pkg_version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-      - name: 🚀 Publish Direct APK Download (GitHub Release)
+      - name: 🚀 Publish Versioned GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/app/build/outputs/apk/release/GeminiTranslator.apk
+          tag_name: v${{ steps.pkg_version.outputs.version }}
+          name: "📱 Gemini Translator v${{ steps.pkg_version.outputs.version }}"
+          body: |
+            ## 📱 Gemini Translator v${{ steps.pkg_version.outputs.version }}
+            Direct APK download: tap **GeminiTranslator.apk** below to install directly!
+
+            Version: v${{ steps.pkg_version.outputs.version }} • Build #${{ github.run_number }} • ${{ github.sha }}
+          draft: false
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔄 Update 'latest' Release Tag (Backwards Compatibility)
         uses: softprops/action-gh-release@v2
         with:
           files: android/app/build/outputs/apk/release/GeminiTranslator.apk
@@ -65,6 +82,6 @@ jobs:
             Version: v${{ steps.pkg_version.outputs.version }} • Build #${{ github.run_number }} • ${{ github.sha }}
           draft: false
           prerelease: false
-          make_latest: true
+          make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
