@@ -2399,11 +2399,269 @@
         return 'universal';
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // MULTI-SOURCE WEB NOVEL SEARCH ENGINE (NovelBuddy, RoyalRoad, NovelFire, AO3)
+    // ══════════════════════════════════════════════════════════════════════
+    function stripSearchHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/<[^>]+>/g, '')
+            .replace(/&#8217;/g, "'")
+            .replace(/&#039;/g, "'")
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    async function searchNovelBuddy(query) {
+        const url = `https://novelbuddy.me/search?q=${encodeURIComponent(query)}`;
+        const html = await fetchHtml(url, { headers: { 'Referer': 'https://novelbuddy.me/' } });
+        if (!html) return [];
+
+        const results = [];
+        try {
+            const nextMatch = html.match(/<script\s+id=["']__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/i);
+            if (nextMatch) {
+                const data = JSON.parse(nextMatch[1]);
+                const items = data.props?.pageProps?.ssrItems || [];
+                for (const it of items) {
+                    if (!it.name || !it.url) continue;
+                    results.push({
+                        id: it.id || ('nb_' + Math.random().toString(36).substring(2, 8)),
+                        source: 'NovelBuddy',
+                        title: it.name.trim(),
+                        url: it.url.startsWith('http') ? it.url : `https://novelbuddy.me${it.url}`,
+                        cover: it.cover || '',
+                        author: Array.isArray(it.authors) ? it.authors.map(a => a.name).filter(Boolean).join(', ') : (it.author || 'NovelBuddy Author'),
+                        chapters: it.displayChapters || (it.stats?.chaptersCount ? `${it.stats.chaptersCount} chapters` : ''),
+                        rating: it.rating ? `${it.rating} ★` : '',
+                        summary: it.summary ? stripSearchHtml(it.summary).substring(0, 240) + '…' : '',
+                        tags: (it.genres || []).map(g => g.name || g).slice(0, 4),
+                        status: it.status || ''
+                    });
+                }
+            }
+        } catch (_) {}
+
+        if (results.length === 0) {
+            const itemRegex = /<div class="book-item"[\s\S]*?<\/div>\s*<\/div>/gi;
+            let match;
+            while ((match = itemRegex.exec(html)) !== null) {
+                const block = match[0];
+                const linkM = block.match(/<a[^>]+href="([^"]+)"[^>]*title="([^"]+)"/i);
+                if (!linkM) continue;
+                const imgM = block.match(/<img[^>]+(?:data-src|src)="([^"]+)"/i);
+                results.push({
+                    source: 'NovelBuddy',
+                    title: stripSearchHtml(linkM[2]),
+                    url: linkM[1].startsWith('http') ? linkM[1] : `https://novelbuddy.me${linkM[1]}`,
+                    cover: imgM ? imgM[1] : '',
+                    author: 'NovelBuddy Author',
+                    chapters: '',
+                    tags: ['NovelBuddy']
+                });
+            }
+        }
+
+        return results;
+    }
+
+    async function searchRoyalRoad(query) {
+        const url = `https://www.royalroad.com/fictions/search?title=${encodeURIComponent(query)}`;
+        const html = await fetchHtml(url);
+        if (!html) return [];
+
+        const results = [];
+        const itemMatches = [...html.matchAll(/<div class="row fiction-list-item">([\s\S]*?)(?:<div class="row fiction-list-item"|<\/div>\s*<\/div>\s*<div class="text-center">|$)/gi)];
+
+        for (const m of itemMatches) {
+            const block = m[1];
+            const titleMatch = block.match(/<h2 class="fiction-title">\s*<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+            if (!titleMatch) continue;
+
+            const url = 'https://www.royalroad.com' + titleMatch[1];
+            const title = stripSearchHtml(titleMatch[2]);
+
+            const coverMatch = block.match(/<img[^>]+src="([^"]+)"/i);
+            let cover = coverMatch ? coverMatch[1] : '';
+            if (cover.includes('nocover-new-min.png')) cover = '';
+
+            const chMatch = block.match(/(\d[\d,]*)\s*Chapters/i);
+            const pageMatch = block.match(/(\d[\d,]*)\s*Pages/i);
+            const chapters = chMatch ? `${chMatch[1]} chapters` : (pageMatch ? `${pageMatch[1]} pages` : '');
+
+            const ratingMatch = block.match(/aria-label="Rating:\s*([0-9.]+)\s*out of 5"/i);
+            const rating = ratingMatch ? `${ratingMatch[1]} ★` : '';
+
+            const tags = [...block.matchAll(/class="label[^"]*fiction-tag"[^>]*>([\s\S]*?)<\/a>/gi)].map(t => stripSearchHtml(t[1])).slice(0, 4);
+
+            const descMatch = block.match(/id="description-\d+"[^>]*>([\s\S]*?)<\/div>/i);
+            const summary = descMatch ? stripSearchHtml(descMatch[1]).substring(0, 240) + '…' : '';
+
+            results.push({
+                source: 'RoyalRoad',
+                title,
+                url,
+                cover,
+                author: 'RoyalRoad Author',
+                chapters,
+                rating,
+                tags,
+                summary,
+                status: block.includes('COMPLETED') ? 'Completed' : 'Ongoing'
+            });
+        }
+
+        return results;
+    }
+
+    async function searchNovelFire(query) {
+        const url = `https://novelfire.net/search?keyword=${encodeURIComponent(query)}`;
+        const html = await fetchHtml(url);
+        if (!html) return [];
+
+        const results = [];
+        const itemMatches = [...html.matchAll(/<li class="novel-item">([\s\S]*?)<\/li>/gi)];
+
+        for (const m of itemMatches) {
+            const block = m[1];
+            const linkM = block.match(/<a title="([^"]+)"\s+href="([^"]+)"/i) || block.match(/<a\s+href="([^"]+)"\s+title="([^"]+)"/i);
+            if (!linkM) continue;
+
+            const rawTitle = linkM[1].includes('/book/') ? linkM[2] : linkM[1];
+            const rawHref = linkM[1].includes('/book/') ? linkM[1] : linkM[2];
+
+            const title = stripSearchHtml(rawTitle);
+            const url = rawHref.startsWith('http') ? rawHref : `https://novelfire.net${rawHref}`;
+
+            const coverM = block.match(/<img[^>]+src="([^"]+)"/i);
+            let cover = coverM ? coverM[1] : '';
+            if (cover && !cover.startsWith('http')) cover = `https://novelfire.net${cover}`;
+
+            const chM = block.match(/(\d[\d,]*)\s*Chapters/i);
+            const chapters = chM ? `${chM[1]} chapters` : '';
+
+            const rankM = block.match(/icon-crown[^>]*><\/i>\s*([^<]+)/i);
+            const rank = rankM ? stripSearchHtml(rankM[1]) : '';
+
+            results.push({
+                source: 'NovelFire',
+                title,
+                url,
+                cover,
+                author: 'NovelFire Author',
+                chapters,
+                rating: rank,
+                tags: ['NovelFire'],
+                summary: ''
+            });
+        }
+
+        return results;
+    }
+
+    async function searchAO3(query) {
+        const url = `https://archiveofourown.org/works/search?work_search%5Bquery%5D=${encodeURIComponent(query)}`;
+        const html = await fetchHtml(url);
+        if (!html) return [];
+
+        const results = [];
+        const itemMatches = [...html.matchAll(/<li[^>]+id="work_(\d+)"[^>]*>([\s\S]*?)<\/li>/gi)];
+
+        for (const m of itemMatches) {
+            const block = m[2];
+            const headM = block.match(/<h4[^>]*class="heading"[^>]*>([\s\S]*?)<\/h4>/i);
+            if (!headM) continue;
+
+            const workLinkM = headM[1].match(/<a[^>]+href="(\/works\/\d+)"[^>]*>([\s\S]*?)<\/a>/i);
+            if (!workLinkM) continue;
+
+            const url = `https://archiveofourown.org${workLinkM[1]}`;
+            const title = stripSearchHtml(workLinkM[2]);
+
+            const authorM = headM[1].match(/rel="author"[^>]*>([\s\S]*?)<\/a>/i);
+            const author = authorM ? stripSearchHtml(authorM[1]) : 'Anonymous';
+
+            const chM = block.match(/<dd class="chapters">([^<]+)<\/dd>/i);
+            const chapters = chM ? `${stripSearchHtml(chM[1])} chapters` : '';
+
+            const wordsM = block.match(/<dd class="words">([^<]+)<\/dd>/i);
+            const words = wordsM ? `${stripSearchHtml(wordsM[1])} words` : '';
+
+            const summaryM = block.match(/<blockquote class="userstuff summary">([\s\S]*?)<\/blockquote>/i);
+            const summary = summaryM ? stripSearchHtml(summaryM[1]).substring(0, 240) + '…' : '';
+
+            const fandoms = [...block.matchAll(/class="fandoms[^"]*"[^>]*>([\s\S]*?)<\/h5>/gi)].map(f => stripSearchHtml(f[1])).slice(0, 2);
+
+            results.push({
+                source: 'AO3',
+                title,
+                url,
+                cover: '',
+                author,
+                chapters: chapters || words,
+                rating: words,
+                tags: fandoms.concat(['Fanfiction']),
+                summary
+            });
+        }
+
+        return results;
+    }
+
+    async function searchNovels(query, source = 'all') {
+        if (!query || !query.trim()) return [];
+        const cleanQ = query.trim();
+        const src = (source || 'all').toLowerCase();
+
+        const runners = [];
+        if (src === 'all' || src === 'novelbuddy') {
+            runners.push(searchNovelBuddy(cleanQ).catch(() => []));
+        }
+        if (src === 'all' || src === 'royalroad') {
+            runners.push(searchRoyalRoad(cleanQ).catch(() => []));
+        }
+        if (src === 'all' || src === 'novelfire') {
+            runners.push(searchNovelFire(cleanQ).catch(() => []));
+        }
+        if (src === 'all' || src === 'ao3') {
+            runners.push(searchAO3(cleanQ).catch(() => []));
+        }
+
+        const settled = await Promise.allSettled(runners);
+        let aggregated = [];
+        for (const s of settled) {
+            if (s.status === 'fulfilled' && Array.isArray(s.value)) {
+                aggregated = aggregated.concat(s.value);
+            }
+        }
+
+        // Smart ranking: exact title match or prefix first, then covers prioritized
+        const qLower = cleanQ.toLowerCase();
+        aggregated.sort((a, b) => {
+            const aTitle = (a.title || '').toLowerCase();
+            const bTitle = (b.title || '').toLowerCase();
+            const aExact = aTitle === qLower ? 3 : (aTitle.startsWith(qLower) ? 2 : (aTitle.includes(qLower) ? 1 : 0));
+            const bExact = bTitle === qLower ? 3 : (bTitle.startsWith(qLower) ? 2 : (bTitle.includes(qLower) ? 1 : 0));
+            if (bExact !== aExact) return bExact - aExact;
+            const aCover = a.cover ? 1 : 0;
+            const bCover = b.cover ? 1 : 0;
+            return bCover - aCover;
+        });
+
+        return aggregated;
+    }
+
     window.WebNovelImporter = {
         importEpubBuffer,
         detectType: detectUrlType,
         getBestImageUrl,
         cleanChapterHtmlWithImages,
+        searchNovels,
         pause: () => {
             if (activeCrawlController) {
                 activeCrawlController.isPaused = true;

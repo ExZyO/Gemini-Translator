@@ -838,7 +838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.54';
+    const VERSION = '8.10.55';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3271,6 +3271,11 @@ const formatModelName = (id, displayName) => {
         return webImportData || activeCrawlSession || null;
       }, [activeCrawlSession, webImportData]);
 
+      // --- Web Novel Search State ---
+      const [novelSearchResults, setNovelSearchResults] = useState([]);
+      const [isSearchingNovels, setIsSearchingNovels] = useState(false);
+      const [novelSearchFilter, setNovelSearchFilter] = useState('all');
+
       // --- SwiftAudio Engine & Player State ---
       const [swiftAudioResults, setSwiftAudioResults] = useState([]);
       const [isSwiftAudioSearching, setIsSwiftAudioSearching] = useState(false);
@@ -4606,6 +4611,41 @@ const formatModelName = (id, displayName) => {
           toast('SwiftAudio error: ' + e.message, 'error');
         } finally {
           setIsSwiftAudioSearching(false);
+          setWebImportStatus('');
+        }
+      };
+
+      // ── NOVEL SEARCH HANDLER ──
+      const handleSearchNovels = async (queryOrUrl, sourceOverride = 'all') => {
+        const target = (queryOrUrl || webImportUrl || '').trim();
+        if (!target || target === 'https://novelbuddy.me' || target === 'https://www.royalroad.com' || target === 'https://novelfire.net' || target === 'https://lnori.com/') {
+          return toast('Please enter a novel title or keyword to search (e.g. Horror Game Developer, Shadow Slave)', 'warning');
+        }
+        if (!window.WebNovelImporter || !window.WebNovelImporter.searchNovels) {
+          return toast('Novel search engine is initializing, please try again in a moment…', 'info');
+        }
+
+        // If user pasted a direct novel chapter or book URL, initiate crawl directly
+        if (/^https?:\/\//i.test(target) && !target.includes('/search') && !target.includes('?q=') && !target.includes('?s=')) {
+          toast('Direct novel URL detected. Starting novel fetch…', 'info');
+          return handleStartFetch(false, null, false, target);
+        }
+
+        setIsSearchingNovels(true);
+        setWebImportStatus('Searching novel sources (NovelBuddy, RoyalRoad, NovelFire, AO3)…');
+        try {
+          const q = target.replace(/^https?:\/\/[^\/]+\/(?:search|fictions\/search)\?[^=]+=/i, '');
+          const results = await window.WebNovelImporter.searchNovels(q || target, sourceOverride || 'all');
+          setNovelSearchResults(results);
+          if (!results || results.length === 0) {
+            toast(`No novels found matching "${target}". Try different keywords.`, 'info');
+          } else {
+            toast(`Found ${results.length} novels across supported sources!`, 'success');
+          }
+        } catch (e) {
+          toast('Novel search error: ' + e.message, 'error');
+        } finally {
+          setIsSearchingNovels(false);
           setWebImportStatus('');
         }
       };
@@ -9679,7 +9719,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   )
                 ),
 
-                h('div', { className: 'src-chips' }, ['Lnori', 'SwiftAudio', 'NovelBin', 'NovelFire', 'RoyalRoad', 'NovelFull', 'Pixiv', 'AO3', 'Syosetu', 'Witch Cult'].map(s => h('span', {
+                h('div', { className: 'src-chips' }, ['Lnori', 'SwiftAudio', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'NovelBin', 'NovelFull', 'AO3', 'Pixiv', 'Syosetu', 'Witch Cult'].map(s => h('span', {
                   key: s,
                   className: `src-chip ${(s === 'SwiftAudio' && isSwiftAudioDetected) ? 'accent' : ''}`,
                   style: (s === 'SwiftAudio' && isSwiftAudioDetected) ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : { cursor: 'pointer' },
@@ -9694,18 +9734,37 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       setIsSwiftAudioMode(false);
                       if (s === 'Lnori' && !webImportUrl) {
                         setWebImportUrl('https://lnori.com/');
+                      } else if (['NovelBuddy', 'RoyalRoad', 'NovelFire', 'AO3'].includes(s)) {
+                        setNovelSearchFilter(s);
+                        if (webImportUrl && !/^https?:\/\//i.test(webImportUrl.trim())) {
+                          handleSearchNovels(webImportUrl, s);
+                        } else if (!webImportUrl) {
+                          toast(`${s} selected! Type a title or keyword to search.`, 'info');
+                        }
                       }
                     }
                   }
-                }, s === 'SwiftAudio' ? '🎧 SwiftAudio' : s))),
+                }, s === 'SwiftAudio' ? '🎧 SwiftAudio' : (s === 'NovelBuddy' ? '✨ NovelBuddy' : s)))),
                 h('input', {
                   className: 'url-input',
                   type: 'text',
-                  placeholder: isSwiftAudioDetected ? 'Type audiobook title (e.g. Shadow Slave, Harry Potter) or paste link…' : 'Paste novel URL (Lnori, SwiftAudio, NovelBin, NovelFire, RoyalRoad, NovelFull, AO3, Pixiv…)',
+                  placeholder: isSwiftAudioDetected ? 'Type audiobook title (e.g. Shadow Slave, Harry Potter) or paste link…' : 'Type novel title to search (e.g. Horror Game Developer, Shadow Slave) or paste novel URL…',
                   value: webImportUrl,
                   onChange: (e) => {
                     setWebImportUrl(e.target.value);
                     if (!e.target.value.trim()) setIsSwiftAudioMode(false);
+                  },
+                  onKeyDown: (e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (isSwiftAudioDetected) {
+                        handleSwiftAudioSearch(webImportUrl);
+                      } else if (/^https?:\/\//i.test((webImportUrl || '').trim())) {
+                        handleStartFetch(false);
+                      } else if ((webImportUrl || '').trim()) {
+                        handleSearchNovels(webImportUrl);
+                      }
+                    }
                   }
                 }),
 
@@ -9888,12 +9947,34 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       }, isSwiftAudioSearching ? 'Searching…' : '🔍 Search Audiobooks')
                     )
                   ) : (
-                    h('button', {
-                      type: 'button',
-                      className: 'primary block',
-                      disabled: !webImportUrl.trim(),
-                      onClick: () => handleStartFetch(false)
-                    }, '⤓ Fetch Novel')
+                    h('div', { style: { display: 'grid', gridTemplateColumns: (!webImportUrl.trim() || !/^https?:\/\//i.test(webImportUrl.trim())) ? '1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
+                      (!webImportUrl.trim() || !/^https?:\/\//i.test(webImportUrl.trim())) ? (
+                        h('button', {
+                          type: 'button',
+                          className: 'primary',
+                          style: { background: 'linear-gradient(90deg, #6366f1, #3b82f6)', width: '100%', fontWeight: 700 },
+                          disabled: !webImportUrl.trim() || isSearchingNovels,
+                          onClick: () => handleSearchNovels(webImportUrl)
+                        }, isSearchingNovels ? 'Searching Supported Sources…' : '🔍 Search Web Novels')
+                      ) : (
+                        h(React.Fragment, null,
+                          h('button', {
+                            type: 'button',
+                            className: 'primary',
+                            style: { fontWeight: 700 },
+                            disabled: !webImportUrl.trim(),
+                            onClick: () => handleStartFetch(false)
+                          }, '⤓ Fetch Novel URL'),
+                          h('button', {
+                            type: 'button',
+                            className: 'primary ghost',
+                            style: { fontWeight: 600 },
+                            disabled: !webImportUrl.trim() || isSearchingNovels,
+                            onClick: () => handleSearchNovels(webImportUrl)
+                          }, isSearchingNovels ? 'Searching…' : '🔍 Search Title')
+                        )
+                      )
+                    )
                   ))
                 ) : (
                   h('div', { style: { display: 'grid', gridTemplateColumns: (activeNovelView?.chapters?.length || 0) > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
@@ -9948,6 +10029,124 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   style: { background: 'rgba(234, 179, 8, 0.1)', borderColor: 'rgba(234, 179, 8, 0.25)', color: '#eab308', borderRadius: 4, padding: '8px 12px' }
                 },
                   h('span', null, `⏸ Ingestion paused. ${activeNovelView?.chapters?.length || 0} chapters saved. Click "Resume Fetch" to continue.`)
+                ),
+
+                // Web Novel Search Results Grid / List
+                novelSearchResults && novelSearchResults.length > 0 && h('div', { style: { margin: '14px 0 16px' } },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--paper)' } },
+                      h('span', null, '📚 Web Novel Search Results'),
+                      h('span', { className: 'badge', style: { fontSize: 10.5, background: 'rgba(99, 102, 241, 0.2)', color: 'var(--accent, #6366f1)' } }, `${novelSearchResults.length}`)
+                    ),
+                    h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+                      ['all', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'AO3'].map(f => {
+                        const count = f === 'all' ? novelSearchResults.length : novelSearchResults.filter(n => (n.source || '').toLowerCase() === f.toLowerCase()).length;
+                        if (f !== 'all' && count === 0) return null;
+                        const isSel = (novelSearchFilter || 'all').toLowerCase() === f.toLowerCase();
+                        return h('button', {
+                          key: f,
+                          type: 'button',
+                          className: `mini-btn ${isSel ? '' : 'ghost'}`,
+                          style: {
+                            fontSize: 10.5,
+                            padding: '2px 8px',
+                            fontWeight: isSel ? 700 : 500,
+                            borderColor: isSel ? 'var(--accent, #6366f1)' : 'var(--hairline)',
+                            background: isSel ? 'rgba(99, 102, 241, 0.15)' : undefined
+                          },
+                          onClick: () => setNovelSearchFilter(f)
+                        }, `${f === 'all' ? 'All' : f} (${count})`);
+                      }),
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: { fontSize: 10.5, padding: '2px 8px', color: 'var(--slate)' },
+                        onClick: () => setNovelSearchResults([])
+                      }, '✕ Clear')
+                    )
+                  ),
+                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 } },
+                    novelSearchResults
+                      .filter(item => novelSearchFilter === 'all' || (item.source || '').toLowerCase() === novelSearchFilter.toLowerCase())
+                      .map((item, idx) => h('div', {
+                        key: item.id || idx,
+                        className: 'card',
+                        style: {
+                          padding: 12,
+                          display: 'flex',
+                          gap: 12,
+                          alignItems: 'flex-start',
+                          background: 'var(--card-bg)',
+                          border: '1px solid var(--hairline)'
+                        }
+                      },
+                        item.cover ? h('img', {
+                          src: item.cover,
+                          alt: item.title,
+                          referrerPolicy: 'no-referrer',
+                          onError: (e) => { e.target.style.display = 'none'; },
+                          style: { width: 68, height: 96, borderRadius: 6, objectFit: 'cover', flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }
+                        }) : h('div', {
+                          style: { width: 68, height: 96, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
+                        }, '📖'),
+
+                        h('div', { style: { flex: 1, minWidth: 0 } },
+                          h('div', { style: { display: 'flex', gap: 5, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' } },
+                            h('span', {
+                              className: 'badge',
+                              style: {
+                                fontSize: 10,
+                                fontWeight: 700,
+                                background: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.15)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.15)' : (item.source === 'NovelFire' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(236, 72, 153, 0.15)')),
+                                color: item.source === 'NovelBuddy' ? '#10b981' : (item.source === 'RoyalRoad' ? '#3b82f6' : (item.source === 'NovelFire' ? '#f59e0b' : '#ec4899')),
+                                borderColor: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.3)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.3)' : (item.source === 'NovelFire' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(236, 72, 153, 0.3)'))
+                              }
+                            }, item.source),
+                            item.status && h('span', { className: 'badge', style: { fontSize: 9.5, opacity: 0.8 } }, item.status)
+                          ),
+                          h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
+                          item.author && h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, `by ${item.author}`),
+                          h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 } },
+                            item.chapters && h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent, #6366f1)', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 } },
+                              `📑 ${item.chapters}`
+                            ),
+                            item.rating && h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 } },
+                              `${item.rating}`
+                            )
+                          ),
+                          item.summary && h('div', { style: { fontSize: 11, color: 'var(--paper-dim, #94a3b8)', lineHeight: 1.35, marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } },
+                            item.summary
+                          ),
+                          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn',
+                              style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
+                              onClick: () => {
+                                setWebImportUrl(item.url);
+                                handleStartFetch(false, null, false, item.url);
+                              }
+                            }, '📥 Fetch Novel'),
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn ghost',
+                              style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                              title: 'Fill URL into import box',
+                              onClick: () => {
+                                setWebImportUrl(item.url);
+                                toast(`Selected "${item.title}". Click "Fetch Novel" to begin!`, 'info');
+                              }
+                            }, '📋 Select URL'),
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn ghost',
+                              style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                              onClick: () => window.open(item.url, '_blank')
+                            }, '🔗 Open')
+                          )
+                        )
+                      ))
+                  )
                 ),
                 // SwiftAudiobooks Search Results Grid / List
                 swiftAudioResults && swiftAudioResults.length > 0 && h('div', { style: { margin: '14px 0 16px' } },
