@@ -595,7 +595,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 
 /* ── Toast / confirm ── */
 .toast-wrap { position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); z-index: 120; display: flex; flex-direction: column; gap: 8px; width: min(92vw, 380px); align-items: center; pointer-events: none; }
-.toast { padding: 12px 20px; border-radius: 10px; border: 1px solid var(--hairline); background: rgba(17, 19, 26, 0.96); backdrop-filter: blur(20px); color: var(--paper); font-size: 14px; font-weight: 600; text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,.7); }
+.toast { padding: 12px 20px; border-radius: 10px; border: 1px solid var(--hairline); background: rgba(17, 19, 26, 0.96); backdrop-filter: blur(20px); color: var(--paper); font-size: 14px; font-weight: 600; text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,.7); pointer-events: auto; }
 .toast.error { border-color: rgba(255, 69, 58, 0.4); color: #FF6B6B; }
 .toast.info { border-color: rgba(99, 112, 255, 0.4); color: #B9C0FF; }
 .toast.success { border-color: rgba(52, 199, 89, 0.4); color: #6BE594; }
@@ -838,7 +838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.57';
+    const VERSION = '8.10.58';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3049,7 +3049,7 @@ const formatModelName = (id, displayName) => {
         if (!this.dbPromise) {
           this.dbPromise = new Promise((resolve) => {
             if (typeof indexedDB === 'undefined') return resolve(null);
-            const req = indexedDB.open('GeminiTranslatorNovelDB', 2);
+            const req = indexedDB.open('GeminiTranslatorNovelDB', 3);
             req.onupgradeneeded = (e) => {
               const db = e.target.result;
               if (!db.objectStoreNames.contains('novels')) {
@@ -3057,6 +3057,9 @@ const formatModelName = (id, displayName) => {
               }
               if (!db.objectStoreNames.contains('active_translations')) {
                 db.createObjectStore('active_translations', { keyPath: 'id' });
+              }
+              if (!db.objectStoreNames.contains('trash')) {
+                db.createObjectStore('trash', { keyPath: 'id' });
               }
             };
             req.onsuccess = () => resolve(req.result);
@@ -3126,6 +3129,161 @@ const formatModelName = (id, displayName) => {
           });
         } catch (e) {
           console.warn('IndexedDB delete failed:', e);
+          return false;
+        }
+      },
+      async moveToTrash(id) {
+        try {
+          const db = await this.getDB();
+          if (!db || !id) return false;
+          const novel = await this.getNovel(id);
+          if (!novel) return false;
+          novel.deletedAt = Date.now();
+          return new Promise((resolve) => {
+            const tx = db.transaction(['novels', 'trash'], 'readwrite');
+            tx.objectStore('trash').put(novel);
+            tx.objectStore('novels').delete(id);
+            tx.oncomplete = () => resolve(novel);
+            tx.onerror = () => resolve(false);
+          });
+        } catch (e) {
+          console.warn('GeminiNovelDB moveToTrash error:', e);
+          return false;
+        }
+      },
+      async moveMultipleToTrash(ids) {
+        try {
+          const db = await this.getDB();
+          if (!db || !Array.isArray(ids) || ids.length === 0) return false;
+          const idSet = new Set(ids);
+          const all = await this.getAllNovels();
+          const toTrash = all.filter(n => idSet.has(n.id));
+          const now = Date.now();
+          return new Promise((resolve) => {
+            const tx = db.transaction(['novels', 'trash'], 'readwrite');
+            const novelsStore = tx.objectStore('novels');
+            const trashStore = tx.objectStore('trash');
+            toTrash.forEach(n => {
+              n.deletedAt = now;
+              trashStore.put(n);
+              novelsStore.delete(n.id);
+            });
+            tx.oncomplete = () => resolve(toTrash);
+            tx.onerror = () => resolve(false);
+          });
+        } catch (e) {
+          console.warn('GeminiNovelDB moveMultipleToTrash error:', e);
+          return false;
+        }
+      },
+      async moveAllToTrash() {
+        try {
+          const db = await this.getDB();
+          if (!db) return false;
+          const all = await this.getAllNovels();
+          const now = Date.now();
+          return new Promise((resolve) => {
+            const tx = db.transaction(['novels', 'trash'], 'readwrite');
+            const novelsStore = tx.objectStore('novels');
+            const trashStore = tx.objectStore('trash');
+            all.forEach(n => {
+              n.deletedAt = now;
+              trashStore.put(n);
+            });
+            novelsStore.clear();
+            tx.oncomplete = () => resolve(all);
+            tx.onerror = () => resolve(false);
+          });
+        } catch (e) {
+          console.warn('GeminiNovelDB moveAllToTrash error:', e);
+          return false;
+        }
+      },
+      async getTrashNovels() {
+        try {
+          const db = await this.getDB();
+          if (!db || !db.objectStoreNames.contains('trash')) return [];
+          return new Promise((resolve) => {
+            const tx = db.transaction('trash', 'readonly');
+            const store = tx.objectStore('trash');
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => resolve([]);
+          });
+        } catch (e) {
+          return [];
+        }
+      },
+      async restoreFromTrash(id) {
+        try {
+          const db = await this.getDB();
+          if (!db || !id) return false;
+          return new Promise((resolve) => {
+            const tx = db.transaction(['novels', 'trash'], 'readwrite');
+            const trashStore = tx.objectStore('trash');
+            const novelsStore = tx.objectStore('novels');
+            const req = trashStore.get(id);
+            req.onsuccess = () => {
+              const novel = req.result;
+              if (novel) {
+                delete novel.deletedAt;
+                novelsStore.put(novel);
+                trashStore.delete(id);
+              }
+            };
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+          });
+        } catch (e) {
+          return false;
+        }
+      },
+      async restoreAllFromTrash() {
+        try {
+          const db = await this.getDB();
+          if (!db || !db.objectStoreNames.contains('trash')) return [];
+          const allTrash = await this.getTrashNovels();
+          return new Promise((resolve) => {
+            const tx = db.transaction(['novels', 'trash'], 'readwrite');
+            const trashStore = tx.objectStore('trash');
+            const novelsStore = tx.objectStore('novels');
+            allTrash.forEach(novel => {
+              delete novel.deletedAt;
+              novelsStore.put(novel);
+            });
+            trashStore.clear();
+            tx.oncomplete = () => resolve(allTrash);
+            tx.onerror = () => resolve([]);
+          });
+        } catch (e) {
+          return [];
+        }
+      },
+      async deleteTrashNovel(id) {
+        try {
+          const db = await this.getDB();
+          if (!db || !id) return false;
+          return new Promise((resolve) => {
+            const tx = db.transaction('trash', 'readwrite');
+            tx.objectStore('trash').delete(id);
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+          });
+        } catch (e) {
+          return false;
+        }
+      },
+      async emptyTrash() {
+        try {
+          const db = await this.getDB();
+          if (!db || !db.objectStoreNames.contains('trash')) return true;
+          return new Promise((resolve) => {
+            const tx = db.transaction('trash', 'readwrite');
+            tx.objectStore('trash').clear();
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+          });
+        } catch (e) {
           return false;
         }
       },
@@ -3392,6 +3550,21 @@ const formatModelName = (id, displayName) => {
       const [novelUpdateBadges, setNovelUpdateBadges] = useState({});
       const [isBatchChecking, setIsBatchChecking] = useState(false);
       const [collapsedVolumes, setCollapsedVolumes] = useState({});
+      const [trashList, setTrashList] = useState([]);
+      const [trashCount, setTrashCount] = useState(0);
+
+      const loadTrashCount = async () => {
+        if (window.GeminiNovelDB) {
+          try {
+            const list = await window.GeminiNovelDB.getTrashNovels();
+            setTrashList(list || []);
+            setTrashCount((list || []).length);
+          } catch (e) {
+            setTrashList([]);
+            setTrashCount(0);
+          }
+        }
+      };
 
       const getNovelFolderOptions = (novel) => {
         if (!novel) return {};
@@ -3952,9 +4125,10 @@ const formatModelName = (id, displayName) => {
       };
 
       const deleteNovelFromHistory = async (id) => {
+        const itemToDelete = (webImportHistory || []).find(n => n.id === id);
         if (window.GeminiNovelDB) {
           try {
-            await window.GeminiNovelDB.deleteNovel(id);
+            await window.GeminiNovelDB.moveToTrash(id);
           } catch(e) {}
         }
         setWebImportHistory(prev => {
@@ -3964,16 +4138,260 @@ const formatModelName = (id, displayName) => {
           } catch (e) {}
           return updated;
         });
-        toast('Removed novel from library', 'info');
+        loadTrashCount();
+        toast(`Moved "${itemToDelete?.title || 'novel'}" to Recycle Bin`, 'info', {
+          label: 'Undo',
+          onClick: async () => {
+            await handleRestoreNovel(id);
+          }
+        });
+      };
+
+      const handleClearScopedBooks = async (booksToClear, scopeName) => {
+        if (!booksToClear || booksToClear.length === 0) return;
+        const count = booksToClear.length;
+        const idsToClear = booksToClear.map(b => b.id).filter(Boolean);
+        const idSet = new Set(idsToClear);
+
+        if (window.GeminiNovelDB) {
+          try {
+            await window.GeminiNovelDB.moveMultipleToTrash(idsToClear);
+          } catch (e) {
+            console.warn('Failed to move to trash:', e);
+          }
+        }
+
+        const snapshot = [...booksToClear];
+        window.__gemini_last_cleared_snapshot = snapshot;
+
+        setWebImportHistory(prev => {
+          const updated = prev.filter(b => !idSet.has(b.id));
+          try {
+            localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
+        });
+
+        loadTrashCount();
+
+        toast(`Moved ${count} ${scopeName} book(s) to Recycle Bin`, 'info', {
+          label: 'Undo',
+          onClick: async () => {
+            await handleRestoreSnapshot(snapshot);
+          }
+        });
+      };
+
+      const handleClearSavedSpace = async (books) => {
+        if (!books || books.length === 0) return;
+        for (const b of books) {
+          if (b.id) await toggleNovelSavedSpace(b.id, b);
+        }
+        toast(`Removed ${books.length} novel(s) from Saved Space.`, 'info');
       };
 
       const clearAllNovelHistory = async () => {
+        const allBooks = [...(webImportHistory || [])];
+        if (allBooks.length === 0) return;
+
         if (window.GeminiNovelDB) {
-          await window.GeminiNovelDB.clearAll();
+          try {
+            await window.GeminiNovelDB.moveAllToTrash();
+          } catch (e) {}
         }
+        window.__gemini_last_cleared_snapshot = allBooks;
         setWebImportHistory([]);
-        localStorage.removeItem('gemini_web_import_history_meta');
-        toast('Cleared all novel history', 'info');
+        try { localStorage.removeItem('gemini_web_import_history_meta'); } catch (e) {}
+
+        loadTrashCount();
+
+        toast(`Moved all ${allBooks.length} books to Recycle Bin`, 'info', {
+          label: 'Undo',
+          onClick: async () => {
+            await handleRestoreSnapshot(allBooks);
+          }
+        });
+      };
+
+      const handleRestoreNovel = async (id) => {
+        if (window.GeminiNovelDB) {
+          await window.GeminiNovelDB.restoreFromTrash(id);
+          const restored = await window.GeminiNovelDB.getNovel(id);
+          if (restored) {
+            const meta = {
+              id: restored.id,
+              title: restored.title,
+              author: restored.author,
+              summary: restored.summary,
+              cover: restored.cover,
+              tags: restored.tags,
+              chapterCount: restored.chapterCount || (restored.rawChapters ? restored.rawChapters.length : 0),
+              totalChapterCount: restored.totalChapterCount || (restored.chapterList ? restored.chapterList.length : (restored.chapterCount || (restored.rawChapters ? restored.rawChapters.length : 0))),
+              volumeCount: restored.volumeCount,
+              isIncomplete: !!restored.isIncomplete,
+              isTranslated: !!restored.isTranslated || (restored.title || '').includes('(Translated)'),
+              inSavedSpace: !!restored.inSavedSpace,
+              wordCount: restored.wordCount,
+              timestamp: restored.timestamp || new Date().toISOString(),
+              isEpub: restored.isEpub,
+              sourceUrl: restored.sourceUrl
+            };
+            setWebImportHistory(prev => {
+              const next = [meta, ...prev.filter(n => n.id !== id)];
+              try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
+            loadTrashCount();
+            toast(`Restored "${restored.title}" to library!`, 'success');
+          }
+        }
+      };
+
+      const handleRestoreSnapshot = async (snapshot) => {
+        if (!snapshot || snapshot.length === 0) return;
+        if (window.GeminiNovelDB) {
+          for (const b of snapshot) {
+            if (b.id) await window.GeminiNovelDB.restoreFromTrash(b.id);
+          }
+        }
+        setWebImportHistory(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const restored = snapshot.filter(b => b.id && !existingIds.has(b.id));
+          const next = [...restored, ...prev];
+          try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(next)); } catch (e) {}
+          return next;
+        });
+        loadTrashCount();
+        toast(`Restored ${snapshot.length} book(s) to library!`, 'success');
+      };
+
+      const handleRestoreAllTrash = async () => {
+        if (window.GeminiNovelDB) {
+          const restoredItems = await window.GeminiNovelDB.restoreAllFromTrash();
+          if (restoredItems && restoredItems.length > 0) {
+            const restoredMetas = restoredItems.map(n => ({
+              id: n.id,
+              title: n.title,
+              author: n.author,
+              summary: n.summary,
+              cover: n.cover,
+              tags: n.tags,
+              chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
+              totalChapterCount: n.totalChapterCount || (n.chapterList ? n.chapterList.length : (n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0))),
+              volumeCount: n.volumeCount,
+              isIncomplete: !!n.isIncomplete,
+              isTranslated: !!n.isTranslated || (n.title || '').includes('(Translated)'),
+              inSavedSpace: !!n.inSavedSpace,
+              wordCount: n.wordCount,
+              timestamp: n.timestamp || new Date().toISOString(),
+              isEpub: n.isEpub,
+              sourceUrl: n.sourceUrl
+            }));
+            setWebImportHistory(prev => {
+              const existingIds = new Set(prev.map(p => p.id));
+              const adding = restoredMetas.filter(m => !existingIds.has(m.id));
+              const next = [...adding, ...prev];
+              try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
+            loadTrashCount();
+            toast(`Restored all ${restoredItems.length} novel(s) to library!`, 'success');
+          }
+        }
+      };
+
+      const handlePermanentDelete = async (id) => {
+        if (window.GeminiNovelDB) {
+          await window.GeminiNovelDB.deleteTrashNovel(id);
+        }
+        loadTrashCount();
+        toast('Permanently deleted from Recycle Bin.', 'info');
+      };
+
+      const handleEmptyTrash = async () => {
+        if (window.GeminiNovelDB) {
+          await window.GeminiNovelDB.emptyTrash();
+        }
+        loadTrashCount();
+        toast('Recycle Bin emptied.', 'info');
+      };
+
+      const handleRestoreFromEpubFiles = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+        toast(`Reading ${files.length} EPUB file(s)...`, 'info');
+        let restoredCount = 0;
+        for (const f of files) {
+          try {
+            if (!f.name.toLowerCase().endsWith('.epub')) continue;
+            const epubData = await readEpub(f);
+            if (epubData && epubData.chapters && epubData.chapters.length > 0) {
+              const bookTitle = (f.name.replace(/\.epub$/i, '') || 'Imported Novel').replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
+              const novelData = {
+                title: bookTitle,
+                author: 'Author',
+                chapters: epubData.chapters.map(c => ({ title: c.title, text: c.text, content: c.text })),
+                totalChapterCount: epubData.chapters.length,
+                isIncomplete: false,
+                isEpub: true
+              };
+              await saveNovelToHistory(novelData);
+              restoredCount++;
+            }
+          } catch (err) {
+            console.warn('EPUB restore failed for', f.name, err);
+          }
+        }
+        if (restoredCount > 0) {
+          toast(`Successfully restored ${restoredCount} novel(s) into your library!`, 'success');
+        } else {
+          toast('No readable EPUB chapters found.', 'warning');
+        }
+        e.target.value = '';
+      };
+
+      const handleReindexFromTranslationHistory = async () => {
+        try {
+          const dbHist = await dbGetAll('history');
+          if (!dbHist || dbHist.length === 0) {
+            return toast('No translation history entries found in database.', 'info');
+          }
+          let recoveredCount = 0;
+          const heading = /^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|Chapter\s*\d+|CHAPTER\s*\d+)/;
+          for (const entry of dbHist) {
+            const out = entry.fullOutput || entry.outputPreview || '';
+            const chaps = [];
+            let cur = null;
+            for (const line of out.split(/\r?\n/)) {
+              const t = line.trim();
+              if (heading.test(t)) { if (cur) chaps.push(cur); cur = { title: t, content: '' }; }
+              else if (cur) cur.content += line + '\n';
+              else if (t) cur = { title: 'Chapter 1', content: line + '\n' };
+            }
+            if (cur) chaps.push(cur);
+            if (chaps.length >= 2) {
+              const title = ((chaps[0].title || '').replace(heading, '') || 'Translated Book').trim() + ' (Translated)';
+              const exists = (webImportHistory || []).some(n => (n.title || '').trim().toLowerCase() === title.trim().toLowerCase());
+              if (!exists) {
+                await saveNovelToHistory({
+                  title,
+                  author: 'Gemini Translator',
+                  isTranslated: true,
+                  chapters: chaps.map(c => ({ title: c.title, content: c.content.trim() })),
+                  originalText: entry.fullInput || ''
+                });
+                recoveredCount++;
+              }
+            }
+          }
+          if (recoveredCount > 0) {
+            toast(`Recovered ${recoveredCount} novel(s) from translation history!`, 'success');
+          } else {
+            toast('No new translated books to recover from history.', 'info');
+          }
+        } catch (e) {
+          toast('Recovery scan failed: ' + e.message, 'error');
+        }
       };
 
       // Load persistent IndexedDB novels on mount, merging seamlessly with localStorage
@@ -4033,6 +4451,7 @@ const formatModelName = (id, displayName) => {
             if (combined.length > 0) {
               setWebImportHistory(combined);
             }
+            loadTrashCount();
           } catch (e) {
             console.warn('Novel history load error:', e);
           }
@@ -5045,13 +5464,13 @@ const formatModelName = (id, displayName) => {
       const [isDragOver, setIsDragOver] = useState(false);
 
       // --- Core Toast Helper (Defined before any usage) ---
-      const toast = (msg, type = 'success') => {
+      const toast = (msg, type = 'success', action = null) => {
         if (!msg) return;
         setToasts(prev => {
           if (prev.some(t => t.msg === msg)) return prev;
           const id = genId();
-          setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3200);
-          return [...prev.slice(-2), { id, msg, type }];
+          setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), action ? 7500 : 3200);
+          return [...prev.slice(-2), { id, msg, type, action }];
         });
       };
 
@@ -5293,6 +5712,7 @@ const formatModelName = (id, displayName) => {
       const instructionsRef = useRef(null);
       const glossaryRef = useRef(null);
       const fileInputRef = useRef(null);
+      const epubRestoreInputRef = useRef(null);
       const glossaryFileRef = useRef(null);
       const backupFileInputRef = useRef(null);
       const abortRef = useRef(null);
@@ -9700,8 +10120,24 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     }, `📥 Download EPUB (${(activeCrawlSession.chapters || []).length} Ch)`),
                     h('button', {
                       type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontWeight: 700 },
+                      onClick: () => {
+                        const chs = activeCrawlSession.chapters || [];
+                        if (chs.length === 0) return toast('No chapters downloaded yet to read.', 'warning');
+                        setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
+                        setTranslatedChapters([]);
+                        setAssembledText('');
+                        setReaderChapterIdx(0);
+                        setReaderOpen(true);
+                        toast(`Opening "${activeCrawlSession.title || 'Novel'}" in reader!`, 'success');
+                      }
+                    }, `📖 Read (${(activeCrawlSession.chapters || []).length} Ch)`),
+                    h('button', {
+                      type: 'button',
                       className: 'mini-btn ghost',
                       onClick: () => {
+
                         const chs = activeCrawlSession.chapters || [];
                         const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
                         setInputText(fullText);
@@ -9915,9 +10351,25 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     }, `📥 Download EPUB (${activeNovelView?.chapters?.length || 0})`),
                     h('button', {
                       type: 'button',
+                      className: 'mini-btn',
+                      style: { padding: '10px 4px', background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontWeight: 700, fontSize: 11 },
+                      onClick: () => {
+                        const chs = activeNovelView?.chapters || [];
+                        if (chs.length === 0) return toast('No chapters downloaded yet to read.', 'warning');
+                        setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
+                        setTranslatedChapters([]);
+                        setAssembledText('');
+                        setReaderChapterIdx(0);
+                        setReaderOpen(true);
+                        toast(`Reading "${activeNovelView.title || 'Novel'}" (${chs.length} ch)!`, 'success');
+                      }
+                    }, `📖 Read (${activeNovelView?.chapters?.length || 0})`),
+                    h('button', {
+                      type: 'button',
                       className: 'mini-btn ghost',
                       style: { padding: '10px 4px', fontWeight: 600, fontSize: 11 },
                       onClick: () => {
+
                         const chs = activeNovelView?.chapters || [];
                         if (chs.length === 0) return toast('No chapters downloaded yet to send.', 'warning');
                         const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
@@ -10303,7 +10755,24 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       title: 'Directly download clean English EPUB with full illustrations, volume hierarchy, and cover art',
                       onClick: () => exportCleanLnoriEpub(activeNovelView)
                     }, `⚡ Download Clean Lnori EPUB (${(activeNovelView.chapters || []).length} Ch)`),
+                    h('button', {
+
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontWeight: 700, padding: '8px 14px' },
+                      onClick: () => {
+                        const chs = activeNovelView.chapters || [];
+                        if (chs.length === 0) return toast('No chapters available to read.', 'warning');
+                        setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
+                        setTranslatedChapters([]);
+                        setAssembledText('');
+                        setReaderChapterIdx(0);
+                        setReaderOpen(true);
+                        toast(`Reading "${activeNovelView.title || 'Novel'}" (${chs.length} ch)!`, 'success');
+                      }
+                    }, `📖 Read (${(activeNovelView.chapters || []).length} Ch)`),
                     h('button', { type: 'button', className: 'mini-btn', onClick: () => {
+
                       const chs = activeNovelView.chapters || [];
                       const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
                       setInputText(fullText);
@@ -10530,7 +10999,24 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
             // ═══ TAB 4: LIBRARY ═══
             activeTab === 'history' && h(React.Fragment, null,
-              h('input', { type: 'text', className: 'url-input', placeholder: 'Search library by title, date, language, chapters…', value: libQuery, onChange: e => setLibQuery(e.target.value) }),
+              h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                h('input', { type: 'text', className: 'url-input', style: { flex: 1 }, placeholder: 'Search library by title, date, language, chapters…', value: libQuery, onChange: e => setLibQuery(e.target.value) }),
+                h('button', {
+                  type: 'button',
+                  className: 'chip-act',
+                  style: { background: 'rgba(99, 102, 241, 0.15)', color: 'var(--iris)', border: '1px solid var(--iris)', fontWeight: 600, padding: '7px 12px', whiteSpace: 'nowrap' },
+                  title: 'Re-import previously downloaded EPUB files back into your library',
+                  onClick: () => epubRestoreInputRef.current?.click()
+                }, '📥 Restore EPUBs'),
+                h('input', {
+                  type: 'file',
+                  ref: epubRestoreInputRef,
+                  accept: '.epub',
+                  multiple: true,
+                  style: { display: 'none' },
+                  onChange: handleRestoreFromEpubFiles
+                })
+              ),
               h('div', { className: 'seg', style: { marginTop: 10, marginBottom: 12, overflowX: 'auto', display: 'flex' } },
                 h('button', {
                   type: 'button',
@@ -10561,7 +11047,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   className: `seg-btn ${libTab === 'incomplete' ? 'active' : ''}`,
                   style: libTab === 'incomplete' ? { background: '#eab308', color: '#000', fontWeight: 700 } : {},
                   onClick: () => setLibTab('incomplete')
-                }, `⏸ Incomplete (${incCount})`)
+                }, `⏸ Incomplete (${incCount})`),
+                h('button', {
+                  type: 'button',
+                  className: `seg-btn ${libTab === 'trash' ? 'active' : ''}`,
+                  style: libTab === 'trash' ? { background: '#ef4444', color: '#fff', fontWeight: 700 } : {},
+                  onClick: () => { setLibTab('trash'); loadTrashCount(); }
+                }, `🗑️ Trash (${trashCount})`)
               ),
 
               // 🎧 AUDIOBOOK SHELF IN LIBRARY
@@ -10679,25 +11171,121 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     )
               ),
 
-              libTab !== 'audio' && h(React.Fragment, null,
+              // 🗑️ RECYCLE BIN SHELF IN LIBRARY
+              libTab === 'trash' && h(React.Fragment, null,
+                h('div', { className: 'card-title', style: { marginTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
+                  h('span', { style: { fontWeight: 700 } }, `🗑️ Recycle Bin (${trashList.length})`),
+                  h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+                    trashList.length > 0 && h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700, padding: '6px 12px' },
+                      onClick: () => confirmAction(`Restore all ${trashList.length} deleted novel(s) back into your library?`, handleRestoreAllTrash)
+                    }, `↺ Restore All (${trashList.length})`),
+                    trashList.length > 0 && h('button', {
+                      type: 'button',
+                      className: 'mini-btn danger',
+                      style: { padding: '6px 12px' },
+                      onClick: () => confirmAction('Permanently delete all items in Recycle Bin? This cannot be undone.', handleEmptyTrash)
+                    }, 'Empty Bin')
+                  )
+                ),
+                trashList.length === 0
+                  ? h('div', { className: 'card', style: { textAlign: 'center', padding: '44px 16px' } },
+                      h('div', { style: { fontSize: 36, marginBottom: 10 } }, '🗑️'),
+                      h('p', { style: { fontSize: 13.5, color: 'var(--paper)', fontWeight: 600 } }, 'Your Recycle Bin is empty.'),
+                      h('p', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 6, maxWidth: 380, margin: '6px auto 0', lineHeight: 1.5 } },
+                        'Whenever you delete novels or clear a shelf, they are safely preserved here so you can restore them anytime with 1 tap.'
+                      )
+                    )
+                  : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+                      trashList.map((item, idx) => h('div', {
+                        key: item.id || idx,
+                        className: 'book-card',
+                        style: { display: 'flex', flexDirection: 'column', gap: 8, opacity: 0.95 }
+                      },
+                        h('div', { style: { display: 'flex', gap: 12, alignItems: 'flex-start' } },
+                          item.cover ? h('img', {
+                            src: item.cover,
+                            alt: 'Cover',
+                            referrerPolicy: 'no-referrer',
+                            onError: (e) => { e.target.style.display = 'none'; },
+                            style: { width: 52, height: 72, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
+                          }) : h('div', {
+                            style: { width: 52, height: 72, borderRadius: 6, background: 'var(--ember-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }
+                          }, '📖'),
+                          h('div', { style: { flex: 1, minWidth: 0 } },
+                            h('div', { style: { fontSize: 14.5, fontWeight: 700, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.title || 'Untitled Book'),
+                            h('div', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 3 } },
+                              `${item.chapterCount || (item.chapters ? item.chapters.length : 0)} chapters · Deleted ${item.deletedAt ? new Date(item.deletedAt).toLocaleString() : 'recently'}`
+                            )
+                          )
+                        ),
+                        h('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', marginTop: 4 } },
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn',
+                            style: { background: '#10b981', color: '#fff', fontWeight: 700, padding: '5px 12px' },
+                            onClick: () => handleRestoreNovel(item.id)
+                          }, '↺ Restore to Library'),
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn danger',
+                            style: { padding: '5px 10px' },
+                            onClick: () => confirmAction(`Permanently delete "${item.title}"?`, () => handlePermanentDelete(item.id))
+                          }, 'Delete Permanently')
+                        )
+                      ))
+                    )
+              ),
+
+              libTab !== 'audio' && libTab !== 'trash' && h(React.Fragment, null,
                 h('div', { className: 'card-title', style: { marginTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
                   h('span', { style: { cursor: 'pointer', fontWeight: 700 }, onClick: () => setLibCollapsed(s => ({ ...s, books: !s.books })) },
                     `${libCollapsed.books ? '▸' : '▾'} ${libTab === 'saved' ? 'Special Saved Space' : libTab === 'translated' ? 'Translated Books' : libTab === 'incomplete' ? 'Incomplete Crawls' : 'Books Library'} (${displayedBooks.length})`
                   ),
-                h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                  webImportHistory.some(b => b.sourceUrl && b.sourceUrl.startsWith('http')) && h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    style: { background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', border: '1px solid var(--accent, #6366f1)', fontWeight: 600 },
-                    disabled: isBatchChecking,
-                    onClick: handleCheckAllUpdates,
-                    title: 'Scan web sources for novel chapter updates'
-                  }, isBatchChecking ? '🔄 Checking…' : '🔄 Check All Updates'),
-                  webImportHistory.length > 0 && h('button', {
-                    type: 'button',
-                    className: 'mini-btn danger',
-                    onClick: () => confirmAction('Clear all library history?', async () => { await clearAllNovelHistory(); toast('Library history cleared.'); })
-                  }, 'Clear All')
+                  h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+                    webImportHistory.some(b => b.sourceUrl && b.sourceUrl.startsWith('http')) && h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      style: { background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', border: '1px solid var(--accent, #6366f1)', fontWeight: 600 },
+                      disabled: isBatchChecking,
+                      onClick: handleCheckAllUpdates,
+                      title: 'Scan web sources for novel chapter updates'
+                    }, isBatchChecking ? '🔄 Checking…' : '🔄 Check All Updates'),
+
+                    // Scoped Clear Button for Incomplete:
+                    libTab === 'incomplete' && displayedBooks.length > 0 && h('button', {
+                      type: 'button',
+                      className: 'mini-btn danger',
+                      title: 'Move incomplete crawl drafts to Recycle Bin',
+                      onClick: () => confirmAction(`Move all ${displayedBooks.length} incomplete crawl(s) to the Recycle Bin? (Completed novels and other shelves will NOT be affected.)`, () => handleClearScopedBooks(displayedBooks, 'incomplete'))
+                    }, `Clear Incomplete (${displayedBooks.length})`),
+
+                    // Scoped Clear Button for Saved Space:
+                    libTab === 'saved' && displayedBooks.length > 0 && h('button', {
+                      type: 'button',
+                      className: 'mini-btn danger',
+                      title: 'Unpin books from Special Saved Space',
+                      onClick: () => confirmAction(`Remove all ${displayedBooks.length} book(s) from Special Saved Space? (Novels will stay in your main library.)`, () => handleClearSavedSpace(displayedBooks))
+                    }, `Clear Saved Space (${displayedBooks.length})`),
+
+                    // Scoped Clear Button for Translated:
+                    libTab === 'translated' && displayedBooks.length > 0 && h('button', {
+                      type: 'button',
+                      className: 'mini-btn danger',
+                      title: 'Move translated novels to Recycle Bin',
+                      onClick: () => confirmAction(`Move all ${displayedBooks.length} translated novel(s) to Recycle Bin? (Raw/ongoing novels will NOT be affected.)`, () => handleClearScopedBooks(displayedBooks, 'translated'))
+                    }, `Clear Translated (${displayedBooks.length})`),
+
+                    // Scoped Clear Button for All (with explicit danger confirmation):
+                    libTab === 'all' && webImportHistory.length > 0 && h('button', {
+                      type: 'button',
+                      className: 'mini-btn danger',
+                      title: 'Move all library books to Recycle Bin',
+                      onClick: () => confirmAction(`⚠️ WARNING: You are in the 'All' tab. This will move ALL ${webImportHistory.length} novels from every shelf into the Recycle Bin. Proceed?`, () => clearAllNovelHistory())
+                    }, 'Clear Entire Library')
+                  )
                 )
               ),
               (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && (libTab === 'all' || libTab === 'incomplete' || libTab === 'saved') && (() => {
@@ -12061,7 +12649,34 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
         // ── TOASTS ──
         h('div', { className: 'toast-wrap' },
-          toasts.map(t => h('div', { key: t.id, className: `toast ${t.type || 'success'}` }, t.msg))
+          toasts.map(t => h('div', {
+            key: t.id,
+            className: `toast ${t.type || 'success'}`,
+            style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textAlign: 'left' }
+          },
+            h('span', { style: { flex: 1 } }, t.msg),
+            t.action && h('button', {
+              type: 'button',
+              className: 'mini-btn',
+              style: {
+                background: '#ffffff',
+                color: '#111827',
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: 800,
+                borderRadius: 6,
+                cursor: 'pointer',
+                border: 'none',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                flexShrink: 0
+              },
+              onClick: (e) => {
+                e.stopPropagation();
+                if (typeof t.action.onClick === 'function') t.action.onClick();
+                setToasts(p => p.filter(item => item.id !== t.id));
+              }
+            }, t.action.label || 'Undo')
+          ))
         ),
 
         // ── CONFIRM DIALOG ──

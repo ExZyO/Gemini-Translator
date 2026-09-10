@@ -13,6 +13,41 @@
         .replace(/'/g, '&apos;');
     };
 
+    const decodeHtmlEntities = (text) => {
+      if (!text) return '';
+      let decoded = String(text);
+      decoded = decoded.replace(/&#(\d+);/g, (_, dec) => {
+        const code = parseInt(dec, 10);
+        if (code === 8216) return "‘";
+        if (code === 8217) return "’";
+        if (code === 8220) return "“";
+        if (code === 8221) return "”";
+        if (code === 8211) return "–";
+        if (code === 8212) return "—";
+        if (code === 8230) return "…";
+        try { return String.fromCharCode(code); } catch(e) { return _; }
+      });
+      decoded = decoded.replace(/&#x([0-9a-f]+);/gi, (_, hex) => {
+        try { return String.fromCharCode(parseInt(hex, 16)); } catch(e) { return _; }
+      });
+      return decoded
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;|&#039;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&mdash;/g, '—')
+        .replace(/&ndash;/g, '–')
+        .replace(/&hellip;/g, '…')
+        .replace(/&lsquo;/g, "‘")
+        .replace(/&rsquo;/g, "’")
+        .replace(/&ldquo;/g, '“')
+        .replace(/&rdquo;/g, '”');
+    };
+    if (typeof window !== 'undefined') window.decodeHtmlEntities = decodeHtmlEntities;
+
+
     const updateOriginalEpubNavigation = async (zip, translatedChapters) => {
       if (!zip || !Array.isArray(translatedChapters) || typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') return;
       const containerFile = zip.file('META-INF/container.xml');
@@ -609,11 +644,11 @@ hr {
           const ch = exportChapters[idx];
           const chId = `chapter_${idx + 1}`;
           const chFilename = `${chId}.xhtml`;
-          const chTitle = ch.title ? ch.title.trim() : `Chapter ${idx + 1}`;
+          const chTitle = ch.title ? decodeHtmlEntities(ch.title).trim() : `Chapter ${idx + 1}`;
 
           manifestItems.push(`<item id="${chId}" href="${chFilename}" media-type="application/xhtml+xml"/>`);
           spineItems.push(`<itemref idref="${chId}"/>`);
-          tocEntries.push({ id: chId, filename: chFilename, title: chTitle, idx });
+          tocEntries.push({ id: chId, filename: chFilename, title: chTitle, idx, volume: ch.volume || ch.arc, arc: ch.arc || ch.volume });
 
           const rawLines = ch.content.split(/\r?\n/);
           const bodyHtml = [];
@@ -798,15 +833,19 @@ ${bodyHtml.join('\n ')}
 
         for (let i = 0; i < tocEntries.length; i++) {
           const entry = tocEntries[i];
-          const match = entry.title.match(volRegex);
-          let volName = null;
-          let cleanTitle = entry.title;
+          let volName = entry.volume || entry.arc || null;
+          let cleanTitle = decodeHtmlEntities(entry.title);
 
-          if (match) {
-            const prefix = match[1].toLowerCase().startsWith('vol') ? 'Volume' : (match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase());
-            const num = parseInt(match[2], 10) || match[2];
-            volName = `${prefix} ${num}`;
-            cleanTitle = match[3] ? match[3].trim() : entry.title;
+          if (volName) {
+            volName = decodeHtmlEntities(volName);
+          } else {
+            const match = cleanTitle.match(volRegex);
+            if (match) {
+              const prefix = match[1].toLowerCase().startsWith('vol') ? 'Volume' : (match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase());
+              const num = parseInt(match[2], 10) || match[2];
+              volName = `${prefix} ${num}`;
+              cleanTitle = match[3] ? match[3].trim() : cleanTitle;
+            }
           }
 
           if (!curVolGroup || (volName && curVolGroup.volName !== volName)) {
@@ -826,6 +865,7 @@ ${bodyHtml.join('\n ')}
             fullTitle: entry.title
           });
         }
+
 
         const distinctNamedVolumes = volumeGroups.filter(v => v.hasRealVolume);
         const isMultiVolume = useHierarchicalToc && (distinctNamedVolumes.length >= 2 || (volumeGroups.length >= 2 && distinctNamedVolumes.length >= 1));

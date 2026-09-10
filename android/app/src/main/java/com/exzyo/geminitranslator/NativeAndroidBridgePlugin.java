@@ -993,8 +993,26 @@ public class NativeAndroidBridgePlugin extends Plugin {
     // ══════════════════════════════════════════════════════════════════════
     // TACHIYOMI / MIHON IN-APP CLOUDFLARE TURNSTILE RESOLVER WEBVIEW
     // ══════════════════════════════════════════════════════════════════════
+    private boolean isCloudflareChallengeHtml(String html) {
+        if (html == null || html.isEmpty()) return true;
+        String lower = html.toLowerCase();
+        return lower.contains("cf-browser-verification")
+            || lower.contains("challenges.cloudflare.com")
+            || lower.contains("security service to protect against malicious bots")
+            || lower.contains("performance and security by cloudflare")
+            || lower.contains("waiting for syosetu")
+            || lower.contains("waiting for ")
+            || lower.contains("enable javascript and cookies to continue")
+            || lower.contains("just a moment...")
+            || lower.contains("attention required! | cloudflare")
+            || lower.contains("cf-turnstile")
+            || lower.contains("cf_chl_")
+            || lower.contains("shields are up!");
+    }
+
     @PluginMethod
     public void resolveCloudflare(PluginCall call) {
+
         String targetUrl = call.getString("url");
         if (targetUrl == null || targetUrl.isEmpty()) {
             call.reject("Missing target URL");
@@ -1053,27 +1071,29 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 AlertDialog dialog = builder.create();
                 dialog.setCanceledOnTouchOutside(false);
 
-                webView.setWebViewClient(new WebViewClient() {
-                    @Override
-                    public void onPageFinished(WebView view, String url) {
-                        super.onPageFinished(view, url);
-                        
-                        String cookies = cookieManager.getCookie(url);
-                        view.evaluateJavascript("document.documentElement.outerHTML", html -> {
-                            if (html != null && html.length() > 500 && !html.contains("cf-browser-verification") && !html.contains("Shields are up!")) {
+                final boolean[] resolved = new boolean[]{ false };
+                final Runnable checkHtml = () -> {
+                    if (resolved[0]) return;
+                    String currentUrl = webView.getUrl();
+                    String cookies = cookieManager.getCookie(currentUrl != null ? currentUrl : targetUrl);
+                    webView.evaluateJavascript("document.documentElement.outerHTML", html -> {
+                        if (resolved[0]) return;
+                        if (html != null && html.length() > 200) {
+                            String cleanHtml = html;
+                            try {
+                                cleanHtml = new org.json.JSONTokener(html).nextValue().toString();
+                            } catch (Exception parseErr) {
+                                Log.w(TAG, "HTML tokener parse fallback");
+                            }
+                            
+                            if (!isCloudflareChallengeHtml(cleanHtml)) {
+                                resolved[0] = true;
                                 try {
-                                    String cleanHtml = html;
-                                    try {
-                                        cleanHtml = new org.json.JSONTokener(html).nextValue().toString();
-                                    } catch (Exception parseErr) {
-                                        Log.w(TAG, "HTML tokener parse fallback");
-                                    }
-                                    
                                     JSObject ret = new JSObject();
                                     ret.put("success", true);
                                     ret.put("cookies", cookies != null ? cookies : "");
                                     ret.put("html", cleanHtml);
-                                    ret.put("url", url);
+                                    ret.put("url", currentUrl != null ? currentUrl : targetUrl);
 
                                     if (dialog.isShowing()) {
                                         dialog.dismiss();
@@ -1083,9 +1103,30 @@ public class NativeAndroidBridgePlugin extends Plugin {
                                     Log.e(TAG, "Extraction error: " + e.getMessage());
                                 }
                             }
-                        });
+                        }
+                    });
+                };
+
+                webView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        super.onPageFinished(view, url);
+                        checkHtml.run();
                     }
                 });
+
+                final Handler pollHandler = new Handler(Looper.getMainLooper());
+                final Runnable pollRunnable = new Runnable() {
+                    int count = 0;
+                    @Override
+                    public void run() {
+                        if (resolved[0] || !dialog.isShowing() || count++ >= 45) return;
+                        checkHtml.run();
+                        pollHandler.postDelayed(this, 1000);
+                    }
+                };
+                pollHandler.postDelayed(pollRunnable, 1500);
+
 
                 webView.loadUrl(targetUrl);
                 dialog.show();

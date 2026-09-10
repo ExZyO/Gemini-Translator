@@ -5,6 +5,41 @@
 // ══════════════════════════════════════════════════════════════════════════
 (function() {
 
+    function decodeHtmlEntities(text) {
+        if (!text) return '';
+        let decoded = String(text);
+        decoded = decoded.replace(/&#(\d+);/g, (_, dec) => {
+            const code = parseInt(dec, 10);
+            if (code === 8216) return "‘";
+            if (code === 8217) return "’";
+            if (code === 8220) return "“";
+            if (code === 8221) return "”";
+            if (code === 8211) return "–";
+            if (code === 8212) return "—";
+            if (code === 8230) return "…";
+            try { return String.fromCharCode(code); } catch(e) { return _; }
+        });
+        decoded = decoded.replace(/&#x([0-9a-f]+);/gi, (_, hex) => {
+            try { return String.fromCharCode(parseInt(hex, 16)); } catch(e) { return _; }
+        });
+        return decoded
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;|&#039;/g, "'")
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&mdash;/g, '—')
+            .replace(/&ndash;/g, '–')
+            .replace(/&hellip;/g, '…')
+            .replace(/&lsquo;/g, "‘")
+            .replace(/&rsquo;/g, "’")
+            .replace(/&ldquo;/g, '“')
+            .replace(/&rdquo;/g, '”');
+    }
+    if (typeof window !== 'undefined') window.decodeHtmlEntities = decodeHtmlEntities;
+
+
     // ══════════════════════════════════════════════════════════════════════
     // 1. BEST-QUALITY IMAGE EXTRACTION (Original Lossless Illustrations)
     // ══════════════════════════════════════════════════════════════════════
@@ -650,15 +685,33 @@
                 cover = extractedCover;
             }
 
-            const linkRegex = /<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-            let m;
+            const parts = targetHtml.split(/<(?:h1|h2)[^>]*>/i);
+            let currentArc = 'Arc 1 – A Tumultuous First Day';
             const allLinks = [];
-            while ((m = linkRegex.exec(targetHtml)) !== null) {
-                const href = m[1].replace(/\/$/, '') + '/';
-                const text = m[2].replace(/<[^>]+>/g, '').trim()
-                    .replace(/&#8220;/g, '"').replace(/&#8221;/g, '"').replace(/&#8211;/g, '–').replace(/&#8217;/g, "'").replace(/&amp;/g, '&');
-                if ((href.includes('witchculttranslation.com/20') || href.includes('witchculttranslation.com/arc-')) && !allLinks.some(l => l.href === href)) {
-                    allLinks.push({ href, text });
+            const seenHref = new Set();
+
+            for (const part of parts) {
+                const headingMatch = part.match(/^([\s\S]*?)<\/(?:h1|h2)>/i);
+                if (headingMatch) {
+                    let rawHeading = decodeHtmlEntities(headingMatch[1].replace(/<[^>]+>/g, '').trim());
+                    if (/Arc\s*\d+|Side\s*Content|EX\s*Novel|Tanpenshuu|IF\s*Stories/i.test(rawHeading)) {
+                        currentArc = rawHeading;
+                    }
+                }
+
+                const linkMatches = [...part.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+                for (const m of linkMatches) {
+                    const href = m[1].replace(/\/$/, '') + '/';
+                    const rawText = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
+                    if ((href.includes('witchculttranslation.com/20') || href.includes('witchculttranslation.com/arc-')) && rawText.length > 0 && !seenHref.has(href)) {
+                        seenHref.add(href);
+                        allLinks.push({
+                            href,
+                            text: rawText,
+                            arc: currentArc,
+                            volume: currentArc
+                        });
+                    }
                 }
             }
 
@@ -669,7 +722,12 @@
             }
 
             for (let i = targetIdx; i < allLinks.length; i++) {
-                chapterList.push({ url: allLinks[i].href, title: allLinks[i].text || `Chapter ${i + 1}` });
+                chapterList.push({
+                    url: allLinks[i].href,
+                    title: allLinks[i].text || `Chapter ${i + 1}`,
+                    arc: allLinks[i].arc,
+                    volume: allLinks[i].volume
+                });
             }
         } catch (tocErr) {
             console.warn('Witch Cult TOC discovery error:', tocErr);
@@ -705,7 +763,7 @@
                 const html = await fetchHtml(item.url);
                 const cMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
                 const txt = cleanWitchCultChapter(cMatch ? cMatch[1] : html);
-                return { title: item.title, text: txt };
+                return { title: item.title, text: txt, arc: item.arc, volume: item.volume };
             },
             12,
             progressCb,
@@ -720,13 +778,14 @@
             summary: `Re:Zero Starting Life in Another World Web Novel. ${chapters.length} complete chapters (~${totalWords.toLocaleString()} words, ${totalImages} illustrations) starting from ${chapterList[0]?.title}.`,
             cover,
             tags: ['Re:Zero', 'Witch Cult Translations', 'Web Novel', 'Complete Edition'],
-            chapters: chapters.map(c => ({ title: c.title, text: c.text })),
+            chapters: chapters.map(c => ({ title: c.title, text: c.text, arc: c.arc, volume: c.volume })),
             chapterList,
             totalChapterCount: chapterList.length,
             isEpub: false,
             sourceUrl: url
         };
     }
+
 
     // --- B. AO3 (Archive of Our Own - 1-Shot Official EPUB & Full Work Engine) ---
     const normalizeImportedChapterForDedup = (text) => String(text || '')
@@ -888,6 +947,23 @@
         return { title, author, summary, cover, tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
+    function isCloudflareChallenge(html) {
+        if (!html || typeof html !== 'string') return false;
+        const lower = html.toLowerCase();
+        return lower.includes('cf-browser-verification')
+            || lower.includes('challenges.cloudflare.com')
+            || lower.includes('security service to protect against malicious bots')
+            || lower.includes('performance and security by cloudflare')
+            || lower.includes('waiting for syosetu')
+            || lower.includes('waiting for ')
+            || lower.includes('enable javascript and cookies to continue')
+            || lower.includes('just a moment...')
+            || lower.includes('attention required! | cloudflare')
+            || lower.includes('cf-turnstile')
+            || lower.includes('cf_chl_')
+            || lower.includes('shields are up!');
+    }
+
     // --- D. SYOSETU (小説家になろう) & KAKUYOMU (カクヨム) & HAMELN (ハーメルン) ---
     async function crawlSyosetu(url, progressCb) {
         progressCb?.('Connecting to Syosetu / Kakuyomu / Hameln...', 15);
@@ -900,7 +976,7 @@
                     progressCb?.('Syosetu.org (Hameln) requires Cloudflare verification. Complete in Android window...', 10);
                     const cfRes = await window.NativeBridge.resolveCloudflare(url);
                     progressCb?.('Verification complete! Reading table of contents...', 15);
-                    if (cfRes && cfRes.html && !cfRes.html.includes('cf-browser-verification')) {
+                    if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) {
                         html = cfRes.html;
                     } else {
                         html = await fetchHtml(url);
@@ -913,11 +989,11 @@
             }
         }
 
-        if (html && (html.includes('<title>Just a moment...</title>') || html.includes('cf-browser-verification'))) {
+        if (html && isCloudflareChallenge(html)) {
             if (window.NativeBridge?.resolveCloudflare) {
                 progressCb?.('Solving Cloudflare challenge for Syosetu.org...', 10);
                 const cfRes = await window.NativeBridge.resolveCloudflare(url);
-                if (cfRes && cfRes.html && !cfRes.html.includes('cf-browser-verification')) {
+                if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) {
                     html = cfRes.html;
                 } else {
                     html = await fetchHtml(url);
@@ -948,6 +1024,16 @@
         });
 
         if (indexLinks.length === 0) {
+            if (isCloudflareChallenge(html) || isCloudflareChallenge(doc.body?.textContent)) {
+                if (window.NativeBridge?.resolveCloudflare) {
+                    progressCb?.('Cloudflare challenge detected. Please solve challenge in window...', 10);
+                    const cfRes = await window.NativeBridge.resolveCloudflare(url);
+                    if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) {
+                        return crawlSyosetu(url, progressCb);
+                    }
+                }
+                throw new Error('Syosetu.org Cloudflare verification was not completed. Please solve the verification prompt.');
+            }
             const body = doc.querySelector('#novel_honbun, .novel_honbun, #honbun, .honbun, .widget-episodeBody') || doc.body;
             return {
                 title,
@@ -967,9 +1053,9 @@
             indexLinks,
             async (item) => {
                 let chHtml = await fetchHtml(item.url);
-                if (chHtml && (chHtml.includes('<title>Just a moment...</title>') || chHtml.includes('cf-browser-verification')) && window.NativeBridge?.resolveCloudflare) {
+                if (chHtml && isCloudflareChallenge(chHtml) && window.NativeBridge?.resolveCloudflare) {
                     const cfRes = await window.NativeBridge.resolveCloudflare(item.url);
-                    if (cfRes && cfRes.html && !cfRes.html.includes('cf-browser-verification')) chHtml = cfRes.html;
+                    if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) chHtml = cfRes.html;
                 }
                 const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
                 const chBody = chDoc.querySelector('#novel_honbun, .novel_honbun, #honbun, .honbun, .widget-episodeBody') || chDoc.body;
@@ -979,6 +1065,7 @@
             progressCb,
             { title, author, summary, cover, chapterList: indexLinks }
         );
+
 
         if (activeCrawlController?.tocOnly) {
             return { title, author, summary, cover, tags: ['Syosetu', 'Japanese Light Novel'], chapters: [], chapterList: indexLinks, totalChapterCount: indexLinks.length, isEpub: false, sourceUrl: url };
