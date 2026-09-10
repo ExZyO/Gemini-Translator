@@ -257,6 +257,13 @@
                 setTimeout(() => this._initAudioElement(), 50);
                 return;
             }
+            let host = document.getElementById('swift-plyr-host');
+            if (!host) {
+                host = document.createElement('div');
+                host.id = 'swift-plyr-host';
+                host.style.cssText = 'position: fixed; top: -9999px; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1; overflow: hidden;';
+                document.body.appendChild(host);
+            }
             let el = document.getElementById('swift-plyr-audio');
             if (!el) {
                 el = document.createElement('audio');
@@ -265,7 +272,7 @@
                 el.setAttribute('preload', 'metadata');
                 el.setAttribute('referrerpolicy', 'no-referrer');
                 el.style.display = 'none';
-                document.body.appendChild(el);
+                host.appendChild(el);
             } else {
                 el.setAttribute('referrerpolicy', 'no-referrer');
             }

@@ -838,7 +838,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.58';
+    const VERSION = '8.10.59';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -11286,8 +11286,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       onClick: () => confirmAction(`⚠️ WARNING: You are in the 'All' tab. This will move ALL ${webImportHistory.length} novels from every shelf into the Recycle Bin. Proceed?`, () => clearAllNovelHistory())
                     }, 'Clear Entire Library')
                   )
-                )
-              ),
+                ),
               (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && (libTab === 'all' || libTab === 'incomplete' || libTab === 'saved') && (() => {
                 const s = savedTranslationSession || activeSessionRef.current || activeSession;
                 if (!s) return null;
