@@ -154,6 +154,15 @@
     function cleanChapterHtmlWithImages(html, baseUrl) {
         if (!html) return '';
 
+        if (typeof window !== 'undefined' && window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {
+            try {
+                html = window.DOMPurify.sanitize(html, {
+                    ALLOWED_TAGS: ['p', 'br', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'b', 'i', 'em', 'strong', 'a', 'blockquote', 'hr', 'div', 'span', 'ruby', 'rt', 'rp'],
+                    ALLOWED_ATTR: ['src', 'href', 'alt', 'title', 'class', 'data-src', 'data-original', 'data-url']
+                });
+            } catch (_) {}
+        }
+
         let processed = html
             .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
             .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
@@ -217,28 +226,63 @@
             .replace(/\b(?:High-Res|Full Size)\s+(?:Image|Illustration|Artwork|Photo|Picture)\b/gi, '')
             .replace(/!\(https?:\/\/[^\s)]*the-artifice\.com[^\s)]*\)/gi, '');
 
-        return processed
+        let decoded = processed
             .replace(/<br\s*[\/]?>/gi, '\n')
             .replace(/<\/p>/gi, '\n\n')
             .replace(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi, '\n\n### $1\n\n')
-            .replace(/<[^>]+>/g, '')
-            .replace(/&#8216;/g, "'")
-            .replace(/&#8217;/g, "'")
-            .replace(/&#8220;/g, '"')
-            .replace(/&#8221;/g, '"')
-            .replace(/&#8211;/g, '–')
-            .replace(/&#8212;/g, '—')
-            .replace(/&#8230;/g, '…')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&apos;/g, "'")
-            .replace(/&nbsp;/g, ' ')
+            .replace(/<[^>]+>/g, '');
+
+        if (typeof window !== 'undefined' && window.he && typeof window.he.decode === 'function') {
+            try {
+                decoded = window.he.decode(decoded);
+            } catch (_) {}
+        } else {
+            decoded = decoded
+                .replace(/&#8216;/g, "'")
+                .replace(/&#8217;/g, "'")
+                .replace(/&#8220;/g, '"')
+                .replace(/&#8221;/g, '"')
+                .replace(/&#8211;/g, '–')
+                .replace(/&#8212;/g, '—')
+                .replace(/&#8230;/g, '…')
+                .replace(/&hellip;/g, '…')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&apos;/g, "'")
+                .replace(/&nbsp;/g, ' ');
+        }
+
+        return decoded
             .replace(/[ \t]+/g, ' ')
             .replace(/\n\s+\n/g, '\n\n')
             .replace(/\n{3,}/g, '\n\n')
             .trim();
+    }
+
+    if (typeof window !== 'undefined') {
+        window.decodeHtmlEntities = function(text) {
+            if (!text) return '';
+            if (window.he && typeof window.he.decode === 'function') {
+                try { return window.he.decode(String(text)); } catch(_) {}
+            }
+            return String(text)
+                .replace(/&#8216;/g, "'")
+                .replace(/&#8217;/g, "'")
+                .replace(/&#8220;/g, '"')
+                .replace(/&#8221;/g, '"')
+                .replace(/&#8211;/g, '–')
+                .replace(/&#8212;/g, '—')
+                .replace(/&#8230;/g, '…')
+                .replace(/&hellip;/g, '…')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&apos;/g, "'")
+                .replace(/&nbsp;/g, ' ');
+        };
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -2516,9 +2560,119 @@
     // 6. DIRECT EPUB BUFFER PARSER
     // ══════════════════════════════════════════════════════════════════════
     async function importEpubBuffer(buffer, fileName = "Novel.epub", progressCb) {
-        progressCb?.('Parsing EPUB package...', 30);
+        progressCb?.('Parsing EPUB package with high-speed fflate...', 30);
+        const fflateLib = (typeof window !== 'undefined' && window.fflate) ? window.fflate : (typeof fflate !== 'undefined' ? fflate : null);
+        if (fflateLib) {
+            try {
+                const u8 = buffer instanceof Uint8Array ? buffer : (buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : new Uint8Array(buffer.buffer || buffer));
+                const unzipped = fflateLib.unzipSync(u8);
+
+                const getFileText = (path) => {
+                    if (!path) return null;
+                    let bytes = unzipped[path];
+                    if (!bytes) {
+                        const lower = path.toLowerCase();
+                        const k = Object.keys(unzipped).find(key => key.toLowerCase() === lower);
+                        if (k) bytes = unzipped[k];
+                    }
+                    if (!bytes) return null;
+                    return fflateLib.strFromU8(bytes);
+                };
+
+                const containerXml = getFileText('META-INF/container.xml');
+                if (!containerXml) throw new Error('Invalid EPUB: META-INF/container.xml missing');
+                const cd = new DOMParser().parseFromString(containerXml, 'text/xml');
+                const rp = cd.querySelector('rootfile')?.getAttribute('full-path') || 'OEBPS/content.opf';
+                const od = rp.includes('/') ? rp.substring(0, rp.lastIndexOf('/') + 1) : '';
+
+                let oc = getFileText(rp);
+                if (!oc) {
+                    const opfCandidates = Object.keys(unzipped).filter(k => k.endsWith('.opf'));
+                    if (opfCandidates.length > 0) oc = getFileText(opfCandidates[0]);
+                }
+                if (!oc) throw new Error('Package OPF file not found in EPUB');
+
+                const opf = new DOMParser().parseFromString(oc, 'text/xml');
+                const title = opf.querySelector('title')?.textContent?.trim() || fileName.replace(/\.epub$/i, '');
+                const author = opf.querySelector('creator')?.textContent?.trim() || 'Author';
+                const description = opf.querySelector('description')?.textContent?.trim() || '';
+
+                const spineItems = Array.from(opf.querySelectorAll('spine itemref'));
+                const manifestMap = {};
+                const manifestMeta = {};
+                opf.querySelectorAll('manifest item').forEach(it => {
+                    const id = it.getAttribute('id');
+                    manifestMap[id] = it.getAttribute('href');
+                    manifestMeta[id] = {
+                        mediaType: (it.getAttribute('media-type') || '').toLowerCase(),
+                        properties: (it.getAttribute('properties') || '').toLowerCase()
+                    };
+                });
+
+                const chapters = [];
+                const seenChapterKeys = new Set();
+                for (let i = 0; i < spineItems.length; i++) {
+                    const id = spineItems[i].getAttribute('idref');
+                    const href = manifestMap[id];
+                    if (!href) continue;
+
+                    const meta = manifestMeta[id] || {};
+                    const hrefPath = href.split('#')[0];
+                    if (meta.properties.split(/\s+/).includes('nav') ||
+                        !['application/xhtml+xml', 'text/html'].includes(meta.mediaType) ||
+                        /(?:^|\/)(?:nav|toc|table[-_ ]?of[-_ ]?contents)(?:[-_.]|\/|$)/i.test(hrefPath)) continue;
+
+                    const filePath = od ? (od + hrefPath) : hrefPath;
+                    let decodedFilePath = filePath;
+                    try { decodedFilePath = decodeURIComponent(filePath); } catch (e) {}
+                    let chHtml = getFileText(filePath) || getFileText(hrefPath) || getFileText(decodedFilePath);
+                    if (!chHtml) continue;
+
+                    const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+                    const headingEl = chDoc.querySelector('h1, h2, h3, h4, [class*="title"], [class*="heading"]');
+                    let heading = headingEl?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
+                    if (headingEl && headingEl.parentNode) {
+                        headingEl.parentNode.removeChild(headingEl);
+                    }
+                    let bodyText = cleanChapterHtmlWithImages(chDoc.body?.innerHTML || chDoc.body?.textContent || '');
+
+                    const lowerBody = (bodyText || '').toLowerCase();
+                    const isSummaryBlock = chDoc.querySelector('.meta, .tags, [class*="summary"], [class*="preface"], dl.tags') ||
+                                           /(?:^|\n)\s*(?:by\s+[^\n]+\r?\n+)?\s*(?:summary|synopsis|warning|notes|author'?s?\s*note|简介|内容简介|前言|文案)[:：\s]/i.test(bodyText || '') ||
+                                           lowerBody.includes('summary:') || lowerBody.includes('notes:') || lowerBody.includes('tags:');
+                    if ((heading.toLowerCase() === title.toLowerCase() || !heading || /^chapter\s+\d+$/i.test(heading)) && isSummaryBlock) {
+                        heading = 'Summary';
+                    }
+
+                    appendUniqueImportedChapter(chapters, {
+                        title: heading,
+                        text: bodyText,
+                        zipPath: filePath
+                    }, seenChapterKeys);
+                }
+
+                if (chapters.length === 0) {
+                    throw new Error('No readable chapters found in this EPUB file.');
+                }
+
+                progressCb?.(`Successfully loaded ${chapters.length} chapter(s)!`, 100);
+                return {
+                    title,
+                    author,
+                    summary: description || `Imported from ${fileName}`,
+                    tags: ['EPUB Book', author],
+                    chapters,
+                    rawZip: unzipped,
+                    isEpub: true,
+                    sourceUrl: fileName
+                };
+            } catch (fflateErr) {
+                console.warn('[web_importer] fflate unzip fallback to JSZip:', fflateErr);
+            }
+        }
+
         const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
-        if (!JSZipClass) throw new Error('JSZip library not initialized.');
+        if (!JSZipClass) throw new Error('Neither fflate nor JSZip library initialized.');
         const zip = await new JSZipClass().loadAsync(buffer);
         
         const cf = zip.file('META-INF/container.xml');
@@ -2866,31 +3020,58 @@
         }
 
         const items = details.chapters;
-        const chapters = [];
-        const concurrency = options.concurrency || 6;
+        const initialChapters = options.initialChapters || (options.resumeSession ? (options.resumeSession.downloadedChapters || options.resumeSession.chapters || options.resumeSession.rawChapters) : []) || [];
+        const completedUrls = new Set(initialChapters.map(c => c.url).filter(Boolean));
+        const completedTitles = new Set(initialChapters.map(c => (c.title || '').trim().toLowerCase()).filter(Boolean));
 
-        for (let i = 0; i < items.length; i += concurrency) {
+        const chapters = [...initialChapters];
+        const pendingQueue = [];
+        for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            const hasUrl = it.url && completedUrls.has(it.url);
+            const hasTitle = it.title && completedTitles.has(it.title.trim().toLowerCase());
+            if (!hasUrl && !hasTitle) {
+                pendingQueue.push({ item: it, originalIdx: i });
+            }
+        }
+
+        if (initialChapters.length > 0 && pendingQueue.length === 0) {
+            progressCb?.(`[${plugin.name}] All ${items.length} chapters are already up to date!`, 100);
+            return {
+                title: details.title || 'Novel',
+                author: details.author || 'Author',
+                cover: details.cover || '',
+                summary: details.summary || '',
+                totalChapterCount: chapters.length,
+                chapters
+            };
+        }
+
+        const concurrency = options.concurrency || 6;
+        for (let i = 0; i < pendingQueue.length; i += concurrency) {
             if (activeCrawlController?.isCancelled) break;
             while (activeCrawlController?.isPaused) {
                 await new Promise(r => setTimeout(r, 500));
                 if (activeCrawlController?.isCancelled) break;
             }
 
-            const batch = items.slice(i, i + concurrency);
-            const batchResults = await Promise.all(batch.map(async (item, batchIdx) => {
-                const idx = i + batchIdx;
+            const batch = pendingQueue.slice(i, i + concurrency);
+            const batchResults = await Promise.all(batch.map(async ({ item, originalIdx }, batchIdx) => {
+                const currentChNum = chapters.length + batchIdx + 1;
                 try {
                     const ch = await plugin.getChapter(item.url, { title: item.title });
-                    const pct = Math.round(((idx + 1) / items.length) * 100);
-                    progressCb?.(`[${plugin.name}] Downloaded chapter ${idx + 1}/${items.length} (${pct}%)`, pct);
+                    const pct = Math.round(((i + batchIdx + 1) / pendingQueue.length) * 100);
+                    progressCb?.(`[${plugin.name}] Downloaded chapter ${currentChNum}/${items.length} (${pct}%)`, pct);
                     return {
-                        title: ch.title || item.title || `Chapter ${idx + 1}`,
+                        title: ch.title || item.title || `Chapter ${originalIdx + 1}`,
+                        url: item.url,
                         text: cleanChapterHtmlWithImages(ch.content || '')
                     };
                 } catch (err) {
-                    console.warn(`[${plugin.name}] Failed chapter ${idx + 1}:`, err);
+                    console.warn(`[${plugin.name}] Failed chapter ${originalIdx + 1}:`, err);
                     return {
-                        title: item.title || `Chapter ${idx + 1}`,
+                        title: item.title || `Chapter ${originalIdx + 1}`,
+                        url: item.url,
                         text: `[Chapter download failed: ${err.message}]`
                     };
                 }

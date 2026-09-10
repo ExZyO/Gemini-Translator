@@ -125,9 +125,80 @@
     };
 
     const generateEpubFromChapters = async (chaptersList, bookTitle = 'Web Novel', bookAuthor = 'Author', bookLang = 'en', onProgress = null, options = {}) => {
+      const fflateLib = (typeof window !== 'undefined' && window.fflate) ? window.fflate : (typeof fflate !== 'undefined' ? fflate : null);
       const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
-      if (!JSZipClass) throw new Error('JSZip library not loaded');
-      const zip = new JSZipClass();
+      if (!fflateLib && !JSZipClass) throw new Error('Neither fflate nor JSZip library loaded');
+
+      const useFflate = !!fflateLib;
+      const fflateFiles = {};
+      const nativeZip = !useFflate ? new JSZipClass() : null;
+
+      const addZipFile = (fullPath, content, fileOpts = {}) => {
+        if (useFflate) {
+          let u8;
+          if (typeof content === 'string') {
+            u8 = fflateLib.strToU8(content);
+          } else if (content instanceof Uint8Array) {
+            u8 = content;
+          } else if (content instanceof ArrayBuffer) {
+            u8 = new Uint8Array(content);
+          } else if (content && content.buffer instanceof ArrayBuffer) {
+            u8 = new Uint8Array(content.buffer, content.byteOffset, content.byteLength);
+          } else {
+            u8 = fflateLib.strToU8(String(content || ''));
+          }
+          if (fileOpts.compression === 'STORE' || fileOpts.level === 0) {
+            fflateFiles[fullPath] = [u8, { level: 0 }];
+          } else {
+            fflateFiles[fullPath] = [u8, { level: fileOpts.level || 6 }];
+          }
+        } else {
+          const opts = {};
+          if (fileOpts.compression === 'STORE') opts.compression = 'STORE';
+          else if (fileOpts.compression === 'DEFLATE') {
+            opts.compression = 'DEFLATE';
+            opts.compressionOptions = { level: fileOpts.level || 1 };
+          }
+          nativeZip.file(fullPath, content, opts);
+        }
+      };
+
+      const zip = {
+        file(path, content, opts) { addZipFile(path, content, opts); },
+        folder(folderPath) {
+          const prefix = folderPath.replace(/\/+$/, '') + '/';
+          return {
+            file(childPath, content, opts) {
+              addZipFile(prefix + childPath.replace(/^\/+/, ''), content, opts);
+            },
+            folder(subFolderPath) {
+              return zip.folder(prefix + subFolderPath.replace(/^\/+/, ''));
+            }
+          };
+        },
+        async generateBlob(onProgressCb, getElapsedStr) {
+          if (useFflate) {
+            onProgressCb?.('Compressing EPUB archive with high-speed fflate…', 85, getElapsedStr());
+            window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing with fflate • ${getElapsedStr()}`, 85, true);
+            const zipped = fflateLib.zipSync(fflateFiles, { level: 6 });
+            onProgressCb?.('EPUB Packaging Complete!', 100, getElapsedStr());
+            return new Blob([zipped], { type: 'application/epub+zip' });
+          } else {
+            let lastReportedPct = 0;
+            return await nativeZip.generateAsync(
+              { type: 'blob', mimeType: 'application/epub+zip' },
+              (meta) => {
+                const pct = Math.min(99, Math.round(70 + (meta.percent * 0.29)));
+                if (pct - lastReportedPct >= 4 || meta.percent === 100) {
+                  lastReportedPct = pct;
+                  onProgressCb?.(`Compressing EPUB archive (${Math.round(meta.percent)}%)`, pct, getElapsedStr());
+                  window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive (${Math.round(meta.percent)}%) • ${getElapsedStr()}`, pct, true);
+                }
+              }
+            );
+          }
+        }
+      };
       // Deterministic RFC4122 v4 UUID for e-reader continuity (Moon+ Reader, Apple Books, Kindle)
       const generateDeterministicUUID = (seed) => {
         let h1 = 0xdeadbeef, h2 = 0x41c64e6d;
@@ -968,22 +1039,7 @@ ${tocNavLinks.join('\n')}
 </html>`;
         oebps.file('nav.xhtml', navContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
 
-        onProgress?.(`Compressing EPUB archive...`, 70, getElapsed());
-        window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive • ${getElapsed()}`, 70, true);
-
-        let lastReportedPct = 0;
-        const blob = await zip.generateAsync(
-          { type: 'blob', mimeType: 'application/epub+zip' },
-          (meta) => {
-            const pct = Math.min(99, Math.round(70 + (meta.percent * 0.29)));
-            if (pct - lastReportedPct >= 4 || meta.percent === 100) {
-              lastReportedPct = pct;
-              onProgress?.(`Compressing EPUB archive (${Math.round(meta.percent)}%)`, pct, getElapsed());
-              window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing archive (${Math.round(meta.percent)}%) • ${getElapsed()}`, pct, true);
-            }
-          }
-        );
-
+        const blob = await zip.generateBlob(onProgress, getElapsed);
         return blob;
       } finally {
         try {

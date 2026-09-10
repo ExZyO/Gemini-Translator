@@ -1,5 +1,5 @@
 /**
- * Gemini Translator - Pro Reader Engine (v8.10.62)
+ * Gemini Translator - Pro Reader Engine (v8.11.0)
  * Complete Ground-Up Rebuild:
  *  - Native Touch & Scroll Architecture (Zero blocking tap overlays)
  *  - Responsive Dual Modes: Continuous Webtoon Scroll & Paginated Book Flip
@@ -242,6 +242,9 @@
 
   const decodeEntities = (str) => {
     if (!str) return '';
+    if (typeof window !== 'undefined' && window.he && typeof window.he.decode === 'function') {
+      try { return window.he.decode(String(str)); } catch(_) {}
+    }
     return String(str)
       .replace(/&#(\d+);/g, (_, dec) => {
         const code = parseInt(dec, 10);
@@ -261,6 +264,36 @@
       .replace(/&gt;/g, '>')
       .replace(/&nbsp;/g, ' ');
   };
+
+  const swapPronouns = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    return text
+      .replace(/\bhimself\b/g, '___TEMP_HERSELF___')
+      .replace(/\bHimself\b/g, '___TEMP_HERSELF_CAP___')
+      .replace(/\bherself\b/g, 'himself')
+      .replace(/\bHerself\b/g, 'Himself')
+      .replace(/___TEMP_HERSELF___/g, 'herself')
+      .replace(/___TEMP_HERSELF_CAP___/g, 'Herself')
+      .replace(/\bhe\b/g, '___TEMP_SHE___')
+      .replace(/\bHe\b/g, '___TEMP_SHE_CAP___')
+      .replace(/\bshe\b/g, 'he')
+      .replace(/\bShe\b/g, 'He')
+      .replace(/___TEMP_SHE___/g, 'she')
+      .replace(/___TEMP_SHE_CAP___/g, 'She')
+      .replace(/\bhis\b/g, '___TEMP_HER_POSS___')
+      .replace(/\bHis\b/g, '___TEMP_HER_POSS_CAP___')
+      .replace(/\bhers\b/g, 'his')
+      .replace(/\bHers\b/g, 'His')
+      .replace(/\bhim\b/g, '___TEMP_HER_OBJ___')
+      .replace(/\bHim\b/g, '___TEMP_HER_OBJ_CAP___')
+      .replace(/\bher\b/g, 'him')
+      .replace(/\bHer\b/g, 'Him')
+      .replace(/___TEMP_HER_POSS___/g, 'her')
+      .replace(/___TEMP_HER_POSS_CAP___/g, 'Her')
+      .replace(/___TEMP_HER_OBJ___/g, 'her')
+      .replace(/___TEMP_HER_OBJ_CAP___/g, 'Her');
+  };
+  window.swapPronouns = swapPronouns;
 
   const MoonReaderModal = ({
     open,
@@ -385,6 +418,18 @@
     }, [autoScroll, autoScrollSpeed]);
 
     const currentChapter = safeChapters[activeIdx] || safeChapters[0];
+    const [renderTick, setRenderTick] = useState(0);
+
+    const handleSwapPronounsCurrentChapter = useCallback(() => {
+      if (!currentChapter || !currentChapter.text) return;
+      const swapped = swapPronouns(currentChapter.text);
+      currentChapter.text = swapped;
+      currentChapter.content = swapped;
+      setRenderTick(t => t + 1);
+      if (typeof window !== 'undefined' && window.toast) {
+        window.toast('Swapped He ↔ She pronouns across current chapter!', 'success');
+      }
+    }, [currentChapter]);
 
     // Clean chapter paragraphs and images
     const chapterElements = useMemo(() => {
@@ -402,7 +447,7 @@
         }
         return { type: 'text', content: line, id: `p_${idx}` };
       });
-    }, [currentChapter]);
+    }, [currentChapter, renderTick]);
 
     // ── Native Paginated Book Flip Engine ──
     const paginatedViewportRef = useRef(null);
@@ -669,6 +714,13 @@
           )
         ),
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 } },
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { border: 'none', padding: '4px 8px', fontSize: 12, fontWeight: 600 },
+            onClick: handleSwapPronounsCurrentChapter,
+            title: 'Swap He ↔ She Pronouns in Chapter (Anti-Pronoun Drift)'
+          }, '⚥ He↔She'),
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',

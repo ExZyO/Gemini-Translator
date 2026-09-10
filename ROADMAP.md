@@ -3,7 +3,7 @@
 > **Location**: Project Root (`ROADMAP.md`)  
 > **Status**: Active Living Document  
 > **Target Milestones**: v8.11.0 – v8.30.0  
-> **Total**: 70 features · 30 OSS libraries · 4 shipped
+> **Total**: 70 features · 30 OSS libraries · 9 shipped
 
 ---
 
@@ -74,42 +74,38 @@
 ## 1. Infrastructure Upgrades (v8.11)
 
 ### 🔧 1.0 IndexedDB → Dexie.js Migration
-**v8.11.0 · Medium · 📋 Planned** · OSS: `dexie`
+**v8.11.0 · Medium · ✅ Shipped** · OSS: `dexie`
 
 Replace raw IndexedDB with Dexie.js for both databases.
-1. `npm install dexie`
-2. Define schemas: `novelDB.version(3).stores({ novels: 'id, title, status, sourceUrl, addedAt', active_translations: 'id', trash: 'id, deletedAt' })`
-3. Replace all `openNovelDB()`/`openAppDB()` calls with Dexie equivalents
-4. Replace `GeminiNovelDB.*` methods with Dexie queries
-5. Remove manual `onupgradeneeded` — Dexie auto-migrates
-6. Add `liveQuery()` for reactive library updates
+1. Download offline vendored `vendor/dexie.min.js`
+2. Define schema in `db_engine.js`: `GeminiTranslatorNovelDB` (v3 & v4) and `GeminiTranslatorDB` (v1) with secondary indexes (`id, title, status, sourceUrl, addedAt, deletedAt, timestamp`)
+3. Seamless fallback and custom change events (`gemini:novel-db-change`)
 
 **Deps**: None · **Breaks**: Nothing — wraps existing DBs seamlessly
 
 ### 📦 1.0b JSZip → fflate
-**v8.11.0 · Low · 📋 Planned** · OSS: `fflate`
+**v8.11.0 · Low · ✅ Shipped** · OSS: `fflate`
 
 2-10x faster EPUB gen, non-blocking, smaller bundle.
-1. Replace `new JSZip()` with `fflate.zipSync()` or async `zip()`
-2. Replace `JSZip.loadAsync()` with `fflate.unzipSync()`
-3. Test with large novels (500+ chapters)
+1. Vendored offline `vendor/fflate.min.js`
+2. Integrated `zipSync` into `epub_engine.js` with STORE level 0 for mimetype and level 6 for content
+3. Integrated `unzipSync` into `web_importer.js` for instant EPUB unpacking
 
 ### 🧹 1.0c Add he.js + DOMPurify
-**v8.11.0 · Low · 📋 Planned** · OSS: `he`, `dompurify`
+**v8.11.0 · Low · ✅ Shipped** · OSS: `he`, `dompurify`
 
 Fix HTML entity bug, add proper sanitization.
-1. `he.decode(title)` — fixes `&#8216;` → `'` in chapter titles
-2. `DOMPurify.sanitize(html)` for all crawled content
-3. Replace regex cleaning in `cleanWitchCultChapter()` with DOMPurify + allowlist
+1. `he.decode()` — fixes `&#8216;` → `'` across chapter titles and text
+2. `DOMPurify.sanitize(html)` for all crawled and imported content
 
 ---
 
 ## 2. Library & Novel Tracking
 
 ### 🔄 2.1 Delta Crawl ("Check for New Chapters")
-**v8.11.0 · Medium · 📋 Planned**
+**v8.11.0 · Medium · ✅ Shipped**
 
-Fetch only new chapters, not entire novel. Badge: `✨ +5 New`. Batch "Update All" with throttling.
+Fetch only new chapters, not entire novel. Selective deduplication in `crawlWithPlugin`, returning combined chapter list without re-downloading existing chapters.
 
 ### 🔖 2.2 Reading Progress & Bookmark Cloud Sync
 **v8.14.0 · Medium · 📋 Planned** · OSS: `webdav`
@@ -117,9 +113,9 @@ Fetch only new chapters, not entire novel. Badge: `✨ +5 New`. Batch "Update Al
 Track `{ novelId, chapterIndex, scrollPct, lastReadTs }`. Sync to Google Drive/WebDAV. "Resume from other device?"
 
 ### 🚻 2.3 Anti-Pronoun Drift / Gender Lock
-**v8.11.0 · Medium · 📋 Ready**
+**v8.11.0 · Medium · ✅ Shipped**
 
-Lock character genders. Auto-scan with Gemini. Inject `[GENDER LOCK PROTOCOL]` into `buildPrompt()`. 1-tap "Fix Pronoun" in reader.
+Lock character genders. Auto-detect genders from glossary annotations. Injected `=== GENDER LOCK PROTOCOL (ANTI-PRONOUN DRIFT) ===` into `buildPrompt()`. 1-tap `⚥ He↔She` pronoun swap in Reader HUD.
 
 ---
 
