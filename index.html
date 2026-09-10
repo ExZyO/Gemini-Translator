@@ -728,7 +728,15 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="splitter.js"></script>
   <script src="merger.js"></script>
   <script src="epub_studio_ui.js"></script>
+  <script src="sources/base_plugin.js"></script>
+  <script src="sources/lnreader_adapter.js"></script>
+  <script src="sources/syosetu.js"></script>
+  <script src="sources/witchcult.js"></script>
+  <script src="sources/royalroad.js"></script>
+  <script src="sources/universal.js"></script>
+  <script src="sources/registry.js"></script>
   <script src="web_importer.js"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js"></script>
   <script src="telemetry_logger.js"></script>
   <script src="reader_engine.js"></script>
   <script src="epub_engine.js"></script>
@@ -838,7 +846,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.10.59';
+    const VERSION = '8.10.60';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;

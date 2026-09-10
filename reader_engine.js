@@ -1,5 +1,5 @@
 /**
- * Gemini Translator - Pro Reader Engine (v8.10.59)
+ * Gemini Translator - Pro Reader Engine (v8.10.60)
  * Complete Ground-Up Rebuild:
  *  - Native Touch & Scroll Architecture (Zero blocking tap overlays)
  *  - Responsive Dual Modes: Continuous Webtoon Scroll & Paginated Book Flip
@@ -324,6 +324,111 @@
       };
     }, [autoScroll, autoScrollSpeed]);
 
+    // ── Foliate-js Integration ──
+    const foliateContainerRef = useRef(null);
+    const foliateViewRef = useRef(null);
+    const [foliatePageInfo, setFoliatePageInfo] = useState({ current: 1, total: 1 });
+
+    const currentChapter = safeChapters[activeIdx] || safeChapters[0];
+
+    useEffect(() => {
+      if (viewMode !== 'paginated' || !foliateContainerRef.current) return;
+      let cancelled = false;
+
+      const initFoliate = async () => {
+        if (!window.FoliateBridge) return;
+        try {
+          const book = window.FoliateBridge.createVirtualBook([currentChapter], {
+            title: currentChapter?.title,
+            flow: 'paginated'
+          });
+          const view = await window.FoliateBridge.mount(foliateContainerRef.current, book, {
+            flow: 'paginated'
+          });
+          if (cancelled) return;
+          foliateViewRef.current = view;
+
+          const themeColors = {
+            black: { bg: '#000000', text: '#d1d5db' },
+            dark: { bg: '#0a0f1d', text: '#e2e8f0' },
+            nord: { bg: '#242933', text: '#d8dee9' },
+            sepia: { bg: '#fbf0d9', text: '#433422' },
+            parchment: { bg: '#f4ecd8', text: '#3c3226' },
+            sage: { bg: '#e2ece2', text: '#2d3748' },
+            light: { bg: '#ffffff', text: '#111827' }
+          };
+          const col = themeColors[theme] || themeColors.dark;
+          const fontFamilies = {
+            serif: 'Georgia, serif',
+            sans: 'system-ui, sans-serif',
+            mono: 'ui-monospace, monospace',
+            dyslexic: 'OpenDyslexic, sans-serif'
+          };
+          const ff = fontFamilies[font] || fontFamilies.serif;
+
+          view.setStyles?.(`
+            html, body {
+              background-color: ${col.bg} !important;
+              color: ${col.text} !important;
+              font-family: ${ff} !important;
+              font-size: ${fontSize}px !important;
+              line-height: ${lineHeight} !important;
+              text-align: ${justify ? 'justify' : 'left'} !important;
+              padding: 20px 24px !important;
+              box-sizing: border-box !important;
+            }
+            p {
+              text-indent: ${paragraphIndent ? '2em' : '0'} !important;
+              margin-bottom: 1em !important;
+            }
+            h1, h2, .chapter-title {
+              font-family: ${ff} !important;
+              color: inherit !important;
+            }
+          `);
+
+          view.addEventListener('relocate', (e) => {
+            if (e.detail?.fraction != null) {
+              const totalEst = Math.max(1, Math.round((currentChapter?.text?.length || 1000) / 1200));
+              const curEst = Math.max(1, Math.round(e.detail.fraction * totalEst));
+              setFoliatePageInfo({ current: curEst, total: totalEst });
+            }
+          });
+        } catch (e) {
+          console.warn('Foliate mount fallback:', e);
+        }
+      };
+
+      initFoliate();
+      return () => {
+        cancelled = true;
+        foliateViewRef.current = null;
+      };
+    }, [viewMode, currentChapter, activeIdx, theme, font, fontSize, lineHeight, paragraphIndent, justify]);
+
+    const handlePaginatedClick = (e) => {
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const widthRatio = clickX / rect.width;
+
+      if (widthRatio < 0.25) {
+        if (foliateViewRef.current?.renderer?.prev) {
+          foliateViewRef.current.renderer.prev();
+        } else if (activeIdx > 0) {
+          changeChapter(activeIdx - 1);
+        }
+      } else if (widthRatio > 0.75) {
+        if (foliateViewRef.current?.renderer?.next) {
+          foliateViewRef.current.renderer.next();
+        } else if (activeIdx < safeChapters.length - 1) {
+          changeChapter(activeIdx + 1);
+        }
+      } else {
+        setHudVisible(v => !v);
+      }
+    };
+
     // ── 3. TTS Engine ──
     const [ttsActive, setTtsActive] = useState(false);
     const [ttsPaused, setTtsPaused] = useState(false);
@@ -331,8 +436,6 @@
     const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
     const sentencesRef = useRef([]);
     const utteranceRef = useRef(null);
-
-    const currentChapter = safeChapters[activeIdx] || safeChapters[0];
 
     // Clean chapter paragraphs and images
     const chapterElements = useMemo(() => {
@@ -517,18 +620,57 @@
       ),
 
       // ── READING CANVAS CONTAINER ──
-      h('div', {
-        id: 'gemini-reader-scroll-area',
-        className: 'reader-v2-scroll-container',
-        onClick: (e) => {
-          // Toggle HUD on central canvas click (ignore if user is selecting text)
-          const selection = window.getSelection();
-          if (selection && selection.toString().trim().length > 0) return;
-          if (e.target.tagName === 'IMG' || e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
-          setHudVisible(prev => !prev);
-        }
-      },
-        h('div', { className: `reader-v2-content-box ${widthClass} ${paragraphIndent ? 'reader-v2-indent' : ''}`, style: { textAlign: justify ? 'justify' : 'left' } },
+      viewMode === 'paginated'
+        ? h('div', {
+            id: 'gemini-foliate-wrapper',
+            style: { position: 'relative', flex: 1, width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' },
+            onClick: handlePaginatedClick
+          },
+            h('div', {
+              ref: foliateContainerRef,
+              id: 'gemini-foliate-container',
+              style: { flex: 1, width: '100%', height: '100%' }
+            }),
+            // Bottom Paginated Page Indicator
+            h('div', {
+              style: {
+                position: 'absolute',
+                bottom: 12,
+                left: 0,
+                right: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                zIndex: 10
+              }
+            },
+              h('div', {
+                style: {
+                  background: 'rgba(0,0,0,0.6)',
+                  backdropFilter: 'blur(6px)',
+                  color: '#fff',
+                  fontSize: 11.5,
+                  padding: '4px 14px',
+                  borderRadius: 14,
+                  letterSpacing: 0.5,
+                  fontWeight: 600,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                }
+              }, `Page ${foliatePageInfo.current} of ${foliatePageInfo.total} · Chapter ${activeIdx + 1}/${safeChapters.length}`)
+            )
+          )
+        : h('div', {
+            id: 'gemini-reader-scroll-area',
+            className: 'reader-v2-scroll-container',
+            onClick: (e) => {
+              // Toggle HUD on central canvas click (ignore if user is selecting text)
+              const selection = window.getSelection();
+              if (selection && selection.toString().trim().length > 0) return;
+              if (e.target.tagName === 'IMG' || e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+              setHudVisible(prev => !prev);
+            }
+          },
+            h('div', { className: `reader-v2-content-box ${widthClass} ${paragraphIndent ? 'reader-v2-indent' : ''}`, style: { textAlign: justify ? 'justify' : 'left' } },
           // Chapter Title Header
           h('div', { style: { borderBottom: '1px solid var(--r-border)', paddingBottom: 16, marginBottom: 24 } },
             currentChapter.arc && h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--r-accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 } }, currentChapter.arc),
@@ -791,6 +933,25 @@
               style: { border: 'none', fontSize: 16 },
               onClick: () => setShowSettings(false)
             }, '✕')
+          ),
+
+          // Reading Mode (Foliate vs Scroll)
+          h('div', { style: { marginBottom: 16 } },
+            h('div', { style: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-muted)', marginBottom: 8 } }, 'Reading Mode'),
+            h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+              h('button', {
+                type: 'button',
+                className: `mini-btn ${viewMode === 'paginated' ? '' : 'ghost'}`,
+                style: viewMode === 'paginated' ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, padding: '9px 0' } : { padding: '9px 0' },
+                onClick: () => setViewMode('paginated')
+              }, '📖 Foliate Book Flip'),
+              h('button', {
+                type: 'button',
+                className: `mini-btn ${viewMode === 'scroll' ? '' : 'ghost'}`,
+                style: viewMode === 'scroll' ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, padding: '9px 0' } : { padding: '9px 0' },
+                onClick: () => setViewMode('scroll')
+              }, '📜 Continuous Scroll')
+            )
           ),
 
           // Themes Palette

@@ -1005,15 +1005,15 @@
 
         const doc = new DOMParser().parseFromString(html, 'text/html');
 
-        const title = doc.querySelector('.novel_title, h1, .widget-toc-main-header, #novel_header h1')?.textContent?.trim() || 'Japanese Web Novel';
-        const author = doc.querySelector('.novel_writername, .writer, .partialGiftWidget_authorName, #novel_header a[href*="/user/"], a[href*="/user/"]')?.textContent?.trim() || 'Author';
-        const summary = doc.querySelector('#novel_ex, .widget-toc-workIntroduction, #novel_synopsis')?.textContent?.trim() || '';
+        const title = doc.querySelector('.p-novel__title, .novel_title, h1, .widget-toc-main-header, #novel_header h1')?.textContent?.trim() || 'Japanese Web Novel';
+        const author = doc.querySelector('.p-novel__author, .novel_writername, .writer, .partialGiftWidget_authorName, #novel_header a[href*="/user/"], a[href*="/user/"]')?.textContent?.replace(/作者：/g, '')?.trim() || 'Author';
+        const summary = doc.querySelector('#novel_ex, .p-novel__summary, .widget-toc-workIntroduction, #novel_synopsis')?.textContent?.trim() || '';
         const cover = extractPageCover(doc, url);
 
         const indexLinks = [];
         const baseUrl = url.endsWith('/') ? url : url + '/';
 
-        doc.querySelectorAll('.novel_sublist2 .subtitle a, .index_box a, .widget-toc-items a, table tr td a[href*="/novel/"], table tr td a[href^="./"], table tr td a[href^="/novel/"]').forEach(a => {
+        doc.querySelectorAll('.p-eplist__sublist a, .novel_sublist2 .subtitle a, .index_box a, .widget-toc-items a, table.table-striped tr td a, table tr td a[href*="/novel/"], table tr td a[href$=".html"], table tr td a[href^="./"], table tr td a[href^="/novel/"]').forEach(a => {
             const href = a.getAttribute('href');
             if (href) {
                 const fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
@@ -1034,7 +1034,7 @@
                 }
                 throw new Error('Syosetu.org Cloudflare verification was not completed. Please solve the verification prompt.');
             }
-            const body = doc.querySelector('#novel_honbun, .novel_honbun, #honbun, .honbun, .widget-episodeBody') || doc.body;
+            const body = doc.querySelector('.p-novel__body .p-novel__text:not([class*="p-novel__text--"]), .p-novel__body, #novel_honbun, .novel_honbun, #honbun, .honbun, .ss, .widget-episodeBody') || doc.body;
             return {
                 title,
                 author,
@@ -1058,7 +1058,7 @@
                     if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) chHtml = cfRes.html;
                 }
                 const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
-                const chBody = chDoc.querySelector('#novel_honbun, .novel_honbun, #honbun, .honbun, .widget-episodeBody') || chDoc.body;
+                const chBody = chDoc.querySelector('.p-novel__body .p-novel__text:not([class*="p-novel__text--"]), .p-novel__body, #novel_honbun, .novel_honbun, #honbun, .honbun, .ss, .widget-episodeBody') || chDoc.body;
                 return { title: item.title, text: cleanChapterHtmlWithImages(chBody.innerHTML || chBody.textContent || '') };
             },
             12,
@@ -2848,6 +2848,7 @@
     }
 
     window.WebNovelImporter = {
+        fetchHtml,
         importEpubBuffer,
         detectType: detectUrlType,
         getBestImageUrl,

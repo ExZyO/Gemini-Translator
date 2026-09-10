@@ -1,7 +1,7 @@
 {
-  "version": "8.10.59",
-  "versionCode": 8159,
+  "version": "8.10.60",
+  "versionCode": 8160,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.59: Hotfix for startup black screen and rogue audio player bar (resolved syntax parsing error in index.html and safely encapsulated Plyr engine mount in off-screen host container); Full Rebuilt Reader Engine with zero-lag touch scrolling, 7 themes, non-jumping sentence TTS; Library Recycle Bin safeguards & scoped shelf clearing; Syosetu Cloudflare verification loop polling fix; Re-added Import Tab 'Read' button; Witch Cult Translations per-Arc hierarchical Table of Contents; Universal HTML entity decoding."
+  "releaseNotes": "v8.10.60: Modular Source Scrapers & LNReader Community Plugin Engine (278 compatible plugins); Syosetu redesign & Hameln parser updates; Witch Cult Translations Arc hierarchy & quote normalization; Foliate-js Reader integration with dual-mode paginated book flip & continuous scroll."
 }
