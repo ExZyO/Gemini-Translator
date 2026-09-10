@@ -1,5 +1,5 @@
 /**
- * Gemini Translator - Pro Reader Engine (v8.10.60)
+ * Gemini Translator - Pro Reader Engine (v8.10.61)
  * Complete Ground-Up Rebuild:
  *  - Native Touch & Scroll Architecture (Zero blocking tap overlays)
  *  - Responsive Dual Modes: Continuous Webtoon Scroll & Paginated Book Flip
@@ -59,6 +59,66 @@
         scrollbar-width: thin;
         scroll-behavior: smooth;
         -webkit-overflow-scrolling: touch;
+      }
+      .reader-v2-paginated-viewport {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+        box-sizing: border-box;
+        padding: 52px 32px 58px;
+        user-select: text;
+        -webkit-user-select: text;
+        touch-action: pan-y;
+        cursor: default;
+      }
+      .reader-v2-paginated-track {
+        height: 100%;
+        width: 100%;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        column-fill: auto;
+        column-gap: 60px;
+        transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.25, 1);
+        will-change: transform;
+      }
+      .reader-v2-paginated-track p {
+        margin-bottom: 1.15em;
+        line-height: inherit;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .reader-v2-paginated-track img {
+        max-width: 100%;
+        max-height: calc(100vh - 180px);
+        object-fit: contain;
+        display: block;
+        margin: 16px auto;
+        border-radius: 8px;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .reader-v2-page-indicator-pill {
+        position: absolute;
+        bottom: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.65);
+        backdrop-filter: blur(8px);
+        color: #ffffff;
+        font-size: 11.5px;
+        padding: 4px 14px;
+        border-radius: 14px;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+        pointer-events: none;
+        z-index: 40;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        white-space: nowrap;
       }
       .reader-v2-content-box {
         margin: 0 auto;
@@ -324,118 +384,7 @@
       };
     }, [autoScroll, autoScrollSpeed]);
 
-    // ── Foliate-js Integration ──
-    const foliateContainerRef = useRef(null);
-    const foliateViewRef = useRef(null);
-    const [foliatePageInfo, setFoliatePageInfo] = useState({ current: 1, total: 1 });
-
     const currentChapter = safeChapters[activeIdx] || safeChapters[0];
-
-    useEffect(() => {
-      if (viewMode !== 'paginated' || !foliateContainerRef.current) return;
-      let cancelled = false;
-
-      const initFoliate = async () => {
-        if (!window.FoliateBridge) return;
-        try {
-          const book = window.FoliateBridge.createVirtualBook([currentChapter], {
-            title: currentChapter?.title,
-            flow: 'paginated'
-          });
-          const view = await window.FoliateBridge.mount(foliateContainerRef.current, book, {
-            flow: 'paginated'
-          });
-          if (cancelled) return;
-          foliateViewRef.current = view;
-
-          const themeColors = {
-            black: { bg: '#000000', text: '#d1d5db' },
-            dark: { bg: '#0a0f1d', text: '#e2e8f0' },
-            nord: { bg: '#242933', text: '#d8dee9' },
-            sepia: { bg: '#fbf0d9', text: '#433422' },
-            parchment: { bg: '#f4ecd8', text: '#3c3226' },
-            sage: { bg: '#e2ece2', text: '#2d3748' },
-            light: { bg: '#ffffff', text: '#111827' }
-          };
-          const col = themeColors[theme] || themeColors.dark;
-          const fontFamilies = {
-            serif: 'Georgia, serif',
-            sans: 'system-ui, sans-serif',
-            mono: 'ui-monospace, monospace',
-            dyslexic: 'OpenDyslexic, sans-serif'
-          };
-          const ff = fontFamilies[font] || fontFamilies.serif;
-
-          view.setStyles?.(`
-            html, body {
-              background-color: ${col.bg} !important;
-              color: ${col.text} !important;
-              font-family: ${ff} !important;
-              font-size: ${fontSize}px !important;
-              line-height: ${lineHeight} !important;
-              text-align: ${justify ? 'justify' : 'left'} !important;
-              padding: 20px 24px !important;
-              box-sizing: border-box !important;
-            }
-            p {
-              text-indent: ${paragraphIndent ? '2em' : '0'} !important;
-              margin-bottom: 1em !important;
-            }
-            h1, h2, .chapter-title {
-              font-family: ${ff} !important;
-              color: inherit !important;
-            }
-          `);
-
-          view.addEventListener('relocate', (e) => {
-            if (e.detail?.fraction != null) {
-              const totalEst = Math.max(1, Math.round((currentChapter?.text?.length || 1000) / 1200));
-              const curEst = Math.max(1, Math.round(e.detail.fraction * totalEst));
-              setFoliatePageInfo({ current: curEst, total: totalEst });
-            }
-          });
-        } catch (e) {
-          console.warn('Foliate mount fallback:', e);
-        }
-      };
-
-      initFoliate();
-      return () => {
-        cancelled = true;
-        foliateViewRef.current = null;
-      };
-    }, [viewMode, currentChapter, activeIdx, theme, font, fontSize, lineHeight, paragraphIndent, justify]);
-
-    const handlePaginatedClick = (e) => {
-      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const widthRatio = clickX / rect.width;
-
-      if (widthRatio < 0.25) {
-        if (foliateViewRef.current?.renderer?.prev) {
-          foliateViewRef.current.renderer.prev();
-        } else if (activeIdx > 0) {
-          changeChapter(activeIdx - 1);
-        }
-      } else if (widthRatio > 0.75) {
-        if (foliateViewRef.current?.renderer?.next) {
-          foliateViewRef.current.renderer.next();
-        } else if (activeIdx < safeChapters.length - 1) {
-          changeChapter(activeIdx + 1);
-        }
-      } else {
-        setHudVisible(v => !v);
-      }
-    };
-
-    // ── 3. TTS Engine ──
-    const [ttsActive, setTtsActive] = useState(false);
-    const [ttsPaused, setTtsPaused] = useState(false);
-    const [ttsRate, setTtsRate] = useState(1.0);
-    const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
-    const sentencesRef = useRef([]);
-    const utteranceRef = useRef(null);
 
     // Clean chapter paragraphs and images
     const chapterElements = useMemo(() => {
@@ -454,6 +403,123 @@
         return { type: 'text', content: line, id: `p_${idx}` };
       });
     }, [currentChapter]);
+
+    // ── Native Paginated Book Flip Engine ──
+    const paginatedViewportRef = useRef(null);
+    const paginatedTrackRef = useRef(null);
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    const [colWidth, setColWidth] = useState(0);
+    const touchStartRef = useRef(null);
+
+    // Reset to page 0 whenever active chapter changes
+    useEffect(() => {
+      setCurrentPage(0);
+    }, [activeIdx]);
+
+    const updatePagination = useCallback(() => {
+      if (viewMode !== 'paginated') return;
+      const vp = paginatedViewportRef.current;
+      const tr = paginatedTrackRef.current;
+      if (!vp || !tr) return;
+
+      const w = tr.clientWidth || vp.clientWidth;
+      if (w > 0) {
+        setColWidth(w);
+        const gap = 60;
+        const scrollW = tr.scrollWidth;
+        const computedTotal = Math.max(1, Math.round((scrollW + gap) / (w + gap)));
+        setTotalPages(computedTotal);
+        setCurrentPage(prev => Math.min(prev, computedTotal - 1));
+      }
+    }, [viewMode]);
+
+    useEffect(() => {
+      updatePagination();
+      const t1 = setTimeout(updatePagination, 50);
+      const t2 = setTimeout(updatePagination, 250);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }, [updatePagination, activeIdx, fontSize, lineHeight, font, contentWidth, paragraphIndent, justify, chapterElements]);
+
+    useEffect(() => {
+      if (viewMode !== 'paginated' || !paginatedViewportRef.current) return;
+      const ro = new ResizeObserver(() => updatePagination());
+      ro.observe(paginatedViewportRef.current);
+      return () => ro.disconnect();
+    }, [viewMode, updatePagination]);
+
+    const goToPrevPage = useCallback(() => {
+      if (currentPage > 0) {
+        setCurrentPage(p => p - 1);
+      } else if (activeIdx > 0) {
+        changeChapter(activeIdx - 1);
+      }
+    }, [currentPage, activeIdx, changeChapter]);
+
+    const goToNextPage = useCallback(() => {
+      if (currentPage < totalPages - 1) {
+        setCurrentPage(p => p + 1);
+      } else if (activeIdx < safeChapters.length - 1) {
+        changeChapter(activeIdx + 1);
+      }
+    }, [currentPage, totalPages, activeIdx, safeChapters.length, changeChapter]);
+
+    const handlePaginatedClick = (e) => {
+      const sel = window.getSelection();
+      if (sel && sel.toString().trim().length > 0) return;
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.tagName === 'IMG') return;
+
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const ratio = clickX / rect.width;
+
+      if (ratio < 0.25) {
+        goToPrevPage();
+      } else if (ratio > 0.75) {
+        goToNextPage();
+      } else {
+        setHudVisible(v => !v);
+      }
+    };
+
+    const handleTouchStart = (e) => {
+      if (e.touches && e.touches[0]) {
+        touchStartRef.current = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+          time: Date.now()
+        };
+      }
+    };
+
+    const handleTouchEnd = (e) => {
+      if (!touchStartRef.current) return;
+      const touch = (e.changedTouches && e.changedTouches[0]) || null;
+      if (!touch) return;
+      const dx = touch.clientX - touchStartRef.current.x;
+      const dy = touch.clientY - touchStartRef.current.y;
+      const dt = Date.now() - touchStartRef.current.time;
+      touchStartRef.current = null;
+
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3 && dt < 600) {
+        if (dx < 0) {
+          goToNextPage();
+        } else {
+          goToPrevPage();
+        }
+      }
+    };
+
+    // ── 3. TTS Engine ──
+    const [ttsActive, setTtsActive] = useState(false);
+    const [ttsPaused, setTtsPaused] = useState(false);
+    const [ttsRate, setTtsRate] = useState(1.0);
+    const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
+    const sentencesRef = useRef([]);
+    const utteranceRef = useRef(null);
 
     // Extract sentences for TTS
     useEffect(() => {
@@ -553,10 +619,18 @@
         }
         if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
           e.preventDefault();
-          changeChapter(activeIdx - 1);
+          if (viewMode === 'paginated') {
+            goToPrevPage();
+          } else {
+            changeChapter(activeIdx - 1);
+          }
         } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
           e.preventDefault();
-          changeChapter(activeIdx + 1);
+          if (viewMode === 'paginated') {
+            goToNextPage();
+          } else {
+            changeChapter(activeIdx + 1);
+          }
         } else if (e.key === 'Escape') {
           onClose();
         } else if (e.key === 'f' || e.key === 'F') {
@@ -569,7 +643,7 @@
       };
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [activeIdx, changeChapter, onClose, showToc, showSettings, showSearch, lightboxImg]);
+    }, [activeIdx, changeChapter, onClose, showToc, showSettings, showSearch, lightboxImg, viewMode, goToPrevPage, goToNextPage]);
 
     // ── 5. Render Reader Shell ──
     const themeClass = `reader-v2-theme-${theme || 'dark'}`;
@@ -623,41 +697,109 @@
       viewMode === 'paginated'
         ? h('div', {
             id: 'gemini-foliate-wrapper',
-            style: { position: 'relative', flex: 1, width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' },
-            onClick: handlePaginatedClick
+            ref: paginatedViewportRef,
+            className: 'reader-v2-paginated-viewport',
+            onClick: handlePaginatedClick,
+            onTouchStart: handleTouchStart,
+            onTouchEnd: handleTouchEnd
           },
+            // Multi-column Paginated Track
             h('div', {
-              ref: foliateContainerRef,
-              id: 'gemini-foliate-container',
-              style: { flex: 1, width: '100%', height: '100%' }
-            }),
-            // Bottom Paginated Page Indicator
-            h('div', {
+              ref: paginatedTrackRef,
+              className: `reader-v2-paginated-track ${paragraphIndent ? 'reader-v2-indent' : ''}`,
               style: {
-                position: 'absolute',
-                bottom: 12,
-                left: 0,
-                right: 0,
-                display: 'flex',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-                zIndex: 10
+                textAlign: justify ? 'justify' : 'left',
+                columnWidth: colWidth > 0 ? `${colWidth}px` : 'calc(100vw - 64px)',
+                transform: `translateX(-${currentPage * (colWidth > 0 ? colWidth + 60 : 0)}px)`
               }
             },
+              // Chapter Header
               h('div', {
                 style: {
-                  background: 'rgba(0,0,0,0.6)',
-                  backdropFilter: 'blur(6px)',
-                  color: '#fff',
-                  fontSize: 11.5,
-                  padding: '4px 14px',
-                  borderRadius: 14,
-                  letterSpacing: 0.5,
-                  fontWeight: 600,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                  borderBottom: '1px solid var(--r-border)',
+                  paddingBottom: 16,
+                  marginBottom: 24,
+                  breakInside: 'avoid',
+                  pageBreakInside: 'avoid'
                 }
-              }, `Page ${foliatePageInfo.current} of ${foliatePageInfo.total} · Chapter ${activeIdx + 1}/${safeChapters.length}`)
-            )
+              },
+                currentChapter.arc && h('div', {
+                  style: {
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: 'var(--r-accent)',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    marginBottom: 4
+                  }
+                }, currentChapter.arc),
+                h('h2', {
+                  style: {
+                    margin: 0,
+                    fontSize: '1.4em',
+                    fontWeight: 700,
+                    lineHeight: 1.3
+                  }
+                }, currentChapter.title),
+                h('div', {
+                  style: {
+                    fontSize: 11.5,
+                    color: 'var(--r-muted)',
+                    marginTop: 6
+                  }
+                }, `Chapter ${activeIdx + 1} of ${safeChapters.length} · ~${currentChapter.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words`)
+              ),
+
+              // Paragraphs and Illustrations
+              chapterElements.map((el) => {
+                if (el.type === 'image') {
+                  return h('div', {
+                    key: el.id,
+                    style: {
+                      margin: '20px 0',
+                      textAlign: 'center',
+                      cursor: 'zoom-in',
+                      breakInside: 'avoid',
+                      pageBreakInside: 'avoid'
+                    },
+                    onClick: () => setLightboxImg(el.src)
+                  },
+                    h('img', {
+                      src: el.src,
+                      alt: el.alt,
+                      loading: 'lazy',
+                      style: {
+                        maxWidth: '100%',
+                        maxHeight: 'calc(100vh - 180px)',
+                        borderRadius: 8,
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.25)'
+                      }
+                    })
+                  );
+                }
+
+                // Text Paragraph with Search Highlighting
+                let paragraphContent = el.content;
+                if (showSearch && searchQuery.trim().length > 0) {
+                  const query = searchQuery.trim();
+                  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                  const parts = paragraphContent.split(regex);
+                  return h('p', { key: el.id, id: el.id },
+                    parts.map((part, i) => regex.test(part)
+                      ? h('mark', { key: i, className: 'reader-v2-search-match' }, part)
+                      : part
+                    )
+                  );
+                }
+
+                return h('p', { key: el.id, id: el.id }, el.content);
+              })
+            ),
+
+            // Bottom Paginated Page Indicator Pill
+            h('div', {
+              className: 'reader-v2-page-indicator-pill'
+            }, `Page ${currentPage + 1} of ${totalPages} · Chapter ${activeIdx + 1}/${safeChapters.length}`)
           )
         : h('div', {
             id: 'gemini-reader-scroll-area',

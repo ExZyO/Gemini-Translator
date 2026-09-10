@@ -1,7 +1,7 @@
 {
-  "version": "8.10.60",
-  "versionCode": 8160,
+  "version": "8.10.61",
+  "versionCode": 8161,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.10.60: Modular Source Scrapers & LNReader Community Plugin Engine (278 compatible plugins); Syosetu redesign & Hameln parser updates; Witch Cult Translations Arc hierarchy & quote normalization; Foliate-js Reader integration with dual-mode paginated book flip & continuous scroll."
+  "releaseNotes": "v8.10.61: Fixed blank screen in Foliate Book Flip mode with native CSS Multi-Column hardware-accelerated pagination engine; smooth 60fps page turns, touch swipe gestures, edge tap navigation, responsive page pill, and full theme & typography synchronization."
 }

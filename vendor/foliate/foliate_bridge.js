@@ -54,10 +54,17 @@ class FoliateReaderBridge {
 </body>
 </html>`;
 
+      const blob = new Blob([xhtml], { type: 'application/xhtml+xml' });
+      const blobUrl = URL.createObjectURL(blob);
+
       return {
         id: `section_${idx}`,
         href,
-        load: () => xhtml,
+        linear: 'yes',
+        load: () => blobUrl,
+        unload: () => {
+          try { URL.revokeObjectURL(blobUrl); } catch (_) {}
+        },
         createDocument: () => new DOMParser().parseFromString(xhtml, 'application/xhtml+xml'),
         size: xhtml.length
       };
@@ -75,7 +82,7 @@ class FoliateReaderBridge {
         layout: 'reflowable',
         flow: metadata.flow || 'paginated'
       },
-      resolveHref: (href) => href,
+      resolveHref: (href) => ({ index: 0 }),
       splitTOCHref: (href) => [href, ''],
       getTOCFragment: () => null
     };
@@ -102,7 +109,13 @@ class FoliateReaderBridge {
     }
 
     if (options.styles) {
-      view.setStyles?.(options.styles);
+      view.renderer?.setStyles?.(options.styles);
+    }
+
+    try {
+      await view.goTo(0);
+    } catch (_) {
+      try { view.renderer?.next?.(); } catch (__) {}
     }
 
     return view;
