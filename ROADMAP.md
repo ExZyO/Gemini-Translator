@@ -9,19 +9,61 @@
 
 ## 📋 Table of Contents
 
-1. [OSS Integration Map (30 Libraries)](#oss-integration-map)
-2. [§1 Infrastructure Upgrades (v8.11)](#1-infrastructure-upgrades-v811)
-3. [§2 Library & Novel Tracking (v8.11–8.12)](#2-library--novel-tracking)
-4. [§3 Immersive Reader & Audio (v8.12–8.13)](#3-immersive-reader--audio)
-5. [§4 Smart Crawling & Source Extensions (v8.14)](#4-smart-crawling--source-extensions)
-6. [§5 AI Translation & Story Intelligence (v8.15–8.19)](#5-ai-translation--story-intelligence)
-7. [§6 Cloud Sync & Multi-Device (v8.14–8.16)](#6-cloud-sync--multi-device)
-8. [§7 Crawl Intelligence & Novel Management (v8.20–8.21)](#7-crawl-intelligence--novel-management)
-9. [§8 Reader Intelligence & Social (v8.22–8.25)](#8-reader-intelligence--social)
-10. [§9 AI Generation, Export & Platform (v8.25–8.28)](#9-ai-generation-export--platform)
-11. [§10 Accessibility & Platform (v8.29–8.30)](#10-accessibility--platform)
-12. [Prioritization Matrix (68 features)](#prioritization-matrix)
-13. [Dependency Graph](#dependency-graph)
+1. [⚡ User Priority Fast Track (32 Features)](#-user-priority-fast-track-32-features)
+2. [OSS Integration Map (30 Libraries)](#oss-integration-map)
+3. [§1 Infrastructure Upgrades (v8.11)](#1-infrastructure-upgrades-v811)
+4. [§2 Library & Novel Tracking (v8.11–8.12)](#2-library--novel-tracking)
+5. [§3 Immersive Reader & Audio (v8.12–8.13)](#3-immersive-reader--audio)
+6. [§4 Smart Crawling & Source Extensions (v8.14)](#4-smart-crawling--source-extensions)
+7. [§5 AI Translation & Story Intelligence (v8.15–8.19)](#5-ai-translation--story-intelligence)
+8. [§6 Cloud Sync & Multi-Device (v8.14–8.16)](#6-cloud-sync--multi-device)
+9. [§7 Crawl Intelligence & Novel Management (v8.20–8.21)](#7-crawl-intelligence--novel-management)
+10. [§8 Reader Intelligence & Social (v8.22–8.25)](#8-reader-intelligence--social)
+11. [§9 AI Generation, Export & Platform (v8.25–8.28)](#9-ai-generation-export--platform)
+12. [§10 Accessibility & Platform (v8.29–8.30)](#10-accessibility--platform)
+13. [Prioritization Matrix (71 features)](#prioritization-matrix)
+14. [Dependency Graph](#dependency-graph)
+
+---
+
+## ⚡ User Priority Fast Track (32 Features)
+
+> **Execution Directive**: These 32 features represent the primary focus queue requested by the user. They are delivered sequentially one by one with zero regression, preserving working crawlers and incorporating strategic open-source merges.
+
+| # | Feature Code | Feature Title | Target Version | Strategic Architecture / Replacement | Status |
+|---|:---|:---|:---|:---|:---|
+| 1 | **§4.1** | LNReader Plugin Architecture | v8.14.0 | Standardized source plugin interface; keeps existing built-in crawlers primary | 📋 Planned |
+| 2 | **§4.1b** | Universal Fallback Parser | v8.14.0 | `@mozilla/readability` + DOMPurify; falls back ONLY when existing crawlers don't match | 📋 Planned |
+| 3 | **§5.4** | Language Learning Mode & FSRS | v8.17.0 | `ts-fsrs` (modern Anki scheduler) + Kuromoji / Hanzi dictionary popups | 📋 Planned |
+| 4 | **§5.8** | Smart Glossary Auto-Builder | v8.19.0 | Automated pre-read entity extractor populating book profiles | 📋 Planned |
+| 5 | **§5.9** | Translation Proofreader QA | v8.19.0 | Merged into Unified Health & QA Suite (CJK leak detection, loop guard) | 📋 Planned |
+| 6 | **§5.10** | Cultural Context Footnotes | v8.19.0 | `[¹]` explanatory popover tooltips for cultural lore and slang | 📋 Planned |
+| 7 | **§5.11** | Auto-Chapter Descriptive Subtitle Naming | v8.19.0 | AI generates descriptive, spoiler-safe chapter subtitles (e.g. "Ch 147 — The Witch's Tea Party") | 📋 Planned |
+| 8 | **§7.1** | Novel Health & Audit Report | v8.20.0 | Merged into Unified Health & QA Suite (detects missing chapters, empty text, HTML junk) | 📋 Planned |
+| 9 | **§7.2** | Cost & Time Estimator | v8.20.0 | Word and token cost calculator before kicking off batch translations | 📋 Planned |
+| 10 | **§7.3** | Smart Arc Splitter | v8.20.0 | Arc boundary detection + per-volume EPUB export | 📋 Planned |
+| 11 | **§7.4** | Metadata Enrichment | v8.20.0 | AniList, MAL, NovelUpdates synopsis and tag scraper | 📋 Planned |
+| 12 | **§7.5** | Anti-MTL Quality Gate | v8.21.0 | Merged into Unified Health & QA Suite (coherence scoring, AI refusal detector) | 📋 Planned |
+| 13 | **§8.1** | AI Chat Companion | v8.22.0 | Spoiler-safe conversational AI loaded only with chapters 1 → current | 📋 Planned |
+| 14 | **§8.2** | Translation Memory Bank | v8.22.0 | Exact and fuzzy caching (>90%) to save 30-50% on token costs | 📋 Planned |
+| 15 | **§8.6** | Translation Snapshots & Diffs | v8.23.0 | `diff-match-patch-es` for inline green/red word diffs and 1-tap rollbacks | 📋 Planned |
+| 16 | **§8.8** | Auto-Synopsis Generator | v8.24.0 | AI reads first chapters to synthesize book synopsis and genre tags | 📋 Planned |
+| 17 | **§8.9** | Cross-Novel Universal Search | v8.24.0 | `FlexSearch` (15ms full-text index) + `Fuse.js` (fuzzy matching) across library | 📋 Planned |
+| 18 | **§8.10** | Smart Paragraph Merging | v8.24.0 | Collapses 1-line Chinese web novel breaks into flowing literary prose | 📋 Planned |
+| 19 | **§8.11** | Reading Stats Heatmap Dashboard | v8.25.0 | GitHub-style reading streak heatmap + `Chart.js` words/day charts | 📋 Planned |
+| 20 | **§9.4** | Import from Other Apps | v8.26.0 | Importer for Mihon, LNReader, Calibre, and Kindle clippings | 📋 Planned |
+| 21 | **§9.7** | Smart Bookmarks + AI Moments | v8.27.0 | Auto-tags `#plot-twist` `#fight-scene` with AI recap per bookmark | 📋 Planned |
+| 22 | **§9.8** | Collaborative Translation Sharing | v8.27.0 | Shareable link / QR export and forkable translation packages | 📋 Planned |
+| 23 | **§9.9** | Complete Audiobook Export | v8.28.0 | Full novel audio generation into .MP3 or .M4B with chapter markers | 📋 Planned |
+| 24 | **§9.10** | Semantic Scene Search | v8.28.0 | Embedding cosine similarity ("Find the scene where Rem confesses") | 📋 Planned |
+| 25 | **§9.11** | Smart Push Notifications | v8.28.0 | Capacitor local notifications for reading streaks and new chapters | 📋 Planned |
+| 26 | **§10.1** | On-Device Offline Translation | v8.29.0 | Native Chrome 138+ / Edge Built-in AI (0 KB, free, private, offline) | 📋 Planned |
+| 27 | **§10.4** | Tracker Auto-Sync | v8.29.0 | AniList / MyAnimeList GraphQL progress synchronization | 📋 Planned |
+| 28 | **§10.5** | Reading List / "Plan to Read" | v8.29.0 | Unified with Dexie `status: 'plan_to_read'` index (zero new storage overhead) | 📋 Planned |
+| 29 | **§10.8** | Deep Linking & URL Scheme | v8.29.0 | `gemini-translator://novel/rezero/chapter/52` deep link routing | 📋 Planned |
+| 30 | **§10.9** | Browser Extension Mode | v8.30.0 | Chrome/Firefox extension translating arbitrary foreign web pages in-place | 📋 Planned |
+| 31 | **§10.11** | AI Voice Cloning for Dialogue | v8.30.0 | Per-character dialogue voices during narration | 📋 Planned |
+| 32 | **§10.12** | Reading History Timeline | v8.30.0 | Visual nostalgic reading memory timeline powered by `dayjs` | 📋 Planned |
 
 ---
 
@@ -155,10 +197,14 @@ Long-press paragraph → "Retry Translation" → send to Gemini with glossary + 
 
 Standard `SourcePlugin` interface: `search()`, `getNovelDetails()`, `getChapterContent()`. Refactor existing crawlers as built-in plugins. User-installable community plugins via URL. **Deps**: §1.0
 
-### 🧹 4.1b Universal Fallback Parser
-**v8.14.0 · Low · 📋 Planned** · OSS: `@mozilla/readability`
+### 🧹 4.1b Universal Fallback Parser 🔥 [PRIORITY]
+**v8.14.0 · Low · 📋 Planned** · OSS: `@mozilla/readability`, `dompurify`
 
-When no plugin matches URL, try Readability (same as Firefox Reader View). Works on most sites with zero config. **Deps**: §4.1
+Universal fallback reader parser using Mozilla's Readability engine.
+**CRAWLER ROUTING & PRESERVATION PRIORITY:**
+1. **Existing Custom Built-in Crawlers (Primary)**: WitchCult, Syosetu, Kakuyomu, RoyalRoad, etc., remain 100% active, untouched, and first in line.
+2. **LNReader Community Plugins (Secondary)**: 278 specialized community sources handle specific novel domains.
+3. **Universal Readability Parser (Final Fallback)**: When no custom crawler or LNReader plugin matches the target URL, Readability extracts clean chapter title and article body from any arbitrary website with zero configuration. **Deps**: None
 
 ### 🎨 4.2 Custom CSS Selector Crawler Builder
 **v8.14.0 · High · 📋 Planned**
@@ -214,20 +260,27 @@ Run 2-3 engines in parallel. Side-by-side diff comparison. AI judges fluency/acc
 
 AI pre-reads Ch 1-2, extracts names/honorifics/terms as JSON. User reviews in approval modal. Glossary locked in from chapter 1.
 
-### 🔍 5.9 Translation Proofreader QA
+### 🧬 5.8 Smart Glossary Auto-Builder 🔥 [PRIORITY]
 **v8.19.0 · Medium · 📋 Planned**
 
-Auto-checks: paragraph count match, CJK leak detection, duplicate paragraphs, grammar. Report card per chapter. Batch retranslate flagged. **Deps**: §1.0
+AI pre-reads Ch 1-2, extracts character names, aliases, honorifics, and lore terms as structured JSON. User reviews in approval modal. Glossary and gender profiles are locked in from chapter 1.
 
-### 📝 5.10 Cultural Context Footnotes
+### 🔍 5.9 Translation Proofreader QA 🔥 [PRIORITY]
+**v8.19.0 · Medium · 📋 Planned** · *Architecturally Merged with §7.1 & §7.5 into Unified Novel Health & QA Suite*
+
+Automated pre- and post-translation QA auditor: checks paragraph count parity, detects untranslated CJK Hanzi/Kanji leaks, catches repetitive loops, and flags AI refusals. One-click "Retranslate Flagged Paragraphs". **Deps**: §1.0
+
+### 📝 5.10 Cultural Context Footnotes 🔥 [PRIORITY]
 **v8.19.0 · Medium · 📋 Planned**
 
-AI inserts [¹] markers + footnotes for cultural references. Toggle on/off. Build per-language encyclopedia. **Deps**: §3.1
+AI detects culturally specific idioms, untranslatable wordplay, and mythological references, inserting clickable `[¹]` footnote tags with floating definition cards in the reader. Can be toggled on/off in typography settings. **Deps**: §3.1
 
-### ✏️ 5.11 Auto-Chapter Naming
-**v8.19.0 · Low · 📋 Planned**
+### ✏️ 5.11 Auto-Chapter Descriptive Subtitle Naming 🔥 [PRIORITY]
+**v8.19.0 · Low · 📋 Planned** · OSS: Native LLM
 
-AI generates descriptive subtitles: `Chapter 147 — The Witch's Tea Party`. Accept/edit/dismiss per chapter. **Deps**: §1.0
+Replaces uninformative raw numbers or blank author chapter titles (e.g. `第147章`, `147話`, or `Chapter 147`) with descriptive, spoiler-aware literary subtitles matching the novel's prose style.
+- *Example Source:* `第147章` $\rightarrow$ *With §5.11:* `Chapter 147 — The Witch's Tea Party and the Lion's Roar`
+- Renders in Reader HUD, Table of Contents drawer, and exported EPUB metadata. Accept, edit, or batch-apply per novel. **Deps**: §1.0
 
 ---
 
@@ -252,28 +305,28 @@ Gemini Imagen generates cover art. `node-vibrant` extracts color palette for per
 
 ## 7. Crawl Intelligence & Novel Management
 
-### 🏥 7.1 Novel Health Report
-**v8.20.0 · Medium · 📋 Planned**
+### 🏥 7.1 Novel Health Report 🔥 [PRIORITY]
+**v8.20.0 · Medium · 📋 Planned** · *Architecturally Merged with §5.9 & §7.5 into Unified Health & QA Suite*
 
-Post-crawl: missing chapters, duplicates, empty chapters, encoding issues, image audit. "484 crawled · ✅ 480 healthy · ⚠️ 3 short · ❌ 1 missing"
+Post-crawl & library diagnostic: missing chapters, duplicates, empty chapters, encoding issues, image audit. "484 crawled · ✅ 480 healthy · ⚠️ 3 short · ❌ 1 missing"
 
-### 💰 7.2 Cost & Time Estimator
+### 💰 7.2 Cost & Time Estimator 🔥 [PRIORITY]
 **v8.20.0 · Low · 📋 Planned**
 
 Count words, estimate tokens, show cost per engine. Suggest optimal strategy.
 
-### 📐 7.3 Smart Arc Splitter
+### 📐 7.3 Smart Arc Splitter 🔥 [PRIORITY]
 **v8.20.0 · Medium · 📋 Planned**
 
 Gemini detects arc boundaries. Library shows volumes. Per-volume EPUB export. **Deps**: §1.0
 
-### 🏷️ 7.4 Metadata Enrichment
+### 🏷️ 7.4 Metadata Enrichment 🔥 [PRIORITY]
 **v8.20.0 · Medium · 📋 Planned**
 
 Auto-fetch from NovelUpdates, MAL, AniList: genre tags, ratings, synopsis, anime adaptation links. **Deps**: §1.0
 
-### 🛡️ 7.5 Anti-MTL Quality Gate
-**v8.21.0 · Medium · 📋 Planned**
+### 🛡️ 7.5 Anti-MTL Quality Gate 🔥 [PRIORITY]
+**v8.21.0 · Medium · 📋 Planned** · *Architecturally Merged with §5.9 & §7.1 into Unified Health & QA Suite*
 
 Auto-flag low quality (coherence, completeness, CJK leaks). Detect quota degradation. **Deps**: §5.9
 
@@ -286,12 +339,12 @@ Auto-flag low quality (coherence, completeness, CJK leaks). Detect quota degrada
 
 ## 8. Reader Intelligence & Social
 
-### 💬 8.1 AI Chat Companion (Spoiler-Safe)
+### 💬 8.1 AI Chat Companion (Spoiler-Safe) 🔥 [PRIORITY]
 **v8.22.0 · Medium · 📋 Planned**
 
 "Ask" button in reader. Gemini loaded with chapters 1→current only. Chat history per-novel. **Deps**: §1.0, §3.1
 
-### 🗄️ 8.2 Translation Memory Bank
+### 🗄️ 8.2 Translation Memory Bank 🔥 [PRIORITY]
 **v8.22.0 · High · 📋 Planned** · Ref: Open TLC, OSS: `comlink` (for fuzzy match in worker)
 
 Cache every source→translation pair. Exact match = zero cost. Fuzzy match (>90%) = partial retranslate. Dashboard: "TM saved 12,000 tokens." **Deps**: §1.0
@@ -311,32 +364,32 @@ Prompt: format dialogue with proper quotes, paragraph breaks per speaker. Post-p
 
 Detect images with text. Extract via Tesseract.js (free, offline) or Gemini Vision. Translate. Display as caption/overlay.
 
-### 📸 8.6 Translation Snapshots & Versions
+### 📸 8.6 Translation Snapshots & Versions 🔥 [PRIORITY]
 **v8.23.0 · Medium · 📋 Planned** · OSS: `diff-match-patch-es`
 
-Save translation versions. Diff view (paragraph-by-paragraph). Rollback. Cherry-pick best paragraphs. **Deps**: §1.0
+Save translation versions. Diff view (paragraph-by-paragraph) using `diff-match-patch-es`. Instant rollback. Cherry-pick best paragraphs. **Deps**: §1.0
 
 ### 📅 8.7 Novel Completion Predictor
 **v8.24.0 · Low · 📋 Planned**
 
 Track author release frequency. "Updates every 2.3 days · Est. completion: March 2027." Hiatus warning. **Deps**: §2.1
 
-### 📝 8.8 Auto-Synopsis Generator
+### 📝 8.8 Auto-Synopsis Generator 🔥 [PRIORITY]
 **v8.24.0 · Low · 📋 Planned**
 
 Gemini reads first 3-5 chapters → synopsis, genre tags, tagline. Auto-fill library card. **Deps**: §1.0
 
-### 🔎 8.9 Cross-Novel Universal Search
+### 🔎 8.9 Cross-Novel Universal Search 🔥 [PRIORITY]
 **v8.24.0 · Medium · 📋 Planned** · OSS: `flexsearch`, `fuse.js`
 
-FlexSearch indexes all translated chapters. Fuse.js for fuzzy title/author matching. Results grouped by novel + context snippet. **Deps**: §1.0
+FlexSearch indexes all translated chapters. Fuse.js for fuzzy title/author matching. Results grouped by novel + context snippet (15ms search across 1,000+ chapters). **Deps**: §1.0
 
-### 📐 8.10 Smart Paragraph Merging
+### 📐 8.10 Smart Paragraph Merging 🔥 [PRIORITY]
 **v8.24.0 · Medium · 📋 Planned**
 
 Fix one-sentence paragraphs (CN novels). AI merges into flowing prose. Normalize scene breaks. Toggle per novel.
 
-### 📊 8.11 Stats Dashboard
+### 📊 8.11 Stats Dashboard 🔥 [PRIORITY]
 **v8.25.0 · Medium · 📋 Planned** · OSS: `chart.js`, `dayjs`
 
 GitHub-style streak heatmap. Words/day chart. Engine usage pie. Money saved calculation. Milestones. **Deps**: §1.0
@@ -360,7 +413,7 @@ Easy (A2-B1) / Standard / Literary. Prompt modifier per novel.
 
 One-click → hostable site with TOC, navigation, search, dark mode. Deploy to GitHub Pages.
 
-### 📦 9.4 Import from Other Apps
+### 📦 9.4 Import from Other Apps 🔥 [PRIORITY]
 **v8.26.0 · High · 📋 Planned**
 
 Parse Mihon protobuf, LNReader JSON, Calibre SQLite, Kindle clippings, NovelUpdates list. **Deps**: §1.0
@@ -375,27 +428,27 @@ AI classifies chapter: action→Pro, dialogue→Flash, filler→Lite. User sets 
 
 Gemini analyzes author's voice → Style Profile. Inject into every prompt for consistency. **Deps**: §1.0
 
-### 🔖 9.7 Smart Bookmarks + AI Tags
+### 🔖 9.7 Smart Bookmarks + AI Tags 🔥 [PRIORITY]
 **v8.27.0 · Medium · 📋 Planned**
 
 Bookmark → auto-tag `#plot-twist` `#fight-scene`. AI summary per bookmark. Gallery of best moments. **Deps**: §3.1, §1.0
 
-### 👥 9.8 Translation Sharing
+### 👥 9.8 Translation Sharing 🔥 [PRIORITY]
 **v8.27.0 · High · 📋 Planned**
 
 Shareable link/QR. Collaborative editing. Translation fork → merge. Credit system.
 
-### 🎧 9.9 Audiobook Export (MP3/M4B)
+### 🎧 9.9 Audiobook Export (MP3/M4B) 🔥 [PRIORITY]
 **v8.28.0 · High · 📋 Planned** · OSS: `edge-tts-node`
 
 Synthesize all chapters. Export MP3 per chapter or M4B with chapter markers. ID3 metadata. **Deps**: §3.4
 
-### 🧭 9.10 Semantic Scene Search
+### 🧭 9.10 Semantic Scene Search 🔥 [PRIORITY]
 **v8.28.0 · Medium · 📋 Planned** · OSS: Gemini Embeddings
 
 "Find the scene where Rem confesses" → cosine similarity on paragraph embeddings. Cross-novel. **Deps**: §1.0
 
-### 🔔 9.11 Smart Notifications
+### 🔔 9.11 Smart Notifications 🔥 [PRIORITY]
 **v8.28.0 · Medium · 📋 Planned** · OSS: `@capacitor/local-notifications`
 
 Context-aware: "Continue Re:Zero Ch 52?", "3 chapters from finishing Arc 3!", "Streak at risk!" **Deps**: §1.0
@@ -404,7 +457,7 @@ Context-aware: "Continue Re:Zero Ch 52?", "3 chapters from finishing Arc 3!", "S
 
 ## 10. Accessibility & Platform (v8.29–8.30)
 
-### 🧠 10.1 On-Device Offline Translation
+### 🧠 10.1 On-Device Offline Translation 🔥 [PRIORITY]
 **v8.29.0 · Medium · 📋 Planned** · OSS: Native Chrome/Edge Translation API (0 KB)
 
 Chrome 138+ and Edge 148+ ship built-in local translation: 37-145 languages, free, private, offline, zero API cost. Add as Tier 0 engine. `self.ai.translator.create({ sourceLanguage: 'ja', targetLanguage: 'en' })`. Use as free fallback when Gemini quota exhausted.
@@ -419,15 +472,15 @@ OpenDyslexic, Lexend, Atkinson Hyperlegible fonts. Bionic Reading (bold first le
 
 25min read → break → resume cycle. Session tracking: "You read 1h 23m today." Streak protection.
 
-### 📱 10.4 Novel Tracker Integration
+### 📱 10.4 Novel Tracker Integration 🔥 [PRIORITY]
 **v8.29.0 · Medium · 📋 Planned** · OSS: AniList GraphQL API (free)
 
 Sync reading progress to AniList / MAL / NovelUpdates. Auto-update status + chapter count. Pull recommendations from tracker.
 
-### 📋 10.5 Reading List / "Plan to Read"
+### 📋 10.5 Reading List / "Plan to Read" 🔥 [PRIORITY]
 **v8.29.0 · Low · 📋 Planned**
 
-Separate wishlist from library. Add from URL without crawling. Import from NovelUpdates reading list. **Deps**: §1.0
+Separate wishlist from library. Unified with Dexie `status: 'plan_to_read'` index. Add from URL without crawling. Import from NovelUpdates reading list. **Deps**: §1.0
 
 ### 🔒 10.6 Encrypted Library / App Lock
 **v8.29.0 · Medium · 📋 Planned** · OSS: Web Crypto API (native)
@@ -439,17 +492,17 @@ PIN / biometric lock on app launch. Encrypt stored novels in IndexedDB. Privacy 
 
 📚 Bookworm: 100 chapters in one day. 🌍 Polyglot: translated from 3 languages. 🔥 On Fire: 30-day streak. 💎 Quality King: 0 QA flags in 50 chapters. XP system, levels, badges. **Deps**: §8.11
 
-### 🔗 10.8 Deep Linking / URL Scheme
+### 🔗 10.8 Deep Linking / URL Scheme 🔥 [PRIORITY]
 **v8.29.0 · Low · 📋 Planned** · OSS: Capacitor Deep Links
 
 `gemini-translator://novel/rezero/chapter/52`. Share chapter locations via link. Open from notifications directly to correct chapter.
 
-### 🌐 10.9 Browser Extension Mode
+### 🌐 10.9 Browser Extension Mode 🔥 [PRIORITY]
 **v8.30.0 · High · 📋 Planned**
 
 Chrome/Firefox extension: translate ANY webpage in-place. Select text → translate inline. Uses your Gemini API key.
 
-### 🤖 10.10 AI Voice Cloning for TTS
+### 🤖 10.10 AI Voice Cloning for TTS 🔥 [PRIORITY]
 **v8.30.0 · High · 📋 Planned**
 
 Clone narrator voice. Different voice per character in dialogue. Consistent voice across all chapters. **Deps**: §3.4
@@ -459,7 +512,7 @@ Clone narrator voice. Different voice per character in dialogue. Consistent voic
 
 Export translated novels as formatted PDF. Page numbers, margins, headers. Print-ready for physical copies.
 
-### ⏪ 10.12 Reading History Timeline
+### ⏪ 10.12 Reading History Timeline 🔥 [PRIORITY]
 **v8.30.0 · Medium · 📋 Planned** · OSS: `dayjs`
 
 Visual timeline of everything read + when. "On this day last year you started Re:Zero." Nostalgia + re-read suggestions. **Deps**: §1.0
@@ -484,18 +537,24 @@ AI analyzes full novel and generates: pacing graph (action density per chapter),
 | — | Crash-Proof Resume | v8.10.1 | Medium | — | ✅ Done |
 | — | 1-Tap Google Drive Backup | v8.10.1 | Medium | — | ✅ Done |
 | — | COTE Consistency Rule | v8.10.1 | Low | — | ✅ Done |
-| 1 | IndexedDB → Dexie.js | v8.11.0 | Medium | `dexie` | 📋 Planned |
-| 2 | JSZip → fflate | v8.11.0 | Low | `fflate` | 📋 Planned |
-| 3 | he.js + DOMPurify | v8.11.0 | Low | `he` `dompurify` | 📋 Planned |
-| 4 | Gender Lock | v8.11.0 | Medium | — | 📋 Ready |
-| 5 | Delta Crawl | v8.11.0 | Medium | — | 📋 Planned |
+| # | Feature | Version | Complexity | OSS Library | Status |
+|---|:---|:---|:---|:---|:---|
+| — | Throttled Crawl Persistence | v8.10.1 | Medium | — | ✅ Done |
+| — | Crash-Proof Resume | v8.10.1 | Medium | — | ✅ Done |
+| — | 1-Tap Google Drive Backup | v8.10.1 | Medium | — | ✅ Done |
+| — | COTE Consistency Rule | v8.10.1 | Low | — | ✅ Done |
+| 1 | IndexedDB → Dexie.js | v8.11.0 | Medium | `dexie` | ✅ Shipped |
+| 2 | JSZip → fflate | v8.11.0 | Low | `fflate` | ✅ Shipped |
+| 3 | he.js + DOMPurify | v8.11.0 | Low | `he` `dompurify` | ✅ Shipped |
+| 4 | Gender Lock Protocol | v8.11.0 | Medium | — | ✅ Shipped |
+| 5 | Delta Crawl | v8.11.0 | Medium | — | ✅ Shipped |
 | 6 | Reader → foliate-js | v8.12.0 | High | `foliate-js` | 📋 Planned |
 | 7 | Bilingual Reading | v8.12.0 | Low | — | 📋 Planned |
 | 8 | Glossary Tooltips | v8.12.0 | Medium | — | 📋 Planned |
 | 9 | TTS / Audiobook | v8.13.0 | Medium | Web Speech + `edge-tts` | 📋 Planned |
 | 10 | 1-Tap Retranslate | v8.13.0 | Low | — | 📋 Planned |
-| 11 | Plugin Architecture | v8.14.0 | High | LNReader ref | 📋 Planned |
-| 12 | Readability Fallback | v8.14.0 | Low | `@mozilla/readability` | 📋 Planned |
+| 11 | Plugin Architecture 🔥 | v8.14.0 | High | LNReader ref | 📋 Priority |
+| 12 | Readability Fallback 🔥 | v8.14.0 | Low | `@mozilla/readability` | 📋 Priority |
 | 13 | CSS Selector Builder | v8.14.0 | High | — | 📋 Planned |
 | 14 | Reading Position Sync | v8.14.0 | Medium | `webdav` | 📋 Planned |
 | 15 | Story Recap | v8.15.0 | Medium | — | 📋 Planned |
@@ -505,54 +564,54 @@ AI analyzes full novel and generates: pacing graph (action density per chapter),
 | 19 | AI Cover Art | v8.16.0 | Medium | `node-vibrant` | 📋 Planned |
 | 20 | Genre Tone Presets | v8.16.0 | Low | — | 📋 Planned |
 | 21 | Background Auto-Sync | v8.16.0 | Medium | `dexie-export-import` | 📋 Planned |
-| 22 | Language Learning | v8.17.0 | High | `kuromoji` `kuroshiro` `jmdict` `cc-cedict` `ts-fsrs` | 📋 Planned |
+| 22 | Language Learning 🔥 | v8.17.0 | High | `kuromoji` `kuroshiro` `jmdict` `cc-cedict` `ts-fsrs` | 📋 Priority |
 | 23 | Name Enforcer | v8.17.0 | Medium | `fuse.js` `compromise` | 📋 Planned |
 | 24 | Character Wiki | v8.18.0 | High | `markdown-it` | 📋 Planned |
 | 25 | Translation Battle | v8.18.0 | Medium | `diff-match-patch-es` | 📋 Planned |
-| 26 | Glossary Auto-Builder | v8.19.0 | Medium | — | 📋 Planned |
-| 27 | Proofreader QA | v8.19.0 | Medium | — | 📋 Planned |
-| 28 | Cultural Footnotes | v8.19.0 | Medium | — | 📋 Planned |
-| 29 | Auto-Chapter Naming | v8.19.0 | Low | — | 📋 Planned |
-| 30 | Novel Health Report | v8.20.0 | Medium | — | 📋 Planned |
-| 31 | Cost Estimator | v8.20.0 | Low | — | 📋 Planned |
-| 32 | Arc Splitter | v8.20.0 | Medium | — | 📋 Planned |
-| 33 | Metadata Enrichment | v8.20.0 | Medium | — | 📋 Planned |
-| 34 | Quality Gate | v8.21.0 | Medium | — | 📋 Planned |
+| 26 | Glossary Auto-Builder 🔥 | v8.19.0 | Medium | — | 📋 Priority |
+| 27 | Proofreader QA 🔥 | v8.19.0 | Medium | Unified Health Suite | 📋 Priority |
+| 28 | Cultural Footnotes 🔥 | v8.19.0 | Medium | — | 📋 Priority |
+| 29 | Auto-Chapter Naming 🔥 | v8.19.0 | Low | — | 📋 Priority |
+| 30 | Novel Health Report 🔥 | v8.20.0 | Medium | Unified Health Suite | 📋 Priority |
+| 31 | Cost Estimator 🔥 | v8.20.0 | Low | — | 📋 Priority |
+| 32 | Arc Splitter 🔥 | v8.20.0 | Medium | — | 📋 Priority |
+| 33 | Metadata Enrichment 🔥 | v8.20.0 | Medium | — | 📋 Priority |
+| 34 | Quality Gate 🔥 | v8.21.0 | Medium | Unified Health Suite | 📋 Priority |
 | 35 | Mood Matcher | v8.21.0 | Medium | — | 📋 Planned |
-| 36 | AI Chat Companion | v8.22.0 | Medium | — | 📋 Planned |
-| 37 | Translation Memory | v8.22.0 | High | `comlink` | 📋 Planned |
+| 36 | AI Chat Companion 🔥 | v8.22.0 | Medium | — | 📋 Priority |
+| 37 | Translation Memory 🔥 | v8.22.0 | High | `comlink` | 📋 Priority |
 | 38 | Overnight Queue | v8.22.0 | Medium | `sortablejs` | 📋 Planned |
 | 39 | Dialogue Formatter | v8.23.0 | Medium | — | 📋 Planned |
 | 40 | Image OCR | v8.23.0 | Medium | `tesseract.js` | 📋 Planned |
-| 41 | Translation Snapshots | v8.23.0 | Medium | `diff-match-patch-es` | 📋 Planned |
+| 41 | Translation Snapshots 🔥 | v8.23.0 | Medium | `diff-match-patch-es` | 📋 Priority |
 | 42 | Completion Predictor | v8.24.0 | Low | — | 📋 Planned |
-| 43 | Auto-Synopsis | v8.24.0 | Low | — | 📋 Planned |
-| 44 | Cross-Novel Search | v8.24.0 | Medium | `flexsearch` `fuse.js` | 📋 Planned |
-| 45 | Paragraph Merging | v8.24.0 | Medium | — | 📋 Planned |
-| 46 | Stats Dashboard | v8.25.0 | Medium | `chart.js` `dayjs` | 📋 Planned |
+| 43 | Auto-Synopsis 🔥 | v8.24.0 | Low | — | 📋 Priority |
+| 44 | Cross-Novel Search 🔥 | v8.24.0 | Medium | `flexsearch` `fuse.js` | 📋 Priority |
+| 45 | Paragraph Merging 🔥 | v8.24.0 | Medium | — | 📋 Priority |
+| 46 | Stats Dashboard 🔥 | v8.25.0 | Medium | `chart.js` `dayjs` | 📋 Priority |
 | 47 | AI Illustrator | v8.25.0 | High | Gemini Imagen | 📋 Planned |
 | 48 | ESL Simplification | v8.25.0 | Low | — | 📋 Planned |
 | 49 | Static Website Export | v8.26.0 | Medium | — | 📋 Planned |
-| 50 | Import from Other Apps | v8.26.0 | High | — | 📋 Planned |
+| 50 | Import from Other Apps 🔥 | v8.26.0 | High | — | 📋 Priority |
 | 51 | Adaptive Quality | v8.26.0 | Medium | — | 📋 Planned |
 | 52 | Style Analyzer | v8.27.0 | Medium | — | 📋 Planned |
-| 53 | Smart Bookmarks | v8.27.0 | Medium | — | 📋 Planned |
-| 54 | Collaboration | v8.27.0 | High | — | 📋 Planned |
-| 55 | Audiobook Export | v8.28.0 | High | `edge-tts` | 📋 Planned |
-| 56 | Semantic Search | v8.28.0 | Medium | Gemini Embeddings | 📋 Planned |
-| 57 | Smart Notifications | v8.28.0 | Medium | Capacitor Notif. | 📋 Planned |
-| 58 | On-Device Translation | v8.29.0 | Medium | Chrome/Edge native | 📋 Planned |
+| 53 | Smart Bookmarks 🔥 | v8.27.0 | Medium | — | 📋 Priority |
+| 54 | Collaboration 🔥 | v8.27.0 | High | — | 📋 Priority |
+| 55 | Audiobook Export 🔥 | v8.28.0 | High | `edge-tts` | 📋 Priority |
+| 56 | Semantic Search 🔥 | v8.28.0 | Medium | Gemini Embeddings | 📋 Priority |
+| 57 | Smart Notifications 🔥 | v8.28.0 | Medium | Capacitor Notif. | 📋 Priority |
+| 58 | On-Device Translation 🔥 | v8.29.0 | Medium | Chrome/Edge native | 📋 Priority |
 | 59 | Accessibility/Dyslexia | v8.29.0 | Medium | OpenDyslexic | 📋 Planned |
 | 60 | Pomodoro Timer | v8.29.0 | Low | — | 📋 Planned |
-| 61 | Tracker Integration | v8.29.0 | Medium | AniList API | 📋 Planned |
-| 62 | Plan to Read List | v8.29.0 | Low | — | 📋 Planned |
+| 61 | Tracker Integration 🔥 | v8.29.0 | Medium | AniList API | 📋 Priority |
+| 62 | Plan to Read List 🔥 | v8.29.0 | Low | — | 📋 Priority |
 | 63 | Encrypted Library | v8.29.0 | Medium | Web Crypto | 📋 Planned |
 | 64 | Gamification | v8.29.0 | Medium | — | 📋 Planned |
-| 65 | Deep Linking | v8.29.0 | Low | Capacitor | 📋 Planned |
-| 66 | Browser Extension | v8.30.0 | High | — | 📋 Planned |
-| 67 | Voice Cloning TTS | v8.30.0 | High | — | 📋 Planned |
+| 65 | Deep Linking 🔥 | v8.29.0 | Low | Capacitor | 📋 Priority |
+| 66 | Browser Extension 🔥 | v8.30.0 | High | — | 📋 Priority |
+| 67 | Voice Cloning TTS 🔥 | v8.30.0 | High | — | 📋 Priority |
 | 68 | PDF Export | v8.30.0 | Medium | `pdf-lib` | 📋 Planned |
-| 69 | Reading History Timeline | v8.30.0 | Medium | `dayjs` | 📋 Planned |
+| 69 | Reading History Timeline 🔥 | v8.30.0 | Medium | `dayjs` | 📋 Priority |
 | 70 | Confidence Heatmap | v8.29.0 | Low | — | 📋 Planned |
 | 71 | Novel Intelligence Dashboard | v8.30.0 | Medium | `chart.js` | 📋 Planned |
 
