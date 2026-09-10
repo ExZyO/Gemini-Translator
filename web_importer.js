@@ -2495,12 +2495,28 @@
     }
 
     async function crawlUniversal(url, progressCb) {
-        progressCb?.('Analyzing web page structure with Universal Readability Engine...', 20);
+        progressCb?.('Analyzing web page structure with Universal Readability Engine (@mozilla/readability)...', 20);
         const html = await fetchHtml(url);
         const doc = new DOMParser().parseFromString(html, 'text/html');
 
-        const title = doc.querySelector('title, h1, .title, meta[property="og:title"]')?.textContent?.trim() || 'Web Novel';
-        const author = doc.querySelector('meta[name="author"], .author, .byline')?.getAttribute('content') || doc.querySelector('.author, .byline')?.textContent?.trim() || 'Author';
+        const ReadabilityLib = (typeof window !== 'undefined' && window.Readability)
+            ? window.Readability
+            : (typeof Readability !== 'undefined' ? Readability : null);
+
+        let parsedMeta = null;
+        if (ReadabilityLib) {
+            try {
+                // Clone doc so Readability's mutations don't destroy DOM for chapter link extraction
+                const docClone = doc.cloneNode(true);
+                const reader = new ReadabilityLib(docClone, { keepClasses: true });
+                parsedMeta = reader.parse();
+            } catch (e) {
+                console.warn('[Readability] Meta parse failed:', e);
+            }
+        }
+
+        const title = (parsedMeta?.title?.trim()) || doc.querySelector('title, h1, .title, meta[property="og:title"]')?.textContent?.trim() || 'Web Novel';
+        const author = (parsedMeta?.byline?.trim()) || doc.querySelector('meta[name="author"], .author, .byline')?.getAttribute('content') || doc.querySelector('.author, .byline')?.textContent?.trim() || 'Author';
         const cover = extractPageCover(doc, url);
 
         doc.querySelectorAll('script, style, nav, footer, header, .advertisement, .ads, .comment').forEach(el => el.remove());
@@ -2519,15 +2535,40 @@
         });
 
         if (chapterLinks.length > 3) {
-            progressCb?.(`Discovered TOC with ${chapterLinks.length} chapters! Ingesting...`, 35);
+            progressCb?.(`Discovered TOC with ${chapterLinks.length} chapters! Ingesting with Readability...`, 35);
             const { chapters } = await crawlChapterPool(
                 chapterLinks,
                 async (item) => {
                     const chHtml = await fetchHtml(item.url);
                     const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
-                    chDoc.querySelectorAll('script, style, nav, footer, header, .ads').forEach(el => el.remove());
-                    const el = chDoc.querySelector('article, main, .post-content, .entry-content, #content, .content') || chDoc.body;
-                    return { title: item.title, text: cleanChapterHtmlWithImages(el.innerHTML || el.textContent || '') };
+
+                    let chapterText = '';
+                    let chapterTitle = item.title;
+
+                    if (ReadabilityLib) {
+                        try {
+                            const chDocClone = chDoc.cloneNode(true);
+                            const reader = new ReadabilityLib(chDocClone, { keepClasses: true });
+                            const article = reader.parse();
+                            if (article && article.content) {
+                                chapterText = cleanChapterHtmlWithImages(article.content);
+                                if (article.title && article.title.length > 2 && article.title.length < 120) {
+                                    chapterTitle = article.title;
+                                }
+                            }
+                        } catch (reErr) {
+                            console.warn('[Readability] Chapter parse failed, falling back to CSS selectors:', reErr);
+                        }
+                    }
+
+                    // Fallback to CSS selectors if Readability returned empty or failed
+                    if (!chapterText || chapterText.length < 30) {
+                        chDoc.querySelectorAll('script, style, nav, footer, header, .ads').forEach(el => el.remove());
+                        const el = chDoc.querySelector('article, main, .post-content, .entry-content, #content, .content') || chDoc.body;
+                        chapterText = cleanChapterHtmlWithImages(el.innerHTML || el.textContent || '');
+                    }
+
+                    return { title: chapterTitle, text: chapterText };
                 },
                 12,
                 progressCb,
@@ -2540,14 +2581,20 @@
         }
 
         // Single article / chapter extraction
-        const articleEl = doc.querySelector('article, main, .post-content, .entry-content, #content, .content, .post') || doc.body;
-        const text = cleanChapterHtmlWithImages(articleEl.innerHTML || articleEl.textContent || '');
+        let text = '';
+        if (parsedMeta && parsedMeta.content) {
+            text = cleanChapterHtmlWithImages(parsedMeta.content);
+        }
+        if (!text || text.length < 30) {
+            const articleEl = doc.querySelector('article, main, .post-content, .entry-content, #content, .content, .post') || doc.body;
+            text = cleanChapterHtmlWithImages(articleEl.innerHTML || articleEl.textContent || '');
+        }
 
-        progressCb?.(`Extracted article (${text.length} characters)`, 100);
+        progressCb?.(`Extracted article with Readability (${text.length} characters)`, 100);
         return {
             title,
             author,
-            summary: text.substring(0, 250) + '...',
+            summary: (parsedMeta?.excerpt?.trim()) || text.substring(0, 250) + '...',
             cover,
             tags: ['Web Article'],
             chapters: [{ title, text }],

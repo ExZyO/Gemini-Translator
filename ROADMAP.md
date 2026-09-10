@@ -3,7 +3,7 @@
 > **Location**: Project Root (`ROADMAP.md`)  
 > **Status**: Active Living Document  
 > **Target Milestones**: v8.11.0 – v8.30.0  
-> **Total**: 70 features · 30 OSS libraries · 9 shipped
+> **Total**: 70 features · 30 OSS libraries · 10 shipped
 
 ---
 
@@ -33,7 +33,7 @@
 | # | Feature Code | Feature Title | Target Version | Strategic Architecture / Replacement | Status |
 |---|:---|:---|:---|:---|:---|
 | 1 | **§4.1** | LNReader Plugin Architecture | v8.14.0 | Standardized source plugin interface; keeps existing built-in crawlers primary | 📋 Planned |
-| 2 | **§4.1b** | Universal Fallback Parser | v8.14.0 | `@mozilla/readability` + DOMPurify; falls back ONLY when existing crawlers don't match | 📋 Planned |
+| 2 | **§4.1b** | Universal Fallback Parser | v8.11.1 | `@mozilla/readability` + DOMPurify; falls back ONLY when existing crawlers don't match | ✅ Shipped |
 | 3 | **§5.4** | Language Learning Mode & FSRS | v8.17.0 | `ts-fsrs` (modern Anki scheduler) + Kuromoji / Hanzi dictionary popups | 📋 Planned |
 | 4 | **§5.8** | Smart Glossary Auto-Builder | v8.19.0 | Automated pre-read entity extractor populating book profiles | 📋 Planned |
 | 5 | **§5.9** | Translation Proofreader QA | v8.19.0 | Merged into Unified Health & QA Suite (CJK leak detection, loop guard) | 📋 Planned |
@@ -198,7 +198,7 @@ Long-press paragraph → "Retry Translation" → send to Gemini with glossary + 
 Standard `SourcePlugin` interface: `search()`, `getNovelDetails()`, `getChapterContent()`. Refactor existing crawlers as built-in plugins. User-installable community plugins via URL. **Deps**: §1.0
 
 ### 🧹 4.1b Universal Fallback Parser 🔥 [PRIORITY]
-**v8.14.0 · Low · 📋 Planned** · OSS: `@mozilla/readability`, `dompurify`
+**v8.11.1 · Low · ✅ Shipped** · OSS: `@mozilla/readability`, `dompurify`
 
 Universal fallback reader parser using Mozilla's Readability engine.
 **CRAWLER ROUTING & PRESERVATION PRIORITY:**
@@ -554,7 +554,7 @@ AI analyzes full novel and generates: pacing graph (action density per chapter),
 | 9 | TTS / Audiobook | v8.13.0 | Medium | Web Speech + `edge-tts` | 📋 Planned |
 | 10 | 1-Tap Retranslate | v8.13.0 | Low | — | 📋 Planned |
 | 11 | Plugin Architecture 🔥 | v8.14.0 | High | LNReader ref | 📋 Priority |
-| 12 | Readability Fallback 🔥 | v8.14.0 | Low | `@mozilla/readability` | 📋 Priority |
+| 12 | Readability Fallback 🔥 | v8.11.1 | Low | `@mozilla/readability` | ✅ Shipped |
 | 13 | CSS Selector Builder | v8.14.0 | High | — | 📋 Planned |
 | 14 | Reading Position Sync | v8.14.0 | Medium | `webdav` | 📋 Planned |
 | 15 | Story Recap | v8.15.0 | Medium | — | 📋 Planned |
