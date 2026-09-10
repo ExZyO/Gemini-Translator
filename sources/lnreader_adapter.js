@@ -270,7 +270,41 @@
       if (id.includes('filterInputs')) return { FilterTypes };
       if (id.includes('defaultCover')) return { defaultCover };
       if (id.includes('novelStatus')) return { NovelStatus };
-      throw new Error('LNReader sandbox: module not found: ' + id);
+      if (id === 'dayjs') {
+        const dayjsFn = (d) => ({
+          format: (f) => String(d || ''),
+          isValid: () => true,
+          fromNow: () => String(d || ''),
+          toDate: () => new Date(d || Date.now()),
+          toISOString: () => new Date(d || Date.now()).toISOString()
+        });
+        dayjsFn.extend = () => {};
+        return dayjsFn;
+      }
+      if (id === '@libs/storage') {
+        return {
+          storage: {
+            get: (k) => {
+              try { return JSON.parse(localStorage.getItem('lnreader_storage_' + k)); } catch (_) { return null; }
+            },
+            set: (k, v) => {
+              try { localStorage.setItem('lnreader_storage_' + k, JSON.stringify(v)); } catch (_) {}
+            },
+            remove: (k) => {
+              try { localStorage.removeItem('lnreader_storage_' + k); } catch (_) {}
+            }
+          }
+        };
+      }
+      if (id === '@libs/isAbsoluteUrl') {
+        return { isAbsoluteUrl: (u) => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(u) };
+      }
+      if (id === 'he' || id === 'html-entities') {
+        return {
+          decode: (s) => (typeof window !== 'undefined' && window.decodeEntities ? window.decodeEntities(s) : String(s || ''))
+        };
+      }
+      return {};
     };
 
     const moduleObj = { exports: {} };

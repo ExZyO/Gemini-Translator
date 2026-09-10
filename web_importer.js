@@ -2847,6 +2847,68 @@
         return aggregated;
     }
 
+    async function crawlWithPlugin(plugin, url, progressCb, options = {}) {
+        progressCb?.(`Connecting to ${plugin.name}...`, 5);
+        const details = await plugin.getNovelDetails(url);
+        if (!details || !details.chapters || details.chapters.length === 0) {
+            throw new Error(`[${plugin.name}] Could not extract novel details or chapter list from ${url}`);
+        }
+
+        if (options.tocOnly) {
+            return {
+                title: details.title || 'Novel',
+                author: details.author || 'Author',
+                cover: details.cover || '',
+                summary: details.summary || '',
+                totalChapterCount: details.chapters.length,
+                chapters: details.chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, url: c.url }))
+            };
+        }
+
+        const items = details.chapters;
+        const chapters = [];
+        const concurrency = options.concurrency || 6;
+
+        for (let i = 0; i < items.length; i += concurrency) {
+            if (activeCrawlController?.isCancelled) break;
+            while (activeCrawlController?.isPaused) {
+                await new Promise(r => setTimeout(r, 500));
+                if (activeCrawlController?.isCancelled) break;
+            }
+
+            const batch = items.slice(i, i + concurrency);
+            const batchResults = await Promise.all(batch.map(async (item, batchIdx) => {
+                const idx = i + batchIdx;
+                try {
+                    const ch = await plugin.getChapter(item.url, { title: item.title });
+                    const pct = Math.round(((idx + 1) / items.length) * 100);
+                    progressCb?.(`[${plugin.name}] Downloaded chapter ${idx + 1}/${items.length} (${pct}%)`, pct);
+                    return {
+                        title: ch.title || item.title || `Chapter ${idx + 1}`,
+                        text: cleanChapterHtmlWithImages(ch.content || '')
+                    };
+                } catch (err) {
+                    console.warn(`[${plugin.name}] Failed chapter ${idx + 1}:`, err);
+                    return {
+                        title: item.title || `Chapter ${idx + 1}`,
+                        text: `[Chapter download failed: ${err.message}]`
+                    };
+                }
+            }));
+
+            chapters.push(...batchResults);
+        }
+
+        return {
+            title: details.title || 'Novel',
+            author: details.author || 'Author',
+            cover: details.cover || '',
+            summary: details.summary || '',
+            totalChapterCount: chapters.length,
+            chapters
+        };
+    }
+
     window.WebNovelImporter = {
         fetchHtml,
         importEpubBuffer,
@@ -2887,7 +2949,12 @@
 
             try {
                 let result;
-                if (type === 'novelbuddy') result = await crawlNovelBuddy(url, progressCb);
+                const registeredPlugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
+                if (registeredPlugin && registeredPlugin.id !== 'universal') {
+                    console.log(`⚡ [LNCrawl Engine] Routing to active source plugin: ${registeredPlugin.name} (${registeredPlugin.id})`);
+                    result = await crawlWithPlugin(registeredPlugin, url, progressCb, options);
+                }
+                else if (type === 'novelbuddy') result = await crawlNovelBuddy(url, progressCb);
                 else if (type === 'lnori') result = await crawlLnori(url, progressCb, options);
                 else if (type === 'wuxiabox') result = await crawlWuxiaBox(url, progressCb);
                 else if (type === 'wtrlab') result = await crawlWtrLab(url, progressCb);

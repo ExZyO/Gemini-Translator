@@ -1,5 +1,5 @@
 /**
- * Gemini Translator - Pro Reader Engine (v8.10.61)
+ * Gemini Translator - Pro Reader Engine (v8.10.62)
  * Complete Ground-Up Rebuild:
  *  - Native Touch & Scroll Architecture (Zero blocking tap overlays)
  *  - Responsive Dual Modes: Continuous Webtoon Scroll & Paginated Book Flip

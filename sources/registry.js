@@ -79,6 +79,54 @@
     }
 
     /**
+     * Fetch the official catalog of 278 LNReader community plugins
+     * @returns {Promise<Array<{ id: string, name: string, site: string, lang: string, version: string, url: string, iconUrl: string }>>}
+     */
+    async fetchCatalog() {
+      const catalogUrl = 'https://raw.githubusercontent.com/lnreader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.json';
+      const fetchFn = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
+      let raw = '';
+      if (fetchFn) {
+        raw = await fetchFn(catalogUrl);
+      } else {
+        const res = await fetch(catalogUrl);
+        raw = await res.text();
+      }
+      return JSON.parse(raw);
+    }
+
+    /**
+     * Install an LNReader plugin from a remote URL
+     * @param {string} pluginUrl
+     * @returns {Promise<BaseSourcePlugin>}
+     */
+    async loadPluginFromUrl(pluginUrl) {
+      const fetchFn = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
+      let code = '';
+      if (fetchFn) {
+        code = await fetchFn(pluginUrl);
+      } else {
+        const res = await fetch(pluginUrl);
+        code = await res.text();
+      }
+      return this.registerLNReaderCode(code);
+    }
+
+    /**
+     * Install an LNReader plugin by its catalog ID (e.g. 'novelfull', 'boxnovel', 'ranobes')
+     * @param {string} pluginId
+     * @returns {Promise<BaseSourcePlugin>}
+     */
+    async loadPluginById(pluginId) {
+      const catalog = await this.fetchCatalog();
+      const target = catalog.find(p => p.id.toLowerCase() === pluginId.toLowerCase());
+      if (!target) {
+        throw new Error(`Plugin "${pluginId}" not found in LNReader catalog. Call sourceRegistry.fetchCatalog() to inspect available plugins.`);
+      }
+      return this.loadPluginFromUrl(target.url);
+    }
+
+    /**
      * Search novels across all registered sources supporting search
      * @param {string} query
      * @returns {Promise<Array<{ name: string, path: string, url: string, cover: string, source: string }>>}
