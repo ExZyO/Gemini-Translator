@@ -1,7 +1,7 @@
 {
-  "version": "8.11.9",
-  "versionCode": 8179,
+  "version": "8.12.0",
+  "versionCode": 8180,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.11.9: Deep Chapter Body Novel Mining. Fixes novel text extraction to inspect chapter content and HTML text properly; extracts full dual-name character entities (English and RAW names like Medici, Amon, Bethel, Antigonus, 梅迪奇, 阿蒙, 伯特利, 安提哥努斯)."
+  "releaseNotes": "v8.12.0: AI Lore Gender Precision & Deep Novel Body Mining. Fixes novel text extraction to inspect full chapter content (extracting Amon, Bethel, Antigonus, Medici in both English & RAW Chinese); tightens glossary regex to strict tags so complex character relationships (e.g. Isaac Morf, Maizen Tiren) are resolved accurately by AI lore."
 }

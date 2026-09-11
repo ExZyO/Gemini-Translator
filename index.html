@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.11.9';
+    const VERSION = '8.12.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3728,8 +3728,9 @@ const formatModelName = (id, displayName) => {
           const abstractRankExclusions = /\b(?:Sequence|Pathway|Potion|Formula|Spell|Artifact|Curse|Smog|Abyss|Spirit World|Astral World|Underworld|Nation of|Church of|Order of|School of|Ruins of|City of|Land of|Sea of|Mausoleum|Card of|Uniqueness|Sefirah)\b/i;
           const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港)$/i;
 
-          const femaleMarker = /\b(?:she|her|female|woman|girl|mother|daughter|sister|aunt|niece|wife|empress|queen|princess|madam|madame|lady|witch|demoness|priestess|goddess|maiden|matron)\b|\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女|雌)）|小姐|女士|夫人|魔女|女神|公主|皇后|母亲|女儿|姐姐|妹妹|姑|姨|婶/i;
-          const maleMarker = /\b(?:he|him|his|male|man|boy|father|son|brother|uncle|nephew|husband|emperor|king|prince|sir|mr|mister|lord|priest|god|patriarch)\b|\((?:m|male)\)|\[(?:m|male)\]|（(?:男|雄)）|先生|阁下|少爷|大帝|皇帝|国王|王子|神父|男爵|伯爵|侯爵|公爵|老爷|父亲|儿子|哥哥|弟弟|叔|伯|舅/i;
+          // Strict unambiguous gender tags on glossary lines (avoiding descriptive words like "sister" or "witch" which misclassify male characters)
+          const strictFemaleTag = /\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女|雌)）|\b(?:female)\b|小姐|女士|夫人|魔女|女神|公主|皇后/i;
+          const strictMaleTag = /\((?:m|male)\)|\[(?:m|male)\]|（(?:男|雄)）|\b(?:male)\b|先生|大帝|少爷|皇帝|国王|王子/i;
 
           // 1. GLOSSARY EXTRACTION (if source is 'glossary' or 'both')
           if (aiGenderSource === 'glossary' || aiGenderSource === 'both') {
@@ -3779,8 +3780,8 @@ const formatModelName = (id, displayName) => {
 
                 const lineForGenderCheck = l.replace(/\((?:Sequence|\d)[^)]*\)/gi, '').replace(/（(?:序列|\d)[^）]*）/g, '');
                 let explicitGender = null;
-                const hasFem = femaleMarker.test(lineForGenderCheck);
-                const hasMale = maleMarker.test(lineForGenderCheck);
+                const hasFem = strictFemaleTag.test(lineForGenderCheck);
+                const hasMale = strictMaleTag.test(lineForGenderCheck);
                 if (hasFem && hasMale) {
                   if (/\((?:f|fem|female)\)|\[(?:f|fem|female)\]|\bfemale\b|小姐|女士|夫人/i.test(lineForGenderCheck)) explicitGender = 'female';
                   else if (/\((?:m|male)\)|\[(?:m|male)\]|\bmale\b|先生|大帝|少爷/i.test(lineForGenderCheck)) explicitGender = 'male';
