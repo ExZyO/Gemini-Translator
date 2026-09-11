@@ -1801,7 +1801,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
             }
             if (gen) {
               const cleanName = target.replace(/\s*(?:\([^)]*\)|\[[^\]]*\]|#.*$)/g, '').trim();
-              if (cleanName && !combinedLocks[cleanName]) {
+              if (cleanName && cleanName.length <= 40 && !/^(?:do not|never|use|always|note|see)\b/i.test(cleanName) && !combinedLocks[cleanName]) {
                 combinedLocks[cleanName] = gen;
                 fromGlossaryCharacters.add(cleanName);
               }
