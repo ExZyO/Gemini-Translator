@@ -2357,14 +2357,6 @@
         }
         if (!chapterList.length && novelId) chapterList.push({ id: String(novelId), title: firstNovel?.title || 'Chapter 1', order: 0 });
         if (!chapterList.length) throw new Error('No readable chapters were found in this Pixiv series.');
-        chapterList.sort((a, b) => a.order - b.order);
-        progressCb?.(`Found ${chapterList.length} Pixiv chapters. Downloading all chapters...`, 30);
-
-        const { chapters, totalWords } = await crawlChapterPool(chapterList, async (item) => {
-            const detail = item.id === String(novelId) && firstNovel ? firstNovel : await fetchPixivJson(`https://www.pixiv.net/ajax/novel/${item.id}?lang=en`);
-            return { title: item.title || detail?.title, text: cleanPixivContent(detail?.content || detail?.novel?.content || '') };
-        }, 8, progressCb);
-
         const title = seriesInfo?.title || firstNovel?.seriesNavData?.title || firstNovel?.title || 'Pixiv Novel';
         const author = seriesInfo?.userName || firstNovel?.userName || 'Pixiv Author';
         let cover = seriesInfo?.cover?.urls?.original ||
@@ -2380,13 +2372,27 @@
         if (cover && cover.includes('i.pximg.net')) {
             cover = cover.replace('i.pximg.net', 'i.pixiv.re');
         }
+        const summary = seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv';
+        const meta = { title, author, summary, cover };
+
+        if (activeCrawlController) {
+            activeCrawlController.novelMeta = { ...(activeCrawlController.novelMeta || {}), ...meta };
+        }
+
+        chapterList.sort((a, b) => a.order - b.order);
+        progressCb?.(`Found ${chapterList.length} Pixiv chapters. Downloading all chapters...`, 30);
+
+        const { chapters, totalWords } = await crawlChapterPool(chapterList, async (item) => {
+            const detail = item.id === String(novelId) && firstNovel ? firstNovel : await fetchPixivJson(`https://www.pixiv.net/ajax/novel/${item.id}?lang=en`);
+            return { title: item.title || detail?.title, text: cleanPixivContent(detail?.content || detail?.novel?.content || '') };
+        }, 8, progressCb, meta);
 
         if (activeCrawlController?.tocOnly) {
-            return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', cover, tags: ['Pixiv', 'Web Novel'], chapters: [], chapterList, totalChapterCount: chapterList.length, isEpub: false, sourceUrl: url };
+            return { title, author, summary, cover, tags: ['Pixiv', 'Web Novel'], chapters: [], chapterList, totalChapterCount: chapterList.length, isEpub: false, sourceUrl: url };
         }
         if (!chapters.length) throw new Error('Pixiv chapters were found, but their content could not be read.');
         progressCb?.(`Loaded ${chapters.length}/${chapterList.length} Pixiv chapters (~${totalWords.toLocaleString()} words)!`, 100);
-        return { title, author, summary: seriesInfo?.caption || firstNovel?.description || 'Imported from Pixiv', cover, tags: ['Pixiv', 'Web Novel'], chapters, chapterList, totalChapterCount: chapterList.length, isEpub: false, sourceUrl: url };
+        return { title, author, summary, cover, tags: ['Pixiv', 'Web Novel'], chapters, chapterList, totalChapterCount: chapterList.length, isEpub: false, sourceUrl: url };
     }
 
     // --- G. NOVELBUDDY TEMPLATE (novelbuddy.me / novelbuddy.com) ---

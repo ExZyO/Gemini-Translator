@@ -1,9 +1,9 @@
 {
-  "version": "8.14.2",
-  "versionCode": 8222,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.2/app-release.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.2/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.14.2",
+  "version": "8.14.3",
+  "versionCode": 8223,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.3/app-release.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.3/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.14.3",
   "releaseDate": "2026-09-11",
-  "releaseNotes": "v8.14.2: Universal EPUB Cover Engine & Architecture Overhaul: 1) Universal EPUB Cover Architecture: fixes undefined cover mime types, eliminates duplicate manifest entries (id=cover-image), and injects standard EPUB 2/3 <guide> and <nav epub:type=\"landmarks\"> for universal compatibility across Kindle Send-to-Kindle, Apple Books, Kobo, and Moon+ Reader; 2) Dynamic SVG Typography Cover: automatically generates high-res vector typography book covers for web novels and documents lacking cover art; 3) Cover Extraction on Ingestion: parses uploaded EPUBs, extracts cover art, and preserves original covers across translation workflows; 4) Cover Preview & Uploader: 1-click 'Add / Change Cover' tool in Translation Complete card."
+  "releaseNotes": "v8.14.3: Web Novel Cover Propagation & Persistence Engine: 1) Pixiv & Web Importer: extracts metadata and high-res cover art before initiating chapter crawl pools so active sessions and database records maintain cover art throughout download; 2) End-to-End Pipeline Propagation: ensures cover art and metadata seamlessly propagate when sending imported novels from Crawl View or Library to Translator tab; 3) Paused & Resumed Translation Integrity: guarantees cover art is preserved across pause/resume cycles and saved to history upon translation completion; 4) EPUB Packaging: embeds genuine web novel illustration covers directly into generated EPUBs."
 }
