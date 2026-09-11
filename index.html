@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.11.4';
+    const VERSION = '8.11.5';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3515,8 +3515,10 @@ const formatModelName = (id, displayName) => {
       const handleClearAllGenderLocks = () => {
         if (!genderLocks || Object.keys(genderLocks).length === 0) return;
         if (!confirm('Are you sure you want to clear all character gender locks?')) return;
+        const prevCount = Object.keys(genderLocks).length;
         setGenderLocks({});
         try { localStorage.removeItem('gemini_gender_locks'); } catch(e) {}
+        window.telemetryLog?.('GENDER_LOCK', `Cleared all ${prevCount} character gender locks.`);
         toast('Cleared all character gender locks.', 'info');
       };
 
@@ -3526,27 +3528,43 @@ const formatModelName = (id, displayName) => {
           return;
         }
         const lines = terminology.split(/\r?\n/);
+        window.telemetryLog?.('GENDER_DETECT', `Started gender auto-detection scan across ${lines.length} glossary lines.`);
         let count = 0;
         const nextLocks = { ...genderLocks };
 
-        // Filter out non-character entities (locations, items, artifacts, skills, sects, realms)
-        const nonCharacterPattern = /\b(?:item|artifact|weapon|sword|blade|spear|bow|shield|armor|pill|elixir|herb|talisman|spell|skill|technique|formation|realm|stage|rank|level|location|city|town|village|mountain|forest|river|sea|kingdom|empire|nation|state|dynasty|sect|clan|guild|organization|cult|palace|hall|pavilion|tower|inn|shop)\b/i;
+        const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港)$/i;
+        const entityPhrasePattern = /\b(?:Law of |Ruins of |Church of |Order of |School of |Nation of |City of |Land of |Archipelago|University)\b/i;
 
-        // Strict whole-word regex patterns for gender indicators
-        const femalePattern = /\b(?:female|heroine|she\/her|actress|priestess|goddess|witch|queen|princess|empress|waitress|stewardess|matriarch|duchess|baroness|countess)\b|\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女)）/i;
-        const malePattern = /\b(?:male|hero|he\/him|actor|priest|god|wizard|king|prince|emperor|waiter|patriarch|duke|baron|count)\b|\((?:m|male)\)|\[(?:m|male)\]|（(?:男)）/i;
+        const femaleMarker = /\b(?:miss|madame|mrs|madam|lady|queen|princess|empress|witch|heroine|priestess|actress|waitress|matriarch|duchess|countess|female|she\/her|demoness)\b|\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女)）|(?:小姐|女士|夫人|娘|姨|姑|魔女|皇后|王后|妃|公主)/i;
+        const femaleKinship = /\b(?:daughter|sister|mother|aunt|niece|grandmother|granddaughter|wife|girlfriend|fiancée|fiancee|maiden|girl|woman)\b/i;
 
-        // Kinship terms that strongly indicate character gender
-        const femaleKinship = /\b(?:daughter|sister|mother|aunt|niece|grandmother|granddaughter|wife|girlfriend|fiancée|fiancee|maiden|girl|woman|lady)\b/i;
-        const maleKinship = /\b(?:son|brother|father|uncle|nephew|grandfather|grandson|husband|boyfriend|fiancé|fiance|boy|man|lord|gentleman)\b/i;
+        const maleMarker = /\b(?:mr|mister|sir|gentleman|king|prince|emperor|hero|wizard|patriarch|duke|count|baron|actor|waiter|male|he\/him)\b|\((?:m|male)\)|\[(?:m|male)\]|（(?:男)）|(?:先生|少爷|公子|老爷爷|大爷|伯父|叔叔|大帝|皇帝|亲王|皇子)/i;
+        const maleKinship = /\b(?:son|brother|father|uncle|nephew|grandfather|grandson|husband|boyfriend|fiancé|fiance|boy|man)\b/i;
 
-        for (const line of lines) {
-          const l = line.trim();
-          if (!l || l.startsWith('#') || l.startsWith('//')) continue;
+        const abstractRankExclusions = /\b(?:King of Angels|King of Kings|Angel of|God of|Lord of|Mother Goddess|Mother Tree)\b/i;
+        const abstractRankExclusionsZh = /(?:天使之王|众天使之王)/;
+
+        let inRulesSection = false;
+
+        for (const rawLine of lines) {
+          const l = rawLine.trim();
+          if (!l) continue;
+
+          // Skip Rules / Style Guidelines sections
+          if (/^#+\s*(?:I\.|SYSTEM|RULES|GUIDELINES|STYLE)/i.test(l)) {
+            inRulesSection = true;
+            continue;
+          }
+          if (/^#+\s*(?:II|III|IV|V|VI|VII|[0-9]+)/i.test(l)) {
+            inRulesSection = false;
+          }
+          if (inRulesSection) continue;
+
+          if (l.startsWith('#') || l.startsWith('//') || l.startsWith('/*')) continue;
+          if (/^(?:Example|\*|\- Example|Correct:|Incorrect:|Rule:|Note:|Legend:|Warning:)/i.test(l)) continue;
 
           let srcPart = '';
           let tgtPart = '';
-          let notesPart = '';
 
           if (l.includes('->')) {
             const parts = l.split('->');
@@ -3556,49 +3574,36 @@ const formatModelName = (id, displayName) => {
             const parts = l.split('=>');
             srcPart = parts[0].trim();
             tgtPart = parts.slice(1).join('=>').trim();
-          } else if (l.includes(':')) {
-            const parts = l.split(':');
-            srcPart = parts[0].trim();
-            tgtPart = parts.slice(1).join(':').trim();
           } else if (l.includes('=')) {
             const parts = l.split('=');
             srcPart = parts[0].trim();
             tgtPart = parts.slice(1).join('=').trim();
+          } else if (l.includes(':')) {
+            const parts = l.split(':');
+            srcPart = parts[0].trim();
+            tgtPart = parts.slice(1).join(':').trim();
           } else {
-            srcPart = l;
+            continue;
           }
 
-          const parenMatch = (tgtPart || srcPart).match(/\(([^)]+)\)|\[([^\]]+)\]|（([^）]+)）/);
-          if (parenMatch) {
-            notesPart = (parenMatch[1] || parenMatch[2] || parenMatch[3] || '').trim();
-          }
+          srcPart = srcPart.replace(/^[-*•\s\d.]+\s*/, '').trim();
+          tgtPart = tgtPart.replace(/^[-*•\s\d.]+\s*/, '').trim();
+          if (!srcPart || !tgtPart) continue;
 
-          const cleanName = (str) => {
-            return str
-              .replace(/^[-*•\s\d.]+\s*/, '')
-              .replace(/\s*\([^)]*\)/g, '')
-              .replace(/\s*\[[^\]]*\]/g, '')
-              .replace(/\s*（[^）]*）/g, '')
-              .trim();
-          };
+          if (abstractRankExclusions.test(l) || abstractRankExclusionsZh.test(l)) continue;
+          if (entityPhrasePattern.test(l) && !/\b(?:Character|Mr|Miss|Madame|Mrs|Lady)\b/i.test(l) && !/(?:小姐|先生|女士)/.test(l)) continue;
 
-          const cleanSrc = cleanName(srcPart);
-          const cleanTgt = cleanName(tgtPart);
-
-          // Skip if clean name matches non-character entities
-          if (cleanSrc && nonCharacterPattern.test(cleanSrc)) continue;
-          if (cleanTgt && nonCharacterPattern.test(cleanTgt)) continue;
-
-          const textToEvaluate = notesPart || tgtPart || l;
+          // Strip sequence/rank descriptions in parentheses so rank names (e.g. "Sequence 1 Knowledge Emperor") don't overwrite true character gender
+          const lineForGenderCheck = l.replace(/\((?:Sequence|\d)[^)]*\)/gi, '').replace(/（(?:序列|\d)[^）]*）/g, '');
 
           let detected = null;
-          const hasFem = femalePattern.test(textToEvaluate) || femaleKinship.test(textToEvaluate);
-          const hasMale = malePattern.test(textToEvaluate) || maleKinship.test(textToEvaluate);
+          const hasFem = femaleMarker.test(lineForGenderCheck) || femaleKinship.test(lineForGenderCheck);
+          const hasMale = maleMarker.test(lineForGenderCheck) || maleKinship.test(lineForGenderCheck);
 
           if (hasFem && hasMale) {
-            if (/\((?:f|fem|female)\)|\[(?:f|fem|female)\]|\bfemale\b/i.test(textToEvaluate)) {
+            if (/\((?:f|fem|female)\)|\[(?:f|fem|female)\]|\bfemale\b|小姐|女士|夫人/i.test(lineForGenderCheck)) {
               detected = 'female';
-            } else if (/\((?:m|male)\)|\[(?:m|male)\]|\bmale\b/i.test(textToEvaluate)) {
+            } else if (/\((?:m|male)\)|\[(?:m|male)\]|\bmale\b|先生|大帝|少爷/i.test(lineForGenderCheck)) {
               detected = 'male';
             }
           } else if (hasFem) {
@@ -3607,13 +3612,50 @@ const formatModelName = (id, displayName) => {
             detected = 'male';
           }
 
-          if (detected) {
-            if (cleanTgt && cleanTgt.length >= 2 && cleanTgt.length < 50 && !nonCharacterPattern.test(cleanTgt)) {
-              nextLocks[cleanTgt] = detected;
-              count++;
-            }
-            if (cleanSrc && cleanSrc.length >= 2 && cleanSrc.length < 50 && cleanSrc !== cleanTgt && !nonCharacterPattern.test(cleanSrc)) {
-              nextLocks[cleanSrc] = detected;
+          if (!detected) continue;
+
+          const extractAliases = (part) => {
+            const hashIdx = part.indexOf('#');
+            if (hashIdx !== -1) part = part.slice(0, hashIdx);
+
+            const parens = [];
+            const cleaned = part.replace(/\(([^)]+)\)|\[([^\]]+)\]|（([^）]+)）/g, (m, p1, p2, p3) => {
+              const inside = (p1 || p2 || p3 || '').trim();
+              if (inside && inside.length >= 2 && !/^(?:not|e\.g\.|see|also|formerly|sequence|epoch|chapter)/i.test(inside)) {
+                parens.push(inside);
+              }
+              return ' ';
+            });
+
+            const rawItems = [...cleaned.split(/\s*[\/;]\s*/), ...parens];
+
+            return rawItems.map(s => {
+              return s
+                .replace(/^[-*•\s\d.]+\s*/, '')
+                .replace(/^["']|["']$/g, '')
+                .trim();
+            }).filter(s => {
+              if (!s || s.length < 2 || s.length > 50) return false;
+              if (/^(?:male|female|man|woman|person|human|character|hero|heroine|boy|girl)$/i.test(s)) return false;
+              if (/^(?:Main|Side|Villain|Class|Sequence|Pathway|Epoch)/i.test(s)) return false;
+              if (abstractRankExclusions.test(s) || abstractRankExclusionsZh.test(s)) return false;
+              if (entityEndingPattern.test(s)) return false;
+              return true;
+            });
+          };
+
+          const srcAliases = extractAliases(srcPart);
+          const tgtAliases = extractAliases(tgtPart);
+
+          for (const a of [...tgtAliases, ...srcAliases]) {
+            if (nextLocks[a] && nextLocks[a] !== detected) {
+              if (/\b(?:Miss|Madame|Queen|Princess|Witch|Demoness|Lady)\b/i.test(a) || /(?:小姐|女士|夫人|魔女)/.test(a)) {
+                nextLocks[a] = 'female';
+              } else if (/\b(?:Mr|Mister|Sir|Prince|Emperor)\b/i.test(a) || /(?:先生|少爷|大帝)/.test(a)) {
+                nextLocks[a] = 'male';
+              }
+            } else {
+              nextLocks[a] = detected;
               count++;
             }
           }
@@ -3622,8 +3664,10 @@ const formatModelName = (id, displayName) => {
         if (count > 0) {
           setGenderLocks(nextLocks);
           try { localStorage.setItem('gemini_gender_locks', JSON.stringify(nextLocks)); } catch(e) {}
+          window.telemetryLog?.('GENDER_DETECT', `Auto-detected and locked ${count} character genders! Total active locks: ${Object.keys(nextLocks).length}`);
           toast(`Auto-detected and locked ${count} character genders!`, 'success');
         } else {
+          window.telemetryLog?.('GENDER_DETECT', 'No character gender markers identified.');
           toast('No clear character gender tags found. Format terms like: Name -> Translation (female)', 'info');
         }
       };
@@ -6820,19 +6864,24 @@ FORMATTING & STRUCTURE RULES:
         }
 
         setIsExtractingGlossary(true);
+        window.telemetryLog?.('AUTO_GLOSSARY', `Started AI glossary extraction with ${sampleText.length} chars of novel text sample.`);
         try {
           const sysPrompt = `You are an expert light novel and web novel translator and editor.
 Analyze the provided novel chapter excerpts and extract:
-1. Character names (protagonists, side characters, villains, titles, aliases)
+1. Character names (protagonists, side characters, villains, titles, aliases) with verified gender
 2. Factions, sects, guilds, schools, academies, or family clans
 3. Special fantasy terminology, cultivation ranks, magical skills, or key locations
 
 For each entity, output a single line in this exact format:
-OriginalTerm = TranslatedTerm # Category (Character|Location|Faction|Term): Note
+OriginalTerm = TranslatedTerm # Category: Note
 
-Example:
-綾小路 清隆 = Kiyotaka Ayanokouji # Character: Main protagonist, Class D
-堀北 鈴音 = Suzune Horikita # Character: Class D leader
+For characters, explicitly specify their gender in the Category tag if known from context, pronouns, or honorifics:
+- Character (male)
+- Character (female)
+
+Examples:
+綾小路 清隆 = Kiyotaka Ayanokouji # Character (male): Main protagonist, Class D
+堀北 鈴音 = Suzune Horikita # Character (female): Class D leader
 高度育成高等学校 = Advanced Nurturing High School # Location: Main setting
 
 Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conversational chatter.`;
@@ -6861,21 +6910,27 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   cat = comment;
                 }
               }
+              let gen = null;
+              if (/\b(?:female|f)\b/i.test(cat)) gen = 'female';
+              else if (/\b(?:male|m)\b/i.test(cat)) gen = 'male';
               if (orig && rest) {
-                parsed.push({ id: 'term_' + idx, orig, trans: rest, category: cat || 'Entity', note, checked: true });
+                parsed.push({ id: 'term_' + idx, orig, trans: rest, category: cat || 'Entity', gender: gen, note, checked: true });
               }
             }
           });
 
           if (parsed.length === 0) {
             toast('No terms identified. Try increasing chapter count or check chapter content.', 'info');
+            window.telemetryLog?.('AUTO_GLOSSARY', 'No terms identified from novel sample.');
           } else {
             setExtractedTerms(parsed);
             toast(`Extracted ${parsed.length} terms from novel!`, 'success');
+            window.telemetryLog?.('AUTO_GLOSSARY', `Successfully extracted ${parsed.length} terms from novel!`, { termCount: parsed.length });
             try { window.NativeBridge?.showCompletionNotification?.('AI Glossary Extracted! ⚡', `Discovered ${parsed.length} character names and lore terms.`); } catch(e) {}
           }
         } catch (err) {
           console.error('Auto-glossary extraction error:', err);
+          window.telemetryLog?.('AUTO_GLOSSARY', `Extraction failed: ${err.message}`, null, 'error');
           toast('Extraction failed: ' + err.message, 'error');
         } finally {
           setIsExtractingGlossary(false);
@@ -6947,6 +7002,23 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         const selected = extractedTerms.filter(t => t.checked);
         if (selected.length === 0) return toast('No terms selected', 'warning');
         
+        // Auto-register verified character genders directly into genderLocks!
+        let autoLockedCount = 0;
+        const updatedLocks = { ...genderLocks };
+        selected.forEach(t => {
+          const gen = t.gender || (/\b(?:female|f)\b/i.test(t.category) ? 'female' : (/\b(?:male|m)\b/i.test(t.category) ? 'male' : null));
+          if (gen) {
+            if (t.trans) updatedLocks[t.trans] = gen;
+            if (t.orig && t.orig !== t.trans) updatedLocks[t.orig] = gen;
+            autoLockedCount++;
+          }
+        });
+        if (autoLockedCount > 0) {
+          setGenderLocks(updatedLocks);
+          try { localStorage.setItem('gemini_gender_locks', JSON.stringify(updatedLocks)); } catch(e) {}
+          window.telemetryLog?.('GENDER_LOCK', `Auto-locked ${autoLockedCount} character genders from extracted terms.`);
+        }
+
         const structuredGlossary = formatExtractedTermsIntoMasterGlossary(selected);
         const formattedLines = selected.map(t => `${t.orig} = ${t.trans}${t.note ? ` # ${t.category}: ${t.note}` : ''}`).join('\n');
         
@@ -6956,6 +7028,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           if (!name || !name.trim()) return;
           handleSaveGlossary(name.trim(), structuredGlossary);
           setAutoGlossaryModalOpen(false);
+          window.telemetryLog?.('AUTO_GLOSSARY', `Saved ${selected.length} terms as profile "${name.trim()}".`);
           toast(`Saved ${selected.length} terms as "${name.trim()}"!`, 'success');
         } else {
           const current = (terminology || '').trim();
@@ -6970,6 +7043,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           setTerminology(updated);
           localStorage.setItem('terminology', updated);
           setAutoGlossaryModalOpen(false);
+          window.telemetryLog?.('AUTO_GLOSSARY', `Applied ${selected.length} terms to active glossary.`);
           toast(`Applied ${selected.length} terms to active glossary!`, 'success');
         }
       };
@@ -9614,6 +9688,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
       // Live Agent Telemetry & Debugging (Method 2 Wireless Wi-Fi)
       const [telemetryEnabled, setTelemetryEnabled] = useState(() => localStorage.getItem('telemetry_enabled') !== 'false');
+      const [telemetryVerbose, setTelemetryVerbose] = useState(() => localStorage.getItem('telemetry_verbose') !== 'false');
       const [telemetryServerUrl, setTelemetryServerUrl] = useState(() => localStorage.getItem('telemetry_server_url') || 'http://192.168.1.216:9090');
       const [telemetryTesting, setTelemetryTesting] = useState(false);
       const [telemetryStatus, setTelemetryStatus] = useState('idle');
@@ -9648,6 +9723,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const cleanUrl = (telemetryServerUrl || 'http://192.168.1.216:9090').replace(/\/+$/, '');
           await fetch(`${cleanUrl}/clear`, { method: 'POST' });
           window.AppLogger?.clear();
+          window.telemetryLog?.('CONFIG', 'Cleared all live telemetry logs on PC & device.');
           toast('Telemetry logs cleared on PC & device.', 'info');
         } catch(e) {
           toast('Could not clear server logs: ' + e.message, 'error');
@@ -12683,6 +12759,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   localStorage.setItem('telemetry_enabled', String(v));
                   toast(v ? 'Live telemetry enabled! Logs stream to PC.' : 'Live telemetry disabled.', 'info');
                 }),
+                switchRow('🔬 Deep Debugging (All Buttons & Backgrounds)', telemetryVerbose, (v) => {
+                  setTelemetryVerbose(v);
+                  localStorage.setItem('telemetry_verbose', String(v));
+                  window.telemetryLog?.('CONFIG', `Deep Debugging set to ${v}`);
+                  toast(v ? '🔬 Deep Debugging enabled! All buttons & background actions logged.' : 'Standard telemetry enabled.', 'info');
+                }),
                 h('div', { style: { marginTop: 8 } },
                   h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'PC TELEMETRY SERVER URL'),
                   h('input', {
@@ -14024,7 +14106,24 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--paper)' } }, t.orig),
                         h('span', { style: { color: 'var(--slate)', fontSize: 11 } }, '➔'),
                         h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--iris)' } }, t.trans),
-                        h('span', { className: 'badge', style: { fontSize: 9, textTransform: 'uppercase', padding: '1px 5px' } }, t.category || 'Term')
+                        h('span', { className: 'badge', style: { fontSize: 9, textTransform: 'uppercase', padding: '1px 5px' } }, t.category || 'Term'),
+                        t.gender && h('span', {
+                          className: 'badge',
+                          style: {
+                            fontSize: 9,
+                            padding: '1px 6px',
+                            cursor: 'pointer',
+                            background: t.gender === 'female' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                            color: t.gender === 'female' ? '#ec4899' : '#3b82f6',
+                            border: `1px solid ${t.gender === 'female' ? 'rgba(236, 72, 153, 0.4)' : 'rgba(59, 130, 246, 0.4)'}`
+                          },
+                          title: 'Click to toggle gender',
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            const nextGen = t.gender === 'female' ? 'male' : 'female';
+                            setExtractedTerms(prev => prev.map(item => item.id === t.id ? { ...item, gender: nextGen, category: `Character (${nextGen})` } : item));
+                          }
+                        }, t.gender === 'female' ? '♀ Female' : '♂ Male')
                       ),
                       t.note && h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.note)
                     )

@@ -224,6 +224,7 @@
           const cur = parseInt(localStorage.getItem(k) || '0', 10);
           localStorage.setItem(k, String(cur + 1));
         }
+        global.telemetryLog?.('TM_BANK', `Translation Memory ${type === 'exact' ? '100% Exact' : 'Fuzzy'} Cache Hit!`);
       } catch (_) {}
     },
 
@@ -360,6 +361,7 @@ ${tuNodes}
           }
 
           await db.translation_snapshots.put(snapshot);
+          global.telemetryLog?.('SNAPSHOT', `Saved translation snapshot for "${novelKey}" Ch. ${idx + 1} (${snapshot.wordCount} words, model: ${snapshot.model})`);
         }
       } catch (err) {
         console.warn('[Snapshots] Create warning:', err);
