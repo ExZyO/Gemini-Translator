@@ -747,7 +747,24 @@
                 for (const m of linkMatches) {
                     const href = m[1].replace(/\/$/, '') + '/';
                     const rawText = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
-                    if ((href.includes('witchculttranslation.com/20') || href.includes('witchculttranslation.com/arc-')) && rawText.length > 0 && !seenHref.has(href)) {
+
+                    const isAllowedDomain = href.includes('witchculttranslation.com/20') ||
+                                            href.includes('witchculttranslation.com/arc-') ||
+                                            href.includes('eminenttranslations.com') ||
+                                            href.includes('kagurojp.wordpress.com') ||
+                                            href.includes('remonwater.wordpress.com');
+
+                    const isIgnored = href.includes('rezerodb.com') ||
+                                      href.includes('twitter.com') ||
+                                      href.includes('discord.com') ||
+                                      href.includes('mega.nz') ||
+                                      href.includes('/category/') ||
+                                      href.includes('/tag/') ||
+                                      rawText.toLowerCase().includes('cut content') ||
+                                      rawText.toLowerCase().includes('mega archive') ||
+                                      rawText.toLowerCase().includes('side content+');
+
+                    if (isAllowedDomain && !isIgnored && rawText.length > 0 && !seenHref.has(href)) {
                         seenHref.add(href);
                         allLinks.push({
                             href,
@@ -805,7 +822,16 @@
             chapterList,
             async (item) => {
                 const html = await fetchHtml(item.url);
-                const cMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+                let cMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+                if (!cMatch && item.url.includes('eminenttranslations.com')) {
+                    const pMatches = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
+                    if (pMatches.length > 0) {
+                        const cleanPs = pMatches
+                            .map(p => p[1].replace(/<[^>]+>/g, '').trim())
+                            .filter(t => t.length > 0 && !/^(Chapter List|Previous Chapter|Next Chapter|Menu|Close|Search)/i.test(t));
+                        cMatch = [null, cleanPs.map(p => `<p>${p}</p>`).join('\n')];
+                    }
+                }
                 const txt = cleanWitchCultChapter(cMatch ? cMatch[1] : html);
                 return { title: item.title, text: txt, arc: item.arc, volume: item.volume };
             },

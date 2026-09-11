@@ -15778,7 +15778,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             h('div', { className: 'modal-bd', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '14px 16px' } },
               h('div', { className: 'seg-wide', style: { marginBottom: 4 } },
                 h('span', { className: pluginSelectedTab === 'catalog' ? 'on' : '', onClick: () => setPluginSelectedTab('catalog') }, `🌐 Catalog (${pluginCatalog.length || '278+'})`),
-                h('span', { className: pluginSelectedTab === 'installed' ? 'on' : '', onClick: () => setPluginSelectedTab('installed') }, `✅ Installed (${(window.SourceRegistry ? window.SourceRegistry.getAll() : []).length})`),
+                h('span', { className: pluginSelectedTab === 'installed' ? 'on' : '', onClick: () => setPluginSelectedTab('installed') }, `✅ Installed (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`),
                 h('span', { className: pluginSelectedTab === 'custom' ? 'on' : '', onClick: () => setPluginSelectedTab('custom') }, '🔗 Sideload Custom')
               ),
 
@@ -15812,7 +15812,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
                   return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, overflowY: 'auto' } },
                     list.slice(0, 100).map(p => {
-                      const isInstalled = window.SourceRegistry && window.SourceRegistry.isInstalled(p.id);
+                      const reg = window.sourceRegistry || window.SourceRegistry;
+                      const isInstalled = reg && typeof reg.isInstalled === 'function' ? reg.isInstalled(p.id) : false;
                       return h('div', {
                         key: p.id,
                         style: {
@@ -15856,7 +15857,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               ),
 
               pluginSelectedTab === 'installed' && (() => {
-                const installed = window.SourceRegistry ? window.SourceRegistry.getAll() : [];
+                const reg = window.sourceRegistry || window.SourceRegistry;
+                const installed = reg && typeof reg.getAll === 'function' ? reg.getAll() : (reg && typeof reg.listPlugins === 'function' ? reg.listPlugins() : []);
                 if (installed.length === 0) {
                   return h('div', { style: { textAlign: 'center', padding: '40px 10px', color: 'var(--slate)', fontSize: 13 } }, 'No plugins currently installed. Browse the Catalog tab to add source extensions!');
                 }

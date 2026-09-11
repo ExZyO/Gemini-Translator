@@ -253,14 +253,32 @@
       }
       return list;
     }
+
+    /**
+     * Get list of all active plugins (alias for listPlugins)
+     */
+    getAll() {
+      return this.listPlugins();
+    }
   }
 
   const defaultRegistry = new SourceRegistry();
 
+  // Attach static helper methods to class for backwards compatibility
+  SourceRegistry.getAll = () => defaultRegistry.listPlugins();
+  SourceRegistry.listPlugins = () => defaultRegistry.listPlugins();
+  SourceRegistry.isInstalled = (id) => defaultRegistry.isInstalled(id);
+  SourceRegistry.unregister = (id) => defaultRegistry.unregister(id);
+  SourceRegistry.loadPluginById = (id) => defaultRegistry.loadPluginById(id);
+  SourceRegistry.loadPluginFromUrl = (url, meta) => defaultRegistry.loadPluginFromUrl(url, meta);
+  SourceRegistry.fetchCatalog = () => defaultRegistry.fetchCatalog();
+  SourceRegistry.defaultRegistry = defaultRegistry;
+
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = { SourceRegistry, defaultRegistry };
   } else if (typeof window !== 'undefined') {
-    window.SourceRegistry = SourceRegistry;
+    window.SourceRegistry = defaultRegistry;
+    window.SourceRegistryClass = SourceRegistry;
     window.sourceRegistry = defaultRegistry;
   }
 })();

@@ -42,7 +42,7 @@
       }
 
       const chapters = [];
-      const links = doc.querySelectorAll('.entry-content a[href*="witchculttranslation.com"]');
+      const links = doc.querySelectorAll('.entry-content a[href*="witchculttranslation.com"], .entry-content a[href*="eminenttranslations.com"], .entry-content a[href*="kagurojp.wordpress.com"], .entry-content a[href*="remonwater.wordpress.com"]');
       const seen = new Set();
 
       links.forEach((a, idx) => {
@@ -104,12 +104,12 @@
       const title = this.decodeHtml(rawTitle.replace(/\s*–\s*Witch Cult Translations.*$/i, '').trim());
 
       // Content
-      const contentEl = doc.querySelector('.entry-content');
+      let contentEl = doc.querySelector('.entry-content, article, main');
       let content = '';
 
       if (contentEl) {
         // Remove WP share buttons, related posts, navigation
-        const trash = contentEl.querySelectorAll('.sharedaddy, .jp-relatedposts, .navigation, script, style, .wp-block-navigation');
+        const trash = contentEl.querySelectorAll('.sharedaddy, .jp-relatedposts, .navigation, script, style, .wp-block-navigation, header, footer');
         trash.forEach(t => t.remove());
 
         const paras = contentEl.querySelectorAll('p');
@@ -118,7 +118,7 @@
           let text = p.textContent.trim();
           if (!text) return;
           // Ignore translator note navigation like "Next Chapter ->"
-          if (/^(Next Chapter|Previous Chapter|Table of Contents)/i.test(text)) return;
+          if (/^(Next Chapter|Previous Chapter|Table of Contents|Chapter List|Menu|Close|Search)/i.test(text)) return;
           cleanParas.push(this.decodeHtml(text));
         });
 
