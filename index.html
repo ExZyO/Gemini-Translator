@@ -1941,6 +1941,12 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         }
       }
 
+      const culturalFootnotesActive = typeof localStorage !== 'undefined' && localStorage.getItem('culturalFootnotesEnabled') !== 'false';
+      if (culturalFootnotesActive) {
+        const footnoteRule = `=== CULTURAL CONTEXT & FOOTNOTES PROTOCOL ===\nWhen culturally specific idioms, cultivation lore, puns, honorific subtleties, or historical terms appear, append an explanatory footnote at the very end of the chapter under "--- FOOTNOTES ---" using standard format "[¹ Note: explanation]" or "[² Note: explanation]", and place the superscript marker "[¹]" immediately after the term in the translated text.\n=== END FOOTNOTES PROTOCOL ===\n\n`;
+        p = footnoteRule + p;
+      }
+
       let instructionsText = '';
       if (instructions && instructions.trim()) {
         instructionsText = instructions.trim();
@@ -1954,8 +1960,8 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       }
 
       const trailer = needContextUpdate
-        ? `Provide ONLY the pure ${tgtDisplay} translation. Never include the original source text or bilingual side-by-side lines. Followed EXACTLY by the delimiter "\n---CONTEXT_UPDATE---\n", followed by a brief telegraphic continuity note (max 30 words: cast [name/gender], location, immediate tone).`
-        : `Provide ONLY the pure ${tgtDisplay} translated text without preamble, commentary, or markdown notes.`;
+        ? `Provide ONLY the pure ${tgtDisplay} translation${culturalFootnotesActive ? ' (with any trailing --- FOOTNOTES --- section if cultural terms occurred)' : ''}. Never include the original source text or bilingual side-by-side lines. Followed EXACTLY by the delimiter "\n---CONTEXT_UPDATE---\n", followed by a brief telegraphic continuity note (max 30 words: cast [name/gender], location, immediate tone).`
+        : `Provide ONLY the pure ${tgtDisplay} translated text${culturalFootnotesActive ? ' (including trailing --- FOOTNOTES --- section if cultural terms occurred)' : ' without preamble, commentary, or markdown notes'}.`;
       p += trailer;
 
       const estSource = estimateTokens(text || '');
@@ -5785,6 +5791,27 @@ const formatModelName = (id, displayName) => {
       const [consistencyModalOpen, setConsistencyModalOpen] = useState(false);
       const [isAuditingConsistency, setIsAuditingConsistency] = useState(false);
       const [consistencyAuditResults, setConsistencyAuditResults] = useState(null);
+      // Source Plugins State (§4.1)
+      const [sourcePluginsModalOpen, setSourcePluginsModalOpen] = useState(false);
+      const [pluginCatalog, setPluginCatalog] = useState([]);
+      const [isCatalogLoading, setIsCatalogLoading] = useState(false);
+      const [pluginSearchQuery, setPluginSearchQuery] = useState('');
+      const [pluginSelectedTab, setPluginSelectedTab] = useState('catalog');
+      const [customPluginUrl, setCustomPluginUrl] = useState('');
+      const [pluginCatalogTick, setPluginCatalogTick] = useState(0);
+
+      // Cost & Time Estimator State (§7.2)
+      const [costEstimatorModalOpen, setCostEstimatorModalOpen] = useState(false);
+      const [costEstimatorData, setCostEstimatorData] = useState(null);
+
+      // Cultural Context Footnotes Protocol (§5.10)
+      const [culturalFootnotesEnabled, setCulturalFootnotesEnabled] = useState(() => {
+        try { return localStorage.getItem('culturalFootnotesEnabled') !== 'false'; } catch (_) { return true; }
+      });
+      useEffect(() => {
+        try { localStorage.setItem('culturalFootnotesEnabled', String(culturalFootnotesEnabled)); } catch (_) {}
+      }, [culturalFootnotesEnabled]);
+
       const [toasts, setToasts] = useState([]);
       const [availableUpdate, setAvailableUpdate] = useState(null);
       const [downloadSuccessModal, setDownloadSuccessModal] = useState(null);
@@ -6068,6 +6095,261 @@ const formatModelName = (id, displayName) => {
         };
         refreshTmStats();
       }, [translatedChapters, chapters, assembledText, inputText, fileName, activeNovelRecord, geminiModel]);
+
+      // --- Source Plugins Handlers (§4.1) ---
+      const handleOpenSourcePluginsModal = async () => {
+        setSourcePluginsModalOpen(true);
+        if (!pluginCatalog || pluginCatalog.length === 0) {
+          setIsCatalogLoading(true);
+          try {
+            if (window.sourceRegistry && typeof window.sourceRegistry.fetchCatalog === 'function') {
+              const cat = await window.sourceRegistry.fetchCatalog();
+              setPluginCatalog(Array.isArray(cat) ? cat : []);
+            }
+          } catch (err) {
+            console.warn('Failed to fetch LNReader plugins catalog:', err);
+            toast('Could not fetch online plugins catalog: ' + err.message, 'warning');
+          } finally {
+            setIsCatalogLoading(false);
+          }
+        }
+      };
+
+      const handleInstallPlugin = async (item) => {
+        try {
+          toast(`Installing ${item.name} plugin…`, 'info');
+          await window.sourceRegistry.loadPluginById(item.id);
+          setPluginCatalogTick(t => t + 1);
+          toast(`✅ Successfully installed ${item.name} (${item.id})!`, 'success');
+        } catch (err) {
+          toast(`Plugin install failed: ${err.message}`, 'error');
+        }
+      };
+
+      const handleUninstallPlugin = (id) => {
+        if (window.sourceRegistry.unregister(id)) {
+          setPluginCatalogTick(t => t + 1);
+          toast(`Uninstalled plugin: ${id}`, 'info');
+        } else {
+          toast('Cannot uninstall built-in plugin.', 'warning');
+        }
+      };
+
+      const handleInstallCustomPluginUrl = async (url) => {
+        if (!url || !url.trim()) return;
+        try {
+          toast('Fetching and installing custom plugin…', 'info');
+          await window.sourceRegistry.loadPluginFromUrl(url.trim());
+          setPluginCatalogTick(t => t + 1);
+          toast('✅ Custom plugin registered and ready!', 'success');
+          setCustomPluginUrl('');
+        } catch (err) {
+          toast(`Custom plugin load failed: ${err.message}`, 'error');
+        }
+      };
+
+      // --- Cost & Time Estimator Handlers (§7.2) ---
+      const handleOpenCostEstimator = () => {
+        let chs = (chapters && chapters.length > 0) ? chapters : [];
+        let totalChars = 0;
+        let totalWords = 0;
+
+        if (chs.length > 0) {
+          for (const c of chs) {
+            const t = (typeof c === 'string' ? c : (c?.text || c?.content || ''));
+            totalChars += t.length;
+            totalWords += t.split(/\s+/).filter(Boolean).length;
+          }
+        } else if (inputText && inputText.trim()) {
+          totalChars = inputText.length;
+          totalWords = inputText.split(/\s+/).filter(Boolean).length;
+          chs = [{ title: 'Current Text', content: inputText }];
+        }
+
+        if (totalChars === 0) {
+          toast('Please paste text or load a novel/EPUB before estimating cost.', 'warning');
+          return;
+        }
+
+        const estSourceTokens = Math.round(totalChars / 2.8);
+        const glossaryTermsActive = glossaryTermCount || 0;
+        const estGlossaryTokens = smartGlossary ? Math.min(chs.length * 40, glossaryTermsActive * 12) : (glossaryTermsActive * 15);
+        const estGenderTokens = Object.keys(genderLocks || {}).length * 8;
+        const estSystemOverhead = chs.length * 85;
+        const totalPromptTokens = estSourceTokens + estGlossaryTokens + estGenderTokens + estSystemOverhead;
+        const totalOutputTokens = Math.max(Math.round(totalWords * 1.3), Math.round(estSourceTokens * 0.75));
+        const totalTokens = totalPromptTokens + totalOutputTokens;
+
+        const models = [
+          {
+            id: 'gemini-2.5-flash-lite',
+            name: 'Gemini 3.5 Flash-Lite',
+            tag: 'Most Cost Effective ⚡',
+            inRate: 0.075,
+            outRate: 0.30,
+            recommended: true
+          },
+          {
+            id: 'gemini-2.5-flash',
+            name: 'Gemini 3.7 Flash',
+            tag: 'Balanced Quality & Speed',
+            inRate: 0.10,
+            outRate: 0.40,
+            recommended: false
+          },
+          {
+            id: 'gemini-2.5-flash-thinking',
+            name: 'Gemini 3.8 Flash (Thinking)',
+            tag: 'High Nuance & Slang',
+            inRate: 0.15,
+            outRate: 0.60,
+            recommended: false
+          },
+          {
+            id: 'deepseek-chat',
+            name: 'DeepSeek V3',
+            tag: 'Web Novel Specialist',
+            inRate: 0.14,
+            outRate: 0.28,
+            recommended: false
+          },
+          {
+            id: 'gemini-2.5-pro',
+            name: 'Gemini 3.5 Pro',
+            tag: 'Maximum Literary Depth',
+            inRate: 1.25,
+            outRate: 5.00,
+            recommended: false
+          }
+        ];
+
+        const calculatedModels = models.map(m => {
+          const inCost = (totalPromptTokens / 1000000) * m.inRate;
+          const outCost = (totalOutputTokens / 1000000) * m.outRate;
+          const totalCost = inCost + outCost;
+          return {
+            ...m,
+            inCost,
+            outCost,
+            totalCost: totalCost < 0.01 ? '< $0.01' : `$${totalCost.toFixed(3)}`
+          };
+        });
+
+        const wordsPerSecStream = 55;
+        const baseSecs = Math.max(5, Math.round(totalWords / wordsPerSecStream));
+        const timeTiers = [
+          { streams: 1, duration: formatDuration(baseSecs) },
+          { streams: 5, duration: formatDuration(Math.max(3, Math.round(baseSecs / 4.2))), recommended: true },
+          { streams: 10, duration: formatDuration(Math.max(2, Math.round(baseSecs / 7.5))) },
+          { streams: 15, duration: formatDuration(Math.max(2, Math.round(baseSecs / 10.5))) }
+        ];
+
+        function formatDuration(sec) {
+          if (sec < 60) return `${sec}s`;
+          const mins = Math.floor(sec / 60);
+          const rem = sec % 60;
+          return rem > 0 ? `${mins}m ${rem}s` : `${mins}m`;
+        }
+
+        setCostEstimatorData({
+          chapterCount: chs.length,
+          totalChars,
+          totalWords,
+          estSourceTokens,
+          totalPromptTokens,
+          totalOutputTokens,
+          totalTokens,
+          models: calculatedModels,
+          timeTiers
+        });
+        setCostEstimatorModalOpen(true);
+      };
+
+      // --- AniList Metadata Enrichment Handlers (§7.4) ---
+      const handleEnrichNovelMetadata = async (novelRecord) => {
+        if (!novelRecord || !novelRecord.title) {
+          toast('No novel selected for metadata enrichment.', 'warning');
+          return;
+        }
+        const rawTitle = novelRecord.title.replace(/\s*\(Translated\)\s*$/i, '').replace(/\s*[-|]\s*(?:Lnori|Syosetu|NovelBuddy|RoyalRoad|Witch Cult)\s*$/i, '').trim();
+        toast(`Searching AniList for "${rawTitle}"…`, 'info');
+        try {
+          const query = `
+            query ($search: String) {
+              Media (search: $search, type: MANGA) {
+                id
+                title { romaji english native }
+                description(asHtml: false)
+                coverImage { extraLarge large }
+                genres
+                averageScore
+                status
+              }
+            }
+          `;
+          const res = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ query, variables: { search: rawTitle } })
+          });
+          if (!res.ok) throw new Error(`AniList returned HTTP ${res.status}`);
+          const data = await res.json();
+          const media = data?.data?.Media;
+          if (!media) {
+            toast(`No matching metadata found on AniList for "${rawTitle}".`, 'warning');
+            return;
+          }
+
+          const bestTitle = media.title?.english || media.title?.romaji || media.title?.native || rawTitle;
+          const coverUrl = media.coverImage?.extraLarge || media.coverImage?.large || '';
+          const summary = (media.description || '').replace(/<[^>]*>/g, '').trim();
+          const genres = Array.isArray(media.genres) ? media.genres : [];
+
+          const confirmMsg = `Found metadata on AniList:\n\nTitle: ${bestTitle}\nGenres: ${genres.join(', ') || 'None'}\nRating: ${media.averageScore ? media.averageScore + '%' : 'N/A'}\n\nApply enriched cover art, synopsis, and tags to this novel?`;
+          if (confirm(confirmMsg)) {
+            const updates = {
+              enrichedTitle: bestTitle,
+              cover: coverUrl || novelRecord.cover,
+              summary: summary || novelRecord.summary,
+              genres: genres,
+              anilistId: media.id,
+              rating: media.averageScore
+            };
+            if (window.novelDB && novelRecord.id) {
+              await window.novelDB.novels.update(novelRecord.id, updates);
+            }
+            setWebImportHistory(prev => prev.map(b => b.id === novelRecord.id ? { ...b, ...updates } : b));
+            if (activeNovelView && activeNovelView.id === novelRecord.id) {
+              setActiveNovelView(prev => ({ ...prev, ...updates }));
+            }
+            toast(`Enriched "${bestTitle}" with official AniList metadata & HD cover!`, 'success');
+          }
+        } catch (err) {
+          console.warn('AniList metadata enrichment error:', err);
+          toast(`Metadata enrichment error: ${err.message}`, 'error');
+        }
+      };
+
+      // --- Split Novel into Arcs Handler (§7.3) ---
+      const handleSplitNovelIntoArcs = async (novelRecord) => {
+        const full = await loadFullNovel(novelRecord);
+        if (!full) {
+          toast('Novel data not found in database.', 'error');
+          return;
+        }
+        const chs = (full.translatedChapters && full.translatedChapters.length > 0)
+          ? full.translatedChapters
+          : (full.rawChapters || full.chapters || []);
+        if (chs.length === 0) {
+          toast('No chapters available to split.', 'warning');
+          return;
+        }
+
+        setActiveTab('studio');
+        setStudioSubTab('split');
+        localStorage.setItem('activeTab', 'studio');
+        toast(`Switched to EPUB Studio with "${full.title || 'Novel'}" (${chs.length} chapters)!`, 'info');
+      };
 
       // Update Handlers
       
@@ -6435,6 +6717,63 @@ const formatModelName = (id, displayName) => {
         };
         window.addEventListener('app-toast', toastListener);
         return () => window.removeEventListener('app-toast', toastListener);
+      }, []);
+
+      // Deep Linking & URL Scheme Router (§10.8)
+      useEffect(() => {
+        const handleHashRoute = async () => {
+          const hash = window.location.hash || '';
+          if (!hash || !hash.includes('novel=')) return;
+          try {
+            const params = new URLSearchParams(hash.replace(/^#/, ''));
+            const novelParam = params.get('novel');
+            const chapterParam = parseInt(params.get('chapter') || '1', 10);
+            if (novelParam && window.GeminiNovelDB) {
+              const all = await window.GeminiNovelDB.getAllNovels();
+              const target = all.find(n => n.id === novelParam || n.title === novelParam || (n.title && n.title.toLowerCase().includes(novelParam.toLowerCase())));
+              if (target) {
+                const full = await loadFullNovel(target);
+                if (full) {
+                  const chs = (full.translatedChapters && full.translatedChapters.length > 0)
+                    ? full.translatedChapters
+                    : (full.rawChapters || full.chapters || []);
+                  if (chs.length > 0) {
+                    const cleanCh = (c) => {
+                      const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+                      const raw = c?.text || c?.content || '';
+                      return (typeof stripFn === 'function' && c?.title) ? stripFn(raw, c.title, c.originalTitle) : raw;
+                    };
+                    const cleanedChs = chs.map(c => ({ title: c.title, content: cleanCh(c) }));
+                    setChapters(cleanedChs);
+                    const targetIdx = Math.max(0, Math.min(cleanedChs.length - 1, chapterParam - 1));
+                    setReaderChapterIdx(targetIdx);
+                    setReaderOpen(true);
+                    toast(`🔗 Deep link routed to "${target.title}" (Ch ${targetIdx + 1})`, 'success');
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('[DeepLink] Routing error:', e);
+          }
+        };
+
+        const timer = setTimeout(handleHashRoute, 400);
+        window.addEventListener('hashchange', handleHashRoute);
+        if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.App) {
+          window.Capacitor.Plugins.App.addListener('appUrlOpen', (data) => {
+            if (data?.url) {
+              try {
+                const u = new URL(data.url);
+                if (u.hash) window.location.hash = u.hash;
+              } catch (_) {}
+            }
+          });
+        }
+        return () => {
+          clearTimeout(timer);
+          window.removeEventListener('hashchange', handleHashRoute);
+        };
       }, []);
 
       useEffect(() => {
@@ -11001,6 +11340,14 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   disabled: isTranslating || (!inputText.trim() && (!chapters || chapters.length === 0)),
                   onClick: () => handleStartTranslation()
                 }, isTranslating ? 'Translating…' : '◐ Translate'),
+                h('button', {
+                  type: 'button',
+                  className: 'chip-act',
+                  style: { padding: '8px 12px', fontSize: 13, background: 'rgba(99, 102, 241, 0.15)', borderColor: 'var(--iris)', color: 'var(--iris)', fontWeight: 600 },
+                  disabled: !inputText.trim() && (!chapters || chapters.length === 0),
+                  onClick: handleOpenCostEstimator,
+                  title: 'Calculate exact tokens, model costs, and time projections before translating (§7.2 / §3.6)'
+                }, '💰 Estimate'),
                 h('button', { type: 'button', className: 'overflow', title: 'More actions', onClick: () => setSheetOpen(true) }, '⋯')
               )
             ),
@@ -11105,7 +11452,25 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   )
                 ),
 
-                h('div', { className: 'src-chips' }, ['Lnori', 'SwiftAudio', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'NovelBin', 'AO3', 'Pixiv', 'Syosetu', 'Witch Cult'].map(s => h('span', {
+                h('div', { className: 'src-chips', style: { alignItems: 'center' } },
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    style: {
+                      background: 'rgba(99, 102, 241, 0.2)',
+                      color: 'var(--iris)',
+                      border: '1px solid currentColor',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 10px',
+                      borderRadius: 8
+                    },
+                    onClick: handleOpenSourcePluginsModal,
+                    title: 'Manage built-in source plugins and browse 278 LNReader community plugins'
+                  }, '🔌 Source Plugins (278+)'),
+                  ['Lnori', 'SwiftAudio', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'NovelBin', 'AO3', 'Pixiv', 'Syosetu', 'Witch Cult'].map(s => h('span', {
                   key: s,
                   className: `src-chip ${(s === 'SwiftAudio' && isSwiftAudioDetected) ? 'accent' : ''}`,
                   style: (s === 'SwiftAudio' && isSwiftAudioDetected) ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : { cursor: 'pointer' },
@@ -12618,6 +12983,26 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         }, (item.hasTranslatedChapters || item.isTranslated || (item.title || '').includes('(Translated)'))
                           ? `📥 EPUB (Translated)`
                           : (item.isIncomplete ? `📥 EPUB (${item.chapterCount || 'Partial'})` : '📥 EPUB')),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { borderColor: 'rgba(168, 85, 247, 0.4)', color: '#c084fc', fontWeight: 600 },
+                          title: 'Enrich novel metadata, synopsis, genres, and cover via AniList GraphQL (§7.4 / §4.2)',
+                          onClick: (e) => {
+                            e?.stopPropagation?.();
+                            handleEnrichNovelMetadata(item);
+                          }
+                        }, '🏷️ Enrich'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { borderColor: 'rgba(234, 179, 8, 0.4)', color: '#facc15', fontWeight: 600 },
+                          title: 'Split novel into distinct Story Arcs / Volumes (§7.3 / §6.3)',
+                          onClick: (e) => {
+                            e?.stopPropagation?.();
+                            handleSplitNovelIntoArcs(item);
+                          }
+                        }, '✂️ Split Arcs'),
                         h('button', { type: 'button', className: 'mini-btn danger', onClick: () => confirmAction(`Remove "${item.title}" from the library?`, async () => { await deleteNovelFromHistory(item.id); }) }, 'Remove')
                       )
                     ))
@@ -12812,7 +13197,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 switchRow('Novel Health Auditor', healthAuditEnabled, (v) => { setHealthAuditEnabled(v); localStorage.setItem('healthAuditEnabled', String(v)); }),
                 switchRow('Translation QA Proofreader', qaProofreaderEnabled, (v) => { setQaProofreaderEnabled(v); localStorage.setItem('qaProofreaderEnabled', String(v)); }),
                 switchRow('CJK Untranslated Leak Detector', cjkLeakCheckEnabled, (v) => { setCjkLeakCheckEnabled(v); localStorage.setItem('cjkLeakCheckEnabled', String(v)); }),
-                switchRow('Anti-MTL AI Refusal & Loop Gate', antiMtlGateEnabled, (v) => { setAntiMtlGateEnabled(v); localStorage.setItem('antiMtlGateEnabled', String(v)); })
+                switchRow('Anti-MTL AI Refusal & Loop Gate', antiMtlGateEnabled, (v) => { setAntiMtlGateEnabled(v); localStorage.setItem('antiMtlGateEnabled', String(v)); }),
+                switchRow('Cultural Lore & Footnotes (§5.10 / §7.3)', culturalFootnotesEnabled, (v) => { setCulturalFootnotesEnabled(v); localStorage.setItem('culturalFootnotesEnabled', String(v)); })
               ),
 
               // ── TRANSLATION MEMORY & REVISION DIFFS (§8.2 + §8.6) ──
@@ -15372,6 +15758,273 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   onClick: handleExecuteAudioBatchDownload
                 }, `⚡ Download Selected (${(audioDownloadModal.selectedIndices || []).length})`)
               ]
+            )
+          )
+        ),
+
+        // ── SOURCE PLUGINS CATALOG & MANAGER MODAL (§4.1 / §6.1) ──
+        sourcePluginsModalOpen && h('div', { className: 'modal-overlay', onClick: () => setSourcePluginsModalOpen(false) },
+          h('div', { className: 'modal-box', style: { maxWidth: 680, width: '92vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation() },
+            h('div', { className: 'modal-hd' },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 20 } }, '🔌'),
+                h('div', null,
+                  h('div', { style: { fontWeight: 700, fontSize: 15 } }, 'Source Plugins Manager (LNReader & Community)'),
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Browse 278+ community source scrapers or install custom plugins (§4.1 / §6.1)')
+                )
+              ),
+              h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setSourcePluginsModalOpen(false) }, '✕')
+            ),
+            h('div', { className: 'modal-bd', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '14px 16px' } },
+              h('div', { className: 'seg-wide', style: { marginBottom: 4 } },
+                h('span', { className: pluginSelectedTab === 'catalog' ? 'on' : '', onClick: () => setPluginSelectedTab('catalog') }, `🌐 Catalog (${pluginCatalog.length || '278+'})`),
+                h('span', { className: pluginSelectedTab === 'installed' ? 'on' : '', onClick: () => setPluginSelectedTab('installed') }, `✅ Installed (${(window.SourceRegistry ? window.SourceRegistry.getAll() : []).length})`),
+                h('span', { className: pluginSelectedTab === 'custom' ? 'on' : '', onClick: () => setPluginSelectedTab('custom') }, '🔗 Sideload Custom')
+              ),
+
+              pluginSelectedTab === 'catalog' && h(React.Fragment, null,
+                h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                  h('input', {
+                    type: 'text',
+                    placeholder: 'Search 278+ source plugins by name, language code (en, ja, zh, es, ru)...',
+                    value: pluginSearchQuery,
+                    onChange: e => setPluginSearchQuery(e.target.value),
+                    style: { flex: 1, padding: '7px 10px', fontSize: 12.5, borderRadius: 6, border: '1px solid var(--hairline)', background: 'var(--void)', color: 'var(--paper)' }
+                  }),
+                  isCatalogLoading && h('span', { style: { fontSize: 12, color: 'var(--iris)' } }, 'Loading…')
+                ),
+                (() => {
+                  if (isCatalogLoading) {
+                    return h('div', { style: { textAlign: 'center', padding: '30px 10px', color: 'var(--slate)', fontSize: 13 } }, 'Fetching community plugin catalog from GitHub…');
+                  }
+                  const q = (pluginSearchQuery || '').trim().toLowerCase();
+                  const list = (pluginCatalog || []).filter(p => {
+                    if (!q) return true;
+                    return (p.name && p.name.toLowerCase().includes(q)) ||
+                           (p.id && p.id.toLowerCase().includes(q)) ||
+                           (p.lang && p.lang.toLowerCase().includes(q)) ||
+                           (p.site && p.site.toLowerCase().includes(q));
+                  });
+
+                  if (list.length === 0) {
+                    return h('div', { style: { textAlign: 'center', padding: '30px 10px', color: 'var(--slate)', fontSize: 13 } }, 'No plugins match your search filter.');
+                  }
+
+                  return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, overflowY: 'auto' } },
+                    list.slice(0, 100).map(p => {
+                      const isInstalled = window.SourceRegistry && window.SourceRegistry.isInstalled(p.id);
+                      return h('div', {
+                        key: p.id,
+                        style: {
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                          padding: '8px 12px',
+                          borderRadius: 6,
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: isInstalled ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--hairline)'
+                        }
+                      },
+                        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 } },
+                          p.icon ? h('img', { src: p.icon, style: { width: 26, height: 26, borderRadius: 4, objectFit: 'contain' }, onError: e => { e.target.style.display = 'none'; } }) : h('span', { style: { fontSize: 18 } }, '📖'),
+                          h('div', { style: { flex: 1, minWidth: 0 } },
+                            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                              h('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, p.name),
+                              h('span', { className: 'badge', style: { fontSize: 9, padding: '1px 5px', textTransform: 'uppercase' } }, p.lang || 'EN'),
+                              p.version && h('span', { style: { fontSize: 10, color: 'var(--slate)', fontFamily: 'monospace' } }, `v${p.version}`)
+                            ),
+                            p.site && h('div', { style: { fontSize: 11, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 } }, p.site)
+                          )
+                        ),
+                        isInstalled ? h('button', {
+                          type: 'button',
+                          className: 'mini-btn danger',
+                          style: { padding: '4px 10px', fontSize: 11 },
+                          onClick: () => handleUninstallPlugin(p.id)
+                        }, 'Uninstall') : h('button', {
+                          type: 'button',
+                          className: 'mini-btn',
+                          style: { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 600, padding: '4px 12px', fontSize: 11 },
+                          onClick: () => handleInstallPlugin(p)
+                        }, 'Install')
+                      );
+                    }),
+                    list.length > 100 && h('div', { style: { textAlign: 'center', fontSize: 11, color: 'var(--slate)', padding: 6 } }, `Showing top 100 of ${list.length} matching plugins. Refine search query to filter.`)
+                  );
+                })()
+              ),
+
+              pluginSelectedTab === 'installed' && (() => {
+                const installed = window.SourceRegistry ? window.SourceRegistry.getAll() : [];
+                if (installed.length === 0) {
+                  return h('div', { style: { textAlign: 'center', padding: '40px 10px', color: 'var(--slate)', fontSize: 13 } }, 'No plugins currently installed. Browse the Catalog tab to add source extensions!');
+                }
+                return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, overflowY: 'auto' } },
+                  installed.map(p => {
+                    const isBuiltin = ['lnori', 'syosetu', 'kakuyomu', 'novelbuddy', 'royalroad', 'readnovelfull', 'boxnovel', 'novelfull'].includes(p.id);
+                    return h('div', {
+                      key: p.id,
+                      style: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 10,
+                        padding: '10px 12px',
+                        borderRadius: 6,
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid var(--hairline)'
+                      }
+                    },
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 } },
+                        h('span', { style: { fontSize: 20 } }, isBuiltin ? '⚡' : '🔌'),
+                        h('div', { style: { flex: 1, minWidth: 0 } },
+                          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                            h('span', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)' } }, p.name),
+                            h('span', { className: 'badge', style: { fontSize: 9, padding: '1px 6px', background: isBuiltin ? 'rgba(99, 102, 241, 0.2)' : 'rgba(16, 185, 129, 0.2)', color: isBuiltin ? 'var(--iris)' : '#10b981' } }, isBuiltin ? 'Built-in' : 'Extension'),
+                            h('span', { style: { fontSize: 10, color: 'var(--slate)', fontFamily: 'monospace' } }, `v${p.version || '1.0.0'}`)
+                          ),
+                          h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2 } }, `ID: ${p.id}${p.site ? ` · ${p.site}` : ''}`)
+                        )
+                      ),
+                      !isBuiltin && h('button', {
+                        type: 'button',
+                        className: 'mini-btn danger',
+                        style: { padding: '5px 12px', fontSize: 11 },
+                        onClick: () => handleUninstallPlugin(p.id)
+                      }, 'Uninstall')
+                    );
+                  })
+                );
+              })(),
+
+              pluginSelectedTab === 'custom' && h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 0' } },
+                h('div', { style: { fontSize: 12, color: 'var(--paper-dim)', lineHeight: 1.5 } },
+                  'Sideload any compliant LNReader or custom JavaScript source plugin directly from a URL (e.g. GitHub raw link or local dev server).'
+                ),
+                h('input', {
+                  type: 'text',
+                  placeholder: 'https://raw.githubusercontent.com/.../plugin.js',
+                  value: customPluginUrl,
+                  onChange: e => setCustomPluginUrl(e.target.value),
+                  style: { padding: '8px 10px', fontSize: 12.5, borderRadius: 6, border: '1px solid var(--hairline)', background: 'var(--void)', color: 'var(--paper)', fontFamily: 'monospace' }
+                }),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn',
+                  style: { background: 'var(--iris)', color: '#fff', fontWeight: 600, padding: '8px 14px', alignSelf: 'flex-start' },
+                  onClick: handleInstallCustomPluginUrl
+                }, '⚡ Fetch & Register Plugin')
+              )
+            ),
+            h('div', { className: 'modal-ft' },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                onClick: () => setSourcePluginsModalOpen(false)
+              }, 'Close')
+            )
+          )
+        ),
+
+        // ── COST & TIME ESTIMATOR MODAL (§7.2 / §3.6) ──
+        costEstimatorModalOpen && costEstimatorData && h('div', { className: 'modal-overlay', onClick: () => setCostEstimatorModalOpen(false) },
+          h('div', { className: 'modal-box', style: { maxWidth: 640, width: '92vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation() },
+            h('div', { className: 'modal-hd' },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 20 } }, '💰'),
+                h('div', null,
+                  h('div', { style: { fontWeight: 700, fontSize: 15 } }, 'Translation Cost & Time Estimator'),
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Pre-translation token economics and multi-stream time projections (§7.2 / §3.6)')
+                )
+              ),
+              h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setCostEstimatorModalOpen(false) }, '✕')
+            ),
+            h('div', { className: 'modal-bd', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14, padding: '14px 16px' } },
+              // Stats grid
+              h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 } },
+                h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: '10px 8px', borderRadius: 6, textAlign: 'center' } },
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Chapters'),
+                  h('div', { style: { fontSize: 16, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, costEstimatorData.chapterCount)
+                ),
+                h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: '10px 8px', borderRadius: 6, textAlign: 'center' } },
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Source Chars'),
+                  h('div', { style: { fontSize: 15, fontWeight: 700, color: '#38bdf8', marginTop: 2 } }, costEstimatorData.totalChars.toLocaleString())
+                ),
+                h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: '10px 8px', borderRadius: 6, textAlign: 'center' } },
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Input Tokens'),
+                  h('div', { style: { fontSize: 15, fontWeight: 700, color: '#a78bfa', marginTop: 2 } }, `~${costEstimatorData.totalPromptTokens.toLocaleString()}`)
+                ),
+                h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: '10px 8px', borderRadius: 6, textAlign: 'center' } },
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Output Tokens'),
+                  h('div', { style: { fontSize: 15, fontWeight: 700, color: '#34d399', marginTop: 2 } }, `~${costEstimatorData.totalOutputTokens.toLocaleString()}`)
+                )
+              ),
+
+              // Multi-model pricing comparison
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+                h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' } }, 'API Cost Projections by AI Model'),
+                h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+                  costEstimatorData.models.map(m => h('div', {
+                    key: m.id,
+                    style: {
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      background: m.recommended ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                      border: m.recommended ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid var(--hairline)'
+                    }
+                  },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                      h('span', { style: { fontWeight: 700, fontSize: 13, color: 'var(--paper)' } }, m.name),
+                      m.tag && h('span', { className: 'badge', style: { fontSize: 9, padding: '1px 6px', background: m.recommended ? 'rgba(99, 102, 241, 0.25)' : undefined, color: m.recommended ? 'var(--iris)' : undefined } }, m.tag)
+                    ),
+                    h('div', { style: { textAlign: 'right' } },
+                      h('div', { style: { fontSize: 14, fontWeight: 800, color: m.recommended ? '#34d399' : 'var(--paper)' } }, m.totalCost),
+                      h('div', { style: { fontSize: 10, color: 'var(--slate)', fontFamily: 'monospace' } }, `$${m.inRate} / $${m.outRate} per 1M`)
+                    )
+                  ))
+                )
+              ),
+
+              // Concurrency Time Projections
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+                h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' } }, 'Estimated Translation Duration by Concurrency'),
+                h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 } },
+                  costEstimatorData.timeTiers.map(t => h('div', {
+                    key: t.streams,
+                    style: {
+                      background: t.recommended ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                      border: t.recommended ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--hairline)',
+                      borderRadius: 6,
+                      padding: '8px 6px',
+                      textAlign: 'center'
+                    }
+                  },
+                    h('div', { style: { fontSize: 11, color: t.recommended ? '#34d399' : 'var(--slate)', fontWeight: 600 } }, `${t.streams} ${t.streams === 1 ? 'Stream' : 'Streams'}`),
+                    h('div', { style: { fontSize: 14, fontWeight: 800, color: 'var(--paper)', marginTop: 2 } }, t.duration),
+                    t.recommended && h('div', { style: { fontSize: 9, color: '#34d399', fontWeight: 700, marginTop: 2 } }, 'RECOMMENDED')
+                  ))
+                )
+              )
+            ),
+            h('div', { className: 'modal-ft', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                onClick: () => setCostEstimatorModalOpen(false)
+              }, 'Close'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700, padding: '8px 16px' },
+                onClick: () => {
+                  setCostEstimatorModalOpen(false);
+                  handleStartTranslation();
+                }
+              }, '▶ Proceed to Translation')
             )
           )
         ),

@@ -262,6 +262,46 @@
         color: #f87171;
         border-color: rgba(248, 113, 113, 0.25);
       }
+      .reader-footnote-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 3px;
+        padding: 1px 5px;
+        font-size: 0.72em;
+        font-weight: 700;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        color: var(--r-accent);
+        background: rgba(99, 102, 241, 0.15);
+        border: 1px solid currentColor;
+        border-radius: 9999px;
+        cursor: pointer;
+        user-select: none;
+        vertical-align: super;
+        line-height: 1;
+        transition: all 0.15s ease;
+      }
+      .reader-footnote-badge:hover {
+        transform: scale(1.12);
+        background: var(--r-accent);
+        color: #ffffff;
+      }
+      .reader-footnote-card {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: 520px;
+        width: calc(100% - 32px);
+        background: var(--r-card);
+        border: 1px solid var(--r-border);
+        border-radius: 12px;
+        box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
+        padding: 14px 18px;
+        z-index: 10050;
+        backdrop-filter: blur(12px);
+        animation: toastIn 0.2s ease-out;
+      }
       .reader-v2-hud-bottom {
         position: absolute;
         bottom: 0;
@@ -398,6 +438,7 @@
     fontSize = 18,
     setFontSize,
     tgtLang,
+    novelId,
     onVerifyConsistency,
     onOpenHealthAudit,
     onOpenDiff
@@ -536,22 +577,50 @@
       }
     }, [currentChapter, chapters, activeIdx]);
 
-    // Clean chapter paragraphs and images
-    const chapterElements = useMemo(() => {
+    // ── Footnotes Extraction & Caching (§5.10) ──
+    const [activeFootnote, setActiveFootnote] = useState(null);
+    const [footnotesMap, chapterElements] = useMemo(() => {
       let raw = currentChapter?.text || currentChapter?.content || '';
       const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
       if (typeof stripFn === 'function' && currentChapter?.title) {
         raw = stripFn(raw, currentChapter.title, currentChapter.originalTitle);
       }
-      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      return lines.map((line, idx) => {
-        // Illustration check
+
+      const map = new Map();
+      let mainText = raw;
+
+      // Detect --- FOOTNOTES --- section at the bottom
+      const fnHeaderMatch = raw.match(/(?:---\s*FOOTNOTES\s*---|===+\s*FOOTNOTES\s*===+)[\s\S]*$/i);
+      if (fnHeaderMatch) {
+        const fnBlock = fnHeaderMatch[0];
+        mainText = raw.slice(0, fnHeaderMatch.index).trim();
+        const defRegex = /\[([¹²³⁴⁵⁶⁷⁸⁹⁰]+|\d+)(?:\s*(?:Note|note)?\s*[:：]|\s+Note[:：]?)\s*([\s\S]*?)(?=(?:\[[¹²³⁴⁵⁶⁷⁸⁹⁰\d]+|$))/gi;
+        let m;
+        while ((m = defRegex.exec(fnBlock)) !== null) {
+          const num = m[1].trim();
+          const note = m[2].replace(/\n+/g, ' ').trim();
+          if (num && note) map.set(num, note);
+        }
+      }
+
+      // Also detect standalone trailing footnote lines
+      const trailingDefRegex = /(?:^|\n)\[([¹²³⁴⁵⁶⁷⁸⁹⁰]+|\d+)\s+(?:Note|note)[:：]\s*([^\n]+)\]/gi;
+      let tm;
+      while ((tm = trailingDefRegex.exec(mainText)) !== null) {
+        map.set(tm[1].trim(), tm[2].trim());
+      }
+      mainText = mainText.replace(trailingDefRegex, '').trim();
+
+      const lines = mainText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const elems = lines.map((line, idx) => {
         const mdImg = line.match(/^!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)$/i);
         if (mdImg) {
           return { type: 'image', alt: mdImg[1] || 'Illustration', src: mdImg[2], id: `p_${idx}` };
         }
         return { type: 'text', content: line, id: `p_${idx}` };
       });
+
+      return [map, elems];
     }, [currentChapter, renderTick]);
 
     // ── Native Paginated Book Flip Engine ──
@@ -920,6 +989,107 @@
       return () => window.removeEventListener('keydown', handleKeyDown);
     }, [activeIdx, changeChapter, onClose, showToc, showSettings, showSearch, lightboxImg, viewMode, goToPrevPage, goToNextPage]);
 
+    const handleShareDeepLink = useCallback(() => {
+      try {
+        const novelIdVal = novelId || (typeof window !== 'undefined' && window.__currentNovelId) || 'current';
+        const deepHash = `#novel=${encodeURIComponent(novelIdVal)}&chapter=${activeIdx + 1}`;
+        const fullUrl = window.location.origin + window.location.pathname + deepHash;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(fullUrl);
+          if (typeof window.showToast === 'function') window.showToast('🔗 Deep link copied to clipboard!', 'success');
+          else if (typeof window.toast === 'function') window.toast('🔗 Deep link copied to clipboard!', 'success');
+        } else {
+          prompt('Copy deep link:', fullUrl);
+        }
+      } catch (e) {
+        console.warn('Share link failed:', e);
+      }
+    }, [novelId, activeIdx]);
+
+    const renderParagraphNode = (el, pIdx, isPaginated, mCounterObj) => {
+      if (el.type === 'image') {
+        return h('div', {
+          key: el.id,
+          id: el.id,
+          style: {
+            margin: isPaginated ? '20px 0' : '24px 0',
+            textAlign: 'center',
+            cursor: 'zoom-in',
+            breakInside: 'avoid',
+            pageBreakInside: 'avoid'
+          },
+          onClick: () => setLightboxImg(el.src)
+        },
+          h('img', {
+            src: el.src,
+            alt: el.alt,
+            loading: 'lazy',
+            style: {
+              maxWidth: '100%',
+              maxHeight: isPaginated ? 'calc(100vh - 180px)' : '80vh',
+              borderRadius: 8,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.25)'
+            }
+          })
+        );
+      }
+
+      const rawText = el.content || '';
+      const fnRegex = /\[([¹²³⁴⁵⁶⁷⁸⁹⁰]+|\d+)\]/g;
+      const segments = [];
+      let lastIdx = 0;
+      let m;
+      while ((m = fnRegex.exec(rawText)) !== null) {
+        if (m.index > lastIdx) {
+          segments.push({ type: 'text', content: rawText.slice(lastIdx, m.index) });
+        }
+        const num = m[1];
+        const note = (footnotesMap && footnotesMap.get(num)) || (footnotesMap && footnotesMap.get(String(parseInt(num, 10)))) || `Cultural Context Note [${num}]`;
+        segments.push({ type: 'footnote', num, note, raw: m[0] });
+        lastIdx = fnRegex.lastIndex;
+      }
+      if (lastIdx < rawText.length) {
+        segments.push({ type: 'text', content: rawText.slice(lastIdx) });
+      }
+
+      const renderTextWithSearch = (txt, segIdx) => {
+        if (!showSearch || !searchQuery.trim()) return txt;
+        const query = searchQuery.trim();
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const sRegex = new RegExp(`(${escaped})`, 'gi');
+        const parts = txt.split(sRegex);
+        return parts.map((part, i) => {
+          if (part.toLowerCase() === query.toLowerCase()) {
+            const mIdx = mCounterObj.count++;
+            const isCurrentActive = mIdx === activeMatchIndex;
+            return h('mark', {
+              key: `${segIdx}-${i}`,
+              id: `search-match-${mIdx}`,
+              className: `reader-v2-search-match ${isCurrentActive ? 'active' : ''}`
+            }, part);
+          }
+          return part;
+        });
+      };
+
+      return h('p', { key: el.id, id: el.id },
+        segments.map((seg, sIdx) => {
+          if (seg.type === 'footnote') {
+            return h('sup', {
+              key: sIdx,
+              className: 'reader-footnote-badge',
+              title: seg.note,
+              onClick: (e) => {
+                e.stopPropagation();
+                setActiveFootnote({ num: seg.num, text: seg.note });
+              }
+            }, `[${seg.num}]`);
+          }
+          return renderTextWithSearch(seg.content, sIdx);
+        })
+      );
+    };
+
     // ── 5. Render Reader Shell ──
     const themeClass = `reader-v2-theme-${theme || 'dark'}`;
     const fontClass = `reader-v2-font-${font || 'serif'}`;
@@ -992,6 +1162,12 @@
             },
             title: 'Translation Revisions & Diffs (§8.6)'
           }, '📜 Diffs'),
+          h('button', {
+            type: 'button',
+            className: 'reader-top-btn',
+            onClick: handleShareDeepLink,
+            title: 'Share Chapter Deep Link (§10.8)'
+          }, '🔗 Share'),
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
@@ -1120,62 +1296,10 @@
                 }, `Chapter ${activeIdx + 1} of ${safeChapters.length} · ~${currentChapter.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words`)
               ),
 
-              // Paragraphs and Illustrations
+              // Paragraphs and Illustrations with Footnotes & Search
               (() => {
-                let matchCounter = 0;
-                return chapterElements.map((el) => {
-                  if (el.type === 'image') {
-                    return h('div', {
-                      key: el.id,
-                      id: el.id,
-                      style: {
-                        margin: '20px 0',
-                        textAlign: 'center',
-                        cursor: 'zoom-in',
-                        breakInside: 'avoid',
-                        pageBreakInside: 'avoid'
-                      },
-                      onClick: () => setLightboxImg(el.src)
-                    },
-                      h('img', {
-                        src: el.src,
-                        alt: el.alt,
-                        loading: 'lazy',
-                        style: {
-                          maxWidth: '100%',
-                          maxHeight: 'calc(100vh - 180px)',
-                          borderRadius: 8,
-                          boxShadow: '0 4px 20px rgba(0,0,0,0.25)'
-                        }
-                      })
-                    );
-                  }
-
-                  // Text Paragraph with Search Highlighting
-                  let paragraphContent = el.content;
-                  if (showSearch && searchQuery.trim().length > 0) {
-                    const query = searchQuery.trim();
-                    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const regex = new RegExp(`(${escaped})`, 'gi');
-                    const parts = paragraphContent.split(regex);
-                    return h('p', { key: el.id, id: el.id },
-                      parts.map((part, i) => {
-                        if (part.toLowerCase() === query.toLowerCase()) {
-                          const mIdx = matchCounter++;
-                          const isCurrentActive = mIdx === activeMatchIndex;
-                          return h('mark', {
-                            key: i,
-                            id: `search-match-${mIdx}`,
-                            className: `reader-v2-search-match ${isCurrentActive ? 'active' : ''}`
-                          }, part);
-                        }
-                        return part;
-                      })
-                    );
-                  }
-
-                  return h('p', { key: el.id, id: el.id }, el.content);
-                });
+                let mCounter = { count: 0 };
+                return chapterElements.map((el, pIdx) => renderParagraphNode(el, pIdx, true, mCounter));
               })()
             ),
 
@@ -1205,51 +1329,10 @@
             )
           ),
 
-          // Chapter Paragraphs & Illustrations
+          // Chapter Paragraphs & Illustrations with Footnotes & Search
           (() => {
-            let matchCounter = 0;
-            return chapterElements.map((el, pIdx) => {
-              if (el.type === 'image') {
-                return h('div', {
-                  key: el.id,
-                  id: el.id,
-                  style: { margin: '24px 0', textAlign: 'center', cursor: 'zoom-in' },
-                  onClick: () => setLightboxImg(el.src)
-                },
-                  h('img', {
-                    src: el.src,
-                    alt: el.alt,
-                    loading: 'lazy',
-                    style: { maxWidth: '100%', maxHeight: '80vh', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }
-                  })
-                );
-              }
-
-              // Text Paragraph with Search Highlighting
-              let paragraphContent = el.content;
-              if (showSearch && searchQuery.trim().length > 0) {
-                const query = searchQuery.trim();
-                const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(`(${escaped})`, 'gi');
-                const parts = paragraphContent.split(regex);
-                return h('p', { key: el.id, id: el.id },
-                  parts.map((part, i) => {
-                    if (part.toLowerCase() === query.toLowerCase()) {
-                      const mIdx = matchCounter++;
-                      const isCurrentActive = mIdx === activeMatchIndex;
-                      return h('mark', {
-                        key: i,
-                        id: `search-match-${mIdx}`,
-                        className: `reader-v2-search-match ${isCurrentActive ? 'active' : ''}`
-                      }, part);
-                    }
-                    return part;
-                  })
-                );
-              }
-
-              return h('p', { key: el.id, id: el.id }, el.content);
-            });
+            let mCounter = { count: 0 };
+            return chapterElements.map((el, pIdx) => renderParagraphNode(el, pIdx, false, mCounter));
           })(),
 
           // Bottom Chapter Navigation Stepper
@@ -1572,6 +1655,26 @@
         onClick: () => setLightboxImg(null)
       },
         h('img', { src: lightboxImg, alt: 'High Resolution Illustration' })
+      ),
+
+      // ── FLOATING CULTURAL FOOTNOTE CARD (§5.10) ──
+      activeFootnote && h('div', {
+        className: 'reader-footnote-card',
+        onClick: (e) => e.stopPropagation()
+      },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--r-accent)' } },
+            h('span', null, '🔖'),
+            h('span', null, `Cultural Context Note [${activeFootnote.num}]`)
+          ),
+          h('button', {
+            type: 'button',
+            className: 'reader-search-nav-btn close',
+            style: { width: 28, height: 28, minWidth: 28, minHeight: 28, padding: 0 },
+            onClick: () => setActiveFootnote(null)
+          }, '✕')
+        ),
+        h('div', { style: { fontSize: 13.5, lineHeight: 1.55, color: 'var(--r-text)' } }, activeFootnote.text)
       )
     );
   };

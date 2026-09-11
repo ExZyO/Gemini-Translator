@@ -1,9 +1,9 @@
 {
-  "version": "8.12.10",
-  "versionCode": 8190,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.12.10/app-release.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.12.10/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.12.10",
+  "version": "8.13.0",
+  "versionCode": 8200,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.13.0/app-release.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.13.0/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.13.0",
   "releaseDate": "2026-09-11",
-  "releaseNotes": "v8.12.10: Removed redundant Character Gender Locks card from Glossary UI in favor of 100% automated on-the-fly scene pronoun locking from master glossaries. Upgraded AI Optimize to Section-by-Section (Chunked) Lossless Processing to completely eliminate 8,192 token truncation on massive references (LOTM, COTE)."
+  "releaseNotes": "v8.13.0: Surface and connect major roadmap features across the app: 1) LNReader & Community Source Plugins Catalog (278+ sources with 1-click install & sideloading); 2) Cultural Lore & Interactive Footnotes ([¹] popover badges and cards); 3) Pre-translation Cost & Time Estimator (token breakdown, model comparison, concurrency duration); 4) AniList GraphQL Metadata Enrichment; 5) Smart Arc & Volume Splitter; 6) Deep Linking & URL scheme navigation."
 }

@@ -14,7 +14,9 @@
     constructor() {
       this.plugins = new Map();
       this.universalPlugin = null;
+      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'universal']);
       this.initBuiltins();
+      this.loadPersistedPlugins();
     }
 
     initBuiltins() {
@@ -23,6 +25,60 @@
       if (RoyalRoadPlugin) this.register(new RoyalRoadPlugin());
       if (UniversalPlugin) {
         this.universalPlugin = new UniversalPlugin();
+      }
+    }
+
+    /**
+     * Rehydrate community plugins saved in localStorage
+     */
+    loadPersistedPlugins() {
+      if (typeof localStorage === 'undefined') return;
+      try {
+        const raw = localStorage.getItem('gemini_installed_plugins');
+        if (!raw) return;
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            if (item && item.code) {
+              try {
+                this.registerLNReaderCode(item.code, false, item.meta || {});
+                console.log(`[SourceRegistry] Rehydrated community plugin: ${item.id}`);
+              } catch (e) {
+                console.warn(`[SourceRegistry] Failed to rehydrate plugin ${item.id}:`, e.message);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[SourceRegistry] Error reading installed plugins:', err.message);
+      }
+    }
+
+    /**
+     * Save installed plugins to localStorage
+     */
+    _persistCustomPlugins() {
+      if (typeof localStorage === 'undefined') return;
+      try {
+        const custom = [];
+        for (const [id, plugin] of this.plugins.entries()) {
+          if (!this.builtinIds.has(id) && plugin._rawCode) {
+            custom.push({
+              id,
+              code: plugin._rawCode,
+              meta: {
+                name: plugin.name,
+                site: plugin.site,
+                version: plugin.version,
+                icon: plugin.icon || '',
+                lang: plugin.lang || ''
+              }
+            });
+          }
+        }
+        localStorage.setItem('gemini_installed_plugins', JSON.stringify(custom));
+      } catch (err) {
+        console.warn('[SourceRegistry] Error saving plugins:', err.message);
       }
     }
 
@@ -37,11 +93,25 @@
     }
 
     /**
-     * Unregister a plugin by ID
+     * Check if a plugin ID is installed/active
+     * @param {string} pluginId
+     */
+    isInstalled(pluginId) {
+      return this.plugins.has(pluginId) || (this.universalPlugin && this.universalPlugin.id === pluginId);
+    }
+
+    /**
+     * Unregister/uninstall a plugin by ID
      * @param {string} pluginId
      */
     unregister(pluginId) {
-      this.plugins.delete(pluginId);
+      if (this.builtinIds.has(pluginId)) {
+        console.warn(`[SourceRegistry] Cannot unregister built-in plugin: ${pluginId}`);
+        return false;
+      }
+      const res = this.plugins.delete(pluginId);
+      this._persistCustomPlugins();
+      return res;
     }
 
     /**
@@ -68,13 +138,19 @@
      * @param {string} pluginJsCode
      * @returns {BaseSourcePlugin}
      */
-    registerLNReaderCode(pluginJsCode) {
+    registerLNReaderCode(pluginJsCode, persist = true, meta = {}) {
       const LNReaderEngine = isNode ? require('./lnreader_adapter') : window.LNReaderEngine;
       if (!LNReaderEngine || !LNReaderEngine.loadPlugin) {
         throw new Error('LNReaderEngine not loaded');
       }
       const adapter = LNReaderEngine.loadPlugin(pluginJsCode);
+      adapter._rawCode = pluginJsCode;
+      if (meta.lang) adapter.lang = meta.lang;
+      if (meta.icon) adapter.icon = meta.icon;
       this.register(adapter);
+      if (persist) {
+        this._persistCustomPlugins();
+      }
       return adapter;
     }
 
@@ -100,7 +176,7 @@
      * @param {string} pluginUrl
      * @returns {Promise<BaseSourcePlugin>}
      */
-    async loadPluginFromUrl(pluginUrl) {
+    async loadPluginFromUrl(pluginUrl, meta = {}) {
       const fetchFn = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
       let code = '';
       if (fetchFn) {
@@ -109,7 +185,7 @@
         const res = await fetch(pluginUrl);
         code = await res.text();
       }
-      return this.registerLNReaderCode(code);
+      return this.registerLNReaderCode(code, true, meta);
     }
 
     /**
@@ -123,7 +199,13 @@
       if (!target) {
         throw new Error(`Plugin "${pluginId}" not found in LNReader catalog. Call sourceRegistry.fetchCatalog() to inspect available plugins.`);
       }
-      return this.loadPluginFromUrl(target.url);
+      return this.loadPluginFromUrl(target.url, {
+        name: target.name,
+        site: target.site,
+        version: target.version,
+        lang: target.lang,
+        icon: target.iconUrl || ''
+      });
     }
 
     /**
