@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.11.3';
+    const VERSION = '8.11.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3511,42 +3511,120 @@ const formatModelName = (id, displayName) => {
       };
       const [newGenderLockName, setNewGenderLockName] = useState('');
       const [newGenderLockGender, setNewGenderLockGender] = useState('female');
+
+      const handleClearAllGenderLocks = () => {
+        if (!genderLocks || Object.keys(genderLocks).length === 0) return;
+        if (!confirm('Are you sure you want to clear all character gender locks?')) return;
+        setGenderLocks({});
+        try { localStorage.removeItem('gemini_gender_locks'); } catch(e) {}
+        toast('Cleared all character gender locks.', 'info');
+      };
+
       const handleAutoDetectGenderLocks = () => {
-        if (!terminology) {
+        if (!terminology || !terminology.trim()) {
           toast('No terms in glossary to detect genders from.', 'info');
           return;
         }
         const lines = terminology.split(/\r?\n/);
         let count = 0;
         const nextLocks = { ...genderLocks };
+
+        // Filter out non-character entities (locations, items, artifacts, skills, sects, realms)
+        const nonCharacterPattern = /\b(?:item|artifact|weapon|sword|blade|spear|bow|shield|armor|pill|elixir|herb|talisman|spell|skill|technique|formation|realm|stage|rank|level|location|city|town|village|mountain|forest|river|sea|kingdom|empire|nation|state|dynasty|sect|clan|guild|organization|cult|palace|hall|pavilion|tower|inn|shop)\b/i;
+
+        // Strict whole-word regex patterns for gender indicators
+        const femalePattern = /\b(?:female|heroine|she\/her|actress|priestess|goddess|witch|queen|princess|empress|waitress|stewardess|matriarch|duchess|baroness|countess)\b|\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女)）/i;
+        const malePattern = /\b(?:male|hero|he\/him|actor|priest|god|wizard|king|prince|emperor|waiter|patriarch|duke|baron|count)\b|\((?:m|male)\)|\[(?:m|male)\]|（(?:男)）/i;
+
+        // Kinship terms that strongly indicate character gender
+        const femaleKinship = /\b(?:daughter|sister|mother|aunt|niece|grandmother|granddaughter|wife|girlfriend|fiancée|fiancee|maiden|girl|woman|lady)\b/i;
+        const maleKinship = /\b(?:son|brother|father|uncle|nephew|grandfather|grandson|husband|boyfriend|fiancé|fiance|boy|man|lord|gentleman)\b/i;
+
         for (const line of lines) {
           const l = line.trim();
-          if (!l) continue;
-          const lower = l.toLowerCase();
+          if (!l || l.startsWith('#') || l.startsWith('//')) continue;
+
+          let srcPart = '';
+          let tgtPart = '';
+          let notesPart = '';
+
+          if (l.includes('->')) {
+            const parts = l.split('->');
+            srcPart = parts[0].trim();
+            tgtPart = parts.slice(1).join('->').trim();
+          } else if (l.includes('=>')) {
+            const parts = l.split('=>');
+            srcPart = parts[0].trim();
+            tgtPart = parts.slice(1).join('=>').trim();
+          } else if (l.includes(':')) {
+            const parts = l.split(':');
+            srcPart = parts[0].trim();
+            tgtPart = parts.slice(1).join(':').trim();
+          } else if (l.includes('=')) {
+            const parts = l.split('=');
+            srcPart = parts[0].trim();
+            tgtPart = parts.slice(1).join('=').trim();
+          } else {
+            srcPart = l;
+          }
+
+          const parenMatch = (tgtPart || srcPart).match(/\(([^)]+)\)|\[([^\]]+)\]|（([^）]+)）/);
+          if (parenMatch) {
+            notesPart = (parenMatch[1] || parenMatch[2] || parenMatch[3] || '').trim();
+          }
+
+          const cleanName = (str) => {
+            return str
+              .replace(/^[-*•\s\d.]+\s*/, '')
+              .replace(/\s*\([^)]*\)/g, '')
+              .replace(/\s*\[[^\]]*\]/g, '')
+              .replace(/\s*（[^）]*）/g, '')
+              .trim();
+          };
+
+          const cleanSrc = cleanName(srcPart);
+          const cleanTgt = cleanName(tgtPart);
+
+          // Skip if clean name matches non-character entities
+          if (cleanSrc && nonCharacterPattern.test(cleanSrc)) continue;
+          if (cleanTgt && nonCharacterPattern.test(cleanTgt)) continue;
+
+          const textToEvaluate = notesPart || tgtPart || l;
+
           let detected = null;
-          if (lower.includes('female') || lower.includes('(f)') || lower.includes('she/her') || lower.includes('heroine') || lower.includes('girl') || lower.includes('woman') || lower.includes('witch') || lower.includes('goddess') || lower.includes('princess') || lower.includes('queen') || lower.includes('sister') || lower.includes('mother') || lower.includes('lady')) {
+          const hasFem = femalePattern.test(textToEvaluate) || femaleKinship.test(textToEvaluate);
+          const hasMale = malePattern.test(textToEvaluate) || maleKinship.test(textToEvaluate);
+
+          if (hasFem && hasMale) {
+            if (/\((?:f|fem|female)\)|\[(?:f|fem|female)\]|\bfemale\b/i.test(textToEvaluate)) {
+              detected = 'female';
+            } else if (/\((?:m|male)\)|\[(?:m|male)\]|\bmale\b/i.test(textToEvaluate)) {
+              detected = 'male';
+            }
+          } else if (hasFem) {
             detected = 'female';
-          } else if (lower.includes('male') || lower.includes('(m)') || lower.includes('he/him') || lower.includes('hero') || lower.includes('boy') || lower.includes('man') || lower.includes('wizard') || lower.includes('god') || lower.includes('prince') || lower.includes('king') || lower.includes('brother') || lower.includes('father') || lower.includes('lord')) {
+          } else if (hasMale) {
             detected = 'male';
           }
+
           if (detected) {
-            let name = l.replace(/^[-*•\s]+/, '');
-            if (name.includes('->')) name = name.split('->')[0].trim();
-            else if (name.includes(':')) name = name.split(':')[0].trim();
-            else if (name.includes('(')) name = name.split('(')[0].trim();
-            name = name.trim();
-            if (name && name.length < 50) {
-              nextLocks[name] = detected;
+            if (cleanTgt && cleanTgt.length >= 2 && cleanTgt.length < 50 && !nonCharacterPattern.test(cleanTgt)) {
+              nextLocks[cleanTgt] = detected;
+              count++;
+            }
+            if (cleanSrc && cleanSrc.length >= 2 && cleanSrc.length < 50 && cleanSrc !== cleanTgt && !nonCharacterPattern.test(cleanSrc)) {
+              nextLocks[cleanSrc] = detected;
               count++;
             }
           }
         }
+
         if (count > 0) {
           setGenderLocks(nextLocks);
           try { localStorage.setItem('gemini_gender_locks', JSON.stringify(nextLocks)); } catch(e) {}
           toast(`Auto-detected and locked ${count} character genders!`, 'success');
         } else {
-          toast('No clear gender designations (female/male) found in glossary.', 'info');
+          toast('No clear character gender tags found. Format terms like: Name -> Translation (female)', 'info');
         }
       };
 
@@ -10199,21 +10277,32 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   h('div', { style: { marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--hairline)' } },
                     h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
                       h('span', { style: { fontSize: 12, fontWeight: 700 } }, '⚥ Character Gender Locks (Anti-Pronoun Drift)'),
-                      h('button', {
-                        type: 'button',
-                        className: 'mini-btn ghost',
-                        style: { fontSize: 11, padding: '2px 8px' },
-                        onClick: handleAutoDetectGenderLocks,
-                        title: 'Auto-detect character genders from glossary'
-                      }, '⚡ Auto-Detect')
+                      h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+                        Object.keys(genderLocks).length > 0 && h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { fontSize: 11, padding: '2px 8px', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.4)' },
+                          onClick: handleClearAllGenderLocks,
+                          title: 'Clear all locked character genders'
+                        }, '🗑 Clear All'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { fontSize: 11, padding: '2px 8px' },
+                          onClick: handleAutoDetectGenderLocks,
+                          title: 'Auto-detect character genders from glossary'
+                        }, '⚡ Auto-Detect')
+                      )
                     ),
                     h('div', { style: { fontSize: 11, color: 'var(--paper-dim)', marginBottom: 8, opacity: 0.85 } },
-                      'Locks character pronouns during translation so AI never swaps he ↔ she.'
+                      'Locks character pronouns during translation so AI never swaps he ↔ she. Tap any tag to flip ♀ ↔ ♂.'
                     ),
                     Object.keys(genderLocks).length > 0 && h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 } },
                       Object.entries(genderLocks).map(([cName, cGen]) => h('div', {
                         key: cName,
                         className: 'badge',
+                        title: 'Tap to flip gender (♀ ↔ ♂)',
+                        onClick: () => updateGenderLock(cName, cGen === 'female' ? 'male' : 'female'),
                         style: {
                           background: cGen === 'female' ? 'rgba(236, 72, 153, 0.15)' : 'rgba(59, 130, 246, 0.15)',
                           color: cGen === 'female' ? '#f472b6' : '#60a5fa',
@@ -10223,13 +10312,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           gap: 6,
                           padding: '3px 8px',
                           borderRadius: 8,
-                          fontSize: 11
+                          fontSize: 11,
+                          cursor: 'pointer',
+                          userSelect: 'none'
                         }
                       },
                         h('span', null, `${cName} (${cGen === 'female' ? '♀ Female' : '♂ Male'})`),
                         h('span', {
-                          style: { cursor: 'pointer', fontWeight: 'bold', marginLeft: 2 },
-                          onClick: () => updateGenderLock(cName, null),
+                          style: { cursor: 'pointer', fontWeight: 'bold', marginLeft: 3, padding: '0 2px' },
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            updateGenderLock(cName, null);
+                          },
                           title: 'Remove lock'
                         }, '✕')
                       ))
