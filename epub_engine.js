@@ -119,9 +119,92 @@
             zip.file(ncxPath, serializer.serializeToString(ncxDoc));
           }
         }
+        // Ensure <meta name="cover"> exists in metadata if cover-image item exists
+        const coverItem = manifestItems.find(item => item.getAttribute('properties')?.split(/\s+/).includes('cover-image') || item.getAttribute('id') === 'cover-image');
+        if (coverItem) {
+          const metaTag = opfDoc.querySelector('metadata');
+          if (metaTag && !metaTag.querySelector('meta[name="cover"]')) {
+            const m = opfDoc.createElement('meta');
+            m.setAttribute('name', 'cover');
+            m.setAttribute('content', coverItem.getAttribute('id') || 'cover-image');
+            metaTag.appendChild(m);
+          }
+          let guideTag = opfDoc.querySelector('guide');
+          if (!guideTag) {
+            guideTag = opfDoc.createElement('guide');
+            opfDoc.documentElement.appendChild(guideTag);
+          }
+          if (!guideTag.querySelector('reference[type="cover"]')) {
+            const coverPage = manifestItems.find(i => i.getAttribute('id') === 'cover_page' || i.getAttribute('href')?.includes('cover'));
+            const ref = opfDoc.createElement('reference');
+            ref.setAttribute('type', 'cover');
+            ref.setAttribute('title', 'Cover');
+            ref.setAttribute('href', coverPage?.getAttribute('href') || coverItem.getAttribute('href') || 'cover.xhtml');
+            guideTag.appendChild(ref);
+          }
+          zip.file(opfPath, serializer.serializeToString(opfDoc));
+        }
       } catch (e) {
         console.warn('EPUB navigation update skipped:', e);
       }
+    };
+
+    /**
+     * Synthesizes an elegant, high-resolution SVG typography cover
+     * Guaranteed universal fallback when a web novel or document has no illustration
+     */
+    const generateDefaultCoverSvg = (title, author) => {
+      const safeTitle = escapeXml((title || 'Web Novel').substring(0, 90));
+      const safeAuthor = escapeXml((author || 'Gemini Translator').substring(0, 60));
+      const words = safeTitle.split(/\s+/);
+      const lines = [];
+      let cur = '';
+      for (const w of words) {
+        if ((cur + ' ' + w).length > 20) {
+          if (cur) lines.push(cur.trim());
+          cur = w;
+        } else {
+          cur += (cur ? ' ' : '') + w;
+        }
+      }
+      if (cur) lines.push(cur.trim());
+      const titleLines = lines.slice(0, 5);
+      const startY = 700 - (titleLines.length * 35);
+      const titleTspans = titleLines.map((l, i) =>
+        `<tspan x="600" y="${startY + (i * 72)}">${l}</tspan>`
+      ).join('');
+
+      return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1600" viewBox="0 0 1200 1600">
+  <defs>
+    <linearGradient id="coverBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="45%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="50%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="1600" fill="url(#coverBg)" />
+  <rect x="50" y="50" width="1100" height="1500" fill="none" stroke="url(#goldGrad)" stroke-width="4" rx="16" />
+  <rect x="70" y="70" width="1060" height="1460" fill="none" stroke="#334155" stroke-width="1.5" rx="10" />
+  <text x="600" y="240" font-family="'Georgia', 'Times New Roman', serif" font-size="28" fill="#94a3b8" letter-spacing="8" text-anchor="middle">COMPLETE EDITION</text>
+  <line x1="450" y1="280" x2="750" y2="280" stroke="url(#goldGrad)" stroke-width="2" />
+  <text font-family="'Georgia', 'Times New Roman', serif" font-size="54" font-weight="bold" fill="#f8fafc" text-anchor="middle" letter-spacing="2">
+    ${titleTspans}
+  </text>
+  <circle cx="600" cy="1060" r="5" fill="#f59e0b" />
+  <line x1="420" y1="1060" x2="570" y2="1060" stroke="#475569" stroke-width="2" />
+  <line x1="630" y1="1060" x2="780" y2="1060" stroke="#475569" stroke-width="2" />
+  <text x="600" y="1150" font-family="'Georgia', 'Times New Roman', serif" font-size="34" fill="#cbd5e1" text-anchor="middle" letter-spacing="4">
+    ${safeAuthor}
+  </text>
+  <rect x="420" y="1400" width="360" height="50" fill="#1e293b" stroke="#334155" rx="25" />
+  <text x="600" y="1434" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="19" font-weight="600" fill="#38bdf8" text-anchor="middle" letter-spacing="2">GEMINI TRANSLATOR</text>
+</svg>`;
     };
 
     const generateEpubFromChapters = async (chaptersList, bookTitle = 'Web Novel', bookAuthor = 'Author', bookLang = 'en', onProgress = null, options = {}) => {
@@ -260,12 +343,22 @@
       if (!exportChapters.length) throw new Error('No chapters to package');
       const safeLang = String(bookLang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en';
 
-      const useDropCaps = options.dropCaps !== undefined ? options.dropCaps : (localStorage.getItem('epubDropCaps') !== 'false');
-      const useSmartQuotes = options.smartQuotes !== undefined ? options.smartQuotes : (localStorage.getItem('epubSmartQuotes') !== 'false');
-      const useCleanArtifacts = options.cleanWebArtifacts !== undefined ? options.cleanWebArtifacts : (localStorage.getItem('epubCleanWebArtifacts') !== 'false');
-      const fontTheme = options.fontTheme || localStorage.getItem('epubFontTheme') || 'literata';
-      const useJustify = options.justifyText !== undefined ? options.justifyText : (localStorage.getItem('epubJustifyText') !== 'false');
-      const useIncludeImages = options.includeImages !== undefined ? options.includeImages : (localStorage.getItem('epubIncludeImages') !== 'false');
+      const getLocalPref = (key, fallback) => {
+        try {
+          if (typeof localStorage !== 'undefined' && localStorage.getItem) {
+            const v = localStorage.getItem(key);
+            return v !== null ? v : fallback;
+          }
+        } catch(e) {}
+        return fallback;
+      };
+
+      const useDropCaps = options.dropCaps !== undefined ? options.dropCaps : (getLocalPref('epubDropCaps', 'true') !== 'false');
+      const useSmartQuotes = options.smartQuotes !== undefined ? options.smartQuotes : (getLocalPref('epubSmartQuotes', 'true') !== 'false');
+      const useCleanArtifacts = options.cleanWebArtifacts !== undefined ? options.cleanWebArtifacts : (getLocalPref('epubCleanWebArtifacts', 'true') !== 'false');
+      const fontTheme = options.fontTheme || getLocalPref('epubFontTheme', 'literata');
+      const useJustify = options.justifyText !== undefined ? options.justifyText : (getLocalPref('epubJustifyText', 'true') !== 'false');
+      const useIncludeImages = options.includeImages !== undefined ? options.includeImages : (getLocalPref('epubIncludeImages', 'true') !== 'false');
 
       const getElapsed = () => {
         const sec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
@@ -492,12 +585,14 @@ hr {
           }
         }
 
-        // Scan for cover image
-        let coverUrl = (options.coverUrl || options.cover || '').trim();
+        // Scan for cover image across options and chapter front-matter
+        let coverUrl = (options.coverUrl || options.cover || options.coverImage || '').trim();
         if (!coverUrl) {
-          for (let i = 0; i < Math.min(3, exportChapters.length); i++) {
+          for (let i = 0; i < Math.min(5, exportChapters.length); i++) {
             const ch = exportChapters[i];
-            const m = (ch.content || '').match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
+            const content = ch.content || ch.text || '';
+            const m = content.match(/!\[.*?\]\(((?:https?:\/\/|data:image\/)[^\s\)]+)\)/i) ||
+                      content.match(/<img[^>]+(?:src|data-src)=["']((?:https?:\/\/|data:image\/)[^"'\s>]+)["']/i);
             if (m && m[1] && (/cover/i.test(ch.title || '') || i === 0)) {
               coverUrl = m[1].trim();
               break;
@@ -563,8 +658,14 @@ hr {
 
             let referer = 'https://lnori.com/';
             try {
-              const parsedUrl = new URL(url);
-              referer = parsedUrl.origin + '/';
+              if (url.includes('pximg.net') || url.includes('pixiv.re')) {
+                referer = 'https://www.pixiv.net/';
+              } else if (url.includes('witchculttranslation.com')) {
+                referer = 'https://witchculttranslation.com/';
+              } else {
+                const parsedUrl = new URL(url);
+                referer = parsedUrl.origin + '/';
+              }
             } catch(_) {}
 
             // Rapid resilient image download (max 2 fast attempts, never hangs EPUB packaging)
@@ -645,11 +746,16 @@ hr {
                 mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : (ext === 'avif' ? 'image/avif' : 'image/jpeg')));
               }
 
-              const imgFilename = `img_${imgSeq}.${ext}`;
-              const manifestId = `img_${imgSeq}`;
+              const isCoverImg = coverUrl && (url === coverUrl || url.split('?')[0] === coverUrl.split('?')[0]);
+              const imgFilename = isCoverImg ? `cover.${ext}` : `img_${imgSeq}.${ext}`;
+              const manifestId = isCoverImg ? 'cover-image' : `img_${imgSeq}`;
               imgFolder.file(imgFilename, buffer, { compression: 'STORE' });
-              manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="${mime}"/>`);
-              const entry = { localHref: `images/${imgFilename}`, manifestId };
+              if (isCoverImg) {
+                manifestItems.push(`<item id="cover-image" href="images/${imgFilename}" media-type="${mime}" properties="cover-image"/>`);
+              } else {
+                manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="${mime}"/>`);
+              }
+              const entry = { localHref: `images/${imgFilename}`, manifestId, mime, ext };
               imageCache.set(url, entry);
               try {
                 imageCache.set(encodeURI(url), entry);
@@ -683,28 +789,52 @@ hr {
         onProgress?.(`Assembling ${chaptersList.length} chapter(s)...`, 60, getElapsed());
         window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Assembling ${chaptersList.length} chapters • ${getElapsed()}`, 60, true);
 
-        const coverCached = coverUrl ? imageCache.get(coverUrl) : null;
+        let coverCached = coverUrl ? (imageCache.get(coverUrl) || imageCache.get(coverUrl.split('?')[0])) : null;
+        if (!coverCached && uniqueImgUrls.size > 0 && exportChapters.length > 0 && /cover/i.test(exportChapters[0]?.title || '')) {
+          const firstImgUrl = Array.from(uniqueImgUrls)[0];
+          coverCached = imageCache.get(firstImgUrl);
+        }
+
+        // Guaranteed universal fallback: synthesize elegant SVG typographic cover if none exists or downloaded
+        if (!coverCached && options.generateFallbackCover !== false) {
+          const coverSvgContent = generateDefaultCoverSvg(bookTitle, bookAuthor);
+          const coverSvgBuf = new TextEncoder().encode(coverSvgContent).buffer;
+          const imgFilename = 'cover.svg';
+          const manifestId = 'cover-image';
+          imgFolder.file(imgFilename, coverSvgBuf, { compression: 'STORE' });
+          manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="image/svg+xml" properties="cover-image"/>`);
+          coverCached = { localHref: `images/${imgFilename}`, manifestId, mime: 'image/svg+xml', ext: 'svg' };
+          imageCache.set('__fallback_cover__', coverCached);
+        }
+
         if (coverCached) {
-          manifestItems.push(`<item id="cover-image" href="${coverCached.localHref}" media-type="${coverCached.mime}" properties="cover-image"/>`);
-          manifestItems.push(`<item id="cover_page" href="cover.xhtml" media-type="application/xhtml+xml"/>`);
-          spineItems.push('<itemref idref="cover_page"/>');
+          if (!manifestItems.some(i => i.includes('id="cover_page"'))) {
+            manifestItems.push('<item id="cover_page" href="cover.xhtml" media-type="application/xhtml+xml"/>');
+          }
+          if (!spineItems.some(i => i.includes('idref="cover_page"'))) {
+            spineItems.unshift('<itemref idref="cover_page"/>');
+          }
 
           const coverXhtml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${safeLang}">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Cover</title>
 <style type="text/css">
   @page { margin: 0; padding: 0; }
-  html, body { margin: 0; padding: 0; height: 100%; text-align: center; background-color: #000000; }
-  .cover-wrap { height: 100vh; display: flex; align-items: center; justify-content: center; }
-  img.cover-img { max-width: 100%; max-height: 100%; height: auto; width: auto; object-fit: contain; margin: 0 auto; display: block; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000000; }
+  body { text-align: center; }
+  div.cover-wrapper { width: 100%; height: 100%; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
+  svg { width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
 </style>
 </head>
 <body>
-  <div class="cover-wrap">
-    <img src="${coverCached.localHref}" alt="Cover" class="cover-img" />
+  <div class="cover-wrapper">
+    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="100%" height="100%" viewBox="0 0 1200 1600" preserveAspectRatio="xMidYMid meet">
+      <image width="1200" height="1600" xlink:href="${coverCached.localHref}" href="${coverCached.localHref}"/>
+    </svg>
   </div>
 </body>
 </html>`;
@@ -1022,11 +1152,14 @@ ${childNavLinks}
   ${coverCached ? '<meta name="cover" content="cover-image"/>' : ''}
 </metadata>
 <manifest>
-  ${manifestItems.join('\n ')}
+  ${manifestItems.join('\n  ')}
 </manifest>
 <spine toc="ncx">
-  ${spineItems.join('\n ')}
+  ${spineItems.join('\n  ')}
 </spine>
+${coverCached ? `<guide>
+  <reference type="cover" title="Cover" href="cover.xhtml"/>
+</guide>` : ''}
 </package>`;
         oebps.file('content.opf', opfContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
 
@@ -1058,6 +1191,13 @@ ${childNavLinks}
 ${tocNavLinks.join('\n')}
 </ol>
 </nav>
+${coverCached ? `<nav epub:type="landmarks" hidden="">
+  <h2>Guide</h2>
+  <ol>
+    <li><a epub:type="cover" href="cover.xhtml">Cover</a></li>
+    <li><a epub:type="toc" href="nav.xhtml">Table of Contents</a></li>
+  </ol>
+</nav>` : ''}
 </body>
 </html>`;
         oebps.file('nav.xhtml', navContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });

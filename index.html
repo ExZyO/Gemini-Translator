@@ -4680,10 +4680,11 @@ const formatModelName = (id, displayName) => {
             if (!f.name.toLowerCase().endsWith('.epub')) continue;
             const epubData = await readEpub(f);
             if (epubData && epubData.chapters && epubData.chapters.length > 0) {
-              const bookTitle = (f.name.replace(/\.epub$/i, '') || 'Imported Novel').replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
+              const bookTitle = (epubData.title || f.name.replace(/\.epub$/i, '') || 'Imported Novel').replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
               const novelData = {
                 title: bookTitle,
-                author: 'Author',
+                author: epubData.author || 'Author',
+                cover: epubData.cover || '',
                 chapters: epubData.chapters.map(c => ({ title: c.title, text: c.text, content: c.text })),
                 totalChapterCount: epubData.chapters.length,
                 isIncomplete: false,
@@ -5089,7 +5090,7 @@ const formatModelName = (id, displayName) => {
 
       const getEpubOptions = (extraOpts = {}) => {
         const activeNovel = (typeof activeNovelView !== 'undefined' && activeNovelView) ? activeNovelView : ((activeCrawlSession?.chapters?.length >= (webImportData?.chapters?.length || 0)) ? activeCrawlSession : (webImportData || activeCrawlSession));
-        const coverCandidate = extraOpts.coverUrl || extraOpts.cover || activeNovel?.cover || (typeof activeCrawlSession !== 'undefined' ? activeCrawlSession?.cover : '') || (typeof activeNovelRecord !== 'undefined' ? activeNovelRecord?.cover : '') || (typeof coverImage !== 'undefined' ? coverImage : '') || '';
+        const coverCandidate = extraOpts.coverUrl || extraOpts.cover || (typeof currentDocCover !== 'undefined' && currentDocCover) || activeNovel?.cover || (typeof activeCrawlSession !== 'undefined' ? activeCrawlSession?.cover : '') || (typeof activeNovelRecord !== 'undefined' ? activeNovelRecord?.cover : '') || (typeof coverImage !== 'undefined' ? coverImage : '') || '';
         return {
           includeImages: (epubIncludeImages !== false) && (scrapeImages !== false),
           dropCaps: epubDropCaps,
@@ -5575,6 +5576,7 @@ const formatModelName = (id, displayName) => {
       const [currentFileHash, setCurrentFileHash] = useState('');
       const [currentOriginalZip, setCurrentOriginalZip] = useState(null);
       const [currentIsEpub, setCurrentIsEpub] = useState(false);
+      const [currentDocCover, setCurrentDocCover] = useState('');
       const [fileName, setFileName] = useState('');
       const [currentDocTitle, setCurrentDocTitle] = useState('');
 
@@ -10095,6 +10097,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         const of2 = zip.file(rp); if (!of2) throw new Error('OPF not found');
         const oc = await of2.async('text'); const opf = new DOMParser().parseFromString(oc, 'text/xml');
         const bookTitle = (opf.querySelector('title, dc\\:title')?.textContent || '').trim();
+        const bookAuthor = (opf.querySelector('creator, dc\\:creator')?.textContent || '').trim();
         const ncxI = opf.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
         const ncxH = ncxI ? od + ncxI.getAttribute('href') : null;
         const navI = Array.from(opf.querySelectorAll('manifest item')).find(i => (i.getAttribute('properties') || '').split(/\s+/).includes('nav'));
@@ -10186,12 +10189,105 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           }
         }
         if (!chapters.length) throw new Error('No readable text in EPUB.');
+
+        let extractedCover = '';
+        try {
+          let coverHref = '';
+          let coverMediaType = '';
+
+          // 1. EPUB 3 manifest item with properties="cover-image"
+          const coverItem = Array.from(opf.querySelectorAll('manifest item')).find(i => {
+            const props = (i.getAttribute('properties') || '').split(/\s+/);
+            return props.includes('cover-image');
+          });
+          if (coverItem) {
+            coverHref = coverItem.getAttribute('href');
+            coverMediaType = coverItem.getAttribute('media-type');
+          }
+
+          // 2. EPUB 2 <meta name="cover" content="cover_item_id"/>
+          if (!coverHref) {
+            const metaCover = opf.querySelector('metadata meta[name="cover"]');
+            if (metaCover) {
+              const coverId = metaCover.getAttribute('content');
+              if (coverId) {
+                const item = opf.querySelector(`manifest item[id="${coverId}"]`);
+                if (item) {
+                  coverHref = item.getAttribute('href');
+                  coverMediaType = item.getAttribute('media-type');
+                }
+              }
+            }
+          }
+
+          // 3. EPUB 2/3 <guide><reference type="cover" href="..."/></guide>
+          if (!coverHref) {
+            const guideCover = opf.querySelector('guide reference[type="cover"]');
+            if (guideCover) {
+              const href = guideCover.getAttribute('href');
+              if (href) {
+                if (/\.(jpe?g|png|webp|gif|svg)(?:\?.*)?$/i.test(href)) {
+                  coverHref = href;
+                } else {
+                  const coverHtmlFile = zip.file(od + href.split('#')[0]);
+                  if (coverHtmlFile) {
+                    const html = await coverHtmlFile.async('text');
+                    const imgDoc = new DOMParser().parseFromString(html, 'text/html');
+                    const imgEl = imgDoc.querySelector('image[*|href], img[src]');
+                    const foundSrc = imgEl ? (imgEl.getAttribute('href') || imgEl.getAttribute('xlink:href') || imgEl.getAttribute('src')) : '';
+                    if (foundSrc) {
+                      const pageDir = (od + href.split('#')[0]).substring(0, (od + href.split('#')[0]).lastIndexOf('/') + 1);
+                      const resolvedCoverPath = (pageDir + foundSrc).replace(/\/\.\//g, '/').replace(/[^/]+\/\.\.\//g, '');
+                      const resolvedFile = zip.file(resolvedCoverPath);
+                      if (resolvedFile) {
+                        const b64 = await resolvedFile.async('base64');
+                        const ext = resolvedCoverPath.split('.').pop().toLowerCase();
+                        const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg';
+                        extractedCover = `data:${mime};base64,${b64}`;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // 4. Heuristic manifest search for cover image
+          if (!extractedCover && !coverHref) {
+            const heuristicItem = Array.from(opf.querySelectorAll('manifest item')).find(i => {
+              const id = (i.getAttribute('id') || '').toLowerCase();
+              const href = (i.getAttribute('href') || '').toLowerCase();
+              const mt = (i.getAttribute('media-type') || '').toLowerCase();
+              return mt.startsWith('image/') && (id.includes('cover') || href.includes('cover'));
+            });
+            if (heuristicItem) {
+              coverHref = heuristicItem.getAttribute('href');
+              coverMediaType = heuristicItem.getAttribute('media-type');
+            }
+          }
+
+          if (!extractedCover && coverHref) {
+            const cleanHref = coverHref.split('#')[0];
+            const fullCoverPath = od + cleanHref;
+            const coverZipFile = zip.file(fullCoverPath) || zip.file(cleanHref);
+            if (coverZipFile) {
+              const b64 = await coverZipFile.async('base64');
+              const ext = fullCoverPath.split('.').pop().toLowerCase();
+              const mime = coverMediaType || (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg');
+              extractedCover = `data:${mime};base64,${b64}`;
+            }
+          }
+        } catch (coverErr) {
+          console.warn('Cover extraction warning:', coverErr);
+        }
+
         window.telemetryLog?.('EPUB_PARSE', `Extracted ${chapters.length} chapters from EPUB: "${bookTitle || f.name}"`, {
           title: bookTitle || f.name,
           chapterCount: chapters.length,
+          hasCover: Boolean(extractedCover),
           sizeBytes: f.size
         });
-        return { chapters, isEpub: true, originalZip: zip };
+        return { chapters, isEpub: true, originalZip: zip, cover: extractedCover, title: bookTitle, author: bookAuthor };
       };
 
       const processFile = async f => {
@@ -10229,8 +10325,17 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
           const isEpub = data.isEpub || false;
           const originalZip = data.originalZip || null;
+          const extractedCover = data.cover || '';
           setCurrentIsEpub(isEpub);
           setCurrentOriginalZip(originalZip);
+          if (extractedCover) {
+            setCurrentDocCover(extractedCover);
+          } else {
+            setCurrentDocCover('');
+          }
+          if (data.title) {
+            setCurrentDocTitle(data.title);
+          }
           if (originalZip) window.currentTranslatedZip = originalZip;
 
           const cleaned = data.chapters.map(c => ({
@@ -10455,7 +10560,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           setEpubPackagingModal({ title: cleanDocTitle, status: ' Assembling translated EPUB archive...', pct: 10 });
           const blob = await generateEpubFromChapters(chaptersToExport, cleanDocTitle, cleanAuthor, lang, (status, pct, elapsed) => {
             setEpubPackagingModal({ title: cleanDocTitle, status, pct, elapsed });
-          }, typeof getEpubOptions === 'function' ? getEpubOptions({ coverUrl: activeNovelRecord?.cover || '' }) : { coverUrl: activeNovelRecord?.cover || '' });
+          }, typeof getEpubOptions === 'function' ? getEpubOptions({ coverUrl: currentDocCover || activeNovelRecord?.cover || activeCrawlSession?.cover || webImportData?.cover || '' }) : { coverUrl: currentDocCover || activeNovelRecord?.cover || activeCrawlSession?.cover || webImportData?.cover || '' });
           setEpubPackagingModal(null);
           toast(' EPUB downloaded successfully!', 'success');
           const cleanDocName = cleanDocTitle && !isGenericTitle(cleanDocTitle) ? sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
@@ -11375,6 +11480,23 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               !isTranslating && !(savedTranslationSession || isTranslationPaused || activeSessionRef.current) && assembledText && translatedChapters && translatedChapters.filter(c => c && (c.content || c.text)).length > 0 && (activeNovelRecord || (chapters && chapters.length > 0)) && (() => {
                 const transCount = translatedChapters.filter(c => c && (c.content || c.text)).length;
                 const novelTitle = (activeNovelRecord && activeNovelRecord.title) || (fileName && fileName.trim()) || 'Translated Novel';
+                const effectiveCover = currentDocCover || activeNovelRecord?.cover || activeCrawlSession?.cover || webImportData?.cover || '';
+
+                const handleCoverFileSelect = (e) => {
+                  const file = e.target?.files?.[0];
+                  if (!file) return;
+                  const r = new FileReader();
+                  r.onload = ev => {
+                    const dataUrl = ev.target.result;
+                    setCurrentDocCover(dataUrl);
+                    if (activeNovelRecord) {
+                      activeNovelRecord.cover = dataUrl;
+                    }
+                    toast('EPUB cover art updated!', 'success');
+                  };
+                  r.readAsDataURL(file);
+                };
+
                 return h('div', {
                   className: 'card',
                   style: {
@@ -11387,20 +11509,25 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   }
                 },
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                      h('div', {
-                        style: {
-                          width: 38,
-                          height: 38,
-                          borderRadius: 10,
-                          background: 'linear-gradient(135deg, #10b981, #059669)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 20,
-                          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)'
-                        }
-                      }, '🎉'),
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
+                      effectiveCover
+                        ? h('div', { style: { position: 'relative', width: 44, height: 60, flexShrink: 0, borderRadius: 6, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)' } },
+                            h('img', { src: effectiveCover, alt: 'Cover', style: { width: '100%', height: '100%', objectFit: 'cover' } })
+                          )
+                        : h('div', {
+                            style: {
+                              width: 44,
+                              height: 60,
+                              flexShrink: 0,
+                              borderRadius: 6,
+                              background: 'linear-gradient(135deg, #10b981, #059669)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 20,
+                              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)'
+                            }
+                          }, '🎉'),
                       h('div', null,
                         h('div', { style: { fontWeight: 800, fontSize: 14, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 8 } },
                           'Translation Complete & Saved to Library',
@@ -11410,6 +11537,19 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           `${novelTitle} · All progress safely preserved in database`
                         )
                       )
+                    ),
+                    h('label', {
+                      className: 'chip-act',
+                      style: { cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(34, 197, 94, 0.4)', background: 'var(--bg-card-hover, rgba(255, 255, 255, 0.08))' },
+                      title: 'Upload or replace EPUB cover art'
+                    },
+                      h('span', null, effectiveCover ? '🖼️ Change Cover' : '🖼️ Add Cover'),
+                      h('input', {
+                        type: 'file',
+                        accept: 'image/*',
+                        style: { display: 'none' },
+                        onChange: handleCoverFileSelect
+                      })
                     )
                   ),
                   h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' } },
