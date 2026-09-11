@@ -6821,6 +6821,16 @@ RAW GLOSSARY DATA TO CLEAN:
         const key = getActiveApiKey(provider);
         if (!key) return setError(`Please enter your ${provider === 'deepseek' ? 'DeepSeek' : 'Gemini'} API key in Settings.`);
 
+        if (terminology.length > 25000) {
+          const proceed = window.confirm(
+            `⚠️ Large Master Glossary Detected (${Math.round(terminology.length / 1000)}k characters, ~${terminology.split('\n').length} lines):\n\n` +
+            `AI models have a hard protocol limit of 8,192 output tokens (~500-600 lines) per turn. Rewriting this entire encyclopedia will cause the AI to run out of tokens and truncate 75% of your characters.\n\n` +
+            `This master glossary is ALREADY fully structured and optimized!\n\n` +
+            `Do you still want to force AI optimization?`
+          );
+          if (!proceed) return;
+        }
+
         setIsOptimizingGlossary(true);
         setError('');
         toast('Optimizing glossary with AI...', 'info');
@@ -6887,6 +6897,10 @@ FORMATTING & STRUCTURE RULES:
             });
             if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`Gemini API error ${r.status}: ${b.substring(0, 150)}`); }
             const j = await r.json();
+            const finishReason = j?.candidates?.[0]?.finishReason;
+            if (finishReason === 'MAX_TOKENS') {
+              throw new Error('AI reached the hard protocol limit (8,192 tokens) and was cut off midway. To prevent losing 75% of your characters, the glossary was preserved intact.');
+            }
             const candidateParts = j?.candidates?.[0]?.content?.parts || [];
             const actualParts = candidateParts.filter(p => !p.thought);
             optimizedResult = actualParts.length > 0
@@ -6895,6 +6909,9 @@ FORMATTING & STRUCTURE RULES:
           }
 
           if (!optimizedResult.trim()) throw new Error('Received empty response from AI.');
+          if (optimizedResult.length < terminology.length * 0.45 && terminology.length > 3000) {
+            throw new Error(`AI generated only ${optimizedResult.length} characters (source has ${terminology.length} characters). Prevented overwriting glossary with truncated text.`);
+          }
           setTerminology(optimizedResult.trim());
           toast('Glossary successfully cleaned and structured by AI!');
         } catch (err) {
