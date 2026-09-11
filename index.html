@@ -12224,7 +12224,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 ),
                 activeNovelView && activeNovelView.chapters && activeNovelView.chapters.length > 0 && (() => {
                   const chs = activeNovelView.chapters;
-                  const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s:–—-]*(.*)$/i;
+                  const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s:–—,-]*(.*)$/i;
                   const volumeGroups = [];
                   let curGroup = null;
 
@@ -12248,6 +12248,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         cleanTitle = match[3] ? match[3].trim() : title;
                       }
                     }
+
+                    // Clean any dangling punctuation (commas, dashes, colons) from title
+                    cleanTitle = (cleanTitle || title).replace(/^[\s:–—,.-]+/, '').trim() || title;
 
                     if (!curGroup || (volName && curGroup.volName !== volName)) {
                       curGroup = {

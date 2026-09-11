@@ -3358,13 +3358,15 @@
             const batchResults = await Promise.all(batch.map(async ({ item, originalIdx }, batchIdx) => {
                 const currentChNum = chapters.length + batchIdx + 1;
                 try {
-                    const ch = await plugin.getChapter(item.url, { title: item.title });
+                    const ch = await plugin.getChapter(item.url, { title: item.title, arc: item.arc, volume: item.volume });
                     const pct = Math.round(((i + batchIdx + 1) / pendingQueue.length) * 100);
                     progressCb?.(`[${plugin.name}] Downloaded chapter ${currentChNum}/${items.length} (${pct}%)`, pct);
                     return {
                         title: ch.title || item.title || `Chapter ${originalIdx + 1}`,
                         url: item.url,
-                        text: cleanChapterHtmlWithImages(ch.content || '')
+                        text: cleanChapterHtmlWithImages(ch.content || ''),
+                        arc: ch.arc || item.arc,
+                        volume: ch.volume || item.volume || item.arc
                     };
                 } catch (err) {
                     console.warn(`[${plugin.name}] Failed chapter ${originalIdx + 1}:`, err);

@@ -323,7 +323,9 @@
       return {
         title,
         content: content.trim(),
-        originalTitle: title
+        originalTitle: title,
+        arc: options.arc,
+        volume: options.volume || options.arc
       };
     }
   }
