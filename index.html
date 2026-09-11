@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.11.6';
+    const VERSION = '8.11.7';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3525,6 +3525,16 @@ const formatModelName = (id, displayName) => {
       const [newGenderLockName, setNewGenderLockName] = useState('');
       const [newGenderLockGender, setNewGenderLockGender] = useState('female');
 
+      // AI Character Gender Detection & Multi-Model Choice
+      const [aiGenderModalOpen, setAiGenderModalOpen] = useState(false);
+      const [aiGenderModel, setAiGenderModel] = useState(() => localStorage.getItem('aiGenderModel') || 'gemini-3.5-flash-lite');
+      const [aiGenderCustomModel, setAiGenderCustomModel] = useState(() => localStorage.getItem('aiGenderCustomModel') || '');
+      const [aiGenderUseCustom, setAiGenderUseCustom] = useState(() => localStorage.getItem('aiGenderUseCustom') === 'true');
+      const [aiGenderSource, setAiGenderSource] = useState('glossary');
+      const [isScanningAIGender, setIsScanningAIGender] = useState(false);
+      const [aiGenderResults, setAiGenderResults] = useState([]);
+      const [aiGenderFilter, setAiGenderFilter] = useState('all');
+
       const handleClearAllGenderLocks = () => {
         if (!genderLocks || Object.keys(genderLocks).length === 0) return;
         if (!confirm('Are you sure you want to clear all character gender locks?')) return;
@@ -3701,6 +3711,158 @@ const formatModelName = (id, displayName) => {
           window.telemetryLog?.('GENDER_DETECT', 'Scan complete: No character gender markers identified.', { linesScanned: lines.length });
           toast('No clear character gender tags found. Format terms like: Name -> Translation (female)', 'info');
         }
+      };
+
+      const handleRunAIGenderScan = async () => {
+        setIsScanningAIGender(true);
+        const startTime = performance.now();
+        try {
+          const selectedModel = aiGenderUseCustom && aiGenderCustomModel ? aiGenderCustomModel.trim() : aiGenderModel;
+          if (!selectedModel) throw new Error('Please enter or select an AI model.');
+
+          let candidateNames = [];
+          if (aiGenderSource === 'glossary' && terminology && terminology.trim()) {
+            const lines = terminology.split(/\r?\n/);
+            const seen = new Set();
+            const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港)$/i;
+            const entityPhrasePattern = /\b(?:Law of |Ruins of |Church of |Order of |School of |Nation of |City of |Land of |Archipelago|University)\b/i;
+
+            let inRules = false;
+            for (const rawLine of lines) {
+              const l = rawLine.trim();
+              if (!l || l.startsWith('//') || l.startsWith('/*')) continue;
+              if (/^(?:#+\s*)?I\.\s*(?:SYSTEM|RULES)/i.test(l)) { inRules = true; continue; }
+              if (/^(?:#+\s*)?(?:II|III|IV|V|VI|VII)\.\s*/i.test(l)) { inRules = false; }
+              if (inRules) continue;
+              if (/^(?:Example|\* Example|\- Example|Correct:|Incorrect:|Rule:|Note:|Legend:|Warning:)/i.test(l)) continue;
+
+              const cleanL = l.replace(/^[-*•\s\d.]+\s*/, '').trim();
+              let parts = [];
+              if (cleanL.includes('->')) parts = cleanL.split('->');
+              else if (cleanL.includes('=>')) parts = cleanL.split('=>');
+              else if (cleanL.includes('=')) parts = cleanL.split('=');
+              else continue;
+
+              const src = parts[0].trim().replace(/^[-*•\s\d.]+\s*/, '');
+              const tgt = parts.slice(1).join('=').trim().replace(/^[-*•\s\d.]+\s*/, '');
+
+              const checkAndAdd = (val) => {
+                const aliases = val.replace(/#.*$/, '').replace(/\([^)]*\)/g, '').split(/[/;|,]/).map(x => x.trim());
+                for (const a of aliases) {
+                  if (a.length >= 2 && a.length <= 40 && !entityEndingPattern.test(a) && !entityPhrasePattern.test(a) && !seen.has(a)) {
+                    seen.add(a);
+                    candidateNames.push(a);
+                  }
+                }
+              };
+              checkAndAdd(tgt);
+              checkAndAdd(src);
+            }
+          }
+
+          // Novel text fallback / selection
+          if (candidateNames.length === 0 || aiGenderSource === 'novel') {
+            let novelSample = '';
+            if (chapters && chapters.length > 0) {
+              for (let i = 0; i < Math.min(3, chapters.length); i++) {
+                novelSample += `\n${chapters[i].title || ''}\n${(chapters[i].text || '').slice(0, 3000)}\n`;
+              }
+            } else if (inputText) {
+              novelSample = inputText.slice(0, 9000);
+            }
+
+            if (!novelSample.trim() && candidateNames.length === 0) {
+              throw new Error('No character terms found in glossary and no novel text loaded. Please load a glossary or novel first.');
+            }
+
+            if (novelSample.trim()) {
+              const prompt = `Analyze this novel excerpt and identify all individual characters (protagonists, side characters, villains) and their biological/narrative genders.\nNovel Excerpt:\n${novelSample}\n\nReturn ONLY a valid JSON object mapping each character name to "female" or "male".\nExample format:\n{\n  "Audrey Hall": "female",\n  "Klein Moretti": "male"\n}`;
+              const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel lore analyst. Output ONLY valid JSON without markdown fences.', selectedModel);
+              const jsonMatch = aiResp.match(/\{[\s\S]*\}/);
+              if (!jsonMatch) throw new Error('AI did not return a valid JSON object.');
+              const parsed = JSON.parse(jsonMatch[0]);
+              const results = Object.entries(parsed)
+                .filter(([k, v]) => k && (v === 'female' || v === 'male'))
+                .map(([name, gender], idx) => ({
+                  id: `gen_${idx}_${Date.now()}`,
+                  character: name.trim(),
+                  gender: gender.toLowerCase(),
+                  checked: true
+                }));
+              const durationMs = Math.round(performance.now() - startTime);
+              setAiGenderResults(results);
+              toast(`✨ AI identified ${results.length} characters with genders in ${(durationMs / 1000).toFixed(1)}s!`, 'success');
+              return;
+            }
+          }
+
+          // Scan candidate names from glossary (up to 250 names per request)
+          const namesToScan = candidateNames.slice(0, 250);
+          const prompt = `Given this list of terms from a web novel:\n${JSON.stringify(namesToScan, null, 2)}\n\n1. Identify which terms are INDIVIDUAL CHARACTERS (people or sentient entities with a biological/narrative gender).\n2. Determine their gender: "female" or "male" based on novel lore, context, honorifics, or linguistic clues.\n3. OMIT non-characters, organizations, locations, abilities, concepts, and items.\n\nReturn ONLY a valid JSON object:\n{\n  "Audrey Hall": "female",\n  "Klein Moretti": "male",\n  "Cattleya": "female"\n}`;
+
+          const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
+          const jsonMatch = aiResp.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) throw new Error('AI did not return a valid JSON object.');
+          const parsed = JSON.parse(jsonMatch[0]);
+          const results = Object.entries(parsed)
+            .filter(([k, v]) => k && (v === 'female' || v === 'male'))
+            .map(([name, gender], idx) => ({
+              id: `gen_${idx}_${Date.now()}`,
+              character: name.trim(),
+              gender: gender.toLowerCase(),
+              checked: true
+            }));
+
+          const durationMs = Math.round(performance.now() - startTime);
+          const females = results.filter(r => r.gender === 'female').map(r => r.character);
+          const males = results.filter(r => r.gender === 'male').map(r => r.character);
+
+          window.telemetryLog?.('GENDER_AI_DETECT', `AI character gender scan complete via ${selectedModel} in ${durationMs}ms: ${results.length} detected (${females.length} ♀ Female, ${males.length} ♂ Male)`, {
+            model: selectedModel,
+            durationMs,
+            totalDetected: results.length,
+            femaleCount: females.length,
+            maleCount: males.length,
+            femaleCharacters: females,
+            maleCharacters: males
+          });
+
+          setAiGenderResults(results);
+          toast(`✨ AI identified ${results.length} character genders in ${(durationMs / 1000).toFixed(1)}s!`, 'success');
+        } catch(err) {
+          window.telemetryLog?.('GENDER_AI_DETECT', `AI gender scan failed: ${err.message}`, null, 'error');
+          toast(`AI scan error: ${err.message}`, 'error');
+        } finally {
+          setIsScanningAIGender(false);
+        }
+      };
+
+      const handleApplyAiGenderResults = () => {
+        const selected = aiGenderResults.filter(r => r.checked);
+        if (selected.length === 0) return toast('No characters selected.', 'warning');
+
+        const nextLocks = { ...genderLocks };
+        selected.forEach(r => {
+          nextLocks[r.character] = r.gender;
+        });
+
+        setGenderLocks(nextLocks);
+        try { localStorage.setItem('gemini_gender_locks', JSON.stringify(nextLocks)); } catch(e) {}
+
+        const females = selected.filter(r => r.gender === 'female').map(r => r.character);
+        const males = selected.filter(r => r.gender === 'male').map(r => r.character);
+
+        window.telemetryLog?.('GENDER_LOCK', `Applied ${selected.length} AI-detected character gender locks! Total active locks: ${Object.keys(nextLocks).length}`, {
+          appliedCount: selected.length,
+          femaleCount: females.length,
+          maleCount: males.length,
+          femaleCharacters: females,
+          maleCharacters: males,
+          totalActiveLocks: Object.keys(nextLocks).length
+        });
+
+        toast(`Applied ${selected.length} character gender locks!`, 'success');
+        setAiGenderModalOpen(false);
       };
 
       // --- Novel Health & QA Proofreader State (§5.9 + §7.1 + §7.5) ---
@@ -6818,8 +6980,8 @@ FORMATTING & STRUCTURE RULES:
       // --- AI Auto-Glossary & Character Extractor Engine ---
       const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-      const callAiAnalysis = async (prompt, systemInstruction = '') => {
-        const prov = provider || 'gemini';
+      const callAiAnalysis = async (prompt, systemInstruction = '', modelOverride = null, providerOverride = null) => {
+        const prov = providerOverride || (modelOverride && modelOverride.startsWith('deepseek') ? 'deepseek' : (provider || 'gemini'));
         let allKeys = [];
         try {
           const stored = JSON.parse(localStorage.getItem('apiKeysByProvider') || '{}');
@@ -6833,11 +6995,12 @@ FORMATTING & STRUCTURE RULES:
 
         let key = allKeys[0];
         if (prov === 'deepseek') {
+          const m = modelOverride || (useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : 'deepseek-chat');
           const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
             body: JSON.stringify({
-              model: useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : 'deepseek-chat',
+              model: m,
               messages: [
                 ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
                 { role: 'user', content: prompt }
@@ -6849,7 +7012,7 @@ FORMATTING & STRUCTURE RULES:
           const j = await r.json();
           return j.choices?.[0]?.message?.content || '';
         } else {
-          const activeM = useCustomModel && customModel ? customModel : (geminiModel || 'gemini-3.5-flash-lite');
+          const activeM = modelOverride || (useCustomModel && customModel ? customModel : (geminiModel || 'gemini-3.5-flash-lite'));
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeM}:generateContent?key=${key}`;
           const bodyPayload = {
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -10464,8 +10627,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           className: 'mini-btn ghost',
                           style: { fontSize: 11, padding: '2px 8px' },
                           onClick: handleAutoDetectGenderLocks,
-                          title: 'Auto-detect character genders from glossary'
-                        }, '⚡ Auto-Detect')
+                          title: 'Auto-detect character genders from glossary using fast offline heuristics'
+                        }, '⚡ Auto-Detect'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn',
+                          style: { fontSize: 11, padding: '2px 8px', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', color: '#fff', border: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 },
+                          onClick: () => {
+                            setAiGenderResults([]);
+                            setAiGenderModalOpen(true);
+                          },
+                          title: 'AI Character Gender Scanner (Choose any model or custom model)'
+                        }, '✨ Quick AI')
                       )
                     ),
                     h('div', { style: { fontSize: 11, color: 'var(--paper-dim)', marginBottom: 8, opacity: 0.85 } },
@@ -14241,6 +14414,212 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 style: { background: 'var(--iris)', color: '#fff', fontWeight: 600 },
                 onClick: () => handleApplyExtractedTerms(false)
               }, `➕ Append to Glossary (${extractedTerms.filter(t => t.checked).length})`)
+            )
+          )
+        ),
+
+        // ── AI CHARACTER GENDER DETECTION & LOCKS MODAL ──
+        aiGenderModalOpen && h('div', { className: 'modal-overlay', onClick: () => setAiGenderModalOpen(false) },
+          h('div', { className: 'modal-box', style: { maxWidth: 540, maxHeight: '88vh', display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation() },
+            h('div', { className: 'modal-hd' },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 18 } }, '✨'),
+                h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'AI Character Gender Detection & Locks')
+              ),
+              h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setAiGenderModalOpen(false) }, '✕')
+            ),
+            h('div', { className: 'modal-bd', style: { overflowY: 'auto', flex: 1 } },
+              h('p', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 14, lineHeight: 1.5 } },
+                'Scans novel characters using AI lore intelligence to determine female ♀ vs. male ♂ pronouns, completely preventing he ↔ she pronoun swapping.'
+              ),
+
+              // AI Model Selector Card
+              h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: 12, borderRadius: 6, marginBottom: 12 } },
+                h('div', { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                  h('span', null, '🤖 AI Model:'),
+                  h('span', { style: { fontSize: 10, color: 'var(--iris)', fontWeight: 600 } },
+                    aiGenderUseCustom ? 'Custom Model' : 'Preset'
+                  )
+                ),
+                h('select', {
+                  value: aiGenderUseCustom ? 'custom' : aiGenderModel,
+                  onChange: e => {
+                    if (e.target.value === 'custom') {
+                      setAiGenderUseCustom(true);
+                      localStorage.setItem('aiGenderUseCustom', 'true');
+                    } else {
+                      setAiGenderUseCustom(false);
+                      localStorage.setItem('aiGenderUseCustom', 'false');
+                      setAiGenderModel(e.target.value);
+                      localStorage.setItem('aiGenderModel', e.target.value);
+                    }
+                  },
+                  style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '7px 10px', fontSize: 12, color: 'var(--paper)', outline: 'none' }
+                },
+                  h('optgroup', { label: 'Gemini Models (Recommended)' },
+                    h('option', { value: 'gemini-3.5-flash-lite' }, '⚡ Gemini 3.5 Flash-Lite (Highest Free Quota · Recommended)'),
+                    h('option', { value: 'gemini-3.8-flash' }, 'Gemini 3.8 Flash (Latest Flagship · Fast)'),
+                    h('option', { value: 'gemini-3.7-flash' }, 'Gemini 3.7 Flash (Flagship Hybrid)'),
+                    h('option', { value: 'gemini-3.6-flash' }, 'Gemini 3.6 Flash (Official 2026 Recommended)'),
+                    h('option', { value: 'gemini-3.5-flash' }, 'Gemini 3.5 Flash (Ultra Fast)'),
+                    h('option', { value: 'gemini-3.1-pro-preview' }, 'Gemini 3.1 Pro (Deep Literary Reasoning)')
+                  ),
+                  h('optgroup', { label: 'DeepSeek Models' },
+                    h('option', { value: 'deepseek-chat' }, 'DeepSeek V3 / V4 Chat')
+                  ),
+                  h('optgroup', { label: 'Custom' },
+                    h('option', { value: 'custom' }, '🛠️ Custom Model ID…')
+                  )
+                ),
+                (aiGenderUseCustom || aiGenderModel === 'custom') && h('div', { style: { marginTop: 8 } },
+                  h('input', {
+                    type: 'text',
+                    value: aiGenderCustomModel,
+                    onChange: e => {
+                      setAiGenderCustomModel(e.target.value);
+                      localStorage.setItem('aiGenderCustomModel', e.target.value);
+                    },
+                    placeholder: 'Enter custom model ID (e.g. gemini-2.5-flash, gpt-4o, etc.)…',
+                    style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: 'var(--paper)', outline: 'none', boxSizing: 'border-box' }
+                  })
+                )
+              ),
+
+              // Source Selector
+              h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: 12, borderRadius: 6, marginBottom: 14 } },
+                h('div', { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 } }, '📚 Character Source:'),
+                h('div', { style: { display: 'flex', gap: 16 } },
+                  h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' } },
+                    h('input', {
+                      type: 'radio',
+                      name: 'aiGenderSource',
+                      value: 'glossary',
+                      checked: aiGenderSource === 'glossary',
+                      onChange: () => setAiGenderSource('glossary'),
+                      style: { accentColor: 'var(--iris)' }
+                    }),
+                    `Active Glossary (${(terminology || '').split(/\r?\n/).filter(l => l.trim() && !l.startsWith('#')).length} lines)`
+                  ),
+                  h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' } },
+                    h('input', {
+                      type: 'radio',
+                      name: 'aiGenderSource',
+                      value: 'novel',
+                      checked: aiGenderSource === 'novel',
+                      onChange: () => setAiGenderSource('novel'),
+                      style: { accentColor: 'var(--iris)' }
+                    }),
+                    `Novel Text (${chapters?.length || (inputText ? 1 : 0)} chs)`
+                  )
+                )
+              ),
+
+              // Start Scan Button
+              h('button', {
+                type: 'button',
+                className: 'btn primary',
+                style: { width: '100%', padding: '10px 14px', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 14 },
+                disabled: isScanningAIGender,
+                onClick: handleRunAIGenderScan
+              }, isScanningAIGender ? '✨ Analyzing Characters with AI…' : '🚀 Start AI Gender Scan'),
+
+              // Results Tray
+              aiGenderResults.length > 0 && h('div', { style: { borderTop: '1px solid var(--hairline)', paddingTop: 12 } },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 } },
+                  h('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--paper)' } },
+                    `Results (${aiGenderResults.filter(r => r.checked).length}/${aiGenderResults.length} selected)`
+                  ),
+                  h('div', { style: { display: 'flex', gap: 6 } },
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { fontSize: 11, padding: '2px 8px' },
+                      onClick: () => {
+                        const allChecked = aiGenderResults.every(r => r.checked);
+                        setAiGenderResults(aiGenderResults.map(r => ({ ...r, checked: !allChecked })));
+                      }
+                    }, aiGenderResults.every(r => r.checked) ? 'Deselect All' : 'Select All'),
+                    h('span', { style: { fontSize: 11, color: '#ec4899', fontWeight: 600 } },
+                      `♀ ${aiGenderResults.filter(r => r.gender === 'female').length}`
+                    ),
+                    h('span', { style: { fontSize: 11, color: '#3b82f6', fontWeight: 600 } },
+                      `♂ ${aiGenderResults.filter(r => r.gender === 'male').length}`
+                    )
+                  )
+                ),
+
+                // Filter tabs
+                h('div', { style: { display: 'flex', gap: 6, marginBottom: 8 } },
+                  ['all', 'female', 'male'].map(f => h('button', {
+                    key: f,
+                    type: 'button',
+                    className: `mini-btn ${aiGenderFilter === f ? 'primary' : 'ghost'}`,
+                    style: { fontSize: 11, padding: '2px 8px', textTransform: 'capitalize' },
+                    onClick: () => setAiGenderFilter(f)
+                  }, f === 'all' ? `All (${aiGenderResults.length})` : f === 'female' ? `♀ Female (${aiGenderResults.filter(r => r.gender === 'female').length})` : `♂ Male (${aiGenderResults.filter(r => r.gender === 'male').length})`))
+                ),
+
+                // Scrollable results cards
+                h('div', { style: { maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 4 } },
+                  aiGenderResults
+                    .filter(r => aiGenderFilter === 'all' || r.gender === aiGenderFilter)
+                    .map(r => h('div', {
+                      key: r.id || r.character,
+                      style: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid var(--hairline)',
+                        borderRadius: 6,
+                        padding: '6px 10px'
+                      }
+                    },
+                      h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1, minWidth: 0 } },
+                        h('input', {
+                          type: 'checkbox',
+                          checked: !!r.checked,
+                          onChange: e => {
+                            const chk = e.target.checked;
+                            setAiGenderResults(prev => prev.map(item => item.character === r.character ? { ...item, checked: chk } : item));
+                          },
+                          style: { accentColor: 'var(--iris)' }
+                        }),
+                        h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.character)
+                      ),
+                      h('span', {
+                        className: 'badge',
+                        style: {
+                          fontSize: 10,
+                          padding: '2px 8px',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          background: r.gender === 'female' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                          color: r.gender === 'female' ? '#ec4899' : '#3b82f6',
+                          border: `1px solid ${r.gender === 'female' ? 'rgba(236, 72, 153, 0.4)' : 'rgba(59, 130, 246, 0.4)'}`
+                        },
+                        title: 'Tap to flip gender (♀ ↔ ♂)',
+                        onClick: () => {
+                          setAiGenderResults(prev => prev.map(item => item.character === r.character ? { ...item, gender: item.gender === 'female' ? 'male' : 'female' } : item));
+                        }
+                      }, r.gender === 'female' ? '♀ Female' : '♂ Male')
+                    ))
+                )
+              )
+            ),
+            h('div', { className: 'modal-ft', style: { display: 'flex', gap: 8, justifyContent: 'flex-end', borderTop: '1px solid var(--hairline)', padding: '10px 16px' } },
+              h('button', {
+                type: 'button',
+                className: 'btn ghost',
+                style: { padding: '6px 12px', fontSize: 12 },
+                onClick: () => setAiGenderModalOpen(false)
+              }, 'Close'),
+              aiGenderResults.length > 0 && h('button', {
+                type: 'button',
+                className: 'btn primary',
+                style: { padding: '6px 14px', fontSize: 12, fontWeight: 600 },
+                onClick: handleApplyAiGenderResults
+              }, `🔒 Lock ${aiGenderResults.filter(r => r.checked).length} Characters`)
             )
           )
         ),
