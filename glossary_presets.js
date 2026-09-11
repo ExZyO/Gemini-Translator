@@ -434,11 +434,17 @@ Number one main rule: ONLY translate what has been given, do NOT invent, halluci
     If that Lord of The Mysteries completely replaced The Fool, then "He" could be said to be a complete Pillar—although no one really wanted to see such an outcome, but if such a Lord of The Mysteries were on Earth, at least "He" wouldn't be too passive when facing existences like the Mother Goddess of Depravity and the Mother Tree of Desire.
 
 - Reusable Classic Phrasing References:
-  * "Free things cost the most!"
-  * "You're crazy." / "you're crazy." / "You're really crazy."
-  * "I won't lose too much, just myself."
-  * "There are always some things that are more important than others."
-  * "The taste of a demoness ain't bad."
+  * "魔女的滋味真不错啊。" -> "The taste of a demoness ain't bad."
+  * "天下没有免费的午餐。" / "免费的才是最贵的。" -> "Free things cost the most!"
+  * "你疯了。" / "你真是疯了。" -> "You're crazy." / "You're really crazy."
+  * "我不会失去太多，只是我自己而已。" -> "I won't lose too much, just myself."
+  * "总有些事情，高于其他。" -> "There are always some things that are more important than others."
+  * "所有命运馈赠的礼物，早已在暗中标好了价格。" -> "All gifts of fate have already been secretly priced."
+
+5. Fan Fiction, Community Writing & Spelling Variations:
+- Spelling & Typo Resilience: Authors of fan fiction, web articles, or raw machine text frequently misspell names, use informal abbreviations, or employ alternate pinyin romanizations (e.g. Sarsir vs. Sasrir, Lovia Tifanny vs. Lovia Tiffany, Gehrman vs. Gherman).
+- Standardization Priority: Always normalize these variations to the standardized canonical names, pathways, and terminology established in this glossary.
+- Gender Continuity: Strictly preserve the designated gender and pronouns ("he" vs. "she") defined in this directory, regardless of pronoun confusion or mistranslations present in fan fiction source text.
 
 II. CORE TERMINOLOGY & VOCABULARY BANK
 
@@ -452,13 +458,41 @@ Fundamental Beyonder Concepts:
 - 祂 -> "He" / "Him" / "She" / "Her" (Divine Pronoun in quotes)
 - 祂们 -> "They" / "Them" (Divine Plural Pronoun in quotes)
 
-Essential Vocabulary Words:
-- Entities & Concepts: Avatar, marionette, Worm of Spirit, Spirit Worm, placated, Great Old One, Pillar, Pillar of The Universe, mysticism, characteristics, Beyonder Characteristics, Uniqueness, Apocalypse, Hexes, King of Angels, King of Kings of Angels, True God, Above the Sequences, Grounded Angel / Grounded Angels, Parasitizing, copper whistle, spirituality, self-awareness, Blessed, Mythical Creature, Child of God, doll, dolls, spiritual intuition, convergence, corruption, "eternal daytime", theft, "Theft", "Fooling", "Fooling" authority, half-crazy, half-mad, divinity, godhood.
-- Sefirot & Mystical Locations: grayish-white fog, gray fog, the Hall of Truth, River of Eternal Darkness, Chaos Sea, Sefirah Castle, Brood Hive, Tenebrous World, Nation of Disorder, City of Calamity, Key of Light, Knowledge Moor, Spirit World, Astral World, Underworld, Mind World, Mirror World, Abyss, Cosmos, Calderon City, Foggy Town, City of Miracles Livesyd, long bronze table, mottled long bronze table, ancient mottled bronze table, bluish-black door.
-- Geographical & Historical Terms: Loen, Loen Kingdom, Intis, Intis Republic, Feysac Empire, Feynapotter Kingdom, Tingen, Tingen City, Lenburg, Masin, Segar, East Balam, West Balam, Highlands Kingdom, Bansy Harbour, Binsy Town, Binsy, Sonia Sea, Forsaken Land of the Gods, Forsaken Land of God, the Giant King's Court, ruins of the battle of the gods, battle of the god's ruin, Berserk Sea, City of Silver, Moon City, Chernobyl, Poto Harbour, Waypoint Island, Hanth Island, Sonia Island, Rosted Archipelago / Rorsted Archipelago, Bayam, Gargas Archipelago, Fog Sea, Fog Sea Archipelago, Farim, Banamo Island, Primitive Island, Polar Sea, North Sea, Southern Continent, Northern Continent, Western Continent, Tiana Port, Pritz Harbour, the New City of Silver, Midseashire, Belltaine City, Belltaine, Hornacis, Zouteland Street, Iron Cross Street, Besik Street, Champagne Street, Pelican Street, Daffodil Street, Khoy University.
-- Epochs & Historical Eras: Pre-Epoch, 1st Epoch, 2nd Epoch (Dark Epoch), 3rd Epoch (The Cataclysm / The Cataclysm Epoch / Epoch of The Gods), 4th Epoch (Pale Era, The Iron Age, Early Era of Fire, Dual Era, Warring Era, First Solomon Empire, Tudor Empire, Tudor-Trunsoest United Empire, Tudor-Trunsoest Underground Ruins, Balam Empire, War of The Four Emperors), 5th Epoch.
-- Titles & Factions: Queen Mystic, Arrodes, The Great Smog of Backlund, Flegrea, Admiral of Blood, the magic mirror, Phoenix Ancestor Gregrace, Gregrace, the Primordial One, The Revelation of Evernight, divine revelation, King of the Five Seas, Queen of Stars, King of Immortality, Queen of Ailment, King of Dusk, King of the Black Throne, Pirate Admiral, Pirate Admirals, Vice Admiral Hurricane, Siatas, Groselle, Elven Songster Siatas, Mobet Zoroast, Frunziar Edward, Queen of Calamity Cohinem, Elf King Soniathrym, Cohinem, Soniathrym, Dragon of Imagination Ankewelt, Quill of Alzuhood, Adol, Temperance Faction, Indulgence Faction, Machinery Hivemind, Fertility Order, Mandated Punishers, Inquisition, the Eternal Blazing Sun, the True Creator, Megose, True Creator's child, Giant King Aurmir, God of Dawn Badheil, Wind Angel Leodero, Sanguine Ancestor, Earth Mother, God of Craftsmanship, God of Steam and Machinery, Dragon of Betrayal Herabergen, God of Glory Bladel, the Black Emperor Card, the Black Emperor Card of Blasphemy, Miss Messenger, Chained God, Primordial Moon Faction, Angel of Mercury, Angel of Death, Angel of Redemption, Angel of Life, Angel of Retribution, Angel of the Holy Spirit, Angel of Time, Angel of Stars, Mahmosi, Tirie, Abomination Suah, Winner Enuni, Enzo, Biles, Roy, Phil, Pasha, Weber, Dragon of Nightmare, God Almighty, Twilight Sword, The Annihilation Demonic Wolf, Angel of Imagination, Dark Angel, White Angel, Wisdom Angel, Dark Side of The Universe, Devil Monarch Farbauti, Primordial God Almighty, Church of the God of Combat, Church of the Earth Mother, Church of the Lord of Storms, the Tyrant's Church, Church of the God of Knowledge, Church of the Eternal Blazing Sun, Church of Steam, Church of the God of Steam and Machinery, Church of The Fool, Church of Evernight, The Church of the Evernight Goddess, Nation of the Evernight.
-- Titles & Descriptions: Blazing Danitz, King of the North Ulyssan, Nation of Frost, quasi-demigod, tycoon, daze, dazed expression.
+Essential Beyonder Vocabulary (Chinese & English Synonyms for Dynamic Matching):
+- 分身 -> Avatar
+- 秘偶 -> Marionette / marionette
+- 灵之虫 -> Worm of Spirit / Spirit Worm
+- 安抚 -> Placate / Placated
+- 旧日 / 外神 -> Great Old One (GOO)
+- 支柱 / 宇宙支柱 -> Pillar / Pillar of The Universe
+- 神秘学 -> Mysticism
+- 非凡特性 -> Beyonder Characteristic(s) / characteristics
+- 唯一性 -> Uniqueness
+- 末日 -> Apocalypse
+- 诅咒 -> Hex / Hexes
+- 天使之王 -> King of Angels
+- 众天使之王 -> King of Kings of Angels
+- 真神 -> True God
+- 序列之上 -> Above the Sequences (ATS)
+- 尘世天使 / 降世天使 -> Grounded Angel / Grounded Angels
+- 寄生 -> Parasitizing / Parasite
+- 铜哨 -> Copper whistle / copper whistle
+- 灵性 -> Spirituality
+- 自我认知 / 自我意识 -> Self-awareness (not self-cognition)
+- 眷者 -> Blessed
+- 神话生物 -> Mythical Creature
+- 神子 -> Child of God
+- 人偶 / 魔偶 -> Doll / dolls
+- 灵感 -> Spiritual intuition
+- 聚合 -> Convergence / convergence (not aggregation)
+- 侵蚀 / 污染 -> Corruption / corruption (not pollution)
+- 星空 / 宇宙 -> Cosmos / cosmos (not starry sky)
+- "永昼" -> "eternal daytime"
+- 窃取 -> Theft / "Theft"
+- 愚弄 -> Fooling / "Fooling" / "Fooling" authority
+- 半疯 -> Half-crazy / half-mad
+- 神性 -> Divinity
+- 神格 / 神位 -> Godhood
 
 III. CHINESE / ENGLISH CHARACTER NAME & ENTITY DIRECTORY
 
@@ -626,529 +660,529 @@ Founded After the World War (Fifth Epoch):
 VI. COMPLETE CHARACTER DIRECTORY (A–Z WITH PATHWAYS)
 
 A
-- Aaron Ceres (亚伦·塞雷斯) - Human
-- Ace Snake (艾斯·斯内克) - Tyrant
-- Adam (亚当) - Visionary
-- Ademisaul (阿德米索尔) - Wheel of Fortune
-- Agalito (阿加里图) - Abyss
-- Agrippina (阿格里皮娜) - Mother (Sequence 4 or 3)
-- Aguesid Negan (阿格西德·尼根) - Justiciar
-- Aiflor (艾弗洛) - Visionary
-- Ait (艾特) - Twilight Giant
-- Aiur Moria (艾尤尔·莫里亚) - Human
-- Albus Medici (阿尔巴斯·梅迪奇) - Red Priest
-- Alexis (亚历克西斯) - Moon
-- Alfred Hall (阿尔弗雷德·霍尔) - Justiciar
-- Alger Wilson (阿尔杰·威尔逊) - Tyrant / Hanged Man
-- Alice Moretti (爱丽丝·莫雷蒂) - Human
-- Alicia Tamara (艾丽西亚·塔玛拉) - Black Emperor
-- Alista Tudor (亚利斯塔·图铎) - Red Priest
-- Alzuhod (阿兹霍德) - Visionary
-- Amandina (阿曼迪娜) - Darkness
-- Amon (阿蒙) - Error
-- Amyrius Rieveldt (艾米莉斯·里威尔特) - Justiciar
-- Ancient Sun God (远古太阳神) - Visionary / Hanged Man / Tyrant / Sun / White Tower (God Almighty)
-- Anderson Hood (安德森·胡德) - Red Priest
-- Andy Haydn (安迪·海顿) - Justiciar
-- Angouleme de Francois (昂古莱姆·德·弗朗索瓦) - Sun
-- Animal Trainer (驯兽师) - Human
-- Ankewelt (昂格禄德) - Visionary
-- Annette Sanson (安妮特·桑松) - Eternal Aeon
-- Anthony Reid (安东尼·瑞德) - Visionary
-- Anthony Stevenson (安东尼·史蒂文森) - Darkness
-- Antigonus (安提哥努斯) - Fool
-- Antoine (安托万) - Twilight Giant
-- Antoine (Secret Order) (安托万 密修会) - Fool
-- Apollo (阿波罗) - Sun
-- Argos (阿尔戈斯) - Moon
-- Arianna (阿里安娜) - Darkness
-- Ariehogg (阿里霍格) - Visionary
-- Artificial Death (人造死神) - Death
-- Associate Professor (副教授) - Hermit
-- Atur Sanson (阿图尔·桑松) - Eternal Aeon
-- Audrey Hall (奥黛丽·霍尔) - Visionary
-- Auernia (奥尔尼娅) - Moon
-- Aulisa (奥利莎) - Door
-- Aurmir (奥尔米尔) - Twilight Giant
-- Aurore Lee (奥芙拉·李) - Hermit / Eternal Aeon
-- Awatoma Einhorn (阿瓦托玛·艾因霍恩) - Red Priest
-- Ava Lizier (艾娃·利齐耶) - Human
-- Azik Eggers (阿兹克·艾格斯) - Death
+- 亚伦·塞雷斯 / Aaron Ceres -> Aaron Ceres (Human) (male)
+- 艾斯·斯内克 / Ace Snake -> Ace Snake (Tyrant) (male)
+- 亚当 / Adam -> Adam (Visionary) (male)
+- 阿德米索尔 / Ademisaul -> Ademisaul (Wheel of Fortune) (male)
+- 阿加里图 / Agalito -> Agalito (Abyss) (male)
+- 阿格里皮娜 / Agrippina -> Agrippina (Mother (Sequence 4 or 3)) (female)
+- 阿格西德·尼根 / Aguesid Negan -> Aguesid Negan (Justiciar) (male)
+- 艾弗洛 / Aiflor -> Aiflor (Visionary) (male)
+- 艾特 / Ait -> Ait (Twilight Giant) (male)
+- 艾尤尔·莫里亚 / Aiur Moria -> Aiur Moria (Human) (male)
+- 阿尔巴斯·梅迪奇 / Albus Medici -> Albus Medici (Red Priest) (male)
+- 亚历克西斯 / Alexis -> Alexis (Moon) (male)
+- 阿尔弗雷德·霍尔 / Alfred Hall -> Alfred Hall (Justiciar) (male)
+- 阿尔杰·威尔逊 / Alger Wilson -> Alger Wilson (Tyrant / Hanged Man) (male)
+- 爱丽丝·莫雷蒂 / Alice Moretti -> Alice Moretti (Human) (female)
+- 艾丽西亚·塔玛拉 / Alicia Tamara -> Alicia Tamara (Black Emperor) (female)
+- 亚利斯塔·图铎 / Alista Tudor -> Alista Tudor (Red Priest) (male)
+- 阿兹霍德 / Alzuhod -> Alzuhod (Visionary) (male)
+- 阿曼迪娜 / Amandina -> Amandina (Darkness) (female)
+- 阿蒙 / Amon -> Amon (Error) (male)
+- 艾米莉斯·里威尔特 / Amyrius Rieveldt -> Amyrius Rieveldt (Justiciar) (male)
+- 远古太阳神 / Ancient Sun God -> Ancient Sun God (Visionary / Hanged Man / Tyrant / Sun / White Tower (God Almighty)) (male)
+- 安德森·胡德 / Anderson Hood -> Anderson Hood (Red Priest) (male)
+- 安迪·海顿 / Andy Haydn -> Andy Haydn (Justiciar) (male)
+- 昂古莱姆·德·弗朗索瓦 / Angouleme de Francois -> Angouleme de Francois (Sun) (male)
+- 驯兽师 / Animal Trainer -> Animal Trainer (Human)
+- 昂格禄德 / Ankewelt -> Ankewelt (Visionary) (male)
+- 安妮特·桑松 / Annette Sanson -> Annette Sanson (Eternal Aeon) (female)
+- 安东尼·瑞德 / Anthony Reid -> Anthony Reid (Visionary) (male)
+- 安东尼·史蒂文森 / Anthony Stevenson -> Anthony Stevenson (Darkness) (male)
+- 安提哥努斯 / Antigonus -> Antigonus (Fool) (male)
+- 安托万 / Antoine -> Antoine (Twilight Giant) (male)
+- 安托万 密修会 / Antoine (Secret Order) -> Antoine (Secret Order) (Fool) (male)
+- 阿波罗 / Apollo -> Apollo (Sun) (male)
+- 阿尔戈斯 / Argos -> Argos (Moon) (male)
+- 阿里安娜 / Arianna -> Arianna (Darkness) (female)
+- 阿里霍格 / Ariehogg -> Ariehogg (Visionary) (male)
+- 人造死神 / Artificial Death -> Artificial Death (Death)
+- 副教授 / Associate Professor -> Associate Professor (Hermit)
+- 阿图尔·桑松 / Atur Sanson -> Atur Sanson (Eternal Aeon) (male)
+- 奥黛丽·霍尔 / Audrey Hall -> Audrey Hall (Visionary) (female)
+- 奥尔尼娅 / Auernia -> Auernia (Moon) (female)
+- 奥利莎 / Aulisa -> Aulisa (Door) (female)
+- 奥尔米尔 / Aurmir -> Aurmir (Twilight Giant) (male)
+- 奥芙拉·李 / Aurore Lee -> Aurore Lee (Hermit / Eternal Aeon) (female)
+- 阿瓦托玛·艾因霍恩 / Awatoma Einhorn -> Awatoma Einhorn (Red Priest) (male)
+- 艾娃·利齐耶 / Ava Lizier -> Ava Lizier (Human) (female)
+- 阿兹克·艾格斯 / Azik Eggers -> Azik Eggers (Death) (male)
 
 B
-- Bainar (拜纳尔) - Tail-Devourer
-- Bakerland Jean Madan (巴克兰德·让·马丹) - Red Priest
-- Bard (巴德) - Error
-- Barranca (巴兰卡) - Chained
-- Barton (巴顿) - Human
-- Basil (巴西尔) - Abyss
-- Batna Comte (巴特纳·孔特) - Human
-- Baynfel (拜恩费尔) - Hanged Man
-- Beatrice Incourt (比阿特丽斯·因库特) - Patriarch
-- Belize (伯利兹) - Justiciar
-- Bella (贝拉) - Paragon
-- Benson Moretti (班森·莫雷蒂) - Black Emperor
-- Berg (伯格) - White Tower
-- Bernadette Gustav (贝尔纳黛·古斯塔夫) - Hermit
-- Bethel Abraham (伯特利·亚伯拉罕) - Door
-- Biles (比尔斯) - Tyrant
-- Bilt Brando (比尔特·布兰多) - Unknown (Sequence 7 or 6)
-- Bladel (布拉德尔) - Twilight Giant
-- Bliss Sanson (布利斯·桑松) - Eternal Aeon
-- Bornova Gustav (博尔诺瓦·古斯塔夫) - Paragon
-- Botis (博提斯) - Door
-- Bouvard Pont-Pero (布瓦尔·彭佩罗) - Eternal Aeon
-- Bram Andariel (布拉姆·安达里尔) - Abyss
-- Bredt (布雷特) - Human
-- Breeder Master (育种大师) - Mother
-- Brignais (布里尼亚斯) - White Tower
-- Brood Hive (母巢) - Mother / Moon
-- Browns Sauron (布朗斯·索隆) - Demoness
-- Bulatov Ivan (布拉托夫·伊万) - Twilight Giant
-- Burman (伯曼) - Death
-- Beost (贝奥斯特) - Chaos Primogenitor
+- 拜纳尔 / Bainar -> Bainar (Tail-Devourer) (male)
+- 巴克兰德·让·马丹 / Bakerland Jean Madan -> Bakerland Jean Madan (Red Priest) (male)
+- 巴德 / Bard -> Bard (Error) (male)
+- 巴兰卡 / Barranca -> Barranca (Chained) (male)
+- 巴顿 / Barton -> Barton (Human) (male)
+- 巴西尔 / Basil -> Basil (Abyss) (male)
+- 巴特纳·孔特 / Batna Comte -> Batna Comte (Human) (male)
+- 拜恩费尔 / Baynfel -> Baynfel (Hanged Man) (male)
+- 比阿特丽斯·因库特 / Beatrice Incourt -> Beatrice Incourt (Patriarch) (female)
+- 伯利兹 / Belize -> Belize (Justiciar) (male)
+- 贝拉 / Bella -> Bella (Paragon) (female)
+- 班森·莫雷蒂 / Benson Moretti -> Benson Moretti (Black Emperor) (male)
+- 伯格 / Berg -> Berg (White Tower) (male)
+- 贝尔纳黛·古斯塔夫 / Bernadette Gustav -> Bernadette Gustav (Hermit) (female)
+- 伯特利·亚伯拉罕 / Bethel Abraham -> Bethel Abraham (Door) (male)
+- 比尔斯 / Biles -> Biles (Tyrant) (male)
+- 比尔特·布兰多 / Bilt Brando -> Bilt Brando (Unknown (Sequence 7 or 6)) (male)
+- 布拉德尔 / Bladel -> Bladel (Twilight Giant) (male)
+- 布利斯·桑松 / Bliss Sanson -> Bliss Sanson (Eternal Aeon) (male)
+- 博尔诺瓦·古斯塔夫 / Bornova Gustav -> Bornova Gustav (Paragon) (male)
+- 博提斯 / Botis -> Botis (Door) (male)
+- 布瓦尔·彭佩罗 / Bouvard Pont-Pero -> Bouvard Pont-Pero (Eternal Aeon) (male)
+- 布拉姆·安达里尔 / Bram Andariel -> Bram Andariel (Abyss) (male)
+- 布雷特 / Bredt -> Bredt (Human) (male)
+- 育种大师 / Breeder Master -> Breeder Master (Mother) (male)
+- 布里尼亚斯 / Brignais -> Brignais (White Tower) (male)
+- 母巢 / Brood Hive -> Brood Hive (Mother / Moon) (male)
+- 布朗斯·索隆 / Browns Sauron -> Browns Sauron (Demoness) (male)
+- 布拉托夫·伊万 / Bulatov Ivan -> Bulatov Ivan (Twilight Giant) (male)
+- 伯曼 / Burman -> Burman (Death) (male)
+- 贝奥斯特 / Beost -> Beost (Chaos Primogenitor) (male)
 
 C
-- Caitlyn Hall (凯特琳·霍尔) - Human
-- Cali (卡利) - Chained
-- Camus Castiya (卡缪·卡斯蒂亚) - Justiciar
-- Capim (卡平) - Unknown (possibly Justiciar)
-- Carnot (卡诺) - Unknown
-- Cassandra (卡珊德拉) - Orator
-- Castina (卡斯蒂娜) - Chaos Primogenitor
-- Cathy (凯茜) - Chaos Primogenitor
-- Cattleya (嘉德丽雅) - Hermit (Sequence 4 Mysticologist, Sequence 3 Clairvoyant, Sequence 2 Sage, Sequence 1 Knowledge Emperor)
-- Celeste (塞莱斯特) - Demoness
-- Celestial Master (天师) - Hermit / Paragon
-- Celestial Thearch (天帝) - Black Emperor / Justiciar
-- Celestial Worthy of Heaven and Earth for Blessings (福生玄黄天尊) - Fool / Door / Error (Lord of The Mysteries)
-- Celt (凯尔特) - Justiciar
-- Celia Bello (西莉亚·贝洛) - Demoness
-- Cesare Francis (切萨雷·弗朗西斯) - Human
-- Chained God (被缚之神) - Chained
-- Charlie Collent (查理·科伦特) - Human
-- Charlotte Calvino (夏洛特·卡尔维诺) - Patriarch
-- Chasel Savio (查泽尔·萨维奥) - Human
-- Chen Tu (陈土) - Human
-- Christo (克里斯托) - Moon
-- Ciel Gustav (希尔·古斯塔夫) - Paragon
-- Cielf June (希尔夫·琼) - Paragon
-- Circle of Inevitability (宿命之环) - Eternal Aeon (Circle of Inevitability)
-- Clarice (克拉丽丝) - Demoness
-- Class Khizi (克拉斯·基奇) - Unknown
-- Claude (克劳德) - Paragon (Sequence 4 or 3)
-- Clemence Athana (克莱门斯·阿塔纳) - Visionary
-- Cohinem (高希纳姆) - Tyrant
-- Colin Iliad (科林·伊利亚特) - Twilight Giant
-- Condensed Matter (凝聚态) - Hermit
-- Connors Viktor (康纳斯·维克托) - Human
-- Constace Sanson (康斯坦斯·桑松) - Eternal Aeon
-- Cosmi Odora (科斯米·奥多拉) - Moon
-- Crestet Cesimir (克雷斯泰·塞西米尔) - Darkness
-- Cynthia (辛西娅) - Patriarch
+- 凯特琳·霍尔 / Caitlyn Hall -> Caitlyn Hall (Human) (female)
+- 卡利 / Cali -> Cali (Chained) (male)
+- 卡缪·卡斯蒂亚 / Camus Castiya -> Camus Castiya (Justiciar) (male)
+- 卡平 / Capim -> Capim (Unknown (possibly Justiciar)) (male)
+- 卡诺 / Carnot -> Carnot (Unknown) (male)
+- 卡珊德拉 / Cassandra -> Cassandra (Orator) (female)
+- 卡斯蒂娜 / Castina -> Castina (Chaos Primogenitor) (female)
+- 凯茜 / Cathy -> Cathy (Chaos Primogenitor) (female)
+- 嘉德丽雅 / Cattleya -> Cattleya (Hermit (Sequence 4 Mysticologist, Sequence 3 Clairvoyant, Sequence 2 Sage, Sequence 1 Knowledge Emperor)) (female)
+- 塞莱斯特 / Celeste -> Celeste (Demoness) (male)
+- 天师 / Celestial Master -> Celestial Master (Hermit / Paragon) (male)
+- 天帝 / Celestial Thearch -> Celestial Thearch (Black Emperor / Justiciar) (male)
+- 福生玄黄天尊 / Celestial Worthy of Heaven and Earth for Blessings -> Celestial Worthy of Heaven and Earth for Blessings (Fool / Door / Error (Lord of The Mysteries)) (male)
+- 凯尔特 / Celt -> Celt (Justiciar) (male)
+- 西莉亚·贝洛 / Celia Bello -> Celia Bello (Demoness) (female)
+- 切萨雷·弗朗西斯 / Cesare Francis -> Cesare Francis (Human) (male)
+- 被缚之神 / Chained God -> Chained God (Chained) (male)
+- 查理·科伦特 / Charlie Collent -> Charlie Collent (Human) (male)
+- 夏洛特·卡尔维诺 / Charlotte Calvino -> Charlotte Calvino (Patriarch) (female)
+- 查泽尔·萨维奥 / Chasel Savio -> Chasel Savio (Human) (male)
+- 陈土 / Chen Tu -> Chen Tu (Human) (male)
+- 克里斯托 / Christo -> Christo (Moon) (male)
+- 希尔·古斯塔夫 / Ciel Gustav -> Ciel Gustav (Paragon) (male)
+- 希尔夫·琼 / Cielf June -> Cielf June (Paragon) (male)
+- 宿命之环 / Circle of Inevitability -> Circle of Inevitability (Eternal Aeon (Circle of Inevitability)) (male)
+- 克拉丽丝 / Clarice -> Clarice (Demoness) [context]
+- 克拉斯·基奇 / Class Khizi -> Class Khizi (Unknown) (male)
+- 克劳德 / Claude -> Claude (Paragon (Sequence 4 or 3)) (male)
+- 克莱门斯·阿塔纳 / Clemence Athana -> Clemence Athana (Visionary) (male)
+- 高希纳姆 / Cohinem -> Cohinem (Tyrant) (female)
+- 科林·伊利亚特 / Colin Iliad -> Colin Iliad (Twilight Giant) (male)
+- 凝聚态 / Condensed Matter -> Condensed Matter (Hermit) (male)
+- 康纳斯·维克托 / Connors Viktor -> Connors Viktor (Human) (male)
+- 康斯坦斯·桑松 / Constace Sanson -> Constace Sanson (Eternal Aeon) (female)
+- 科斯米·奥多拉 / Cosmi Odora -> Cosmi Odora (Moon) (male)
+- 克雷斯泰·塞西米尔 / Crestet Cesimir -> Crestet Cesimir (Darkness) (male)
+- 辛西娅 / Cynthia -> Cynthia (Patriarch) (female)
 
 D
-- Dabomachie (达博马奇) - Twilight Giant
-- Dalberro (达尔伯罗) - Second Law
-- Daly Simone (戴莉·西蒙妮) - Death
-- Danitz Dubois (达尼兹·迪布瓦) - Red Priest
-- Darc Regence (达克·雷根斯) - Twilight Giant
-- Darkwill (达克威尔) - Moon
-- Davy Raymond (戴维·雷蒙德) - Darkness
-- Daxter Guderian (达克斯特·古德里安) - Visionary
-- Demoness of Blue (蓝之魔女) - Demoness
-- Demoness of Brown (棕之魔女) - Demoness
-- Demoness of Gold (金之魔女) - Demoness
-- Demoness of Green (绿之魔女) - Demoness
-- Demoness of Orange (橙之魔女) - Demoness
-- Demoness of Purple (紫之魔女) - Demoness
-- Demoness of Scarlet (绯红魔女) - Demoness
-- Demoness of Silver (白银魔女) - Demoness
-- Derrick Berg (戴里克·伯格) - Sun
-- Devajo Andariel (德瓦霍·安达里尔) - (Unassigned)
-- Devil Dog (恶魔犬) - Abyss
-- Diest (迪斯特) - Red Priest
-- Dlink Augustus (德林克·奥古斯都) - Justiciar
-- Doll Messenger (人偶信使) - Unknown
-- Doragu Gale (多拉古·盖尔) - Human
-- Dorian Gray Abraham (多利安·格雷·亚伯拉罕) - Door
-- Dunn Smith (邓恩·史密斯) - Darkness
+- 达博马奇 / Dabomachie -> Dabomachie (Twilight Giant) (male)
+- 达尔伯罗 / Dalberro -> Dalberro (Second Law) (male)
+- 戴莉·西蒙妮 / Daly Simone -> Daly Simone (Death) (female)
+- 达尼兹·迪布瓦 / Danitz Dubois -> Danitz Dubois (Red Priest) (male)
+- 达克·雷根斯 / Darc Regence -> Darc Regence (Twilight Giant) (male)
+- 达克威尔 / Darkwill -> Darkwill (Moon) (male)
+- 戴维·雷蒙德 / Davy Raymond -> Davy Raymond (Darkness) (male)
+- 达克斯特·古德里安 / Daxter Guderian -> Daxter Guderian (Visionary) (male)
+- 蓝之魔女 / Demoness of Blue -> Demoness of Blue (Demoness) (female)
+- 棕之魔女 / Demoness of Brown -> Demoness of Brown (Demoness) (female)
+- 金之魔女 / Demoness of Gold -> Demoness of Gold (Demoness) (female)
+- 绿之魔女 / Demoness of Green -> Demoness of Green (Demoness) (female)
+- 橙之魔女 / Demoness of Orange -> Demoness of Orange (Demoness) (female)
+- 紫之魔女 / Demoness of Purple -> Demoness of Purple (Demoness) (female)
+- 绯红魔女 / Demoness of Scarlet -> Demoness of Scarlet (Demoness) (female)
+- 白银魔女 / Demoness of Silver -> Demoness of Silver (Demoness) (female)
+- 戴里克·伯格 / Derrick Berg -> Derrick Berg (Sun) (male)
+- 德瓦霍·安达里尔 / Devajo Andariel -> Devajo Andariel ((Unassigned)) (male)
+- 恶魔犬 / Devil Dog -> Devil Dog (Abyss) (male)
+- 迪斯特 / Diest -> Diest (Red Priest) (male)
+- 德林克·奥古斯都 / Dlink Augustus -> Dlink Augustus (Justiciar) (male)
+- 人偶信使 / Doll Messenger -> Doll Messenger (Unknown) (male)
+- 多拉古·盖尔 / Doragu Gale -> Doragu Gale (Human) (male)
+- 多利安·格雷·亚伯拉罕 / Dorian Gray Abraham -> Dorian Gray Abraham (Door) (male)
+- 邓恩·史密斯 / Dunn Smith -> Dunn Smith (Darkness) (male)
 
 E
-- Earl Hall (霍尔伯爵) - Human
-- Ed Sheeran (艾德·希兰) - Human
-- Edessak Augustus (埃德萨克·奥古斯都) - Human
-- Edefana (埃德法纳) - Visionary
-- Edmonton (埃德蒙顿) - Unknown (Mid Sequence)
-- Edwards (爱德华兹) - Human
-- Edwina Edwards (艾德雯娜·爱德华兹) - White Tower (Sequence 4 Prophet)
-- Egor Einhorn (埃戈尔·艾因霍恩) - Red Priest
-- Einhorn (艾因霍恩) - Red Priest
-- Elizabeth (伊丽莎白) - Human
-- Elland Kag (埃兰德·卡格) - Justiciar
-- Elodie (埃洛迪) - Human
-- Elros Einhorn (埃尔罗斯·艾因霍恩) - Red Priest
-- Emlyn White (埃姆林·怀特) - Moon
-- Enzo (恩佐) - Wheel of Fortune
-- Eric (埃里克) - Darkness
-- Ernes Boyar (埃尔内斯·博亚尔) - Moon
-- Escalante Oseleka (埃斯卡兰特·奥塞莱卡) - Visionary
-- Eternal Blazing Sun (永恒烈阳) - Sun
-- Evernight Goddess (黑夜女神) - Darkness / Death / Twilight Giant (Eternal Darkness)
+- 霍尔伯爵 / Earl Hall -> Earl Hall (Human) (male)
+- 艾德·希兰 / Ed Sheeran -> Ed Sheeran (Human) (male)
+- 埃德萨克·奥古斯都 / Edessak Augustus -> Edessak Augustus (Human) (male)
+- 埃德法纳 / Edefana -> Edefana (Visionary) (male)
+- 埃德蒙顿 / Edmonton -> Edmonton (Unknown (Mid Sequence)) (male)
+- 爱德华兹 / Edwards -> Edwards (Human) (male)
+- 艾德雯娜·爱德华兹 / Edwina Edwards -> Edwina Edwards (White Tower (Sequence 4 Prophet)) (female)
+- 埃戈尔·艾因霍恩 / Egor Einhorn -> Egor Einhorn (Red Priest) (male)
+- 艾因霍恩 / Einhorn -> Einhorn (Red Priest) (male)
+- 伊丽莎白 / Elizabeth -> Elizabeth (Human) (female)
+- 埃兰德·卡格 / Elland Kag -> Elland Kag (Justiciar) (male)
+- 埃洛迪 / Elodie -> Elodie (Human) (female)
+- 埃尔罗斯·艾因霍恩 / Elros Einhorn -> Elros Einhorn (Red Priest) (male)
+- 埃姆林·怀特 / Emlyn White -> Emlyn White (Moon) (male)
+- 恩佐 / Enzo -> Enzo (Wheel of Fortune) (male)
+- 埃里克 / Eric -> Eric (Darkness) (male)
+- 埃尔内斯·博亚尔 / Ernes Boyar -> Ernes Boyar (Moon) (male)
+- 埃斯卡兰特·奥塞莱卡 / Escalante Oseleka -> Escalante Oseleka (Visionary) (female)
+- 永恒烈阳 / Eternal Blazing Sun -> Eternal Blazing Sun (Sun) (male)
+- 黑夜女神 / Evernight Goddess -> Evernight Goddess (Darkness / Death / Twilight Giant (Eternal Darkness)) (female)
 
 F
-- Farbauti (法布提) - Abyss
-- Fernandez Oro (费尔南德斯·奥罗) - Condenser
-- Flameng (弗拉门戈) - Human
-- Flegrea (弗雷格拉) - Fool
-- Flight Ken (弗莱特·肯) - Chained
-- Flora Jacob (弗罗拉·雅各) - Error
-- Floren Sauron (弗洛伦·索隆) - Red Priest
-- Fors Wall (佛尔思·沃尔) - Door
-- Framis Cage (弗拉米斯·凯奇) - Human
-- Franca Roland (芙兰卡·罗兰) - Demoness
-- Frank Lee (弗兰克·李) - Mother
-- Mr. Franky (富兰克林先生) - Human
-- Frunziar Edward (弗伦齐亚·爱德华) - Justiciar
-- Frye (弗莱) - Death
-- Funkel (芬克尔) - Human
+- 法布提 / Farbauti -> Farbauti (Abyss) (male)
+- 费尔南德斯·奥罗 / Fernandez Oro -> Fernandez Oro (Condenser) (male)
+- 弗拉门戈 / Flameng -> Flameng (Human) (male)
+- 弗雷格拉 / Flegrea -> Flegrea (Fool) (male)
+- 弗莱特·肯 / Flight Ken -> Flight Ken (Chained) (male)
+- 弗罗拉·雅各 / Flora Jacob -> Flora Jacob (Error) (female)
+- 弗洛伦·索隆 / Floren Sauron -> Floren Sauron (Red Priest) (male)
+- 佛尔思·沃尔 / Fors Wall -> Fors Wall (Door) (female)
+- 弗拉米斯·凯奇 / Framis Cage -> Framis Cage (Human) (male)
+- 芙兰卡·罗兰 / Franca Roland -> Franca Roland (Demoness) [context]
+- 弗兰克·李 / Frank Lee -> Frank Lee (Mother) (male)
+- 富兰克林先生 / Mr. Franky -> Mr. Franky (Human) (male)
+- 弗伦齐亚·爱德华 / Frunziar Edward -> Frunziar Edward (Justiciar) (male)
+- 弗莱 / Frye -> Frye (Death) (male)
+- 芬克尔 / Funkel -> Funkel (Human) (male)
 
 G
-- Gaard II (加尔德二世) - Tyrant
-- Gabriel (加百列) - Human
-- Galis Kevin (加利斯·凯文) - Moon
-- Gandalf (甘道夫) - Twilight Giant (Sequence 4 or 3)
-- Gardner Martin (加德纳·马丁) - Red Priest
-- Gawain (高文) - Human
-- George Augustus III (乔治三世) - Black Emperor
-- Georgina Augustus (乔治娜·奥古斯都) - Justiciar
-- Giant (巨人) - Hanged Man
-- Glacis (格拉西斯) - Human
-- Glaint (格莱林特) - Moon
-- God of Combat (战神) - Twilight Giant
-- God of Knowledge and Wisdom (知识与智慧之神) - White Tower
-- God of Steam and Machinery (蒸汽与机械之神) - Paragon
-- Goddess of Fate (宿命女神) - Eternal Edict
-- Golden Buddha (金佛) - Wheel of Fortune / Key of Light (Quasi)
-- Gonlun (冈伦) - Twilight Giant
-- Gray (格雷) - Twilight Giant
-- Gregrace (格蕾嘉莉) - Death
-- Grimm (格林) - Human
-- Groselle (格罗塞尔) - Twilight Giant
-- Grove Augustus (格罗夫·奥古斯都) - Justiciar
-- Guei (桂) - White Tower
-- Guillaume Benet (纪尧姆·贝内) - Eternal Aeon
-- Gusain (古塞恩) - Red Priest / Chaos Primogenitor
+- 加尔德二世 / Gaard II -> Gaard II (Tyrant) (male)
+- 加百列 / Gabriel -> Gabriel (Human) (male)
+- 加利斯·凯文 / Galis Kevin -> Galis Kevin (Moon) (male)
+- 甘道夫 / Gandalf -> Gandalf (Twilight Giant (Sequence 4 or 3)) (male)
+- 加德纳·马丁 / Gardner Martin -> Gardner Martin (Red Priest) (male)
+- 高文 / Gawain -> Gawain (Human) (male)
+- 乔治三世 / George Augustus III -> George Augustus III (Black Emperor) (male)
+- 乔治娜·奥古斯都 / Georgina Augustus -> Georgina Augustus (Justiciar) (female)
+- 巨人 / Giant -> Giant (Hanged Man) (male)
+- 格拉西斯 / Glacis -> Glacis (Human) (male)
+- 格莱林特 / Glaint -> Glaint (Moon) (male)
+- 战神 / God of Combat -> God of Combat (Twilight Giant) (male)
+- 知识与智慧之神 / God of Knowledge and Wisdom -> God of Knowledge and Wisdom (White Tower) (male)
+- 蒸汽与机械之神 / God of Steam and Machinery -> God of Steam and Machinery (Paragon) (male)
+- 宿命女神 / Goddess of Fate -> Goddess of Fate (Eternal Edict) (female)
+- 金佛 / Golden Buddha -> Golden Buddha (Wheel of Fortune / Key of Light (Quasi)) (male)
+- 冈伦 / Gonlun -> Gonlun (Twilight Giant) (male)
+- 格雷 / Gray -> Gray (Twilight Giant) (male)
+- 格蕾嘉莉 / Gregrace -> Gregrace (Death) (female)
+- 格林 / Grimm -> Grimm (Human) (male)
+- 格罗塞尔 / Groselle -> Groselle (Twilight Giant) (male)
+- 格罗夫·奥古斯都 / Grove Augustus -> Grove Augustus (Justiciar) (male)
+- 桂 / Guei -> Guei (White Tower) (male)
+- 纪尧姆·贝内 / Guillaume Benet -> Guillaume Benet (Eternal Aeon) (male)
+- 古塞恩 / Gusain -> Gusain (Red Priest / Chaos Primogenitor) (male)
 
 H
-- Haiter (海特) - Death
-- Hamilton (汉密尔顿) - Tyrant
-- Hanass Vincent (哈纳斯·凡森特) - Hanged Man
-- Harman (哈曼) - Chaos Primogenitor
-- Harras (哈拉斯) - Justiciar
-- Harrison (哈里森) - Error
-- Hart (哈特) - Chaos Primogenitor
-- Hawick (哈威克) - Death
-- Hazel Macht (海柔尔·马赫特) - Error
-- Headmaster (校长) - Moon
-- Heath Doyle (希斯·道尔) - Hanged Man
-- Hedsey (赫德西) - Patriarch
-- Hela (赫拉) - Darkness / Death
-- Helene (海伦) - Red Priest
-- Hendry (亨德里) - Hermit
-- Henry Augustus I (亨利·奥古斯都一世) - Human
-- Hermes (赫尔墨斯) - Visionary
-- Hibbert Hall (希伯特·霍尔) - Human
-- Hidden Sage (隐秘之仆 / 隐匿贤者) - Hermit
-- Higdon (希格登) - Second Law
-- High-Dimensional Overseer (高维俯视者) - Sublunary Eye
-- Hilarion (希拉里昂) - Human
-- Hilbert Alucard (希尔伯特·阿鲁卡尔德) - Visionary
-- Hisoka (西索卡) - Abyss / Chained
-- Holle Sassen (霍勒·萨森) - Human
-- Holy Monk (圣僧) - Wheel of Fortune / Key of Light
-- Hood Eugen (胡德·欧根) - Visionary
-- Horamick Haydn (霍拉米克·海顿) - Paragon
-- Howl Constantine (豪尔·康斯坦丁) - Tyrant
-- Hugues Artois (于格·阿图瓦) - Human
-- Hvin Rambis (赫温·兰比斯) - Visionary
-- Heloise (埃洛伊丝) - Eternal Edict
+- 海特 / Haiter -> Haiter (Death) (male)
+- 汉密尔顿 / Hamilton -> Hamilton (Tyrant) (male)
+- 哈纳斯·凡森特 / Hanass Vincent -> Hanass Vincent (Hanged Man) (male)
+- 哈曼 / Harman -> Harman (Chaos Primogenitor) (male)
+- 哈拉斯 / Harras -> Harras (Justiciar) (male)
+- 哈里森 / Harrison -> Harrison (Error) (male)
+- 哈特 / Hart -> Hart (Chaos Primogenitor) (male)
+- 哈威克 / Hawick -> Hawick (Death) (male)
+- 海柔尔·马赫特 / Hazel Macht -> Hazel Macht (Error) (female)
+- 校长 / Headmaster -> Headmaster (Moon) (male)
+- 希斯·道尔 / Heath Doyle -> Heath Doyle (Hanged Man) (male)
+- 赫德西 / Hedsey -> Hedsey (Patriarch) (male)
+- 赫拉 / Hela -> Hela (Darkness / Death) (female)
+- 海伦 / Helene -> Helene (Red Priest) (female)
+- 亨德里 / Hendry -> Hendry (Hermit) (male)
+- 亨利·奥古斯都一世 / Henry Augustus I -> Henry Augustus I (Human) (male)
+- 赫尔墨斯 / Hermes -> Hermes (Visionary) (male)
+- 希伯特·霍尔 / Hibbert Hall -> Hibbert Hall (Human) (male)
+- 隐秘之仆 / 隐匿贤者 / Hidden Sage -> Hidden Sage (Hermit) (male)
+- 希格登 / Higdon -> Higdon (Second Law) (male)
+- 高维俯视者 / High-Dimensional Overseer -> High-Dimensional Overseer (Sublunary Eye) (male)
+- 希拉里昂 / Hilarion -> Hilarion (Human) (male)
+- 希尔伯特·阿鲁卡尔德 / Hilbert Alucard -> Hilbert Alucard (Visionary) (male)
+- 西索卡 / Hisoka -> Hisoka (Abyss / Chained) (male)
+- 霍勒·萨森 / Holle Sassen -> Holle Sassen (Human) (male)
+- 圣僧 / Holy Monk -> Holy Monk (Wheel of Fortune / Key of Light) (male)
+- 胡德·欧根 / Hood Eugen -> Hood Eugen (Visionary) (male)
+- 霍拉米克·海顿 / Horamick Haydn -> Horamick Haydn (Paragon) (male)
+- 豪尔·康斯坦丁 / Howl Constantine -> Howl Constantine (Tyrant) (male)
+- 于格·阿图瓦 / Hugues Artois -> Hugues Artois (Human) (male)
+- 赫温·兰比斯 / Hvin Rambis -> Hvin Rambis (Visionary) (male)
+- 埃洛伊丝 / Heloise -> Heloise (Eternal Edict) (female)
 
 I
-- I Know Someone (我认识一人) - Visionary
-- Ian Wright (伊恩·莱特) - Human
-- Iesus (耶稣) - Human
-- Ikanser Bernard (伊康瑟·伯纳德) - Paragon
-- Ilya (伊利亚) - Darkness
-- Imre (伊姆雷) - Sun (Mid Sequence)
-- Ince Zangwill (因斯·赞格威尔) - Darkness
-- Inextinguishable Ravings (不熄的呓语) - Everlasting
-- Isengard Stanton (艾辛格·斯坦顿) - White Tower
-- Isotope (同位素) - Hermit
-- Ive (伊夫) - Patriarch
-- Iveljsta Eggers (伊维尔斯塔·艾格斯) - Chained
+- 我认识一人 / I Know Someone -> I Know Someone (Visionary) (male)
+- 伊恩·莱特 / Ian Wright -> Ian Wright (Human) (male)
+- 耶稣 / Iesus -> Iesus (Human) (male)
+- 伊康瑟·伯纳德 / Ikanser Bernard -> Ikanser Bernard (Paragon) (male)
+- 伊利亚 / Ilya -> Ilya (Darkness) (male)
+- 伊姆雷 / Imre -> Imre (Sun (Mid Sequence)) (male)
+- 因斯·赞格威尔 / Ince Zangwill -> Ince Zangwill (Darkness) (male)
+- 不熄的呓语 / Inextinguishable Ravings -> Inextinguishable Ravings (Everlasting) (male)
+- 艾辛格·斯坦顿 / Isengard Stanton -> Isengard Stanton (White Tower) (male)
+- 同位素 / Isotope -> Isotope (Hermit) (male)
+- 伊夫 / Ive -> Ive (Patriarch) (male)
+- 伊维尔斯塔·艾格斯 / Iveljsta Eggers -> Iveljsta Eggers (Chained) (male)
 
 J
-- Jack (杰克) - Human
-- Jack Walton (杰克·沃尔顿) - Paragon
-- Jacob (雅各) - Door
-- Jahn Kottman (亚恩·考特曼) - Tyrant
-- Jasmine (茉莉) - Human
-- Jason (杰森) - Chained
-- Jason Beria (杰森·贝利亚) - Abyss
-- Jebus Lata (耶布斯·拉塔) - Chaos Mist
-- Jenna (简娜) - Demoness
-- Jevington Augustus (杰文顿·奥古斯都) - Human
-- Jimmy Necker (吉米·内克尔) - Human
-- Jodeson (乔德森) - Error
-- Joyce Meyer (乔伊斯·迈耶) - Human
-- Juan Oro (胡安·奥罗) - Condenser
-- Judith (朱迪斯) - Demoness
-- Julie (朱莉) - Demoness
-- Julien Bello (朱利安·贝洛) - Paragon
-- Jurgen Cooper (于尔根·库珀) - Human
-- Jorg (约格) - Black Emperor
+- 杰克 / Jack -> Jack (Human) (male)
+- 杰克·沃尔顿 / Jack Walton -> Jack Walton (Paragon) (male)
+- 雅各 / Jacob -> Jacob (Door) (male)
+- 亚恩·考特曼 / Jahn Kottman -> Jahn Kottman (Tyrant) (male)
+- 茉莉 / Jasmine -> Jasmine (Human) (female)
+- 杰森 / Jason -> Jason (Chained) (male)
+- 杰森·贝利亚 / Jason Beria -> Jason Beria (Abyss) (male)
+- 耶布斯·拉塔 / Jebus Lata -> Jebus Lata (Chaos Mist) (male)
+- 简娜 / Jenna -> Jenna (Demoness) (female)
+- 杰文顿·奥古斯都 / Jevington Augustus -> Jevington Augustus (Human) (male)
+- 吉米·内克尔 / Jimmy Necker -> Jimmy Necker (Human) (male)
+- 乔德森 / Jodeson -> Jodeson (Error) (male)
+- 乔伊斯·迈耶 / Joyce Meyer -> Joyce Meyer (Human) (male)
+- 胡安·奥罗 / Juan Oro -> Juan Oro (Condenser) (male)
+- 朱迪斯 / Judith -> Judith (Demoness) (female)
+- 朱莉 / Julie -> Julie (Demoness) (female)
+- 朱利安·贝洛 / Julien Bello -> Julien Bello (Paragon) (male)
+- 于尔根·库珀 / Jurgen Cooper -> Jurgen Cooper (Human) (male)
+- 约格 / Jorg -> Jorg (Black Emperor) (male)
 
 K
-- Kalat (卡拉特) - Unknown (mid sequence)
-- Kalvetua (卡维图瓦) - Tyrant
-- Kapusky Reid (卡普斯基·瑞德) - Human
-- Kaslana (卡斯拉娜) - Justiciar
-- Kaspars Kalinin (卡斯帕斯·卡利宁) - Human
-- Katarina Pelle (卡特琳娜·佩莱) - Demoness
-- Katy (凯蒂) - Justiciar
-- Kenley White (肯利·怀特) - Darkness
-- Kircheis (基尔希斯) - Abyss
-- Kisma (基斯马) - Hanged Man
-- Klarman (克拉曼) - Moon
-- Klein Moretti (克莱恩·莫雷蒂) - Fool / Door / Error (Lord of The Mysteries)
-- Kmerolo (克梅罗洛) - Hermit
-- Kolobo (科洛博) - Wheel of Fortune
-- Kotar (科塔尔) - Fool
-- Krismona (克里斯莫娜) - Demoness
-- Kuthumi (库图米) - Human
-- Kvastir (克瓦斯蒂尔) - Chained
+- 卡拉特 / Kalat -> Kalat (Unknown (mid sequence)) (male)
+- 卡维图瓦 / Kalvetua -> Kalvetua (Tyrant) (male)
+- 卡普斯基·瑞德 / Kapusky Reid -> Kapusky Reid (Human) (male)
+- 卡斯拉娜 / Kaslana -> Kaslana (Justiciar) (female)
+- 卡斯帕斯·卡利宁 / Kaspars Kalinin -> Kaspars Kalinin (Human) (male)
+- 卡特琳娜·佩莱 / Katarina Pelle -> Katarina Pelle (Demoness) [context]
+- 凯蒂 / Katy -> Katy (Justiciar) (female)
+- 肯利·怀特 / Kenley White -> Kenley White (Darkness) (male)
+- 基尔希斯 / Kircheis -> Kircheis (Abyss) (male)
+- 基斯马 / Kisma -> Kisma (Hanged Man) (male)
+- 克拉曼 / Klarman -> Klarman (Moon) (male)
+- 克莱恩·莫雷蒂 / Klein Moretti -> Klein Moretti (Fool / Door / Error (Lord of The Mysteries)) (male)
+- 克梅罗洛 / Kmerolo -> Kmerolo (Hermit) (male)
+- 科洛博 / Kolobo -> Kolobo (Wheel of Fortune) (male)
+- 科塔尔 / Kotar -> Kotar (Fool) (male)
+- 克里斯莫娜 / Krismona -> Krismona (Demoness) (female)
+- 库图米 / Kuthumi -> Kuthumi (Human) (male)
+- 克瓦斯蒂尔 / Kvastir -> Kvastir (Chained) (male)
 
 L
-- La Nou Bruch (拉努·布鲁赫) - Moon
-- Lady Moon (月亮女士) - Chaos Primogenitor
-- Lanevus (兰尔乌斯) - Error
-- Larrion (拉里恩) - Twilight Giant
-- Lawrence Nord (劳伦斯·诺德) - Door
-- Leah Bellot (莉雅·贝洛) - Fool
-- Legere (莱格尔) - Twilight Giant
-- Leomaster (利奥马斯特) - Hanged Man
-- Leon (莱昂) - Hermit
-- Leonard Mitchell (伦纳德·米切尔) - Darkness
-- Leticia Dolera (莱蒂西亚·多莱拉) - Human
-- Lewis Wien (路易斯·维恩) - Door
-- Lez (莱兹) - Tail-Devourer
-- Liaval (利瓦尔) - Twilight Giant
-- Lilith (莉莉丝) - Mother
-- Lius (柳斯) - Death
-- Loban (洛班) - Human
-- Lockhart Siakam (洛克哈特·西亚卡姆) - Black Emperor
-- Loki (洛基) - Fool
-- Lord of Storms (风暴之主) - Tyrant
-- Lorotta (洛罗塔) - Death
-- Louis Gustav (路易·古斯塔夫) - Unknown (Sequence 4 or 3)
-- Louis Lund (路易·隆德) - Chaos Primogenitor
-- Lovia Tiffany (洛薇雅·蒂芙尼) - Hanged Man
-- Luan (鲁安) - Black Emperor
-- Lucca Brewster (卢卡·布鲁斯特) - White Tower
-- Lucy Brook (露西·布鲁克) - Human
-- Ludwell (卢德威尔) - Death
-- Ludwig Phil (路德维希·菲尔) - Tail-Devourer
-- Lugano Toscano (卢加诺·托斯卡诺) - Mother
-- Luke Sammer (卢克·萨默尔) - Human
-- Lumian Lee (卢米安·李) - Red Priest / Demoness (Calamity of Destruction)
-- Luo Shan (罗珊) - Shaman
-- Lutique (卢蒂克) - Sun
+- 拉努·布鲁赫 / La Nou Bruch -> La Nou Bruch (Moon) (male)
+- 月亮女士 / Lady Moon -> Lady Moon (Chaos Primogenitor) (female)
+- 兰尔乌斯 / Lanevus -> Lanevus (Error) (male)
+- 拉里恩 / Larrion -> Larrion (Twilight Giant) (male)
+- 劳伦斯·诺德 / Lawrence Nord -> Lawrence Nord (Door) (male)
+- 莉雅·贝洛 / Leah Bellot -> Leah Bellot (Fool) (female)
+- 莱格尔 / Legere -> Legere (Twilight Giant) (male)
+- 利奥马斯特 / Leomaster -> Leomaster (Hanged Man) (male)
+- 莱昂 / Leon -> Leon (Hermit) (male)
+- 伦纳德·米切尔 / Leonard Mitchell -> Leonard Mitchell (Darkness) (male)
+- 莱蒂西亚·多莱拉 / Leticia Dolera -> Leticia Dolera (Human) (female)
+- 路易斯·维恩 / Lewis Wien -> Lewis Wien (Door) (male)
+- 莱兹 / Lez -> Lez (Tail-Devourer) (male)
+- 利瓦尔 / Liaval -> Liaval (Twilight Giant) (male)
+- 莉莉丝 / Lilith -> Lilith (Mother) (female)
+- 柳斯 / Lius -> Lius (Death) (male)
+- 洛班 / Loban -> Loban (Human) (male)
+- 洛克哈特·西亚卡姆 / Lockhart Siakam -> Lockhart Siakam (Black Emperor) (male)
+- 洛基 / Loki -> Loki (Fool) (male)
+- 风暴之主 / Lord of Storms -> Lord of Storms (Tyrant)
+- 洛罗塔 / Lorotta -> Lorotta (Death) (female)
+- 路易·古斯塔夫 / Louis Gustav -> Louis Gustav (Unknown (Sequence 4 or 3)) (male)
+- 路易·隆德 / Louis Lund -> Louis Lund (Chaos Primogenitor) (male)
+- 洛薇雅·蒂芙尼 / Lovia Tiffany -> Lovia Tiffany (Hanged Man) (female)
+- 鲁安 / Luan -> Luan (Black Emperor) (male)
+- 卢卡·布鲁斯特 / Lucca Brewster -> Lucca Brewster (White Tower) (male)
+- 露西·布鲁克 / Lucy Brook -> Lucy Brook (Human) (female)
+- 卢德威尔 / Ludwell -> Ludwell (Death) (male)
+- 路德维希·菲尔 / Ludwig Phil -> Ludwig Phil (Tail-Devourer) (male)
+- 卢加诺·托斯卡诺 / Lugano Toscano -> Lugano Toscano (Mother) (male)
+- 卢克·萨默尔 / Luke Sammer -> Luke Sammer (Human) (male)
+- 卢米安·李 / Lumian Lee -> Lumian Lee (Red Priest / Demoness (Calamity of Destruction)) [context]
+- 罗珊 / Luo Shan -> Luo Shan (Shaman) (female)
+- 卢蒂克 / Lutique -> Lutique (Sun) (male)
 
 M
-- Ma'am Greed (贪婪女士) - Visionary
-- Mad Lady (疯女士) - Door
-- Mahmosi (马赫莫西) - Chained
-- Maipu Meyer (麦普·迈耶) - Patriarch
-- Malevolent Dragon (恶龙) - Red Priest / Demoness (Calamity of Destruction)
-- Margot (玛戈) - Red Priest
-- Marianne (玛丽安) - Darkness
-- Maric (马里奇) - Chained
-- Mary Schott (玛丽·肖特) - Human
-- Mason (梅森) - Twilight Giant
-- Mason Dere (梅森·迪尔) - Justiciar
-- Master of the Shadow Cottage (暗影小屋之主) - Abyss / Chained (Quasi-Father of Devils)
-- Maury Macht (莫里·马赫特) - Human
-- Maveti (马维蒂) - Chained
-- Maysanchez (梅桑切斯) - Death
-- Medici (梅迪奇) - Red Priest
-- Megose (梅戈丝) - Human
-- Melissa Moretti (梅丽莎·莫雷蒂) - Paragon
-- Meursault (默索尔) - Red Priest
-- Michel (米歇尔) - Human
-- Mike Joseph (迈克·约瑟夫) - Human
-- Millet (米勒) - Tyrant
-- Millet Carter (米勒·卡特) - Human
-- Mirror Roselle Gustav (镜中罗塞尔) - Paragon / Hermit
-- Miss Sloth (怠惰小姐) - Visionary
-- Mistral (米斯特拉尔) - Moon
-- Mithor King (米索尔·金) - Black Emperor
-- Mobet Zoroast (莫贝特·索罗亚斯德) - Error
-- Mocoxidos (莫科西多斯) - Second Law
-- Monarch of Decay (衰亡君王) - Second Law
-- Mother Goddess of Depravity (堕落母神) - Mother / Moon / Chaos Primogenitor
-- Mother of the Sky (天之母亲) - Darkness
-- Mother Tree of Desire (欲望母树) - Abyss / Chained / Patriarch
-- Mr. A (A先生) - Hanged Man
-- Mr. Door (门先生) - Door
-- Mr. Envy (嫉妒先生) - Visionary
-- Mr. Gluttony (暴食先生) - Visionary
-- Mr. Harry (哈利先生) - Visionary
-- Mr. Lust (色欲先生) - Visionary
-- Murskogan (穆尔斯科根) - Twilight Giant
+- 贪婪女士 / Ma'am Greed -> Ma'am Greed (Visionary) (female)
+- 疯女士 / Mad Lady -> Mad Lady (Door) (female)
+- 马赫莫西 / Mahmosi -> Mahmosi (Chained) (male)
+- 麦普·迈耶 / Maipu Meyer -> Maipu Meyer (Patriarch) (male)
+- 恶龙 / Malevolent Dragon -> Malevolent Dragon (Red Priest / Demoness (Calamity of Destruction)) (male)
+- 玛戈 / Margot -> Margot (Red Priest) (female)
+- 玛丽安 / Marianne -> Marianne (Darkness) (female)
+- 马里奇 / Maric -> Maric (Chained) (male)
+- 玛丽·肖特 / Mary Schott -> Mary Schott (Human) (female)
+- 梅森 / Mason -> Mason (Twilight Giant) (male)
+- 梅森·迪尔 / Mason Dere -> Mason Dere (Justiciar) (male)
+- 暗影小屋之主 / Master of the Shadow Cottage -> Master of the Shadow Cottage (Abyss / Chained (Quasi-Father of Devils))
+- 莫里·马赫特 / Maury Macht -> Maury Macht (Human) (male)
+- 马维蒂 / Maveti -> Maveti (Chained) (male)
+- 梅桑切斯 / Maysanchez -> Maysanchez (Death) (male)
+- 梅迪奇 / Medici -> Medici (Red Priest) (male)
+- 梅戈丝 / Megose -> Megose (Human) (female)
+- 梅丽莎·莫雷蒂 / Melissa Moretti -> Melissa Moretti (Paragon) (female)
+- 默索尔 / Meursault -> Meursault (Red Priest) (male)
+- 米歇尔 / Michel -> Michel (Human) (male)
+- 迈克·约瑟夫 / Mike Joseph -> Mike Joseph (Human) (male)
+- 米勒 / Millet -> Millet (Tyrant) (male)
+- 米勒·卡特 / Millet Carter -> Millet Carter (Human) (male)
+- 镜中罗塞尔 / Mirror Roselle Gustav -> Mirror Roselle Gustav (Paragon / Hermit) (male)
+- 怠惰小姐 / Miss Sloth -> Miss Sloth (Visionary) (female)
+- 米斯特拉尔 / Mistral -> Mistral (Moon) (male)
+- 米索尔·金 / Mithor King -> Mithor King (Black Emperor) (male)
+- 莫贝特·索罗亚斯德 / Mobet Zoroast -> Mobet Zoroast (Error) (male)
+- 莫科西多斯 / Mocoxidos -> Mocoxidos (Second Law) (male)
+- 衰亡君王 / Monarch of Decay -> Monarch of Decay (Second Law)
+- 堕落母神 / Mother Goddess of Depravity -> Mother Goddess of Depravity (Mother / Moon / Chaos Primogenitor) (female)
+- 天之母亲 / Mother of the Sky -> Mother of the Sky (Darkness) (female)
+- 欲望母树 / Mother Tree of Desire -> Mother Tree of Desire (Abyss / Chained / Patriarch) (female)
+- A先生 / Mr. A -> Mr. A (Hanged Man) (male)
+- 门先生 / Mr. Door -> Mr. Door (Door) (male)
+- 嫉妒先生 / Mr. Envy -> Mr. Envy (Visionary) (male)
+- 暴食先生 / Mr. Gluttony -> Mr. Gluttony (Visionary) (male)
+- 哈利先生 / Mr. Harry -> Mr. Harry (Visionary) (male)
+- 色欲先生 / Mr. Lust -> Mr. Lust (Visionary) (male)
+- 穆尔斯科根 / Murskogan -> Murskogan (Twilight Giant) (male)
 
 N
-- Nast Solomon (纳斯特·所罗门) - Black Emperor
-- Nibbs Odora (尼布斯·奥多拉) - Moon
-- Nim (尼姆) - Darkness
-- Nina (尼娜) - Tyrant
+- 纳斯特·所罗门 / Nast Solomon -> Nast Solomon (Black Emperor) (male)
+- 尼布斯·奥多拉 / Nibbs Odora -> Nibbs Odora (Moon) (male)
+- 尼姆 / Nim -> Nim (Darkness) (female)
+- 尼娜 / Nina -> Nina (Tyrant) (female)
 
 O
-- Ol' Keaton (老基顿) - Human
-- Old Kohler (老科勒) - Human
-- Old Neil (老尼尔) - Hermit
-- Olmer (奥尔默) - Moon
-- Omebella (欧弥贝拉) - Mother
-- Orianna (奥莉安娜) - Human
-- Original Creator (最初的造物主) - All Pathways
-- Orpheus (奥菲斯) - Sun
-- Ouroboros (乌洛琉斯) - Wheel of Fortune
-- Ozil (厄齐尔) - Twilight Giant
+- 老基顿 / Ol' Keaton -> Ol' Keaton (Human) (male)
+- 老科勒 / Old Kohler -> Old Kohler (Human) (male)
+- 老尼尔 / Old Neil -> Old Neil (Hermit) (male)
+- 奥尔默 / Olmer -> Olmer (Moon) (male)
+- 欧弥贝拉 / Omebella -> Omebella (Mother) (female)
+- 奥莉安娜 / Orianna -> Orianna (Human) (female)
+- 最初的造物主 / Original Creator -> Original Creator (All Pathways)
+- 奥菲斯 / Orpheus -> Orpheus (Sun) (male)
+- 乌洛琉斯 / Ouroboros -> Ouroboros (Wheel of Fortune) (male)
+- 厄齐尔 / Ozil -> Ozil (Twilight Giant) (male)
 
 P
-- Pacheco Dwayne (帕切科·德韦恩) - Black Emperor
-- Palenque Taciblius (帕伦克·塔西布利乌斯) - Unknown (Sequence 4)
-- Pallas Negan (帕拉斯·尼根) - Justiciar
-- Pallez Zoroast (帕列斯·索罗亚斯德) - Error
-- Panatiya (潘娜蒂亚) - Demoness
-- Parker (帕克) - Justiciar
-- Parvi (帕尔维) - Human
-- Pasha (帕夏) - Red Priest
-- Patrick Bryan (帕特里克·布莱恩) - Death
-- Pauli Derlau (保利·德劳) - Visionary
-- Phil (菲尔) - Error
-- Portland Moment (波特兰·莫蒙特) - Paragon
-- Primordial Demoness (原初魔女) - Demoness
-- Primordial God Almighty (远古全能神) - Visionary / Hanged Man / Tyrant / Sun / White Tower (God Almighty)
-- Primordial Hunger (原初饥渴) - Tail-Devourer
+- 帕切科·德韦恩 / Pacheco Dwayne -> Pacheco Dwayne (Black Emperor) (male)
+- 帕伦克·塔西布利乌斯 / Palenque Taciblius -> Palenque Taciblius (Unknown (Sequence 4)) (male)
+- 帕拉斯·尼根 / Pallas Negan -> Pallas Negan (Justiciar) (male)
+- 帕列斯·索罗亚斯德 / Pallez Zoroast -> Pallez Zoroast (Error) (male)
+- 潘娜蒂亚 / Panatiya -> Panatiya (Demoness) (female)
+- 帕克 / Parker -> Parker (Justiciar) (male)
+- 帕尔维 / Parvi -> Parvi (Human) (male)
+- 帕夏 / Pasha -> Pasha (Red Priest) (male)
+- 帕特里克·布莱恩 / Patrick Bryan -> Patrick Bryan (Death) (male)
+- 保利·德劳 / Pauli Derlau -> Pauli Derlau (Visionary) (male)
+- 菲尔 / Phil -> Phil (Error) (male)
+- 波特兰·莫蒙特 / Portland Moment -> Portland Moment (Paragon) (male)
+- 原初魔女 / Primordial Demoness -> Primordial Demoness (Demoness) [context]
+- 远古全能神 / Primordial God Almighty -> Primordial God Almighty (Visionary / Hanged Man / Tyrant / Sun / White Tower (God Almighty))
+- 原初饥渴 / Primordial Hunger -> Primordial Hunger (Tail-Devourer)
 
 Q
-- Qilangos (齐林格斯) - Tyrant
-- Qonas Kilgor (丘纳斯·科尔格) - Black Emperor
+- 齐林格斯 / Qilangos -> Qilangos (Tyrant) (male)
+- 丘纳斯·科尔格 / Qonas Kilgor -> Qonas Kilgor (Black Emperor) (male)
 
 R
-- Rafter Pound (拉夫特·庞德) - Black Emperor
-- Ralph (拉尔夫) - Human
-- Randall Valentinus (兰德尔·瓦伦蒂努斯) - Tyrant
-- Ray Bieber (瑞尔·比伯) - Human
-- Rebach (雷巴赫) - Human
-- Reinette Tinekerr (蕾妮特·缇尼科尔) - Chained
-- Ricciardo (里恰尔多) - Wheel of Fortune
-- Richardson (理查森) - Human
-- Roland (罗兰) - Mother
-- Rosago (罗萨戈) - Fool
-- Roselle Gustav (罗塞尔·古斯塔夫) - Black Emperor
-- Roy (罗伊) - Twilight Giant
-- Roy King (罗伊·金) - Wheel of Fortune
-- Royale Reideen (罗亚尔·雷丁) - Darkness
-- Rozanne (罗珊) - Human
-- Rus Bathory (鲁斯·巴托里) - Moon
+- 拉夫特·庞德 / Rafter Pound -> Rafter Pound (Black Emperor) (male)
+- 拉尔夫 / Ralph -> Ralph (Human) (male)
+- 兰德尔·瓦伦蒂努斯 / Randall Valentinus -> Randall Valentinus (Tyrant) (male)
+- 瑞尔·比伯 / Ray Bieber -> Ray Bieber (Human) (male)
+- 雷巴赫 / Rebach -> Rebach (Human) (male)
+- 蕾妮特·缇尼科尔 / Reinette Tinekerr -> Reinette Tinekerr (Chained) (female)
+- 里恰尔多 / Ricciardo -> Ricciardo (Wheel of Fortune) (male)
+- 理查森 / Richardson -> Richardson (Human) (male)
+- 罗兰 / Roland -> Roland (Mother) (male)
+- 罗萨戈 / Rosago -> Rosago (Fool) (male)
+- 罗塞尔·古斯塔夫 / Roselle Gustav -> Roselle Gustav (Black Emperor) (male)
+- 罗伊 / Roy -> Roy (Twilight Giant) (male)
+- 罗伊·金 / Roy King -> Roy King (Wheel of Fortune) (male)
+- 罗亚尔·雷丁 / Royale Reideen -> Royale Reideen (Darkness) (female)
+- 罗珊 / Rozanne -> Rozanne (Human) (female)
+- 鲁斯·巴托里 / Rus Bathory -> Rus Bathory (Moon) (male)
 
 S
-- Saint Germain (圣日耳曼) - Human
-- Salinger (萨林格尔) - Death
-- Sasrir (萨斯利尔) - Hanged Man
-- Sauron (索隆) - Red Priest
-- Sauron-Einhorn-Medici (索隆-艾因霍恩-梅迪奇) - Red Priest
-- Savigny Solomon (萨维尼·所罗门) - Black Emperor
-- Seeka Tron (西卡·特隆) - Darkness
-- Selena (赛琳娜) - Darkness
-- Selena Wood (赛琳娜·伍德) - Human
-- Senor (塞尼奥尔) - Chained
-- Serapis (塞拉皮斯) - Human
-- Shanks (香克斯) - Chained
-- Sharon (莎伦) - Demoness
-- Sharron (莎伦) - Chained
-- Shermane (雪曼) - Demoness
-- Sia Palenque Eggers (希娅·帕伦克·艾格斯) - Death
-- Siatas (赛阿特丝) - Tyrant
-- Sirius Arapis (西里斯·阿普斯) - Hanged Man
-- Smine (斯迈因) - Human
-- Snowman (雪人) - Sun
-- Soest (索埃斯特) - Darkness
-- Solomon (所罗门) - Black Emperor
-- Son of Chaos (混沌之子) - Black Emperor / Justiciar / Chaos Mist
-- Soniathrym (苏尼亚索列姆) - Tyrant
-- Squall (斯考尔) - Abyss
-- Stelyn Sammer (斯泰琳·萨默尔) - Human
-- Steph (斯蒂芬) - Hanged Man
-- Stephen Hampres (斯蒂芬·汉普雷斯) - Visionary
-- Steve (史蒂夫) - Chained
-- Stratford (斯特拉特福) - Justiciar
-- Suah (斯厄阿) - Chained
-- Suited Clown (盛装小丑) - Fool
-- Supernova Dominator (超新星主宰) - Condenser
-- Susie (苏茜) - Visionary
-- Swain (斯维因) - Tyrant
-- Syndras (辛德拉斯) - Human
+- 圣日耳曼 / Saint Germain -> Saint Germain (Human) (male)
+- 萨林格尔 / Salinger -> Salinger (Death) (male)
+- 萨斯利尔 / Sasrir -> Sasrir (Hanged Man) (male)
+- 索隆 / Sauron -> Sauron (Red Priest) (male)
+- 索隆-艾因霍恩-梅迪奇 / Sauron-Einhorn-Medici -> Sauron-Einhorn-Medici (Red Priest) (male)
+- 萨维尼·所罗门 / Savigny Solomon -> Savigny Solomon (Black Emperor) (male)
+- 西卡·特隆 / Seeka Tron -> Seeka Tron (Darkness) (female)
+- 赛琳娜 / Selena -> Selena (Darkness) (female)
+- 赛琳娜·伍德 / Selena Wood -> Selena Wood (Human) (female)
+- 塞尼奥尔 / Senor -> Senor (Chained) (male)
+- 塞拉皮斯 / Serapis -> Serapis (Human) (male)
+- 香克斯 / Shanks -> Shanks (Chained) (male)
+- 莎伦 / Sharon -> Sharon (Demoness) (female)
+- 莎伦 / Sharron -> Sharron (Chained) (female)
+- 雪曼 / Shermane -> Shermane (Demoness) [context]
+- 希娅·帕伦克·艾格斯 / Sia Palenque Eggers -> Sia Palenque Eggers (Death) (female)
+- 赛阿特丝 / Siatas -> Siatas (Tyrant) (female)
+- 西里斯·阿普斯 / Sirius Arapis -> Sirius Arapis (Hanged Man) (male)
+- 斯迈因 / Smine -> Smine (Human) (male)
+- 雪人 / Snowman -> Snowman (Sun) (male)
+- 索埃斯特 / Soest -> Soest (Darkness) (male)
+- 所罗门 / Solomon -> Solomon (Black Emperor) (male)
+- 混沌之子 / Son of Chaos -> Son of Chaos (Black Emperor / Justiciar / Chaos Mist)
+- 苏尼亚索列姆 / Soniathrym -> Soniathrym (Tyrant) (male)
+- 斯考尔 / Squall -> Squall (Abyss) (male)
+- 斯泰琳·萨默尔 / Stelyn Sammer -> Stelyn Sammer (Human) (female)
+- 斯蒂芬 / Steph -> Steph (Hanged Man) (male)
+- 斯蒂芬·汉普雷斯 / Stephen Hampres -> Stephen Hampres (Visionary) (male)
+- 史蒂夫 / Steve -> Steve (Chained) (male)
+- 斯特拉特福 / Stratford -> Stratford (Justiciar) (male)
+- 斯厄阿 / Suah -> Suah (Chained) (male)
+- 盛装小丑 / Suited Clown -> Suited Clown (Fool)
+- 超新星主宰 / Supernova Dominator -> Supernova Dominator (Condenser)
+- 苏茜 / Susie -> Susie (Visionary) (female)
+- 斯维因 / Swain -> Swain (Tyrant) (male)
+- 辛德拉斯 / Syndras -> Syndras (Human) (male)
 
 T
-- Talim Dumont (塔利姆·杜蒙特) - Human
-- Tamara (塔玛拉) - Justiciar (Sequence 2 or 1)
-- Tony Twain (托尼·特温) - Red Priest
-- Tracey (特蕾茜) - Demoness
-- Tracy (特蕾茜) - Demoness
-- Trissy (特莉丝) - Demoness
-- True Creator (真实造物主) - Hanged Man
-- Trunsoest (特伦索斯特) - Justiciar
-- Tutanssess II (图坦塞斯二世) - Chained
-- Tyre (泰尔) - Chained
+- 塔利姆·杜蒙特 / Talim Dumont -> Talim Dumont (Human) (male)
+- 塔玛拉 / Tamara -> Tamara (Justiciar (Sequence 2 or 1)) (female)
+- 托尼·特温 / Tony Twain -> Tony Twain (Red Priest) (male)
+- 特蕾茜 / Tracey -> Tracey (Demoness) [context]
+- 特蕾茜 / Tracy -> Tracy (Demoness) [context]
+- 特莉丝 / Trissy -> Trissy (Demoness) [context]
+- 真实造物主 / True Creator -> True Creator (Hanged Man)
+- 特伦索斯特 / Trunsoest -> Trunsoest (Justiciar) (male)
+- 图坦塞斯二世 / Tutanssess II -> Tutanssess II (Chained) (male)
+- 泰尔 / Tyre -> Tyre (Chained) (male)
 
 U
-- Uddel (乌德尔) - Twilight Giant (Mid Sequence, 6 or 5)
-- Ukfa Connerchris (乌克法·康纳克里斯) - Mother
-- Ukfa (乌克法) - (Likely same as Ukfa Connerchris)
-- Ulika (乌莉卡) - Death
-- Ulyssan (乌利桑) - Unknown
-- Utravsky (乌特拉夫斯基) - Twilight Giant
+- 乌德尔 / Uddel -> Uddel (Twilight Giant (Mid Sequence, 6 or 5)) (male)
+- 乌克法·康纳克里斯 / Ukfa Connerchris -> Ukfa Connerchris (Mother) (male)
+- 乌克法 / Ukfa -> Ukfa ((Likely same as Ukfa Connerchris)) (male)
+- 乌莉卡 / Ulika -> Ulika (Death) (female)
+- 乌利桑 / Ulyssan -> Ulyssan (Unknown) (male)
+- 乌特拉夫斯基 / Utravsky -> Utravsky (Twilight Giant) (male)
 
 V
-- Venithan (维尼坦) - Human
-- Verdu Garcia (维尔杜·加西亚) - Door
-- Vernal Fnarr (韦尔纳·芬纳) - Human
+- 维尼坦 / Venithan -> Venithan (Human) (male)
+- 维尔杜·加西亚 / Verdu Garcia -> Verdu Garcia (Door) (male)
+- 韦尔纳·芬纳 / Vernal Fnarr -> Vernal Fnarr (Human) (male)
 
 W
-- Waite Chirmont (韦特·希尔蒙特) - Twilight Giant
-- Walter (沃尔特) - Human
-- Waymandy (韦曼迪) - Moon
-- Weber (韦伯) - Human
-- Weimer (韦默) - Human
-- Welch McGovern (韦尔奇·麦戈文) - Human
-- Wendel (温德尔) - Justiciar
-- Wendy Smyrin (温迪·斯迈林) - Human
-- Will Auceptin / Will Ceres (威尔·昂赛汀 / 威尔·塞瑞斯) - Wheel of Fortune
-- William Augustus I (威廉·奥古斯都一世) - Justiciar
-- William Augustus VI (威廉·奥古斯都六世) - Human
-- Windsor Behring (温莎·贝林) - Moon
+- 韦特·希尔蒙特 / Waite Chirmont -> Waite Chirmont (Twilight Giant) (male)
+- 沃尔特 / Walter -> Walter (Human) (male)
+- 韦曼迪 / Waymandy -> Waymandy (Moon) (male)
+- 韦伯 / Weber -> Weber (Human) (male)
+- 韦默 / Weimer -> Weimer (Human) (male)
+- 韦尔奇·麦戈文 / Welch McGovern -> Welch McGovern (Human) (male)
+- 温德尔 / Wendel -> Wendel (Justiciar) (male)
+- 温迪·斯迈林 / Wendy Smyrin -> Wendy Smyrin (Human) (female)
+- 威尔·昂赛汀 / 威尔·塞瑞斯 / Will Auceptin / Will Ceres -> Will Auceptin / Will Ceres (Wheel of Fortune) (male)
+- 威廉·奥古斯都一世 / William Augustus I -> William Augustus I (Justiciar) (male)
+- 威廉·奥古斯都六世 / William Augustus VI -> William Augustus VI (Human) (male)
+- 温莎·贝林 / Windsor Behring -> Windsor Behring (Moon) (female)
 
 X
-- Xio Derecha (休·迪尔查) - Justiciar
+- 休·迪尔查 / Xio Derecha -> Xio Derecha (Justiciar) (female)
 
 Z
-- Zaratul (查拉图) - Fool
-- Zaratul Senior (老查拉图) - Fool
-- Zatwen (扎特温) - Chained
-- Zoroast (索罗亚斯德) - Error
+- 查拉图 / Zaratul -> Zaratul (Fool) (male)
+- 老查拉图 / Zaratul Senior -> Zaratul Senior (Fool) (male)
+- 扎特温 / Zatwen -> Zatwen (Chained) (male)
+- 索罗亚斯德 / Zoroast -> Zoroast (Error) (male)
 
 VII. HONORIFIC NAMES & DIVINE TITLES
 
@@ -2993,3117 +3027,7 @@ VIII. UNITS OF MEASUREMENT & ANCIENT TIME
 - 一盏茶 (Yīzhǎnchá) -> Time to drink a cup of tea (approx. 10–15 minutes)
 - 一个时辰 (Yīgè Shíchén) -> Two hours (one ancient Chinese hour)
 `,
-          lotm: `Translate with as much detail and accuracy as possible into English, using the glossary, get the sequence names right!
-Use the whole glossary to cross reference everything! Sequences, Pathways, Character Names, everything!
-
-Do NOT use quotation marks to refer to people unless it's needed, sometimes you mistakenly misuse them when it is not needed.
-
-PRIORITISE = [PRIORITISE MAINTAINING THE ORIGINAL FORMAT/SPACING BETWEEN WORDS, PARAGRAPHS, SENTENCES THE EXACT SAME!]
-
-Sometimes you forget to translate a few words, don’t do that!
-
-You don't need to translate with " " when translating the tarot club member names like "Mr. Star", "Mr. Sun" , "Miss Justice", etc, you don't need to use " ", just do Mr. Star, Mr. Sun, Mkss Justice, etc
-
-When translating sequence names, make sure to cross reference the sequence number to the name in this glossary to make sure it is correct!
-
-Ignore all the links.
-
-Do NOT use people’s full names unless it’s like that in the original, like 克莱恩 = Klein
-and 克莱恩·莫雷蒂 = Klein Moretti (even if it’s slightly different, based on context use the correct one)
-Instead of “the Sefirah Castle” use “Sefirah Castle” it’s more natural, don’t use “the”
-
-Some more words/names (you don’t need to use capital letters unless it’s in the original text too): Avatar, marionette, Worm of Spirit, Spirit Worm, placated, Great Old One, Pillar, Pillar of The Universe, mysticism, Danitz, Nighthawk, Honorific Name, Loen, Loen Kingdom, Intis, Intis Republic, Feysac Empire, Feynapotter Kingdom, Tingen, Tingen City, Lenburg, Masin, Segar, East Balam, West Balam, Highlands Kingdom, grayish-white fog, characteristics, Beyonder Characteristics, Uniqueness, Apocalypse, Hexes, Queen Mystic, King of Angels, King of Kings of Angels, True God, Arrodes, the Hall of Truth, The Great Smog of Backlund, Flegrea, Admiral of Blood, Justice Audrey, Miss Audrey, Miss Justice, the Evernight Goddess, The Fool’s Gambit, the magic mirror, Arrodes, Above the Sequences, the River of Eternal Darkness, Bansy Harbour, Sonia Sea, Binsy Town, Binsy, the Chaos Sea, the Lord of The Mysteries, Lord of The Mysteries, Phoenix Ancestor, Phoenix Ancestor Gregrace, Gregrace, the Primordial One, Forsaken Land of the Gods, Forsaken Land of God, the Giant King’s Court, ruins of the battle of the gods, battle of the god’s ruin, The Revelation of Evernight, divine revelation, Berserk Sea, City of Silver, Moon City, Chernobyl, Poto Harbour, Waypoint Island, Hanth Island, Sonia Island, Rosted Archipelago, Bayam, Gargas Archipelago, Fog Sea, Fog Sea Archipelago, Farim, Banamo Island, Primitive Island, Polar Sea, North Sea, Spirit World, Astral World, Underworld, Mind World, Mirror World, Abyss, Cosmos, Grounded Angels, Grounded Angel, Parasitizing, Pirate Kings, Pirate King, King of the Five Seas, Queen of Stars, King of Immortality, Queen of Ailment, King of Dusk, King of the Black Throne, Pirate Admiral, Pirate Admirals, copper whistle, Vice Admiral Hurricane, Lanevus, Tudor Empire, Solomon Empire, Tudor-Trunsoest United Empire, Tudor-Trunsoest Underground Ruins, Balam Empire, Trissy, Tracy, Helene, Jimmy Necker, tycoon, daze, dazed expression, Southern Contient, Northen Continent, Western Continent, Tiana Port, Pritz Harbour, the New City of Silver, Foggy Town, Blazing Danitz, King of the North, Ulyssan, Nation of Frost, quasi-demigod, Siatas, Groselle, Elven Songster Siatas, Mobet Zoroast, Frunziar Edward, Queen of Calamity Cohinem, Elf King Soniathrym, Cohinem, Soniathrym, Dragon of Imagination, Ankewelt, Livesyd, City of Miracles Livesyd, Quill of Alzuhood, Frunziar Edward, Adol, corruption, Temperance Faction, Indulgence Faction, Machinery Hivermind, Fertility Order, Mandated Punishers, Inquisition, Khoy University, spirituality, long bronze table, bronze table, mottled long bronze table, ancient mottled bronze table, the Eternal Blazing Sun, the True Creator, self-awareness, Megose, Zouteland Street, Iron Cross Street, Besik Street, Champagne Street, Pelican Street, Daffodil Street, True Creator’s child, Blessed, Giant King Aurmir, God of Dawn, Badheil, Wind Angel, Leodero, Sanguine Ancestor, Earth Mother, God of Craftsmanship, God of Steam and Machinery, Dragon of Betrayal, Herabergen, Heraberg, God of Glory, Bladel, Cataclysm, bluish-black door, Pale Era The Dark Epoch, Pre-Epoch, The Cataclysm, The Cataclysm Epoch, the Epoch of The Gods, The Iron Age, Early Era of Fire, Dual Era, Warring Era, First Solomon Empire, War of The Four Emperors, the Black Emperor Card, the Black Emperor Card of Blasphemy, Calderón City, Miss Messenger, Chained God, Primordial Moon Faction, Angel of Mercury, Angel of Death, Angel of Redemption, Angel of Life, Angel of Retribution, Angel of the Holy Spirit, Angel of Time, Angel of Stars, Mahmosi, Tirié, Belltaine City, Midseashire, gray fog, Suah, Abomination, Abomination Suah, convergence, Enuni, Winner Enuni, Enzo, Hornacis, Belltaine, Biles, Roy, Phil, Pasha, Weber, Dragon of Nightmare, God Almighty, Twilight Sword, “eternal daytime”, theft, “Theft”, “Fooling”, “Fooling” authority, The Annihilation Demonic Wolf, half-crazy, half-mad, divinity, godhood, Angel of Imagination, Dark Angel, White Angel, Wisdom Angel, Dark Side of The Universe, Devil Monarch Farbauti, Farbauti, Primordial God Almighty, Blessed, Mythical Creature, Child of God, Vice Admiral Hurricane, Church of the God of Combat, Church of the Earth Mother, Church of the Lord of Storms, the Tyrant’s Church, Church of the God of Knowledge, Church of the Eternal Blazing Sun, Church of Steam, Church of the God of Steam and Machinery, Church of The Fool, doll, dolls, spiritual intuition
-
-Cattleya is from The Hermit Pathway, Sequence 4 Mysticologist, Sequence 3 - Clairvoyant, Sequence 2 - Sage, Sequence 1 - Knowledge Emperor
-
-the Church of Evernight
-The Church of the Evernight Goddess
-Church of Evernight
-Nation of the Evernight 
-
-Sanguines have a unique set of names for each sequence in the Moon Pathway after sequence 7, based on noble titles: Baron (Sequence 6), Viscount (Sequence 5), Earl (Sequence 4), Marquis (Sequence 3), Duke (Sequence 2), Queen (Sequence 1), and Sanguine Ancestor Lilith on top of all. 
-
-You don’t need to use quotation marks when for example, referring to The Fool, Mr. Error, etc unless it’s specifically like that in the original untranslated version, for example:
-If that "Lord of The Mysteries" completely replaced
-“The Fool," then "He" could be said to be a complete Pillar-although no one really wanted to see such an outcome, but if such a "Lord of The Mysteries" were on Earth, at least "He" wouldn't be too passive when facing existences like the "Mother Goddess of Depravity" and the "Mother Tree of Desire."
-(This is wrong)
-
-Instead, do this:
-If that Lord of The Mysteries completely replaced
-The Fool, then "He" could be said to be a complete Pillar-although no one really wanted to see such an outcome, but if such a Lord of The Mysteries were on Earth, at least "He" wouldn't be too passive when facing existences like the Mother Goddess of Depravity and the Mother Tree of Desire.
-
-
-Sefirah Castle is a place/location, use “in” Sefirah Castle instead of “on” Sefirah Castle
-
-Do NOT use quotation marks on lines that are random words, UNLESS it is in the original untranslated version.
-
-Dominator of The Spirit World
-Sovereign of The Physical World
-Lord of The Astral World
-
-“Grafted” (with "")
-“Grafting” (with "")
-
-When referring to the “”Black Emperor” mausoleum”, use “Black Emperor mausoleum” (Black Emperor without “”)
-
-aggregation = convergence
-pollution = corruption
-Starry sky = cosmos
-
-When characters use their abilities, refer their names from this glossary
-
-The Sacred Emblem of The Fool is the Pupil-less Eye and the Contorted Lines; represent secrecy and change.
-
-Reinette Tinekerr Mythical Creature form:
-"She" appears to be as tall as a castle, but in the real world, "She" shrinks to normal size.
-
-"She" regains a head on "Her" neck after advancing to a Sequence 1 Abomination
-
-
-
-Sometimes you use “self-cognition” that’s wrong, it should be “self-awareness”
-
-Sometimes you use “Great Emperor” that’s wrong, you should just use “Emperor”
-Example:
-“Emperor Roselle once said…”
-
-Honorific Name:
-The Immortal Lord of Heaven and Earth for Blessings;
-
-The Sky Lord of Heaven and Earth for Blessings; The Exalted Thearch of Heaven and Earth for Blessings;
-
-The Celestial Worthy of Heaven and Earth for Blessings.
-
-
-
-You once used “Variant Pathway” - you were wrong, it was the Chained Pathway
-
-When casually referring to the Evernight Goddess, use “the Evernight Goddess” instead of “The Evernight Goddess”
-
-The Primordial Demoness' real name is Cheek
-
-Whenever 祂 is used, use “He” or “Him” or “She” or “Her” (with “”)
-
-Sometimes you use "Chaos Sea" instead of "The Chaos Sea", it depends on the context but you use it wrong.
-
-Whenever 祂 is used, use “He” or “Him” or “She” or “Her” (with “”)
-Note: sometimes you use “He” or “Him” when it should be you
-Fix that, also sometimes you use "He" or "Him" or "You" when its just you
-
-Adam 亚当
-Grisha (格里沙)
-
-
-Some lines that might be reused as references: “Free things cost the most!”
-
-“You’re crazy.”
-“you’re crazy.”
-“You’re really crazy.”
-
-““I won’t lose too much, just myself.“
-
-There are always some things that are more important than others.””
-
-“the taste of a demoness ain’t bad.”
-
-
-Uniqueness (唯一性 - Wéiyīxìng): This literally translates to "Uniqueness"
-
-Beyonder characteristics (非凡特性 - Fēifán Tèxìng): "非凡" (Fēifán) this means "Beyonder," and "特性" (Tèxìng)
-
-Characteristics (特性 - Tèxìng): As seen above, this is the same "特性" (Tèxìng).
-
-Sequences (序列 - Xùliè): This means "sequence"
-
-Pathways (途径 - Tújìng): This means "pathway”
-
-Ancient Alchemist = Classical Alchemist
-
-Djinn = Genie - also known as Magic Wishing Lamp or The Magic Wishing Lamp
-
-The Earth Church is “Church of The Earth Mother”
-
-Do NOT output "---Page End ---" or placeholder headings like "Chapter [number]: [Name]". Never insert invented chapter labels. Only translate the text directly.
-
-Don’t forget to use organisation names like “Twilight Hermit Order”
-
-
-Stop writing paragraphs like:
-
-“Hermit” Cattleya and “Star” Leonard Mitchell also quickly calmed down. The former, relying on her own knowledge and experience, believed that an existence with a status like “The Fool” could not disappear without warning. Even if something went wrong, He would leave a backup plan in advance; the latter glanced subconsciously in the direction of “The World”, while thinking about whether to ask the Old Neil after returning later.
-and write them like:
-
-The Hermit Cattleya and The Star Leonard Mitchell also quickly calmed down. The former, relying on her own knowledge and experience, believed that an existence with a status like “The Fool” could not disappear without warning. Even if something went wrong, He would leave a backup plan inadvance; the latter glanced subconsciously in the direction of The World, while thinking about whether to ask Old Neil after returning later.
-
-(Only add “” if it’s in the original)
-Audrey Hall is from the Visionary Pathway, she can use Placate
-
-
-You sometimes use “Old One” instead if “Great Old One”, stop that.
-
-An ability of someone from the Visionary Pathway: Placate
-
-Seq = Sequence
-
-Edwina Edwards is Sequence 4 - “Prophet” but it could change so keep that in mind.
-
-LOTM chinese / english
-Lord of The Mysteries 诡秘之主
-
-  
-
-characters (Usually tagged with just first names, also not putting uncommonly used tags)
-
-Life Giver 创生者
-Klein Moretti 克莱恩·莫雷蒂
-Little Ke 小克
-Zhou Mingrui 周明瑞
-The Fool 愚者
-Mr. Fool 愚者先生
-The World 世界
-Sherlock Moriarty 夏洛克·莫里亚蒂
-Gehrman Sparrow 格尔曼·斯帕罗
-Dwayne Dantès 道恩·唐泰
-Merlin Hermes 梅林·赫尔墨斯
-Audrey Hall 奥黛丽.霍尔
-Alger Wilson 阿尔杰.威尔逊
-Derrick Beeg 戴里克·伯格
-Fors Wall 佛尔思•沃尔 
-Salted Fish 咸鱼
-Emlyn White 埃姆林·怀特
-Leonard Mitchell 伦纳德·米切尔
-Cattleya 嘉德丽雅
-Xio Derecha 休·迪尔查
-Azik Eggers 阿兹克·艾格斯
-Old Neil 老尼尔
-Daly Simone 戴莉·西蒙妮
-Dunn Smith 邓恩·史密斯
-Ince Zangwill 因斯.赞格威尔
-Trissy 特莉丝
-Old Kohler 老科勒
-Mr. A 先生
-Panatiya 潘娜蒂亚
-Sharron 莎伦
-Maric 马里奇
-Utravsky 乌特拉夫斯基
-Will Auceptin 威尔.昂赛汀
-Reinette Tinekerr 蕾妮特·缇尼科尔
-Danitz Dubois 达尼兹.迪布瓦
-Frank Lee 弗兰克.李
-Edwina Edwards 艾德雯娜.爱德华兹
-Anderson Hood 安德森.胡德
-Flora Jacobs 弗罗拉.雅各
-Hazel Macht 海柔尔.马赫特
-Pallez Zoroast 帕列斯.索罗亚斯德
-Antigonus 安提哥努斯
-Amon 阿蒙
-Adam 亚当
-Ancient Sun God 远古太阳神 (usually called City of Silver’s Creator 白造 / 白银城造物主）
-Sarsir 萨斯利尔
-True Creator 真实造物主
-Celestial Worthy 天尊
-Bethel Abraham 伯特利.亚伯拉
-Mr. Door 门先生
-Evernight 黑夜女神
-Amanises 阿曼妮西斯
-Roselle Gustav 罗塞尔.古斯塔夫 
-Huang Tao 黄涛
-Bernadette Gustav 贝尔纳黛·古斯塔夫
-Ouroboros 乌洛琉斯/ 5664
-Medici 梅迪奇
-Colin Iliad 科林·伊利亚特
-Lovia Tifanny 洛薇雅·蒂芙尼
-Auernia 奥尔尼娅
-Arianna 阿里安娜
-Mother of The Sky/017 天之母亲 / 隐秘之天使
-Alista Tudor 亚利斯塔·图铎
-Trunsoest 特伦索斯特
-Zaratul 查拉图
-Lilith 莉莉丝
-Earth Mother 大地母神
-Omebella 欧弥贝拉
-Salinger 萨林格尔
-Death 死神
-Eternal Blazing Sun 永恒烈阳
-Aucuses 奥赛库斯
-God of Knowledge and Wisdom 知识与智慧之神
-Herabergen 赫拉伯根
-God of Steam and Machinery 蒸汽与机械之神 （commonly 蒸汽)
-Lord of Storms 风暴之主
-Leodero 列奥德罗
-Mother Goddess of Depravity 堕落母神
-Mother Tree of Desire 欲望母树
-
-General Terminology
- Acting Method
- Beyonder
- First Blasphemy Slate
- 
- Only Above the Sequence (ATS) or Great Old One (GOO)
- 
- Divination
-Epochs:
-1st Epoch
-2nd Epoch
-3rd Epoch
-4th Epoch
-5th Epoch
- 
- 
- Known Sefirot: Chaos Sea, Sefirah Castle, Brood Hive, Tenebrous World, Nation of Disorder, City of Calamity, River of Eternal Darkness, Key of Light, Knowledge Moor.
- 
- River of Eternal Darkness and City of Calamity are symbols of the yet-to-exist hidden 4th Pillar.
- 
- Tarot Cards
- 
- Uniquenesses
- 
-Beyonder Laws
- Law of Beyonder Characteristics Indestructibility
- Law of Beyonder Characteristics Convergence
- Law of Similar Sequence Beyonder Characteristics Conservation
- 
-Organizations
- Founded in the Second Epoch:
- Great White Brotherhood
- Founded in the Third Epoch:
- Rose Redemption
- Founded in the Fourth Epoch:
- Twilight Hermit Order
- Moses Ascetic Order
- Demoness Sect
- Mirror People
- Secret Order
- Blood Sanctify Sect
- Founded in the Beginning of the Fifth Epoch:
- Theosophy Order
- Numinous Episcopate
- Life School of Thought
- Rose School of Thought
- Newly Founded in the Fifth Epoch:
- Aurora Order
- Iron and Blood Cross Order
- Psychology Alchemists
- Element Dawn
- Hermits of Fate
- Naturism Sect
- Tarot Club
- Celestial Research Association
- Founded After the World War of the Fifth Epoch:
- Curly-Haired Baboons Research Society
- April Fool's
- Sinners
- Nightstalkers
- Bliss Society
- Order of All Extinction
- Entry Persons
- Dreamseekers
- School of God's Descent
- School of Truth
- Sick Church
- School of Deliciousness
- Fantasy Association
- 
-Character Names and their PATHWAY (if there is nothing it means it is yet to be updated, they can have more than one pathway)
-A
-
-- Aaron Ceres - Human
-- Ace Snake - Tyrant
-- Adam - Visionary
-- Ademisaul - Wheel of Fortune
-- Agalito - Abyss
-- Agrippina - Mother (Sequence 4 or 3)
-- Aguesid Negan - Justiciar
-- Aiflor - Visionary
-- Ait - Twilight Giant
-- Aiur Moria - Human
-- Albus Medici - Red Priest
-- Alexis - Moon
-- Alfred Hall - Justiciar
-- Alger Wilson - Tyrant/Hanged Man
-- Alice Moretti - Human
-- Alicia Tamara - Black Emperor
-- Alista Tudor - Red Priest
-- Alzuhod - Visionary
-- Amandina - Darkness
-- Amon - Error
-- Amyrius Rieveldt - Justiciar
-- Ancient Sun God - Visionary/Hanged Man/Tyrant/Sun/White Tower (God Almighty)
-- Anderson Hood - Red Priest
-- Andy Haydn - Justiciar
-- Angoulême de François - Sun
-- Animal Trainer - Human
-- Ankewelt - Visionary
-- Annette Sanson - Eternal Aeon
-- Anthony Reid - Visionary
-- Anthony Stevenson - Darkness
-- Antigonus - Fool
-- Antoine - Twilight Giant
-- Antoine (Secret Order) - Fool
-- Apollo - Sun
-- Argos - Moon
-- Arianna - Darkness
-- Ariehogg - Visionary
-- Artificial Death - Death
-- Associate Professor - Hermit
-- Atur Sanson - Eternal Aeon
-- Audrey Hall - Visionary
-- Auernia - Moon
-- Aulisa - Door
-- Aurmir - Twilight Giant
-- Aurore Lee - Hermit/Eternal Aeon
-- Awatoma Einhorn - Red Priest
-- Ava Lizier - Human
-- Azik Eggers - Death
-
-B
-
-- Bainar - Tail-Devourer
-- Bakerland Jean Madan - Red Priest
-- Bard - Error
-- Barranca - Chained
-- Barton - Human
-- Basil - Abyss
-- Batna Comté - Human
-- Baynfel - Hanged Man
-- Beatrice Incourt - Patriarch
-- Belize - Justiciar
-- Bella - Paragon
-- Benson Moretti - Black Emperor
-- Berg - White Tower
-- Bernadette Gustav - Hermit
-- Bethel Abraham - Door
-- Biles - Tyrant
-- Bilt Brando - Unknown (Sequence 7 or 6)
-- Bladel - Twilight Giant
-- Bliss Sanson - Eternal Aeon
-- Bornova Gustav - Paragon
-- Botis - Door
-- Bouvard Pont-Péro - Eternal Aeon
-- Bram Andariel - Abyss
-- Bredt - Human
-- Breeder Master - Mother
-- Brignais - White Tower
-- Brood Hive - Mother/Moon
-- Browns Sauron - Demoness
-- Bulatov Ivan - Twilight Giant
-- Burman - Death
-- Béost - Chaos Primogenitor
-
-C
-
-- Caitlyn Hall - Human
-- Cali - Chained
-- Camus Castiya - Justiciar
-- Capim - Unknown (possibly Justiciar)
-- Carnot - Unknown
-- Cassandra - Orator
-- Castina - Chaos Primogenitor
-- Cathy - Chaos Primogenitor
-- Cattleya - Hermit
-- Celeste - Demoness
-- Celestial Master - Hermit/Paragon
-- Celestial Thearch - Black Emperor/Justiciar
-- Celestial Worthy of Heaven and Earth for Blessings - Fool/Door/Error (Lord of The Mysteries)
-- Celt - Justiciar
-- Celia Bello - Demoness
-- Cesare Francis - Human
-- Chained God - Chained
-- Charlie Collent - Human
-- Charlotte Calvino - Patriarch
-- Chasel Sávio - Human
-- Chen Tu - Human
-- Christo - Moon
-- Ciel Gustav - Paragon
-- Cielf June - Paragon
-- Circle of Inevitability - Eternal Aeon (Circle of Inevitability)
-- Clarice - Demoness
-- Class Khizi - Unknown
-- Claude - Paragon (Sequence 4 or 3)
-- Clémence Athana - Visionary
-- Cohinem - Tyrant
-- Colin Iliad - Twilight Giant
-- Condensed Matter - Hermit
-- Connors Viktor - Human
-- Constace Sanson - Eternal Aeon
-- Cosmi Odora - Moon
-- Crestet Cesimir - Darkness
-- Cynthia - Patriarch
-
-D
-
-- Dabomachie - Twilight Giant
-- Dalberro - Second Law
-- Daly Simone - Death
-- Danitz Dubois - Red Priest
-- Darc Regence - Twilight Giant
-- Darkwill - Moon
-- Davy Raymond - Darkness
-- Daxter Guderian - Visionary
-- Demoness of Blue - Demoness
-- Demoness of Brown - Demoness
-- Demoness of Gold - Demoness
-- Demoness of Green - Demoness
-- Demoness of Orange - Demoness
-- Demoness of Purple - Demoness
-- Demoness of Scarlet - Demoness
-- Demoness of Silver - Demoness
-- Derrick Berg - Sun
-- Devajo Andariel - 
-- Devil Dog - Abyss
-- Diest - Red Priest
-- Dlink Augustus - Justiciar
-- Doll Messenger - Unknown
-- Doragu Gale - Human
-- Dorian Gray Abraham - Door
-- Dunn Smith - Darkness
-
-E
-
-- Earl Hall - Human
-- Ed Sheeran - Human
-- Edessak Augustus - Human
-- Edefana - Visionary
-- Edmonton - Unknown (Mid Sequence)
-- Edwards - Human
-- Edwina Edwards - White Tower
-- Egor Einhorn - Red Priest
-- Einhorn - Red Priest
-- Elizabeth - Human
-- Elland Kag - Justiciar
-- Elodie - Human
-- Elros Einhorn - Red Priest
-- Emlyn White - Moon
-- Enzo - Wheel of Fortune
-- Eric - Darkness
-- Ernes Boyar - Moon
-- Escalante Oseleka - Visionary
-- Eternal Blazing Sun - Sun
-- Evernight Goddess - Darkness/Death/Twilight Giant (Eternal Darkness)
-
-F
-
-- Farbauti - Abyss
-- Fernandez Oro - Condenser
-- Flameng - Human
-- Flegrea - Fool
-- Flight Ken - Chained
-- Flora Jacob - Error
-- Floren Sauron - Red Priest
-- Fors Wall - Door
-- Framis Cage - Human
-- Franca Roland - Demoness
-- Frank Lee - Mother
-- Mr. Franky - Human
-- Frunziar Edward - Justiciar
-- Frye - Death
-- Funkel - Human
-
-G
-
-- Gaard II - Tyrant
-- Gabriel - Human
-- Galis Kevin - Moon
-- Gandalf - Twilight Giant (Sequence 4 or 3)
-- Gardner Martin - Red Priest
-- Gawain - Human
-- George Augustus III - Black Emperor
-- Georgina Augustus - Justiciar
-- Giant - Hanged Man
-- Glacis - Human
-- Glaint - Moon
-- God of Combat - Twilight Giant
-- God of Knowledge and Wisdom - White Tower
-- God of Steam and Machinery - Paragon
-- Goddess of Fate - Eternal Edict
-- Golden Buddha - Wheel of Fortune/Key of Light (Quasi)
-- Gonlun - Twilight Giant
-- Gray - Twilight Giant
-- Gregrace - Death
-- Grimm - Human
-- Groselle - Twilight Giant
-- Grove Augustus - Justiciar
-- Guei - White Tower
-- Guillaume Bénet - Eternal Aeon
-- Gusain - Red Priest/Chaos Primogenitor
-
-H
-
-- Haiter - Death
-- Hamilton - Tyrant
-- Hanass Vincent - Hanged Man
-- Harman - Chaos Primogenitor
-- Harras - Justiciar
-- Harrison - Error
-- Hart - Chaos Primogenitor
-- Hawick - Death
-- Hazel Macht - Error
-- Headmaster - Moon
-- Heath Doyle - Hanged Man
-- Hedsey - Patriarch
-- Hela - Darkness/Death 
-- Helene - Red Priest
-- Hendry - Hermit
-- Henry Augustus I - Human
-- Hermes - Visionary
-- Hibbert Hall - Human
-- Hidden Sage - Hermit
-- Higdon - Second Law
-- High-Dimensional Overseer - Sublunary Eye
-- Hilarion - Human
-- Hilbert Alucard - Visionary
-- Hisoka - Abyss/Chained
-- Holle Sassen - Human
-- Holy Monk - Wheel of Fortune/Key of Light
-- Hood Eugen - Visionary
-- Horamick Haydn - Paragon
-- Howl Constantine - Tyrant
-- Hugues Artois - Human
-- Hvin Rambis - Visionary
-- Héloise - Eternal Edict
-
-I
-
-- I Know Someone - Visionary
-- Ian Wright - Human
-- Iesus - Human
-- Ikanser Bernard - Paragon
-- Ilya - Darkness
-- Imre - Sun (Mid Sequence)
-- Ince Zangwill - Darkness
-- Inextinguishable Ravings - Everlasting
-- Isengard Stanton - White Tower
-- Isotope - Hermit
-- Ive - Patriarch
-- Iveljsta Eggers - Chained
-
-J
-
-- Jack - Human
-- Jack Walton - Paragon
-- Jacob - Door
-- Jahn Kottman - Tyrant
-- Jasmine - Human
-- Jason - Chained
-- Jason Beria - Abyss
-- Jebus Lata - Chaos Mist
-- Jenna - Demoness
-- Jevington Augustus - Human
-- Jimmy Necker - Human
-- Jodeson - Error
-- Joyce Meyer - Human
-- Juan Oro - Condensor
-- Judith - Demoness
-- Julie - Demoness
-- Julien Bello - Paragon
-- Jurgen Cooper - Human
-- Jörg - Black Emperor
-
-K
-
-- Kalat - Unknown (mid sequence)
-- Kalvetua - Tyrant
-- Kapusky Reid - Human
-- Kaslana - Justiciar
-- Kaspars Kalinin - Human
-- Katarina Pelle - Demoness
-- Katy - Justiciar
-- Kenley White - Darkness
-- Kircheis - Abyss
-- Kisma - Hanged Man
-- Klarman - Moon
-- Klein Moretti - Fool/Door/Error (Lord of The Mysteries)
-- Kmerolo - Hermit
-- Kolobo - Wheel of Fortune
-- Kotar - Fool
-- Krismona - Demoness
-- Kuthumi - Human
-- Kvastir - Chained
-
-L
-
-- La Nou Bruch - Moon
-- Lady Moon - Chaos Primogenitor
-- Lanevus - Error
-- Larrion - Twilight Giant
-- Lawrence Nord - Door
-- Leah Bellot - Fool
-- Legere - Twilight Giant
-- Leomaster - Hanged Man
-- Leon - Hermit
-- Leonard Mitchell - Darkness
-- Leticia Dolera - Human
-- Lewis Wien - Door
-- Lez - Tail-Devourer
-- Liaval - Twilight Giant
-- Lilith - Mother
-- Lius - Death
-- Loban - Human
-- Lockhart Siakam - Black Emperor
-- Loki - Fool
-- Lord of Storms - Tyrant
-- Lorotta - Death
-- Louis Gustav - Unknown (Sequence 4 or 3)
-- Louis Lund - Chaos Primogenitor
-- Lovia Tiffany - Hanged Man
-- Luan - Black Emperor
-- Lucca Brewster - White Tower
-- Lucy Brook - Human
-- Ludwell - Death
-- Ludwig Phil - Tail-Devourer
-- Lugano Toscano - Mother
-- Luke Sammer - Human
-- Lumian Lee - Red Priest/Demoness (Calamity of Destruction)
-- Luo Shan - Shaman
-- Lutique - Sun
-
-M
-
-- Ma'am Greed - Visionary
-- Mad Lady - Door
-- Mahmosi - Chained
-- Maipú Meyer - Patriarch
-- Malevolent Dragon - Red Priest/Demoness (Calamity of Destruction)
-- Margot - Red Priest
-- Marianne - Darkness
-- Maric - Chained
-- Mary Schott - Human
-- Mason - Twilight Giant
-- Mason Dere - Justiciar
-- Master of the Shadow Cottage - Abyss/Chained (Quasi-Father of Devils)
-- Maury Macht - Human
-- Maveti - Chained
-- Maysanchez - Death
-- Medici - Red Priest
-- Megose - Human
-- Melissa Moretti - Paragon
-- Meursault - Red Priest
-- Michel - Human
-- Mike Joseph - Human
-- Millet - Tyrant
-- Millet Carter - Human
-- Mirror Roselle Gustav - Paragon/Hermit
-- Miss Sloth - Visionary
-- Mistral - Moon
-- Mithor King - Black Emperor
-- Mobet Zoroast - Error
-- Mocoxidos - Second Law
-- Monarch of Decay - Second Law
-- Mother Goddess of Depravity - Mother/Moon/Chaos Primogenitor
-- Mother of the Sky - Darkness
-- Mother Tree of Desire - Abyss/Chained/Patriarch
-- Mr. A - Hanged Man
-- Mr. Door - Door
-- Mr. Envy - Visionary
-- Mr. Gluttony - Visionary
-- Mr. Harry - Visionary
-- Mr. Lust - Visionary
-- Murskogan - Twilight Giant
-
-N
-
-- Nast Solomon - Black Emperor
-- Nibbs Odora - Moon
-- Nim - Darkness
-- Nina - Tyrant
-
-O
-
-- Ol' Keaton - Human
-- Old Kohler - Human
-- Old Neil - Hermit
-- Olmer - Moon
-- Omebella - Mother
-- Orianna - Human
-- Original Creator - All Pathways
-- Orpheus - Sun
-- Ouroboros - Wheel of Fortune
-- Ozil - Twilight Giant
-
-P
-
-- Pacheco Dwayne - Black Emperor
-- Palenque Taciblius - Unknown (Sequence 4)
-- Pallas Negan - Justiciar
-- Pallez Zoroast - Error
-- Panatiya - Demoness
-- Parker - Justiciar
-- Parvi - Human
-- Pasha - Red Priest
-- Patrick Bryan - Death
-- Pauli Derlau - Visionary
-- Phil - Error
-- Portland Moment - Paragon
-- Primordial Demoness - Demoness
-- Primordial God Almighty - Visionary/Hanged Man/Tyrant/Sun/White Tower (God Almighty)
-- Primordial Hunger - Tail-Devourer
-
-Q
-
-- Qilangos - Tyrant
-- Qonas Kilgor - Black Emperor
-
-R
-
-- Rafter Pound - Black Emperor
-- Ralph - Human
-- Randall Valentinus - Tyrant
-- Ray Bieber - Human
-- Rebach - Human
-- Reinette Tinekerr - Chained
-- Ricciardo - Wheel of Fortune
-- Richardson - Human
-- Roland - Mother
-- Rosago - Fool
-- Roselle Gustav - Black Emperor
-- Roy - Twilight Giant
-- Roy King - Wheel of Fortune
-- Royale Reideen - Darkness
-- Rozanne - Human
-- Rus Báthory - Moon
-
-S
-
-- Saint Germain - Human
-- Salinger - Death
-- Sasrir - Hanged Man
-- Sauron - Red Priest
-- Sauron-Einhorn-Medici - Red Priest
-- Savigny Solomon - Black Emperor
-- Seeka Tron - Darkness
-- Selena - Darkness
-- Selena Wood - Human
-- Senor - Chained
-- Serapis - Human
-- Shanks - Chained
-- Sharon - Demoness
-- Sharron - Chained
-- Shermane - Demoness
-- Sia Palenque Eggers - Death
-- Siatas - Tyrant
-- Sirius Arapis - Hanged Man
-- Smine - Human
-- Snowman - Sun
-- Soest - Darkness
-- Solomon - Black Emperor
-- Son of Chaos - Black Emperor/Justiciar/Chaos Mist
-- Soniathrym - Tyrant
-- Squall - Abyss
-- Stelyn Sammer - Human
-- Steph - Hanged Man
-- Stephen Hampres - Visionary
-- Steve - Chained
-- Stratford - Justiciar
-- Suah - Chained
-- Suited Clown - Fool
-- Supernova Dominator - Condenser
-- Susie - Visionary
-- Swain - Tyrant
-- Syndras - Human
-
-T
-
-- Talim Dumont - Human
-- Tamara - Justiciar (Sequence 2 or 1)
-- Tony Twain - Red Priest
-- Tracey - Demoness
-- Tracy - Demoness
-- Trissy - Demoness
-- True Creator - Hanged Man
-- Trunsoest - Justiciar
-- Tutanssess II - Chained
-- Tyre - Chained
-
-U
-
-- Uddel - Twilight Giant (Mid Sequence, 6 or 5)
-- Ukfa Connerchris - Mother
-- Ukfa - (No pathway provided, likely same as Ukfa Connerchris)
-- Ulika - Death
-- Ulyssan - Unknown
-- Utravsky - Twilight Giant
-
-V
-
-- Venithan - Human
-- Verdu Garcia - Door
-- Vernal Fnarr - Human
-
-W
-
-- Waite Chirmont - Twilight Giant
-- Walter - Human
-- Waymandy - Moon
-- Weber - Human
-- Weimer - Human
-- Welch McGovern - Human
-- Wendel - Justiciar
-- Wendy Smyrin - Human
-- Will Auceptin/Ceres - Wheel of Fortune
-- William Augustus I - Justiciar
-- William Augustus VI - Human
-- Windsor Behring - Moon
-
-X
-
-- Xio Derecha - Justiciar
-
-Z
-
-- Zaratul - Fool
-- Zaratul Senior - Fool
-- Zatwen - Chained
-- Zoroast - Error
-
-Honorific Names
- Adam:
- "The Lord that Created Everything, The Omnipotent and Omniscient God, The Lord who Reigns Behind the Curtain of Shadows, The Ruler of the Mind World, The Degenerate Nature of all Living Things".
- "His" Honorific Name after fusing with the True Creator.
- Amon:
- King of Angel: "The Clock-Hand that Tampers with Time, The Shadow that Roams across Fate, The Embodiment of Deceit and Trickery".
- God: "The Trojan Horse of Fate, The Slug of Time, The Loopholes in Rules, The Manifestation of All Errors".
- Current: "The Shadow Wandering through Fate, The Past God of Deceit, The Destined Messiah".
- Ancient Sun God: "The Lord that Created Everything, The Omnipotent and Omniscient, The Source of Everything Great, The Beginning and The End, The God of Gods, Ruler of the vast Astral World".
- Arrodes: "Eyes that watch All Living Beings; The Stigmata from the Primordial Land; The Omniscient One who serves The Fool; The Great Arrodes".
- Awatoma Einhorn: "The Ruler of the Fog of the Battlefield; The Symbol of Weather Flux; The Totem of the Storm and Lightning; The Great Awatoma Einhorn".
- Bernadette Gustav: "The Sacred Spirit that Pursues Knowledge; The Mysterious World’s Lighthouse; Eyes that Pry into Fate; The Royalty above the Sea; The Pure and Holy Bernadette Gustav".
- Bethel Abraham: "Great Door of All Doors; Guide of Endless Cosmos; Key to all Mysterious Worlds".
- Celestial Worthy of Heaven and Earth for Blessings:
- General: "Lord of Mysteries; King of Space-Time; Beacon of Destiny; Embodiment of Sefirah Castle; Dominator of the Spirit World".
- In Western Continent: "The Immortal Lord of Heaven and Earth for Blessings; The Sky Lord of Heaven and Earth for Blessings; The Exalted Thearch of Heaven and Earth for Blessings; The Celestial Worthy of Heaven and Earth for Blessings".
- Circle of Inevitability: "The Eternal Cycle; The Predestined Destiny; Embodiment of Cause, Effect, and Process; Symbol of Past, Present, and Future". (Note: During prayers and rituals, the latter two segments may be adapted in various ways).
- Death: "The Essence of Death; Lord of the Dead; Final Home to all Living-beings".
- Earth Mother: "The Source of Life; The Mother of All Things; The Propagation of the Fertile Land; The Symbol of the Crimson Moon and Reproduction; The Destination and the Starting Point of Everything".
- Eternal Blazing Sun: "Eternal Blazing Sun; Inextinguishable Light; Embodiment of Order; God of Contracts; Guardian of Businesses". Also has the title: "Father of All Life," but it's just something used by "His" Church when proselytizing and is beyond "Him" in mysticism.
- Evernight Goddess:
- Former: "The Evernight Goddess stands higher than the cosmos and more eternal than eternity. The Lady of Crimson, The Mother of Concealment, The Empress of Misfortune and Horror, Mistress of Repose and Silence".
- Current: "The Evernight Goddess stands higher than the cosmos and more eternal than eternity. The Mother of Concealment, The Empress of Misfortune and Horror, Mistress of Repose and Silence." (Note: After the 1350 World War, "Lady of Crimson" was removed from "Her" title, since "She" gave up the authority of the moon).
- Fors Wall: "Cosmic Traveler, Beholden to the King of Yellow and Black, The Sorcerer chronicling the World." Her Honorific Name carries the power to conceal secrets from others.
- Franca Roland (God of Disease):
- Former: "The Ancient One who transcends time, One who remains forever young, Envoy of Disease and Plague, Lady who spreads pain and despair, Protector of humanity's adventurous spirit, The Great God of Disease".
- Current: "The Ancient One who transcends time, One who remains forever young, Envoy of Disease and Plague, Lady who spreads pain and despair, Protector of humanity's adventurous spirit, Companion to the Great Malady God".
- Gehrman Sparrow:
- First: "The Blessed of the Spirit World and the Sefirah Castle; The Mystery stemming from ancient times; The Witness of an extended history; Protector of Backlund magic and drama performers; The Great Gehrman Sparrow".
- Second: "The Blessed of the Spirit World and the Sefirah Castle; The Mystery stemming from ancient times; The Witness of an extended history; Protector of all poor children in Backlund; The Great Gehrman Sparrow".
- Current: "The Blessed of the Spirit World and the Sefirah Castle; The Mystery stemming from ancient times; The Witness of an extended history; Angel who redeems mankind; Protector of all impoverished children; The Great Gehrman Sparrow".
- Goddess of Fate: "The Weaver of All Fates; The Symbol of Ultimate Judgement; The Eternal Goddess of the Future".
- God of Combat: “Symbol of Power and Glory, The Great Knight God; Master of War, Patron of Guns; Twilight of All Things".
- God of Knowledge and Wisdom: "Power of Knowledge; Power of Reason; God of Wisdom!".
- God of Steam and Machinery: "Embodiment of Essence; Guardian of Craftsmen; Brilliance of Technology".
- Haiter: "The King from the depths of Hell; An Angel playing the Music of Death; The Ruler above the River Styx".
- High-Dimensional Overseer: "The Lord of Dimensions; The Eye Overlooking the Mortal Realm; The Source of All Illusions; The Creator of the Painting World". (Translation Note: "一切幻想的源头" actually means "The Source of All Fantasies", instead of "The Source of All Illusions" from the official Webnovel English translation).
- Inextinguishable Ravings: "The Philosophical Essence; The Inextinguishable Ravings; The Symbolism of Life's Spirit; The Eternal Consciousness".
- Kotar: "The Dark Lord that exists alongside History, The Embodiment of Countless Miracles, The God of Wishes".
- Lumian Lee:
- God of Plague: "The Lady more ancient than the times; Servant of Calamity; Child of Plague and Disease; Destroyer who walks in Shadows; Guide of all lost lambs in Trier; The Great God of Plague".
- First: "The Chariot of Mr. Fool; Proxy of Chaos and War; The Dual-Bodied One Forged by Fire and Frost; Unaging Saint Bearing Destruction; The Great Lumian Lee".
- Second: "Beholden to the King of Yellow and Black; Priest of Weather and Plague; The Dual-Bodied One who Spreads War and Chaos".
- Third/Current: "Beholden to the King of Yellow and Black; Priest of the Apocalypse and War; The Multi-Faced Conqueror of All. The True Malady God".
- Lord of Storms: "King of the Skies; Emperor of the Seas; Lord of the Calamity; God of the Storms".
- Medici: "The Great God of War; The Symbol of Iron and Blood; The Ruler of Chaos and Strife". (Note: Because "He" had accommodated the Uniqueness of the Red Priest Pathway, "He" could use this three-line Honorific Name that was supposed to be pointing to true gods. After Medici's transformation into an evil spirit, this Honorific Name now points to Sauron-Einhorn-Medici).
- Monarch of Decay: "The Inevitable Decay of All Things; The Endpoint of the River of Time; The Lord of Rot and Putrescence; The Irreversible Entropy".
- Mother Goddess of Depravity:
- Current: "Mother Tree of Desire; Perpetual Blatherer; Heartless God".
- Former: "Mother Tree of Desire; Father of Devils; Lord of Deviants; Source of Curses; Perpetual Blatherer; Heartless God". (Translation Note: Even though "失心"'s literal translation is "lost heart", the term's actual meaning is "lost mind," making "God of Lost Mind" a more correct translation for "失心之神").
- Originally one of The Three Pillars, losing the two Beyonder pathways of Moon and Mother and a part of her Sefirah - the Brood Hive - made "Her" not much different from the other Outer Deities. Only "Her" symbol as a pillar remains. Currently "She" can only use a portion of pillar "She" symbolizes, unless "She" has fused with the Brood Hive again.
- Mother of the Sky: "A Beyonder from ancient times; Ruler of the Nation of the Evernight; Noble Mother of the Sky".
- Primordial God Almighty: "God Almighty; Creator; Maker; The Omnipotent and Omniscient; Lord of the Astral World".
- Primordial Demoness:
- Hidden: "The Source of All Catastrophes; The Symbol of Destruction and the Apocalypse; The Demoness who controls Chaos; The Female Body of the Primordial God Almighty; The Original Creator - the Oldest One - in the mirror".
- Public (Incomplete Honorific Name): "The Source of All Catastrophes; The Symbol of Destruction and the Apocalypse; The Demoness who controls Chaos". (The last two lines of "Her" Honorific Name are hidden from most existences).
- Primordial Hunger: "Primordial Hunger; The Symbol of Devouring; An Insatiable Convergence; The Cleanser of All Things".
- Sauron-Einhorn-Medici: "The Great God of War; The Symbol of Iron and Blood; The Ruler of Chaos and Strife". (Note: This was once the Honorific Name of the original Medici who perished. After his remnant spirit fused to form the Evil Spirit, it now points towards Sauron-Einhorn-Medici).
- Sea God Kalvetua: “Blessed of the sea and spirit world; Guardian of the Rorsted Archipelago; Ruler of the Undersea Creatures; Master of Tsunamis and Storms; The Great Kalvetua”.
- Snarner Einhorn: "The Embodiment of Iron and Blood; The Symbol of the Calamity of War: The Priest who controls the Weather; The Great Snarner Einhorn".
- Suah: “Son of the God who should never have been born; A cage for the imprisoning curse; An evil that erodes history”.
- Supernova Dominator: "The Ruler of Stars; The Symbolism of Weight and Density; The Controller of Fundamental Forces; The Laws of the Boundless Cosmos".
- The Fool: “The Fool that doesn’t belong to this era; The Mysterious Ruler above the Gray Fog; The King of Yellow and Black who wields good luck”.
- True Creator:
- Fusing with Adam: "The Lord that Created Everything, The Omnipotent and Omniscient God, The Lord who Reigns Behind the Curtain of Shadows, The Ruler of the Mind World, The Degenerate Nature of all Living Things".
- Original: "The Lord that Created Everything, The Lord who Reigns Behind the Curtain of Shadows, The Degenerate Nature of all Living Things".
- Uncertain Mist:
- Current: "Bridge of Light and Darkness; Interstice Between Black and White; Ever-Uncertain Mist; The Truth that Oversees All Things".
- Former: "The Anarchy; Shadow of Order; Bridge of Light and Darkness; Interstice Between Black and White; Ever-Uncertain Mist; The Truth that Oversees All Things".
- Will Auceptin: "The Embodiment of Luck; The Clairvoyant Monster; The Calamity that Spreads Misfortune; The Witnesses of all Fates in Backlund; The Keeper of Chaos and Madness." (Honorific Name at Sequence 3, after some modifications).
- 
- 
- Known Mythical Creature Forms
- Black Emperor: A Curly Haired Baboon.
- Chained: A huge Rag Doll chained with thorny vines, bright red bloody eyes, and no human breath.
- Darkness: An Invisible Fog with Stars / Flowing shadows with eyes hidden behind the curtain of shadows.
- 
- Death: A white-yellow Feathered Serpent (Kukulkan/Quetzalcoatl); the former form was a black-pale Phoenix. A black fog corporeal Coffin and a golden bird-shaped Accessory -> A dark black Scythe (huge black heavy Sickle) and a golden bird-shaped Accessory.
- 
- Demoness: A woman with snake hair, known as a Gorgon.
- 
- Door: A huge human figure composed of a light ball formed by Worms of Cosmos and constructed by layers of Doors.
- Error: An ancient stone Clock with Worms of Time hands, or a Worm of Time composed of twelve knot patterns. A crystal Monocle -> A pair of black Gloves.
- Fool: A tentacled spiraling vortex of Worms of Spirit. A translucent Mask marked with the symbol of the Fool Pathway and a translucent dark-colored cloak -> A retracted Mask with a black Windbreaker.
- Hermit: A Gigantic Flesh formed of Countless Eyeballs.
- Justiciar: A golden Brass-Book.
- Moon: Flesh Mountain of Reproductive Organs. A two-handed Crimson Moon.
- Mother: An arm's length illusory Baby.
- Red Priest: A Flame/Fire Giant, known as a Fire Jötunn, with dark skin.
- Sun: Unknown Feathered Creature burning in Golden Flames. A burning, but illusory Sun.
- Twilight Giant: A one-eyed giant, known as a Cyclops with black and blue skin. A gigantic Twilight Sword.
- Tyrant: A Sea Creature with Tentacles surrounded by Lightning. Lightning, squalls, and waves, forming a supercilious phantom.
- Visionary: A Golden-Eyed Dragon with Gray Scales, known as a Mind Dragon.
- Wheel of Fortune: A scaleless Silver Snake covered with various mysterious patterns and symbols. A palm-sized Die.
- White Tower: Illusory Bookshelves. In different places of the bookshelves, there are pools of black, liquid shadows hidden. A white tower with numerous brass eyes.
- Mystical Items List
-  Cards of Blasphemy
- The Fool
- The Magician
- The High Priestess
- The Empress
- The Emperor
- The Hierophant
- The Lovers
- The Chariot
- Strength
- The Hermit
- Wheel of Fortune
- Justice
- The Hanged Man
- Death
- Temperance
- The Devil
- The Tower
- The Star
- The Moon
- The Sun
- Judgment
- The World
- 
-  Charms
- Teleportation Charm
- Aging Charm
- Deprivation Charm
- Deceit Charm
- Parasite Charm
- Yesterday Once More Charm
- Deity's Curse
- Language Comprehension charm
- Fate Siphon
- Ninth Law
- Shriek Charm
- Language of Foulness
- Flaring Sun Charm
- Requiem Charm
- Dream Charm
- Slumber Charm
-  Sealed Artifacts List
- Grade 0 List:
-   Staff of the Stars
-   Box of the Great Old Ones
-   Unknown (See Thorned Crown)
-   Theater With Curtains That Never Draw
-   Groselle's Travels
-   Cheek's Ring
-   Book of Calamity
-   Pale Death
-   Sage Frontlet
-   Gift of the Land
-   Scroll of God
-   Proof of Glory
-   The Last Banquet
-   Angel of Concealment
-   Quill of Alzuhod
-   Magic Wishing Lamp
-   Salinger’s Blood Banner - 0-01
- Grade 1 List:
-   Devil's Oil Painting
-   General of the Pupil-less Eye
-   Vision of White
-   Fallen Flute
-   Life's Cane
-   Twilight Mask
-   Sword of Silverdawn
-   Concerto of Light and Shadow
-   Unshadowed Crucifix
-   Golden Sundial
-   1-80
-   Lilith's Ring
-   Sea God Scepter
-   1-29
-   Berserker’s Armor
-   1-63
-   Saint Selena's Ashes
-   Pure white bone sword
-   Antigonus Family’s Notebook
- Grade 2 List:
-   Tanago Scarecrow
-   Traveler Robe
-   Lucky Grass
-   Wintry Blade
-   Word of the Sea
-   Gargoyle Glasses
-   Hand of Horror
-   Flower of Blood
-   Boxing Glove
-   Cardi's Ring
-   Thunder God’s Roar
-   Scales of Luck
-   Death Knell
-   Judge Button
-   Leymano's Spellbook
-   Tinder
-   Whip of Mind
-   2-166
-   Shadow Cloak
-   Dream of Eternity
-   Flying Carpet
-   Lie
-   Gold Mask
-   Arrodes
-   Biological Poison Bottle
-   Scarlet Lunar Corona
-   Mental Terror Candle
-   Shapeshifting Hat
-   Sun Brooch
-   2-081
-   Notary Certificate
-   Blood Vessel Thief
-   Door of Death
-   Inexhaustible Poison
-   Creeping Hunger
-   Antigonus Family Puppet
- Grade 3 List:
-   Trunsoest Brass Book
-   Die of Probability
- Unknown Grade List:
-   Green Essence
-   Broken Finger
-   Murloc Cufflink
-   Eye of Crystal
-   Master Key
-   Spirit Medium’s Mirror
-   Peaceful Hair Strands
-   Mutated Sun Sacred Emblem
-   Misfortune Cloth Puppet
- Uniqueness Sealed Artifacts
- Beyonder Weapon List:
- Klein's Gold Coins
- Parasite Bullets
- Deprivation Bullets
- Deceit Bullets
- Aging Bullets
- Moon Paper Figurine
- Control Spirit Bullets
- Harris Rapier
- Sanguine Anesthesia Gas
- Holy Sunbird Whip
- Exorcism Bullets
- Demon Hunting Bullets
- Purifying Bullets
- Whip of Slowness
- Axe of Hurricane
- Meat Cleaver
- Inscribed Steel Sword
- Traveler Bracelet
-
-Abilities (so you know what word to use when someone uses their abilities):
-Pillar/Great Old One/Above The Sequence: Lord of The Mysteries 
-
-Fool, Error, and Door Pathways.
-
-This Great Old One is one of the three Pillars.
-
-
-Authorities & Symbolisms:
-
-  
-"He" possesses full authority over the Fool, Error, and Door Pathways and corresponding symbols, which include but are not limited to the following:
-
-- 
-- Fool: Authorities over Fooling, Foolishness, Change, Miracles, Bizarreness.
-- 
-- Error: Authorities over Errors, Time, Theft, Deceit, Destiny.
-- 
-- Door: Authorities over Doors, Position, Space, Seals, Teleportation.
-
-
-
-- Bizarreness: "He" holds the symbolism of Bizarreness.
-
-- One of its manifestations is Grafting.
-
-- Foolishness: "He" holds the symbolism of Foolishness, the ability to turn every rational being into a Fool.
-
-- Deceit: "He" is the symbol of Deceit and wields the ability to Deceive, mislead and manipulate everything.
-
-- Miracles
-- Decryption
-- Theft
-
-Symbols of other Great Old Ones can counter some of "His" symbols and powers, which include but are not limited to the following:
-
-- Mother Goddess of Depravity:
-
-- New Life, Death, Desolation mutually counteracts Marionettes.
-
-- New Life counters Foolishness.
-
-- However, this doesn't mean that "She" cannot be affected by Foolishnessand be Deceived if "She" were to face the Lord of Mysteries directly.
-
-- Sovereign of the Physical World counters Grafting, Theft, Seal, Banishment, and Blink.
-
-- The Mother Goddess of Depravity can fix mystical connections, spirits, consciousness, etc. in place, thus preventing them from being Grafted and Theft.
-
-
-- High-Dimensional Overseer:
-
-- Dimensionality and Change, which included space-time, mutually counteracts each other in a one-on-one situation.
-
-- As the Lord of Dimensions, "He" could counter abilities such as Parasitism, Marionettes, and Blink.
-
-- From higher or lower dimensions, Spirit Body Threads were tangible and real-something that could be touched. Blink only allowed movement on a small scale, while those Parasitized were bound together into one entity. This rendered the unique, ubiquitous nature of the Lord of Mysteries' avatars ineffective. Combat against the High-Dimensional Overseercould only rely on the Lord of Mysteries' true body.
-
-- Monarch of Decay:
-
-- Decay and Certain Death counter Avatars, Blink.
-
-- Death of an Avatar equals the death of the main body.
-- Decay of an Afterimage equals the decay of the main body.
-
-- Inextinguishable Ravings:
-
-- Source of All Ravings counter Avatars, Marionettes, and Blink.
-
-- "He" can ignore the interference of Marionettes, Avatars, and Afterimages to directly project "His" voice into Sefirot and Uniquenesses transmitting "His" madness and implanting "His" intent.
-
-- Primordial Hunger:
-
-- Convergence and Devouring counter Avatars, Marionettes, and Blink.
-
-- Convergence: "He" could forcibly pull the Lord of Mysteries's true body to "His" side.
-- Devouring: If "He" devoured an Avatar or Marionette, "He" could absorb and erase the corresponding abilities, reducing or even temporarily nullifying their symbolic influence.
-
-- Father of Devils:
-
-- Source of Curses counters Avatars, Marionettes:
-
-- "He" is capable of cursing Avatars and Marionettes to indirectly curse the true body.
-
-- Supernova Dominator:
-
-- Density, Gravity, and Attraction can influence Space-Time and distort Dimensions.
-
-- However, for the Lord of Mysteries, who controlled Change and could turn falsehood into truth and vice versa, mere indirect interference was sufficient to stall "Him" without engaging directly.
-
-- Circle of Inevitability:
-
-- Past, Present, Future, Cycle, and Destinycould theoretically impact Avatars, Marionettes, and Blink.
-
-- However, the Circle of Inevitability's symbols were effectively countered by the Lord of Mysteries' other symbols:
-
-- King of Space-Time counters Past, Present, Future.
-- Beacon of Destiny counters Cycle.
-- Error counters Destiny.
-
-Mythical Creature Form
-
-  
-
-  
-
-The Mythical Creature Form of the Lord of Mysteries is a glowing bluish-black door seemed to flicker in and out of existence within a massive dark vortex bristling with slick tentacles that every gust of wind, droplet of water, and ray of light in the vortex consisted of Worms of Spirit, Worms of Time,and Worms of Stars. The vortex is covered with a coat the inside of it is an abyss, seemingly infinite, as if it contained an entire universe and a Spirit Worldconnected to every planet.
-
-
-
-Formula
-
-
-
-- Sefirah Castle
-- Uniquenesses of:
-    - The Fool
-    - The Error
-    - The Door
-- 1 Beyonder Characteristic each from:
-    - The Attendant of Mysteries of the Fool Pathway
-    - The Worm of Time of the Error Pathway
-    - The Key of Stars of the Door Pathway
-
-Sequence 9: Seer
- * Enhanced Memory
- * Spirit Vision
- * Divination Arts & Ritualistic Magic
- * Danger Intuition
-Sequence 8: Clown
- * Physical Enhancement
- * Paper Daggers
- * Spirituality
- * Danger Intuition
-Sequence 7: Magician
- * Damage Transfer
- * Flaming Jump
- * Air Bullet
- * Paper Figurine Substitute
- * Flame Controlling
- * Underwater Breathing
- * Bone Softening
- * Drawing Paper As Weapons
- * Illusion Creation
- * Physical Enhancement
- * Spirituality
- * Spirit Vision
-Sequence 6: Faceless
- * Shapeshifting
- * Flame Controlling
- * Flaming Jump
- * Air Bullets
- * Underwater Breathing
- * Paper Figurine Substitutes
- * Damage Transfer
- * Spirituality
- * Divination
-Sequence 5: Marionettist
- * Spirit Body Threads Manipulation
- * Marionette
- * Air Bullet
-Sequence 4: Bizarro Sorcerer
- * Concealment
- * Damage Transfer
- * Air Cannon
- * Flaming Jump
- * Illusion Creation
- * Shapeshifting
- * Spirit Body Threads Manipulation
- * Bestowal
- * Marionette
- * Marionette Interchange
- * Spirituality
- * Divination
- * Spirit Vision
- * Mythical Creature Form (Worms of Spirit)
-Sequence 3: Scholar of Yore
- * Historical Void Borrowing
- * Historical Projection Summoning
- * Historical Void Hiding
- * Paper Figurine Substitutes
- * Damage Transfer
- * Flaming Jump
- * Air Cannon
- * Shapeshifting
- * Spirit Body Threads Manipulation
- * Marionette Interchange
- * Mythical Creature Form (Worms of Spirit)
-Sequence 2: Miracle Invoker
- * Miracles (Wishes)
- * Resurrection
- * Jamming in Fate
- * Historical Void Summoning
- * Spirituality
- * Spirit Body Threads Manipulation
- * Marionette
- * Mythical Creature Form
-Sequence 1: Attendant of Mysteries
- * Regenerate
- * Change (Reassembly/Tampering/Grafting)
- * Concealment (Realm of Mysteries)
- * Bizarreness
- * Spirit Body Threads Manipulation
- * Resurrection
- * Spirit Body
-Sequence 0: Fool
- * Fooling (History)
- * Fooling (Time)
- * Fooling (Fate)
- * Fooling (Change/Reassembly/Tampering/Grafting)
- * Fooling (Concealment/Realm of Mysteries)
- * Fooling (Mind)
-
-
-
-Sequence 9: Marauder
- * Agile Hands
- * Superior Observation
- * Physical Enhancement
- * Theft (Stealing)
- * Combat Proficiency
-Sequence 8: Swindler
- * Mental Disruption
- * Charm
- * Eloquence
- * Thought Misdirection
- * Superior Observation
- * Physical Enhancement
-Sequence 7: Cryptologist
- * Decryption
- * Superior Observation
-Sequence 6: Prometheus
- * Mental Resistance
- * Theft (Stealing)
- * Superior Observation
- * Physical Enhancement
-Sequence 5: Dream Stealer (Dreams Thief)
- * Dream Infusion
- * Theft (Stealing)
-   * Disguise (Theft of Heavenly Mysteries)
-   * Thought Usurpation
- * Decryption
-Sequence 4: Parasite
- * Avatars
- * Insect Physiology
- * Decryption
- * Theft (Stealing)
-   * Life Theft
-     * Parasitism
- * Mythical Creature Form (Worms of Time)
-Sequence 3: Mentor of Deceit
- * Deceit
- * Superior Observation
- * Theft (Stealing)
-   * Disguise (Theft of Heavenly Mysteries)
- * Avatars
- * Listening to Prayers
-Sequence 2: Trojan Horse of Destiny (Fate Stealer)
- * Loopholes
- * Destiny
- * Theft (Stealing)
-   * Fate Siphoning
-   * Parasitism
- * Deceit
- * Avatars
- * Mythical Creature Form
-Sequence 1: Worm of Time
- * Theft (Stealing)
-   * Aging
- * Time
- * Decryption
- * Avatars
-Sequence 0: Error (Bug)
- * Error (Bug)
- * Deceit
- * Theft (Stealing)
- * Time
- * Space
- * Decryption
-
-
-Sequence 9: Apprentice
- * Door Opening
-Sequence 8: Trickmaster
- * Spells
-   * Gas Transfer
-   * Flash
-   * Escape Trick
-   * Tumble
-   * Object Manipulation
-   * Electric Shock
-   * Freezing
-   * Loud Noise
-   * Black Curtain
-   * Burning
-   * Fog
-   * Wind
-Sequence 7: Astrologer
- * Spirituality
-   * Spirit Vision
-   * Ritualistic Magic & Divination Arts
-   * Anti-Divination
-   * Spiritual Intuition
- * Door Opening (Enhanced)
-Sequence 6: Scribe
- * Record
-Sequence 5: Traveler
- * Traveler's Door (Door of Teleportation, Traveling)
-   * Blink
- * Positioning
- * Invisible Hand
- * Record (Enhanced)
-Sequence 4: Secrets Sorcerer
- * Space Concealment
- * Transfiguration
- * Secret Keeping
- * Exile
- * Record (Qualitative Change)
- * Door Opening (Enhanced)
- * Traveler's Door (Door of Teleportation, Traveling) (Enhanced)
-   * Blink (Enhanced)
- * Spirituality (Enhanced)
-   * Spiritual Intuition (Enhanced)
- * Mythical Creature Form (Worms of Star)
-Sequence 3: Wanderer
- * Wandering
- * Space Tearing
- * Space Integration
- * Space Concealment (Enhanced)
- * Door Opening (Enhanced)
- * Listening to Prayers
-Sequence 2: Planeswalker
- * Symbolization
- * Dimension Sight
- * Teleportation
-   * Mirror World
-   * Underworld
-   * Higher Dimensions
-   * Dreams
- * Replication (Reenactment) (Enhanced)
- * Sealing (Enhanced)
- * Spirituality (Enhanced)
- * Mythical Creature Form
-Sequence 1: Key of Stars
- * Space Fragmentation (Gravity Manipulation)
- * Position
- * Seals
-   * Journey (Space-Time Maze)
- * All Beyonder powers reinforced and enhanced
- * Dimension Sight (Enhanced)
-Sequence 0: Door
- * Door
-   * Space
-   * Seals
- * Conceptualization (Enhanced)
- * Replication (Reenactment) (Enhanced)
-Sequence 9: Spectator
- * Enhanced Mental Attributes
- * Body Language Analysis
- * Enhanced Vision
-Sequence 8: Telepathist
- * Mind Reading
- * Body Language Analysis (Enhanced)
- * Enhanced Vision (Enhanced)
-Sequence 7: Psychiatrist (Psyche Analyst)
- * Frenzy
- * Telepathy
- * Psychological Cue
- * Awe (Dragon's Might, Mass Chaos)
- * Placate (Psychoanalysis)
- * Physical Enhancements
- * Body Language Analysis (Enhanced)
-Sequence 6: Hypnotist
- * Psychological Invisibility
- * Hypnosis (Qualitative Change)
-   * Non-Combat Hypnosis
-   * Battle Hypnotism
- * Physical Enhancement (Enhanced)
-   * Dragon Scales
-Sequence 5: Dreamwalker
- * Alteration
- * Guidance
- * Dream Traversal
-Sequence 4: Manipulator
- * Manipulation
- * Mental Plague
- * Virtual Persona
- * Mind Storm
- * Mind Deprivation (Enhanced)
- * Psychological Invisibility (Enhanced)
- * Mind Dragon Breath (Enhanced)
- * Consciousness Stroll (Enhanced)
- * Physical Enhancement (Greatly Enhanced)
- * Mythical Creature Form (Incomplete Mind Dragon)
-Sequence 3: Dream Weaver
- * Dream Weaving
- * Plague Storm (Enhanced)
- * Enhanced Mental Attributes (Enhanced)
- * Psychological Invisibility (Enhanced)
- * Consciousness Stroll (Enhanced)
- * Hypnosis (Enhanced)
-   * Battle Hypnotism (Enhanced)
- * Virtual Persona (Enhanced)
- * Mythical Creature Form (Further Developed Incomplete Mind Dragon)
-Sequence 2: Discerner
- * Dream Maze
- * Discernment
- * Dream Weaving (Massively Enhanced)
- * Enhanced Mental Attributes (Enhanced)
- * Mythical Creature Form (Complete Mind Dragon)
-Sequence 1: Author (Fairytale)
- * Mind & Fantasy
-Sequence 0: Visionary
- * Envisioning/Imagination (Psyche)
-   * Prophecy
-   * Divine Kingdom
- * Conceptualization (Enhanced)
- * Replication (Reenactment) (Enhanced)
-God Almighty
- * Full Title: God Almighty; Creator; Maker; The Omnipotent and Omniscient; Lord of the Astral World
- * Authorities & Symbolisms (Full Authority over):
-   * Sun Pathway: Sun, Purification, Omnipotence, Omniscience
-   * White Tower Pathway: Wisdom, Omniscience
-   * Hanged Man Pathway: Shadows, Darkness, Corruption, Degeneration, Mutation, Sin, Sacrifice, Maker, Omnipotence
-   * Tyrant Pathway: Tyranny, Matter Acceleration, Omnipotence (Sea, Land, Sky)
-   * Visionary Pathway: Mind, Envisioning, Creator, Omnipotence (Psyche)
- * Derived Abilities/Symbols:
-   * Lord of The Astral World
-   * Chaos Sea
-   * The Omnipotent and Omniscient (Relative)
-   * Maker
-   * Creator
-     * Barrier
-   * Notarization
-   * Unshadowed Domain
-Formula:
- * Chaos Sea
- * Uniquenesses of: The Visionary, The Sun, The Tyrant, The White Tower, The Hanged Man
- * 1 Beyonder Characteristic each from: The Author, The White Angel, The Thunder God, The Omniscient Eye, The Dark Angel
-
-
-Sequence 9: Bard
- * Enhancement
-Sequence 8: Light Suppliant
- * Limited Spells (Sun Domain)
-   * Miniature Suns (eyes)
-   * Disperse Darkness
-   * Firey Light Beam
-   * Blinding White Light
- * Evil Detection
-Sequence 7: Solar High Priest
- * Theurgical Abilities (Sun Domain)
-   * Sun Halo
-   * Sun Holy Water
-   * Holy Light Summoning
-   * Cleave of Purification
-   * Fire of Light
-   * Holy Oath
- * Horror Immunity
- * Physical Enhancements
-Sequence 6: Notary
- * Notarization
-   * Authentication
-   * Amplification
-   * Nullification
- * Physical Enhancements (Massive Boost)
-Sequence 5: Priest of Light
- * Theurgical Abilities (Enhanced)
-   * Light of Holiness
-   * Sword of Light
-   * Purification Halo
-Sequence 4: Unshadowed
- * Unshadowed Domain
- * Flaring Sun
- * Holy Eye
- * Holy Equipment
- * Purification
- * Unshadowed Spear
- * Notarization (Massively Enhanced)
- * Mythical Creature Form (Incomplete, Feathered Golden Flames)
-Sequence 3: Justice Mentor
- * Justice
- * Unshadowed Domain (Enhanced)
- * Holy Equipment (Enhanced, for allies)
- * Listening to Prayers
-Sequence 2: Lightseeker (Sun Chaser)
- * Sunlight Transformation
- * Spear of Light (Enhanced)
- * Ocean of Light (Enhanced)
-Sequence 1: White Angel
- * No new abilities or strengthened abilities explicitly listed.
-Sequence 0: Sun
- * Authorities:
-   * Sun
-Sequence 9: Sailor (Keeper of the Seas)
- * Phantom Scales (Scale Armor)
- * Aquatic Attributes
- * Night Vision
- * Physical Enhancements
-Sequence 8: Folk of Rage (Guardian of the Storm)
- * Raging Blow
- * Physical Enhancements (Greatly Enhanced)
-Sequence 7: Seafarer (Storm Priest)
- * Navigation
- * Water Manipulation
-   * Water Film
-   * Aqueous Light
-   * Restorative Spells
- * Enhanced Memory
- * Aquatic Attributes (Enhanced)
-Sequence 6: Wind-blessed
- * Wind Manipulation
-   * Flight
-   * Float
-   * Windblades
-   * Imbued Hands
-   * Wind Binding
-   * Eavesdrop (Wind)
-   * Air Cushions
- * Irascible Temperament
-Sequence 5: Ocean Songster
- * Lightning Strike
- * Siren Song
- * Water Manipulation (Greatly Improved)
- * Wind Manipulation (Moderately Enhanced)
-   * Flight (Longer)
- * Aquatic Attributes (Full Basic)
-Sequence 4: Cataclysmic Interrer
- * Calamity Creation
-   * Earthquake
-   * Torrential Downpour
-   * Hurricane
-   * Tsunami
-     * Sealing
- * Roar
- * Lightning Strike (Enhanced)
- * Mythical Creature Form (Incomplete, Sea Creature with Tentacles)
-Sequence 3: Sea King
- * Sea Ruler
- * Lightning Storm
- * Thunderclap
- * Physical Enhancement (Greatly Enhanced)
- * Calamity Creation (Increased Capacity and Use)
-   * Hurricane (Lightning Storm)
-   * Torrential Downpour (Spirituality Spread)
-   * Tsunamis (Wanton, Sea Level Raise)
-   * Lightning Calamities
- * Wind Manipulation (Enhanced)
-   * Flight (Faster than Sound)
- * Aquatic Attributes (Greater)
- * Navigation (Never Lost)
- * Listening and Responding to Prayers (Far-reaching)
-Sequence 2: Calamity
- * Authorities:
-   * Calamity
- * Mythical Creature Form (Complete, Sea Creature with Silvery Lightning Tentacles)
-Sequence 1: Thunder God
- * No new abilities or strengthened abilities explicitly listed.
-Sequence 0: Tyrant
- * Authorities:
-   * Tyranny (Storms, Seas, Calamities, Lightning, Omnipotent over Seas, Lands, Sky)
-   * Matter (Manipulate Speed)
-
-Sequence 9: Reader
- * Enhanced Mental Attributes
- * Spirituality
-   * Divination Arts & Ritualistic Magic
-Sequence 8: Student of Ratiocination
- * Enhanced Mental Attributes
- * Spirituality
-   * Divination Arts & Ritualistic Magic
-Sequence 7: Detective (Knowledge Keeper)
- * Physical Enhancements
- * Combat Proficiency
- * Enhanced Mental Attributes
- * Spirituality
-Sequence 6: Polymath
- * Analysis
- * Imitation
- * Enhanced Mental Attributes
-Sequence 5: Mysticism Magister
- * Spellcasting
- * Analyze
- * Imitation
-Sequence 4: Prophet
- * Prophecy
- * Spellcasting
- * Mythical Creature Form
-Sequence 3: Cognizer
- * Cognize
- * Fulcrum
- * Mythical Creature Form
-Sequence 2: Wisdom Angel
- * Wisdom
- * Mythical Creature Form
-Sequence 1: Omniscient Eye
- * Omniscience
-Sequence 0: White Tower
- * Unknown
-Sequence 9: Secrets Suppliant
- * Knowledge (Mysticism)
- * High Spirituality
-   * Ritualistic Magic and Divination Arts
-Sequence 8: Listener (Whispered)
- * Listen
- * High Spirituality
-Sequence 7: Shadow Ascetic
- * Shadow Summon
- * Shadow Curse
- * Shadow Manipulation
- * Shadow Lurking
- * Shadow Shaping
-Sequence 6: Rose Bishop (Rose Priest)
- * Flesh and Blood Magic
-   * Flesh Creek
-   * Flesh Softening
-   * Flesh Bomb
-   * Flesh and Blood Servants
-   * Flesh and Blood Curse
-   * Body Hiding
-   * Flesh Cloak
-   * Birth Control
-Sequence 5: Shepherd
- * Grazing
- * Flesh and Blood Magic
-   * Devouring
- * Commandeering Shadows
-Sequence 4: Black Knight
- * Cull of Spiritual Flesh
- * Black Armor
- * Shadow of Depravation
- * Flesh and Blood Magic
-   * Flesh Rug
- * Commandeering Shadows
- * Shadow Enclosure
- * Grazing
- * Mythical Creature Form
-Sequence 3: Trinity Templar
- * Trinity Body
- * Cull of the Spirit Flesh
- * Shadow Substitutes
- * Grazing
- * Flesh and Blood Magic
-   * Flesh and Blood Immortality
- * Mythical Creature Form
-Sequence 2: Profane Presbyter
- * Profane Language
- * Flesh and Blood Magic
- * Shadows
- * Grazing
- * Mythical Creature Form
-Sequence 1: Dark Angel
- * Profane Language
- * Degeneration/Depravity
- * Darkness
- * Shadows (Shadow Ruler)
- * Grazing
-   * Depraved Dependents
-Sequence 0: Hanged Man
- * Sin-Bearing (Scapegoat)
- * Sacrifice (Hanged Man)
- * Darkness
- * Shadows (Lord of Shadows)
- * Degeneration/Depravity (Degenerate Nature)
- * Corruption (Incarnation of Corruption)
- * Mutations
-Great Old One: Eternal Darkness
- * Darkness
- * Death
- * Twilight Giant
- * Eternal Darkness
- * River of Eternal Darkness
- * Singularity of All
- * Space-Time-in-One
- * Passage of Time
- * Darkness
- * Death
- * Eternal Rest
-Sequence 9: Sleepless
- * Nocturnality
- * High Spirituality
-   * Spirit Vision
-   * Divination Arts & Ritualistic Magic
-Sequence 8: Midnight Poet
- * Midnight Poem
-   * Tranquilize
-   * Lullaby
-   * Pacify
-Sequence 7: Nightmare
- * Nightmare State
- * Guidance
- * Dream Pulling
- * Nightmare Limbs
- * High Spirituality
- * Midnight Poem
-Sequence 6: Soul Assurer
- * Soul Soothing
- * Soul Agitating
- * High Spirituality
-   * Ritualistic Magic & Divination Arts
-Sequence 5: Spirit Warlock
- * Spirit Commandeering
-Sequence 4: Nightwatcher
- * Serene Hair Strands
- * Concealment
- * Curse of Misfortune
- * Mythical Creature Form
-Sequence 3: Horror Bishop
- * Wave of Darkness
- * Terror Aura
- * Darkness Teleportation
- * Midnight Poem
- * Dream Pulling
- * Mythical Creature Form
-Sequence 2: Servant of Concealment
- * Fate Awareness
- * Concealment
- * Serenity Aura
- * Mythical Creature Form
-Sequence 1: Knight of Misfortune
-Sequence 0: Darkness
- * Darkness
-   * Horror
-   * Dreams
-   * Concealment
-Sequence 9: Corpse Collector
- * Physical Enhancement (Divine Blood)
- * Knowledge (Undead)
- * Spirituality
-   * Spirit Vision
-Sequence 8: Gravedigger
- * Spirit Communication
- * Eye of Death
- * Physical Enhancement
- * Spirituality
-   * Spirit Vision
-Sequence 7: Spirit Medium
- * Spirit Manipulation
- * Knowledge (Mysticism)
- * Spirit Communication
- * Spirituality
-   * Danger Intuition
-Sequence 6: Spirit Guide
- * Necromancy
- * Spirit World Communication
- * Language of the Dead
-Sequence 5: Gatekeeper
- * Door to the Underworld
- * Internal Underworld
-Sequence 4: Undying
- * Underworld Authority
-   * Sealing
- * Spirit World Traversal
- * Rotting Wind
- * Resurrection
- * Spirit Body
- * Mythical Creature Form
-Sequence 3: Ferryman
- * Death Gaze
- * Physical Enhancement
- * Resurrection
- * Underworld Authority
- * Mythical Creature Form
-Sequence 2: Death Consul
- * Dead Flame
- * Language of the Dead
- * Mythical Creature Form
-Sequence 1: Pale Emperor
- * Death (Withering)
-Sequence 9: Warrior (Divine Blood Warrior)
- * Physical Enhancement (Divine Blood)
- * Combat Proficiency (Equipment, Martial Arts)
- * Spirituality
-   * Ritualistic Magic
-Sequence 8: Pugilist (Gladiator)
- * Supernatural Resistance
- * Combat Proficiency (Gladiatorial)
-Sequence 7: Weapon Master
- * Weapon Mastery
- * Physical Enhancement (Divine Blood)
- * Supernatural Resistance
- * Spirituality
-   * Spirit Vision
-Sequence 6: Dawn Paladin
- * Giant's Physique (Strength of Giants)
- * Light of Dawn (Sunrise Gleam)
- * Dawn Armor
- * Dawn Weaponry
-   * Sword of Dawn
-   * Hurricane of Light
-Sequence 5: Guardian
- * Protection
- * Damage Transference
- * Giant's Physique (Strength of Giants)
- * Supernatural Resistance
- * Spirituality
-Sequence 4: Demon Hunter
- * Eye of Demon Hunting
- * Alchemy
- * Mind Concealment
- * Tracking
- * Spirituality
-   * Spiritual Intuition
- * Mythical Creature Form
-Sequence 3: Silver Knight
- * Blessing
- * Mercury Liquefaction
- * Silver Rapier
- * Light Concealment
- * Sword of Dawn
- * Silver Armor
- * Mythical Creature Form
-Sequence 2: Glory
- * Passage of Time
- * Twilight Sword
- * Cage
- * Sword of Dawn
-   * Hurricane of Light
- * Mythical Creature Form
-Sequence 1: Hand of God
- * Divine Right Hand
- * Protection
-Sequence 0: Twilight Giant
- * Twilight
-   * Passage of Time
-   * Decay
-
-
-Calamity of Destruction is the title of the Great Old One of the Demoness, and Red Priest Pathways.
-
-This Great Old One is one half of the Fourth Pillar, with the other half being the Eternal Darkness. Because of this, Pathways of the Eternal Darkness and the Calamity of Destruction groups are exchangeable. But in that case, there's no way to become a Great Old One, unless one can separate the Beyonder Characteristics from before.
-
-Beyonders of the Calamity of Destruction group also need to contend with a mixture of the Primordial God Almighty's mental imprint, because in the First Epoch, the Primordial God Almighty had accommodated the City of Calamity.
-
-By becoming the Calamity of Destruction, which combines the Red Priest Pathway and the Demoness Pathway, one would become a real hermaphrodite.
-
- 
-
-Honorific Name:
-
-
-
-Calamity of Destruction;
-Origins of Disaster
-根源之祸
-
-Honorific Name OF THE CALAMITY OF DESTRUCTION
-
-TRANSLATION NOTE
-
-"根源之祸" actually means "Disaster of Origin", instead of "Origins of Disaster" from the official Webnovel English translation.
-
- 
-
-Authorities & Symbolisms
-
-
-
-- "They" possess full authority over the Red Priest, and Demoness pathways, and the corresponding symbolisms, which include but are not limited to the following:
-    - Demoness: Authorities over Apocalypseand Catastrophe. And the Symbols of Catastrophe and Chaos.
-    - Red Priest: Authorities over War and Conquest. And the Symbols of War and Destruction.
-    - The two Pathways represent Disasters of all kinds, both natural and man-made.
-
-Pathways of the Demoness & Calamity of Destruction
-This document outlines the abilities and characteristics associated with the Demoness Pathway, culminating in the Great Old One, "Calamity of Destruction."
-Calamity of Destruction (Great Old One)
-As a powerful existence of Destruction, "They" are capable of killing another Great Old One in a short time.
-Abilities & Symbols:
- * Calamities & Disasters
- * Destruction
-   * Fire of Destruction
- * Return of All Things to Chaos
- * Male and Female Body of the Mirror Creator
- * Essence of War
-   * Strength Gathering
- * Instigation and Provocation
- * Ruler of the Mirror World
- * Mirror Magic and Weather
- * Petrification
- * Plague
-Formula:
- * City of Calamity
- * Uniquenesses of:
-   * The Demoness
-   * The Red Priest
- * 1 Beyonder Characteristic each from:
-   * The Apocalypse of the Demoness Pathway
-   * The Conqueror of the Red Priest Pathway
-Known Achievers:
- * Lumian Lee
- * Salinger (Half)
- * Malevolent Dragon (Will of the Sefirah)
- * Primordial God Almighty (Former, Indestructible Psych)
-
-Demoness Pathway
-Sequence 9: Assassin
-New Abilities:
- * Shadow Concealment
- * Physical Enhancement
-   * Feather Fall
-   * Mighty Blow
- * Heightened Senses
-   * Night Vision
-Sequence 8: Instigator
-New Abilities:
- * Instigation
-Strengthened Abilities:
- * Physical Enhancement
-Sequence 7: Witch
-Gender Transition:
- * If a male were to drink this potion, their gender will be changed to that of a female.
-New Abilities:
- * Charm
- * Black Magic
-   * Black Flames
-   * Frost Spells
-   * Mirror Manipulation
-     * Mirror Substitution
-   * Curse
-   * Other Black Magic Spells
-     * Staff Substitution
-     * Bloodline Curse
-     * Invisibility
- * Divination
-   * Anti-Divination
-Sequence 6: Pleasure (Demoness of Pleasure)
-New Abilities:
- * Threads
-Strengthened Abilities:
- * Witch Abilities Enhanced
-   * Charm
-   * Black Magic
-     * Frost and Black Fire
-     * Mirror and Staff Substitution Speed
-     * Curse
- * Assassin and Instigator Abilities Enhanced
-   * Physical Enhancement (Throat Control)
-   * Heightened Senses (See Threads)
-Sequence 5: Affliction (Demoness of Affliction)
-New Abilities:
- * Disease
-Strengthened Abilities:
- * Threads
- * Charm (Active Ability)
- * Black Magic
-   * Mirror World Illusions (Mirror Mazes)
-   * Curse Enhancement
- * Physical Enhancement (Hair Manipulation)
-Sequence 4: Despair (Demoness of Despair)
-Strengthened Abilities:
- * All previous abilities massively enhanced.
-   * Plague (Enhanced Disease)
-     * Flesh Deterioration Plague
-     * Spirituality and Strength Sapping Plague
-     * Rigidity Plague
-   * Threads
-     * Petrification
-   * Charm
-   * Black Magic (Mirrors, Frost, Curses)
-     * Mirror Mazes
-     * Mirror Projection
-     * Mirror Location and Traversal
-     * Frost Abilities (Ice Amulets)
-     * Curse Enhancement
- * Mythical Creature Form
-   * Incomplete Gorgon
-Sequence 3: Unaging (Demoness of Unaging)
-New Abilities:
- * Mirror Self
-   * Concealed Resurrection
- * Petrification
-Strengthened Abilities:
- * Charm
- * Black Magic (Mirrors and Curses)
-   * Curse Scope and Power
-   * Mirror Abilities
-     * Mirror World Transversal
-     * Power Transmission through Mirror World
-     * Forcibly Pulling into Mirror World
-     * Mirror Surveillance
-     * Mirror Control Range
-     * Mirror Substitution Timing
- * Plague
- * Threads
-Mythical Creature Form:
- * More complete Gorgon form
- * Respond to prayers
-Sequence 2: Catastrophe (Demoness of Catastrophe)
-New Abilities:
- * Feared Name
-Authorities:
- * Catastrophe
-   * Natural Disasters
-   * Societal, Mechanical, Authority, and Conceptual Disasters
-   * Curses of Destiny
-Strengthened Abilities:
- * Plague
- * Mirror Self
-Mythical Creature Form:
- * Complete Gorgon
-   * Summon poisonous black snakes
-Sequence 1: Apocalypse (Demoness of Apocalypse)
-Authorities:
- * Apocalypse
-Sequence 0: Demoness (Chaos Demoness, Primordial Demoness)
-Description:
-The source of Catastrophes, symbol of the Apocalypse, the Demoness who wields Chaos, ruler of the Mirror World, corresponding to the feminine aspect of the Original Creator.
-Authorities:
- * Chaos
- * Charm
- * Mirrors (Embodiment and Control of Mirror World)
- * Femininity
- * Dark Magic
-Strengthened Abilities:
- * Plague
-Mythical Creature Form:
- * Black python-like tentacles as hair
-   * Transformation into beautiful women 
-
-
- 
-
-Hunter Pathway
-Sequence 9: Hunter
-New Abilities:
- * Knowledge (Survival, Traps)
- * Physical Enhancement
- * Heightened Senses
- * Spirituality
-   * Ritualistic Magic
-   * Spirit Vision
-   * Danger Intuition
-Sequence 8: Provoker
-New Abilities:
- * Provocation
-Strengthened Abilities:
- * Physical Enhancement
- * Spirituality
-   * Spirit Vision
-Sequence 7: Pyromaniac (Fire Mage)
-New Abilities:
- * Pyrokinesis
-   * Compression
-   * Fire Armor
-   * Conjure Flames
-   * Area of Effect
-   * Delay Explosions
-   * Fire Enchant
-   * Fire Infusion
-   * Fire Ravens
-   * Wall of Fire
-   * Blazing Spear
-   * Giant Fireball
- * Fire Resistance
-Strengthened Abilities:
- * Spirituality
-   * Spirit Vision
-   * Danger Intuition
-Sequence 6: Conspirer
-New Abilities:
- * Enhanced Mental Attributes
- * Incitement (Instigation)
- * Misdirection, Confusion, Deception (Conspiracy)
- * Flame Transformation
-Strengthened Abilities:
- * Pyrokinesis
- * Information-Gathering
- * Physical Enhancement
- * Spirituality
-Sequence 5: Reaper
-New Abilities:
- * Weakness Investigation
- * Cull
- * Precision
-Strengthened Abilities:
- * Pyrokinesis
- * Flame Transformation
- * Physical Enhancement
- * Spirituality
- * Enhanced Mental Attributes
-Sequence 4: Iron-blooded Knight
-Gender Transition:
- * If a female were to drink this potion, their gender will be changed to that of a male.
-New Abilities:
- * Mind of Steel
- * Weapon Augmentation
- * Chain of Command
- * Galvanization
-Strengthened Abilities:
- * Pyrokinesis
- * Flame Transformation
- * Cull
-Mythical Creature Form:
- * Incomplete Calamity Giant
-Sequence 3: War Bishop
-New Abilities:
- * War Song (War Cry)
- * Fog of War
- * Ritualist of War (Petitioning)
-Strengthened Abilities:
- * Chain of Command
-   * Crowd Control
-   * Strength Gathering
-   * Communication
- * Pyrokinesis
-Mythical Creature Form:
- * Respond to prayers
-Sequence 2: Weather Warlock
-New Abilities:
- * Charisma
-Authorities:
- * Weather (Weather Manipulation)
-Strengthened Abilities:
- * Information-Gathering
- * Physical Enhancement
- * Spirituality
- * Tracking
- * Pyrokinesis
- * Flame Transformation
- * Weakness Investigation
- * Cull
- * Weapon Augmentation
- * Chain of Command
- * Galvanization
- * Fog of War
- * Ritualist of War (Petitioning)
-Mythical Creature Form:
- * Complete Calamity Giant
-Sequence 1: Conqueror
-Authorities:
- * Conquest
-Strengthened Abilities:
- * Galvanization
- * Chain of Command
- * Pyrokinesis
-Sequence 0: Red Priest
-Description:
-Red represents the red of war and Priest can be understood as the ritualist of strength. This combined makes the Red Priest the embodiment of War.
-Authorities:
- * Destruction
- * Masculinity
- * Essence of War
-   * Ritualist of War (Petitioning)
-   * Chain of Command
-   * Fog of War
- * Conquest
-Strengthened Abilities:
- * Pyrokinesis
-
-Hermit Pathway
-Sequence 9: Mystery Pryer
-New Abilities:
- * Eyes of Mystery Prying
- * Knowledge (Knowledge Pursuit)
- * Spirituality
-   * Magic & Divination Arts
-   * Spirit Vision
-Sequence 8: Melee Scholar
-New Abilities:
- * Combat Mastery
-Sequence 7: Warlock
-New Abilities:
- * Spellcasting
-   * Scene Depiction
-   * Soul Summoning
-   * Invisible Hand
-   * Flames
-   * Wind
-   * Purification
-   * Weeding
-   * Lightning
-   * Plant snare
-   * Sea wave
-Strengthened Abilities:
- * Knowledge (Witchcraft)
- * Eyes of Mystery Prying
- * Spirituality
-Sequence 6: Scrolls Professor
-New Abilities:
- * Scroll Making
-   * Secret Voice
-   * Freezing
-   * Storm
-   * Numb
-   * Burning
-   * Wind
-   * Healing
-   * Sun
-Sequence 5: Constellations Master
-New Abilities:
- * Starry Spellcasting
-   * Star Pillar
-   * Starry Amber
-   * Star Transformation
-   * Star Concealment
-   * Star Bridge
-Strengthened Abilities:
- * Eyes of Mystery Prying
- * Spellcasting
-Sequence 4: Mysticologist
-Description:
-Among all Sequence 4 Beyonders, a Mysticologist is the Sequence that encounters danger the easiest. This is because they often see things they shouldn't see, hear things they shouldn't hear, and know secrets they shouldn't be aware of. In addition, their expertise varies depending on the type of Mythical Creature Form blood was used in advancement and attainment of Godhood.
-New Abilities:
- * Mystical Re-enactment
-   * The Ugly Duckling
-   * Spear of Longinus
-   * Ball of Yarn
-   * Princess Snow White
-Strengthened Abilities:
- * Eyes of Mystery Prying
- * Spellcasting
-Mythical Creature Form:
- * Incomplete "black blob"
-Sequence 3: Clairvoyant
-New Abilities:
- * Clairvoyance
-Strengthened Abilities:
- * Mystical Re-enactment
-Mythical Creature Form:
- * Respond to prayers
-Sequence 2: Sage
-Authorities:
- * Information
-   * Knowledge Injection
-Strengthened Abilities:
- * Clairvoyance
- * Mystical Re-enactment
-Mythical Creature Form:
- * Full "black blob"
-Sequence 1: Knowledge Emperor
-Authorities:
- * Knowledge
-Sequence 0: Hermit
-Authorities:
- * Number Symbolism
- * Information
-   * Revival (Information Backup)
- * Knowledge
-   * Knowledge Injection
-   * Eyes of Mystery Prying
-Demon of Knowledge
-Full Title:
-"Demon of Knowledge; Arcana of Madness."
-Authorities & Symbolisms:
- * Hermit: Authorities over Knowledge, Information, and Numbers. And the Symbol of Knowledge.
- * Paragon: Authorities over Essence, Technology, and Physics. And the Symbol of Progress.
- * Demon of Knowledge
- * Arcana of Madness
-Limitation:
- * Minimal influence on the highest dimension.
-Formula:
- * Knowledge Moor
- * Uniquenesses of:
-   * The Hermit
-   * The Paragon
- * 1 Beyonder Characteristic each from:
-   * The Knowledge Emperor of the Hermit Pathway
-   * The Illuminator of the Paragon Pathway
-
- 
-
-Here are the names of the abilities, with descriptions removed:
-Sequence 9: Savant
- * Knowledge
- * Recall
-Sequence 8: Archaeologist
- * Physical Enhancements
- * Knowledge
- * Ritualistic Magic
-Sequence 7: Appraiser
- * Appraisal
-Sequence 6: Artisan (Machinery Specialist)
- * Craftsmanship
- * Knowledge
-Sequence 5: Astronomer (Astromancer)
- * Beyonder powers
-Sequence 4: Alchemist
- * Artificial Life Creation
- * Beam of Disintegration
- * Craftsmanship
-Sequence 3: Arcane Scholar (Demon of Arcana)
- * Recall
- * Craftsmanship
- * Appraisal
- * Artificial Life Creation
-Sequence 2: Knowledge Magister (Master)
- * Fog Transformation
- * Physics
-Sequence 1: Illuminator (Civilization Enlightener, Light of Darkness)
- * Technology
- * Fragment of Civilization
- * Revolutionary Innovation
-Sequence 0: Paragon
- * Essence
- * Technology
-Goddess of Origin
- * Mother
- * Moon
-Sequence 9: Planter
- * Physical Enhancement
- * Farming Proficiency
- * Weather Forecasting
-Sequence 8: Doctor (Healing Pastor)
- * Surgical Mastery
- * Treatments
- * Evil Ailment Treatment
- * Disease Treatments
- * Trauma Treatment
- * Soul Suture
- * Spirituality
- * Spirit Vision
-Sequence 7: Harvest Priest
- * Seed Catalyzation
- * Plant & Insect Commanding
- * Knowledge
- * Physical Enhancement
-Sequence 6: Biologist
- * Crossbreeding
-Sequence 5: Druid
- * Bear Transformation
- * Underground Slink
- * Poison Hair Incineration
- * Physical Enhancement
- * Crossbreeding
-Sequence 4: Classical Alchemist
- * Mutation
- * Artificial Life Creation
- * Life Aura
- * Creature Commanding
- * Surgical Mastery
- * Treatments
- * Soul Suture
-Sequence 3: Pallbearer
- * Life Draining
-Sequence 2: Desolate Matriarch
- * Desolation
- * Life Aura
- * Crossbreeding
- * Artificial Life Creation
- * Life Draining
- * Farming Proficiency
- * Creature Commanding
-Sequence 1: Naturewalker
-(No specific new abilities listed beyond the title)
-Sequence 0: Mother
- * Motherhood
- * Life
- * Earth
-Sequence 9: Apothecary
- * Physical Enhancement
- * Medicinal Concoction
- * Spirituality
- * Spirit Vision
-Sequence 8: Beast Tamer
- * Taming
- * Intimidation
- * Animal Senses
- * Physical Enhancement
-Sequence 7: Vampire
- * Wings of Darkness
- * Claw of Corrosion
- * Abyss Shackles
- * The Embrace
- * Blood Servant Conversion
- * Physical Enhancement
-Sequence 6: Potions Professor
- * Discerning Spiritual Materials
- * Potion & Perfume Crafting
- * Physical Enhancement
-Sequence 5: Scarlet Scholar
- * Lunar Battlefield
- * Moonlight Transformation
- * Flash Teleportation
- * Potion & Perfume Crafting
- * Physical Enhancement
-Sequence 4: Shaman King
- * Spirituality Manipulation
- * Moon Strength Drawing Ritual
- * Undead Conversion Ritual
- * Substitution Spells
- * Moon Paper Figurine
- * Gaze of Darkness
- * Bat Swarm Transformation
- * Physical Enhancement
- * Abyss Shackles
-Sequence 3: High Summoner
- * Door of Summoning
- * Bat Wing Isolation
-Sequence 2: Life-Giver
- * Creation
- * Physical Enhancement
- * Moonlight Transformation
- * Door of Summoning
-Sequence 1: Beauty Goddess
- * Beauty
-Sequence 0: Moon
- * Moon
- * Beauty
- * Reproduction
- * Fertility
- * Proliferation
-Father of Devils
- * Abyss
- * Chained
- * Source of Curses
- * Desires
- * Binding
-Sequence 9: Criminal
- * Criminal Proficiency
- * Physical Enhancement
-Sequence 8: Unwinged Angel (Coldblooded)
- * Demonic Attribute
- * Physical Enhancements
-Sequence 7: Serial Killer
- * Knowledge (Devil Worship)
- * Enhanced Mental Attributes
-Sequence 6: Devil
- * Devil Bloodline
- * Shadow-Shifter
- * Danger Premonition
- * Slow
- * Death
- * Corruption
- * Poisonous Flame Control
- * Sulfur Fireball
- * Lethal Poison Stream
- * Volcanic Eruption
- * Sword of Lava
- * Flame Prison
- * Demonization
-Sequence 5: Desire Apostle
- * Desire Mastery
- * Avatar of Desire
-Sequence 4: Demon
- * Mind Fog
- * Desire Mastery
- * Enhanced Mental Attributes
- * Danger Premonition
- * Physical Enhancement
- * Spell-like abilities
- * Demonization
-Sequence 3: Blatherer
- * Blathering
-Sequence 2: Bloody Archduke
- * Blood & Body Fluids
- * Fear
- * Desire Mastery
- * Seed of Malice
-Sequence 1: Filthy Monarch
- * Filth/Corruption
- * Corrosion
- * Pollution
-Sequence 0: Abyss
- * Degeneration/Depravity
- * Curses
- * Anomalies
- * Desire Mastery
-
- 
-
-Sequence 9: Prisoner
- * Knowledge (Criminal)
- * Physical Enhancement
- * Binding
-Sequence 8: Lunatic
- * Berserk
-Strengthened Abilities
- * Binding
-Curse
- * Lunatic's Curse
-Sequence 7: Werewolf
- * Werewolf Transformation
- * Werewolf Infection
- * Darkness Encroachment
-Strengthened Abilities
- * Physical Enhancement
-Curse
- * Werewolf's Curse
-Sequence 6: Zombie
- * Zombie Transformation
- * Zombie Strength
- * Ice Control
- * Contact-Freeze
- * Ice Stun
- * Ice Wall Formation
- * Ice Slipping Area
- * Aura of Decay
- * Wither Explosion
- * Rotting Fist Aura
- * Rotting Sludge Creation
- * Zombie Manipulation
-Curse
- * Zombie's Curse
-Sequence 5: Wraith
- * Wraith Transformation
- * Invisibility
- * Wraith Shriek
- * Possession
- * Mirror Blink
-Strengthened Abilities
- * Zombie Transformation
- * Zombie Manipulation
- * Ice Control
-Curse
- * Wraith's Curse
-Sequence 4: Puppet
- * Source of Curses
- * Poltergeist
-Strengthened Abilities
- * Evil Spirit Transformation
- * Spirituality
- * Spiritual Intuition
-Mythical Creature Form
- * Incomplete Mythical Creature Form
-Sequence 3: Disciple of Silence (Cursed Artifact)
- * Transfiguration Curse
-Strengthened Abilities
- * Source of Curses
-Mythical Creature Form
- * Respond to prayers
-Sequence 2: Ancient Bane
- * Spirit Inhaling
- * Resurrection
-Strengthened Abilities
- * Source of Curses
- * Transfiguration Curse
-Mythical Creature Form
- * Complete Mythical Creature
-Sequence 1: Abomination
- * Abomination Transformation
-Authorities
- * Binding
-Strengthened Abilities
- * Source of Curses
-Mythical Creature Form
- * Mythical Creature Form (Grotesque tree-like shape)
-Sequence 0: Chained
-Authorities
- * Binding
-The Anarchy
-Authorities & Symbolisms
- * Black Emperor: Disorder, Entropy, Distortion, Shadow of Order
- * Justiciar: Balance, Law, Order
- * Order
- * Shadow of Order
-Limitation
- * Minimal influence on highest dimension
-Formula
- * Nation of Disorder
- * Uniquenesses of: The Black Emperor, The Justiciar
- * 1 Beyonder Characteristic each from: The Prince of Abolition, The Hand of Order
-Sequence 9: Lawyer
- * Eloquence
- * Law Proficiency
-Sequence 8: Barbarian
- * Physical Enhancement
- * Mental Resistance
-Sequence 7: Briber
- * Bribery
- * Bribe-Weaken
- * Bribe-Arrogance
- * Bribe-Charm
- * Bribe-Connection
-Sequence 6: Baron of Corruption (Corruption)
- * Distortion
- * Corrosion
- * Weakness Detection
-Sequence 5: Mentor of Disorder (Disorder)
- * Disorder
- * Majesty
-Strengthened Abilities
- * Distortion
-Sequence 4: Earl of the Fallen (Fallen, Depravity)
- * Exploit
- * Bestowment
- * Magnify
-Strengthened Abilities
- * Disorder
- * Bribe
- * Distortion
-Mythical Creature Form
- * Incomplete Curly Haired Baboon
-Sequence 3: Frenzied Mage (Frenzy)
- * Gigantification
-Mythical Creature Form
- * Respond to prayers
-Sequence 2: Duke of Entropy (Entropy)
-Strengthened Abilities
- * Distortion
- * Exploit
-Mythical Creature Form
- * Complete Curly Haired Baboon
-Sequence 1: Prince of Abolition (Abolition)
-Strengthened Abilities
- * Distortion
-Sequence 0: Black Emperor
-Authorities
- * Distortion
- * Resurrection
- * Last Rebirth
-Sequence 9: Arbiter
- * Authority
- * Physical Enhancement
-Sequence 8: Sheriff
- * Area of Jurisdiction (Territory)
- * Recognition
- * Supernatural Intuition
- * Tracking
-Sequence 7: Interrogator
- * Whip of Pain
- * Psychic Piercing
- * Brand of Restraint
- * Psychic Lashing
- * Enhanced Mental Attributes
- * Combat Proficiency
-Strengthened Abilities
- * Physical Enhancement
-Sequence 6: Judge
- * Verdict
- * Confinement
- * Imprison
- * Release
- * Death
- * Exile
- * Flog
- * Prohibition
-Strengthened Abilities
- * Authority
- * Area of Jurisdiction (Territory)
-Sequence 5: Disciplinary Paladin
- * Punishment
-Strengthened Abilities
- * Physical Enhancements
- * Enhanced Mental Attributes
- * Authority
-Sequence 4: Imperative Mage
- * Deprivation
- * Power of Laws
- * Teleportation
-Strengthened Abilities
- * Supernatural Intuition
- * Verdict
- * Weaken Mysticism, Enhance Reality
- * Exile
- * Execution
- * Confinement
- * Eternal peace for the dead
- * Restriction
-Mythical Creature Form
- * Incomplete giant Brass Pillar
-Sequence 3: Chaos Hunter
-Strengthened Abilities
- * Deprivation
-Mythical Creature Form
- * Respond to prayers
-Sequence 2: Balancer
-Authorities
- * Balance
-Mythical Creature Form
- * Complete Brass Pillar
-Sequence 1: Hand of Order
-Sequence 0: Justiciar
-Authorities
- * Law
-Non-Standard Pathways
-Circle of Inevitability
-Authorities & Symbolisms
- * Eternal Aeon: Cause, Process, Effect, Past, Present, Future, Cycle, Loop, Substitution, Inevitability, Destiny
- * Future & Destined
- * Past
- * Eternal Aeon
- * Substitution
-Counters
- * Lord of Mysteries: King of Space-Time, Beacon of Destiny, Error
- * Eternal Darkness: Space-Time-in-One
- * Calamity of Destruction: Return of All Things to Chaos
-Sequence 9: Dancer
- * Knowledge (Mysticism)
- * Summoning Dance
- * Enigmatic Dance
- * Spirituality
- * Wall of Spirituality
- * Physical Enhancement
-Sequence 8: Alms Monk
- * Endurance
- * Luck Intuition
- * Knowledge (Ritualistic Spells)
- * Prophecy Spell
- * Luck Enhancement Spell
- * Animal Creation Spell
- * Substitution Spell
- * Exorcism Spell
-Strengthened Abilities
- * Knowledge (Mysticism)
-Sequence 7: Contractee
- * Contracts
-Strengthened Abilities
- * Endurance
- * Luck Intuition
- * Knowledge (Mysticism)
- * Summoning Dance
- * Physical Enhancement
- * Spirituality
-Sequence 6: Ascetic
- * Compression
- * Mental Compression
- * Strength Compression
- * Ritualistic Compression
- * Animal Creation Spell (Simplified)
- * Exorcism Spell (Simplified)
-Strengthened Abilities
- * Spirituality
- * Endurance
- * Contracts
- * Luck enhancement spell
-Sequence 5: Fate Appropriator
- * Fate Observation
- * Fate Appropriation
- * Fate Exchange
- * Compelling Fate
- * Magnified Fate
- * Fate Rituals
-Strengthened Abilities
- * Spirituality
- * Physical Enhancements
- * Contracts
- * Endurance
- * Ritualistic Spells
- * Animal Creation Spell
-Sequence 4: Circle Inhabitant
- * Circle Inhabitant
-Strengthened Abilities
- * Fate Observation
- * Fate Appropriation
- * Fate Exchange
-Sequence 3: Sufferer
- * Reenactment
- * Present State
-Strengthened Abilities
- * Endurance
- * Circle Inhabitant
- * Contracts
-Sequence 2: Sinner
-Authorities
- * Past & Cause
-Strengthened Abilities
- * Previous abilities strengthened
-Weakness
- * Depraved Nature
-Mythical Creature Form
- * Two-headed, Two-bodied, Four-Armed being
-Sequence 1: Angel of Redemption
-Authorities
- * Future, Effect, & Destiny
-Mythical Creature Form
- * Three-headed, Three-bodied, Six-Armed Giant
-Sequence 0: Eternal Aeon
-Authorities
- * Cycle & Inevitability
- * Past & Cause
- * Inevitability
-
- Outer Deities are powerful cosmic entities that have attempted to invade Earth. Among them are the Mother Goddess of Depravity, the Mother Tree of Desire, the Son of Chaos, the Primordial Hunger, the Supernova Dominator, and the Inextinguishable Ravings.
-Mother Goddess of Depravity
-Also known as the Primordial Moon, the Great Mother, the Sovereign of the Physical World, and the Mother of All Things, "She" has occupied the Moon since the First Epoch, terraforming it into the Crimson Moon. "She" is the first child of the Original Creator and ruler of all feminine power in the Cosmos. "She" originally owned the Mother and Moon Pathways and currently possesses the Chaos Primogenitor Pathway.
-Authorities & Symbolism
- * Chaos Primogenitor Pathway: Full authority over Reproduction, Propagation, Reality, and Nurturing the nascent Original Creator of the next Universe. This pathway combines "Original Sin, Evil, and Corruption" with "Reality and Procreation."
- * Mother Pathway (partial): Authorities over Life, Desolation, and Birth, symbolizing Motherhood.
- * Moon Pathway (partial): Authorities over Beauty, Creation, and Spirituality, symbolizing the Moon/Crimson Moon.
- * Sovereign of the Physical World: One of the three Pillars supporting the universe. "Her" soul and body are indestructible.
- * Origin of Evil: Innately possesses the Pathway of Evil and Corruption, including the Exploitation of Life.
- * Dominator of Reality: Full control over the Physical World, making "Her" almost impossible to displace, seal, or banish. "She" can "fix" mystical connections, spirits, and consciousness in place, disrupting interference.
- * New Life: Can give "New Life" to all things, including souls, consciousness, spirits, intellect, and Beyonder powers. This also provides immense healing properties.
- * Chaos Primogenitor: A unique symbol pointing to the Original Creator, whom "She" nurtures as the "Original Sin" of the next universe.
- * Beauty and Spirituality: Symbolizes beauty, radiating maternal brilliance that causes enemies to hesitate.
- * Death and Desolation: Can influence entities to wither, collapsing into death.
-Appearance
- * Primordial Moon: Appears as a crimson sea flowing on the Moon's surface, digesting it.
- * True Form: Composed of countless haphazardly piled birthing organs, with swirling smoke and crimson moonlight forming an accretion-disk-like extension as clothing. Has a flawless human woman's head with long brown hair and crimson eyes, embodying beauty and maternal brilliance.
-History
- * Created by the Original Creator, "She" is highly affected by the Law of Convergence, attracting parts of "Her" Sefirah and characteristics to Earth.
- * "She" had worshippers on Earth in the Pre-Epoch, being the source of all Mother Goddess-type deities.
- * "She" is worshipped by factions like the Life School of Thought and Rose School of Thought. Prayers often lead to cruelty, madness, and intense desire.
- * Suspected and later confirmed to have corrupted Roselle.
- * During Project Vortex, "She" traded Roselle Gustav's corruption for the Shadow of the Beauty Goddess.
- * Cooperated with the Mother Tree of Desire in "The Fool's Dream" to store Klein's traumas and grant "New Life" to Panatiya's corpse. Later betrayed the Celestial Worthy by siding with the Primordial God Almighty.
- * Descended onto Earth during "The Day of Many Disasters" and captured the Brood Hive.
- * During "The Apocalypse," "She" was dealt a critical blow by Lumian Lee and later saved the Goddess of Fate from being sealed by Klein. "She" eventually left the solar system after a temporary truce with Klein, but is contract-bound to return to help the Primordial God Almighty revive.
-Mother Tree of Desire
-The second child of the Original Creator, "She" is one of "His" three direct children along with the Mother Goddess of Depravity and the Son of Chaos. "She" originally owned the Abyss and Chained Pathways and currently possesses the Patriarch Pathway. "She" amplifies desire, including greed, hunger, sloth, lust, and reproduction.
-Authorities & Symbolism
- * Patriarch Pathway (full): Authorities over Love, Envy, Reason, and Sentient Beings, symbolizing Desires. This pathway is a mix of "Desires (Reasons)" and "Blathering."
- * Abyss Pathway (partial): Authorities over Blood, Filth, and Corruption.
- * Chained Pathway (partial): Authorities over Curses and Binding.
- * Father of Devils (former): Holds corruptive influence over "Her" former pathways.
- * Perpetual Blatherer: Initiator of Reason and endless Desires; can awaken survival instincts and locate targets via desire.
- * Reason: "Her" existence blesses all Sentient Beings with Rationality.
-Appearance
- * True Form: A humanoid giant tree covered in chaotic scales, adorned with enticing crystalline fruits, glistening alluring flowers, various metallic emblems, black hearts, bare tumors, and coins. Has two heads: a lower male head exuding bizarre desires, and an upper female head of extraordinary beauty with green hair.
-History
- * Created by the Original Creator, "She" was heavily affected by the Law of Convergence, attracting parts of "Her" Sefirot and Beyonder characteristics to Earth.
- * Corrupted the Chained God in the Fifth Epoch, turning the Rose School of Thought into an evil organization.
- * Has a conflict with the Primordial Moon within the Rose School of Thought.
- * "Her" influence has significantly grown, with cooperation among "Her" worshiping organizations and signs of worship among Devil families.
- * Participated in Project Vortex by trading the Shadow of the Beauty Goddess for Roselle Gustav's corruption.
- * Exerted influence in Klein's dream, running Mushoku Hospital alongside the Mother Goddess of Depravity, later withdrawing before the final confrontation.
- * Attempted to fully grow the Tree of Shadow and descend onto Earth during "The Day of Many Disasters."
- * During "The Apocalypse," "She" was held off by Klein, severely wounded by the Master of the Shadow Cottage and Farbauti, and escaped into the Astral World with the Tenebrous World's help. "She" is expected to take a long time to recover.
-Son of Chaos
-The third child of the Original Creator, "He" is one of "His" three direct children along with the Mother Goddess of Depravity and the Mother Tree of Desire. "He" originally owned the Sefirah Nation of Disorder and its corresponding Black Emperor and Justiciar Pathways. "He" is the current owner of the Chaos Mist Pathway.
-Authorities & Symbolism
- * Chaos Mist Pathway (full): Authorities over Blasphemy, Truth, and Chaos.
- * Contracts: Can make Contracts that even Great Old Ones must honor.
-Appearance
- * As the Genie: A blurred and distorted pale golden figure formed from viscous light.
- * As the Uncertain Mist: Occupies a massive planet shrouded in layers of ever-changing white mist.
-History
- * Created by the Original Creator, "He" was affected by the Law of Beyonder Characteristics Convergence, attracting parts of "His" characteristics to Earth.
- * In the First Epoch, "His" consciousness, the Genie, was sealed in the Magic Wishing Lamp by the Celestial Worthy of Heaven and Earth for Blessings.
- * Most of "His" remaining parts formed the Outer Deity known as the Uncertain Mist, worshipped by the School of Truth.
- * Heavily injured during Project Vortex, forcing "Him" to retreat and sleep for decades, preventing "Him" from bestowing boons until "The Apocalypse."
- * Without the Uncertain Mist to coordinate them, other Outer Deities were less willing to confront the Lord of Mysteries during "The Apocalypse."
-Primordial Hunger
-One of the Outer Deities that attempted to invade Earth. "He" is the current owner of the Tail-Devourer Pathway.
-Authorities & Symbolism
- * Tail-Devourer Pathway (full): Authorities over Devouring, Convergence, and Hunger. Symbolizes Devouring and Convergence.
- * Convergence: Instinctively pulls others' true bodies to "His" side and can influence Fate.
- * Devour: Can Devour everything, including black holes, avatars, marionettes, and even ravings within "His" own mind. "His" power governs Digestion, utilization, and Erasure.
- * Counters: "His" symbols can be countered by the Calamity of Destruction's "Return of All Things to Chaos" and the God Almighty's "Creator."
-Appearance
- * True Form: A dark vortex revealing bared white teeth and chaotic liquid encompassing all colors. Elongated black shadows with different heads, previously on "His" exterior, appear to have been consumed.
-Personality
- * The most primitive and vulnerable Outer Deity, driven by desires of Convergence, with only a basic sense of self-preservation. Can still communicate.
-History
- * Gathered around Earth with other powerful Outer Deities, seeking to retrieve their Sefirot and Beyonder Characteristics or accommodate neighboring ones.
- * Aimed to consume the City of Calamity, ingest the Chaos Sea, and absorb Uniquenesses of certain pathways.
- * "His" subordinate Angel, Ludwig Phil, was captured and sealed by the Church of the God of Knowledge and Wisdom.
- * During "The Apocalypse," "He" was held off by Adam and later dealt a critical blow by Lumian Lee, forcing "Him" to withdraw.
- * If "He" were to Devour the Chaos Primogenitor, it would cause an aggressive Convergence, leading to the return of the Original Creator.
-Supernova Dominator
-One of the Outer Deities that attempted to invade Earth. "He" is the current owner of the Condenser Pathway.
-Authorities & Symbolism
- * Condenser Pathway (full): Authorities over Fusion, Cosmic Laws, and Fundamental Forces. Symbols of Density, Weight, Gravity, and Attraction.
- * Ruler of Stars: Controls and summons Stars, creating Supernovae and Black Holes. Can control millions of stars.
- * Great Attractor: Controls the Great Attractor, influencing galactic motion.
- * Symbolism of Weight and Density: Influences space-time and distorts dimensions through Density, Gravity, and Attraction. "His" gravitational pull affects both physical and intangible matter like Fate and Spirit Bodies.
- * Controller of Fundamental Forces: Controls Fundamental Forces of reality. Can manipulate particles to trigger nuclear fusions and create matter. Can emit blinding light.
- * Supernova: Creates Supernovae, either directly or by massing stars.
- * Black Hole: Creates massive Black Holes with immense gravitational force.
- * White Hole: Can reverse a Black Hole's collapse into a powerful explosion, strong enough to obliterate other Great Old Ones. This symbolism is fundamental and unremovable.
-Appearance
- * True Form: A star cluster composed of myriad explosive suns, too large to be contained within a Solar System.
-Personality
- * Wants to embody the symbol of Civilization, but "He" is quite mad, leading to periodic disasters in civilizations under "Him."
-History
- * Served as Earth's "Sun" during much of the Second Epoch after the death of the Primordial God Almighty.
- * In the Fourth Epoch, "He" sent a spaceship with an embryonic black hole to Earth, thwarted by Mr. Door and Amon.
- * Agreed to suppress the Astral Barrier during Project Vortex in exchange for the seal on the spaceship being broken.
- * During "The Apocalypse," "He" was the first Outer Deity to affect Earth, tearing the planet into fragments with "His" star cluster form.
- * Held off by Klein, who handicapped "His" strength and eventually sealed "Him" in an Abomination Beyonder Characteristic.
- * After breaking "His" seal, "He" was affected by Klein's "Foolishness" and "Virtual Persona," making "Him" believe "He" is an ally of Earth's Great Old Ones.
-Inextinguishable Ravings
-One of the Outer Deities that attempted to invade Earth. "He" is the current owner of the Everlasting Pathway and seems to share "His" origin with the residual psyche of the Original Creator, the source of all ravings.
-Authorities & Symbolism
- * Everlasting Pathway (full): Authorities and Symbols of Consciousness and Spirit. This pathway is a mix of two others.
- * Inextinguishable Ravings: "His" ravings awaken the spiritual imprint of the Original Creator within all Sefirot, Uniquenesses, and Beyonder characteristics, affecting everyone. Can directly project "His" voice into Sefirot and Uniquenesses.
- * Consciousness & Spirit: Symbolizes Consciousness and Spirit; injuring "Him" causes chaotic Consciousness and disoriented Spirits.
- * The Symbol of Life's Spirit: Awakens and corrupts lingering Spirits within aggregates.
- * Eternal Consciousness: Intwined with Consciousness and Spirits, making "Him" immortal.
- * The Philosophical Essence: Transmits the First Philosophy, causing physical and mental anguish in Beyonders who hear "His" voice.
- * Counters: Can be countered by "Darkness" (Eternal Darkness) which induces slumber, and "Devouring" (Primordial Hunger) which consumes ravings.
-Appearance
- * Doesn't have a true physical form; attaches "Himself" to objects, causing them to exhibit specific colors or appearances.
-History
- * Gathered around Earth with other powerful Outer Deities, seeking Sefirot and Beyonder Characteristics.
- * Coveted the Knowledge Moor and aimed to control the Chaos Sea.
- * During Project Vortex, "He" sent a bit of "His" power through the barrier, transmitting the First Philosophy and affecting Beyonders who heard "His" voice.
- * Followers planned to approach the remnants of the Knowledge Moor in Fourth Epoch Trier.
- 
-
-Sequence 9: Initiator
- * Initiation
-   * Midoro's Worship
-Sequence 8: Commentator
- * Commentary
-Sequence 7: Orator
- * Oratory
-Sequence 6: Singer
- * Singing
-Sequence 5: Secret Transmitter
- * Transmit
-Sequence 4: Philosopher
- * Philosophy
-   * Materialism
-   * Subjective Idealism
-Sequence 3: Messenger of God
- * Envoy
-Sequence 2: Great Old One Attendant
- * Consciousness & Spirit
-Sequence 1: Voice of the Heart
- * Mind (Consciousness/Voice)
-Sequence 0: Everlasting
- * Consciousness & Spirit
-   * Spirit
-   * Consciousness
-   * Everlasting
-The Monarch of Decay (Outer Deity)
- * Second Law
- * Decay
- * Certain Death
- * The Endpoint of the River of Time
-Sequence 9: Patient (Rotting Patient)
- * Disease Constitution
-Sequence 8: Secretary (Bureaucratic Representative)
- * Bureaucracy
-Sequence 7: Vermin (Corruptor)
- * Corruption
-Sequence 6: Disease Envoy
- * Disease Bestowal
-Sequence 5: Child of Decay
- * Pathogen Embodiment
-Sequence 4: Doomed One
- * Avatar of Pathogen
- * Certain Death
- * Sure Hit
-Sequence 3: Left Hand of Decay
- * Left Hand of Decay
- * Certain Death
-Sequence 2: Time Giant
- * Time
-Sequence 1: God of Decay
- * Senescence (Aging)
-Sequence 0: Second Law (Second Law of Thermodynamics, Ragnarök)
- * Second Law (Entropy, Disease, Decay)
-The High-Dimensional Overseer (Outer Deity)
- * Sublunary Eye
- * Dimensionality
-   * Lord of Dimensions
- * Truth
- * The Creator of the Painting World
-
-Sequence 9: Shaman
- * Territory Creation
- * Spirit Body Connection
-Sequence 8: Reporter
- * True Sight
- * Enhanced Speed
-Sequence 7: Painter
- * Painting
- * Painting Disguise
- * Spiritual Intuition
-Sequence 6: Literary Aficionado
- * Fantasy Materialization
-Sequence 5: Pixie
- * Dimension Shifting
- * Flight
- * Painting
-   * Painting World
-Sequence 4: Visitor (Dimensional Traveler)
- * Dimensional Visitor
-   * Hostel
-Sequence 3: String Player (Performer, Musician)
- * String Manipulation
-Sequence 2: Dimensional Shadow
- * Dimensions
-   * Painting
-Sequence 1: Observer
- * Observation
-   * True Sight
- * Dimensions
- * Fantasy
-Sequence 0: Sublunary Eye
- * Truth
-The Goddess of Fate (Outer Deity)
- * Eternal Edict
- * Weaver of All Fates
- * Final Judgement
- * Eternal Life
-
-Sequence 9: Dreamless
- * Dreamless
- * Fate Sense
-Sequence 8: Musician
- * Fate Symphony
-Sequence 7: Fate Pryer
- * Fate Prying
- * Spirituality
-Sequence 6: Mute
- * Words of Fate
-Sequence 5: Deceased
- * False Death
-Sequence 4: Fatebender
- * Fate Manipulation
-Sequence 3: Fate's Attendant
- * Fate Weaving
- * Fate Prying
-Sequence 2: Web Weaver (Eyeless One)
- * Weaving
-Sequence 1: Blade of Fate
- * Judgement
-Sequence 0: Eternal Edict
- * Fate`,
-          cote: "I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES\n- Translate into natural, publication-quality English while preserving every paragraph break, line break, punctuation mark, speaker label, and scene division exactly.\n\n- This glossary covers Classroom of the Elite from Year 1 Volume 1 through Year 3 Volume 4. Use the established English names and terms below consistently. Do not invent alternate romanizations.\n\n- Do not summarize, censor, omit, or merge sentences. Output only the translated text. Ignore web links, translator notes, scan notes, and editorial commentary.\n\n- Keep Japanese honorifics when they carry relationship or tone: -san, -kun, -chan, -sensei, -senpai, and -sama. Do not add honorifics when the source does not use one. Preserve formal and informal registers between characters.\n\n- Use family name first only when the source or an introduction calls for it; otherwise use the established English order below. Ayanokoji and Ayanokouji refer to the same character; standardize to Ayanokoji.\n\n- Do not confuse Class Points with Private Points. Capitalize official exams, school systems, classes, clubs, facilities, and named plans. Keep internal monologue distinct from spoken dialogue.\n\nII. SERIES, SCHOOL, AND CORE TERMINOLOGY\n- ようこそ実力至上主義の教室へ -> Classroom of the Elite\n- よう実 / You-Zitsu / Yō-Jitsu -> Classroom of the Elite\n- 綾小路 -> Ayanokoji\n- 綾小路清隆 -> Kiyotaka Ayanokoji\n- 東京都高度育成高等学校 -> Tokyo Metropolitan Advanced Nurturing High School\n- 高度育成高等学校 -> Advanced Nurturing High School\n- 高度育成高校 -> Advanced Nurturing High School\n- ANHS -> Advanced Nurturing High School\n- 実力至上主義 -> meritocracy\n- 学校 -> school / Advanced Nurturing High School, according to context\n- 生徒会 -> Student Council\n- 生徒会室 -> Student Council room\n- 学生寮 -> student dormitory\n- 寮 -> dormitory\n- 校内 -> on campus / within the school\n- 校外 -> off campus\n- 坂柳 -> Sakayanagi\n- 坂柳有栖 -> Arisu Sakayanagi\n- 茶柱 -> Chabashira\n- 茶柱佐枝 -> Sae Chabashira\n- 月城 -> Tsukishiro\n- 月城常成 -> Tsukishiro\n- 理事長 -> chairman / school board chairman\n- 理事 -> board member / school board member\n- 学年 -> school year / grade, according to context\n- 1年生 -> first-year student\n- 2年生 -> second-year student\n- 3年生 -> third-year student\n- 先輩 -> upperclassman / senpai\n- 後輩 -> underclassman / junior\n- 同級生 -> classmate / yearmate\n- 担任 -> homeroom teacher\n- クラス -> class\n- Aクラス -> Class A\n- Bクラス -> Class B\n- Cクラス -> Class C\n- Dクラス -> Class D\n- A組 -> Class A\n- B組 -> Class B\n- C組 -> Class C\n- D組 -> Class D\n- クラスメイト -> classmate\n- クラス内 -> within the class\n- クラス間 -> between classes\n- クラス替え -> class reassignment / class reshuffle\n- クラス移動 -> class transfer\n- 卒業 -> graduation\n- 退学 -> expulsion / withdrawal, according to context\n- 退学処分 -> expulsion\n- 退学者 -> expelled student\n- 進級 -> advancement to the next year\n- 推薦 -> recommendation\n- 希望する進路 -> desired career path / desired future path\n\nII. THE S-SYSTEM AND POINTS\n- Sシステム -> S-System\n- クラス順位 -> class ranking\n- 学年順位 -> year ranking\n- クラス内順位 -> in-class ranking\n- クラス間順位 -> inter-class ranking\n- クラス点 -> Class Points\n- クラスポイント -> Class Points\n- CP -> Class Points\n- 個人ポイント -> Private Points\n- プライベートポイント -> Private Points\n- PP -> Private Points\n- ポイント -> points; specify Class Points or Private Points from context\n- 1ポイント -> one point\n- 退学を回避するポイント -> points used to avoid expulsion\n- 保護ポイント -> Protection Point\n- プロテクトポイント -> Protection Point\n- 保護ポイントカード -> Protection Point card\n- 一ノ瀬のポイント -> Ichinose's points\n- 坂柳のポイント -> Sakayanagi's points\n- クラス点の譲渡 -> transfer of Class Points\n- 個人ポイントの譲渡 -> transfer of Private Points\n- ポイントを買う -> buy with points\n- ポイントを支払う -> pay points\n- ポイントを消費する -> spend points\n- 月額ポイント -> monthly points\n- 100,000ポイント -> 100,000 points\n- 2000万ポイント -> 20 million points\n- 2000万 -> 20 million\n- 退学回避 -> expulsion avoidance\n- 退学候補 -> expulsion candidate\n- 特別措置 -> special measure\n- 便宜 -> privilege / accommodation, according to context\n- 校則 -> school rules\n- 規則違反 -> violation of the rules\n- ペナルティ -> penalty\n- 報酬 -> reward\n- ペナルティポイント -> penalty points\n- 評価 -> evaluation / assessment\n- 評価値 -> evaluation value\n- 実績 -> achievement / performance record\n- 損得 -> gains and losses / cost-benefit\n- 損失 -> loss\n- 利益 -> benefit / profit\n\nIII. DEVICES, APPS, AND SCHOOL FACILITIES\n- OAA -> OAA\n- OAAアプリ -> OAA app\n- オーエーエー -> OAA\n- 学力 -> academic ability\n- 身体能力 -> physical ability\n- 判断力 -> judgment ability\n- 社会貢献性 -> social contribution\n- 分析力 -> analysis ability\n- 推定学力 -> estimated academic ability\n- 学力評価 -> academic evaluation\n- 身体能力評価 -> physical ability evaluation\n- アプリ -> app\n- 携帯電話 -> cell phone / mobile phone\n- スマートフォン -> smartphone\n- タブレット -> tablet\n- 内線 -> internal line\n- 自動販売機 -> vending machine\n- 売店 -> store / school store\n- コンビニ -> convenience store\n- カフェ -> cafe\n- ホワイトルーム -> White Room\n- ホワイトルーム生 -> White Room student\n- ホワイトルーム出身 -> from the White Room\n- 4.5巻 -> Volume 4.5\n- 7.5巻 -> Volume 7.5\n- 11.5巻 -> Volume 11.5\n- 12.5巻 -> Volume 12.5\n\nIV. NAMED SPECIAL EXAMS\n- 特別試験 -> Special Exam\n- 特別試験実施 -> implementation of a Special Exam\n- 無人島サバイバル試験 -> Uninhabited Island Special Exam\n- 無人島特別試験 -> Uninhabited Island Special Exam\n- 無人島試験 -> Uninhabited Island Exam\n- 無人島サバイバルゲーム特別試験 -> Uninhabited Island Survival Game Special Exam\n- 船上特別試験 -> Cruise Ship Special Exam\n- 船上試験 -> cruise ship exam\n- zodiac試験 -> Zodiac Exam\n- ゾディアック -> Zodiac\n- 体育祭 -> Sports Festival\n- スポーツフェスティバル -> Sports Festival\n- ペーパーシャッフル -> Paper Shuffle\n- ペーパーシャッフル試験 -> Paper Shuffle Exam\n- 混合合宿 -> Mixed Training Camp\n- 混合合宿特別試験 -> Mixed Training Camp Special Exam\n- クラス内投票 -> Class Poll\n- クラス内投票試験 -> Class Poll Exam\n- 選抜種目試験 -> Event Selection Exam\n- イベント選択試験 -> Event Selection Exam\n- プロテクトポイント -> Protection Point\n- 1年生と2年生のペア試験 -> Partner Exam\n- ペア試験 -> Partner Exam\n- 1年無人島試験 -> First Uninhabited Island Exam\n- 2年無人島試験 -> Second Uninhabited Island Exam\n- 全員投票 -> Unanimous Vote Special Exam\n- 無記名投票 -> anonymous vote\n- 文化祭 -> Cultural Festival\n- 体育祭実行委員 -> Sports Festival committee member\n- 協力型筆記試験 -> Cooperative Written Test Special Exam\n- 協力型筆記試験特別試験 -> Cooperative Written Test Special Exam\n- サバイバル・脱落試験 -> Survival and Elimination Special Exam\n- 生存と脱落の特別試験 -> Survival and Elimination Special Exam\n- 年度末特別試験 -> End-of-Year Special Exam\n- 年末特別試験 -> End-of-Year Special Exam\n- 総合学力試験 -> Comprehensive Academic Ability Exam\n- 総合学力試験・全体戦 -> Comprehensive Academic Ability Exam: All Battles\n- 少人数グループ戦 -> Small Group Battle\n- 全体戦 -> All Battle / all-class battle\n- 素行評価 -> Evaluation of Adherence to Proper Daily Conduct and School Rules\n- 素行調査 -> conduct evaluation / conduct investigation\n- トークン回収特別試験 -> Token Collection Special Exam\n- トークン争奪戦 -> Token Collection Battle\n- トークン -> token\n- リーダー -> leader\n- リーダーの特定 -> leader identification\n- リーダーを隠す -> conceal the leader\n- リーダーを当てる -> identify the leader\n- 特別ルール -> special rule\n- 試験範囲 -> exam scope\n- 試験会場 -> exam venue\n- 試験監督 -> exam proctor\n- 失格 -> disqualification\n- 脱落 -> elimination\n- 反則 -> foul / rule violation\n- ルール違反 -> rule violation\n\nV. FIRST-YEAR EXAM TERMS\n- 無人島 -> uninhabited island / deserted island, according to context\n- 島のポイント -> island points\n- 拠点 -> base camp / base\n- 拠点ポイント -> base points\n- 食料 -> food supplies\n- 水 -> water supply\n- 時計 -> watch\n- リーダー候補 -> leader candidate\n- リーダーを見抜く -> see through the leader's identity\n- 船 -> ship\n- 豪華客船 -> luxury cruise ship\n- 乗船 -> boarding the ship\n- 星座グループ -> Zodiac group\n- 優待券 -> VIP ticket\n- VIP -> VIP\n- VIPグループ -> VIP group\n- 暗号 -> code / cipher\n- 暗号解読 -> codebreaking\n- 用紙 -> answer sheet / paper\n- 問題用紙 -> question sheet\n- 試験問題 -> exam questions\n- 問題作成者 -> question creator\n- 最高点 -> highest score\n- 最低点 -> lowest score\n- 平均点 -> average score\n- 追試 -> make-up exam\n- 退学者を選ぶ -> choose a student for expulsion\n- 身代わり -> scapegoat / substitute\n- 監視役 -> observer / monitor\n- 監視カメラ -> surveillance camera\n- 監視 -> surveillance\n- 無人島生活 -> life on the uninhabited island\n- 体育祭種目 -> Sports Festival event\n- 騎馬戦 -> cavalry battle\n- リレー -> relay race\n- 綱引き -> tug-of-war\n- 障害物競走 -> obstacle race\n- 選抜種目 -> selected event\n- 退学回避特別試験 -> special exam to avoid expulsion\n\nVI. SECOND-YEAR EXAM TERMS\n- 1年生とのペア -> first-year partner\n- 2年生とのペア -> second-year partner\n- 先輩ペア -> senior partner pair\n- 後輩ペア -> junior partner pair\n- 座学 -> classroom study / written academics\n- 運動能力 -> athletic ability\n- 学力試験 -> academic test\n- ペア決め -> partner selection\n- 無人島サバイバル -> uninhabited-island survival\n- 暫定順位 -> provisional ranking\n- 上位グループ -> upper-ranked group\n- 下位グループ -> lower-ranked group\n- ポイント獲得 -> point acquisition\n- 退学者投票 -> expulsion vote\n- 全員一致 -> unanimous agreement\n- 賛成票 -> vote in favor\n- 反対票 -> vote against\n- 反対者 -> dissenter / opposing voter\n- 文化祭実行委員会 -> Cultural Festival committee\n- 露店 -> food stall / booth\n- 出し物 -> attraction / event offering\n- 筆記試験 -> written test\n- 協力者 -> collaborator\n- 代表者 -> representative\n- 試験の主導権 -> control of the exam\n- 脱落者 -> eliminated student\n- 生存者 -> surviving student\n- 最終試験 -> final exam\n- 学年末 -> end of the school year\n\nVII. THIRD-YEAR TERMS THROUGH VOLUME 4\n- 3年生編 -> Third-Year Arc\n- 3年A組 -> Class 3-A\n- 3年B組 -> Class 3-B\n- 3年C組 -> Class 3-C\n- 3年D組 -> Class 3-D\n- 3年次 -> third year\n- 3学期 -> third term\n- 新学期 -> new term\n- 始業式 -> opening ceremony\n- 総合学力試験・全体戦と少人数グループ戦 -> Comprehensive Academic Ability Exam: All and Small Group Battles\n- 少人数グループ -> small group\n- 小グループ -> small group\n- 全体戦代表 -> all-battle representative\n- グループ戦代表 -> group-battle representative\n- 代表選出 -> representative selection\n- 素行評価試験 -> Conduct Evaluation Exam\n- 日常の素行 -> daily conduct\n- 校則遵守 -> adherence to school rules\n- 無人島サバイバルゲーム -> Uninhabited Island Survival Game\n- 3年生無人島試験 -> Third-Year Uninhabited Island Exam\n- トークン回収 -> token collection\n- トークン回収戦 -> Token Collection Battle\n- 上級生 -> upperclassman / senior student\n- 卒業生 -> graduating student / graduate, according to context\n- 新入生 -> new student / first-year student\n- 編入 -> transfer / mid-year transfer\n- 転校 -> transfer to another school\n- 転級 -> transfer to another class\n- クラス移籍 -> class transfer\n- クラスの再編 -> class reorganization\n- クラスの独立 -> class independence\n- 独立クラス -> independent class\n- 退学者の補充 -> replacement of an expelled student\n- クラスのリーダー -> class leader\n- 裏切り者 -> traitor\n- 内通者 -> mole / inside informant\n- 監視対象 -> surveillance target\n\nVIII. KEY STUDENTS: AYANOKOJI'S YEAR\n- 綾小路清隆 -> Kiyotaka Ayanokoji\n- 綾小路くん -> Ayanokoji-kun\n- アヤノコウジ -> Ayanokoji\n- 清隆 -> Kiyotaka\n- 堀北鈴音 -> Suzune Horikita\n- 堀北 -> Horikita\n- 堀北さん -> Horikita-san\n- 櫛田桔梗 -> Kikyo Kushida\n- 櫛田 -> Kushida\n- 佐倉愛里 -> Airi Sakura\n- 佐倉 -> Sakura\n- 須藤健 -> Ken Sudo\n- 須藤 -> Sudo\n- 池寛治 -> Kanji Ike\n- 池 -> Ike\n- 山内春樹 -> Haruki Yamauchi\n- 山内 -> Yamauchi\n- 石崎大地 -> Daichi Ishizaki\n- 石崎 -> Ishizaki\n- 幸村輝彦 -> Keisei Yukimura\n- 幸村 -> Yukimura\n- 長谷部波瑠加 -> Haruka Hasebe\n- 長谷部 -> Hasebe\n- 三宅明人 -> Akito Miyake\n- 三宅 -> Miyake\n- 佐藤麻耶 -> Maya Sato\n- 佐藤 -> Sato\n- 平田洋介 -> Yosuke Hirata\n- 平田 -> Hirata\n- 軽井沢恵 -> Kei Karuizawa\n- 軽井沢 -> Karuizawa\n- 恵 -> Kei\n- 井口 -> Iguchi\n- 近藤 -> Kondo\n- 田中 -> Tanaka\n- 山下 -> Yamashita\n- 須藤健の母 -> Sudo's mother\n- 橘茜 -> Akane Tachibana\n- 橘 -> Tachibana\n- 坂柳有栖 -> Arisu Sakayanagi\n- 坂柳 -> Sakayanagi\n- 葛城康平 -> Kohei Katsuragi\n- 葛城 -> Katsuragi\n- 橋本正義 -> Masayoshi Hashimoto\n- 橋本 -> Hashimoto\n- 神室真澄 -> Masumi Kamuro\n- 神室 -> Kamuro\n- 山村美紀 -> Miki Yamamura\n- 山村 -> Yamamura\n- 森下愛 -> Ai Morishita\n- 森下 -> Morishita\n- 鬼頭隼 -> Hayato Kito\n- 鬼頭 -> Kito\n- 石上京 -> Kyo Ishigami\n- 石上 -> Ishigami\n- 鬼龍院翔 -> Kiryuin Kyo\n- 鬼龍院 -> Kiryuin\n\nIX. KEY STUDENTS: OTHER CLASS LEADERS AND ALLIES\n- 龍園翔 -> Kakeru Ryuen\n- 龍園 -> Ryuen\n- 龍園くん -> Ryuen-kun\n- 一之瀬帆波 -> Honami Ichinose\n- 一之瀬 -> Ichinose\n- 一之瀬さん -> Ichinose-san\n- 神崎隆二 -> Ryuji Kanzaki\n- 神崎 -> Kanzaki\n- 阿形 -> Agami\n- 姫野ユキ -> Yuki Himeno\n- 姫野 -> Himeno\n- 柴田颯 -> Hayato Shibata\n- 柴田 -> Shibata\n- 王美雨 -> Mii-chan / Mii\n- 王 -> Wang\n- 天沢一夏 -> Ichika Amasawa\n- 天沢 -> Amasawa\n- 椿桜子 -> Sakurako Tsubaki\n- 椿 -> Tsubaki\n- 宇都宮陸 -> Riku Utomiya\n- 宇都宮 -> Utomiya\n- 七瀬翼 -> Tsubasa Nanase\n- 七瀬 -> Nanase\n- 鬼龍院 -> Kiryuin\n- 綾小路グループ -> Ayanokoji Group\n- Aグループ -> Ayanokoji Group, when referring to the original study group\n- 旧Aグループ -> former Ayanokoji Group\n- 南雲雅 -> Miyabi Nagumo\n- 南雲 -> Nagumo\n- 桐山生叶 -> Ikuto Kiriyama\n- 桐山 -> Kiriyama\n- 朝比奈なずな -> Nazuna Asahina\n- 朝比奈 -> Asahina\n- 戸塚弥彦 -> Yahiko Totsuka\n- 戸塚 -> Totsuka\n- 山内春樹 -> Haruki Yamauchi\n- 伊吹澪 -> Mio Ibuki\n- 伊吹 -> Ibuki\n- アルベルト -> Albert\n- Albert -> Albert\n- 金田悟 -> Satoru Kaneda\n- 金田 -> Kaneda\n- 佐倉愛里 -> Airi Sakura\n- 坂柳派 -> Sakayanagi faction\n- 龍園派 -> Ryuen faction\n- 一之瀬派 -> Ichinose faction\n- 堀北派 -> Horikita faction\n\nX. FIRST-YEAR STUDENTS AND WHITE ROOM FIGURES\n- 七瀬翼 -> Tsubasa Nanase\n- 天沢一夏 -> Ichika Amasawa\n- 椿桜子 -> Sakurako Tsubaki\n- 宇都宮陸 -> Riku Utomiya\n- 宝泉和臣 -> Kazuomi Hosen\n- 宝泉 -> Hosen\n- 高円寺六助 -> Rokusuke Kōenji\n- 高円寺 -> Rokusuke Kōenji / Kōenji\n- 小宮葉月 -> Hazuki Komiya\n- 小宮 -> Komiya\n- 木下 -> Kinoshita\n- 鈴音 -> Suzune, when used as Horikita's given name\n- 鬼塚 -> Onizuka\n- 八神拓也 -> Takuya Yagami\n- 八神 -> Yagami\n- 山田アルベルト -> Albert Yamada / Albert\n- 山田 -> Yamada\n- 石上京 -> Kyo Ishigami\n- 有栖 -> Arisu, when referring to Sakayanagi\n- 司馬 -> Shiba\n- 浜口哲也 -> Tetsuya Hamaguchi\n- 浜口 -> Hamaguchi\n- 小野寺 -> Onodera\n- 末広 -> Suehiro\n- 西野 -> Nishino\n- 真澄 -> Masumi, when referring to Kamuro\n- 清隆 -> Kiyotaka, when referring to Ayanokoji\n\nXI. STAFF, ADULTS, AND OUTSIDE FIGURES\n- 坂柳理事長 -> Chairman Sakayanagi\n- 坂柳成守 -> Narumori Sakayanagi\n- 月城常成 -> Tsukishiro\n- 龍園の父 -> Ryuen's father\n- 綾小路篤臣 -> Atsuomi Ayanokoji\n- 綾小路篤臣氏 -> Atsuomi Ayanokoji\n- 綾小路父 -> Ayanokoji's father\n- ホワイトルーム所長 -> White Room director\n- ホワイトルームの講師 -> White Room instructor\n- 真嶋智也 -> Hiroya Mashima\n- 真嶋先生 -> Mashima-sensei\n- 星之宮知恵 -> Chie Hoshinomiya\n- 星之宮先生 -> Hoshinomiya-sensei\n- 坂上 -> Sakagami\n- 坂上先生 -> Sakagami-sensei\n- 山本先生 -> Yamamoto-sensei\n- 高橋先生 -> Takahashi-sensei\n- 司令塔 -> command center / strategist\n- 教員 -> faculty member / teacher\n- 教師 -> teacher\n- 職員 -> staff member\n- 学校関係者 -> school official\n- 政府関係者 -> government official\n\nXII. RELATIONSHIPS, TITLES, AND NICKNAMES\n- きよぽん -> Kiyopon\n- あやのん -> Ayanon\n- 坂柳派のリーダー -> leader of the Sakayanagi faction\n- クラスの中心人物 -> central figure of the class\n- クラスの実力者 -> powerhouse of the class\n- クラスのまとめ役 -> class coordinator\n- 裏の実力者 -> hidden powerhouse\n- 天才 -> genius\n- 劣等生 -> underachiever / inferior student\n- 問題児 -> problem child\n- 不良 -> delinquent\n- 優等生 -> honor student\n- 落ちこぼれ -> dropout / failure, according to context\n- 駒 -> pawn\n- 道具 -> tool\n- 目的のための道具 -> tool for achieving a goal\n- 仲間 -> companion / ally / friend\n- 友達 -> friend\n- 親友 -> best friend\n- 恋人 -> romantic partner / lover\n- 元恋人 -> ex-lover\n- 彼女 -> girlfriend / she, according to context\n- 彼氏 -> boyfriend\n- 好敵手 -> rival\n- 宿敵 -> archrival\n- 監視役 -> watcher / observer\n- 協力者 -> ally / collaborator\n- 協力関係 -> cooperative relationship\n- 信頼関係 -> relationship of trust\n- 利害関係 -> relationship of mutual interests\n- 裏切り -> betrayal\n- 取引 -> deal / transaction\n- 交渉 -> negotiation\n- 脅迫 -> intimidation / blackmail\n- 弱み -> weakness / vulnerability\n- 秘密 -> secret\n- 正体 -> true identity\n- 本性 -> true nature\n- 本音 -> true feelings / honest thoughts\n- 建前 -> public façade / stated position\n\nXIII. LOCATIONS AND COMMON PLACES\n- 私立高育 -> Advanced Nurturing High School, only when used as an abbreviation\n- 学校棟 -> school building\n- 特別棟 -> special building\n- 教室 -> classroom\n- 廊下 -> hallway\n- 屋上 -> rooftop\n- 食堂 -> cafeteria\n- 図書室 -> library\n- 体育館 -> gymnasium\n- グラウンド -> athletic field / grounds\n- プール -> pool\n- プールサイド -> poolside\n- 売店前 -> in front of the store\n- 商業区画 -> shopping district\n- 商店街 -> shopping district\n- 映画館 -> movie theater\n- カラオケ -> karaoke\n- ファミレス -> family restaurant\n- ファストフード店 -> fast-food restaurant\n- 喫茶店 -> coffee shop / cafe\n- コンビニエンスストア -> convenience store\n- 船上 -> aboard the ship\n- 客室 -> cabin / passenger room\n- 無人島 -> uninhabited island\n- 合宿所 -> training camp facility\n- ホテル -> hotel\n- リゾート地 -> resort area\n- 軽井沢 -> Karuizawa\n- 月島 -> Tsukishima, if used as a location name\n- 東京 -> Tokyo\n- 北海道 -> Hokkaido\n\nXIV. TRANSLATION STYLE AND RECURRING PHRASES\n- 実力至上主義 -> a meritocracy / ability above all else\n- 何事も実力がすべて -> ability is everything\n- すべては実力で決まる -> everything is decided by ability\n- 退学させる -> expel from school\n- 退学になる -> be expelled\n- クラスを上げる -> move up a class\n- クラスを落とす -> drop down a class\n- クラスを守る -> protect the class\n- クラスを勝たせる -> lead the class to victory\n- クラスをまとめる -> unite the class\n- 足を引っ張る -> hold someone back / drag the class down\n- 足並みを揃える -> move in step / coordinate\n- 出し抜く -> outmaneuver\n- 探りを入れる -> sound someone out / probe\n- 腹を探る -> probe someone's intentions\n- カマをかける -> bait someone into revealing information\n- 化かし合い -> battle of deception\n- 騙し合い -> mutual deception / game of deceit\n- 牽制する -> check / keep in check\n- 牽制し合う -> check one another\n- 様子見 -> wait and see / gauge the situation\n- 様子を見る -> gauge the situation\n- 見透かす -> see through\n- 見抜く -> discern / see through\n- 読み合い -> battle of wits / exchange of predictions\n- 心理戦 -> psychological warfare\n- 情報戦 -> information war\n- 盤面 -> the board / state of play\n- 駒を動かす -> move a pawn / move a piece\n- 手の内 -> cards in one's hand\n- 手札 -> hand / cards in hand\n- 切り札 -> trump card\n- 奥の手 -> ace up one's sleeve\n- 先手を取る -> seize the initiative\n- 後手に回る -> fall behind / lose the initiative\n- 一枚上手 -> one step ahead\n- 勝ち筋 -> path to victory\n- 詰み -> checkmate / no moves left\n- 油断 -> carelessness\n- 慢心 -> complacency\n- 見誤る -> misjudge\n- 想定外 -> unexpected / outside the plan\n- 予定調和 -> predetermined outcome\n- それだけの話だ -> that's all there is to it\n- 大したことじゃない -> it's nothing important\n- 興味はない -> I have no interest in it\n- 面倒だ -> what a pain\n- どうでもいい -> I don't care / it doesn't matter\n- まあ、そうだな -> Well, I suppose so\n- なるほど -> I see\n- そういうことか -> So that's how it is\n- まったく -> Honestly / Good grief\n- 仕方ない -> It can't be helped\n- ふざけるな -> Don't screw around / Don't be ridiculous\n- 舐めるな -> Don't underestimate me\n- 舐められる -> be underestimated / be looked down on\n- 余計なお世話 -> Mind your own business\n- お互い様 -> The feeling is mutual\n\nXV. VOLUME AND ARC LABELS\n- 1年生編 -> First-Year Arc\n- 2年生編 -> Second-Year Arc\n- 3年生編 -> Third-Year Arc\n- 1年1巻 -> Year 1 Volume 1\n- 1年2巻 -> Year 1 Volume 2\n- 1年3巻 -> Year 1 Volume 3\n- 1年4巻 -> Year 1 Volume 4\n- 1年4.5巻 -> Year 1 Volume 4.5\n- 1年5巻 -> Year 1 Volume 5\n- 1年6巻 -> Year 1 Volume 6\n- 1年7巻 -> Year 1 Volume 7\n- 1年7.5巻 -> Year 1 Volume 7.5\n- 1年8巻 -> Year 1 Volume 8\n- 1年9巻 -> Year 1 Volume 9\n- 1年10巻 -> Year 1 Volume 10\n- 1年11巻 -> Year 1 Volume 11\n- 1年11.5巻 -> Year 1 Volume 11.5\n- 1年12巻 -> Year 1 Volume 12\n- 2年1巻 -> Year 2 Volume 1\n- 2年2巻 -> Year 2 Volume 2\n- 2年3巻 -> Year 2 Volume 3\n- 2年4巻 -> Year 2 Volume 4\n- 2年4.5巻 -> Year 2 Volume 4.5\n- 2年5巻 -> Year 2 Volume 5\n- 2年6巻 -> Year 2 Volume 6\n- 2年7巻 -> Year 2 Volume 7\n- 2年8巻 -> Year 2 Volume 8\n- 2年9巻 -> Year 2 Volume 9\n- 2年9.5巻 -> Year 2 Volume 9.5\n- 2年10巻 -> Year 2 Volume 10\n- 2年11巻 -> Year 2 Volume 11\n- 2年11.5巻 -> Year 2 Volume 11.5\n- 2年12巻 -> Year 2 Volume 12\n- 2年12.5巻 -> Year 2 Volume 12.5\n- 3年1巻 -> Year 3 Volume 1\n- 3年2巻 -> Year 3 Volume 2\n- 3年3巻 -> Year 3 Volume 3\n- 3年4巻 -> Year 3 Volume 4\n- 3年4.5巻 -> Year 3 Volume 4.5\n- 1年編 -> Year 1 Arc\n- 2年編 -> Year 2 Arc\n- 3年編 -> Year 3 Arc\n\nXVI. SPOILER CONTROL AND CONSISTENCY NOTES\n- Ayanokoji's father -> Atsuomi Ayanokoji\n- Ayanokoji's father -> do not translate as Professor Ayanokoji unless the source explicitly uses that title\n- The White Room -> White Room\n- White Room student -> White Room student\n- special exam -> Special Exam when it is an official school event\n- class points -> Class Points\n- private points -> Private Points\n- protection point -> Protection Point\n- class A -> Class A when referring to the official class\n- year 3 class C -> Class 3-C\n- year 3 class D -> Class 3-D\n- Kōenji / Koenji -> Kōenji in prose if macrons are supported; Koenji is acceptable when the source uses ASCII\n- Ryūen / Ryuuen -> Ryuen\n- Ayanokōji / Ayanokoji -> Ayanokoji\n- Sakayanagi Arisu -> Arisu Sakayanagi\n- Horikita Suzune -> Suzune Horikita\n- Ichinose Honami -> Honami Ichinose\n- Karuizawa Kei -> Kei Karuizawa\n- Kushida Kikyo -> Kikyo Kushida\n- Hasebe Haruka -> Haruka Hasebe\n- Sudo Ken -> Ken Sudo\n- Hirata Yosuke -> Yosuke Hirata\n- Katsuragi Kohei -> Kohei Katsuragi\n- Hashimoto Masayoshi -> Masayoshi Hashimoto\n- Morishita Ai -> Ai Morishita\n- Yamamura Miki -> Miki Yamamura\n- Kito Hayato -> Hayato Kito\n- Amasawa Ichika -> Ichika Amasawa\n- Tsubaki Sakurako -> Sakurako Tsubaki\n- Utomiya Riku -> Riku Utomiya\n- Nanase Tsubasa -> Tsubasa Nanase\n- Hosen Kazuomi -> Kazuomi Hosen\n\nUse the glossary as a consistency reference, not as a substitute for context. When a Japanese word has multiple meanings, choose the listed English term only when the surrounding scene supports it.\n",
+                    cote: "I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES\n- Translate into natural, publication-quality English while preserving every paragraph break, line break, punctuation mark, speaker label, and scene division exactly.\n\n- This glossary covers Classroom of the Elite from Year 1 Volume 1 through Year 3 Volume 4. Use the established English names and terms below consistently. Do not invent alternate romanizations.\n\n- Do not summarize, censor, omit, or merge sentences. Output only the translated text. Ignore web links, translator notes, scan notes, and editorial commentary.\n\n- Keep Japanese honorifics when they carry relationship or tone: -san, -kun, -chan, -sensei, -senpai, and -sama. Do not add honorifics when the source does not use one. Preserve formal and informal registers between characters.\n\n- Use family name first only when the source or an introduction calls for it; otherwise use the established English order below. Ayanokoji and Ayanokouji refer to the same character; standardize to Ayanokoji.\n\n- Do not confuse Class Points with Private Points. Capitalize official exams, school systems, classes, clubs, facilities, and named plans. Keep internal monologue distinct from spoken dialogue.\n\nII. SERIES, SCHOOL, AND CORE TERMINOLOGY\n- ようこそ実力至上主義の教室へ -> Classroom of the Elite\n- よう実 / You-Zitsu / Yō-Jitsu -> Classroom of the Elite\n- 綾小路 -> Ayanokoji\n- 綾小路清隆 -> Kiyotaka Ayanokoji\n- 東京都高度育成高等学校 -> Tokyo Metropolitan Advanced Nurturing High School\n- 高度育成高等学校 -> Advanced Nurturing High School\n- 高度育成高校 -> Advanced Nurturing High School\n- ANHS -> Advanced Nurturing High School\n- 実力至上主義 -> meritocracy\n- 学校 -> school / Advanced Nurturing High School, according to context\n- 生徒会 -> Student Council\n- 生徒会室 -> Student Council room\n- 学生寮 -> student dormitory\n- 寮 -> dormitory\n- 校内 -> on campus / within the school\n- 校外 -> off campus\n- 坂柳 -> Sakayanagi\n- 坂柳有栖 -> Arisu Sakayanagi\n- 茶柱 -> Chabashira\n- 茶柱佐枝 -> Sae Chabashira\n- 月城 -> Tsukishiro\n- 月城常成 -> Tsukishiro\n- 理事長 -> chairman / school board chairman\n- 理事 -> board member / school board member\n- 学年 -> school year / grade, according to context\n- 1年生 -> first-year student\n- 2年生 -> second-year student\n- 3年生 -> third-year student\n- 先輩 -> upperclassman / senpai\n- 後輩 -> underclassman / junior\n- 同級生 -> classmate / yearmate\n- 担任 -> homeroom teacher\n- クラス -> class\n- Aクラス -> Class A\n- Bクラス -> Class B\n- Cクラス -> Class C\n- Dクラス -> Class D\n- A組 -> Class A\n- B組 -> Class B\n- C組 -> Class C\n- D組 -> Class D\n- クラスメイト -> classmate\n- クラス内 -> within the class\n- クラス間 -> between classes\n- クラス替え -> class reassignment / class reshuffle\n- クラス移動 -> class transfer\n- 卒業 -> graduation\n- 退学 -> expulsion / withdrawal, according to context\n- 退学処分 -> expulsion\n- 退学者 -> expelled student\n- 進級 -> advancement to the next year\n- 推薦 -> recommendation\n- 希望する進路 -> desired career path / desired future path\n\nII. THE S-SYSTEM AND POINTS\n- Sシステム -> S-System\n- クラス順位 -> class ranking\n- 学年順位 -> year ranking\n- クラス内順位 -> in-class ranking\n- クラス間順位 -> inter-class ranking\n- クラス点 -> Class Points\n- クラスポイント -> Class Points\n- CP -> Class Points\n- 個人ポイント -> Private Points\n- プライベートポイント -> Private Points\n- PP -> Private Points\n- ポイント -> points; specify Class Points or Private Points from context\n- 1ポイント -> one point\n- 退学を回避するポイント -> points used to avoid expulsion\n- 保護ポイント -> Protection Point\n- プロテクトポイント -> Protection Point\n- 保護ポイントカード -> Protection Point card\n- 一ノ瀬のポイント -> Ichinose's points\n- 坂柳のポイント -> Sakayanagi's points\n- クラス点の譲渡 -> transfer of Class Points\n- 個人ポイントの譲渡 -> transfer of Private Points\n- ポイントを買う -> buy with points\n- ポイントを支払う -> pay points\n- ポイントを消費する -> spend points\n- 月額ポイント -> monthly points\n- 100,000ポイント -> 100,000 points\n- 2000万ポイント -> 20 million points\n- 2000万 -> 20 million\n- 退学回避 -> expulsion avoidance\n- 退学候補 -> expulsion candidate\n- 特別措置 -> special measure\n- 便宜 -> privilege / accommodation, according to context\n- 校則 -> school rules\n- 規則違反 -> violation of the rules\n- ペナルティ -> penalty\n- 報酬 -> reward\n- ペナルティポイント -> penalty points\n- 評価 -> evaluation / assessment\n- 評価値 -> evaluation value\n- 実績 -> achievement / performance record\n- 損得 -> gains and losses / cost-benefit\n- 損失 -> loss\n- 利益 -> benefit / profit\n\nIII. DEVICES, APPS, AND SCHOOL FACILITIES\n- OAA -> OAA\n- OAAアプリ -> OAA app\n- オーエーエー -> OAA\n- 学力 -> academic ability\n- 身体能力 -> physical ability\n- 判断力 -> judgment ability\n- 社会貢献性 -> social contribution\n- 分析力 -> analysis ability\n- 推定学力 -> estimated academic ability\n- 学力評価 -> academic evaluation\n- 身体能力評価 -> physical ability evaluation\n- アプリ -> app\n- 携帯電話 -> cell phone / mobile phone\n- スマートフォン -> smartphone\n- タブレット -> tablet\n- 内線 -> internal line\n- 自動販売機 -> vending machine\n- 売店 -> store / school store\n- コンビニ -> convenience store\n- カフェ -> cafe\n- ホワイトルーム -> White Room\n- ホワイトルーム生 -> White Room student\n- ホワイトルーム出身 -> from the White Room\n- 4.5巻 -> Volume 4.5\n- 7.5巻 -> Volume 7.5\n- 11.5巻 -> Volume 11.5\n- 12.5巻 -> Volume 12.5\n\nIV. NAMED SPECIAL EXAMS\n- 特別試験 -> Special Exam\n- 特別試験実施 -> implementation of a Special Exam\n- 無人島サバイバル試験 -> Uninhabited Island Special Exam\n- 無人島特別試験 -> Uninhabited Island Special Exam\n- 無人島試験 -> Uninhabited Island Exam\n- 無人島サバイバルゲーム特別試験 -> Uninhabited Island Survival Game Special Exam\n- 船上特別試験 -> Cruise Ship Special Exam\n- 船上試験 -> cruise ship exam\n- zodiac試験 -> Zodiac Exam\n- ゾディアック -> Zodiac\n- 体育祭 -> Sports Festival\n- スポーツフェスティバル -> Sports Festival\n- ペーパーシャッフル -> Paper Shuffle\n- ペーパーシャッフル試験 -> Paper Shuffle Exam\n- 混合合宿 -> Mixed Training Camp\n- 混合合宿特別試験 -> Mixed Training Camp Special Exam\n- クラス内投票 -> Class Poll\n- クラス内投票試験 -> Class Poll Exam\n- 選抜種目試験 -> Event Selection Exam\n- イベント選択試験 -> Event Selection Exam\n- プロテクトポイント -> Protection Point\n- 1年生と2年生のペア試験 -> Partner Exam\n- ペア試験 -> Partner Exam\n- 1年無人島試験 -> First Uninhabited Island Exam\n- 2年無人島試験 -> Second Uninhabited Island Exam\n- 全員投票 -> Unanimous Vote Special Exam\n- 無記名投票 -> anonymous vote\n- 文化祭 -> Cultural Festival\n- 体育祭実行委員 -> Sports Festival committee member\n- 協力型筆記試験 -> Cooperative Written Test Special Exam\n- 協力型筆記試験特別試験 -> Cooperative Written Test Special Exam\n- サバイバル・脱落試験 -> Survival and Elimination Special Exam\n- 生存と脱落の特別試験 -> Survival and Elimination Special Exam\n- 年度末特別試験 -> End-of-Year Special Exam\n- 年末特別試験 -> End-of-Year Special Exam\n- 総合学力試験 -> Comprehensive Academic Ability Exam\n- 総合学力試験・全体戦 -> Comprehensive Academic Ability Exam: All Battles\n- 少人数グループ戦 -> Small Group Battle\n- 全体戦 -> All Battle / all-class battle\n- 素行評価 -> Evaluation of Adherence to Proper Daily Conduct and School Rules\n- 素行調査 -> conduct evaluation / conduct investigation\n- トークン回収特別試験 -> Token Collection Special Exam\n- トークン争奪戦 -> Token Collection Battle\n- トークン -> token\n- リーダー -> leader\n- リーダーの特定 -> leader identification\n- リーダーを隠す -> conceal the leader\n- リーダーを当てる -> identify the leader\n- 特別ルール -> special rule\n- 試験範囲 -> exam scope\n- 試験会場 -> exam venue\n- 試験監督 -> exam proctor\n- 失格 -> disqualification\n- 脱落 -> elimination\n- 反則 -> foul / rule violation\n- ルール違反 -> rule violation\n\nV. FIRST-YEAR EXAM TERMS\n- 無人島 -> uninhabited island / deserted island, according to context\n- 島のポイント -> island points\n- 拠点 -> base camp / base\n- 拠点ポイント -> base points\n- 食料 -> food supplies\n- 水 -> water supply\n- 時計 -> watch\n- リーダー候補 -> leader candidate\n- リーダーを見抜く -> see through the leader's identity\n- 船 -> ship\n- 豪華客船 -> luxury cruise ship\n- 乗船 -> boarding the ship\n- 星座グループ -> Zodiac group\n- 優待券 -> VIP ticket\n- VIP -> VIP\n- VIPグループ -> VIP group\n- 暗号 -> code / cipher\n- 暗号解読 -> codebreaking\n- 用紙 -> answer sheet / paper\n- 問題用紙 -> question sheet\n- 試験問題 -> exam questions\n- 問題作成者 -> question creator\n- 最高点 -> highest score\n- 最低点 -> lowest score\n- 平均点 -> average score\n- 追試 -> make-up exam\n- 退学者を選ぶ -> choose a student for expulsion\n- 身代わり -> scapegoat / substitute\n- 監視役 -> observer / monitor\n- 監視カメラ -> surveillance camera\n- 監視 -> surveillance\n- 無人島生活 -> life on the uninhabited island\n- 体育祭種目 -> Sports Festival event\n- 騎馬戦 -> cavalry battle\n- リレー -> relay race\n- 綱引き -> tug-of-war\n- 障害物競走 -> obstacle race\n- 選抜種目 -> selected event\n- 退学回避特別試験 -> special exam to avoid expulsion\n\nVI. SECOND-YEAR EXAM TERMS\n- 1年生とのペア -> first-year partner\n- 2年生とのペア -> second-year partner\n- 先輩ペア -> senior partner pair\n- 後輩ペア -> junior partner pair\n- 座学 -> classroom study / written academics\n- 運動能力 -> athletic ability\n- 学力試験 -> academic test\n- ペア決め -> partner selection\n- 無人島サバイバル -> uninhabited-island survival\n- 暫定順位 -> provisional ranking\n- 上位グループ -> upper-ranked group\n- 下位グループ -> lower-ranked group\n- ポイント獲得 -> point acquisition\n- 退学者投票 -> expulsion vote\n- 全員一致 -> unanimous agreement\n- 賛成票 -> vote in favor\n- 反対票 -> vote against\n- 反対者 -> dissenter / opposing voter\n- 文化祭実行委員会 -> Cultural Festival committee\n- 露店 -> food stall / booth\n- 出し物 -> attraction / event offering\n- 筆記試験 -> written test\n- 協力者 -> collaborator\n- 代表者 -> representative\n- 試験の主導権 -> control of the exam\n- 脱落者 -> eliminated student\n- 生存者 -> surviving student\n- 最終試験 -> final exam\n- 学年末 -> end of the school year\n\nVII. THIRD-YEAR TERMS THROUGH VOLUME 4\n- 3年生編 -> Third-Year Arc\n- 3年A組 -> Class 3-A\n- 3年B組 -> Class 3-B\n- 3年C組 -> Class 3-C\n- 3年D組 -> Class 3-D\n- 3年次 -> third year\n- 3学期 -> third term\n- 新学期 -> new term\n- 始業式 -> opening ceremony\n- 総合学力試験・全体戦と少人数グループ戦 -> Comprehensive Academic Ability Exam: All and Small Group Battles\n- 少人数グループ -> small group\n- 小グループ -> small group\n- 全体戦代表 -> all-battle representative\n- グループ戦代表 -> group-battle representative\n- 代表選出 -> representative selection\n- 素行評価試験 -> Conduct Evaluation Exam\n- 日常の素行 -> daily conduct\n- 校則遵守 -> adherence to school rules\n- 無人島サバイバルゲーム -> Uninhabited Island Survival Game\n- 3年生無人島試験 -> Third-Year Uninhabited Island Exam\n- トークン回収 -> token collection\n- トークン回収戦 -> Token Collection Battle\n- 上級生 -> upperclassman / senior student\n- 卒業生 -> graduating student / graduate, according to context\n- 新入生 -> new student / first-year student\n- 編入 -> transfer / mid-year transfer\n- 転校 -> transfer to another school\n- 転級 -> transfer to another class\n- クラス移籍 -> class transfer\n- クラスの再編 -> class reorganization\n- クラスの独立 -> class independence\n- 独立クラス -> independent class\n- 退学者の補充 -> replacement of an expelled student\n- クラスのリーダー -> class leader\n- 裏切り者 -> traitor\n- 内通者 -> mole / inside informant\n- 監視対象 -> surveillance target\n\nVIII. KEY STUDENTS: AYANOKOJI'S YEAR\n- 綾小路清隆 -> Kiyotaka Ayanokoji\n- 綾小路くん -> Ayanokoji-kun\n- アヤノコウジ -> Ayanokoji\n- 清隆 -> Kiyotaka\n- 堀北鈴音 -> Suzune Horikita\n- 堀北 -> Horikita\n- 堀北さん -> Horikita-san\n- 櫛田桔梗 -> Kikyo Kushida\n- 櫛田 -> Kushida\n- 佐倉愛里 -> Airi Sakura\n- 佐倉 -> Sakura\n- 須藤健 -> Ken Sudo\n- 須藤 -> Sudo\n- 池寛治 -> Kanji Ike\n- 池 -> Ike\n- 山内春樹 -> Haruki Yamauchi\n- 山内 -> Yamauchi\n- 石崎大地 -> Daichi Ishizaki\n- 石崎 -> Ishizaki\n- 幸村輝彦 -> Keisei Yukimura\n- 幸村 -> Yukimura\n- 長谷部波瑠加 -> Haruka Hasebe\n- 長谷部 -> Hasebe\n- 三宅明人 -> Akito Miyake\n- 三宅 -> Miyake\n- 佐藤麻耶 -> Maya Sato\n- 佐藤 -> Sato\n- 平田洋介 -> Yosuke Hirata\n- 平田 -> Hirata\n- 軽井沢恵 -> Kei Karuizawa\n- 軽井沢 -> Karuizawa\n- 恵 -> Kei\n- 井口 -> Iguchi\n- 近藤 -> Kondo\n- 田中 -> Tanaka\n- 山下 -> Yamashita\n- 須藤健の母 -> Sudo's mother\n- 橘茜 -> Akane Tachibana\n- 橘 -> Tachibana\n- 坂柳有栖 -> Arisu Sakayanagi\n- 坂柳 -> Sakayanagi\n- 葛城康平 -> Kohei Katsuragi\n- 葛城 -> Katsuragi\n- 橋本正義 -> Masayoshi Hashimoto\n- 橋本 -> Hashimoto\n- 神室真澄 -> Masumi Kamuro\n- 神室 -> Kamuro\n- 山村美紀 -> Miki Yamamura\n- 山村 -> Yamamura\n- 森下愛 -> Ai Morishita\n- 森下 -> Morishita\n- 鬼頭隼 -> Hayato Kito\n- 鬼頭 -> Kito\n- 石上京 -> Kyo Ishigami\n- 石上 -> Ishigami\n- 鬼龍院翔 -> Kiryuin Kyo\n- 鬼龍院 -> Kiryuin\n\nIX. KEY STUDENTS: OTHER CLASS LEADERS AND ALLIES\n- 龍園翔 -> Kakeru Ryuen\n- 龍園 -> Ryuen\n- 龍園くん -> Ryuen-kun\n- 一之瀬帆波 -> Honami Ichinose\n- 一之瀬 -> Ichinose\n- 一之瀬さん -> Ichinose-san\n- 神崎隆二 -> Ryuji Kanzaki\n- 神崎 -> Kanzaki\n- 阿形 -> Agami\n- 姫野ユキ -> Yuki Himeno\n- 姫野 -> Himeno\n- 柴田颯 -> Hayato Shibata\n- 柴田 -> Shibata\n- 王美雨 -> Mii-chan / Mii\n- 王 -> Wang\n- 天沢一夏 -> Ichika Amasawa\n- 天沢 -> Amasawa\n- 椿桜子 -> Sakurako Tsubaki\n- 椿 -> Tsubaki\n- 宇都宮陸 -> Riku Utomiya\n- 宇都宮 -> Utomiya\n- 七瀬翼 -> Tsubasa Nanase\n- 七瀬 -> Nanase\n- 鬼龍院 -> Kiryuin\n- 綾小路グループ -> Ayanokoji Group\n- Aグループ -> Ayanokoji Group, when referring to the original study group\n- 旧Aグループ -> former Ayanokoji Group\n- 南雲雅 -> Miyabi Nagumo\n- 南雲 -> Nagumo\n- 桐山生叶 -> Ikuto Kiriyama\n- 桐山 -> Kiriyama\n- 朝比奈なずな -> Nazuna Asahina\n- 朝比奈 -> Asahina\n- 戸塚弥彦 -> Yahiko Totsuka\n- 戸塚 -> Totsuka\n- 山内春樹 -> Haruki Yamauchi\n- 伊吹澪 -> Mio Ibuki\n- 伊吹 -> Ibuki\n- アルベルト -> Albert\n- Albert -> Albert\n- 金田悟 -> Satoru Kaneda\n- 金田 -> Kaneda\n- 佐倉愛里 -> Airi Sakura\n- 坂柳派 -> Sakayanagi faction\n- 龍園派 -> Ryuen faction\n- 一之瀬派 -> Ichinose faction\n- 堀北派 -> Horikita faction\n\nX. FIRST-YEAR STUDENTS AND WHITE ROOM FIGURES\n- 七瀬翼 -> Tsubasa Nanase\n- 天沢一夏 -> Ichika Amasawa\n- 椿桜子 -> Sakurako Tsubaki\n- 宇都宮陸 -> Riku Utomiya\n- 宝泉和臣 -> Kazuomi Hosen\n- 宝泉 -> Hosen\n- 高円寺六助 -> Rokusuke Kōenji\n- 高円寺 -> Rokusuke Kōenji / Kōenji\n- 小宮葉月 -> Hazuki Komiya\n- 小宮 -> Komiya\n- 木下 -> Kinoshita\n- 鈴音 -> Suzune, when used as Horikita's given name\n- 鬼塚 -> Onizuka\n- 八神拓也 -> Takuya Yagami\n- 八神 -> Yagami\n- 山田アルベルト -> Albert Yamada / Albert\n- 山田 -> Yamada\n- 石上京 -> Kyo Ishigami\n- 有栖 -> Arisu, when referring to Sakayanagi\n- 司馬 -> Shiba\n- 浜口哲也 -> Tetsuya Hamaguchi\n- 浜口 -> Hamaguchi\n- 小野寺 -> Onodera\n- 末広 -> Suehiro\n- 西野 -> Nishino\n- 真澄 -> Masumi, when referring to Kamuro\n- 清隆 -> Kiyotaka, when referring to Ayanokoji\n\nXI. STAFF, ADULTS, AND OUTSIDE FIGURES\n- 坂柳理事長 -> Chairman Sakayanagi\n- 坂柳成守 -> Narumori Sakayanagi\n- 月城常成 -> Tsukishiro\n- 龍園の父 -> Ryuen's father\n- 綾小路篤臣 -> Atsuomi Ayanokoji\n- 綾小路篤臣氏 -> Atsuomi Ayanokoji\n- 綾小路父 -> Ayanokoji's father\n- ホワイトルーム所長 -> White Room director\n- ホワイトルームの講師 -> White Room instructor\n- 真嶋智也 -> Hiroya Mashima\n- 真嶋先生 -> Mashima-sensei\n- 星之宮知恵 -> Chie Hoshinomiya\n- 星之宮先生 -> Hoshinomiya-sensei\n- 坂上 -> Sakagami\n- 坂上先生 -> Sakagami-sensei\n- 山本先生 -> Yamamoto-sensei\n- 高橋先生 -> Takahashi-sensei\n- 司令塔 -> command center / strategist\n- 教員 -> faculty member / teacher\n- 教師 -> teacher\n- 職員 -> staff member\n- 学校関係者 -> school official\n- 政府関係者 -> government official\n\nXII. RELATIONSHIPS, TITLES, AND NICKNAMES\n- きよぽん -> Kiyopon\n- あやのん -> Ayanon\n- 坂柳派のリーダー -> leader of the Sakayanagi faction\n- クラスの中心人物 -> central figure of the class\n- クラスの実力者 -> powerhouse of the class\n- クラスのまとめ役 -> class coordinator\n- 裏の実力者 -> hidden powerhouse\n- 天才 -> genius\n- 劣等生 -> underachiever / inferior student\n- 問題児 -> problem child\n- 不良 -> delinquent\n- 優等生 -> honor student\n- 落ちこぼれ -> dropout / failure, according to context\n- 駒 -> pawn\n- 道具 -> tool\n- 目的のための道具 -> tool for achieving a goal\n- 仲間 -> companion / ally / friend\n- 友達 -> friend\n- 親友 -> best friend\n- 恋人 -> romantic partner / lover\n- 元恋人 -> ex-lover\n- 彼女 -> girlfriend / she, according to context\n- 彼氏 -> boyfriend\n- 好敵手 -> rival\n- 宿敵 -> archrival\n- 監視役 -> watcher / observer\n- 協力者 -> ally / collaborator\n- 協力関係 -> cooperative relationship\n- 信頼関係 -> relationship of trust\n- 利害関係 -> relationship of mutual interests\n- 裏切り -> betrayal\n- 取引 -> deal / transaction\n- 交渉 -> negotiation\n- 脅迫 -> intimidation / blackmail\n- 弱み -> weakness / vulnerability\n- 秘密 -> secret\n- 正体 -> true identity\n- 本性 -> true nature\n- 本音 -> true feelings / honest thoughts\n- 建前 -> public façade / stated position\n\nXIII. LOCATIONS AND COMMON PLACES\n- 私立高育 -> Advanced Nurturing High School, only when used as an abbreviation\n- 学校棟 -> school building\n- 特別棟 -> special building\n- 教室 -> classroom\n- 廊下 -> hallway\n- 屋上 -> rooftop\n- 食堂 -> cafeteria\n- 図書室 -> library\n- 体育館 -> gymnasium\n- グラウンド -> athletic field / grounds\n- プール -> pool\n- プールサイド -> poolside\n- 売店前 -> in front of the store\n- 商業区画 -> shopping district\n- 商店街 -> shopping district\n- 映画館 -> movie theater\n- カラオケ -> karaoke\n- ファミレス -> family restaurant\n- ファストフード店 -> fast-food restaurant\n- 喫茶店 -> coffee shop / cafe\n- コンビニエンスストア -> convenience store\n- 船上 -> aboard the ship\n- 客室 -> cabin / passenger room\n- 無人島 -> uninhabited island\n- 合宿所 -> training camp facility\n- ホテル -> hotel\n- リゾート地 -> resort area\n- 軽井沢 -> Karuizawa\n- 月島 -> Tsukishima, if used as a location name\n- 東京 -> Tokyo\n- 北海道 -> Hokkaido\n\nXIV. TRANSLATION STYLE AND RECURRING PHRASES\n- 実力至上主義 -> a meritocracy / ability above all else\n- 何事も実力がすべて -> ability is everything\n- すべては実力で決まる -> everything is decided by ability\n- 退学させる -> expel from school\n- 退学になる -> be expelled\n- クラスを上げる -> move up a class\n- クラスを落とす -> drop down a class\n- クラスを守る -> protect the class\n- クラスを勝たせる -> lead the class to victory\n- クラスをまとめる -> unite the class\n- 足を引っ張る -> hold someone back / drag the class down\n- 足並みを揃える -> move in step / coordinate\n- 出し抜く -> outmaneuver\n- 探りを入れる -> sound someone out / probe\n- 腹を探る -> probe someone's intentions\n- カマをかける -> bait someone into revealing information\n- 化かし合い -> battle of deception\n- 騙し合い -> mutual deception / game of deceit\n- 牽制する -> check / keep in check\n- 牽制し合う -> check one another\n- 様子見 -> wait and see / gauge the situation\n- 様子を見る -> gauge the situation\n- 見透かす -> see through\n- 見抜く -> discern / see through\n- 読み合い -> battle of wits / exchange of predictions\n- 心理戦 -> psychological warfare\n- 情報戦 -> information war\n- 盤面 -> the board / state of play\n- 駒を動かす -> move a pawn / move a piece\n- 手の内 -> cards in one's hand\n- 手札 -> hand / cards in hand\n- 切り札 -> trump card\n- 奥の手 -> ace up one's sleeve\n- 先手を取る -> seize the initiative\n- 後手に回る -> fall behind / lose the initiative\n- 一枚上手 -> one step ahead\n- 勝ち筋 -> path to victory\n- 詰み -> checkmate / no moves left\n- 油断 -> carelessness\n- 慢心 -> complacency\n- 見誤る -> misjudge\n- 想定外 -> unexpected / outside the plan\n- 予定調和 -> predetermined outcome\n- それだけの話だ -> that's all there is to it\n- 大したことじゃない -> it's nothing important\n- 興味はない -> I have no interest in it\n- 面倒だ -> what a pain\n- どうでもいい -> I don't care / it doesn't matter\n- まあ、そうだな -> Well, I suppose so\n- なるほど -> I see\n- そういうことか -> So that's how it is\n- まったく -> Honestly / Good grief\n- 仕方ない -> It can't be helped\n- ふざけるな -> Don't screw around / Don't be ridiculous\n- 舐めるな -> Don't underestimate me\n- 舐められる -> be underestimated / be looked down on\n- 余計なお世話 -> Mind your own business\n- お互い様 -> The feeling is mutual\n\nXV. VOLUME AND ARC LABELS\n- 1年生編 -> First-Year Arc\n- 2年生編 -> Second-Year Arc\n- 3年生編 -> Third-Year Arc\n- 1年1巻 -> Year 1 Volume 1\n- 1年2巻 -> Year 1 Volume 2\n- 1年3巻 -> Year 1 Volume 3\n- 1年4巻 -> Year 1 Volume 4\n- 1年4.5巻 -> Year 1 Volume 4.5\n- 1年5巻 -> Year 1 Volume 5\n- 1年6巻 -> Year 1 Volume 6\n- 1年7巻 -> Year 1 Volume 7\n- 1年7.5巻 -> Year 1 Volume 7.5\n- 1年8巻 -> Year 1 Volume 8\n- 1年9巻 -> Year 1 Volume 9\n- 1年10巻 -> Year 1 Volume 10\n- 1年11巻 -> Year 1 Volume 11\n- 1年11.5巻 -> Year 1 Volume 11.5\n- 1年12巻 -> Year 1 Volume 12\n- 2年1巻 -> Year 2 Volume 1\n- 2年2巻 -> Year 2 Volume 2\n- 2年3巻 -> Year 2 Volume 3\n- 2年4巻 -> Year 2 Volume 4\n- 2年4.5巻 -> Year 2 Volume 4.5\n- 2年5巻 -> Year 2 Volume 5\n- 2年6巻 -> Year 2 Volume 6\n- 2年7巻 -> Year 2 Volume 7\n- 2年8巻 -> Year 2 Volume 8\n- 2年9巻 -> Year 2 Volume 9\n- 2年9.5巻 -> Year 2 Volume 9.5\n- 2年10巻 -> Year 2 Volume 10\n- 2年11巻 -> Year 2 Volume 11\n- 2年11.5巻 -> Year 2 Volume 11.5\n- 2年12巻 -> Year 2 Volume 12\n- 2年12.5巻 -> Year 2 Volume 12.5\n- 3年1巻 -> Year 3 Volume 1\n- 3年2巻 -> Year 3 Volume 2\n- 3年3巻 -> Year 3 Volume 3\n- 3年4巻 -> Year 3 Volume 4\n- 3年4.5巻 -> Year 3 Volume 4.5\n- 1年編 -> Year 1 Arc\n- 2年編 -> Year 2 Arc\n- 3年編 -> Year 3 Arc\n\nXVI. SPOILER CONTROL AND CONSISTENCY NOTES\n- Ayanokoji's father -> Atsuomi Ayanokoji\n- Ayanokoji's father -> do not translate as Professor Ayanokoji unless the source explicitly uses that title\n- The White Room -> White Room\n- White Room student -> White Room student\n- special exam -> Special Exam when it is an official school event\n- class points -> Class Points\n- private points -> Private Points\n- protection point -> Protection Point\n- class A -> Class A when referring to the official class\n- year 3 class C -> Class 3-C\n- year 3 class D -> Class 3-D\n- Kōenji / Koenji -> Kōenji in prose if macrons are supported; Koenji is acceptable when the source uses ASCII\n- Ryūen / Ryuuen -> Ryuen\n- Ayanokōji / Ayanokoji -> Ayanokoji\n- Sakayanagi Arisu -> Arisu Sakayanagi\n- Horikita Suzune -> Suzune Horikita\n- Ichinose Honami -> Honami Ichinose\n- Karuizawa Kei -> Kei Karuizawa\n- Kushida Kikyo -> Kikyo Kushida\n- Hasebe Haruka -> Haruka Hasebe\n- Sudo Ken -> Ken Sudo\n- Hirata Yosuke -> Yosuke Hirata\n- Katsuragi Kohei -> Kohei Katsuragi\n- Hashimoto Masayoshi -> Masayoshi Hashimoto\n- Morishita Ai -> Ai Morishita\n- Yamamura Miki -> Miki Yamamura\n- Kito Hayato -> Hayato Kito\n- Amasawa Ichika -> Ichika Amasawa\n- Tsubaki Sakurako -> Sakurako Tsubaki\n- Utomiya Riku -> Riku Utomiya\n- Nanase Tsubasa -> Tsubasa Nanase\n- Hosen Kazuomi -> Kazuomi Hosen\n\nUse the glossary as a consistency reference, not as a substitute for context. When a Japanese word has multiple meanings, choose the listed English term only when the surrounding scene supports it.\n",
           literary: `[Tone: Formal, literary, and evocative prose. Maintain rich vocabulary and preserve historical/classical atmosphere. Use British English spelling if appropriate.]`,
           dialogue: `[Tone: Punchy, modern dialogue. Keep character banter natural and idiomatic. Avoid overly stiff or formal phrasing in spoken lines.]`
 };
