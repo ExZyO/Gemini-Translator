@@ -1828,7 +1828,35 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 
       const filteredGlossary = filterGlossaryForChunk(glossary, text, smartGlossary);
       if (filteredGlossary.trim()) {
+        try {
+          const matchedTerms = filteredGlossary
+            .split('\n')
+            .filter(l => l.trim().startsWith('-'))
+            .map(l => l.trim().replace(/^-\s*/, ''));
+          const isVerbose = typeof localStorage !== 'undefined' && localStorage.getItem('telemetry_verbose') === 'true';
+          const tokensSaved = Math.max(0, Math.round((glossary.length - filteredGlossary.length) / 3.8));
+          window.telemetryLog?.('SMART_GLOSSARY', `Smart Glossary injected ${matchedTerms.length} matched terms into prompt (~${tokensSaved} tokens saved)`, {
+            matchedCount: matchedTerms.length,
+            matchedTerms: isVerbose ? matchedTerms : matchedTerms.slice(0, 40),
+            smartEnabled: Boolean(smartGlossary),
+            totalGlossaryChars: glossary.length,
+            injectedChars: filteredGlossary.length,
+            tokensSavedApprox: tokensSaved
+          });
+          if (isVerbose) {
+            window.telemetryLog?.('PROMPT_INSPECT', 'Raw terminology guide sent to Gemini for chunk', {
+              injectedGuide: filteredGlossary
+            });
+          }
+        } catch(e) {}
         p = `=== TERMINOLOGY GUIDE (REFERENCE ONLY) ===\nThe following guide supplies terminology and style constraints. It is not story content. Do not reproduce its examples, notes, character lists, or lore unless the same information is present in the raw text.\n\n${filteredGlossary.trim()}\n=== END TERMINOLOGY GUIDE ===\n\n` + p;
+      } else if (glossary && glossary.trim()) {
+        try {
+          window.telemetryLog?.('SMART_GLOSSARY', 'Smart Glossary: 0 terms matched in chunk (all non-occurring lore filtered out to save tokens)', {
+            totalGlossaryChars: glossary.length,
+            smartEnabled: Boolean(smartGlossary)
+          });
+        } catch(e) {}
       }
 
       if (instructions && instructions.trim()) {

@@ -5,21 +5,32 @@
 (function(window) {
   const maskKey = (k) => (!k ? '' : (k.length > 10 ? `${k.slice(0, 6)}…${k.slice(-4)}` : k));
 
-  // Sanitize telemetry payloads: mask API keys and truncate massive novel texts
+  const isVerbose = () => {
+    try {
+      return typeof localStorage !== 'undefined' && localStorage.getItem('telemetry_verbose') === 'true';
+    } catch(e) { return false; }
+  };
+
+  // Sanitize telemetry payloads: mask API keys and truncate massive novel texts (allows deep inspection when Deep Debugging is ON)
   const sanitizePayload = (obj, depth = 0) => {
     if (!obj || depth > 3) return obj;
+    const verbose = isVerbose();
+    const maxStringLen = verbose ? 12000 : 300;
+    const maxPreviewLen = verbose ? 10000 : 200;
+
     if (typeof obj === 'string') {
       if (/AIzaSy[A-Za-z0-9_-]{33}/.test(obj)) {
         return obj.replace(/AIzaSy[A-Za-z0-9_-]{33}/g, (m) => maskKey(m));
       }
-      if (obj.length > 300) {
-        return obj.slice(0, 200) + `… [truncated ${obj.length} chars]`;
+      if (obj.length > maxStringLen) {
+        return obj.slice(0, maxPreviewLen) + `… [truncated ${obj.length} chars]`;
       }
       return obj;
     }
     if (Array.isArray(obj)) {
-      if (obj.length > 500) {
-        return [...obj.slice(0, 500).map(item => sanitizePayload(item, depth + 1)), `… (${obj.length - 500} more items)`];
+      const maxArr = verbose ? 1000 : 500;
+      if (obj.length > maxArr) {
+        return [...obj.slice(0, maxArr).map(item => sanitizePayload(item, depth + 1)), `… (${obj.length - maxArr} more items)`];
       }
       return obj.map(item => sanitizePayload(item, depth + 1));
     }
@@ -28,7 +39,7 @@
       for (const [k, v] of Object.entries(obj)) {
         if (/key|token|auth/i.test(k) && typeof v === 'string') {
           out[k] = maskKey(v);
-        } else if (/content|text|html|raw/i.test(k) && typeof v === 'string' && v.length > 200) {
+        } else if (!verbose && /content|text|html|raw/i.test(k) && typeof v === 'string' && v.length > 200) {
           out[k] = `${v.slice(0, 100)}… (${v.length} chars)`;
         } else {
           out[k] = sanitizePayload(v, depth + 1);
