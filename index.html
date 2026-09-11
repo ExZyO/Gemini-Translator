@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.12.5';
+    const VERSION = '8.12.6';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -10046,7 +10046,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           setEpubPackagingModal({ title: cleanDocTitle, status: ' Assembling translated EPUB archive...', pct: 10 });
           const blob = await generateEpubFromChapters(chaptersToExport, cleanDocTitle, cleanAuthor, lang, (status, pct, elapsed) => {
             setEpubPackagingModal({ title: cleanDocTitle, status, pct, elapsed });
-          }, typeof getEpubOptions === 'function' ? getEpubOptions({ coverUrl: activeNovelRecord?.cover || coverImage || '' }) : { coverUrl: activeNovelRecord?.cover || coverImage || '' });
+          }, typeof getEpubOptions === 'function' ? getEpubOptions({ coverUrl: activeNovelRecord?.cover || '' }) : { coverUrl: activeNovelRecord?.cover || '' });
           setEpubPackagingModal(null);
           toast(' EPUB downloaded successfully!', 'success');
           const cleanDocName = cleanDocTitle && !isGenericTitle(cleanDocTitle) ? sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;

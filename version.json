@@ -1,7 +1,7 @@
 {
-  "version": "8.12.5",
-  "versionCode": 8185,
+  "version": "8.12.6",
+  "versionCode": 8186,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.12.5: Complete fileName TDZ fix across ALL download handlers. Renamed every shadowing const fileName to epubFileName/exportFileName/backupFileName across all 11 EPUB, glossary, backup, and history export paths."
+  "releaseNotes": "v8.12.6: Fix EPUB export crash — coverImage ReferenceError. Removes reference to undeclared coverImage variable in handleDownloadEPUB that caused 'coverImage is not defined' error and stuck the export at 10%."
 }
