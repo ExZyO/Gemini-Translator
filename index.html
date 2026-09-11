@@ -856,7 +856,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.14.1';
+    let VERSION = '8.14.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3899,6 +3899,7 @@ const formatModelName = (id, displayName) => {
           return [];
         }
       });
+      const historyNovels = webImportHistory || [];
       const [historySearchQuery, setHistorySearchQuery] = useState('');
       const [checkingUpdates, setCheckingUpdates] = useState({});
       const [novelUpdateBadges, setNovelUpdateBadges] = useState({});
@@ -5885,6 +5886,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
+      const [appVersionCode, setAppVersionCode] = useState(8223);
       useEffect(() => {
         fetch('./version.json?t=' + Date.now())
           .then(r => r.json())
@@ -5892,6 +5894,7 @@ const formatModelName = (id, displayName) => {
             if (d && d.version) {
               VERSION = d.version;
               setAppVersion(d.version);
+              if (d.versionCode) setAppVersionCode(d.versionCode);
             }
           })
           .catch(() => {});
@@ -6267,7 +6270,7 @@ const formatModelName = (id, displayName) => {
           const wctUrl = 'https://witchculttranslation.com/table-of-content/';
           setWebImportUrl(wctUrl);
 
-          const existing = (historyNovels || []).find(n => /witchcult|rezero/i.test(n?.sourceUrl || n?.url || n?.title || ''))
+          const existing = (webImportHistory || []).find(n => /witchcult|rezero/i.test(n?.sourceUrl || n?.url || n?.title || ''))
             || (activeCrawlSession && /witchcult|rezero/i.test(activeCrawlSession?.sourceUrl || activeCrawlSession?.url || activeCrawlSession?.title || '') ? activeCrawlSession : null);
 
           const existingChapters = existing?.chapters || existing?.rawChapters || (chapters && chapters.length > 0 && /rezero|witch/i.test(activeNovelRecord?.title || '') ? chapters : []);
@@ -12006,7 +12009,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
                 // Re:Zero (Witch Cult Translations) Dedicated Command Card
                 isWitchCultUrl && !isFetchingUrl && (() => {
-                  const existingRezero = (historyNovels || []).find(n => /witchcult|rezero/i.test(n?.sourceUrl || n?.url || n?.title || ''))
+                  const existingRezero = (webImportHistory || []).find(n => /witchcult|rezero/i.test(n?.sourceUrl || n?.url || n?.title || ''))
                     || (activeCrawlSession && /witchcult|rezero/i.test(activeCrawlSession?.sourceUrl || activeCrawlSession?.url || activeCrawlSession?.title || '') ? activeCrawlSession : null);
                   const existingChCount = existingRezero?.chapters?.length || existingRezero?.rawChapters?.length || 0;
 
@@ -13645,7 +13648,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       h('span', { style: { fontSize: 18 } }, '📱'),
                       h('div', null,
                         h('div', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)' } }, 'Gemini Novel Studio & Reader'),
-                        h('div', { style: { fontSize: 10.5, color: 'var(--slate)' } }, `v${appVersion} (Build 8221) · Pure AMOLED Black`)
+                        h('div', { style: { fontSize: 10.5, color: 'var(--slate)' } }, `v${appVersion} (Build ${appVersionCode || 8223}) · Pure AMOLED Black`)
                       )
                     ),
                     h('button', {
@@ -13752,13 +13755,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   }
                 },
                   actionRow('📥', 'Download queue', downloadStatusSubtitle, () => setActiveTab('web_importer'), isFetchingUrl ? 'Active' : null),
-                  actionRow('📁', 'Categories & Saved Space', `${(historyNovels || []).length} novels saved in library · Tap to organize`, () => setActiveTab('history')),
+                  actionRow('📁', 'Categories & Saved Space', `${(webImportHistory || []).length} novels saved in library · Tap to organize`, () => setActiveTab('history')),
                   actionRow('📊', 'Statistics & Cache Metrics', `${tmStats.totalUnits || 0} indexed units · ~${(tmStats.tokensSaved || 0).toLocaleString()} tokens saved`, () => {
                     refreshTmStats();
                     toast(`TM Cache: ${tmStats.totalUnits || 0} indexed segments (~${(tmStats.tokensSaved || 0).toLocaleString()} tokens saved)`, 'info');
                   }),
                   actionRow('🔌', 'Source Plugins & Search', `${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length} active sources · Browse 278+ LNReader plugins`, handleOpenSourcePluginsModal),
-                  actionRow('🔄', 'Check for updates', `Current: v${appVersion} (Build 8221) · Tap to verify`, () => checkForAppUpdate(true), availableUpdate ? 'Update Available' : null),
+                  actionRow('🔄', 'Check for updates', `Current: v${appVersion} (Build ${appVersionCode || 8223}) · Tap to verify`, () => checkForAppUpdate(true), availableUpdate ? 'Update Available' : null),
                   actionRow('💾', 'Data & storage / Backup', 'Mihon 1-tap Google Drive backup, WebDAV NAS sync & JSON exports', () => {
                     const el = document.getElementById('cloud-backup-section');
                     if (el) el.scrollIntoView({ behavior: 'smooth' });

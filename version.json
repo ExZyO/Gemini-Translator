@@ -1,9 +1,9 @@
 {
-  "version": "8.14.3",
-  "versionCode": 8223,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.3/app-release.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.3/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.14.3",
+  "version": "8.14.4",
+  "versionCode": 8224,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.4/app-release.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.4/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.14.4",
   "releaseDate": "2026-09-11",
-  "releaseNotes": "v8.14.3: Web Novel Cover Propagation & Persistence Engine: 1) Pixiv & Web Importer: extracts metadata and high-res cover art before initiating chapter crawl pools so active sessions and database records maintain cover art throughout download; 2) End-to-End Pipeline Propagation: ensures cover art and metadata seamlessly propagate when sending imported novels from Crawl View or Library to Translator tab; 3) Paused & Resumed Translation Integrity: guarantees cover art is preserved across pause/resume cycles and saved to history upon translation completion; 4) EPUB Packaging: embeds genuine web novel illustration covers directly into generated EPUBs."
+  "releaseNotes": "v8.14.4: Fix Settings Tab ReferenceError & Library State Persistence: 1) Fix Settings Tab Crash: resolves undeclared historyNovels reference that caused 'Something went wrong: historyNovels is not defined' when opening Settings or restarting with Settings as active tab; 2) Library State Resolution: safely aliases and maps historyNovels to webImportHistory library state across Settings action rows, Witch Cult updater, and Re:Zero crawler; 3) Dynamic Version Code: ensures Settings headers and update checks reflect dynamic build numbers."
 }
