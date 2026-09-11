@@ -1,5 +1,5 @@
 /**
- * Gemini Translator - System Diagnostics & Telemetry Logger (v8.12.0)
+ * Gemini Translator - System Diagnostics & Telemetry Logger (v8.12.1)
  * Manages KeyPool leasing, error tracking, and universal live Wi-Fi telemetry
  */
 (function(window) {

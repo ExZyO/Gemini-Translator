@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.12.0';
+    const VERSION = '8.12.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1751,6 +1751,10 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         if (lockEntries.length > 0) {
           const rules = lockEntries.map(([name, gender]) => {
             const gLower = String(gender).toLowerCase();
+            const isContext = gLower.includes('context') || gLower.includes('m/f') || gLower.includes('dynamic') || gLower.includes('both');
+            if (isContext) {
+              return `- ${String(name).trim()}: CONTEXT-DEPENDENT / DYNAMIC (M/F). This character changes/transitions biological gender or form across the narrative (e.g. sex-change potions, shape-shifting, dual avatars). Translate pronouns dynamically ('he/him' when presenting in male form, 'she/her' when presenting in female form) based strictly on active scene context. Do NOT force a single fixed pronoun.`;
+            }
             const isFemale = gLower.includes('female') || gLower.includes('she');
             const isMale = gLower.includes('male') || gLower.includes('he');
             const pronouns = isFemale ? 'she / her / hers / herself' : isMale ? 'he / him / his / himself' : gender;
@@ -3558,6 +3562,7 @@ const formatModelName = (id, displayName) => {
         const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港)$/i;
         const entityPhrasePattern = /\b(?:Law of |Ruins of |Church of |Order of |School of |Nation of |City of |Land of |Archipelago|University)\b/i;
 
+        const contextMarker = /\[(?:m\/f|f\/m|both)\]|\((?:m\/f|f\/m|both)\)|（(?:男\/女|女\/男)）|\b(?:m\/f|both genders?|dynamic gender)\b/i;
         const femaleMarker = /\b(?:miss|madame|mrs|madam|lady|queen|princess|empress|witch|heroine|priestess|actress|waitress|matriarch|duchess|countess|female|she\/her|demoness)\b|\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女)）|(?:小姐|女士|夫人|娘|姨|姑|魔女|皇后|王后|妃|公主)/i;
         const femaleKinship = /\b(?:daughter|sister|mother|aunt|niece|grandmother|granddaughter|wife|girlfriend|fiancée|fiancee|maiden|girl|woman)\b/i;
 
@@ -3568,6 +3573,7 @@ const formatModelName = (id, displayName) => {
         const abstractRankExclusionsZh = /(?:天使之王|众天使之王)/;
 
         let inRulesSection = false;
+        const newlyLocked = [];
 
         for (const rawLine of lines) {
           const l = rawLine.trim();
@@ -3620,58 +3626,44 @@ const formatModelName = (id, displayName) => {
           const lineForGenderCheck = l.replace(/\((?:Sequence|\d)[^)]*\)/gi, '').replace(/（(?:序列|\d)[^）]*）/g, '');
 
           let detected = null;
-          const hasFem = femaleMarker.test(lineForGenderCheck) || femaleKinship.test(lineForGenderCheck);
-          const hasMale = maleMarker.test(lineForGenderCheck) || maleKinship.test(lineForGenderCheck);
+          if (contextMarker.test(lineForGenderCheck)) {
+            detected = 'context';
+          } else {
+            const hasFem = femaleMarker.test(lineForGenderCheck) || femaleKinship.test(lineForGenderCheck);
+            const hasMale = maleMarker.test(lineForGenderCheck) || maleKinship.test(lineForGenderCheck);
 
-          if (hasFem && hasMale) {
-            if (/\((?:f|fem|female)\)|\[(?:f|fem|female)\]|\bfemale\b|小姐|女士|夫人/i.test(lineForGenderCheck)) {
+            if (hasFem && hasMale) {
+              if (/\((?:f|fem|female)\)|\[(?:f|fem|female)\]|\bfemale\b|小姐|女士|夫人/i.test(lineForGenderCheck)) {
+                detected = 'female';
+              } else if (/\((?:m|male)\)|\[(?:m|male)\]|\bmale\b|先生|大帝|少爷/i.test(lineForGenderCheck)) {
+                detected = 'male';
+              }
+            } else if (hasFem) {
               detected = 'female';
-            } else if (/\((?:m|male)\)|\[(?:m|male)\]|\bmale\b|先生|大帝|少爷/i.test(lineForGenderCheck)) {
+            } else if (hasMale) {
               detected = 'male';
             }
-          } else if (hasFem) {
-            detected = 'female';
-          } else if (hasMale) {
-            detected = 'male';
           }
 
           if (!detected) continue;
 
           const extractAliases = (part) => {
             const hashIdx = part.indexOf('#');
-            if (hashIdx !== -1) part = part.slice(0, hashIdx);
-
-            const parens = [];
-            const cleaned = part.replace(/\(([^)]+)\)|\[([^\]]+)\]|（([^）]+)）/g, (m, p1, p2, p3) => {
-              const inside = (p1 || p2 || p3 || '').trim();
-              if (inside && inside.length >= 2 && !/^(?:not|e\.g\.|see|also|formerly|sequence|epoch|chapter)/i.test(inside)) {
-                parens.push(inside);
-              }
-              return ' ';
-            });
-
-            const rawItems = [...cleaned.split(/\s*[\/;]\s*/), ...parens];
-
-            return rawItems.map(s => {
-              return s
-                .replace(/^[-*•\s\d.]+\s*/, '')
-                .replace(/^["']|["']$/g, '')
-                .trim();
-            }).filter(s => {
-              if (!s || s.length < 2 || s.length > 50) return false;
-              if (/^(?:male|female|man|woman|person|human|character|hero|heroine|boy|girl)$/i.test(s)) return false;
-              if (/^(?:Main|Side|Villain|Class|Sequence|Pathway|Epoch)/i.test(s)) return false;
-              if (abstractRankExclusions.test(s) || abstractRankExclusionsZh.test(s)) return false;
-              if (entityEndingPattern.test(s)) return false;
+            let clean = hashIdx !== -1 ? part.substring(0, hashIdx) : part;
+            clean = clean.replace(/\[[^\]]*\]/g, ' ');
+            clean = clean.replace(/\([^)]*\)/g, ' ');
+            clean = clean.replace(/（[^）]*）/g, ' ');
+            clean = clean.replace(/【[^】]*】/g, ' ');
+            return clean.split(/[/;|,]/).map(x => x.trim()).filter(x => {
+              if (!x || x.length < 2 || x.length > 35) return false;
+              if (entityEndingPattern.test(x)) return false;
+              if (entityPhrasePattern.test(x)) return false;
               return true;
             });
           };
 
-          const srcAliases = extractAliases(srcPart);
-          const tgtAliases = extractAliases(tgtPart);
-          const newlyLocked = [];
-
-          for (const a of [...tgtAliases, ...srcAliases]) {
+          const aliases = [...extractAliases(tgtPart), ...extractAliases(srcPart)];
+          for (const a of aliases) {
             if (nextLocks[a] && nextLocks[a] !== detected) {
               const prevG = nextLocks[a];
               if (/\b(?:Miss|Madame|Queen|Princess|Witch|Demoness|Lady)\b/i.test(a) || /(?:小姐|女士|夫人|魔女)/.test(a)) {
@@ -3694,16 +3686,19 @@ const formatModelName = (id, displayName) => {
 
         const females = Object.entries(nextLocks).filter(([_, g]) => g === 'female').map(([k]) => k);
         const males = Object.entries(nextLocks).filter(([_, g]) => g === 'male').map(([k]) => k);
+        const contexts = Object.entries(nextLocks).filter(([_, g]) => g === 'context').map(([k]) => k);
 
         if (count > 0 || newlyLocked.length > 0) {
           setGenderLocks(nextLocks);
           try { localStorage.setItem('gemini_gender_locks', JSON.stringify(nextLocks)); } catch(e) {}
-          window.telemetryLog?.('GENDER_DETECT', `Scan complete: Auto-detected ${count} character genders! Total locks: ${Object.keys(nextLocks).length} (${females.length} ♀ Female, ${males.length} ♂ Male)`, {
+          window.telemetryLog?.('GENDER_DETECT', `Scan complete: Auto-detected ${count} character genders! Total locks: ${Object.keys(nextLocks).length} (${females.length} ♀ Female, ${males.length} ♂ Male${contexts.length > 0 ? `, ${contexts.length} ⚧ Context` : ''})`, {
             totalActiveLocks: Object.keys(nextLocks).length,
             femaleCount: females.length,
             maleCount: males.length,
+            contextCount: contexts.length,
             femaleCharacters: females,
             maleCharacters: males,
+            contextCharacters: contexts,
             newlyLocked: newlyLocked
           });
           toast(`Auto-detected and locked ${count} character genders!`, 'success');
@@ -3729,6 +3724,7 @@ const formatModelName = (id, displayName) => {
           const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港)$/i;
 
           // Strict unambiguous gender tags on glossary lines (avoiding descriptive words like "sister" or "witch" which misclassify male characters)
+          const strictContextTag = /\[(?:m\/f|f\/m|both)\]|\((?:m\/f|f\/m|both)\)|（(?:男\/女|女\/男)）|\b(?:m\/f)\b/i;
           const strictFemaleTag = /\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女|雌)）|\b(?:female)\b|小姐|女士|夫人|魔女|女神|公主|皇后/i;
           const strictMaleTag = /\((?:m|male)\)|\[(?:m|male)\]|（(?:男|雄)）|\b(?:male)\b|先生|大帝|少爷|皇帝|国王|王子/i;
 
@@ -3780,13 +3776,17 @@ const formatModelName = (id, displayName) => {
 
                 const lineForGenderCheck = l.replace(/\((?:Sequence|\d)[^)]*\)/gi, '').replace(/（(?:序列|\d)[^）]*）/g, '');
                 let explicitGender = null;
-                const hasFem = strictFemaleTag.test(lineForGenderCheck);
-                const hasMale = strictMaleTag.test(lineForGenderCheck);
-                if (hasFem && hasMale) {
-                  if (/\((?:f|fem|female)\)|\[(?:f|fem|female)\]|\bfemale\b|小姐|女士|夫人/i.test(lineForGenderCheck)) explicitGender = 'female';
-                  else if (/\((?:m|male)\)|\[(?:m|male)\]|\bmale\b|先生|大帝|少爷/i.test(lineForGenderCheck)) explicitGender = 'male';
-                } else if (hasFem) explicitGender = 'female';
-                else if (hasMale) explicitGender = 'male';
+                if (strictContextTag.test(lineForGenderCheck)) {
+                  explicitGender = 'context';
+                } else {
+                  const hasFem = strictFemaleTag.test(lineForGenderCheck);
+                  const hasMale = strictMaleTag.test(lineForGenderCheck);
+                  if (hasFem && hasMale) {
+                    if (/\((?:f|fem|female)\)|\[(?:f|fem|female)\]|\bfemale\b|小姐|女士|夫人/i.test(lineForGenderCheck)) explicitGender = 'female';
+                    else if (/\((?:m|male)\)|\[(?:m|male)\]|\bmale\b|先生|大帝|少爷/i.test(lineForGenderCheck)) explicitGender = 'male';
+                  } else if (hasFem) explicitGender = 'female';
+                  else if (hasMale) explicitGender = 'male';
+                }
 
                 const extractCleanNames = (part) => {
                   let s = part.replace(/#.*$/, '');
@@ -3819,15 +3819,16 @@ const formatModelName = (id, displayName) => {
               // Send ungendered candidate terms to AI in batches of up to 100
               if (ungenderedCandidates.length > 0) {
                 const batch = ungenderedCandidates.slice(0, 100);
-                const prompt = `Given this list of candidate terms from a web novel:\n${JSON.stringify(batch, null, 2)}\n\n1. Identify which terms are INDIVIDUAL CHARACTERS (people or sentient entities with a biological/narrative gender).\n2. Determine their gender: "female" or "male" based on novel lore, context, honorifics, or linguistic clues.\n3. OMIT non-characters, organizations, locations, abilities, concepts, and items.\n\nReturn ONLY a valid JSON object mapping name to "female" or "male":\n{\n  "Audrey Hall": "female",\n  "Klein Moretti": "male"\n}`;
+                const prompt = `Given this list of candidate terms from a web novel:\n${JSON.stringify(batch, null, 2)}\n\n1. Identify which terms are INDIVIDUAL CHARACTERS (people or sentient entities with a biological/narrative gender).\n2. Determine their gender: "female", "male", or "context" (use "context" for characters who change/transition gender or have dynamic M/F forms across the story, e.g. Bai Ning Bing, Trissy, Lumian).\n3. OMIT non-characters, organizations, locations, abilities, concepts, and items.\n\nReturn ONLY a valid JSON object mapping name to "female", "male", or "context":\n{\n  "Audrey Hall": "female",\n  "Klein Moretti": "male",\n  "Trissy": "context"\n}`;
                 const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
                 const jsonMatch = aiResp.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                   try {
                     const parsed = JSON.parse(jsonMatch[0]);
                     Object.entries(parsed).forEach(([k, v]) => {
-                      if (k && (v === 'female' || v === 'male')) {
-                        combinedMap.set(k.trim(), { gender: v.toLowerCase(), sourceTag: 'ai' });
+                      const g = typeof v === 'string' ? v.toLowerCase().trim() : '';
+                      if (k && ['female', 'male', 'context'].includes(g)) {
+                        combinedMap.set(k.trim(), { gender: g, sourceTag: 'ai' });
                         aiScannedCount++;
                       }
                     });
@@ -3859,17 +3860,18 @@ const formatModelName = (id, displayName) => {
                 throw new Error('No novel text loaded. Please load a novel or EPUB first.');
               }
             } else {
-              const prompt = `Carefully read the following web novel chapter excerpts and identify ALL named individual characters (protagonists, villains, allies, side characters, deities, companions).\n\nExcerpts:\n${novelCorpus.slice(0, 30000)}\n\nInstructions:\n1. Extract ALL named individual characters appearing or mentioned in the text.\n2. For each character, include BOTH their translated English name AND their original foreign/RAW name if available (e.g. "Medici" and "梅迪奇", "Amon" and "阿蒙", "Bethel" and "伯特利", "Antigonus" and "安提哥努斯").\n3. Determine whether each character is narrative/biological "female" or "male".\n4. Omit organizations, places, skills, items, and concepts.\n\nReturn ONLY a valid JSON object mapping every name or alias to "female" or "male":\n{\n  "Medici": "male",\n  "梅迪奇": "male",\n  "Amon": "male",\n  "阿蒙": "male",\n  "Bethel": "male",\n  "伯特利": "male",\n  "Antigonus": "male",\n  "安提哥努斯": "male"\n}`;
+              const prompt = `Carefully read the following web novel chapter excerpts and identify ALL named individual characters (protagonists, villains, allies, side characters, deities, companions).\n\nExcerpts:\n${novelCorpus.slice(0, 30000)}\n\nInstructions:\n1. Extract ALL named individual characters appearing or mentioned in the text.\n2. For each character, include BOTH their translated English name AND their original foreign/RAW name if available (e.g. "Medici" and "梅迪奇", "Amon" and "阿蒙", "Bethel" and "伯特利", "Antigonus" and "安提哥努斯", "Trissy" and "特莉丝").\n3. Determine whether each character is "female", "male", or "context" (for characters who transition or alter forms dynamically across the story, e.g. Bai Ning Bing, Trissy, Lumian).\n4. Omit organizations, places, skills, items, and concepts.\n\nReturn ONLY a valid JSON object mapping every name or alias to "female", "male", or "context":\n{\n  "Medici": "male",\n  "梅迪奇": "male",\n  "Amon": "male",\n  "阿蒙": "male",\n  "Bethel": "male",\n  "伯特利": "male",\n  "Antigonus": "male",\n  "安提哥努斯": "male",\n  "Trissy": "context",\n  "特莉丝": "context"\n}`;
               const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
               const jsonMatch = aiResp.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
                 try {
                   const parsed = JSON.parse(jsonMatch[0]);
                   Object.entries(parsed).forEach(([k, v]) => {
-                    if (k && (v === 'female' || v === 'male')) {
+                    const g = typeof v === 'string' ? v.toLowerCase().trim() : '';
+                    if (k && ['female', 'male', 'context'].includes(g)) {
                       const cleanName = k.trim();
                       if (!combinedMap.has(cleanName)) {
-                        combinedMap.set(cleanName, { gender: v.toLowerCase(), sourceTag: 'novel' });
+                        combinedMap.set(cleanName, { gender: g, sourceTag: 'novel' });
                         aiScannedCount++;
                       }
                     }
@@ -3897,18 +3899,21 @@ const formatModelName = (id, displayName) => {
           const durationMs = Math.round(performance.now() - startTime);
           const females = results.filter(r => r.gender === 'female').map(r => r.character);
           const males = results.filter(r => r.gender === 'male').map(r => r.character);
+          const contexts = results.filter(r => r.gender === 'context').map(r => r.character);
 
-          window.telemetryLog?.('GENDER_AI_DETECT', `AI character scan complete via ${selectedModel} in ${durationMs}ms: ${results.length} characters detected (${females.length} ♀ Female, ${males.length} ♂ Male)`, {
+          window.telemetryLog?.('GENDER_AI_DETECT', `AI character scan complete via ${selectedModel} in ${durationMs}ms: ${results.length} characters detected (${females.length} ♀ Female, ${males.length} ♂ Male${contexts.length > 0 ? `, ${contexts.length} ⚧ Context` : ''})`, {
             model: selectedModel,
             source: aiGenderSource,
             durationMs,
             totalDetected: results.length,
             femaleCount: females.length,
             maleCount: males.length,
+            contextCount: contexts.length,
             glossaryTagCount,
             aiScannedCount,
             femaleCharacters: females,
-            maleCharacters: males
+            maleCharacters: males,
+            contextCharacters: contexts
           });
 
           setAiGenderResults(results);
@@ -3935,13 +3940,16 @@ const formatModelName = (id, displayName) => {
 
         const females = selected.filter(r => r.gender === 'female').map(r => r.character);
         const males = selected.filter(r => r.gender === 'male').map(r => r.character);
+        const contexts = selected.filter(r => r.gender === 'context').map(r => r.character);
 
-        window.telemetryLog?.('GENDER_LOCK', `Applied ${selected.length} AI-detected character gender locks! Total active locks: ${Object.keys(nextLocks).length}`, {
+        window.telemetryLog?.('GENDER_LOCK', `Applied ${selected.length} AI-detected character gender locks! Total active locks: ${Object.keys(nextLocks).length} (${females.length} ♀, ${males.length} ♂${contexts.length > 0 ? `, ${contexts.length} ⚧` : ''})`, {
           appliedCount: selected.length,
           femaleCount: females.length,
           maleCount: males.length,
+          contextCount: contexts.length,
           femaleCharacters: females,
           maleCharacters: males,
+          contextCharacters: contexts,
           totalActiveLocks: Object.keys(nextLocks).length
         });
 
@@ -10726,18 +10734,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       )
                     ),
                     h('div', { style: { fontSize: 11, color: 'var(--paper-dim)', marginBottom: 8, opacity: 0.85 } },
-                      'Locks character pronouns during translation so AI never swaps he ↔ she. Tap any tag to flip ♀ ↔ ♂.'
+                      'Locks character pronouns during translation so AI never swaps he ↔ she. Supports ♀ Female, ♂ Male, and ⚧ Dynamic/Context-dependent (M/F). Tap any badge to cycle.'
                     ),
                     Object.keys(genderLocks).length > 0 && h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 } },
                       Object.entries(genderLocks).map(([cName, cGen]) => h('div', {
                         key: cName,
                         className: 'badge',
-                        title: 'Tap to flip gender (♀ ↔ ♂)',
-                        onClick: () => updateGenderLock(cName, cGen === 'female' ? 'male' : 'female'),
+                        title: 'Tap to cycle: ♀ Female → ♂ Male → ⚧ Context',
+                        onClick: () => updateGenderLock(cName, cGen === 'female' ? 'male' : cGen === 'male' ? 'context' : 'female'),
                         style: {
-                          background: cGen === 'female' ? 'rgba(236, 72, 153, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                          color: cGen === 'female' ? '#f472b6' : '#60a5fa',
-                          border: `1px solid ${cGen === 'female' ? 'rgba(236, 72, 153, 0.4)' : 'rgba(59, 130, 246, 0.4)'}`,
+                          background: cGen === 'female' ? 'rgba(236, 72, 153, 0.15)' : cGen === 'male' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+                          color: cGen === 'female' ? '#f472b6' : cGen === 'male' ? '#60a5fa' : '#c084fc',
+                          border: `1px solid ${cGen === 'female' ? 'rgba(236, 72, 153, 0.4)' : cGen === 'male' ? 'rgba(59, 130, 246, 0.4)' : 'rgba(168, 85, 247, 0.4)'}`,
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 6,
@@ -10748,7 +10756,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           userSelect: 'none'
                         }
                       },
-                        h('span', null, `${cName} (${cGen === 'female' ? '♀ Female' : '♂ Male'})`),
+                        h('span', null, `${cName} (${cGen === 'female' ? '♀ Female' : cGen === 'male' ? '♂ Male' : '⚧ Context'})`),
                         h('span', {
                           style: { cursor: 'pointer', fontWeight: 'bold', marginLeft: 3, padding: '0 2px' },
                           onClick: (e) => {
@@ -10779,7 +10787,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '6px 8px', fontSize: 11.5, color: 'var(--paper-dim)', outline: 'none' }
                       },
                         h('option', { value: 'female' }, '♀ Female (she/her)'),
-                        h('option', { value: 'male' }, '♂ Male (he/him)')
+                        h('option', { value: 'male' }, '♂ Male (he/him)'),
+                        h('option', { value: 'context' }, '⚧ Context / Dynamic (M/F)')
                       ),
                       h('button', {
                         type: 'button',
@@ -14639,19 +14648,25 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     ),
                     h('span', { style: { fontSize: 11, color: '#3b82f6', fontWeight: 600 } },
                       `♂ ${aiGenderResults.filter(r => r.gender === 'male').length}`
+                    ),
+                    h('span', { style: { fontSize: 11, color: '#c084fc', fontWeight: 600 } },
+                      `⚧ ${aiGenderResults.filter(r => r.gender === 'context').length}`
                     )
                   )
                 ),
 
                 // Filter tabs
-                h('div', { style: { display: 'flex', gap: 6, marginBottom: 8 } },
-                  ['all', 'female', 'male'].map(f => h('button', {
+                h('div', { style: { display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' } },
+                  ['all', 'female', 'male', 'context'].map(f => h('button', {
                     key: f,
                     type: 'button',
                     className: `mini-btn ${aiGenderFilter === f ? 'primary' : 'ghost'}`,
                     style: { fontSize: 11, padding: '2px 8px', textTransform: 'capitalize' },
                     onClick: () => setAiGenderFilter(f)
-                  }, f === 'all' ? `All (${aiGenderResults.length})` : f === 'female' ? `♀ Female (${aiGenderResults.filter(r => r.gender === 'female').length})` : `♂ Male (${aiGenderResults.filter(r => r.gender === 'male').length})`))
+                  }, f === 'all' ? `All (${aiGenderResults.length})` :
+                     f === 'female' ? `♀ Female (${aiGenderResults.filter(r => r.gender === 'female').length})` :
+                     f === 'male' ? `♂ Male (${aiGenderResults.filter(r => r.gender === 'male').length})` :
+                     `⚧ Context (${aiGenderResults.filter(r => r.gender === 'context').length})`))
                 ),
 
                 // Scrollable results cards
@@ -14700,15 +14715,19 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           padding: '2px 8px',
                           cursor: 'pointer',
                           userSelect: 'none',
-                          background: r.gender === 'female' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(59, 130, 246, 0.2)',
-                          color: r.gender === 'female' ? '#ec4899' : '#3b82f6',
-                          border: `1px solid ${r.gender === 'female' ? 'rgba(236, 72, 153, 0.4)' : 'rgba(59, 130, 246, 0.4)'}`
+                          background: r.gender === 'female' ? 'rgba(236, 72, 153, 0.2)' : r.gender === 'male' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(168, 85, 247, 0.2)',
+                          color: r.gender === 'female' ? '#ec4899' : r.gender === 'male' ? '#3b82f6' : '#c084fc',
+                          border: `1px solid ${r.gender === 'female' ? 'rgba(236, 72, 153, 0.4)' : r.gender === 'male' ? 'rgba(59, 130, 246, 0.4)' : 'rgba(168, 85, 247, 0.4)'}`
                         },
-                        title: 'Tap to flip gender (♀ ↔ ♂)',
+                        title: 'Tap to cycle: ♀ Female → ♂ Male → ⚧ Context',
                         onClick: () => {
-                          setAiGenderResults(prev => prev.map(item => item.character === r.character ? { ...item, gender: item.gender === 'female' ? 'male' : 'female' } : item));
+                          setAiGenderResults(prev => prev.map(item => {
+                            if (item.character !== r.character) return item;
+                            const nextG = item.gender === 'female' ? 'male' : item.gender === 'male' ? 'context' : 'female';
+                            return { ...item, gender: nextG };
+                          }));
                         }
-                      }, r.gender === 'female' ? '♀ Female' : '♂ Male')
+                      }, r.gender === 'female' ? '♀ Female' : r.gender === 'male' ? '♂ Male' : '⚧ Context')
                     ))
                 )
               )
