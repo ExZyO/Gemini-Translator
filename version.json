@@ -1,7 +1,7 @@
 {
-  "version": "8.12.4",
-  "versionCode": 8184,
+  "version": "8.12.5",
+  "versionCode": 8185,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.12.4: Fix EPUB Download TDZ Scope Error. Eliminates 'Cannot access fileName before initialization' by renaming block-scoped export variables (outFileName, pdfFileName, docxFileName), preventing TDZ collisions with the component React state."
+  "releaseNotes": "v8.12.5: Complete fileName TDZ fix across ALL download handlers. Renamed every shadowing const fileName to epubFileName/exportFileName/backupFileName across all 11 EPUB, glossary, backup, and history export paths."
 }

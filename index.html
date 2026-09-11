@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.12.4';
+    const VERSION = '8.12.5';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4623,8 +4623,8 @@ const formatModelName = (id, displayName) => {
                   }
                 }, opts);
                 const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
-                const fileName = getEpubFileName(bookTitle, chs.length, isInc);
-                await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(item));
+                const epubFileName = getEpubFileName(bookTitle, chs.length, isInc);
+                await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(item));
                 toast(`Downloaded updated raw EPUB (${chs.length} chapters)!`, 'success');
               } catch (epubErr) {
                 toast(`Raw EPUB packaging error: ${epubErr.message}`, 'error');
@@ -5666,7 +5666,7 @@ const formatModelName = (id, displayName) => {
         (novels || []).forEach(n => {
           const cleanTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(n.title) : (n.title || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
           const cleanAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(n.author) : (n.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-          const fileName = getEpubFileName(cleanTitle, n.chapterCount || (n.chapters || []).length, false);
+          const epubFileName = getEpubFileName(cleanTitle, n.chapterCount || (n.chapters || []).length, false);
           const uuid = 'urn:uuid:' + (n.id || cleanTitle.toLowerCase().replace(/\s+/g, '-'));
           const updated = n.timestamp ? new Date(n.timestamp).toISOString() : now;
           entries += `
@@ -5676,7 +5676,7 @@ const formatModelName = (id, displayName) => {
     <updated>${updated}</updated>
     <author><name>${escapeXmlStr(cleanAuthor)}</name></author>
     <summary>${escapeXmlStr(n.summary || `${n.chapterCount || (n.chapters || []).length} chapters`)}</summary>
-    <link rel="http://opds-spec.org/acquisition" href="/download/${encodeURIComponent(fileName)}" type="application/epub+zip" title="Download EPUB"/>
+    <link rel="http://opds-spec.org/acquisition" href="/download/${encodeURIComponent(epubFileName)}" type="application/epub+zip" title="Download EPUB"/>
     ${n.cover ? `<link rel="http://opds-spec.org/image" href="${escapeXmlStr(n.cover)}" type="image/jpeg"/>` : ''}
   </entry>`;
         });
@@ -7099,9 +7099,9 @@ const formatModelName = (id, displayName) => {
       const exportGlossaryTxt = async () => {
         if (!terminology.trim()) return setError('Glossary is empty.');
         const blob = new Blob([terminology], { type: 'text/plain;charset=utf-8' });
-        const fileName = (activeGlossaryId ? activeGlossaryId.replace(/\s+/g, '_') : 'glossary_export') + '.txt';
+        const exportFileName = (activeGlossaryId ? activeGlossaryId.replace(/\s+/g, '_') : 'glossary_export') + '.txt';
         try {
-          await saveUniversalBlob(blob, fileName, 'text/plain');
+          await saveUniversalBlob(blob, exportFileName, 'text/plain');
           toast('Glossary exported to Downloads as .txt!', 'success');
         } catch(e) {
           toast('Export error: ' + e.message, 'error');
@@ -7763,10 +7763,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const shouldIncludeKeys = forceIncludeKeys !== null ? forceIncludeKeys : includeApiKeysInBackup;
           const { backup, fullHistory, novelLibrary } = await generateBackupPayload(shouldIncludeKeys);
           const jsonStr = JSON.stringify(backup, null, 2);
-          const fileName = `gemini_translator_backup_${shouldIncludeKeys ? 'with_keys_' : ''}${new Date().toISOString().slice(0, 10)}.json`;
+          const backupFileName = `gemini_translator_backup_${shouldIncludeKeys ? 'with_keys_' : ''}${new Date().toISOString().slice(0, 10)}.json`;
           const blob = new Blob([jsonStr], { type: 'application/json' });
 
-          await saveUniversalBlob(blob, fileName, 'application/json');
+          await saveUniversalBlob(blob, backupFileName, 'application/json');
           const details = [];
           if (novelLibrary.length > 0) details.push(`${novelLibrary.length} novel(s)`);
           if (fullHistory.length > 0) details.push(`${fullHistory.length} history item(s)`);
@@ -8601,8 +8601,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           }, opts);
 
           const isInc = novelData.isIncomplete || (novelData.totalChapterCount && chs.length < novelData.totalChapterCount);
-          const fileName = getEpubFileName(novelTitle, chs.length, isInc);
-          await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(novelData));
+          const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+          await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(novelData));
           toast(`Clean Lnori EPUB downloaded! (${chs.length} chapters)`, 'success');
         } catch (e) {
           toast('EPUB export error: ' + e.message, 'error');
@@ -8839,8 +8839,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const title = `${(entry.tgtLang ? `${entry.srcLang || 'Auto'} to ${entry.tgtLang}` : 'Translation')}_${new Date(entry.ts).toISOString().slice(0, 10)}`;
           const content = `====================================================\nGEMINI TRANSLATION HISTORY ENTRY\nProvider: ${entry.provider || 'AI'}\nLanguage: ${entry.srcLang || 'Auto'} -> ${entry.tgtLang}\nDate: ${new Date(entry.ts).toLocaleString()}\nTokens: ${entry.stats?.totalTokens?.toLocaleString() || 'N/A'}\nCost: ${entry.stats?.cost || 'N/A'}\n====================================================\n\n[INPUT TEXT]:\n${entry.fullInput || entry.inputPreview || ''}\n\n====================================================\n[TRANSLATED OUTPUT]:\n${entry.fullOutput || entry.outputPreview || ''}\n`;
           const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-          const fileName = `${title.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}.txt`;
-          await saveUniversalBlob(blob, fileName, 'text/plain');
+          const exportFileName = `${title.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}.txt`;
+          await saveUniversalBlob(blob, exportFileName, 'text/plain');
           toast('History entry exported as .txt file!', 'success');
         } catch (e) {
           toast('Export item error: ' + e.message, 'error');
@@ -11316,8 +11316,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
                           const isInc = activeCrawlSession?.isIncomplete || (activeCrawlSession?.totalChapterCount && chs.length < activeCrawlSession.totalChapterCount);
-                          const fileName = getEpubFileName(novelTitle, chs.length, isInc);
-                          await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(activeCrawlSession));
+                          const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+                          await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeCrawlSession));
                           toast(`EPUB (${chs.length} chapters) downloaded successfully!`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -11547,8 +11547,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
                           const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
-                          const fileName = getEpubFileName(novelTitle, chs.length, isInc);
-                          await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
+                          const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+                          await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
                           toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -11662,8 +11662,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
                           const isInc = activeNovelView?.isIncomplete || (activeNovelView?.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
-                          const fileName = getEpubFileName(novelTitle, chs.length, isInc);
-                          await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
+                          const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+                          await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
                           toast(`EPUB (${chs.length} chapters) saved!`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -12030,8 +12030,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
-                          const fileName = getEpubFileName(novelTitle, chs.length, isInc);
-                          await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
+                          const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+                          await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
                           toast(`EPUB downloaded successfully! (${chs.length} chapters)`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -12864,8 +12864,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                               const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
                                 setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
                               }, opts);
-                              const fileName = getEpubFileName(bookTitle, chs.length, isInc);
-                              await saveUniversalBlob(blob, fileName, 'application/epub+zip', false, getNovelFolderOptions(item || full));
+                              const epubFileName = getEpubFileName(bookTitle, chs.length, isInc);
+                              await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(item || full));
                               toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                             } catch (e) {
                               toast('EPUB export error: ' + e.message, 'error');
