@@ -1,5 +1,5 @@
 /**
- * Gemini Translator - Pro Reader Engine (v8.11.1)
+ * Gemini Translator - Pro Reader Engine (v8.11.2)
  * Complete Ground-Up Rebuild:
  *  - Native Touch & Scroll Architecture (Zero blocking tap overlays)
  *  - Responsive Dual Modes: Continuous Webtoon Scroll & Paginated Book Flip
@@ -309,7 +309,8 @@
     fontSize = 18,
     setFontSize,
     tgtLang,
-    onVerifyConsistency
+    onVerifyConsistency,
+    onOpenHealthAudit
   }) => {
     if (!open) return null;
     ensureStyles();
@@ -735,6 +736,19 @@
             onClick: () => setShowToc(true),
             title: 'Table of Contents'
           }, '📑'),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { border: 'none', padding: '4px 8px', fontSize: 12, fontWeight: 600 },
+            onClick: () => {
+              if (typeof onOpenHealthAudit === 'function') {
+                onOpenHealthAudit();
+              } else if (typeof window !== 'undefined' && typeof window.openNovelHealthAudit === 'function') {
+                window.openNovelHealthAudit();
+              }
+            },
+            title: 'Novel Health & Translation QA Audit (§5.9 + §7.1 + §7.5)'
+          }, '🩺 QA'),
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',

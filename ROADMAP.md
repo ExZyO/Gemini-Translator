@@ -36,14 +36,14 @@
 | 2 | **§4.1b** | Universal Fallback Parser | v8.11.1 | `@mozilla/readability` + DOMPurify; falls back ONLY when existing crawlers don't match | ✅ Shipped |
 | 3 | **§5.4** | Language Learning Mode & FSRS | v8.17.0 | `ts-fsrs` (modern Anki scheduler) + Kuromoji / Hanzi dictionary popups | 📋 Planned |
 | 4 | **§5.8** | Smart Glossary Auto-Builder | v8.19.0 | Automated pre-read entity extractor populating book profiles | 📋 Planned |
-| 5 | **§5.9** | Translation Proofreader QA | v8.19.0 | Merged into Unified Health & QA Suite (CJK leak detection, loop guard) | 📋 Planned |
+| 5 | **§5.9** | Translation Proofreader QA | v8.11.2 | Merged into Unified Health & QA Suite (CJK leak detection, loop guard) | ✅ Shipped |
 | 6 | **§5.10** | Cultural Context Footnotes | v8.19.0 | `[¹]` explanatory popover tooltips for cultural lore and slang | 📋 Planned |
 | 7 | **§5.11** | Auto-Chapter Descriptive Subtitle Naming | v8.19.0 | AI generates descriptive, spoiler-safe chapter subtitles (e.g. "Ch 147 — The Witch's Tea Party") | 📋 Planned |
-| 8 | **§7.1** | Novel Health & Audit Report | v8.20.0 | Merged into Unified Health & QA Suite (detects missing chapters, empty text, HTML junk) | 📋 Planned |
+| 8 | **§7.1** | Novel Health & Audit Report | v8.11.2 | Merged into Unified Health & QA Suite (detects missing chapters, empty text, HTML junk) | ✅ Shipped |
 | 9 | **§7.2** | Cost & Time Estimator | v8.20.0 | Word and token cost calculator before kicking off batch translations | 📋 Planned |
 | 10 | **§7.3** | Smart Arc Splitter | v8.20.0 | Arc boundary detection + per-volume EPUB export | 📋 Planned |
 | 11 | **§7.4** | Metadata Enrichment | v8.20.0 | AniList, MAL, NovelUpdates synopsis and tag scraper | 📋 Planned |
-| 12 | **§7.5** | Anti-MTL Quality Gate | v8.21.0 | Merged into Unified Health & QA Suite (coherence scoring, AI refusal detector) | 📋 Planned |
+| 12 | **§7.5** | Anti-MTL Quality Gate | v8.11.2 | Merged into Unified Health & QA Suite (coherence scoring, AI refusal detector) | ✅ Shipped |
 | 13 | **§8.1** | AI Chat Companion | v8.22.0 | Spoiler-safe conversational AI loaded only with chapters 1 → current | 📋 Planned |
 | 14 | **§8.2** | Translation Memory Bank | v8.22.0 | Exact and fuzzy caching (>90%) to save 30-50% on token costs | 📋 Planned |
 | 15 | **§8.6** | Translation Snapshots & Diffs | v8.23.0 | `diff-match-patch-es` for inline green/red word diffs and 1-tap rollbacks | 📋 Planned |

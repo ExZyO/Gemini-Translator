@@ -745,6 +745,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script type="module" src="vendor/foliate/foliate_bridge.js"></script>
   <script src="telemetry_logger.js"></script>
   <script src="reader_engine.js"></script>
+  <script src="qa_engine.js"></script>
   <script src="epub_engine.js"></script>
   <script src="glossary_presets.js"></script>
   <script src="gdrive_sync.js"></script>
@@ -852,7 +853,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.11.1';
+    const VERSION = '8.11.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3510,6 +3511,74 @@ const formatModelName = (id, displayName) => {
           toast('No clear gender designations (female/male) found in glossary.', 'info');
         }
       };
+
+      // --- Novel Health & QA Proofreader State (§5.9 + §7.1 + §7.5) ---
+      const [healthAuditEnabled, setHealthAuditEnabled] = useState(() => localStorage.getItem('healthAuditEnabled') !== 'false');
+      const [qaProofreaderEnabled, setQaProofreaderEnabled] = useState(() => localStorage.getItem('qaProofreaderEnabled') !== 'false');
+      const [cjkLeakCheckEnabled, setCjkLeakCheckEnabled] = useState(() => localStorage.getItem('cjkLeakCheckEnabled') !== 'false');
+      const [antiMtlGateEnabled, setAntiMtlGateEnabled] = useState(() => localStorage.getItem('antiMtlGateEnabled') !== 'false');
+
+      const [qaModalOpen, setQaModalOpen] = useState(false);
+      const [qaAuditResult, setQaAuditResult] = useState(null);
+      const [qaAuditNovelRef, setQaAuditNovelRef] = useState(null);
+      const [qaFilterCategory, setQaFilterCategory] = useState('all');
+      const [qaCheckGaps, setQaCheckGaps] = useState(true);
+      const [qaCheckCorrupt, setQaCheckCorrupt] = useState(true);
+      const [qaCheckCjk, setQaCheckCjk] = useState(() => localStorage.getItem('cjkLeakCheckEnabled') !== 'false');
+      const [qaCheckAntiMtl, setQaCheckAntiMtl] = useState(() => localStorage.getItem('antiMtlGateEnabled') !== 'false');
+      const [qaCheckLoops, setQaCheckLoops] = useState(true);
+      const [qaCheckDuplicates, setQaCheckDuplicates] = useState(true);
+
+      const runNovelHealthAudit = (novelOrChapters, optionsOverride = {}) => {
+        if (!window.QAEngine) {
+          toast('QA Engine is loading...', 'info');
+          return null;
+        }
+        const opts = {
+          checkGaps: optionsOverride.checkGaps !== undefined ? optionsOverride.checkGaps : qaCheckGaps,
+          checkCorrupt: optionsOverride.checkCorrupt !== undefined ? optionsOverride.checkCorrupt : qaCheckCorrupt,
+          checkCjkLeaks: optionsOverride.checkCjkLeaks !== undefined ? optionsOverride.checkCjkLeaks : (cjkLeakCheckEnabled && qaCheckCjk),
+          checkAntiMtl: optionsOverride.checkAntiMtl !== undefined ? optionsOverride.checkAntiMtl : (antiMtlGateEnabled && qaCheckAntiMtl),
+          checkLoops: optionsOverride.checkLoops !== undefined ? optionsOverride.checkLoops : qaCheckLoops,
+          checkDuplicates: optionsOverride.checkDuplicates !== undefined ? optionsOverride.checkDuplicates : qaCheckDuplicates
+        };
+        const result = window.QAEngine.auditNovel(novelOrChapters, opts);
+        setQaAuditResult(result);
+        return result;
+      };
+
+      const handleOpenNovelHealthModal = async (item) => {
+        const full = await loadFullNovel(item);
+        if (!full) {
+          toast('Novel data not found.', 'error');
+          return;
+        }
+        setQaAuditNovelRef(full);
+        runNovelHealthAudit(full);
+        setQaFilterCategory('all');
+        setQaModalOpen(true);
+      };
+
+      const handleOpenActiveQaModal = () => {
+        const chs = (translatedChapters && translatedChapters.length > 0)
+          ? translatedChapters
+          : (chapters && chapters.length > 0 ? chapters : [{ title: (fileName && fileName.trim()) || 'Active Document', content: assembledText || inputText }]);
+        const novelObj = {
+          title: (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || 'Active Document',
+          chapters: chs
+        };
+        setQaAuditNovelRef(novelObj);
+        runNovelHealthAudit(novelObj);
+        setQaFilterCategory('all');
+        setQaModalOpen(true);
+      };
+
+      useEffect(() => {
+        window.openNovelHealthAudit = () => {
+          handleOpenActiveQaModal();
+        };
+      }, [translatedChapters, chapters, assembledText, inputText, fileName, currentDocTitle, qaCheckGaps, qaCheckCorrupt, qaCheckCjk, qaCheckAntiMtl, qaCheckLoops, qaCheckDuplicates, cjkLeakCheckEnabled, antiMtlGateEnabled]);
+
       const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'text');
       const [isFetchingUrl, setIsFetchingUrl] = useState(false);
       const [isFetchingPaused, setIsFetchingPaused] = useState(false);
@@ -8196,6 +8265,17 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             setAssembledText(result); setTranslatedChapters([{ title: 'Translated Document', content: result }]);
             localStorage.removeItem(jobId); activeSessionRef.current = null; setActiveSession(null); setSavedTranslationSession(null); setIsTranslationPaused(false);
             if (window.GeminiNovelDB) { window.GeminiNovelDB.deleteTranslationSession(jobId); }
+
+            // Anti-MTL Quality Gate & Proofreader Check (§7.5 + §5.9)
+            if (antiMtlGateEnabled && window.QAEngine && result) {
+              const refCheck = window.QAEngine.checkMtlRefusal(result);
+              const loopCheck = window.QAEngine.checkRepetitionLoop(result);
+              if (refCheck.hasRefusal) {
+                toast(`⚠️ Anti-MTL Gate: ${refCheck.patternName} detected in translation`, 'warning');
+              } else if (loopCheck.hasLoop) {
+                toast(`⚠️ QA Proofreader: Hallucinated repetition loop detected`, 'warning');
+              }
+            }
           }
 
           const elapsedMs = performance.now() - startTime;
@@ -8516,6 +8596,19 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
             if (typeof stripFn === 'function' && title) {
               content = stripFn(content, title, chapters[i]?.title);
+            }
+
+            // Anti-MTL Quality Gate & Proofreader Check (§7.5 + §5.9)
+            if (antiMtlGateEnabled && window.QAEngine && content) {
+              const refCheck = window.QAEngine.checkMtlRefusal(content);
+              const loopCheck = window.QAEngine.checkRepetitionLoop(content);
+              if (refCheck.hasRefusal) {
+                console.warn(`[Anti-MTL Gate] Chapter ${i + 1}:`, refCheck.matchedText);
+                toast(`⚠️ Anti-MTL Gate: ${refCheck.patternName} detected in Ch. ${i + 1}`, 'warning');
+              } else if (loopCheck.hasLoop) {
+                console.warn(`[QA Proofreader] Chapter ${i + 1}:`, loopCheck.phrase);
+                toast(`⚠️ QA Proofreader: Repetition loop detected in Ch. ${i + 1}`, 'warning');
+              }
             }
 
             let docHtml = null;
@@ -9754,6 +9847,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   h('div', { className: 'pane-acts' },
                     h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, 'Copy'),
                     h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: () => { setReaderOpen(true); setReaderChapterIdx(0); } }, 'Reader'),
+                    h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim() && chapters.length === 0, onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, '🩺 QA'),
                     h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600 } }, '⭐ Save to Space'),
                     assembledText.trim() && h('span', { className: 'count' }, `${outputWordCount.toLocaleString()} words`)
                   )
@@ -11658,6 +11752,20 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           },
                           onClick: () => toggleNovelSavedSpace(item.id, item)
                         }, item.inSavedSpace ? '⭐ In Space' : '☆ Save to Space'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: {
+                            borderColor: 'rgba(99, 102, 241, 0.4)',
+                            color: 'var(--iris)',
+                            fontWeight: 600
+                          },
+                          title: 'Run Novel Health & Translation QA Audit (§5.9 + §7.1 + §7.5)',
+                          onClick: (e) => {
+                            e?.stopPropagation?.();
+                            handleOpenNovelHealthModal(item);
+                          }
+                        }, '🩺 Audit'),
                         (() => {
                           const fOpts = getNovelFolderOptions(item);
                           const dispPath = item.folderPath || fOpts.folderPath || '';
@@ -12005,6 +12113,22 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     h('option', { value: 'small' }, '🐢 Small (~1,800 chars)')
                   )
                 )
+              ),
+
+              // ── QUALITY ASSURANCE & NOVEL HEALTH ──
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'QUALITY ASSURANCE & NOVEL HEALTH')
+                ),
+                h('span', { style: { fontSize: 10, color: healthAuditEnabled ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, healthAuditEnabled ? 'ACTIVE' : 'DISABLED')
+              ),
+              h('div', { className: 'card' },
+                h('div', { className: 'card-title' }, h('span', null, 'Novel Diagnostics & Proofreader (§5.9 + §7.1 + §7.5)')),
+                switchRow('Novel Health Auditor', healthAuditEnabled, (v) => { setHealthAuditEnabled(v); localStorage.setItem('healthAuditEnabled', String(v)); }),
+                switchRow('Translation QA Proofreader', qaProofreaderEnabled, (v) => { setQaProofreaderEnabled(v); localStorage.setItem('qaProofreaderEnabled', String(v)); }),
+                switchRow('CJK Untranslated Leak Detector', cjkLeakCheckEnabled, (v) => { setCjkLeakCheckEnabled(v); localStorage.setItem('cjkLeakCheckEnabled', String(v)); }),
+                switchRow('Anti-MTL AI Refusal & Loop Gate', antiMtlGateEnabled, (v) => { setAntiMtlGateEnabled(v); localStorage.setItem('antiMtlGateEnabled', String(v)); })
               ),
 
               h('div', { className: 'sec-banner' },
@@ -13021,8 +13145,297 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           fontSize: readerFontSize,
           setFontSize: setReaderFontSize,
           tgtLang,
-          onVerifyConsistency: handleRunConsistencyCheck
+          onVerifyConsistency: handleRunConsistencyCheck,
+          onOpenHealthAudit: handleOpenActiveQaModal
         }),
+
+        // ── NOVEL HEALTH & TRANSLATION QA REPORT MODAL (§5.9 + §7.1 + §7.5) ──
+        qaModalOpen && h('div', { className: 'modal-overlay', onClick: () => setQaModalOpen(false) },
+          h('div', { className: 'modal-box', style: { maxWidth: 660, maxHeight: '90vh' }, onClick: e => e.stopPropagation() },
+            h('div', { className: 'modal-hd' },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 20 } }, '🩺'),
+                h('div', null,
+                  h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Novel Health & Translation QA Report'),
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, qaAuditResult?.title || 'Active Document')
+                )
+              ),
+              h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setQaModalOpen(false) }, '✕')
+            ),
+            h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
+              // Score & Status Gauge Card
+              (() => {
+                const score = qaAuditResult?.score ?? 100;
+                const grade = qaAuditResult?.grade || 'A+';
+                const total = qaAuditResult?.totalChapters || 0;
+                const healthy = qaAuditResult?.healthyCount || 0;
+                const scoreColor = score >= 85 ? '#10b981' : (score >= 70 ? '#f59e0b' : '#ef4444');
+                const issues = qaAuditResult?.issues || [];
+                const summary = qaAuditResult?.summary || { gaps: 0, corrupt: 0, cjkLeaks: 0, refusals: 0, loops: 0, duplicates: 0 };
+
+                // Filter issues according to active category
+                const filteredIssues = issues.filter(iss => {
+                  if (qaFilterCategory === 'all') return true;
+                  if (qaFilterCategory === 'gap') return iss.category === 'gap';
+                  if (qaFilterCategory === 'corrupt') return iss.category === 'corrupt';
+                  if (qaFilterCategory === 'cjk_leak') return iss.category === 'cjk_leak';
+                  if (qaFilterCategory === 'refusal') return iss.category === 'refusal';
+                  if (qaFilterCategory === 'loop') return iss.category === 'loop';
+                  if (qaFilterCategory === 'duplicate') return iss.category === 'duplicate';
+                  return true;
+                });
+
+                const handleToggleRule = (ruleKey, newVal) => {
+                  let updatedOverrides = {};
+                  if (ruleKey === 'gaps') { setQaCheckGaps(newVal); updatedOverrides.checkGaps = newVal; }
+                  if (ruleKey === 'corrupt') { setQaCheckCorrupt(newVal); updatedOverrides.checkCorrupt = newVal; }
+                  if (ruleKey === 'cjk') { setQaCheckCjk(newVal); updatedOverrides.checkCjkLeaks = newVal; }
+                  if (ruleKey === 'refusal') { setQaCheckAntiMtl(newVal); updatedOverrides.checkAntiMtl = newVal; }
+                  if (ruleKey === 'loop') { setQaCheckLoops(newVal); updatedOverrides.checkLoops = newVal; }
+                  if (ruleKey === 'duplicates') { setQaCheckDuplicates(newVal); updatedOverrides.checkDuplicates = newVal; }
+                  runNovelHealthAudit(qaAuditNovelRef, updatedOverrides);
+                };
+
+                const handleCopyReport = () => {
+                  const reportText = [
+                    `# 🩺 Novel Health & Translation QA Audit`,
+                    `Novel: ${qaAuditResult?.title || 'Unknown'}`,
+                    `Health Score: ${score}% (Grade ${grade})`,
+                    `Chapters: ${healthy} / ${total} Healthy`,
+                    `Date: ${new Date().toLocaleString()}`,
+                    `\n## Findings Summary:`,
+                    `- Missing Gaps: ${summary.gaps}`,
+                    `- Corrupt / Empty: ${summary.corrupt}`,
+                    `- CJK Untranslated Leaks: ${summary.cjkLeaks}`,
+                    `- Anti-MTL AI Refusals: ${summary.refusals}`,
+                    `- Hallucination Loops: ${summary.loops}`,
+                    `- Duplicates: ${summary.duplicates}`,
+                    `\n## Flagged Issues (${issues.length}):`,
+                    ...issues.map((iss, i) => `${i + 1}. [${iss.category.toUpperCase()}] ${iss.chapterTitle}: ${iss.description}${iss.snippet ? `\n   Snippet: "${iss.snippet}"` : ''}`)
+                  ].join('\n');
+
+                  copyText(reportText).then(() => toast('Health audit report copied to clipboard!', 'success'));
+                };
+
+                return h(React.Fragment, null,
+                  // Top Summary Score Card
+                  h('div', {
+                    style: {
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
+                      border: '1px solid var(--hairline)',
+                      borderRadius: 8,
+                      padding: '14px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 12
+                    }
+                  },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
+                      h('div', {
+                        style: {
+                          width: 58,
+                          height: 58,
+                          borderRadius: '50%',
+                          border: `3px solid ${scoreColor}`,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: `${scoreColor}18`,
+                          color: scoreColor,
+                          fontWeight: 800,
+                          lineHeight: 1
+                        }
+                      },
+                        h('span', { style: { fontSize: 16 } }, `${score}%`),
+                        h('span', { style: { fontSize: 10, marginTop: 2, opacity: 0.85 } }, grade)
+                      ),
+                      h('div', null,
+                        h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--paper)' } },
+                          score >= 95 ? 'Excellent Health' : (score >= 80 ? 'Good Condition' : (score >= 60 ? 'Needs Attention' : 'Critical Issues Detected'))
+                        ),
+                        h('div', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 2 } },
+                          `${healthy} of ${total} chapters 100% healthy (${issues.length} issue${issues.length === 1 ? '' : 's'} flagged)`
+                        )
+                      )
+                    ),
+                    h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      style: { fontWeight: 600, padding: '6px 12px' },
+                      onClick: handleCopyReport
+                    }, '📋 Copy Report')
+                  ),
+
+                  // Interactive Feature Toggles Strip (Per-User Request: ALL features toggleable)
+                  h('div', {
+                    style: {
+                      background: 'rgba(99, 102, 241, 0.05)',
+                      border: '1px solid rgba(99, 102, 241, 0.2)',
+                      borderRadius: 6,
+                      padding: '10px 12px'
+                    }
+                  },
+                    h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--iris)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 } },
+                      '⚙️ Active Heuristic Rules (Toggle On/Off)'
+                    ),
+                    h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } },
+                      [
+                        { key: 'gaps', label: 'Sequence Gaps', val: qaCheckGaps },
+                        { key: 'corrupt', label: 'Corrupt / Empty', val: qaCheckCorrupt },
+                        { key: 'cjk', label: 'CJK Leaks', val: qaCheckCjk },
+                        { key: 'refusal', label: 'Anti-MTL Refusal', val: qaCheckAntiMtl },
+                        { key: 'loop', label: 'Repetition Loops', val: qaCheckLoops },
+                        { key: 'duplicates', label: 'Duplicates', val: qaCheckDuplicates }
+                      ].map(r => h('button', {
+                        key: r.key,
+                        type: 'button',
+                        className: `seg-btn ${r.val ? 'active' : ''}`,
+                        style: {
+                          fontSize: 11,
+                          padding: '3px 8px',
+                          borderRadius: 4,
+                          background: r.val ? 'var(--iris)' : 'var(--void)',
+                          color: r.val ? '#fff' : 'var(--slate)',
+                          border: r.val ? '1px solid var(--iris)' : '1px solid var(--hairline)',
+                          fontWeight: r.val ? 600 : 400
+                        },
+                        onClick: () => handleToggleRule(r.key, !r.val)
+                      }, `${r.val ? '✓' : '✗'} ${r.label}`))
+                    )
+                  ),
+
+                  // Category Filter Tabs
+                  h('div', { className: 'seg', style: { overflowX: 'auto', display: 'flex', gap: 4, paddingBottom: 2 } },
+                    [
+                      { id: 'all', label: `All (${issues.length})` },
+                      summary.gaps > 0 && { id: 'gap', label: `Gaps (${summary.gaps})` },
+                      summary.corrupt > 0 && { id: 'corrupt', label: `Corrupt (${summary.corrupt})` },
+                      summary.cjkLeaks > 0 && { id: 'cjk_leak', label: `CJK Leaks (${summary.cjkLeaks})` },
+                      summary.refusals > 0 && { id: 'refusal', label: `AI Refusal (${summary.refusals})` },
+                      summary.loops > 0 && { id: 'loop', label: `Loops (${summary.loops})` },
+                      summary.duplicates > 0 && { id: 'duplicate', label: `Duplicates (${summary.duplicates})` }
+                    ].filter(Boolean).map(tab => h('button', {
+                      key: tab.id,
+                      type: 'button',
+                      className: `seg-btn ${qaFilterCategory === tab.id ? 'active' : ''}`,
+                      style: qaFilterCategory === tab.id ? { background: 'var(--iris)', color: '#fff', fontWeight: 600, fontSize: 11.5 } : { fontSize: 11.5 },
+                      onClick: () => setQaFilterCategory(tab.id)
+                    }, tab.label))
+                  ),
+
+                  // Issues List or Clean State
+                  filteredIssues.length === 0
+                    ? h('div', {
+                        style: {
+                          textAlign: 'center',
+                          padding: '36px 16px',
+                          background: 'rgba(16, 185, 129, 0.04)',
+                          border: '1px solid rgba(16, 185, 129, 0.2)',
+                          borderRadius: 8
+                        }
+                      },
+                        h('div', { style: { fontSize: 32, marginBottom: 8 } }, '✨'),
+                        h('div', { style: { fontWeight: 700, fontSize: 14, color: '#10b981' } },
+                          issues.length === 0 ? 'Novel is 100% Healthy!' : 'No issues found in this category.'
+                        ),
+                        h('div', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 4 } },
+                          issues.length === 0 ? 'Zero missing chapters, corrupt text, untranslated CJK leaks, or AI refusals found.' : 'Try selecting "All" to inspect other categories.'
+                        )
+                      )
+                    : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+                        filteredIssues.map((iss, i) => {
+                          const badgeColor = iss.category === 'gap' ? '#f59e0b'
+                            : (iss.category === 'corrupt' ? '#ef4444'
+                            : (iss.category === 'cjk_leak' ? '#8b5cf6'
+                            : (iss.category === 'refusal' ? '#ec4899'
+                            : (iss.category === 'loop' ? '#eab308' : '#3b82f6'))));
+
+                          return h('div', {
+                            key: i,
+                            style: {
+                              background: 'rgba(255, 255, 255, 0.02)',
+                              border: '1px solid var(--hairline)',
+                              borderLeft: `3px solid ${badgeColor}`,
+                              borderRadius: '0 6px 6px 0',
+                              padding: '10px 12px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 6
+                            }
+                          },
+                            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap' } },
+                              h('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--paper)' } },
+                                iss.chapterTitle
+                              ),
+                              h('span', {
+                                style: {
+                                  fontSize: 10,
+                                  padding: '2px 6px',
+                                  borderRadius: 4,
+                                  background: `${badgeColor}22`,
+                                  color: badgeColor,
+                                  border: `1px solid ${badgeColor}44`,
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase'
+                                }
+                              }, iss.category.replace('_', ' '))
+                            ),
+                            h('div', { style: { fontSize: 12, color: 'var(--paper-dim)' } }, iss.description),
+                            iss.snippet && h('div', {
+                              style: {
+                                fontSize: 11,
+                                fontFamily: "'IBM Plex Mono', monospace",
+                                background: 'var(--void)',
+                                padding: '6px 8px',
+                                borderRadius: 4,
+                                color: 'var(--slate)',
+                                wordBreak: 'break-all'
+                              }
+                            }, `Snippet: "${iss.snippet}"`),
+                            iss.samples && iss.samples.length > 0 && h('div', {
+                              style: {
+                                fontSize: 11,
+                                fontFamily: "'IBM Plex Mono', monospace",
+                                background: 'var(--void)',
+                                padding: '6px 8px',
+                                borderRadius: 4,
+                                color: 'var(--slate)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 2
+                              }
+                            }, iss.samples.map((s, si) => h('div', { key: si }, `Sample: "${s}"`))),
+                            h('div', { style: { display: 'flex', gap: 8, marginTop: 4, justifyContent: 'flex-end' } },
+                              iss.chapterIdx !== undefined && h('button', {
+                                type: 'button',
+                                className: 'mini-btn ghost',
+                                style: { fontSize: 11, padding: '4px 10px' },
+                                onClick: () => {
+                                  setReaderChapterIdx(iss.chapterIdx);
+                                  setReaderOpen(true);
+                                  setQaModalOpen(false);
+                                }
+                              }, '📖 Inspect in Reader')
+                            )
+                          );
+                        })
+                      )
+                );
+              })()
+            ),
+            h('div', { style: { padding: '12px 18px', borderTop: '1px solid var(--hairline)', display: 'flex', justifyContent: 'flex-end' } },
+              h('button', {
+                type: 'button',
+                className: 'btn-primary',
+                style: { padding: '6px 18px', fontSize: 12 },
+                onClick: () => setQaModalOpen(false)
+              }, 'Done')
+            )
+          )
+        ),
 
         // ── AUTO-GLOSSARY & CHARACTER EXTRACTOR MODAL ──
         autoGlossaryModalOpen && h('div', { className: 'modal-overlay', onClick: () => setAutoGlossaryModalOpen(false) },
