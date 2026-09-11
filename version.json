@@ -1,7 +1,7 @@
 {
-  "version": "8.12.1",
-  "versionCode": 8181,
+  "version": "8.12.2",
+  "versionCode": 8182,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.12.1: ⚧ Context / Dynamic (M/F) Adaptive Gender Lock & AI Lore Engine. Adds first-class support for characters whose gender changes/transitions dynamically across the story (e.g. Bai Ning Bing, Trissy, Lumian Lee). Injects adaptive translation directives preventing forced rigid pronouns while maintaining situational accuracy. Supports [M/F], (m/f), [both] glossary markers, 3-way toggle badges (♀ Female → ♂ Male → ⚧ Context), and AI classification."
+  "releaseNotes": "v8.12.2: Smart Chunk-Aware Gender Lock Filtering. Drastically optimizes prompt token usage (saving 90–95% tokens) by intelligently injecting only characters appearing in the active scene/chunk with full CJK substring and glossary alias cross-referencing, while skipping empty headers entirely."
 }

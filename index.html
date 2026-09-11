@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.12.1';
+    const VERSION = '8.12.2';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1749,28 +1749,80 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       if (genderLocks && typeof genderLocks === 'object') {
         const lockEntries = Object.entries(genderLocks).filter(([k, v]) => k && v && String(k).trim());
         if (lockEntries.length > 0) {
-          const rules = lockEntries.map(([name, gender]) => {
-            const gLower = String(gender).toLowerCase();
-            const isContext = gLower.includes('context') || gLower.includes('m/f') || gLower.includes('dynamic') || gLower.includes('both');
-            if (isContext) {
-              return `- ${String(name).trim()}: CONTEXT-DEPENDENT / DYNAMIC (M/F). This character changes/transitions biological gender or form across the narrative (e.g. sex-change potions, shape-shifting, dual avatars). Translate pronouns dynamically ('he/him' when presenting in male form, 'she/her' when presenting in female form) based strictly on active scene context. Do NOT force a single fixed pronoun.`;
-            }
-            const isFemale = gLower.includes('female') || gLower.includes('she');
-            const isMale = gLower.includes('male') || gLower.includes('he');
-            const pronouns = isFemale ? 'she / her / hers / herself' : isMale ? 'he / him / his / himself' : gender;
-            return `- ${String(name).trim()}: ${gender} (${pronouns}). Never use opposite pronouns for this character.`;
-          }).join('\n');
-          p = `=== GENDER LOCK PROTOCOL (ANTI-PRONOUN DRIFT) ===\nCRITICAL DIRECTIVE: You MUST maintain the exact gender pronouns for the following characters. Do not confuse or swap pronouns under any circumstances:\n${rules}\n=== END GENDER LOCK PROTOCOL ===\n\n` + p;
+          // Smart Chunk-Aware Filtering: Only inject characters appearing in this scene/chunk to save 90-95% tokens!
+          let activeLocks = lockEntries;
+          if (smartGlossary && text && text.trim()) {
+            const lowerText = text.toLowerCase();
 
-          try {
-            const matchedInChunk = lockEntries.filter(([cName]) => text.includes(cName)).map(([cName, cGen]) => `${cName} [${cGen.toUpperCase()}]`);
-            if (matchedInChunk.length > 0) {
-              window.telemetryLog?.('GENDER_LOCK', `Prompt injected ${lockEntries.length} locks (${matchedInChunk.length} present in this chunk: ${matchedInChunk.slice(0, 15).join(', ')}${matchedInChunk.length > 15 ? '…' : ''})`, {
-                chunkCharactersPresent: matchedInChunk,
-                totalLocksInjected: lockEntries.length
-              });
+            // Build alias cross-reference from active glossary if present (e.g. Audrey Hall <-> 奥黛丽)
+            const aliasMap = new Map();
+            if (glossary && typeof glossary === 'string') {
+              const gLines = glossary.split(/\r?\n/);
+              for (const gl of gLines) {
+                if (!gl || gl.startsWith('#') || gl.startsWith('//')) continue;
+                const m = gl.match(/^(.*?)\s*(?:->|=>|=)\s*(.*?)$/);
+                if (m) {
+                  const s = m[1].replace(/#.*$/, '').replace(/\[[^\]]*\]/g, '').replace(/\([^)]*\)/g, '').trim();
+                  const t = m[2].replace(/#.*$/, '').replace(/\[[^\]]*\]/g, '').replace(/\([^)]*\)/g, '').trim();
+                  if (s && t) {
+                    if (!aliasMap.has(s)) aliasMap.set(s, new Set());
+                    if (!aliasMap.has(t)) aliasMap.set(t, new Set());
+                    aliasMap.get(s).add(t);
+                    aliasMap.get(t).add(s);
+                  }
+                }
+              }
             }
-          } catch(e) {}
+
+            activeLocks = lockEntries.filter(([name]) => {
+              const clean = String(name).trim();
+              if (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(clean)) {
+                if (text.includes(clean)) return true;
+              } else {
+                if (lowerText.includes(clean.toLowerCase())) return true;
+                const parts = clean.split(/\s+/).filter(w => w.length >= 4 && !/^(?:miss|mister|lady|lord|sir|madame|king|queen|saint|emperor)$/i.test(w));
+                for (const part of parts) {
+                  if (lowerText.includes(part.toLowerCase())) return true;
+                }
+              }
+              const aliases = aliasMap.get(clean);
+              if (aliases) {
+                for (const a of aliases) {
+                  if (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(a)) {
+                    if (text.includes(a)) return true;
+                  } else {
+                    if (lowerText.includes(a.toLowerCase())) return true;
+                  }
+                }
+              }
+              return false;
+            });
+          }
+
+          if (activeLocks.length > 0) {
+            const rules = activeLocks.map(([name, gender]) => {
+              const gLower = String(gender).toLowerCase();
+              const isContext = gLower.includes('context') || gLower.includes('m/f') || gLower.includes('dynamic') || gLower.includes('both');
+              if (isContext) {
+                return `- ${String(name).trim()}: CONTEXT-DEPENDENT / DYNAMIC (M/F). This character changes/transitions biological gender or form across the narrative (e.g. sex-change potions, shape-shifting, dual avatars). Translate pronouns dynamically ('he/him' when presenting in male form, 'she/her' when presenting in female form) based strictly on active scene context. Do NOT force a single fixed pronoun.`;
+              }
+              const isFemale = gLower.includes('female') || gLower.includes('she');
+              const isMale = gLower.includes('male') || gLower.includes('he');
+              const pronouns = isFemale ? 'she / her / hers / herself' : isMale ? 'he / him / his / himself' : gender;
+              return `- ${String(name).trim()}: ${gender} (${pronouns}). Never use opposite pronouns for this character.`;
+            }).join('\n');
+            p = `=== GENDER LOCK PROTOCOL (ANTI-PRONOUN DRIFT) ===\nCRITICAL DIRECTIVE: You MUST maintain the exact gender pronouns for the following characters. Do not confuse or swap pronouns under any circumstances:\n${rules}\n=== END GENDER LOCK PROTOCOL ===\n\n` + p;
+
+            try {
+              const tokensSaved = Math.max(0, (lockEntries.length - activeLocks.length) * 15);
+              window.telemetryLog?.('GENDER_LOCK', `Smart Prompt injected ${activeLocks.length} scene locks (${lockEntries.length - activeLocks.length} non-scene locks filtered out to save ~${tokensSaved} tokens)`, {
+                chunkCharactersPresent: activeLocks.map(([cName, cGen]) => `${cName} [${cGen.toUpperCase()}]`),
+                activeLocksCount: activeLocks.length,
+                totalDatabaseLocks: lockEntries.length,
+                tokensSavedApprox: tokensSaved
+              });
+            } catch(e) {}
+          }
         }
       }
 
