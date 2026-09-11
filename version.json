@@ -1,7 +1,9 @@
 {
-  "version": "8.12.8",
-  "versionCode": 8188,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.12.8: Streamline glossary architecture. Retired redundant AI Gender Scanner modal and updated AI Optimize ✦ to explicitly append character genders (female, male, [context]) directly inside Section III of the Master Glossary."
+  "version": "8.12.9",
+  "versionCode": 8189,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.12.9/app-release.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.12.9/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.12.9",
+  "releaseDate": "2026-09-11",
+  "releaseNotes": "v8.12.9: Real-time translation telemetry & glossary overhaul. Auto-logs matched glossary terms, scene gender locks, and deep prompt inspection. Fixed duplicate LOTM preset bug, optimized LOTM master reference (1,089 character locks) & COTE (278 locks), and added safety truncation guard to AI Optimize."
 }

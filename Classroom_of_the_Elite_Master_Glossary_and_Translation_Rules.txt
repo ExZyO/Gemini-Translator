@@ -14,8 +14,8 @@ I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES
 II. SERIES, SCHOOL, AND CORE TERMINOLOGY
 - ようこそ実力至上主義の教室へ -> Classroom of the Elite
 - よう実 / You-Zitsu / Yō-Jitsu -> Classroom of the Elite
-- 綾小路 -> Ayanokoji
-- 綾小路清隆 -> Kiyotaka Ayanokoji
+- 綾小路 -> Ayanokoji (male)
+- 綾小路清隆 -> Kiyotaka Ayanokoji (male)
 - 東京都高度育成高等学校 -> Tokyo Metropolitan Advanced Nurturing High School
 - 高度育成高等学校 -> Advanced Nurturing High School
 - 高度育成高校 -> Advanced Nurturing High School
@@ -28,12 +28,12 @@ II. SERIES, SCHOOL, AND CORE TERMINOLOGY
 - 寮 -> dormitory
 - 校内 -> on campus / within the school
 - 校外 -> off campus
-- 坂柳 -> Sakayanagi
-- 坂柳有栖 -> Arisu Sakayanagi
-- 茶柱 -> Chabashira
-- 茶柱佐枝 -> Sae Chabashira
-- 月城 -> Tsukishiro
-- 月城常成 -> Tsukishiro
+- 坂柳 -> Sakayanagi (female)
+- 坂柳有栖 -> Arisu Sakayanagi (female)
+- 茶柱 -> Chabashira (female)
+- 茶柱佐枝 -> Sae Chabashira (female)
+- 月城 -> Tsukishiro (male)
+- 月城常成 -> Tsukishiro (male)
 - 理事長 -> chairman / school board chairman
 - 理事 -> board member / school board member
 - 学年 -> school year / grade, according to context
@@ -310,160 +310,160 @@ VII. THIRD-YEAR TERMS THROUGH VOLUME 4
 - 監視対象 -> surveillance target
 
 VIII. KEY STUDENTS: AYANOKOJI'S YEAR
-- 綾小路清隆 -> Kiyotaka Ayanokoji
-- 綾小路くん -> Ayanokoji-kun
-- アヤノコウジ -> Ayanokoji
-- 清隆 -> Kiyotaka
-- 堀北鈴音 -> Suzune Horikita
-- 堀北 -> Horikita
-- 堀北さん -> Horikita-san
-- 櫛田桔梗 -> Kikyo Kushida
-- 櫛田 -> Kushida
-- 佐倉愛里 -> Airi Sakura
-- 佐倉 -> Sakura
-- 須藤健 -> Ken Sudo
-- 須藤 -> Sudo
-- 池寛治 -> Kanji Ike
-- 池 -> Ike
-- 山内春樹 -> Haruki Yamauchi
-- 山内 -> Yamauchi
-- 石崎大地 -> Daichi Ishizaki
-- 石崎 -> Ishizaki
-- 幸村輝彦 -> Keisei Yukimura
-- 幸村 -> Yukimura
-- 長谷部波瑠加 -> Haruka Hasebe
-- 長谷部 -> Hasebe
-- 三宅明人 -> Akito Miyake
-- 三宅 -> Miyake
-- 佐藤麻耶 -> Maya Sato
-- 佐藤 -> Sato
-- 平田洋介 -> Yosuke Hirata
-- 平田 -> Hirata
-- 軽井沢恵 -> Kei Karuizawa
-- 軽井沢 -> Karuizawa
-- 恵 -> Kei
-- 井口 -> Iguchi
-- 近藤 -> Kondo
-- 田中 -> Tanaka
-- 山下 -> Yamashita
-- 須藤健の母 -> Sudo's mother
-- 橘茜 -> Akane Tachibana
-- 橘 -> Tachibana
-- 坂柳有栖 -> Arisu Sakayanagi
-- 坂柳 -> Sakayanagi
-- 葛城康平 -> Kohei Katsuragi
-- 葛城 -> Katsuragi
-- 橋本正義 -> Masayoshi Hashimoto
-- 橋本 -> Hashimoto
-- 神室真澄 -> Masumi Kamuro
-- 神室 -> Kamuro
-- 山村美紀 -> Miki Yamamura
-- 山村 -> Yamamura
-- 森下愛 -> Ai Morishita
-- 森下 -> Morishita
-- 鬼頭隼 -> Hayato Kito
-- 鬼頭 -> Kito
-- 石上京 -> Kyo Ishigami
-- 石上 -> Ishigami
-- 鬼龍院翔 -> Kiryuin Kyo
-- 鬼龍院 -> Kiryuin
+- 綾小路清隆 -> Kiyotaka Ayanokoji (male)
+- 綾小路くん -> Ayanokoji-kun (male)
+- アヤノコウジ -> Ayanokoji (male)
+- 清隆 -> Kiyotaka (male)
+- 堀北鈴音 -> Suzune Horikita (female)
+- 堀北 -> Horikita (female)
+- 堀北さん -> Horikita-san (female)
+- 櫛田桔梗 -> Kikyo Kushida (female)
+- 櫛田 -> Kushida (female)
+- 佐倉愛里 -> Airi Sakura (female)
+- 佐倉 -> Sakura (female)
+- 須藤健 -> Ken Sudo (male)
+- 須藤 -> Sudo (male)
+- 池寛治 -> Kanji Ike (male)
+- 池 -> Ike (male)
+- 山内春樹 -> Haruki Yamauchi (male)
+- 山内 -> Yamauchi (male)
+- 石崎大地 -> Daichi Ishizaki (male)
+- 石崎 -> Ishizaki (male)
+- 幸村輝彦 -> Keisei Yukimura (male)
+- 幸村 -> Yukimura (male)
+- 長谷部波瑠加 -> Haruka Hasebe (female)
+- 長谷部 -> Hasebe (female)
+- 三宅明人 -> Akito Miyake (male)
+- 三宅 -> Miyake (male)
+- 佐藤麻耶 -> Maya Sato (female)
+- 佐藤 -> Sato (female)
+- 平田洋介 -> Yosuke Hirata (male)
+- 平田 -> Hirata (male)
+- 軽井沢恵 -> Kei Karuizawa (female)
+- 軽井沢 -> Karuizawa (female)
+- 恵 -> Kei (female)
+- 井口 -> Iguchi (male)
+- 近藤 -> Kondo (male)
+- 田中 -> Tanaka (male)
+- 山下 -> Yamashita (male)
+- 須藤健の母 -> Sudo's mother (female)
+- 橘茜 -> Akane Tachibana (female)
+- 橘 -> Tachibana (female)
+- 坂柳有栖 -> Arisu Sakayanagi (female)
+- 坂柳 -> Sakayanagi (female)
+- 葛城康平 -> Kohei Katsuragi (male)
+- 葛城 -> Katsuragi (male)
+- 橋本正義 -> Masayoshi Hashimoto (male)
+- 橋本 -> Hashimoto (male)
+- 神室真澄 -> Masumi Kamuro (female)
+- 神室 -> Kamuro (female)
+- 山村美紀 -> Miki Yamamura (female)
+- 山村 -> Yamamura (female)
+- 森下愛 -> Ai Morishita (female)
+- 森下 -> Morishita (female)
+- 鬼頭隼 -> Hayato Kito (male)
+- 鬼頭 -> Kito (male)
+- 石上京 -> Kyo Ishigami (male)
+- 石上 -> Ishigami (male)
+- 鬼龍院翔 -> Kiryuin Kyo (female)
+- 鬼龍院 -> Kiryuin (female)
 
 IX. KEY STUDENTS: OTHER CLASS LEADERS AND ALLIES
-- 龍園翔 -> Kakeru Ryuen
-- 龍園 -> Ryuen
-- 龍園くん -> Ryuen-kun
-- 一之瀬帆波 -> Honami Ichinose
-- 一之瀬 -> Ichinose
-- 一之瀬さん -> Ichinose-san
-- 神崎隆二 -> Ryuji Kanzaki
-- 神崎 -> Kanzaki
-- 阿形 -> Agami
-- 姫野ユキ -> Yuki Himeno
-- 姫野 -> Himeno
-- 柴田颯 -> Hayato Shibata
-- 柴田 -> Shibata
-- 王美雨 -> Mii-chan / Mii
-- 王 -> Wang
-- 天沢一夏 -> Ichika Amasawa
-- 天沢 -> Amasawa
-- 椿桜子 -> Sakurako Tsubaki
-- 椿 -> Tsubaki
-- 宇都宮陸 -> Riku Utomiya
-- 宇都宮 -> Utomiya
-- 七瀬翼 -> Tsubasa Nanase
-- 七瀬 -> Nanase
-- 鬼龍院 -> Kiryuin
+- 龍園翔 -> Kakeru Ryuen (male)
+- 龍園 -> Ryuen (male)
+- 龍園くん -> Ryuen-kun (male)
+- 一之瀬帆波 -> Honami Ichinose (female)
+- 一之瀬 -> Ichinose (female)
+- 一之瀬さん -> Ichinose-san (female)
+- 神崎隆二 -> Ryuji Kanzaki (male)
+- 神崎 -> Kanzaki (male)
+- 阿形 -> Agami (male)
+- 姫野ユキ -> Yuki Himeno (female)
+- 姫野 -> Himeno (female)
+- 柴田颯 -> Hayato Shibata (male)
+- 柴田 -> Shibata (male)
+- 王美雨 -> Mii-chan / Mii (female)
+- 王 -> Wang (female)
+- 天沢一夏 -> Ichika Amasawa (female)
+- 天沢 -> Amasawa (female)
+- 椿桜子 -> Sakurako Tsubaki (female)
+- 椿 -> Tsubaki (female)
+- 宇都宮陸 -> Riku Utomiya (male)
+- 宇都宮 -> Utomiya (male)
+- 七瀬翼 -> Tsubasa Nanase (female)
+- 七瀬 -> Nanase (female)
+- 鬼龍院 -> Kiryuin (female)
 - 綾小路グループ -> Ayanokoji Group
 - Aグループ -> Ayanokoji Group, when referring to the original study group
 - 旧Aグループ -> former Ayanokoji Group
-- 南雲雅 -> Miyabi Nagumo
-- 南雲 -> Nagumo
-- 桐山生叶 -> Ikuto Kiriyama
-- 桐山 -> Kiriyama
-- 朝比奈なずな -> Nazuna Asahina
-- 朝比奈 -> Asahina
-- 戸塚弥彦 -> Yahiko Totsuka
-- 戸塚 -> Totsuka
-- 山内春樹 -> Haruki Yamauchi
-- 伊吹澪 -> Mio Ibuki
-- 伊吹 -> Ibuki
-- アルベルト -> Albert
-- Albert -> Albert
-- 金田悟 -> Satoru Kaneda
-- 金田 -> Kaneda
-- 佐倉愛里 -> Airi Sakura
+- 南雲雅 -> Miyabi Nagumo (male)
+- 南雲 -> Nagumo (male)
+- 桐山生叶 -> Ikuto Kiriyama (male)
+- 桐山 -> Kiriyama (male)
+- 朝比奈なずな -> Nazuna Asahina (female)
+- 朝比奈 -> Asahina (female)
+- 戸塚弥彦 -> Yahiko Totsuka (male)
+- 戸塚 -> Totsuka (male)
+- 山内春樹 -> Haruki Yamauchi (male)
+- 伊吹澪 -> Mio Ibuki (female)
+- 伊吹 -> Ibuki (female)
+- アルベルト -> Albert (male)
+- Albert -> Albert (male)
+- 金田悟 -> Satoru Kaneda (male)
+- 金田 -> Kaneda (male)
+- 佐倉愛里 -> Airi Sakura (female)
 - 坂柳派 -> Sakayanagi faction
 - 龍園派 -> Ryuen faction
 - 一之瀬派 -> Ichinose faction
 - 堀北派 -> Horikita faction
 
 X. FIRST-YEAR STUDENTS AND WHITE ROOM FIGURES
-- 七瀬翼 -> Tsubasa Nanase
-- 天沢一夏 -> Ichika Amasawa
-- 椿桜子 -> Sakurako Tsubaki
-- 宇都宮陸 -> Riku Utomiya
-- 宝泉和臣 -> Kazuomi Hosen
-- 宝泉 -> Hosen
-- 高円寺六助 -> Rokusuke Kōenji
-- 高円寺 -> Rokusuke Kōenji / Kōenji
-- 小宮葉月 -> Hazuki Komiya
-- 小宮 -> Komiya
-- 木下 -> Kinoshita
+- 七瀬翼 -> Tsubasa Nanase (female)
+- 天沢一夏 -> Ichika Amasawa (female)
+- 椿桜子 -> Sakurako Tsubaki (female)
+- 宇都宮陸 -> Riku Utomiya (male)
+- 宝泉和臣 -> Kazuomi Hosen (male)
+- 宝泉 -> Hosen (male)
+- 高円寺六助 -> Rokusuke Kōenji (male)
+- 高円寺 -> Rokusuke Kōenji / Kōenji (male)
+- 小宮葉月 -> Hazuki Komiya (male)
+- 小宮 -> Komiya (male)
+- 木下 -> Kinoshita (female)
 - 鈴音 -> Suzune, when used as Horikita's given name
-- 鬼塚 -> Onizuka
-- 八神拓也 -> Takuya Yagami
-- 八神 -> Yagami
-- 山田アルベルト -> Albert Yamada / Albert
-- 山田 -> Yamada
-- 石上京 -> Kyo Ishigami
+- 鬼塚 -> Onizuka (male)
+- 八神拓也 -> Takuya Yagami (male)
+- 八神 -> Yagami (male)
+- 山田アルベルト -> Albert Yamada / Albert (male)
+- 山田 -> Yamada (male)
+- 石上京 -> Kyo Ishigami (male)
 - 有栖 -> Arisu, when referring to Sakayanagi
-- 司馬 -> Shiba
-- 浜口哲也 -> Tetsuya Hamaguchi
-- 浜口 -> Hamaguchi
-- 小野寺 -> Onodera
-- 末広 -> Suehiro
-- 西野 -> Nishino
+- 司馬 -> Shiba (male)
+- 浜口哲也 -> Tetsuya Hamaguchi (male)
+- 浜口 -> Hamaguchi (male)
+- 小野寺 -> Onodera (female)
+- 末広 -> Suehiro (male)
+- 西野 -> Nishino (female)
 - 真澄 -> Masumi, when referring to Kamuro
 - 清隆 -> Kiyotaka, when referring to Ayanokoji
 
 XI. STAFF, ADULTS, AND OUTSIDE FIGURES
-- 坂柳理事長 -> Chairman Sakayanagi
-- 坂柳成守 -> Narumori Sakayanagi
-- 月城常成 -> Tsukishiro
-- 龍園の父 -> Ryuen's father
-- 綾小路篤臣 -> Atsuomi Ayanokoji
-- 綾小路篤臣氏 -> Atsuomi Ayanokoji
-- 綾小路父 -> Ayanokoji's father
+- 坂柳理事長 -> Chairman Sakayanagi (male)
+- 坂柳成守 -> Narumori Sakayanagi (male)
+- 月城常成 -> Tsukishiro (male)
+- 龍園の父 -> Ryuen's father (male)
+- 綾小路篤臣 -> Atsuomi Ayanokoji (male)
+- 綾小路篤臣氏 -> Atsuomi Ayanokoji (male)
+- 綾小路父 -> Ayanokoji's father (male)
 - ホワイトルーム所長 -> White Room director
 - ホワイトルームの講師 -> White Room instructor
-- 真嶋智也 -> Hiroya Mashima
-- 真嶋先生 -> Mashima-sensei
-- 星之宮知恵 -> Chie Hoshinomiya
-- 星之宮先生 -> Hoshinomiya-sensei
-- 坂上 -> Sakagami
-- 坂上先生 -> Sakagami-sensei
-- 山本先生 -> Yamamoto-sensei
-- 高橋先生 -> Takahashi-sensei
+- 真嶋智也 -> Hiroya Mashima (male)
+- 真嶋先生 -> Mashima-sensei (male)
+- 星之宮知恵 -> Chie Hoshinomiya (female)
+- 星之宮先生 -> Hoshinomiya-sensei (female)
+- 坂上 -> Sakagami (male)
+- 坂上先生 -> Sakagami-sensei (male)
+- 山本先生 -> Yamamoto-sensei (male)
+- 高橋先生 -> Takahashi-sensei (male)
 - 司令塔 -> command center / strategist
 - 教員 -> faculty member / teacher
 - 教師 -> teacher
@@ -541,7 +541,7 @@ XIII. LOCATIONS AND COMMON PLACES
 - 合宿所 -> training camp facility
 - ホテル -> hotel
 - リゾート地 -> resort area
-- 軽井沢 -> Karuizawa
+- 軽井沢 -> Karuizawa (female)
 - 月島 -> Tsukishima, if used as a location name
 - 東京 -> Tokyo
 - 北海道 -> Hokkaido
@@ -651,8 +651,8 @@ XV. VOLUME AND ARC LABELS
 - 3年編 -> Year 3 Arc
 
 XVI. SPOILER CONTROL AND CONSISTENCY NOTES
-- Ayanokoji's father -> Atsuomi Ayanokoji
-- Ayanokoji's father -> do not translate as Professor Ayanokoji unless the source explicitly uses that title
+- Ayanokoji's father -> Atsuomi Ayanokoji (male)
+- Ayanokoji's father -> do not translate as Professor Ayanokoji unless the source explicitly uses that title (male)
 - The White Room -> White Room
 - White Room student -> White Room student
 - special exam -> Special Exam when it is an official school event
@@ -663,25 +663,25 @@ XVI. SPOILER CONTROL AND CONSISTENCY NOTES
 - year 3 class C -> Class 3-C
 - year 3 class D -> Class 3-D
 - Kōenji / Koenji -> Kōenji in prose if macrons are supported; Koenji is acceptable when the source uses ASCII
-- Ryūen / Ryuuen -> Ryuen
-- Ayanokōji / Ayanokoji -> Ayanokoji
-- Sakayanagi Arisu -> Arisu Sakayanagi
-- Horikita Suzune -> Suzune Horikita
-- Ichinose Honami -> Honami Ichinose
-- Karuizawa Kei -> Kei Karuizawa
-- Kushida Kikyo -> Kikyo Kushida
-- Hasebe Haruka -> Haruka Hasebe
-- Sudo Ken -> Ken Sudo
-- Hirata Yosuke -> Yosuke Hirata
-- Katsuragi Kohei -> Kohei Katsuragi
-- Hashimoto Masayoshi -> Masayoshi Hashimoto
-- Morishita Ai -> Ai Morishita
-- Yamamura Miki -> Miki Yamamura
-- Kito Hayato -> Hayato Kito
-- Amasawa Ichika -> Ichika Amasawa
-- Tsubaki Sakurako -> Sakurako Tsubaki
-- Utomiya Riku -> Riku Utomiya
-- Nanase Tsubasa -> Tsubasa Nanase
-- Hosen Kazuomi -> Kazuomi Hosen
+- Ryūen / Ryuuen -> Ryuen (male)
+- Ayanokōji / Ayanokoji -> Ayanokoji (male)
+- Sakayanagi Arisu -> Arisu Sakayanagi (female)
+- Horikita Suzune -> Suzune Horikita (female)
+- Ichinose Honami -> Honami Ichinose (female)
+- Karuizawa Kei -> Kei Karuizawa (female)
+- Kushida Kikyo -> Kikyo Kushida (female)
+- Hasebe Haruka -> Haruka Hasebe (female)
+- Sudo Ken -> Ken Sudo (male)
+- Hirata Yosuke -> Yosuke Hirata (male)
+- Katsuragi Kohei -> Kohei Katsuragi (male)
+- Hashimoto Masayoshi -> Masayoshi Hashimoto (male)
+- Morishita Ai -> Ai Morishita (female)
+- Yamamura Miki -> Miki Yamamura (female)
+- Kito Hayato -> Hayato Kito (male)
+- Amasawa Ichika -> Ichika Amasawa (female)
+- Tsubaki Sakurako -> Sakurako Tsubaki (female)
+- Utomiya Riku -> Riku Utomiya (male)
+- Nanase Tsubasa -> Tsubasa Nanase (female)
+- Hosen Kazuomi -> Kazuomi Hosen (male)
 
 Use the glossary as a consistency reference, not as a substitute for context. When a Japanese word has multiple meanings, choose the listed English term only when the surrounding scene supports it.
