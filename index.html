@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.11.7';
+    const VERSION = '8.11.8';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3720,115 +3720,197 @@ const formatModelName = (id, displayName) => {
           const selectedModel = aiGenderUseCustom && aiGenderCustomModel ? aiGenderCustomModel.trim() : aiGenderModel;
           if (!selectedModel) throw new Error('Please enter or select an AI model.');
 
-          let candidateNames = [];
-          if (aiGenderSource === 'glossary' && terminology && terminology.trim()) {
-            const lines = terminology.split(/\r?\n/);
-            const seen = new Set();
-            const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港)$/i;
-            const entityPhrasePattern = /\b(?:Law of |Ruins of |Church of |Order of |School of |Nation of |City of |Land of |Archipelago|University)\b/i;
+          const combinedMap = new Map(); // characterName -> { gender, sourceTag }
+          let aiScannedCount = 0;
+          let glossaryTagCount = 0;
 
-            let inRules = false;
-            for (const rawLine of lines) {
-              const l = rawLine.trim();
-              if (!l || l.startsWith('//') || l.startsWith('/*')) continue;
-              if (/^(?:#+\s*)?I\.\s*(?:SYSTEM|RULES)/i.test(l)) { inRules = true; continue; }
-              if (/^(?:#+\s*)?(?:II|III|IV|V|VI|VII)\.\s*/i.test(l)) { inRules = false; }
-              if (inRules) continue;
-              if (/^(?:Example|\* Example|\- Example|Correct:|Incorrect:|Rule:|Note:|Legend:|Warning:)/i.test(l)) continue;
+          // Non-character pattern exclusions
+          const abstractRankExclusions = /\b(?:Sequence|Pathway|Potion|Formula|Spell|Artifact|Curse|Smog|Abyss|Spirit World|Astral World|Underworld|Nation of|Church of|Order of|School of|Ruins of|City of|Land of|Sea of|Mausoleum|Card of|Uniqueness|Sefirah)\b/i;
+          const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港)$/i;
 
-              const cleanL = l.replace(/^[-*•\s\d.]+\s*/, '').trim();
-              let parts = [];
-              if (cleanL.includes('->')) parts = cleanL.split('->');
-              else if (cleanL.includes('=>')) parts = cleanL.split('=>');
-              else if (cleanL.includes('=')) parts = cleanL.split('=');
-              else continue;
+          const femaleMarker = /\b(?:she|her|female|woman|girl|mother|daughter|sister|aunt|niece|wife|empress|queen|princess|madam|madame|lady|witch|demoness|priestess|goddess|maiden|matron)\b|\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女|雌)）|小姐|女士|夫人|魔女|女神|公主|皇后|母亲|女儿|姐姐|妹妹|姑|姨|婶/i;
+          const maleMarker = /\b(?:he|him|his|male|man|boy|father|son|brother|uncle|nephew|husband|emperor|king|prince|sir|mr|mister|lord|priest|god|patriarch)\b|\((?:m|male)\)|\[(?:m|male)\]|（(?:男|雄)）|先生|阁下|少爷|大帝|皇帝|国王|王子|神父|男爵|伯爵|侯爵|公爵|老爷|父亲|儿子|哥哥|弟弟|叔|伯|舅/i;
 
-              const src = parts[0].trim().replace(/^[-*•\s\d.]+\s*/, '');
-              const tgt = parts.slice(1).join('=').trim().replace(/^[-*•\s\d.]+\s*/, '');
+          // 1. GLOSSARY EXTRACTION (if source is 'glossary' or 'both')
+          if (aiGenderSource === 'glossary' || aiGenderSource === 'both') {
+            if (!terminology || !terminology.trim()) {
+              if (aiGenderSource === 'glossary') {
+                throw new Error('No glossary loaded. Please load a glossary in Settings or select "Novel Text".');
+              }
+            } else {
+              const lines = terminology.split(/\r?\n/);
+              let inRulesSection = false;
+              const ungenderedCandidates = [];
+              const seenGlossaryTerms = new Set();
 
-              const checkAndAdd = (val) => {
-                const aliases = val.replace(/#.*$/, '').replace(/\([^)]*\)/g, '').split(/[/;|,]/).map(x => x.trim());
-                for (const a of aliases) {
-                  if (a.length >= 2 && a.length <= 40 && !entityEndingPattern.test(a) && !entityPhrasePattern.test(a) && !seen.has(a)) {
-                    seen.add(a);
-                    candidateNames.push(a);
+              for (const rawLine of lines) {
+                const l = rawLine.trim();
+                if (!l || l.startsWith('//') || l.startsWith('/*')) continue;
+                if (/^(?:#+\s*)?I\.\s*(?:SYSTEM|RULES)/i.test(l)) { inRulesSection = true; continue; }
+                if (/^#+\s*(?:II|III|IV|V|VI|VII|[0-9]+)/i.test(l) || /^(?:#+\s*)?(?:II|III|IV|V|VI|VII)\.\s*/i.test(l)) { inRulesSection = false; }
+                if (inRulesSection) continue;
+                if (/^(?:Example|\* Example|\- Example|Correct:|Incorrect:|Rule:|Note:|Legend:|Warning:)/i.test(l)) continue;
+
+                let srcPart = '';
+                let tgtPart = '';
+                if (l.includes('->')) {
+                  const parts = l.split('->');
+                  srcPart = parts[0];
+                  tgtPart = parts.slice(1).join('->');
+                } else if (l.includes('=>')) {
+                  const parts = l.split('=>');
+                  srcPart = parts[0];
+                  tgtPart = parts.slice(1).join('=>');
+                } else if (l.includes('=')) {
+                  const parts = l.split('=');
+                  srcPart = parts[0];
+                  tgtPart = parts.slice(1).join('=');
+                } else if (l.includes(':') && !l.startsWith('http')) {
+                  const parts = l.split(':');
+                  srcPart = parts[0];
+                  tgtPart = parts.slice(1).join(':');
+                } else {
+                  srcPart = l;
+                  tgtPart = l;
+                }
+
+                srcPart = srcPart.trim();
+                tgtPart = tgtPart.trim();
+
+                const lineForGenderCheck = l.replace(/\((?:Sequence|\d)[^)]*\)/gi, '').replace(/（(?:序列|\d)[^）]*）/g, '');
+                let explicitGender = null;
+                const hasFem = femaleMarker.test(lineForGenderCheck);
+                const hasMale = maleMarker.test(lineForGenderCheck);
+                if (hasFem && hasMale) {
+                  if (/\((?:f|fem|female)\)|\[(?:f|fem|female)\]|\bfemale\b|小姐|女士|夫人/i.test(lineForGenderCheck)) explicitGender = 'female';
+                  else if (/\((?:m|male)\)|\[(?:m|male)\]|\bmale\b|先生|大帝|少爷/i.test(lineForGenderCheck)) explicitGender = 'male';
+                } else if (hasFem) explicitGender = 'female';
+                else if (hasMale) explicitGender = 'male';
+
+                const extractCleanNames = (part) => {
+                  let s = part.replace(/#.*$/, '');
+                  s = s.replace(/\[[^\]]*\]/g, ' '); // Strip brackets [M], [F]
+                  s = s.replace(/\([^)]*\)/g, ' ');   // Strip parens (female)
+                  s = s.replace(/（[^）]*）/g, ' ');
+                  return s.split(/[/;|,]/).map(x => x.replace(/^[-*•\s\d.]+\s*/, '').replace(/^["']|["']$/g, '').trim())
+                    .filter(x => {
+                      if (!x || x.length < 2 || x.length > 40) return false;
+                      if (/^(?:male|female|man|woman|person|human|character|hero|heroine|boy|girl)$/i.test(x)) return false;
+                      if (/^(?:Main|Side|Villain|Class|Sequence|Pathway|Epoch)/i.test(x)) return false;
+                      if (abstractRankExclusions.test(x) || entityEndingPattern.test(x)) return false;
+                      return true;
+                    });
+                };
+
+                const cleanNamesList = [...extractCleanNames(tgtPart), ...extractCleanNames(srcPart)];
+                for (const name of cleanNamesList) {
+                  if (seenGlossaryTerms.has(name)) continue;
+                  seenGlossaryTerms.add(name);
+                  if (explicitGender) {
+                    combinedMap.set(name, { gender: explicitGender, sourceTag: 'glossary' });
+                    glossaryTagCount++;
+                  } else {
+                    ungenderedCandidates.push(name);
                   }
                 }
-              };
-              checkAndAdd(tgt);
-              checkAndAdd(src);
+              }
+
+              // Send ungendered candidate terms to AI in batches of up to 100
+              if (ungenderedCandidates.length > 0) {
+                const batch = ungenderedCandidates.slice(0, 100);
+                const prompt = `Given this list of candidate terms from a web novel:\n${JSON.stringify(batch, null, 2)}\n\n1. Identify which terms are INDIVIDUAL CHARACTERS (people or sentient entities with a biological/narrative gender).\n2. Determine their gender: "female" or "male" based on novel lore, context, honorifics, or linguistic clues.\n3. OMIT non-characters, organizations, locations, abilities, concepts, and items.\n\nReturn ONLY a valid JSON object mapping name to "female" or "male":\n{\n  "Audrey Hall": "female",\n  "Klein Moretti": "male"\n}`;
+                const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
+                const jsonMatch = aiResp.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                  try {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    Object.entries(parsed).forEach(([k, v]) => {
+                      if (k && (v === 'female' || v === 'male')) {
+                        combinedMap.set(k.trim(), { gender: v.toLowerCase(), sourceTag: 'ai' });
+                        aiScannedCount++;
+                      }
+                    });
+                  } catch(e) {}
+                }
+              }
             }
           }
 
-          // Novel text fallback / selection
-          if (candidateNames.length === 0 || aiGenderSource === 'novel') {
-            let novelSample = '';
+          // 2. NOVEL TEXT EXTRACTION (if source is 'novel' or 'both')
+          if (aiGenderSource === 'novel' || aiGenderSource === 'both') {
+            let novelCorpus = '';
             if (chapters && chapters.length > 0) {
-              for (let i = 0; i < Math.min(3, chapters.length); i++) {
-                novelSample += `\n${chapters[i].title || ''}\n${(chapters[i].text || '').slice(0, 3000)}\n`;
+              // Deep multi-chapter scan: sample across up to 20 chapters of the novel
+              const step = Math.max(1, Math.floor(chapters.length / 20));
+              for (let i = 0; i < chapters.length && i < 20 * step; i += step) {
+                const ch = chapters[i];
+                if (ch) {
+                  novelCorpus += `\n[Chapter ${i + 1}: ${ch.title || ''}]\n${(ch.text || '').slice(0, 2000)}\n`;
+                }
               }
             } else if (inputText) {
-              novelSample = inputText.slice(0, 9000);
+              novelCorpus = inputText.slice(0, 15000);
             }
 
-            if (!novelSample.trim() && candidateNames.length === 0) {
-              throw new Error('No character terms found in glossary and no novel text loaded. Please load a glossary or novel first.');
-            }
-
-            if (novelSample.trim()) {
-              const prompt = `Analyze this novel excerpt and identify all individual characters (protagonists, side characters, villains) and their biological/narrative genders.\nNovel Excerpt:\n${novelSample}\n\nReturn ONLY a valid JSON object mapping each character name to "female" or "male".\nExample format:\n{\n  "Audrey Hall": "female",\n  "Klein Moretti": "male"\n}`;
-              const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel lore analyst. Output ONLY valid JSON without markdown fences.', selectedModel);
+            if (!novelCorpus.trim()) {
+              if (aiGenderSource === 'novel') {
+                throw new Error('No novel text loaded. Please load a novel or EPUB first.');
+              }
+            } else {
+              const prompt = `Carefully read the following web novel chapter excerpts and identify ALL named individual characters (protagonists, villains, allies, side characters, deities, companions).\n\nExcerpts:\n${novelCorpus.slice(0, 25000)}\n\nInstructions:\n1. Identify every individual character by their most common name or alias.\n2. Determine whether they are narrative/biological "female" or "male" based on novel lore, actions, pronouns, and titles.\n3. Omit organizations, places, skills, items, and concepts.\n\nReturn ONLY a valid JSON object mapping character name to "female" or "male":\n{\n  "Medici": "male",\n  "Klein": "male",\n  "Audrey": "female"\n}`;
+              const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
               const jsonMatch = aiResp.match(/\{[\s\S]*\}/);
-              if (!jsonMatch) throw new Error('AI did not return a valid JSON object.');
-              const parsed = JSON.parse(jsonMatch[0]);
-              const results = Object.entries(parsed)
-                .filter(([k, v]) => k && (v === 'female' || v === 'male'))
-                .map(([name, gender], idx) => ({
-                  id: `gen_${idx}_${Date.now()}`,
-                  character: name.trim(),
-                  gender: gender.toLowerCase(),
-                  checked: true
-                }));
-              const durationMs = Math.round(performance.now() - startTime);
-              setAiGenderResults(results);
-              toast(`✨ AI identified ${results.length} characters with genders in ${(durationMs / 1000).toFixed(1)}s!`, 'success');
-              return;
+              if (jsonMatch) {
+                try {
+                  const parsed = JSON.parse(jsonMatch[0]);
+                  Object.entries(parsed).forEach(([k, v]) => {
+                    if (k && (v === 'female' || v === 'male')) {
+                      const cleanName = k.trim();
+                      if (!combinedMap.has(cleanName)) {
+                        combinedMap.set(cleanName, { gender: v.toLowerCase(), sourceTag: 'novel' });
+                        aiScannedCount++;
+                      }
+                    }
+                  });
+                } catch(e) {}
+              }
             }
           }
 
-          // Scan candidate names from glossary (up to 250 names per request)
-          const namesToScan = candidateNames.slice(0, 250);
-          const prompt = `Given this list of terms from a web novel:\n${JSON.stringify(namesToScan, null, 2)}\n\n1. Identify which terms are INDIVIDUAL CHARACTERS (people or sentient entities with a biological/narrative gender).\n2. Determine their gender: "female" or "male" based on novel lore, context, honorifics, or linguistic clues.\n3. OMIT non-characters, organizations, locations, abilities, concepts, and items.\n\nReturn ONLY a valid JSON object:\n{\n  "Audrey Hall": "female",\n  "Klein Moretti": "male",\n  "Cattleya": "female"\n}`;
+          if (combinedMap.size === 0) {
+            throw new Error('No characters identified. Please make sure your glossary or novel text is loaded.');
+          }
 
-          const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
-          const jsonMatch = aiResp.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) throw new Error('AI did not return a valid JSON object.');
-          const parsed = JSON.parse(jsonMatch[0]);
-          const results = Object.entries(parsed)
-            .filter(([k, v]) => k && (v === 'female' || v === 'male'))
-            .map(([name, gender], idx) => ({
-              id: `gen_${idx}_${Date.now()}`,
-              character: name.trim(),
-              gender: gender.toLowerCase(),
-              checked: true
-            }));
+          // Build final results array
+          const results = Array.from(combinedMap.entries()).map(([name, info], idx) => ({
+            id: `gen_${idx}_${Date.now()}`,
+            character: name,
+            gender: info.gender,
+            sourceTag: info.sourceTag,
+            checked: true
+          }));
+
+          results.sort((a, b) => a.character.localeCompare(b.character));
 
           const durationMs = Math.round(performance.now() - startTime);
           const females = results.filter(r => r.gender === 'female').map(r => r.character);
           const males = results.filter(r => r.gender === 'male').map(r => r.character);
 
-          window.telemetryLog?.('GENDER_AI_DETECT', `AI character gender scan complete via ${selectedModel} in ${durationMs}ms: ${results.length} detected (${females.length} ♀ Female, ${males.length} ♂ Male)`, {
+          window.telemetryLog?.('GENDER_AI_DETECT', `AI character scan complete via ${selectedModel} in ${durationMs}ms: ${results.length} characters detected (${females.length} ♀ Female, ${males.length} ♂ Male)`, {
             model: selectedModel,
+            source: aiGenderSource,
             durationMs,
             totalDetected: results.length,
             femaleCount: females.length,
             maleCount: males.length,
+            glossaryTagCount,
+            aiScannedCount,
             femaleCharacters: females,
             maleCharacters: males
           });
 
           setAiGenderResults(results);
-          toast(`✨ AI identified ${results.length} character genders in ${(durationMs / 1000).toFixed(1)}s!`, 'success');
+          toast(`✨ Found ${results.length} characters (${glossaryTagCount > 0 ? `${glossaryTagCount} from glossary, ` : ''}${aiScannedCount} resolved by ${selectedModel}) in ${(durationMs / 1000).toFixed(1)}s!`, 'success');
         } catch(err) {
           window.telemetryLog?.('GENDER_AI_DETECT', `AI gender scan failed: ${err.message}`, null, 'error');
           toast(`AI scan error: ${err.message}`, 'error');
@@ -14488,7 +14570,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               // Source Selector
               h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: 12, borderRadius: 6, marginBottom: 14 } },
                 h('div', { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 } }, '📚 Character Source:'),
-                h('div', { style: { display: 'flex', gap: 16 } },
+                h('div', { style: { display: 'flex', gap: 14, flexWrap: 'wrap' } },
                   h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' } },
                     h('input', {
                       type: 'radio',
@@ -14498,7 +14580,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       onChange: () => setAiGenderSource('glossary'),
                       style: { accentColor: 'var(--iris)' }
                     }),
-                    `Active Glossary (${(terminology || '').split(/\r?\n/).filter(l => l.trim() && !l.startsWith('#')).length} lines)`
+                    `📖 Glossary (${(terminology || '').split(/\r?\n/).filter(l => l.trim() && !l.startsWith('#')).length} lines)`
                   ),
                   h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' } },
                     h('input', {
@@ -14509,7 +14591,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       onChange: () => setAiGenderSource('novel'),
                       style: { accentColor: 'var(--iris)' }
                     }),
-                    `Novel Text (${chapters?.length || (inputText ? 1 : 0)} chs)`
+                    `📚 Novel Text (${chapters?.length || (inputText ? 1 : 0)} chs)`
+                  ),
+                  h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' } },
+                    h('input', {
+                      type: 'radio',
+                      name: 'aiGenderSource',
+                      value: 'both',
+                      checked: aiGenderSource === 'both',
+                      onChange: () => setAiGenderSource('both'),
+                      style: { accentColor: 'var(--iris)' }
+                    }),
+                    '⚡ Both (Glossary + Novel)'
                   )
                 )
               ),
@@ -14560,7 +14653,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 ),
 
                 // Scrollable results cards
-                h('div', { style: { maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 4 } },
+                h('div', { style: { maxHeight: 240, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 4 } },
                   aiGenderResults
                     .filter(r => aiGenderFilter === 'all' || r.gender === aiGenderFilter)
                     .map(r => h('div', {
@@ -14585,7 +14678,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           },
                           style: { accentColor: 'var(--iris)' }
                         }),
-                        h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.character)
+                        h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.character),
+                        r.sourceTag && h('span', {
+                          style: {
+                            fontSize: 9,
+                            padding: '1px 5px',
+                            borderRadius: 4,
+                            background: r.sourceTag === 'glossary' ? 'rgba(99, 102, 241, 0.15)' : r.sourceTag === 'novel' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                            color: r.sourceTag === 'glossary' ? 'var(--iris)' : r.sourceTag === 'novel' ? 'var(--pine)' : '#eab308',
+                            border: '1px solid currentColor',
+                            opacity: 0.8
+                          }
+                        }, r.sourceTag === 'glossary' ? 'Glossary' : r.sourceTag === 'novel' ? 'Novel' : 'AI')
                       ),
                       h('span', {
                         className: 'badge',

@@ -1,7 +1,7 @@
 {
-  "version": "8.11.7",
-  "versionCode": 8177,
+  "version": "8.11.8",
+  "versionCode": 8178,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.11.7: Multi-Model & Custom Model Quick AI Character Gender Scanner. Run AI character gender analysis using Gemini 3.5 Flash-Lite, flagship Gemini models, DeepSeek, or any custom model ID with full interactive inspection and lock controls."
+  "releaseNotes": "v8.11.8: Hybrid Multi-Source Character Gender Engine. Fixes narrow novel slicing and glossary fallback; features 3 source modes (Active Glossary, Deep Multi-Chapter Novel Scan, Hybrid Both), instant recognition of explicit glossary gender tags, and full character origin pills."
 }
