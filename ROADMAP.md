@@ -45,8 +45,8 @@
 | 11 | **§7.4** | Metadata Enrichment | v8.20.0 | AniList, MAL, NovelUpdates synopsis and tag scraper | 📋 Planned |
 | 12 | **§7.5** | Anti-MTL Quality Gate | v8.11.2 | Merged into Unified Health & QA Suite (coherence scoring, AI refusal detector) | ✅ Shipped |
 | 13 | **§8.1** | AI Chat Companion | v8.22.0 | Spoiler-safe conversational AI loaded only with chapters 1 → current | 📋 Planned |
-| 14 | **§8.2** | Translation Memory Bank | v8.22.0 | Exact and fuzzy caching (>90%) to save 30-50% on token costs | 📋 Planned |
-| 15 | **§8.6** | Translation Snapshots & Diffs | v8.23.0 | `diff-match-patch-es` for inline green/red word diffs and 1-tap rollbacks | 📋 Planned |
+| 14 | **§8.2** | Translation Memory Bank | v8.11.3 | Exact and fuzzy caching (>90%) to save 30-50% on token costs | ✅ Shipped |
+| 15 | **§8.6** | Translation Snapshots & Diffs | v8.11.3 | `diff-match-patch` for inline green/red word diffs and 1-tap rollbacks | ✅ Shipped |
 | 16 | **§8.8** | Auto-Synopsis Generator | v8.24.0 | AI reads first chapters to synthesize book synopsis and genre tags | 📋 Planned |
 | 17 | **§8.9** | Cross-Novel Universal Search | v8.24.0 | `FlexSearch` (15ms full-text index) + `Fuse.js` (fuzzy matching) across library | 📋 Planned |
 | 18 | **§8.10** | Smart Paragraph Merging | v8.24.0 | Collapses 1-line Chinese web novel breaks into flowing literary prose | 📋 Planned |
@@ -345,9 +345,9 @@ Auto-flag low quality (coherence, completeness, CJK leaks). Detect quota degrada
 "Ask" button in reader. Gemini loaded with chapters 1→current only. Chat history per-novel. **Deps**: §1.0, §3.1
 
 ### 🗄️ 8.2 Translation Memory Bank 🔥 [PRIORITY]
-**v8.22.0 · High · 📋 Planned** · Ref: Open TLC, OSS: `comlink` (for fuzzy match in worker)
+**v8.11.3 · High · ✅ Shipped** · Dexie IndexedDB + Dice Bigram Fuzzy Cache (≥90%)
 
-Cache every source→translation pair. Exact match = zero cost. Fuzzy match (>90%) = partial retranslate. Dashboard: "TM saved 12,000 tokens." **Deps**: §1.0
+Cache every source→translation pair. Exact match = zero cost (100% token savings). Fuzzy match (≥90%) = reference context. Settings metrics dashboard + TMX export/import. **Deps**: §1.0
 
 ### 🌙 8.3 Translation Queue & Overnight Scheduler
 **v8.22.0 · Medium · 📋 Planned** · OSS: `sortablejs`, `@capacitor/background-runner`
@@ -365,9 +365,9 @@ Prompt: format dialogue with proper quotes, paragraph breaks per speaker. Post-p
 Detect images with text. Extract via Tesseract.js (free, offline) or Gemini Vision. Translate. Display as caption/overlay.
 
 ### 📸 8.6 Translation Snapshots & Versions 🔥 [PRIORITY]
-**v8.23.0 · Medium · 📋 Planned** · OSS: `diff-match-patch-es`
+**v8.11.3 · Medium · ✅ Shipped** · OSS: Google `diff-match-patch`
 
-Save translation versions. Diff view (paragraph-by-paragraph) using `diff-match-patch-es`. Instant rollback. Cherry-pick best paragraphs. **Deps**: §1.0
+Save chapter translation versions in Dexie DB. Semantic diff view (word-by-word) with AMOLED green additions & red strikethroughs. 1-tap instant rollback. **Deps**: §1.0
 
 ### 📅 8.7 Novel Completion Predictor
 **v8.24.0 · Low · 📋 Planned**
@@ -579,11 +579,11 @@ AI analyzes full novel and generates: pacing graph (action density per chapter),
 | 34 | Quality Gate 🔥 | v8.21.0 | Medium | Unified Health Suite | 📋 Priority |
 | 35 | Mood Matcher | v8.21.0 | Medium | — | 📋 Planned |
 | 36 | AI Chat Companion 🔥 | v8.22.0 | Medium | — | 📋 Priority |
-| 37 | Translation Memory 🔥 | v8.22.0 | High | `comlink` | 📋 Priority |
+| 37 | Translation Memory 🔥 | v8.11.3 | High | Dexie + Dice | ✅ Shipped |
 | 38 | Overnight Queue | v8.22.0 | Medium | `sortablejs` | 📋 Planned |
 | 39 | Dialogue Formatter | v8.23.0 | Medium | — | 📋 Planned |
 | 40 | Image OCR | v8.23.0 | Medium | `tesseract.js` | 📋 Planned |
-| 41 | Translation Snapshots 🔥 | v8.23.0 | Medium | `diff-match-patch-es` | 📋 Priority |
+| 41 | Translation Snapshots 🔥 | v8.11.3 | Medium | Google `diff-match-patch` | ✅ Shipped |
 | 42 | Completion Predictor | v8.24.0 | Low | — | 📋 Planned |
 | 43 | Auto-Synopsis 🔥 | v8.24.0 | Low | — | 📋 Priority |
 | 44 | Cross-Novel Search 🔥 | v8.24.0 | Medium | `flexsearch` `fuse.js` | 📋 Priority |

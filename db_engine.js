@@ -28,6 +28,13 @@
         active_translations: 'id, timestamp',
         trash: 'id, deletedAt, timestamp'
       });
+      novelDB.version(5).stores({
+        novels: 'id, title, status, sourceUrl, addedAt, deletedAt, timestamp',
+        active_translations: 'id, timestamp',
+        trash: 'id, deletedAt, timestamp',
+        translation_memory: 'id, sourceHash, sourceLang, targetLang, novelId, timestamp',
+        translation_snapshots: 'id, novelId, chapterIdx, timestamp, model'
+      });
 
       // Wrap GeminiTranslatorDB:
       // Preserves existing v1 schema: history (id), glossaries (name), kv (key)
@@ -53,7 +60,7 @@
     if (!nativeDbPromise) {
       nativeDbPromise = new Promise((resolve) => {
         if (typeof indexedDB === 'undefined') return resolve(null);
-        const req = indexedDB.open('GeminiTranslatorNovelDB', 4);
+        const req = indexedDB.open('GeminiTranslatorNovelDB', 5);
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
           if (!db.objectStoreNames.contains('novels')) {
@@ -64,6 +71,16 @@
           }
           if (!db.objectStoreNames.contains('trash')) {
             db.createObjectStore('trash', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('translation_memory')) {
+            const tmStore = db.createObjectStore('translation_memory', { keyPath: 'id' });
+            tmStore.createIndex('sourceHash', 'sourceHash', { unique: false });
+            tmStore.createIndex('novelId', 'novelId', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('translation_snapshots')) {
+            const snapStore = db.createObjectStore('translation_snapshots', { keyPath: 'id' });
+            snapStore.createIndex('novelId', 'novelId', { unique: false });
+            snapStore.createIndex('chapterIdx', 'chapterIdx', { unique: false });
           }
         };
         req.onsuccess = () => resolve(req.result);

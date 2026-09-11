@@ -746,6 +746,8 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="telemetry_logger.js"></script>
   <script src="reader_engine.js"></script>
   <script src="qa_engine.js"></script>
+  <script src="vendor/diff_match_patch.js"></script>
+  <script src="tm_diff_engine.js"></script>
   <script src="epub_engine.js"></script>
   <script src="glossary_presets.js"></script>
   <script src="gdrive_sync.js"></script>
@@ -853,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.11.2';
+    const VERSION = '8.11.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2557,11 +2559,47 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       const maxAttempts = 60;
       let backoffDelay = 2000;
 
+      // ── Translation Memory Exact Cache Lookup (§8.2) ──
+      const isTmEnabled = (typeof window !== 'undefined' && typeof window.__translationMemoryEnabled !== 'undefined')
+        ? window.__translationMemoryEnabled
+        : (typeof localStorage !== 'undefined' ? localStorage.getItem('translationMemoryEnabled') !== 'false' : true);
+
+      if (isTmEnabled && window.TMDiffEngine && text && typeof text === 'string' && text.trim().length >= 10) {
+        try {
+          const tmMatch = await window.TMDiffEngine.TM.lookupExact(text, currentOpts.srcLang, currentOpts.tgtLang);
+          if (tmMatch && tmMatch.targetText) {
+            const approxTokens = Math.round(text.length / 4);
+            window.TMDiffEngine.TM.recordTokensSaved(approxTokens);
+            console.log(`⚡ [TM Bank] Exact match hit! Saved ~${approxTokens} tokens.`);
+            if (currentOpts.apiKey && allKeys.length > 1) KeyPool.releaseKey(currentOpts.apiKey);
+            return (typeof opts.needContextUpdate !== 'undefined' || typeof opts.context !== 'undefined')
+              ? { text: tmMatch.targetText, newContext: '', usage: { promptTokens: 0, outputTokens: 0, totalTokens: 0 } }
+              : tmMatch.targetText;
+          }
+        } catch (tmErr) {
+          console.warn('[TM Bank] Lookup error:', tmErr);
+        }
+      }
+
       try {
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           try {
             const res = await translateChunk(text, currentOpts);
-            if (res) return res;
+            if (res) {
+              // ── Store Translated Segment into TM Bank (§8.2) ──
+              if (isTmEnabled && window.TMDiffEngine && text) {
+                const resText = (res && typeof res === 'object') ? (res.text || '') : (typeof res === 'string' ? res : '');
+                if (resText && !resText.startsWith('[Error:')) {
+                  const novelKey = currentOpts?.novelId || (typeof activeNovelRecord !== 'undefined' && activeNovelRecord?.id) || '';
+                  window.TMDiffEngine.TM.storeSegments(text, resText, {
+                    sourceLang: currentOpts.srcLang,
+                    targetLang: currentOpts.tgtLang,
+                    novelId: novelKey
+                  }).catch(e => console.warn('[TM Bank] Segment store warning:', e));
+                }
+              }
+              return res;
+            }
             throw new Error(`Empty response from ${currentOpts.model || 'provider'}`);
           } catch (err) {
             if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
@@ -3528,6 +3566,15 @@ const formatModelName = (id, displayName) => {
       const [qaCheckAntiMtl, setQaCheckAntiMtl] = useState(() => localStorage.getItem('antiMtlGateEnabled') !== 'false');
       const [qaCheckLoops, setQaCheckLoops] = useState(true);
       const [qaCheckDuplicates, setQaCheckDuplicates] = useState(true);
+
+      // --- Translation Memory & Snapshots State (§8.2 + §8.6) ---
+      const [translationMemoryEnabled, setTranslationMemoryEnabled] = useState(() => localStorage.getItem('translationMemoryEnabled') !== 'false');
+      const [snapshotsEnabled, setSnapshotsEnabled] = useState(() => localStorage.getItem('snapshotsEnabled') !== 'false');
+      const [diffModalOpen, setDiffModalOpen] = useState(false);
+      const [activeDiffData, setActiveDiffData] = useState(null);
+      const [diffSnapshotsList, setDiffSnapshotsList] = useState([]);
+      const [selectedDiffSnapId, setSelectedDiffSnapId] = useState('');
+      const [tmStats, setTmStats] = useState({ totalUnits: 0, tokensSaved: 0, exactHits: 0, fuzzyHits: 0 });
 
       const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'text');
       const [isFetchingUrl, setIsFetchingUrl] = useState(false);
@@ -5667,6 +5714,170 @@ const formatModelName = (id, displayName) => {
           handleOpenActiveQaModal();
         };
       }, [translatedChapters, chapters, assembledText, inputText, fileName, currentDocTitle, activeNovelRecord, qaCheckGaps, qaCheckCorrupt, qaCheckCjk, qaCheckAntiMtl, qaCheckLoops, qaCheckDuplicates, cjkLeakCheckEnabled, antiMtlGateEnabled]);
+
+      // --- Translation Memory & Snapshots Handlers (§8.2 + §8.6) ---
+      window.__translationMemoryEnabled = translationMemoryEnabled;
+
+      const refreshTmStats = async () => {
+        if (!window.TMDiffEngine) return;
+        try {
+          const stats = await window.TMDiffEngine.TM.getStats();
+          if (stats) setTmStats(stats);
+        } catch (e) {
+          console.warn('[TM] Stats refresh warning:', e);
+        }
+      };
+
+      const handleClearTm = async () => {
+        if (!window.TMDiffEngine) return;
+        if (!confirm('Are you sure you want to clear all cached Translation Memory segments? This cannot be undone.')) return;
+        await window.TMDiffEngine.TM.clearTM();
+        await refreshTmStats();
+        toast('Translation Memory cache cleared.', 'info');
+      };
+
+      const handleExportTmx = async () => {
+        if (!window.TMDiffEngine) return;
+        try {
+          const tmx = await window.TMDiffEngine.TM.exportTMX();
+          const blob = new Blob([tmx], { type: 'application/xml;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `translation_memory_${new Date().toISOString().slice(0, 10)}.tmx`;
+          a.click();
+          URL.revokeObjectURL(url);
+          toast('Exported Translation Memory (TMX).', 'success');
+        } catch (e) {
+          toast('Failed exporting TMX: ' + e.message, 'error');
+        }
+      };
+
+      const handleOpenDiffModal = async (chapterIdx = 0, novelOverride = null) => {
+        if (!window.TMDiffEngine) {
+          toast('Diff Engine loading...', 'info');
+          return;
+        }
+        const activeNovel = novelOverride || activeNovelRecord;
+        const novelKey = activeNovel?.id || (fileName && fileName.trim()) || 'active_doc';
+        const chs = (translatedChapters && translatedChapters.length > 0)
+          ? translatedChapters
+          : (activeNovel?.translatedChapters && activeNovel.translatedChapters.length > 0
+              ? activeNovel.translatedChapters
+              : (chapters && chapters.length > 0 ? chapters : []));
+
+        const targetCh = chs[chapterIdx] || {
+          title: (fileName && fileName.trim()) || 'Active Document',
+          content: assembledText || inputText || ''
+        };
+        const curText = (targetCh.content || targetCh.text || assembledText || '').trim();
+
+        const snapshots = await window.TMDiffEngine.Snapshots.getChapterSnapshots(novelKey, chapterIdx);
+
+        if (!snapshots || snapshots.length === 0) {
+          if (!curText) {
+            toast('No text or snapshots available for this chapter yet.', 'info');
+            return;
+          }
+          await window.TMDiffEngine.Snapshots.createSnapshot({
+            novelId: novelKey,
+            chapterIdx: chapterIdx,
+            chapterTitle: targetCh.title || `Chapter ${chapterIdx + 1}`,
+            text: curText,
+            model: geminiModel || 'Current'
+          });
+          toast('Initial baseline snapshot recorded for this chapter.', 'info');
+          const refreshedSnaps = await window.TMDiffEngine.Snapshots.getChapterSnapshots(novelKey, chapterIdx);
+          setDiffSnapshotsList(refreshedSnaps);
+          setSelectedDiffSnapId(refreshedSnaps[0]?.id || '');
+          const diffResult = window.TMDiffEngine.Snapshots.computeDiff(curText, curText);
+          setActiveDiffData({
+            title: targetCh.title || `Chapter ${chapterIdx + 1}`,
+            chapterIdx,
+            novelKey,
+            ...diffResult
+          });
+          setDiffModalOpen(true);
+          return;
+        }
+
+        setDiffSnapshotsList(snapshots);
+        const latestSnap = snapshots[snapshots.length - 1];
+        setSelectedDiffSnapId(latestSnap.id);
+        const diffResult = window.TMDiffEngine.Snapshots.computeDiff(latestSnap.text, curText);
+        setActiveDiffData({
+          title: targetCh.title || `Chapter ${chapterIdx + 1}`,
+          chapterIdx,
+          novelKey,
+          ...diffResult
+        });
+        setDiffModalOpen(true);
+      };
+
+      const handleSelectDiffSnapshot = (snapId) => {
+        setSelectedDiffSnapId(snapId);
+        if (!activeDiffData || !window.TMDiffEngine) return;
+        const snap = diffSnapshotsList.find(s => s.id === snapId);
+        if (!snap) return;
+
+        const chs = (translatedChapters && translatedChapters.length > 0)
+          ? translatedChapters
+          : (activeNovelRecord?.translatedChapters && activeNovelRecord.translatedChapters.length > 0
+              ? activeNovelRecord.translatedChapters
+              : (chapters && chapters.length > 0 ? chapters : []));
+        const targetCh = chs[activeDiffData.chapterIdx] || { content: assembledText || inputText || '' };
+        const curText = (targetCh.content || targetCh.text || assembledText || '').trim();
+
+        const diffResult = window.TMDiffEngine.Snapshots.computeDiff(snap.text, curText);
+        setActiveDiffData(prev => ({
+          ...prev,
+          ...diffResult
+        }));
+      };
+
+      const handleRollbackDiffSnapshot = async (snapId) => {
+        if (!window.TMDiffEngine) return;
+        const snap = await window.TMDiffEngine.Snapshots.rollbackSnapshot(snapId);
+        if (!snap || !snap.text) {
+          toast('Failed to load snapshot for rollback.', 'error');
+          return;
+        }
+
+        if (!confirm(`Roll back "${snap.chapterTitle || 'Chapter'}" to revision from ${new Date(snap.timestamp).toLocaleString()}?`)) return;
+
+        const chIdx = snap.chapterIdx || 0;
+        if (translatedChapters && translatedChapters.length > chIdx) {
+          const updated = [...translatedChapters];
+          updated[chIdx] = { ...updated[chIdx], content: snap.text };
+          setTranslatedChapters(updated);
+          const currentDisplay = updated.map(c => `${c?.title || ''}\n\n${c?.content || ''}`).join('\n\n\n').trim();
+          setAssembledText(currentDisplay);
+        } else {
+          setAssembledText(snap.text);
+        }
+
+        if (activeNovelRecord) {
+          try {
+            const full = await loadFullNovel(activeNovelRecord);
+            if (full && full.translatedChapters && full.translatedChapters.length > chIdx) {
+              full.translatedChapters[chIdx].content = snap.text;
+              await saveNovelRecord(full);
+            }
+          } catch (e) {
+            console.warn('[Rollback] DB save warning:', e);
+          }
+        }
+
+        toast(`↺ Reverted "${snap.chapterTitle || 'Chapter'}" to revision.`, 'success');
+        setDiffModalOpen(false);
+      };
+
+      useEffect(() => {
+        window.openDiffInspector = (chapterIdx = 0, novelObj = null) => {
+          handleOpenDiffModal(chapterIdx, novelObj);
+        };
+        refreshTmStats();
+      }, [translatedChapters, chapters, assembledText, inputText, fileName, activeNovelRecord, geminiModel]);
 
       // Update Handlers
       
@@ -8277,6 +8488,21 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 toast(`⚠️ QA Proofreader: Hallucinated repetition loop detected`, 'warning');
               }
             }
+
+            // Translation Revision Snapshot (§8.6)
+            if (snapshotsEnabled && window.TMDiffEngine && result) {
+              const novelKey = (activeNovelRecord && activeNovelRecord.id) || (fileName && fileName.trim()) || 'active_doc';
+              const activeM = provider === 'deepseek'
+                ? (useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel)
+                : (useCustomModel && customModel ? customModel : geminiModel);
+              window.TMDiffEngine.Snapshots.createSnapshot({
+                novelId: novelKey,
+                chapterIdx: 0,
+                chapterTitle: (fileName && fileName.trim()) || 'Translated Document',
+                text: result,
+                model: activeM || 'Gemini'
+              }).catch(e => console.warn('[Snapshots] Single text snapshot error:', e));
+            }
           }
 
           const elapsedMs = performance.now() - startTime;
@@ -8631,6 +8857,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               
               docHtml = ch.doc.documentElement.outerHTML;
               if (originalZip && ch.zipPath) originalZip.file(ch.zipPath, docHtml);
+            }
+
+            // Translation Revision Snapshot (§8.6)
+            if (snapshotsEnabled && window.TMDiffEngine && content) {
+              const novelKey = (activeNovelRecord && activeNovelRecord.id) || (fileName && fileName.trim()) || 'active_doc';
+              window.TMDiffEngine.Snapshots.createSnapshot({
+                novelId: novelKey,
+                chapterIdx: i,
+                chapterTitle: title || chapters[i]?.title || `Chapter ${i + 1}`,
+                text: content,
+                model: workerOpts?.model || model || 'Gemini'
+              }).catch(e => console.warn('[Snapshots] Auto-save error:', e));
             }
 
             newChapters[i] = { originalTitle: chapters[i].title, title, content, zipPath: ch.zipPath, docHtml };
@@ -9849,6 +10087,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, 'Copy'),
                     h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: () => { setReaderOpen(true); setReaderChapterIdx(0); } }, 'Reader'),
                     h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim() && chapters.length === 0, onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, '🩺 QA'),
+                    h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim() && (!translatedChapters || translatedChapters.length === 0), onClick: () => handleOpenDiffModal(0), title: 'Translation Revision Diffs & Rollbacks (§8.6)' }, '📜 Diffs'),
                     h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600 } }, '⭐ Save to Space'),
                     assembledText.trim() && h('span', { className: 'count' }, `${outputWordCount.toLocaleString()} words`)
                   )
@@ -11767,6 +12006,25 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             handleOpenNovelHealthModal(item);
                           }
                         }, '🩺 Audit'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: {
+                            borderColor: 'rgba(56, 189, 248, 0.4)',
+                            color: '#38bdf8',
+                            fontWeight: 600
+                          },
+                          title: 'View Translation Diffs & Revision History (§8.6)',
+                          onClick: async (e) => {
+                            e?.stopPropagation?.();
+                            const full = await loadFullNovel(item);
+                            if (full) {
+                              handleOpenDiffModal(0, full);
+                            } else {
+                              toast('Novel data not found.', 'error');
+                            }
+                          }
+                        }, '📜 Diffs'),
                         (() => {
                           const fOpts = getNovelFolderOptions(item);
                           const dispPath = item.folderPath || fOpts.folderPath || '';
@@ -12130,6 +12388,70 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 switchRow('Translation QA Proofreader', qaProofreaderEnabled, (v) => { setQaProofreaderEnabled(v); localStorage.setItem('qaProofreaderEnabled', String(v)); }),
                 switchRow('CJK Untranslated Leak Detector', cjkLeakCheckEnabled, (v) => { setCjkLeakCheckEnabled(v); localStorage.setItem('cjkLeakCheckEnabled', String(v)); }),
                 switchRow('Anti-MTL AI Refusal & Loop Gate', antiMtlGateEnabled, (v) => { setAntiMtlGateEnabled(v); localStorage.setItem('antiMtlGateEnabled', String(v)); })
+              ),
+
+              // ── TRANSLATION MEMORY & REVISION DIFFS (§8.2 + §8.6) ──
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'TRANSLATION MEMORY & REVISION DIFFS')
+                ),
+                h('span', { style: { fontSize: 10, color: (translationMemoryEnabled || snapshotsEnabled) ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, (translationMemoryEnabled || snapshotsEnabled) ? 'ACTIVE' : 'DISABLED')
+              ),
+              h('div', { className: 'card' },
+                h('div', { className: 'card-title' }, h('span', null, 'Translation Memory & Snapshots (§8.2 + §8.6)')),
+                switchRow('Translation Memory Bank (Exact & Fuzzy Cache)', translationMemoryEnabled, (v) => {
+                  setTranslationMemoryEnabled(v);
+                  window.__translationMemoryEnabled = v;
+                  localStorage.setItem('translationMemoryEnabled', String(v));
+                }),
+                switchRow('Automatic Chapter Snapshots & Diffs', snapshotsEnabled, (v) => {
+                  setSnapshotsEnabled(v);
+                  localStorage.setItem('snapshotsEnabled', String(v));
+                }),
+                h('div', { style: { padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border)', marginTop: '8px' } },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' } },
+                    h('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' } }, 'TM CACHE METRICS'),
+                    h('button', {
+                      type: 'button',
+                      className: 'btn-ghost',
+                      style: { fontSize: 10, padding: '2px 8px' },
+                      onClick: refreshTmStats
+                    }, '↻ Refresh')
+                  ),
+                  h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: 11, marginBottom: '10px' } },
+                    h('div', { style: { background: 'var(--card-bg)', padding: '6px 8px', borderRadius: '4px' } },
+                      h('div', { style: { color: 'var(--slate)', fontSize: 10 } }, 'Indexed Segments'),
+                      h('div', { style: { fontWeight: 700, color: '#6ee7b7' } }, tmStats.totalUnits || 0)
+                    ),
+                    h('div', { style: { background: 'var(--card-bg)', padding: '6px 8px', borderRadius: '4px' } },
+                      h('div', { style: { color: 'var(--slate)', fontSize: 10 } }, 'Tokens Saved'),
+                      h('div', { style: { fontWeight: 700, color: '#38bdf8' } }, `~${(tmStats.tokensSaved || 0).toLocaleString()}`)
+                    ),
+                    h('div', { style: { background: 'var(--card-bg)', padding: '6px 8px', borderRadius: '4px' } },
+                      h('div', { style: { color: 'var(--slate)', fontSize: 10 } }, 'Exact Cache Hits'),
+                      h('div', { style: { fontWeight: 700, color: '#a78bfa' } }, tmStats.exactHits || 0)
+                    ),
+                    h('div', { style: { background: 'var(--card-bg)', padding: '6px 8px', borderRadius: '4px' } },
+                      h('div', { style: { color: 'var(--slate)', fontSize: 10 } }, 'Fuzzy References'),
+                      h('div', { style: { fontWeight: 700, color: '#fbbf24' } }, tmStats.fuzzyHits || 0)
+                    )
+                  ),
+                  h('div', { style: { display: 'flex', gap: '8px' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'btn-secondary',
+                      style: { flex: 1, fontSize: 11, padding: '6px' },
+                      onClick: handleExportTmx
+                    }, '📥 Export TMX'),
+                    h('button', {
+                      type: 'button',
+                      className: 'btn-secondary',
+                      style: { flex: 1, fontSize: 11, padding: '6px', color: '#f87171' },
+                      onClick: handleClearTm
+                    }, '🗑 Clear TM')
+                  )
+                )
               ),
 
               h('div', { className: 'sec-banner' },
@@ -13434,6 +13756,91 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 style: { padding: '6px 18px', fontSize: 12 },
                 onClick: () => setQaModalOpen(false)
               }, 'Done')
+            )
+          )
+        ),
+
+        // ── TRANSLATION DIFF & REVISION HISTORY MODAL (§8.6) ──
+        diffModalOpen && h('div', { className: 'modal-overlay', onClick: () => setDiffModalOpen(false) },
+          h('div', { className: 'modal-box', style: { maxWidth: 760, maxHeight: '90vh', width: '92vw' }, onClick: e => e.stopPropagation() },
+            h('div', { className: 'modal-hd' },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 20 } }, '📜'),
+                h('div', null,
+                  h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Translation Diff & Revision History (§8.6)'),
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, activeDiffData?.title || 'Chapter Revisions')
+                )
+              ),
+              h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setDiffModalOpen(false) }, '✕')
+            ),
+            h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
+              // Revision Selector & Metrics Banner
+              h('div', { style: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)' } },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                  h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' } }, 'Compare with Snapshot:'),
+                  h('select', {
+                    className: 'field-select',
+                    style: { fontSize: 12, padding: '4px 8px', minWidth: 160 },
+                    value: selectedDiffSnapId,
+                    onChange: (e) => handleSelectDiffSnapshot(e.target.value)
+                  },
+                    diffSnapshotsList.map((s, idx) => h('option', { key: s.id, value: s.id },
+                      `v${diffSnapshotsList.length - idx}: ${s.model || 'Model'} (${new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) · ${s.wordCount || 0}w`
+                    ))
+                  )
+                ),
+                h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', fontSize: 11, fontWeight: 600 } },
+                  h('span', { style: { background: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7', padding: '3px 8px', borderRadius: 4 } }, `+${activeDiffData?.addedWords || 0} words`),
+                  h('span', { style: { background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5', padding: '3px 8px', borderRadius: 4 } }, `-${activeDiffData?.removedWords || 0} words`),
+                  h('span', { style: { background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '3px 8px', borderRadius: 4 } }, `${activeDiffData?.similarityPct ?? 100}% similarity`)
+                )
+              ),
+
+              // Diff Legend
+              h('div', { style: { display: 'flex', gap: 14, fontSize: 11, color: 'var(--slate)', alignItems: 'center' } },
+                h('span', null, 'Legend:'),
+                h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } },
+                  h('span', { style: { display: 'inline-block', width: 10, height: 10, background: 'rgba(239, 68, 68, 0.5)', borderRadius: 2 } }),
+                  'Previous Text (Removed)'
+                ),
+                h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } },
+                  h('span', { style: { display: 'inline-block', width: 10, height: 10, background: 'rgba(16, 185, 129, 0.5)', borderRadius: 2 } }),
+                  'Current Text (Added)'
+                )
+              ),
+
+              // Visual Diff Box
+              h('div', {
+                className: 'custom-scrollbar',
+                style: {
+                  background: '#090a0f',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  padding: '16px',
+                  maxHeight: '52vh',
+                  overflowY: 'auto',
+                  lineHeight: '1.7',
+                  fontSize: 13.5,
+                  fontFamily: 'system-ui, -apple-system, sans-serif'
+                },
+                dangerouslySetInnerHTML: {
+                  __html: activeDiffData?.html || '<div style="color: var(--slate); text-align: center; padding: 20px;">Select a revision above or take a translation snapshot to view diffs.</div>'
+                }
+              })
+            ),
+            h('div', { style: { padding: '12px 18px', borderTop: '1px solid var(--hairline)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              selectedDiffSnapId ? h('button', {
+                type: 'button',
+                className: 'btn-secondary',
+                style: { color: '#fbbf24', borderColor: 'rgba(251, 191, 36, 0.4)', padding: '6px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 },
+                onClick: () => handleRollbackDiffSnapshot(selectedDiffSnapId)
+              }, '↺ Rollback Chapter to this Snapshot') : h('div', null),
+              h('button', {
+                type: 'button',
+                className: 'btn-primary',
+                style: { padding: '6px 18px', fontSize: 12 },
+                onClick: () => setDiffModalOpen(false)
+              }, 'Close')
             )
           )
         ),
