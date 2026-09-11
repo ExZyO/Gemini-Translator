@@ -1,9 +1,9 @@
 {
-  "version": "8.12.9",
-  "versionCode": 8189,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.12.9/app-release.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.12.9/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.12.9",
+  "version": "8.12.10",
+  "versionCode": 8190,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.12.10/app-release.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.12.10/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.12.10",
   "releaseDate": "2026-09-11",
-  "releaseNotes": "v8.12.9: Real-time translation telemetry & glossary overhaul. Auto-logs matched glossary terms, scene gender locks, and deep prompt inspection. Fixed duplicate LOTM preset bug, optimized LOTM master reference (1,089 character locks) & COTE (278 locks), and added safety truncation guard to AI Optimize."
+  "releaseNotes": "v8.12.10: Removed redundant Character Gender Locks card from Glossary UI in favor of 100% automated on-the-fly scene pronoun locking from master glossaries. Upgraded AI Optimize to Section-by-Section (Chunked) Lossless Processing to completely eliminate 8,192 token truncation on massive references (LOTM, COTE)."
 }

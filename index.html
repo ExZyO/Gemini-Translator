@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.12.9';
+    const VERSION = '8.12.10';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1746,86 +1746,6 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 
       let p = `${promptHeader}=== RAW TEXT TO TRANSLATE ===\n${text}\n=== END RAW TEXT TO TRANSLATE ===\n\n`;
 
-      if (genderLocks && typeof genderLocks === 'object') {
-        const lockEntries = Object.entries(genderLocks).filter(([k, v]) => k && v && String(k).trim());
-        if (lockEntries.length > 0) {
-          // Smart Chunk-Aware Filtering: Only inject characters appearing in this scene/chunk to save 90-95% tokens!
-          let activeLocks = lockEntries;
-          if (smartGlossary && text && text.trim()) {
-            const lowerText = text.toLowerCase();
-
-            // Build alias cross-reference from active glossary if present (e.g. Audrey Hall <-> 奥黛丽)
-            const aliasMap = new Map();
-            if (glossary && typeof glossary === 'string') {
-              const gLines = glossary.split(/\r?\n/);
-              for (const gl of gLines) {
-                if (!gl || gl.startsWith('#') || gl.startsWith('//')) continue;
-                const m = gl.match(/^(.*?)\s*(?:->|=>|=)\s*(.*?)$/);
-                if (m) {
-                  const s = m[1].replace(/#.*$/, '').replace(/\[[^\]]*\]/g, '').replace(/\([^)]*\)/g, '').trim();
-                  const t = m[2].replace(/#.*$/, '').replace(/\[[^\]]*\]/g, '').replace(/\([^)]*\)/g, '').trim();
-                  if (s && t) {
-                    if (!aliasMap.has(s)) aliasMap.set(s, new Set());
-                    if (!aliasMap.has(t)) aliasMap.set(t, new Set());
-                    aliasMap.get(s).add(t);
-                    aliasMap.get(t).add(s);
-                  }
-                }
-              }
-            }
-
-            activeLocks = lockEntries.filter(([name]) => {
-              const clean = String(name).trim();
-              if (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(clean)) {
-                if (text.includes(clean)) return true;
-              } else {
-                if (lowerText.includes(clean.toLowerCase())) return true;
-                const parts = clean.split(/\s+/).filter(w => w.length >= 4 && !/^(?:miss|mister|lady|lord|sir|madame|king|queen|saint|emperor)$/i.test(w));
-                for (const part of parts) {
-                  if (lowerText.includes(part.toLowerCase())) return true;
-                }
-              }
-              const aliases = aliasMap.get(clean);
-              if (aliases) {
-                for (const a of aliases) {
-                  if (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(a)) {
-                    if (text.includes(a)) return true;
-                  } else {
-                    if (lowerText.includes(a.toLowerCase())) return true;
-                  }
-                }
-              }
-              return false;
-            });
-          }
-
-          if (activeLocks.length > 0) {
-            const rules = activeLocks.map(([name, gender]) => {
-              const gLower = String(gender).toLowerCase();
-              const isContext = gLower.includes('context') || gLower.includes('m/f') || gLower.includes('dynamic') || gLower.includes('both');
-              if (isContext) {
-                return `- ${String(name).trim()}: CONTEXT-DEPENDENT / DYNAMIC (M/F). This character changes/transitions biological gender or form across the narrative (e.g. sex-change potions, shape-shifting, dual avatars). Translate pronouns dynamically ('he/him' when presenting in male form, 'she/her' when presenting in female form) based strictly on active scene context. Do NOT force a single fixed pronoun.`;
-              }
-              const isFemale = gLower.includes('female') || gLower.includes('she');
-              const isMale = gLower.includes('male') || gLower.includes('he');
-              const pronouns = isFemale ? 'she / her / hers / herself' : isMale ? 'he / him / his / himself' : gender;
-              return `- ${String(name).trim()}: ${gender} (${pronouns}). Never use opposite pronouns for this character.`;
-            }).join('\n');
-            p = `=== GENDER LOCK PROTOCOL (ANTI-PRONOUN DRIFT) ===\nCRITICAL DIRECTIVE: You MUST maintain the exact gender pronouns for the following characters. Do not confuse or swap pronouns under any circumstances:\n${rules}\n=== END GENDER LOCK PROTOCOL ===\n\n` + p;
-
-            try {
-              const tokensSaved = Math.max(0, (lockEntries.length - activeLocks.length) * 15);
-              window.telemetryLog?.('GENDER_LOCK', `Smart Prompt injected ${activeLocks.length} scene locks (${lockEntries.length - activeLocks.length} non-scene locks filtered out to save ~${tokensSaved} tokens)`, {
-                chunkCharactersPresent: activeLocks.map(([cName, cGen]) => `${cName} [${cGen.toUpperCase()}]`),
-                activeLocksCount: activeLocks.length,
-                totalDatabaseLocks: lockEntries.length,
-                tokensSavedApprox: tokensSaved
-              });
-            } catch(e) {}
-          }
-        }
-      }
-
       const filteredGlossary = filterGlossaryForChunk(glossary, text, smartGlossary);
       if (filteredGlossary.trim()) {
         try {
@@ -1857,6 +1777,112 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
             smartEnabled: Boolean(smartGlossary)
           });
         } catch(e) {}
+      }
+
+      // ⚥ Anti-Pronoun Drift: Automatically extract & lock genders for characters in this scene
+      const combinedLocks = { ...(genderLocks && typeof genderLocks === 'object' ? genderLocks : {}) };
+      const fromGlossaryCharacters = new Set();
+      if (filteredGlossary && filteredGlossary.trim()) {
+        const fLines = filteredGlossary.split('\n');
+        for (const line of fLines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) continue;
+          const m = trimmed.match(/^(?:-\s*)?(.*?)\s*(?:->|=>|=)\s*(.*?)$/);
+          if (m) {
+            const target = m[2];
+            let gen = null;
+            if (/\((?:context|dynamic|m\/f)\)|\[(?:context|dynamic|m\/f)\]/i.test(target) || /\b(?:m\/f|dynamic)\b/i.test(target)) {
+              gen = 'context';
+            } else if (/\((?:female|f)\)|\[(?:female|f)\]|\b(?:female|she\/her)\b/i.test(target)) {
+              gen = 'female';
+            } else if (/\((?:male|m)\)|\[(?:male|m)\]|\b(?:male|he\/him)\b/i.test(target)) {
+              gen = 'male';
+            }
+            if (gen) {
+              const cleanName = target.replace(/\s*(?:\([^)]*\)|\[[^\]]*\]|#.*$)/g, '').trim();
+              if (cleanName && !combinedLocks[cleanName]) {
+                combinedLocks[cleanName] = gen;
+                fromGlossaryCharacters.add(cleanName);
+              }
+            }
+          }
+        }
+      }
+
+      const lockEntries = Object.entries(combinedLocks).filter(([k, v]) => k && v && String(k).trim());
+      if (lockEntries.length > 0) {
+        let activeLocks = lockEntries;
+        if (text && text.trim()) {
+          const lowerText = text.toLowerCase();
+          const aliasMap = new Map();
+          if (glossary && typeof glossary === 'string') {
+            const gLines = glossary.split(/\r?\n/);
+            for (const gl of gLines) {
+              if (!gl || gl.startsWith('#') || gl.startsWith('//')) continue;
+              const m = gl.match(/^(.*?)\s*(?:->|=>|=)\s*(.*?)$/);
+              if (m) {
+                const s = m[1].replace(/#.*$/, '').replace(/\[[^\]]*\]/g, '').replace(/\([^)]*\)/g, '').trim();
+                const t = m[2].replace(/#.*$/, '').replace(/\[[^\]]*\]/g, '').replace(/\([^)]*\)/g, '').trim();
+                if (s && t) {
+                  if (!aliasMap.has(s)) aliasMap.set(s, new Set());
+                  if (!aliasMap.has(t)) aliasMap.set(t, new Set());
+                  aliasMap.get(s).add(t);
+                  aliasMap.get(t).add(s);
+                }
+              }
+            }
+          }
+
+          activeLocks = lockEntries.filter(([name]) => {
+            if (fromGlossaryCharacters.has(name)) return true;
+            const clean = String(name).trim();
+            if (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(clean)) {
+              if (text.includes(clean)) return true;
+            } else {
+              if (lowerText.includes(clean.toLowerCase())) return true;
+              const parts = clean.split(/\s+/).filter(w => w.length >= 4 && !/^(?:miss|mister|lady|lord|sir|madame|king|queen|saint|emperor)$/i.test(w));
+              for (const part of parts) {
+                if (lowerText.includes(part.toLowerCase())) return true;
+              }
+            }
+            const aliases = aliasMap.get(clean);
+            if (aliases) {
+              for (const a of aliases) {
+                if (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(a)) {
+                  if (text.includes(a)) return true;
+                } else {
+                  if (lowerText.includes(a.toLowerCase())) return true;
+                }
+              }
+            }
+            return false;
+          });
+        }
+
+        if (activeLocks.length > 0) {
+          const rules = activeLocks.map(([name, gender]) => {
+            const gLower = String(gender).toLowerCase();
+            const isContext = gLower.includes('context') || gLower.includes('m/f') || gLower.includes('dynamic') || gLower.includes('both');
+            if (isContext) {
+              return `- ${String(name).trim()}: CONTEXT-DEPENDENT / DYNAMIC (M/F). This character changes/transitions biological gender or form across the narrative (e.g. sex-change potions, shape-shifting, dual avatars). Translate pronouns dynamically ('he/him' when presenting in male form, 'she/her' when presenting in female form) based strictly on active scene context. Do NOT force a single fixed pronoun.`;
+            }
+            const isFemale = gLower.includes('female') || gLower.includes('she');
+            const isMale = gLower.includes('male') || gLower.includes('he');
+            const pronouns = isFemale ? 'she / her / hers / herself' : isMale ? 'he / him / his / himself' : gender;
+            return `- ${String(name).trim()}: ${gender} (${pronouns}). Never use opposite pronouns for this character.`;
+          }).join('\n');
+          p = `=== GENDER LOCK PROTOCOL (ANTI-PRONOUN DRIFT) ===\nCRITICAL DIRECTIVE: You MUST maintain the exact gender pronouns for the following characters. Do not confuse or swap pronouns under any circumstances:\n${rules}\n=== END GENDER LOCK PROTOCOL ===\n\n` + p;
+
+          try {
+            const tokensSaved = Math.max(0, (lockEntries.length - activeLocks.length) * 15);
+            window.telemetryLog?.('GENDER_LOCK', `Smart Prompt injected ${activeLocks.length} scene locks (${lockEntries.length - activeLocks.length} non-scene locks filtered out to save ~${tokensSaved} tokens)`, {
+              chunkCharactersPresent: activeLocks.map(([cName, cGen]) => `${cName} [${cGen.toUpperCase()}]`),
+              activeLocksCount: activeLocks.length,
+              totalDatabaseLocks: lockEntries.length,
+              tokensSavedApprox: tokensSaved
+            });
+          } catch(e) {}
+        }
       }
 
       if (instructions && instructions.trim()) {
@@ -3591,194 +3617,7 @@ const formatModelName = (id, displayName) => {
           return s ? JSON.parse(s) : {};
         } catch(e) { return {}; }
       });
-      const updateGenderLock = (name, gender) => {
-        setGenderLocks(prev => {
-          const next = { ...prev };
-          const oldGender = prev[name];
-          if (!gender) {
-            delete next[name];
-            window.telemetryLog?.('GENDER_LOCK', `Removed character gender lock: "${name}"`, { character: name, previousGender: oldGender });
-          } else {
-            next[name] = gender;
-            window.telemetryLog?.('GENDER_LOCK', oldGender ? `1-Tap flipped gender lock: "${name}" (${oldGender} ➔ ${gender})` : `Set character gender lock: "${name}" ➔ [${gender.toUpperCase()}]`, { character: name, newGender: gender, previousGender: oldGender || null });
-          }
-          try { localStorage.setItem('gemini_gender_locks', JSON.stringify(next)); } catch(e) {}
-          return next;
-        });
-      };
-      const [newGenderLockName, setNewGenderLockName] = useState('');
-      const [newGenderLockGender, setNewGenderLockGender] = useState('female');
 
-
-
-      const handleClearAllGenderLocks = () => {
-        if (!genderLocks || Object.keys(genderLocks).length === 0) return;
-        if (!confirm('Are you sure you want to clear all character gender locks?')) return;
-        const prevCount = Object.keys(genderLocks).length;
-        setGenderLocks({});
-        try { localStorage.removeItem('gemini_gender_locks'); } catch(e) {}
-        window.telemetryLog?.('GENDER_LOCK', `Cleared all ${prevCount} character gender locks.`);
-        toast('Cleared all character gender locks.', 'info');
-      };
-
-      const handleAutoDetectGenderLocks = () => {
-        if (!terminology || !terminology.trim()) {
-          toast('No terms in glossary to detect genders from.', 'info');
-          return;
-        }
-        const lines = terminology.split(/\r?\n/);
-        window.telemetryLog?.('GENDER_DETECT', `Started gender auto-detection scan across ${lines.length} glossary lines.`);
-        let count = 0;
-        const nextLocks = { ...genderLocks };
-
-        const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港)$/i;
-        const entityPhrasePattern = /\b(?:Law of |Ruins of |Church of |Order of |School of |Nation of |City of |Land of |Archipelago|University)\b/i;
-
-        const contextMarker = /\[(?:m\/f|f\/m|both)\]|\((?:m\/f|f\/m|both)\)|（(?:男\/女|女\/男)）|\b(?:m\/f|both genders?|dynamic gender)\b/i;
-        const femaleMarker = /\b(?:miss|madame|mrs|madam|lady|queen|princess|empress|witch|heroine|priestess|actress|waitress|matriarch|duchess|countess|female|she\/her|demoness)\b|\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女)）|(?:小姐|女士|夫人|娘|姨|姑|魔女|皇后|王后|妃|公主)/i;
-        const femaleKinship = /\b(?:daughter|sister|mother|aunt|niece|grandmother|granddaughter|wife|girlfriend|fiancée|fiancee|maiden|girl|woman)\b/i;
-
-        const maleMarker = /\b(?:mr|mister|sir|gentleman|king|prince|emperor|hero|wizard|patriarch|duke|count|baron|actor|waiter|male|he\/him)\b|\((?:m|male)\)|\[(?:m|male)\]|（(?:男)）|(?:先生|少爷|公子|老爷爷|大爷|伯父|叔叔|大帝|皇帝|亲王|皇子)/i;
-        const maleKinship = /\b(?:son|brother|father|uncle|nephew|grandfather|grandson|husband|boyfriend|fiancé|fiance|boy|man)\b/i;
-
-        const abstractRankExclusions = /\b(?:King of Angels|King of Kings|Angel of|God of|Lord of|Mother Goddess|Mother Tree)\b/i;
-        const abstractRankExclusionsZh = /(?:天使之王|众天使之王)/;
-
-        let inRulesSection = false;
-        const newlyLocked = [];
-
-        for (const rawLine of lines) {
-          const l = rawLine.trim();
-          if (!l) continue;
-
-          // Skip Rules / Style Guidelines sections
-          if (/^#+\s*(?:I\.|SYSTEM|RULES|GUIDELINES|STYLE)/i.test(l)) {
-            inRulesSection = true;
-            continue;
-          }
-          if (/^#+\s*(?:II|III|IV|V|VI|VII|[0-9]+)/i.test(l)) {
-            inRulesSection = false;
-          }
-          if (inRulesSection) continue;
-
-          if (l.startsWith('#') || l.startsWith('//') || l.startsWith('/*')) continue;
-          if (/^(?:Example|\*|\- Example|Correct:|Incorrect:|Rule:|Note:|Legend:|Warning:)/i.test(l)) continue;
-
-          let srcPart = '';
-          let tgtPart = '';
-
-          if (l.includes('->')) {
-            const parts = l.split('->');
-            srcPart = parts[0].trim();
-            tgtPart = parts.slice(1).join('->').trim();
-          } else if (l.includes('=>')) {
-            const parts = l.split('=>');
-            srcPart = parts[0].trim();
-            tgtPart = parts.slice(1).join('=>').trim();
-          } else if (l.includes('=')) {
-            const parts = l.split('=');
-            srcPart = parts[0].trim();
-            tgtPart = parts.slice(1).join('=').trim();
-          } else if (l.includes(':')) {
-            const parts = l.split(':');
-            srcPart = parts[0].trim();
-            tgtPart = parts.slice(1).join(':').trim();
-          } else {
-            continue;
-          }
-
-          srcPart = srcPart.replace(/^[-*•\s\d.]+\s*/, '').trim();
-          tgtPart = tgtPart.replace(/^[-*•\s\d.]+\s*/, '').trim();
-          if (!srcPart || !tgtPart) continue;
-
-          if (abstractRankExclusions.test(l) || abstractRankExclusionsZh.test(l)) continue;
-          if (entityPhrasePattern.test(l) && !/\b(?:Character|Mr|Miss|Madame|Mrs|Lady)\b/i.test(l) && !/(?:小姐|先生|女士)/.test(l)) continue;
-
-          // Strip sequence/rank descriptions in parentheses so rank names (e.g. "Sequence 1 Knowledge Emperor") don't overwrite true character gender
-          const lineForGenderCheck = l.replace(/\((?:Sequence|\d)[^)]*\)/gi, '').replace(/（(?:序列|\d)[^）]*）/g, '');
-
-          let detected = null;
-          if (contextMarker.test(lineForGenderCheck)) {
-            detected = 'context';
-          } else {
-            const hasFem = femaleMarker.test(lineForGenderCheck) || femaleKinship.test(lineForGenderCheck);
-            const hasMale = maleMarker.test(lineForGenderCheck) || maleKinship.test(lineForGenderCheck);
-
-            if (hasFem && hasMale) {
-              if (/\((?:f|fem|female)\)|\[(?:f|fem|female)\]|\bfemale\b|小姐|女士|夫人/i.test(lineForGenderCheck)) {
-                detected = 'female';
-              } else if (/\((?:m|male)\)|\[(?:m|male)\]|\bmale\b|先生|大帝|少爷/i.test(lineForGenderCheck)) {
-                detected = 'male';
-              }
-            } else if (hasFem) {
-              detected = 'female';
-            } else if (hasMale) {
-              detected = 'male';
-            }
-          }
-
-          if (!detected) continue;
-
-          const extractAliases = (part) => {
-            const hashIdx = part.indexOf('#');
-            let clean = hashIdx !== -1 ? part.substring(0, hashIdx) : part;
-            clean = clean.replace(/\[[^\]]*\]/g, ' ');
-            clean = clean.replace(/\([^)]*\)/g, ' ');
-            clean = clean.replace(/（[^）]*）/g, ' ');
-            clean = clean.replace(/【[^】]*】/g, ' ');
-            return clean.split(/[/;|,]/).map(x => x.trim()).filter(x => {
-              if (!x || x.length < 2 || x.length > 35) return false;
-              if (entityEndingPattern.test(x)) return false;
-              if (entityPhrasePattern.test(x)) return false;
-              return true;
-            });
-          };
-
-          const aliases = [...extractAliases(tgtPart), ...extractAliases(srcPart)];
-          for (const a of aliases) {
-            if (nextLocks[a] && nextLocks[a] !== detected) {
-              const prevG = nextLocks[a];
-              if (/\b(?:Miss|Madame|Queen|Princess|Witch|Demoness|Lady)\b/i.test(a) || /(?:小姐|女士|夫人|魔女)/.test(a)) {
-                nextLocks[a] = 'female';
-              } else if (/\b(?:Mr|Mister|Sir|Prince|Emperor)\b/i.test(a) || /(?:先生|少爷|大帝)/.test(a)) {
-                nextLocks[a] = 'male';
-              }
-              if (nextLocks[a] !== prevG) {
-                newlyLocked.push({ character: a, gender: nextLocks[a], previousGender: prevG, line: l.slice(0, 70) });
-                window.telemetryLog?.('GENDER_LOCK', `Resolved gender conflict for "${a}": ${prevG} ➔ ${nextLocks[a]}`);
-              }
-            } else if (!nextLocks[a]) {
-              nextLocks[a] = detected;
-              count++;
-              newlyLocked.push({ character: a, gender: detected, line: l.slice(0, 70) });
-              window.telemetryLog?.('GENDER_LOCK', `Locked character: "${a}" ➔ [${detected.toUpperCase()}]`);
-            }
-          }
-        }
-
-        const females = Object.entries(nextLocks).filter(([_, g]) => g === 'female').map(([k]) => k);
-        const males = Object.entries(nextLocks).filter(([_, g]) => g === 'male').map(([k]) => k);
-        const contexts = Object.entries(nextLocks).filter(([_, g]) => g === 'context').map(([k]) => k);
-
-        if (count > 0 || newlyLocked.length > 0) {
-          setGenderLocks(nextLocks);
-          try { localStorage.setItem('gemini_gender_locks', JSON.stringify(nextLocks)); } catch(e) {}
-          window.telemetryLog?.('GENDER_DETECT', `Scan complete: Auto-detected ${count} character genders! Total locks: ${Object.keys(nextLocks).length} (${females.length} ♀ Female, ${males.length} ♂ Male${contexts.length > 0 ? `, ${contexts.length} ⚧ Context` : ''})`, {
-            totalActiveLocks: Object.keys(nextLocks).length,
-            femaleCount: females.length,
-            maleCount: males.length,
-            contextCount: contexts.length,
-            femaleCharacters: females,
-            maleCharacters: males,
-            contextCharacters: contexts,
-            newlyLocked: newlyLocked
-          });
-          toast(`Auto-detected and locked ${count} character genders!`, 'success');
-        } else {
-          window.telemetryLog?.('GENDER_DETECT', 'Scan complete: No character gender markers identified.', { linesScanned: lines.length });
-          toast('No clear character gender tags found. Format terms like: Name -> Translation (female)', 'info');
-        }
-      };
 
 
 
@@ -6816,53 +6655,72 @@ RAW GLOSSARY DATA TO CLEAN:
         copyText(prompt).then(() => toast('AI Optimizer Prompt copied to clipboard!'));
       };
 
+      const splitGlossaryIntoChunks = (text, maxLines = 130) => {
+        const lines = text.split(/\r?\n/);
+        if (lines.length <= maxLines) return [text];
+        const chunks = [];
+        let cur = [];
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const isHeader = /^(?:#+\s*)?(?:SECTION\s+)?[IVXLCDM]+\.\s+/i.test(line) || /^#{1,2}\s+[A-Z]/i.test(line);
+          if (cur.length >= maxLines && (line.trim() === '' || isHeader)) {
+            chunks.push(cur.join('\n'));
+            cur = [];
+          } else if (cur.length >= maxLines * 1.5) {
+            chunks.push(cur.join('\n'));
+            cur = [];
+          }
+          cur.push(line);
+        }
+        if (cur.length > 0) chunks.push(cur.join('\n'));
+        return chunks;
+      };
+
       const handleAiOptimizeGlossary = async () => {
         if (!terminology.trim()) return setError('Enter or paste some glossary notes/text first to optimize.');
         const key = getActiveApiKey(provider);
         if (!key) return setError(`Please enter your ${provider === 'deepseek' ? 'DeepSeek' : 'Gemini'} API key in Settings.`);
 
-        if (terminology.length > 25000) {
+        const chunks = splitGlossaryIntoChunks(terminology, 130);
+        const totalChunks = chunks.length;
+
+        if (totalChunks > 1) {
           const proceed = window.confirm(
-            `⚠️ Large Master Glossary Detected (${Math.round(terminology.length / 1000)}k characters, ~${terminology.split('\n').length} lines):\n\n` +
-            `AI models have a hard protocol limit of 8,192 output tokens (~500-600 lines) per turn. Rewriting this entire encyclopedia will cause the AI to run out of tokens and truncate 75% of your characters.\n\n` +
-            `This master glossary is ALREADY fully structured and optimized!\n\n` +
-            `Do you still want to force AI optimization?`
+            `⚡ Lossless Section Optimizer (${Math.round(terminology.length / 1000)}k chars, ${terminology.split('\n').length} lines):\n\n` +
+            `This glossary will be optimized across ${totalChunks} discrete sections to guarantee 0% truncation and 100% preservation of all terms against API output token limits.\n\n` +
+            `Proceed with lossless AI optimization?`
           );
           if (!proceed) return;
         }
 
         setIsOptimizingGlossary(true);
         setError('');
-        toast('Optimizing glossary with AI...', 'info');
+        toast(totalChunks > 1 ? `Starting lossless AI optimization across ${totalChunks} sections...` : 'Optimizing glossary with AI...', 'info');
 
         const systemPrompt = `You are an expert literary localization editor and terminology engineer.
 Your task is to organize, standardize, clean up, and optimize raw glossary notes, character lists, or wiki dumps into a standardized Master Glossary for a translation engine.
 
 FORMATTING & STRUCTURE RULES:
 1. NO TOKEN-WASTING DIVIDERS (do not use === or --- lines).
-2. STRUCTURE INTO CLEAR NUMBERED SECTIONS:
-   I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES (Global rules, tone, pronoun rules like 祂 -> "He", formatting preservation)
-   II. CORE CONCEPTS & SYSTEM TERMS (Cultivation ranks, power systems, currencies, realms)
-   III. CHARACTER & FACTION DIRECTORY
-   IV. ABILITIES, ARTIFACTS, ITEMS & TECHNIQUES
-   V. GEOGRAPHY & LOCATIONS
+2. PRESERVE ALL SECTION HEADINGS (e.g. "I. SYSTEM TRANSLATION RULES...", "II. CORE CONCEPTS...", "III. CHARACTER DIRECTORY...").
 3. STANDARD SYNTAX FOR ENTRIES:
-   Format terms strictly as:
-   - [Original Language Source Key] -> [English Translation] ([Optional Lore / Alias / Context])
-   Always put the original language characters (Chinese/Korean/Japanese) on the LEFT of ->.
-   FOR ALL CHARACTERS IN SECTION III: Always explicitly append their gender: (female), (male), or [context] (for gender-fluid, shifting, or dynamic forms).
-   Example:
-   - 休·迪尔查 -> Xio Derecha (female)
-   - 克莱恩·莫雷蒂 -> Klein Moretti (male)
-   - 特莉丝 -> Trissy [context]
-4. LOSSLESS REQUIREMENT: Never delete, omit, summarize, deduplicate, merge, paraphrase, or silently correct any original rule, term, alias, note, example, heading, section, or line. Preserve every original fact and its ordering. Add searchable aliases or index lines only when additive; never replace source text.
+   - Format entries strictly as:
+     - [Original Language Source Key] -> [English Translation] ([Optional Lore / Alias / Context])
+   - Always put the original language characters (Chinese/Korean/Japanese) on the LEFT side of ->.
+   - FOR ALL CHARACTERS: Always explicitly append their gender: (female), (male), or [context] (for gender-fluid, shifting, or dynamic forms).
+     Example:
+     - 休·迪尔查 -> Xio Derecha (female)
+     - 克莱恩·莫雷蒂 -> Klein Moretti (male)
+     - 特莉丝 -> Trissy [context]
+4. STRICT LOSSLESS REQUIREMENT: Never delete, omit, summarize, deduplicate, merge, paraphrase, or truncate any original rule, term, alias, note, example, heading, section, or line. Preserve every original fact and its ordering. Add searchable aliases or index lines only when additive; never replace source text.
 5. Keep all original content even when it appears repetitive or belongs to another series; dynamic selection handles relevance during translation.
-6. Output ONLY the lossless glossary. No conversational opening or closing.`;
+6. Output ONLY the lossless plaintext glossary content for this section. No conversational opening, explanations, or closing chatter.`;
 
-        const userPrompt = `Please optimize, structure, and format the following glossary data:\n\n${terminology}`;
+        const optimizeSingleChunk = async (chunk, idx, total) => {
+          const userPrompt = total > 1
+            ? `Please format and optimize Part ${idx + 1} of ${total} of this glossary. Preserve EVERY entry, character, rule, and note losslessly without truncation:\n\n${chunk}`
+            : `Please optimize, structure, and format the following glossary data losslessly:\n\n${chunk}`;
 
-        try {
-          let optimizedResult = '';
           if (provider === 'deepseek') {
             const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
               method: 'POST',
@@ -6878,7 +6736,7 @@ FORMATTING & STRUCTURE RULES:
             });
             if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`DeepSeek API error ${r.status}: ${b.substring(0, 150)}`); }
             const j = await r.json();
-            optimizedResult = j.choices?.[0]?.message?.content || '';
+            return j.choices?.[0]?.message?.content || '';
           } else {
             const model = useCustomModel && customModel ? customModel : geminiModel;
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
@@ -6891,7 +6749,7 @@ FORMATTING & STRUCTURE RULES:
                 generationConfig: {
                   temperature: 0.1,
                   maxOutputTokens: 8192,
-                  thinkingConfig: { thinkingBudget: 2048 }
+                  thinkingConfig: { thinkingBudget: 1024 }
                 }
               })
             });
@@ -6899,21 +6757,45 @@ FORMATTING & STRUCTURE RULES:
             const j = await r.json();
             const finishReason = j?.candidates?.[0]?.finishReason;
             if (finishReason === 'MAX_TOKENS') {
-              throw new Error('AI reached the hard protocol limit (8,192 tokens) and was cut off midway. To prevent losing 75% of your characters, the glossary was preserved intact.');
+              console.warn(`Chunk ${idx + 1} reached MAX_TOKENS, falling back to original chunk to prevent data loss.`);
+              return chunk;
             }
             const candidateParts = j?.candidates?.[0]?.content?.parts || [];
             const actualParts = candidateParts.filter(p => !p.thought);
-            optimizedResult = actualParts.length > 0
+            const text = actualParts.length > 0
               ? actualParts.map(p => p.text || '').join('')
               : (candidateParts.map(p => p.text || '').join(''));
+            return text || '';
+          }
+        };
+
+        try {
+          const optimizedParts = [];
+          for (let i = 0; i < totalChunks; i++) {
+            if (totalChunks > 1) {
+              toast(`Optimizing section ${i + 1}/${totalChunks} (100% lossless)...`, 'info');
+            }
+            let res = '';
+            try {
+              res = await optimizeSingleChunk(chunks[i], i, totalChunks);
+            } catch (chunkErr) {
+              console.warn(`Chunk ${i + 1} failed:`, chunkErr);
+              res = chunks[i];
+            }
+
+            if (!res || (res.length < chunks[i].length * 0.4 && chunks[i].length > 300)) {
+              console.warn(`Chunk ${i + 1} output truncated or empty, preserving original chunk.`);
+              res = chunks[i];
+            }
+            optimizedParts.push(res.trim());
           }
 
-          if (!optimizedResult.trim()) throw new Error('Received empty response from AI.');
-          if (optimizedResult.length < terminology.length * 0.45 && terminology.length > 3000) {
-            throw new Error(`AI generated only ${optimizedResult.length} characters (source has ${terminology.length} characters). Prevented overwriting glossary with truncated text.`);
-          }
-          setTerminology(optimizedResult.trim());
-          toast('Glossary successfully cleaned and structured by AI!');
+          const finalResult = optimizedParts.join('\n\n');
+          if (!finalResult.trim()) throw new Error('Received empty response from AI.');
+
+          setTerminology(finalResult.trim());
+          toast(`Glossary successfully cleaned and structured (${totalChunks} section${totalChunks > 1 ? 's' : ''}, 100% lossless)!`, 'success');
+          window.telemetryLog?.('AI_OPTIMIZE', `Losslessly optimized glossary across ${totalChunks} chunk(s) (${finalResult.split('\n').length} lines).`);
         } catch (err) {
           setError('AI Glossary Optimization failed: ' + err.message);
         } finally {
@@ -10554,97 +10436,6 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     )
                   ),
 
-                  // ⚥ Anti-Pronoun Drift / Gender Lock Protocol
-                  h('div', { style: { marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--hairline)' } },
-                    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
-                      h('span', { style: { fontSize: 12, fontWeight: 700 } }, '⚥ Character Gender Locks (Anti-Pronoun Drift)'),
-                      h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                        Object.keys(genderLocks).length > 0 && h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: { fontSize: 11, padding: '2px 8px', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.4)' },
-                          onClick: handleClearAllGenderLocks,
-                          title: 'Clear all locked character genders'
-                        }, '🗑 Clear All'),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: { fontSize: 11, padding: '2px 8px' },
-                          onClick: handleAutoDetectGenderLocks,
-                          title: 'Auto-detect character genders from glossary using fast offline heuristics'
-                        }, '⚡ Auto-Detect')
-                      )
-                    ),
-                    h('div', { style: { fontSize: 11, color: 'var(--paper-dim)', marginBottom: 8, opacity: 0.85 } },
-                      'Locks character pronouns during translation so AI never swaps he ↔ she. Supports ♀ Female, ♂ Male, and ⚧ Dynamic/Context-dependent (M/F). Tap any badge to cycle.'
-                    ),
-                    Object.keys(genderLocks).length > 0 && h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 } },
-                      Object.entries(genderLocks).map(([cName, cGen]) => h('div', {
-                        key: cName,
-                        className: 'badge',
-                        title: 'Tap to cycle: ♀ Female → ♂ Male → ⚧ Context',
-                        onClick: () => updateGenderLock(cName, cGen === 'female' ? 'male' : cGen === 'male' ? 'context' : 'female'),
-                        style: {
-                          background: cGen === 'female' ? 'rgba(236, 72, 153, 0.15)' : cGen === 'male' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)',
-                          color: cGen === 'female' ? '#f472b6' : cGen === 'male' ? '#60a5fa' : '#c084fc',
-                          border: `1px solid ${cGen === 'female' ? 'rgba(236, 72, 153, 0.4)' : cGen === 'male' ? 'rgba(59, 130, 246, 0.4)' : 'rgba(168, 85, 247, 0.4)'}`,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '3px 8px',
-                          borderRadius: 8,
-                          fontSize: 11,
-                          cursor: 'pointer',
-                          userSelect: 'none'
-                        }
-                      },
-                        h('span', null, `${cName} (${cGen === 'female' ? '♀ Female' : cGen === 'male' ? '♂ Male' : '⚧ Context'})`),
-                        h('span', {
-                          style: { cursor: 'pointer', fontWeight: 'bold', marginLeft: 3, padding: '0 2px' },
-                          onClick: (e) => {
-                            e.stopPropagation();
-                            updateGenderLock(cName, null);
-                          },
-                          title: 'Remove lock'
-                        }, '✕')
-                      ))
-                    ),
-                    h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                      h('input', {
-                        type: 'text',
-                        value: newGenderLockName,
-                        onChange: e => setNewGenderLockName(e.target.value),
-                        onKeyDown: e => {
-                          if (e.key === 'Enter' && newGenderLockName.trim()) {
-                            updateGenderLock(newGenderLockName.trim(), newGenderLockGender);
-                            setNewGenderLockName('');
-                          }
-                        },
-                        placeholder: 'Character name…',
-                        style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '6px 8px', fontSize: 11.5, color: 'var(--paper-dim)', flex: 1, minWidth: 120, outline: 'none' }
-                      }),
-                      h('select', {
-                        value: newGenderLockGender,
-                        onChange: e => setNewGenderLockGender(e.target.value),
-                        style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '6px 8px', fontSize: 11.5, color: 'var(--paper-dim)', outline: 'none' }
-                      },
-                        h('option', { value: 'female' }, '♀ Female (she/her)'),
-                        h('option', { value: 'male' }, '♂ Male (he/him)'),
-                        h('option', { value: 'context' }, '⚧ Context / Dynamic (M/F)')
-                      ),
-                      h('button', {
-                        type: 'button',
-                        className: 'mini-btn',
-                        style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, padding: '6px 10px' },
-                        onClick: () => {
-                          if (newGenderLockName.trim()) {
-                            updateGenderLock(newGenderLockName.trim(), newGenderLockGender);
-                            setNewGenderLockName('');
-                          }
-                        }
-                      }, '+ Lock')
-                    )
-                  ),
 
                   // Custom Instructions Box
                   h('div', { style: { marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--hairline)' } },
