@@ -541,32 +541,30 @@ hr {
               referer = parsedUrl.origin + '/';
             } catch(_) {}
 
-            // Attempt with up to 3 tries per image to guarantee 100% download reliability
-            for (let attempt = 1; attempt <= 3; attempt++) {
+            // Rapid resilient image download (max 2 fast attempts, never hangs EPUB packaging)
+            for (let attempt = 1; attempt <= 2; attempt++) {
               if (buffer && buffer.byteLength > 500) break;
               if (attempt > 1) {
-                await new Promise(r => setTimeout(r, 600 * attempt));
+                await new Promise(r => setTimeout(r, 300));
               }
 
-              // Strategy 1: Android NativeBridge (generous 35s timeout for high-res novel images)
+              // Strategy 1: Android NativeBridge (Strict 5s timeout)
               if (window.NativeBridge && window.NativeBridge.downloadBinary) {
                 try {
                   buffer = await Promise.race([
                     window.NativeBridge.downloadBinary(url, { referer }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 35000))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
                   ]);
                 } catch(_) {}
               }
 
-              // Strategy 2: Local Direct Fetch (Node / Capacitor / CORS-enabled)
+              // Strategy 2: Direct Fetch (Node / Capacitor / CORS-enabled, strict 3.5s timeout)
               if (!buffer || buffer.byteLength < 500) {
                 try {
                   const ctrl = AC ? new AC() : null;
-                  const t = ctrl ? setTimeout(() => ctrl.abort(), 12000) : null;
-                  const res = await fetch(url, {
-                    signal: ctrl ? ctrl.signal : undefined,
-                    headers: { 'Referer': referer }
-                  });
+                  const t = ctrl ? setTimeout(() => ctrl.abort(), 3500) : null;
+                  const fetchOpts = { signal: ctrl ? ctrl.signal : undefined };
+                  const res = await fetch(url, fetchOpts);
                   if (t) clearTimeout(t);
                   if (res.ok) {
                     const ct = res.headers.get('content-type') || '';
@@ -576,38 +574,19 @@ hr {
                 } catch(_) {}
               }
 
-              // Strategy 3: Local Telemetry / Socket Proxy (Desktop port 9090)
-              if (!buffer || buffer.byteLength < 500) {
-                try {
-                  const ctrl = AC ? new AC() : null;
-                  const t = ctrl ? setTimeout(() => ctrl.abort(), 10000) : null;
-                  const res = await fetch(`http://127.0.0.1:9090/proxy?url=${encodeURIComponent(url)}`, {
-                    signal: ctrl ? ctrl.signal : undefined,
-                    headers: { 'Referer': referer }
-                  });
-                  if (t) clearTimeout(t);
-                  if (res.ok) {
-                    const ct = res.headers.get('content-type') || '';
-                    if (ct.includes('image/')) detectedMime = ct.split(';')[0].trim();
-                    buffer = await res.arrayBuffer();
-                  }
-                } catch(_) {}
-              }
-
-              // Strategy 4: Public Proxy Failover Pool
+              // Strategy 3: Dedicated High-Speed Image CDN & Proxy Pool (Strict 3.5s per proxy)
               if (!buffer || buffer.byteLength < 500) {
                 const cleanNoProto = url.replace(/^https?:\/\//i, '');
                 const proxies = [
                   () => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`,
                   () => `https://corsproxy.org/?url=${encodeURIComponent(url)}`,
-                  () => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-                  () => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+                  () => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
                 ];
                 for (const getProxyUrl of proxies) {
                   if (buffer && buffer.byteLength > 500) break;
                   try {
                     const ctrl = AC ? new AC() : null;
-                    const t = ctrl ? setTimeout(() => ctrl.abort(), 9000) : null;
+                    const t = ctrl ? setTimeout(() => ctrl.abort(), 3500) : null;
                     const res = await fetch(getProxyUrl(), { signal: ctrl ? ctrl.signal : undefined });
                     if (t) clearTimeout(t);
                     if (res.ok) {

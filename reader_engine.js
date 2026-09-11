@@ -162,21 +162,39 @@
         top: 0;
         left: 0;
         right: 0;
+        width: 100%;
+        max-width: 100vw;
+        box-sizing: border-box;
         z-index: 50;
         background: var(--r-card);
         border-bottom: 1px solid var(--r-border);
         box-shadow: 0 4px 20px rgba(0,0,0,0.35);
-        padding: 8px 14px;
+        padding: 8px 12px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+        overflow-x: hidden;
+      }
+      .reader-top-btn-group {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 0;
+        flex-shrink: 1;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        justify-content: flex-end;
+      }
+      .reader-top-btn-group::-webkit-scrollbar {
+        display: none;
       }
       .reader-top-btn {
-        min-height: 40px;
-        min-width: 40px;
-        padding: 6px 12px;
+        min-height: 38px;
+        min-width: 38px;
+        padding: 6px 10px;
         border-radius: 8px;
         font-size: 13px;
         font-weight: 600;
@@ -193,6 +211,7 @@
         -webkit-tap-highlight-color: transparent;
         white-space: nowrap;
         user-select: none;
+        flex-shrink: 0;
       }
       .reader-top-btn:hover {
         background: rgba(255, 255, 255, 0.12);
@@ -206,6 +225,32 @@
         background: var(--r-accent);
         color: #ffffff;
         border-color: var(--r-accent);
+      }
+      .reader-top-btn-text {
+        display: inline;
+      }
+      @media (max-width: 768px) {
+        .reader-v2-hud-top {
+          padding: 6px 8px;
+          gap: 6px;
+        }
+        .reader-top-btn {
+          min-height: 36px;
+          min-width: 36px;
+          padding: 6px 8px;
+          font-size: 12.5px;
+        }
+      }
+      @media (max-width: 640px) {
+        .reader-top-btn {
+          min-height: 36px;
+          min-width: 36px;
+          padding: 6px 7px;
+          font-size: 14px;
+        }
+        .reader-top-btn-text {
+          display: none;
+        }
       }
       .reader-v2-search-bar {
         position: absolute;
@@ -1113,31 +1158,43 @@
             currentChapter.title
           )
         ),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, overflowX: 'auto' } },
+        h('div', { className: 'reader-top-btn-group' },
           h('button', {
             type: 'button',
             className: `reader-top-btn ${ttsActive ? 'active' : ''}`,
             onClick: toggleTts,
             title: ttsActive ? (ttsPaused ? 'Resume Read Aloud' : 'Pause Read Aloud') : 'Read Aloud (TTS)'
-          }, ttsActive ? (ttsPaused ? '▶ TTS' : '⏸ TTS') : '🎧 TTS'),
+          },
+            h('span', null, ttsActive ? (ttsPaused ? '▶' : '⏸') : '🎧'),
+            h('span', { className: 'reader-top-btn-text' }, ' TTS')
+          ),
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
             onClick: handleSwapPronounsCurrentChapter,
             title: 'Swap He ↔ She Pronouns in Chapter (Anti-Pronoun Drift)'
-          }, '⚥ He↔She'),
+          },
+            h('span', null, '⚥'),
+            h('span', { className: 'reader-top-btn-text' }, ' He↔She')
+          ),
           h('button', {
             type: 'button',
             className: `reader-top-btn ${showSearch ? 'active' : ''}`,
             onClick: () => setShowSearch(s => !s),
             title: 'Search in Chapter'
-          }, '🔍 Find'),
+          },
+            h('span', null, '🔍'),
+            h('span', { className: 'reader-top-btn-text' }, ' Find')
+          ),
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
             onClick: () => setShowToc(true),
             title: 'Table of Contents'
-          }, '📑 TOC'),
+          },
+            h('span', null, '📑'),
+            h('span', { className: 'reader-top-btn-text' }, ' TOC')
+          ),
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
@@ -1149,7 +1206,10 @@
               }
             },
             title: 'Novel Health & Translation QA Audit (§5.9 + §7.1 + §7.5)'
-          }, '🩺 QA'),
+          },
+            h('span', null, '🩺'),
+            h('span', { className: 'reader-top-btn-text' }, ' QA')
+          ),
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
@@ -1161,19 +1221,28 @@
               }
             },
             title: 'Translation Revisions & Diffs (§8.6)'
-          }, '📜 Diffs'),
+          },
+            h('span', null, '📜'),
+            h('span', { className: 'reader-top-btn-text' }, ' Diffs')
+          ),
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
             onClick: handleShareDeepLink,
             title: 'Share Chapter Deep Link (§10.8)'
-          }, '🔗 Share'),
+          },
+            h('span', null, '🔗'),
+            h('span', { className: 'reader-top-btn-text' }, ' Share')
+          ),
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
             onClick: () => setShowSettings(true),
             title: 'Typography & Appearance'
-          }, '⚙ Settings')
+          },
+            h('span', null, '⚙'),
+            h('span', { className: 'reader-top-btn-text' }, ' Settings')
+          )
         )
       ),
 

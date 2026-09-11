@@ -768,9 +768,11 @@
                 }
             }
             
-            // Browser Fallback with local proxy and multi-proxy redundancy
+            // Browser Fallback with image CDN and multi-proxy redundancy
+            const isImg = /\.(jpg|jpeg|png|webp|gif|avif)/i.test(url);
+            const cleanNoProto = url.replace(/^https?:\/\//i, '');
             const proxies = [
-                (u) => `http://127.0.0.1:9090/proxy?url=${encodeURIComponent(u)}`,
+                ...(isImg ? [(u) => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`] : []),
                 (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
                 (u) => u,
                 (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u)

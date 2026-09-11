@@ -6271,49 +6271,106 @@ const formatModelName = (id, displayName) => {
           toast('No novel selected for metadata enrichment.', 'warning');
           return;
         }
-        const rawTitle = novelRecord.title.replace(/\s*\(Translated\)\s*$/i, '').replace(/\s*[-|]\s*(?:Lnori|Syosetu|NovelBuddy|RoyalRoad|Witch Cult)\s*$/i, '').trim();
-        toast(`Searching AniList for "${rawTitle}"…`, 'info');
+        let rawTitle = novelRecord.title.replace(/\s*\(Translated\)\s*$/i, '').trim();
+        // Clean title for higher matching accuracy
+        const cleanQuery = rawTitle
+          .replace(/\s*[-—~|:]\s*(?:Web Novel Complete Edition|Complete Edition|Web Novel|Arc Edition|Starting Life in Another World|Lnori|Syosetu|NovelBuddy|RoyalRoad|Witch Cult).*$/i, '')
+          .replace(/\s*\(.*?\)\s*/g, ' ')
+          .replace(/\s*\[.*?\]\s*/g, ' ')
+          .trim() || rawTitle;
+
+        toast(`Fetching official metadata for "${cleanQuery}"…`, 'info');
         try {
-          const query = `
-            query ($search: String) {
-              Media (search: $search, type: MANGA) {
-                id
-                title { romaji english native }
-                description(asHtml: false)
-                coverImage { extraLarge large }
-                genres
-                averageScore
-                status
+          let metadata = null;
+          let sourceProvider = 'AniList';
+
+          // 1. Try AniList GraphQL first (with strict 3.5s timeout)
+          try {
+            const query = `
+              query ($search: String) {
+                Media (search: $search, type: MANGA) {
+                  id
+                  title { romaji english native }
+                  description(asHtml: false)
+                  coverImage { extraLarge large }
+                  genres
+                  averageScore
+                  status
+                }
+              }
+            `;
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 3500);
+            const res = await fetch('https://graphql.anilist.co', {
+              method: 'POST',
+              signal: ctrl.signal,
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({ query, variables: { search: cleanQuery } })
+            });
+            clearTimeout(timer);
+            if (res.ok) {
+              const data = await res.json();
+              const media = data?.data?.Media;
+              if (media) {
+                metadata = {
+                  title: media.title?.english || media.title?.romaji || media.title?.native || rawTitle,
+                  cover: media.coverImage?.extraLarge || media.coverImage?.large || '',
+                  summary: (media.description || '').replace(/<[^>]*>/g, '').trim(),
+                  genres: Array.isArray(media.genres) ? media.genres : [],
+                  rating: media.averageScore,
+                  id: media.id
+                };
               }
             }
-          `;
-          const res = await fetch('https://graphql.anilist.co', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ query, variables: { search: rawTitle } })
-          });
-          if (!res.ok) throw new Error(`AniList returned HTTP ${res.status}`);
-          const data = await res.json();
-          const media = data?.data?.Media;
-          if (!media) {
-            toast(`No matching metadata found on AniList for "${rawTitle}".`, 'warning');
+          } catch (_) {
+            // Fallback to Kitsu API
+          }
+
+          // 2. High-Availability Fallback: Kitsu Light Novel / Manga Catalog (CORS-friendly, zero rate-limiting)
+          if (!metadata) {
+            try {
+              sourceProvider = 'Kitsu / Manga Catalog';
+              const ctrl = new AbortController();
+              const timer = setTimeout(() => ctrl.abort(), 4500);
+              const kRes = await fetch(`https://kitsu.io/api/edge/manga?filter[text]=${encodeURIComponent(cleanQuery)}&page[limit]=1`, { signal: ctrl.signal });
+              clearTimeout(timer);
+              if (kRes.ok) {
+                const kData = await kRes.json();
+                const item = kData?.data?.[0]?.attributes;
+                if (item) {
+                  const ratingVal = item.averageRating ? Math.round(parseFloat(item.averageRating)) : null;
+                  metadata = {
+                    title: item.canonicalTitle || cleanQuery,
+                    cover: item.posterImage?.large || item.posterImage?.original || item.posterImage?.medium || '',
+                    summary: (item.synopsis || '').replace(/<[^>]*>/g, '').trim(),
+                    genres: [item.mangaType || 'Light Novel', ...(item.subtype ? [item.subtype] : [])],
+                    rating: ratingVal,
+                    id: kData?.data?.[0]?.id
+                  };
+                }
+              }
+            } catch (_) {}
+          }
+
+          if (!metadata) {
+            toast(`No matching metadata found for "${cleanQuery}".`, 'warning');
             return;
           }
 
-          const bestTitle = media.title?.english || media.title?.romaji || media.title?.native || rawTitle;
-          const coverUrl = media.coverImage?.extraLarge || media.coverImage?.large || '';
-          const summary = (media.description || '').replace(/<[^>]*>/g, '').trim();
-          const genres = Array.isArray(media.genres) ? media.genres : [];
+          const bestTitle = metadata.title;
+          const coverUrl = metadata.cover;
+          const summary = metadata.summary;
+          const genres = metadata.genres;
 
-          const confirmMsg = `Found metadata on AniList:\n\nTitle: ${bestTitle}\nGenres: ${genres.join(', ') || 'None'}\nRating: ${media.averageScore ? media.averageScore + '%' : 'N/A'}\n\nApply enriched cover art, synopsis, and tags to this novel?`;
+          const confirmMsg = `Found metadata via ${sourceProvider}:\n\nTitle: ${bestTitle}\nGenres: ${genres.join(', ') || 'None'}\nRating: ${metadata.rating ? metadata.rating + '%' : 'N/A'}\n\nApply enriched cover art, synopsis, and tags to this novel?`;
           if (confirm(confirmMsg)) {
             const updates = {
               enrichedTitle: bestTitle,
               cover: coverUrl || novelRecord.cover,
               summary: summary || novelRecord.summary,
               genres: genres,
-              anilistId: media.id,
-              rating: media.averageScore
+              metadataId: metadata.id,
+              rating: metadata.rating
             };
             if (window.novelDB && novelRecord.id) {
               await window.novelDB.novels.update(novelRecord.id, updates);
@@ -6322,10 +6379,10 @@ const formatModelName = (id, displayName) => {
             if (activeNovelView && activeNovelView.id === novelRecord.id) {
               setActiveNovelView(prev => ({ ...prev, ...updates }));
             }
-            toast(`Enriched "${bestTitle}" with official AniList metadata & HD cover!`, 'success');
+            toast(`Enriched "${bestTitle}" with official HD cover art & synopsis!`, 'success');
           }
         } catch (err) {
-          console.warn('AniList metadata enrichment error:', err);
+          console.warn('Metadata enrichment error:', err);
           toast(`Metadata enrichment error: ${err.message}`, 'error');
         }
       };
