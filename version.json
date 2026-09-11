@@ -1,7 +1,7 @@
 {
-  "version": "8.12.3",
-  "versionCode": 8183,
+  "version": "8.12.4",
+  "versionCode": 8184,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.12.3: Fix context gender detection & character scan extraction. Adds built-in lore recognition for gender-shifting characters (Trissy, Bai Ning Bing, Cheek, Lumian), expands context tag matching, filters non-character noise, and prioritizes character directory sections."
+  "releaseNotes": "v8.12.4: Fix EPUB Download TDZ Scope Error. Eliminates 'Cannot access fileName before initialization' by renaming block-scoped export variables (outFileName, pdfFileName, docxFileName), preventing TDZ collisions with the component React state."
 }

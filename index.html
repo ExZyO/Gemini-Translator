@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.12.3';
+    const VERSION = '8.12.4';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -10000,8 +10000,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const pdfBlob = doc.output('blob');
           const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
           const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
-          const fileName = `${cleanDocName}.pdf`;
-          await saveUniversalBlob(pdfBlob, fileName, 'application/pdf');
+          const pdfFileName = `${cleanDocName}.pdf`;
+          await saveUniversalBlob(pdfBlob, pdfFileName, 'application/pdf');
         } catch (e) { setError(`PDF error: ${e.message}`) } finally { setDownloadingPdf(false) }
       };
 
@@ -10035,11 +10035,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             const zipBlob = await currentOriginalZip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
             setEpubPackagingModal(null);
             const cleanDocName = sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim();
-            const fileName = `${cleanDocName}.epub`;
-            const res = await saveUniversalBlob(zipBlob, fileName, 'application/epub+zip');
+            const outFileName = `${cleanDocName}.epub`;
+            const res = await saveUniversalBlob(zipBlob, outFileName, 'application/epub+zip');
             toast(' EPUB downloaded with the original structure!', 'success');
-            window.telemetryLog?.('FILE_EXPORT', `EPUB exported (original structure): "${fileName}" (${(zipBlob.size / 1024).toFixed(1)} KB)`);
-            return { blob: zipBlob, fileName, path: res?.path };
+            window.telemetryLog?.('FILE_EXPORT', `EPUB exported (original structure): "${outFileName}" (${(zipBlob.size / 1024).toFixed(1)} KB)`);
+            return { blob: zipBlob, fileName: outFileName, path: res?.path };
           }
 
           // Always compile a clean, standardized EPUB with translated TOC and proper paragraph spacing
@@ -10050,10 +10050,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           setEpubPackagingModal(null);
           toast(' EPUB downloaded successfully!', 'success');
           const cleanDocName = cleanDocTitle && !isGenericTitle(cleanDocTitle) ? sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
-          const fileName = `${cleanDocName}.epub`;
-          const res = await saveUniversalBlob(blob, fileName, 'application/epub+zip');
-          window.telemetryLog?.('FILE_EXPORT', `EPUB exported: "${fileName}" (${(blob.size / 1024).toFixed(1)} KB)`);
-          return { blob, fileName, path: res?.path };
+          const outFileName = `${cleanDocName}.epub`;
+          const res = await saveUniversalBlob(blob, outFileName, 'application/epub+zip');
+          window.telemetryLog?.('FILE_EXPORT', `EPUB exported: "${outFileName}" (${(blob.size / 1024).toFixed(1)} KB)`);
+          return { blob, fileName: outFileName, path: res?.path };
         } catch (e) {
           setError(`EPUB error: ${e.message}`);
           toast(`EPUB error: ${e.message}`, 'error');
@@ -10126,8 +10126,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const blob = await Packer.toBlob(doc);
           const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
           const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
-          const fileName = `${cleanDocName}.docx`;
-          await saveUniversalBlob(blob, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+          const docxFileName = `${cleanDocName}.docx`;
+          await saveUniversalBlob(blob, docxFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         } catch (e) {
           setError(`DOCX error: ${e.message}`);
           toast(`DOCX error: ${e.message}`, 'error');
