@@ -1,5 +1,5 @@
 /**
- * Gemini Translator - System Diagnostics & Telemetry Logger (v8.11.5)
+ * Gemini Translator - System Diagnostics & Telemetry Logger (v8.11.6)
  * Manages KeyPool leasing, error tracking, and universal live Wi-Fi telemetry
  */
 (function(window) {
@@ -18,8 +18,8 @@
       return obj;
     }
     if (Array.isArray(obj)) {
-      if (obj.length > 20) {
-        return [...obj.slice(0, 20).map(item => sanitizePayload(item, depth + 1)), `… (${obj.length - 20} more items)`];
+      if (obj.length > 500) {
+        return [...obj.slice(0, 500).map(item => sanitizePayload(item, depth + 1)), `… (${obj.length - 500} more items)`];
       }
       return obj.map(item => sanitizePayload(item, depth + 1));
     }

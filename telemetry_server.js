@@ -145,13 +145,13 @@ const server = http.createServer((req, res) => {
       }
 
       const color = getTagColor(tag);
-      const dataStr = data ? ' ' + (typeof data === 'object' ? JSON.stringify(data) : String(data)) : '';
+      const formattedData = data ? '\n' + JSON.stringify(data, null, 2) : '';
 
       // 1. Live terminal stream with colors
-      console.log(`${colors.gray}[${time}]${colors.reset}${color}[${tag}]${colors.reset} ${message}${dataStr ? colors.gray + dataStr + colors.reset : ''}`);
+      console.log(`${colors.gray}[${time}]${colors.reset}${color}[${tag}]${colors.reset} ${message}${data ? colors.gray + formattedData + colors.reset : ''}`);
 
       // 2. Persist to live log file
-      appendToLiveLog(`[${isoTime}][${tag}] ${message}${dataStr}`);
+      appendToLiveLog(`[${isoTime}][${tag}] ${message}${formattedData}`);
 
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ status: 'ok', totalEvents }));

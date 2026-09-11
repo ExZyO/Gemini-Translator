@@ -128,6 +128,7 @@
       const fflateLib = (typeof window !== 'undefined' && window.fflate) ? window.fflate : (typeof fflate !== 'undefined' ? fflate : null);
       const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
       if (!fflateLib && !JSZipClass) throw new Error('Neither fflate nor JSZip library loaded');
+      window.telemetryLog?.('EPUB_GEN', `Building EPUB archive: "${bookTitle}" (${chaptersList?.length || 0} chapters, author: "${bookAuthor}")`);
 
       const useFflate = !!fflateLib;
       const fflateFiles = {};
@@ -1040,6 +1041,12 @@ ${tocNavLinks.join('\n')}
         oebps.file('nav.xhtml', navContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
 
         const blob = await zip.generateBlob(onProgress, getElapsed);
+        window.telemetryLog?.('EPUB_GEN', `EPUB archive created: "${bookTitle}" (${(blob.size / 1024).toFixed(1)} KB, took ${getElapsed ? getElapsed() : 'unknown time'})`, {
+          title: bookTitle,
+          author: bookAuthor,
+          chapters: chaptersList?.length,
+          sizeBytes: blob.size
+        });
         return blob;
       } finally {
         try {

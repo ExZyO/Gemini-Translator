@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.11.5';
+    const VERSION = '8.11.6';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1757,6 +1757,16 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
             return `- ${String(name).trim()}: ${gender} (${pronouns}). Never use opposite pronouns for this character.`;
           }).join('\n');
           p = `=== GENDER LOCK PROTOCOL (ANTI-PRONOUN DRIFT) ===\nCRITICAL DIRECTIVE: You MUST maintain the exact gender pronouns for the following characters. Do not confuse or swap pronouns under any circumstances:\n${rules}\n=== END GENDER LOCK PROTOCOL ===\n\n` + p;
+
+          try {
+            const matchedInChunk = lockEntries.filter(([cName]) => text.includes(cName)).map(([cName, cGen]) => `${cName} [${cGen.toUpperCase()}]`);
+            if (matchedInChunk.length > 0) {
+              window.telemetryLog?.('GENDER_LOCK', `Prompt injected ${lockEntries.length} locks (${matchedInChunk.length} present in this chunk: ${matchedInChunk.slice(0, 15).join(', ')}${matchedInChunk.length > 15 ? '…' : ''})`, {
+                chunkCharactersPresent: matchedInChunk,
+                totalLocksInjected: lockEntries.length
+              });
+            }
+          } catch(e) {}
         }
       }
 
@@ -3500,10 +3510,13 @@ const formatModelName = (id, displayName) => {
       const updateGenderLock = (name, gender) => {
         setGenderLocks(prev => {
           const next = { ...prev };
+          const oldGender = prev[name];
           if (!gender) {
             delete next[name];
+            window.telemetryLog?.('GENDER_LOCK', `Removed character gender lock: "${name}"`, { character: name, previousGender: oldGender });
           } else {
             next[name] = gender;
+            window.telemetryLog?.('GENDER_LOCK', oldGender ? `1-Tap flipped gender lock: "${name}" (${oldGender} ➔ ${gender})` : `Set character gender lock: "${name}" ➔ [${gender.toUpperCase()}]`, { character: name, newGender: gender, previousGender: oldGender || null });
           }
           try { localStorage.setItem('gemini_gender_locks', JSON.stringify(next)); } catch(e) {}
           return next;
@@ -3646,28 +3659,46 @@ const formatModelName = (id, displayName) => {
 
           const srcAliases = extractAliases(srcPart);
           const tgtAliases = extractAliases(tgtPart);
+          const newlyLocked = [];
 
           for (const a of [...tgtAliases, ...srcAliases]) {
             if (nextLocks[a] && nextLocks[a] !== detected) {
+              const prevG = nextLocks[a];
               if (/\b(?:Miss|Madame|Queen|Princess|Witch|Demoness|Lady)\b/i.test(a) || /(?:小姐|女士|夫人|魔女)/.test(a)) {
                 nextLocks[a] = 'female';
               } else if (/\b(?:Mr|Mister|Sir|Prince|Emperor)\b/i.test(a) || /(?:先生|少爷|大帝)/.test(a)) {
                 nextLocks[a] = 'male';
               }
-            } else {
+              if (nextLocks[a] !== prevG) {
+                newlyLocked.push({ character: a, gender: nextLocks[a], previousGender: prevG, line: l.slice(0, 70) });
+                window.telemetryLog?.('GENDER_LOCK', `Resolved gender conflict for "${a}": ${prevG} ➔ ${nextLocks[a]}`);
+              }
+            } else if (!nextLocks[a]) {
               nextLocks[a] = detected;
               count++;
+              newlyLocked.push({ character: a, gender: detected, line: l.slice(0, 70) });
+              window.telemetryLog?.('GENDER_LOCK', `Locked character: "${a}" ➔ [${detected.toUpperCase()}]`);
             }
           }
         }
 
-        if (count > 0) {
+        const females = Object.entries(nextLocks).filter(([_, g]) => g === 'female').map(([k]) => k);
+        const males = Object.entries(nextLocks).filter(([_, g]) => g === 'male').map(([k]) => k);
+
+        if (count > 0 || newlyLocked.length > 0) {
           setGenderLocks(nextLocks);
           try { localStorage.setItem('gemini_gender_locks', JSON.stringify(nextLocks)); } catch(e) {}
-          window.telemetryLog?.('GENDER_DETECT', `Auto-detected and locked ${count} character genders! Total active locks: ${Object.keys(nextLocks).length}`);
+          window.telemetryLog?.('GENDER_DETECT', `Scan complete: Auto-detected ${count} character genders! Total locks: ${Object.keys(nextLocks).length} (${females.length} ♀ Female, ${males.length} ♂ Male)`, {
+            totalActiveLocks: Object.keys(nextLocks).length,
+            femaleCount: females.length,
+            maleCount: males.length,
+            femaleCharacters: females,
+            maleCharacters: males,
+            newlyLocked: newlyLocked
+          });
           toast(`Auto-detected and locked ${count} character genders!`, 'success');
         } else {
-          window.telemetryLog?.('GENDER_DETECT', 'No character gender markers identified.');
+          window.telemetryLog?.('GENDER_DETECT', 'Scan complete: No character gender markers identified.', { linesScanned: lines.length });
           toast('No clear character gender tags found. Format terms like: Name -> Translation (female)', 'info');
         }
       };
@@ -7016,7 +7047,14 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         if (autoLockedCount > 0) {
           setGenderLocks(updatedLocks);
           try { localStorage.setItem('gemini_gender_locks', JSON.stringify(updatedLocks)); } catch(e) {}
-          window.telemetryLog?.('GENDER_LOCK', `Auto-locked ${autoLockedCount} character genders from extracted terms.`);
+          const lockedList = selected
+            .filter(t => t.gender || (/\b(?:female|f)\b/i.test(t.category)) || (/\b(?:male|m)\b/i.test(t.category)))
+            .map(t => `${t.trans || t.orig} [${(t.gender || (/\b(?:female|f)\b/i.test(t.category) ? 'female' : 'male')).toUpperCase()}]`);
+          window.telemetryLog?.('GENDER_LOCK', `Auto-locked ${autoLockedCount} character genders from extracted terms!`, {
+            autoLockedCount,
+            lockedCharacters: lockedList,
+            totalActiveLocks: Object.keys(updatedLocks).length
+          });
         }
 
         const structuredGlossary = formatExtractedTermsIntoMasterGlossary(selected);
@@ -8467,6 +8505,17 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const chunks = splitChunks(inputText, effectiveTerm.length, smartGlossary);
           const isAIProvider = provider === 'gemini' || provider === 'deepseek';
           const useContext = contextAware && chunks.length > 1 && isAIProvider;
+          const activeLocks = opts.genderLocks ? Object.keys(opts.genderLocks) : [];
+          window.telemetryLog?.('TRANSLATE', `Initiating text translation (${inputText.length} chars, ${chunks.length} chunk${chunks.length > 1 ? 's' : ''})`, {
+            model: opts.model,
+            provider,
+            srcLang: opts.srcLang,
+            tgtLang: opts.tgtLang,
+            chunksCount: chunks.length,
+            genderLocksInjectedCount: activeLocks.length,
+            genderLocksInjected: activeLocks.slice(0, 100),
+            glossaryRulesCount: effectiveTerm ? effectiveTerm.split('\n').filter(l => l.trim() && !l.startsWith('#')).length : 0
+          });
 
           const curSession = (resume ? (activeSessionRef.current || activeSession) : null);
           let result = curSession ? curSession.result : '';
@@ -8634,6 +8683,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             if (antiMtlGateEnabled && window.QAEngine && result) {
               const refCheck = window.QAEngine.checkMtlRefusal(result);
               const loopCheck = window.QAEngine.checkRepetitionLoop(result);
+              window.telemetryLog?.('ANTI_MTL', `Text translation quality audit: ${refCheck.hasRefusal ? `⚠️ Refusal [${refCheck.patternName}]` : loopCheck.hasLoop ? `⚠️ Loop [${loopCheck.phrase}]` : 'Clean Pass ✅'}`, {
+                hasRefusal: refCheck.hasRefusal,
+                refusalPattern: refCheck.patternName || null,
+                hasLoop: loopCheck.hasLoop,
+                loopPhrase: loopCheck.phrase || null
+              });
               if (refCheck.hasRefusal) {
                 toast(`⚠️ Anti-MTL Gate: ${refCheck.patternName} detected in translation`, 'warning');
               } else if (loopCheck.hasLoop) {
@@ -8758,6 +8813,22 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           ? chapters[0].title
           : ((fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || 'Web Novel');
         const jobId = currentFileHash || ('job_' + String(bookTitle).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30) + '_' + chapters.length);
+
+        const activeLocks = opts.genderLocks ? Object.keys(opts.genderLocks) : [];
+        window.telemetryLog?.('TRANSLATE', `Started eBook translation: "${bookTitle}" (${chapters.length} chapters, isEpub=${isEpub})`, {
+          bookTitle,
+          totalChapters: chapters.length,
+          model: opts.model,
+          provider,
+          srcLang: opts.srcLang,
+          tgtLang: opts.tgtLang,
+          resume,
+          activeGenderLocksCount: activeLocks.length,
+          activeGenderLocks: activeLocks.slice(0, 100),
+          glossaryRulesCount: opts.glossary ? opts.glossary.split('\n').filter(l => l.trim() && !l.startsWith('#')).length : 0,
+          translationMemoryEnabled: !!translationMemoryEnabled,
+          antiMtlGateEnabled: !!antiMtlGateEnabled
+        });
         let lastUiAssembledUpdate = performance.now();
         let totalChunks = 0;
 
@@ -8981,6 +9052,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             if (antiMtlGateEnabled && window.QAEngine && content) {
               const refCheck = window.QAEngine.checkMtlRefusal(content);
               const loopCheck = window.QAEngine.checkRepetitionLoop(content);
+              window.telemetryLog?.('ANTI_MTL', `Chapter ${i + 1} quality audit: ${refCheck.hasRefusal ? `⚠️ Refusal [${refCheck.patternName}]` : loopCheck.hasLoop ? `⚠️ Loop [${loopCheck.phrase}]` : 'Clean Pass ✅'}`, {
+                chapterIndex: i + 1,
+                hasRefusal: refCheck.hasRefusal,
+                refusalPattern: refCheck.patternName || null,
+                hasLoop: loopCheck.hasLoop,
+                loopPhrase: loopCheck.phrase || null
+              });
               if (refCheck.hasRefusal) {
                 console.warn(`[Anti-MTL Gate] Chapter ${i + 1}:`, refCheck.matchedText);
                 toast(`⚠️ Anti-MTL Gate: ${refCheck.patternName} detected in Ch. ${i + 1}`, 'warning');
@@ -9294,7 +9372,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             }
           }
         }
-        if (!chapters.length) throw new Error('No readable text in EPUB.'); return { chapters, isEpub: true, originalZip: zip };
+        if (!chapters.length) throw new Error('No readable text in EPUB.');
+        window.telemetryLog?.('EPUB_PARSE', `Extracted ${chapters.length} chapters from EPUB: "${bookTitle || f.name}"`, {
+          title: bookTitle || f.name,
+          chapterCount: chapters.length,
+          sizeBytes: f.size
+        });
+        return { chapters, isEpub: true, originalZip: zip };
       };
 
       const processFile = async f => {
@@ -9341,6 +9425,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             text: isEpub ? c.text : cleanText(c.text) // Don't strip lines on raw EPUB DOM text
           }));
           setChapters(cleaned);
+          window.telemetryLog?.('FILE_IMPORT', `Ingested file "${f.name}" (${(f.size / 1024).toFixed(1)} KB, isEpub=${isEpub}) -> ${cleaned.length} chapters loaded.`, {
+            fileName: f.name,
+            fileSize: f.size,
+            chapterCount: cleaned.length,
+            isEpub
+          });
 
           const saved = localStorage.getItem(hashId);
           if (saved) {
@@ -9528,6 +9618,12 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const cleanAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(author) : (author || 'Gemini Translator')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
           const lang = tgtLang.split(/[-_ ]/)[0].toLowerCase() || 'en';
 
+          window.telemetryLog?.('FILE_EXPORT', `Starting EPUB export: "${cleanDocTitle}" (${chaptersToExport.length} chapters, preserveOriginal=${!!(currentIsEpub && currentOriginalZip)})`, {
+            title: cleanDocTitle,
+            author: cleanAuthor,
+            chapters: chaptersToExport.length
+          });
+
           // Preserve the ORIGINAL EPUB structure (OPF/TOC/format) when translating from an EPUB file
           if (currentIsEpub && currentOriginalZip && typeof currentOriginalZip.generateAsync === 'function') {
             setEpubPackagingModal({ title: cleanDocTitle, status: ' Packaging original EPUB structure…', pct: 40 });
@@ -9538,6 +9634,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             const fileName = `${cleanDocName}.epub`;
             const res = await saveUniversalBlob(zipBlob, fileName, 'application/epub+zip');
             toast(' EPUB downloaded with the original structure!', 'success');
+            window.telemetryLog?.('FILE_EXPORT', `EPUB exported (original structure): "${fileName}" (${(zipBlob.size / 1024).toFixed(1)} KB)`);
             return { blob: zipBlob, fileName, path: res?.path };
           }
 
@@ -9551,6 +9648,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const cleanDocName = cleanDocTitle && !isGenericTitle(cleanDocTitle) ? sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
           const fileName = `${cleanDocName}.epub`;
           const res = await saveUniversalBlob(blob, fileName, 'application/epub+zip');
+          window.telemetryLog?.('FILE_EXPORT', `EPUB exported: "${fileName}" (${(blob.size / 1024).toFixed(1)} KB)`);
           return { blob, fileName, path: res?.path };
         } catch (e) {
           setError(`EPUB error: ${e.message}`);

@@ -513,7 +513,7 @@
     else if (score >= 50) grade = 'C';
     else grade = 'F';
 
-    return {
+    const auditResult = {
       title,
       totalChapters,
       healthyCount,
@@ -523,6 +523,20 @@
       summary,
       chapterAudits
     };
+
+    try {
+      global.telemetryLog?.('QA_AUDIT', `Novel health audit: "${title}" ➔ Score: ${score}/100 [Grade: ${grade}] (${healthyCount}/${totalChapters} healthy chapters)`, {
+        title,
+        score,
+        grade,
+        totalChapters,
+        healthyCount,
+        issueCount: issues.length,
+        summary
+      });
+    } catch(e) {}
+
+    return auditResult;
   }
 
   // ── 5. EXPORT PUBLIC API ──

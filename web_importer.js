@@ -3176,6 +3176,7 @@
             }
 
             try {
+                window.telemetryLog?.('CRAWLER', `Initiating crawl for URL: ${url} (engine: ${type || 'auto'})`, { url, type, options });
                 let result;
                 const registeredPlugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
                 if (registeredPlugin && registeredPlugin.id !== 'universal') {
@@ -3204,6 +3205,12 @@
                     result.totalChapterCount = (typeof result.totalChapterCount === 'number' && result.totalChapterCount > 0) ? result.totalChapterCount : (activeCrawlController.totalChapterCount || (activeCrawlController.chapterList ? activeCrawlController.chapterList.length : (result.chapterList ? result.chapterList.length : (result.chapters ? result.chapters.length : 0))));
                     result.chapterList = result.chapterList || activeCrawlController.chapterList || [];
                 }
+                window.telemetryLog?.('CRAWLER', `Crawl complete for "${result?.title || url}": ${result?.chapters?.length || (result?.chapterList ? result.chapterList.length : 0)} chapters fetched (cancelled: ${!!result?.isCancelled})`, {
+                    title: result?.title,
+                    chapterCount: result?.chapters?.length,
+                    author: result?.author,
+                    isCancelled: !!result?.isCancelled
+                });
                 return result;
             } finally {
                 if (options.tocOnly) {
