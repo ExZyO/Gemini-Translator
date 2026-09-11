@@ -657,13 +657,39 @@
       mainText = mainText.replace(trailingDefRegex, '').trim();
 
       const lines = mainText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      const elems = lines.map((line, idx) => {
-        const mdImg = line.match(/^!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)$/i);
+      const elems = [];
+      let elIdx = 0;
+      for (const rawLine of lines) {
+        // 1. Standalone markdown image: ![alt](url)
+        const mdImg = rawLine.match(/^!\[(.*?)\]\(([^\)]+)\)\s*$/i);
         if (mdImg) {
-          return { type: 'image', alt: mdImg[1] || 'Illustration', src: mdImg[2], id: `p_${idx}` };
+          elems.push({ type: 'image', alt: mdImg[1] || 'Illustration', src: mdImg[2].trim(), id: `p_${elIdx++}` });
+          continue;
         }
-        return { type: 'text', content: line, id: `p_${idx}` };
-      });
+        // 2. Standalone HTML img tag: <img ... src="..." ...>
+        const htmlImg = rawLine.match(/^<img\s+[^>]*src=["']([^"']+)["'][^>]*>\s*$/i);
+        if (htmlImg) {
+          const altM = rawLine.match(/alt=["']([^"']+)["']/i);
+          elems.push({ type: 'image', alt: altM ? altM[1] : 'Illustration', src: htmlImg[1].trim(), id: `p_${elIdx++}` });
+          continue;
+        }
+        // 3. Embedded markdown image mixed with text
+        if (/!\[.*?\]\([^\)]+\)/i.test(rawLine)) {
+          const parts = rawLine.split(/(!\[.*?\]\([^\)]+\))/gi);
+          for (const part of parts) {
+            const pTrim = part.trim();
+            if (!pTrim) continue;
+            const subMd = pTrim.match(/^!\[(.*?)\]\(([^\)]+)\)$/i);
+            if (subMd) {
+              elems.push({ type: 'image', alt: subMd[1] || 'Illustration', src: subMd[2].trim(), id: `p_${elIdx++}` });
+            } else {
+              elems.push({ type: 'text', content: pTrim, id: `p_${elIdx++}` });
+            }
+          }
+          continue;
+        }
+        elems.push({ type: 'text', content: rawLine, id: `p_${elIdx++}` });
+      }
 
       return [map, elems];
     }, [currentChapter, renderTick]);

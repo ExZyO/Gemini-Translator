@@ -89,6 +89,8 @@
             best.includes('sharedaddy') || best.includes('logo') || best.includes('banner') ||
             best.includes('smilies') || best.includes('reaction') || best.includes('jp-carousel') ||
             best.includes('the-artifice.com') ||
+            best.includes('jp.png') || best.includes('France-Flag') || best.includes('flag') ||
+            best.includes('Pin.png') || best.includes('pin.png') || best.includes('Satella_Pin') || best.includes('Emilia_Pin') ||
             best.includes('advertisement') || best.includes('rating')) return '';
 
         // Resolve relative URLs if baseUrl provided & aggressively sanitize malformed host/path spaces (e.g., 'https://img. lnori. com/ 13125-06. jpg')
@@ -158,7 +160,7 @@
             try {
                 html = window.DOMPurify.sanitize(html, {
                     ALLOWED_TAGS: ['p', 'br', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'b', 'i', 'em', 'strong', 'a', 'blockquote', 'hr', 'div', 'span', 'ruby', 'rt', 'rp'],
-                    ALLOWED_ATTR: ['src', 'href', 'alt', 'title', 'class', 'data-src', 'data-original', 'data-url']
+                    ALLOWED_ATTR: ['src', 'href', 'alt', 'title', 'class', 'data-src', 'data-original', 'data-url', 'data-orig-file', 'data-large-file', 'srcset', 'data-lazy-src', 'data-actualsrc']
                 });
             } catch (_) {}
         }
@@ -676,7 +678,6 @@
     // ══════════════════════════════════════════════════════════════════════
 
     // --- A. WITCH CULT TRANSLATIONS (Re:Zero Web Novel Pipeline) ---
-    // --- A. WITCH CULT TRANSLATIONS (Re:Zero Web Novel Pipeline) ---
     function cleanWitchCultChapter(rawHtml) {
         let content = rawHtml || '';
 
@@ -687,11 +688,16 @@
         content = content.replace(/!\([^\)]*the-artifice\.com[^\)]*\)/gi, '');
 
         // 2. Strip decorative WCT website logos and pins
-        content = content.replace(/<p[^>]*>\s*<img[^>]*(?:wct_logo|Satella_Pin|Emilia_Pin)[^>]*>\s*<\/p>/gi, '');
-        content = content.replace(/<img[^>]*(?:wct_logo|Satella_Pin|Emilia_Pin)[^>]*>/gi, '');
+        content = content.replace(/<p[^>]*>\s*<img[^>]*(?:wct_logo|Satella_Pin|Emilia_Pin|Pin\.png|pin\.png)[^>]*>\s*<\/p>/gi, '');
+        content = content.replace(/<img[^>]*(?:wct_logo|Satella_Pin|Emilia_Pin|Pin\.png|pin\.png)[^>]*>/gi, '');
 
-        // 3. Strip the credit/disclaimer boilerplate header at the top of the chapter:
-        // Matches from the opening divider(s) (※ or △▼) through credit lines to the closing divider before the story starts
+        // 3. Strip language flag icons (jp.png, France-Flag, br.png, etc.)
+        content = content.replace(/<p[^>]*>\s*<a[^>]*>\s*<img[^>]*(?:jp\.png|France-Flag|flag)[^>]*>\s*<\/a>\s*<\/p>/gi, '');
+        content = content.replace(/<a[^>]*>\s*<img[^>]*(?:jp\.png|France-Flag|flag)[^>]*>\s*<\/a>/gi, '');
+        content = content.replace(/<img[^>]*(?:jp\.png|France-Flag|flag)[^>]*>/gi, '');
+
+        // 4. Strip the credit/disclaimer boilerplate header at the top of the chapter:
+        // Matches from opening divider(s) (※ or △▼) through credit lines to closing divider before the story starts
         content = content.replace(/(?:<p[^>]*>\s*[※　*#_\-△▼\s]{3,}\s*<\/p>[\s\S]*?){1,5}<p[^>]*>\s*[※　*#_\-△▼\s]{3,}\s*<\/p>/i, (match) => {
             if (/translated\s+by|proofread|proofreaders?|all\s+rights\s+belong|japanese\s+web\s+novel\s+source|art\s+sources?|archbishop|snuser/i.test(match)) {
                 return '';
@@ -702,35 +708,75 @@
         return cleanChapterHtmlWithImages(content);
     }
 
+    function normalizeWctArc(rawHeading) {
+        if (!rawHeading) return 'Arc 1';
+        const m = rawHeading.match(/Arc\s*(\d+)/i);
+        if (m) return `Arc ${m[1]}`;
+        if (/Side\s*Content/i.test(rawHeading)) return 'Side Content';
+        if (/IF\s*Stories/i.test(rawHeading)) return 'IF Stories';
+        if (/EX\s*Novel/i.test(rawHeading)) return 'EX Novels';
+        if (/Tanpenshuu/i.test(rawHeading)) return 'Short Stories';
+        return rawHeading.trim();
+    }
+
+    function getWctSortKey(item) {
+        const text = (item.text || item.title || '').toLowerCase();
+        const href = (item.href || item.url || '').toLowerCase();
+        if (text.includes('prologue') || href.includes('prologue')) return -1;
+        if (text.includes('appendix') || href.includes('appendix')) return 90000;
+        if (text.includes('epilogue') || href.includes('epilogue')) return 99999;
+
+        const m = text.match(/(?:Chapter|Ch\.?)\s*(\d+)(?:\s*part\s*(\d+))?/i) ||
+                  href.match(/chapter[_-](\d+)(?:[_-]part[_-](\d+))?/i);
+        if (m) {
+            const chNum = parseInt(m[1], 10);
+            const partNum = m[2] ? parseInt(m[2], 10) : 0;
+            return chNum * 100 + partNum;
+        }
+        const intM = text.match(/Interlude\s*([IVXLCDM]+|\d+)?/i);
+        if (intM) {
+            return 80000 + (parseInt(intM[1], 10) || 1);
+        }
+        return 70000;
+    }
+
     async function crawlWitchCult(url, progressCb) {
         progressCb?.('Connecting to Witch Cult Translations...', 5);
-        const targetSlug = url.replace(/\/$/, '').split('/').filter(Boolean).pop();
+        const cleanUrl = url.replace(/^http:\/\//i, 'https://');
+        const targetSlug = cleanUrl.replace(/\/$/, '').split('/').filter(Boolean).pop();
+        const isArcSpecific = /\/arc-\d+/i.test(cleanUrl);
+        const specificArcMatch = cleanUrl.match(/\/arc-(\d+)/i);
+        const specificArcName = specificArcMatch ? `Arc ${specificArcMatch[1]}` : '';
 
-        progressCb?.(' Indexing chapters from Witch Cult Translations...', 10);
+        progressCb?.(' Indexing Table of Contents from Witch Cult Translations...', 10);
         let chapterList = [];
         const defaultCover = 'https://witchculttranslation.com/wp-content/uploads/2024/09/png-echidna-beatrice-2-editado-2.jpg';
         let cover = defaultCover;
 
         try {
-            const isArcPage = url.includes('/arc-') || url.includes('witchculttranslation.com/arc');
-            let targetHtml = '';
-            if (isArcPage) {
-                try {
-                    targetHtml = await fetchHtml(url);
-                } catch(e) {}
-            }
-            if (!targetHtml) {
-                targetHtml = await fetchHtml('https://witchculttranslation.com/table-of-content/');
+            // Always fetch master Table of Contents page for complete structure
+            const targetHtml = await fetchHtml('https://witchculttranslation.com/table-of-content/');
+
+            try {
+                const doc = new DOMParser().parseFromString(targetHtml, 'text/html');
+                const extractedCover = extractPageCover(doc, cleanUrl);
+                if (extractedCover && !extractedCover.includes('wct_logo') && !extractedCover.includes('Pin')) {
+                    cover = extractedCover;
+                }
+            } catch (_) {}
+
+            // Isolate entry content to strip WordPress sidebar, widgets ("Recent Posts", etc.), and footer
+            let contentHtml = targetHtml;
+            const entryMatch = targetHtml.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<!--/i) ||
+                               targetHtml.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/article>/i);
+            if (entryMatch) {
+                contentHtml = entryMatch[1];
+            } else {
+                contentHtml = targetHtml.split(/<(?:aside|footer|div[^>]*class="[^"]*(?:sidebar|widget-area))/i)[0];
             }
 
-            const doc = new DOMParser().parseFromString(targetHtml, 'text/html');
-            const extractedCover = extractPageCover(doc, url);
-            if (extractedCover && !extractedCover.includes('wct_logo') && !extractedCover.includes('Pin')) {
-                cover = extractedCover;
-            }
-
-            const parts = targetHtml.split(/<(?:h1|h2)[^>]*>/i);
-            let currentArc = 'Arc 1 – A Tumultuous First Day';
+            const parts = contentHtml.split(/<(?:h1|h2)[^>]*>/i);
+            let currentArc = 'Arc 1';
             const allLinks = [];
             const seenHref = new Set();
 
@@ -739,14 +785,39 @@
                 if (headingMatch) {
                     let rawHeading = decodeHtmlEntities(headingMatch[1].replace(/<[^>]+>/g, '').trim());
                     if (/Arc\s*\d+|Side\s*Content|EX\s*Novel|Tanpenshuu|IF\s*Stories/i.test(rawHeading)) {
-                        currentArc = rawHeading;
+                        currentArc = normalizeWctArc(rawHeading);
                     }
                 }
 
                 const linkMatches = [...part.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
                 for (const m of linkMatches) {
-                    const href = m[1].replace(/\/$/, '') + '/';
-                    const rawText = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
+                    let href = m[1].replace(/\/$/, '') + '/';
+                    if (href.startsWith('http://')) href = href.replace('http://', 'https://');
+                    let rawText = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
+
+                    const isTranslatorHome = href === 'https://eminenttranslations.com/' || 
+                                             href === 'https://kagurojp.wordpress.com/' || 
+                                             href === 'https://translationchicken.com/' ||
+                                             href === 'https://witchculttranslation.com/';
+
+                    const isGarbage = href.includes('rezerodb.com') ||
+                                      href.includes('twitter.com') ||
+                                      href.includes('x.com') ||
+                                      href.includes('discord.com') ||
+                                      href.includes('discord.gg') ||
+                                      href.includes('mega.nz') ||
+                                      href.includes('/category/') ||
+                                      href.includes('/tag/') ||
+                                      href.includes('cut-content') ||
+                                      href.includes('trelling.php') ||
+                                      href.includes('wp-content/uploads') ||
+                                      rawText.toLowerCase().includes('cut content') ||
+                                      rawText.toLowerCase().includes('mega archive') ||
+                                      rawText.toLowerCase().includes('side content+') ||
+                                      rawText.toLowerCase().includes('progress monitor') ||
+                                      rawText.toLowerCase().includes('anniversary space') ||
+                                      rawText.toLowerCase().includes('azamuku supplement') ||
+                                      rawText.toLowerCase().includes('twitter sidestory');
 
                     const isAllowedDomain = href.includes('witchculttranslation.com/20') ||
                                             href.includes('witchculttranslation.com/arc-') ||
@@ -754,18 +825,10 @@
                                             href.includes('kagurojp.wordpress.com') ||
                                             href.includes('remonwater.wordpress.com');
 
-                    const isIgnored = href.includes('rezerodb.com') ||
-                                      href.includes('twitter.com') ||
-                                      href.includes('discord.com') ||
-                                      href.includes('mega.nz') ||
-                                      href.includes('/category/') ||
-                                      href.includes('/tag/') ||
-                                      rawText.toLowerCase().includes('cut content') ||
-                                      rawText.toLowerCase().includes('mega archive') ||
-                                      rawText.toLowerCase().includes('side content+');
-
-                    if (isAllowedDomain && !isIgnored && rawText.length > 0 && !seenHref.has(href)) {
+                    if (isAllowedDomain && !isTranslatorHome && !isGarbage && rawText.length > 0 && !seenHref.has(href)) {
                         seenHref.add(href);
+                        rawText = rawText.replace(/\s*\(Originally translated.*?\)/i, '').trim();
+
                         allLinks.push({
                             href,
                             text: rawText,
@@ -776,17 +839,48 @@
                 }
             }
 
-            // If Arc 4 has very few chapters (since WCT stores Arc 4 as compiled PDFs),
-            // seamlessly backfill Arc 4 from Translation Chicken's official fan translation archive!
-            const arc4Count = allLinks.filter(l => /arc\s*4/i.test(l.arc)).length;
-            if (arc4Count < 5 && (!isArcPage || url.includes('arc-4'))) {
+            // Step 1: Supplement KaguroJP Arc 3 chapters if missing
+            const arc3Count = allLinks.filter(l => l.arc === 'Arc 3').length;
+            if (arc3Count < 10) {
                 try {
-                    progressCb?.(' Indexing Arc 4 chapters from Translation Chicken archive...', 12);
+                    progressCb?.(' Checking Arc 3 KaguroJP chapters...', 12);
+                    const kaguroHtml = await fetchHtml('https://kagurojp.wordpress.com/');
+                    const kMatches = [...kaguroHtml.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+                    const kaguroItems = [];
+                    for (const km of kMatches) {
+                        const kHref = km[1].replace(/\/$/, '') + '/';
+                        let kText = decodeHtmlEntities(km[2].replace(/<[^>]+>/g, '').trim());
+                        if (kHref.includes('kagurojp.wordpress.com/20') && /vol\.?\s*3/i.test(kText) && !seenHref.has(kHref)) {
+                            seenHref.add(kHref);
+                            const cleanKText = kText.replace(/^Vol\.?\s*3\.?\s*Ch\.?\s*(\d+)[:：\s]*/i, 'Chapter $1: ');
+                            kaguroItems.push({
+                                href: kHref,
+                                text: cleanKText,
+                                arc: 'Arc 3',
+                                volume: 'Arc 3'
+                            });
+                        }
+                    }
+                    if (kaguroItems.length > 0) {
+                        const arc3Idx = allLinks.findIndex(l => l.arc === 'Arc 3');
+                        const insertIdx = arc3Idx !== -1 ? arc3Idx : allLinks.length;
+                        allLinks.splice(insertIdx, 0, ...kaguroItems);
+                    }
+                } catch (kErr) {
+                    console.warn('KaguroJP fetch error:', kErr);
+                }
+            }
+
+            // Step 2: Supplement Arc 4 chapters from Translation Chicken archive (WCT only provides PDFs)
+            const arc4Count = allLinks.filter(l => l.arc === 'Arc 4').length;
+            if (arc4Count < 5) {
+                try {
+                    progressCb?.(' Indexing Arc 4 chapters from Translation Chicken archive...', 14);
                     const tcHtml = await fetchHtml('https://translationchicken.com/2016/09/21/rezero-web-novel-fan-translation-table-of-contents/');
                     const tcMatches = [...tcHtml.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
                     let lastArc3Idx = -1;
                     for (let i = allLinks.length - 1; i >= 0; i--) {
-                        if (/arc\s*3/i.test(allLinks[i].arc)) {
+                        if (allLinks[i].arc === 'Arc 3') {
                             lastArc3Idx = i;
                             break;
                         }
@@ -806,8 +900,8 @@
                             tcItems.push({
                                 href,
                                 text: rawText,
-                                arc: 'Arc 4 – Everlasting Contract',
-                                volume: 'Arc 4 – Everlasting Contract'
+                                arc: 'Arc 4',
+                                volume: 'Arc 4'
                             });
                         }
                     }
@@ -819,18 +913,58 @@
                 }
             }
 
-            let targetIdx = 0;
-            if (targetSlug && targetSlug !== 'table-of-content' && !isArcPage) {
-                const foundIdx = allLinks.findIndex(l => l.href.includes(targetSlug));
-                if (foundIdx !== -1) targetIdx = foundIdx;
+            // Step 3: Supplement Arc 6 missing chapters (Chapter 33 & 34 from dedicated arc-6 page)
+            try {
+                const arc6Html = await fetchHtml('https://witchculttranslation.com/arc-6/');
+                const a6Matches = [...arc6Html.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+                for (const m of a6Matches) {
+                    let href = m[1].replace(/\/$/, '') + '/';
+                    if (href.startsWith('http://')) href = href.replace('http://', 'https://');
+                    const text = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
+                    if (/witchculttranslation\.com\/20/i.test(href) && /chapter\s*(?:33|34)/i.test(text) && !seenHref.has(href)) {
+                        seenHref.add(href);
+                        allLinks.push({
+                            href,
+                            text: text.replace(/\s*\(Originally translated.*?\)/i, '').trim(),
+                            arc: 'Arc 6',
+                            volume: 'Arc 6'
+                        });
+                    }
+                }
+            } catch (a6Err) {
+                console.warn('Arc 6 missing chapters fetch error:', a6Err);
             }
 
-            for (let i = targetIdx; i < allLinks.length; i++) {
+            // Step 4: Sort chapters numerically within each Arc to ensure 100% chronological order
+            const byArc = new Map();
+            for (const ch of allLinks) {
+                if (!byArc.has(ch.arc)) byArc.set(ch.arc, []);
+                byArc.get(ch.arc).push(ch);
+            }
+
+            const sortedChapters = [];
+            for (const [arcName, arcChapters] of byArc.entries()) {
+                arcChapters.sort((a, b) => getWctSortKey(a) - getWctSortKey(b));
+                sortedChapters.push(...arcChapters);
+            }
+
+            // Filter if user specifically crawled a single arc (e.g., /arc-5/)
+            let targetList = sortedChapters;
+            if (isArcSpecific && specificArcName) {
+                const arcFiltered = sortedChapters.filter(c => c.arc.toLowerCase() === specificArcName.toLowerCase());
+                if (arcFiltered.length > 0) targetList = arcFiltered;
+            } else if (targetSlug && targetSlug !== 'table-of-content' && !cleanUrl.includes('witchculttranslation.com/arc')) {
+                // If user entered a direct chapter URL, start from that chapter onwards
+                const foundIdx = sortedChapters.findIndex(l => l.href.includes(targetSlug));
+                if (foundIdx !== -1) targetList = sortedChapters.slice(foundIdx);
+            }
+
+            for (let i = 0; i < targetList.length; i++) {
                 chapterList.push({
-                    url: allLinks[i].href,
-                    title: allLinks[i].text || `Chapter ${i + 1}`,
-                    arc: allLinks[i].arc,
-                    volume: allLinks[i].volume
+                    url: targetList[i].href,
+                    title: targetList[i].text || `Chapter ${i + 1}`,
+                    arc: targetList[i].arc,
+                    volume: targetList[i].volume
                 });
             }
         } catch (tocErr) {
@@ -839,10 +973,10 @@
 
         if (chapterList.length === 0) chapterList = [{ url, title: 'Re:Zero Chapter' }];
 
-        const isFullToc = url.includes('table-of-content') || !targetSlug || targetSlug === 'table-of-content';
+        const isFullToc = !isArcSpecific && (!targetSlug || targetSlug === 'table-of-content');
         const title = isFullToc
             ? 'Re:Zero Starting Life in Another World — Web Novel Complete Edition'
-            : `Re:Zero Web Novel — ${chapterList[0]?.title || 'Arc Edition'}`;
+            : (isArcSpecific ? `Re:Zero Web Novel — ${specificArcName}` : `Re:Zero Web Novel — ${chapterList[0]?.title || 'Arc Edition'}`);
 
         if (activeCrawlController?.tocOnly) {
             return {
@@ -865,17 +999,25 @@
             chapterList,
             async (item) => {
                 const html = await fetchHtml(item.url);
-                let cMatch = html.match(/<div[^>]*class="[^"]*(?:entry-content|post-content)[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-                if (!cMatch && (item.url.includes('eminenttranslations.com') || item.url.includes('translationchicken.com'))) {
-                    const pMatches = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
-                    if (pMatches.length > 0) {
-                        const cleanPs = pMatches
-                            .map(p => p[1].replace(/<[^>]+>/g, '').trim())
-                            .filter(t => t.length > 0 && !/^(Chapter List|Previous Chapter|Next Chapter|Menu|Close|Search|Start Reading)/i.test(t));
-                        cMatch = [null, cleanPs.map(p => `<p>${p}</p>`).join('\n')];
-                    }
+                let contentHtml = '';
+                if (typeof DOMParser !== 'undefined') {
+                    try {
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        const contentEl = doc.querySelector('.entry-content, .post-content, article .content, article, main');
+                        if (contentEl) {
+                            const garbage = contentEl.querySelectorAll('.sharedaddy, .jp-relatedposts, .navigation, .post-navigation, script, style, header, footer, .widget-area');
+                            garbage.forEach(g => g.remove());
+                            contentHtml = contentEl.innerHTML;
+                        }
+                    } catch (_) {}
                 }
-                const txt = cleanWitchCultChapter(cMatch ? cMatch[1] : html);
+                if (!contentHtml) {
+                    let cMatch = html.match(/<div[^>]*class="[^"]*(?:entry-content|post-content)[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<!--/i) ||
+                                 html.match(/<div[^>]*class="[^"]*(?:entry-content|post-content)[^"]*"[^>]*>([\s\S]*?)<\/article>/i) ||
+                                 html.match(/<div[^>]*class="[^"]*(?:entry-content|post-content)[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+                    contentHtml = cMatch ? cMatch[1] : html;
+                }
+                const txt = cleanWitchCultChapter(contentHtml);
                 return { title: item.title, text: txt, arc: item.arc, volume: item.volume };
             },
             12,
