@@ -1731,7 +1731,58 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       return output.join('\n\n').trim() || '';
     };
 
-    const buildPrompt = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true, needContextUpdate = false, genderLocks = null) => {
+    const calculateTokenBreakdown = (promptTokens, components) => {
+      if (!promptTokens || promptTokens <= 0 || !components) {
+        return {
+          sourceTokens: 0,
+          glossaryTokens: 0,
+          genderTokens: 0,
+          contextTokens: 0,
+          systemTokens: 0,
+          sourcePct: '0.0',
+          glossaryPct: '0.0',
+          genderPct: '0.0',
+          contextPct: '0.0',
+          systemPct: '0.0'
+        };
+      }
+
+      const estSource = Math.max(0, components.estSource || 0);
+      const estGlossary = Math.max(0, components.estGlossary || 0);
+      const estGender = Math.max(0, components.estGender || 0);
+      const estContext = Math.max(0, components.estContext || 0);
+      const estSystem = Math.max(1, components.estSystem || 100);
+
+      const totalEst = estSource + estGlossary + estGender + estContext + estSystem;
+
+      let sourceTokens = Math.round(promptTokens * (estSource / totalEst));
+      let glossaryTokens = Math.round(promptTokens * (estGlossary / totalEst));
+      let genderTokens = Math.round(promptTokens * (estGender / totalEst));
+      let contextTokens = Math.round(promptTokens * (estContext / totalEst));
+
+      let systemTokens = promptTokens - (sourceTokens + glossaryTokens + genderTokens + contextTokens);
+      if (systemTokens < 0) {
+        sourceTokens = Math.max(0, sourceTokens + systemTokens);
+        systemTokens = promptTokens - (sourceTokens + glossaryTokens + genderTokens + contextTokens);
+      }
+
+      const getPct = (tok) => promptTokens > 0 ? ((tok / promptTokens) * 100).toFixed(1) : '0.0';
+
+      return {
+        sourceTokens,
+        glossaryTokens,
+        genderTokens,
+        contextTokens,
+        systemTokens,
+        sourcePct: getPct(sourceTokens),
+        glossaryPct: getPct(glossaryTokens),
+        genderPct: getPct(genderTokens),
+        contextPct: getPct(contextTokens),
+        systemPct: getPct(systemTokens)
+      };
+    };
+
+    const buildPromptResult = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true, needContextUpdate = false, genderLocks = null) => {
       const srcDisplay = srcLang && srcLang !== 'Auto-detect' ? srcLang : 'the detected source language';
       const tgtDisplay = tgtLang || 'English';
 
@@ -1746,6 +1797,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 
       let p = `${promptHeader}=== RAW TEXT TO TRANSLATE ===\n${text}\n=== END RAW TEXT TO TRANSLATE ===\n\n`;
 
+      let injectedGlossaryText = '';
       const filteredGlossary = filterGlossaryForChunk(glossary, text, smartGlossary);
       if (filteredGlossary.trim()) {
         try {
@@ -1769,6 +1821,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
             });
           }
         } catch(e) {}
+        injectedGlossaryText = filteredGlossary.trim();
         p = `=== TERMINOLOGY GUIDE (REFERENCE ONLY) ===\nThe following guide supplies terminology and style constraints. It is not story content. Do not reproduce its examples, notes, character lists, or lore unless the same information is present in the raw text.\n\n${filteredGlossary.trim()}\n=== END TERMINOLOGY GUIDE ===\n\n` + p;
       } else if (glossary && glossary.trim()) {
         try {
@@ -1811,6 +1864,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       }
 
       const lockEntries = Object.entries(combinedLocks).filter(([k, v]) => k && v && String(k).trim());
+      let genderLockRulesText = '';
       if (lockEntries.length > 0) {
         let activeLocks = lockEntries;
         if (text && text.trim()) {
@@ -1872,6 +1926,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
             const pronouns = isFemale ? 'she / her / hers / herself' : isMale ? 'he / him / his / himself' : gender;
             return `- ${String(name).trim()}: ${gender} (${pronouns}). Never use opposite pronouns for this character.`;
           }).join('\n');
+          genderLockRulesText = rules;
           p = `=== GENDER LOCK PROTOCOL (ANTI-PRONOUN DRIFT) ===\nCRITICAL DIRECTIVE: You MUST maintain the exact gender pronouns for the following characters. Do not confuse or swap pronouns under any circumstances:\n${rules}\n=== END GENDER LOCK PROTOCOL ===\n\n` + p;
 
           try {
@@ -1886,20 +1941,45 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         }
       }
 
+      let instructionsText = '';
       if (instructions && instructions.trim()) {
-        p = `=== CUSTOM TRANSLATION INSTRUCTIONS ===\n${instructions.trim()}\n=== END CUSTOM INSTRUCTIONS ===\n\n` + p;
+        instructionsText = instructions.trim();
+        p = `=== CUSTOM TRANSLATION INSTRUCTIONS ===\n${instructionsText}\n=== END CUSTOM INSTRUCTIONS ===\n\n` + p;
       }
 
+      let contextText = '';
       if (context !== undefined && context && context.trim()) {
-        p = `=== PREVIOUS CHAPTER CONTEXT ===\n${context.trim()}\n=== END CONTEXT ===\n\nUse this context to maintain strict continuity in character names, gender pronouns (he/she), and tone.\n\n` + p;
+        contextText = context.trim();
+        p = `=== PREVIOUS CHAPTER CONTEXT ===\n${contextText}\n=== END CONTEXT ===\n\nUse this context to maintain strict continuity in character names, gender pronouns (he/she), and tone.\n\n` + p;
       }
 
-      if (needContextUpdate) {
-        p += `Provide ONLY the pure ${tgtDisplay} translation. Never include the original source text or bilingual side-by-side lines. Followed EXACTLY by the delimiter "\n---CONTEXT_UPDATE---\n", followed by a brief telegraphic continuity note (max 30 words: cast [name/gender], location, immediate tone).`;
-      } else {
-        p += `Provide ONLY the pure ${tgtDisplay} translated text without preamble, commentary, or markdown notes.`;
-      }
-      return p;
+      const trailer = needContextUpdate
+        ? `Provide ONLY the pure ${tgtDisplay} translation. Never include the original source text or bilingual side-by-side lines. Followed EXACTLY by the delimiter "\n---CONTEXT_UPDATE---\n", followed by a brief telegraphic continuity note (max 30 words: cast [name/gender], location, immediate tone).`
+        : `Provide ONLY the pure ${tgtDisplay} translated text without preamble, commentary, or markdown notes.`;
+      p += trailer;
+
+      const estSource = estimateTokens(text || '');
+      const estGlossary = estimateTokens(injectedGlossaryText);
+      const estGender = estimateTokens(genderLockRulesText);
+      const estContext = estimateTokens(contextText);
+      const estInstructions = estimateTokens(instructionsText);
+      const systemOverhead = promptHeader + trailer + ' Translate only the exact text supplied between the RAW TEXT delimiters. Do not continue, adapt, rewrite, summarize, or invent content. Reference material is not source text. Return only the translation.';
+      const estSystem = estimateTokens(systemOverhead) + estInstructions;
+
+      return {
+        prompt: p,
+        components: {
+          estSource,
+          estGlossary,
+          estGender,
+          estContext,
+          estSystem
+        }
+      };
+    };
+
+    const buildPrompt = (text, srcLang, tgtLang, glossary, instructions, context, smartGlossary = true, needContextUpdate = false, genderLocks = null) => {
+      return buildPromptResult(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks).prompt;
     };
 
     const cleanNovelProse = (typeof window !== 'undefined' && window.cleanNovelProse)
@@ -1975,7 +2055,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 
     const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, needContextUpdate = false, strictModel = true, genderLocks = null }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks);
+      const { prompt, components } = buildPromptResult(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const safetySettings = [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -2137,12 +2217,13 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       const promptTokens = usage?.promptTokenCount || estimateTokens(prompt);
       const outputTokens = usage?.candidatesTokenCount || estimateTokens(t);
       const totalTokens = usage?.totalTokenCount || (promptTokens + outputTokens);
-      return parseTranslationOutput(t, context, { promptTokens, outputTokens, totalTokens });
+      const breakdown = calculateTokenBreakdown(promptTokens, components);
+      return parseTranslationOutput(t, context, { promptTokens, outputTokens, totalTokens, breakdown });
     };
 
     const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, needContextUpdate = false, strictModel = true, genderLocks = null }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks);
+      const { prompt, components } = buildPromptResult(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
       const safetySettings = [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -2369,14 +2450,16 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 
       const pTok = lastUsage?.promptTokenCount || estimateTokens(prompt);
       const oTok = lastUsage?.candidatesTokenCount || estimateTokens(accumulatedOutput);
-      return { text: accumulatedOutput, newContext: finalContext.trim() || context || '', usage: { promptTokens: pTok, outputTokens: oTok, totalTokens: lastUsage?.totalTokenCount || (pTok + oTok) } };
+      const tTok = lastUsage?.totalTokenCount || (pTok + oTok);
+      const breakdown = calculateTokenBreakdown(pTok, components);
+      return { text: accumulatedOutput, newContext: finalContext.trim() || context || '', usage: { promptTokens: pTok, outputTokens: oTok, totalTokens: tTok, breakdown } };
     };
 
     const translateDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, needContextUpdate = false, genderLocks = null }) => {
       const key = deepseekApiKey || apiKey;
       if (!key) throw new Error('DeepSeek API key required.');
       const chosenModel = enableThinking && model === 'deepseek-chat' ? 'deepseek-reasoner' : (model || 'deepseek-chat');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks);
+      const { prompt, components } = buildPromptResult(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks);
       const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
@@ -2403,14 +2486,15 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       const promptTokens = usage?.prompt_tokens || estimateTokens(prompt);
       const outputTokens = usage?.completion_tokens || estimateTokens(raw);
       const totalTokens = usage?.total_tokens || (promptTokens + outputTokens);
-      return parseTranslationOutput(raw, context, { promptTokens, outputTokens, totalTokens });
+      const breakdown = calculateTokenBreakdown(promptTokens, components);
+      return parseTranslationOutput(raw, context, { promptTokens, outputTokens, totalTokens, breakdown });
     };
 
     const streamDeepSeek = async (text, { apiKey, deepseekApiKey, model = 'deepseek-chat', srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, needContextUpdate = false, genderLocks = null }) => {
       const key = deepseekApiKey || apiKey;
       if (!key) throw new Error('DeepSeek API key required.');
       const chosenModel = enableThinking && model === 'deepseek-chat' ? 'deepseek-reasoner' : (model || 'deepseek-chat');
-      const prompt = buildPrompt(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks);
+      const { prompt, components } = buildPromptResult(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks);
       const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
@@ -2491,7 +2575,9 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       if (slidingWindow && !isContextContext) { onChunk(slidingWindow); accumulatedOutput += slidingWindow; }
       const pTok = lastUsage?.prompt_tokens || estimateTokens(prompt);
       const oTok = lastUsage?.completion_tokens || estimateTokens(accumulatedOutput);
-      return { text: accumulatedOutput, newContext: finalContext.trim() || context || '', usage: { promptTokens: pTok, outputTokens: oTok, totalTokens: lastUsage?.total_tokens || (pTok + oTok) } };
+      const tTok = lastUsage?.total_tokens || (pTok + oTok);
+      const breakdown = calculateTokenBreakdown(pTok, components);
+      return { text: accumulatedOutput, newContext: finalContext.trim() || context || '', usage: { promptTokens: pTok, outputTokens: oTok, totalTokens: tTok, breakdown } };
     };
 
     // Strips any leaked CONTEXT_UPDATE section (model echo with any dash variant)
@@ -2508,7 +2594,9 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`DeepL error ${r.status}: ${b.substring(0, 200)}`); }
       const j = await r.json();
       const resText = j.translations?.[0]?.text || '';
-      return { text: resText, usage: { promptTokens: estimateTokens(text), outputTokens: estimateTokens(resText), totalTokens: estimateTokens(text) + estimateTokens(resText) } };
+      const pTok = estimateTokens(text);
+      const oTok = estimateTokens(resText);
+      return { text: resText, usage: { promptTokens: pTok, outputTokens: oTok, totalTokens: pTok + oTok, breakdown: calculateTokenBreakdown(pTok, { estSource: pTok }) } };
     };
 
     const translateLibre = async (text, { srcLang, tgtLang, signal, libreUrl }) => {
@@ -2519,7 +2607,9 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`LibreTranslate error ${r.status}: ${b.substring(0, 200)}`); }
       const j = await r.json();
       const resText = j.translatedText || '';
-      return { text: resText, usage: { promptTokens: estimateTokens(text), outputTokens: estimateTokens(resText), totalTokens: estimateTokens(text) + estimateTokens(resText) } };
+      const pTok = estimateTokens(text);
+      const oTok = estimateTokens(resText);
+      return { text: resText, usage: { promptTokens: pTok, outputTokens: oTok, totalTokens: pTok + oTok, breakdown: calculateTokenBreakdown(pTok, { estSource: pTok }) } };
     };
 
                 // --- Multi-Key Profile Management ---
@@ -6057,9 +6147,19 @@ const formatModelName = (id, displayName) => {
           `Typewriter Streaming: ${s ? (s.enableStreaming ? 'ON' : 'OFF') : (enableStreaming ? 'ON' : 'OFF')} | Extended Thinking: ${s ? (s.enableThinking ? 'ON' : 'OFF') : (enableThinking ? 'ON' : 'OFF')} | Strict Model: ${(s ? s.strictModel : strictModel) ? 'ON' : 'OFF'}`,
           `Context-Aware Memory: ${s ? (s.contextAware ? 'ON' : 'OFF') : (contextAware ? 'ON' : 'OFF')} | Concurrency: ${s ? (s.concurrency || 1) : concurrency} parallel stream(s)`,
           `Chunk Size Preset: ${(s?.chunkSizePreset || chunkSizePreset || 'turbo').toUpperCase()} | Smart Glossary: ${(s ? s.smartGlossary : smartGlossary) ? 'ON' : 'OFF'} (${s ? s.glossaryTermCount : glossaryTermCount} terms loaded)`,
-          s ? `Tokens: ${(s.totalTokens || 0).toLocaleString()} (${(s.promptTokens || 0).toLocaleString()} in · ${(s.outputTokens || 0).toLocaleString()} out)` : 'Tokens: In-flight / pending completion',
-          s ? `Cost: ${s.cost || '$0.0000'} | Time: ${s.duration || ''} (${s.speed || 'N/A'}) | Words: ${wordCount(assembledText).toLocaleString()}` : `Words: ${wordCount(assembledText).toLocaleString()}`
+          s ? `Tokens: ${(s.totalTokens || 0).toLocaleString()} (${(s.promptTokens || 0).toLocaleString()} in · ${(s.outputTokens || 0).toLocaleString()} out)` : 'Tokens: In-flight / pending completion'
         ];
+        if (s?.breakdown && s.promptTokens > 0) {
+          const b = s.breakdown;
+          if (b.glossaryTokens > 0) lines.push(`  ├─ Injected Glossary: ${b.glossaryTokens.toLocaleString()} tokens (${b.glossaryPct}%)`);
+          lines.push(`  ├─ Raw Source Text: ${b.sourceTokens.toLocaleString()} tokens (${b.sourcePct}%)`);
+          if (b.genderTokens > 0) lines.push(`  ├─ Gender Lock Protocol: ${b.genderTokens.toLocaleString()} tokens (${b.genderPct}%)`);
+          if (b.contextTokens > 0) lines.push(`  ├─ Context-Aware Memory: ${b.contextTokens.toLocaleString()} tokens (${b.contextPct}%)`);
+          lines.push(`  └─ System & Rules Overhead: ${b.systemTokens.toLocaleString()} tokens (${b.systemPct}%)`);
+        }
+        lines.push(
+          s ? `Cost: ${s.cost || '$0.0000'} | Time: ${s.duration || ''} (${s.speed || 'N/A'}) | Words: ${wordCount(assembledText).toLocaleString()}` : `Words: ${wordCount(assembledText).toLocaleString()}`
+        );
         return lines.join('\n');
       };
 
@@ -8514,6 +8614,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           let totalPromptTokens = 0;
           let totalOutputTokens = 0;
           let totalTokensUsed = 0;
+          let accumulatedBreakdown = {
+            sourceTokens: 0,
+            glossaryTokens: 0,
+            genderTokens: 0,
+            contextTokens: 0,
+            systemTokens: 0
+          };
 
           const saveState = async (res, c, count) => {
             const state = { id: jobId, type: 'text', title: 'Text Translation', result: res, ctx: c, completedCount: count, total: chunks.length, timestamp: Date.now() };
@@ -8566,6 +8673,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 totalPromptTokens += streamRes.usage.promptTokens || 0;
                 totalOutputTokens += streamRes.usage.outputTokens || 0;
                 totalTokensUsed += streamRes.usage.totalTokens || 0;
+                if (streamRes.usage.breakdown) {
+                  accumulatedBreakdown.sourceTokens += streamRes.usage.breakdown.sourceTokens || 0;
+                  accumulatedBreakdown.glossaryTokens += streamRes.usage.breakdown.glossaryTokens || 0;
+                  accumulatedBreakdown.genderTokens += streamRes.usage.breakdown.genderTokens || 0;
+                  accumulatedBreakdown.contextTokens += streamRes.usage.breakdown.contextTokens || 0;
+                  accumulatedBreakdown.systemTokens += streamRes.usage.breakdown.systemTokens || 0;
+                }
               }
               setProgress(Math.floor(((i + 1) / chunks.length) * 100));
               saveState(result, ctx, i + 1);
@@ -8619,6 +8733,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 totalPromptTokens += translated.usage.promptTokens || 0;
                 totalOutputTokens += translated.usage.outputTokens || 0;
                 totalTokensUsed += translated.usage.totalTokens || 0;
+                if (translated.usage.breakdown) {
+                  accumulatedBreakdown.sourceTokens += translated.usage.breakdown.sourceTokens || 0;
+                  accumulatedBreakdown.glossaryTokens += translated.usage.breakdown.glossaryTokens || 0;
+                  accumulatedBreakdown.genderTokens += translated.usage.breakdown.genderTokens || 0;
+                  accumulatedBreakdown.contextTokens += translated.usage.breakdown.contextTokens || 0;
+                  accumulatedBreakdown.systemTokens += translated.usage.breakdown.systemTokens || 0;
+                }
               }
               setAssembledText(result.replace(/\r\n/g, '\n').trim());
               setProgress(Math.floor(((i + 1) / chunks.length) * 100));
@@ -8658,6 +8779,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 totalPromptTokens += r.usage.promptTokens || 0;
                 totalOutputTokens += r.usage.outputTokens || 0;
                 totalTokensUsed += r.usage.totalTokens || 0;
+                if (r.usage.breakdown) {
+                  accumulatedBreakdown.sourceTokens += r.usage.breakdown.sourceTokens || 0;
+                  accumulatedBreakdown.glossaryTokens += r.usage.breakdown.glossaryTokens || 0;
+                  accumulatedBreakdown.genderTokens += r.usage.breakdown.genderTokens || 0;
+                  accumulatedBreakdown.contextTokens += r.usage.breakdown.contextTokens || 0;
+                  accumulatedBreakdown.systemTokens += r.usage.breakdown.systemTokens || 0;
+                }
               }
             });
 
@@ -8711,6 +8839,19 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             ? (useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel)
             : (useCustomModel && customModel ? customModel : geminiModel);
           const finalCost = calculateRealCost(totalPromptTokens, totalOutputTokens, activeM, provider);
+          const finalBreakdown = totalPromptTokens > 0 ? {
+            sourceTokens: accumulatedBreakdown.sourceTokens,
+            glossaryTokens: accumulatedBreakdown.glossaryTokens,
+            genderTokens: accumulatedBreakdown.genderTokens,
+            contextTokens: accumulatedBreakdown.contextTokens,
+            systemTokens: accumulatedBreakdown.systemTokens,
+            sourcePct: ((accumulatedBreakdown.sourceTokens / totalPromptTokens) * 100).toFixed(1),
+            glossaryPct: ((accumulatedBreakdown.glossaryTokens / totalPromptTokens) * 100).toFixed(1),
+            genderPct: ((accumulatedBreakdown.genderTokens / totalPromptTokens) * 100).toFixed(1),
+            contextPct: ((accumulatedBreakdown.contextTokens / totalPromptTokens) * 100).toFixed(1),
+            systemPct: ((accumulatedBreakdown.systemTokens / totalPromptTokens) * 100).toFixed(1)
+          } : null;
+
           const stats = {
             promptTokens: totalPromptTokens,
             outputTokens: totalOutputTokens,
@@ -8730,9 +8871,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             smartGlossary: Boolean(smartGlossary),
             glossaryTermCount: Number(glossaryTermCount || 0),
             hasGlossary: Boolean(terminology && terminology.trim()),
-            hasInstructions: Boolean(customInstructions && customInstructions.trim())
+            hasInstructions: Boolean(customInstructions && customInstructions.trim()),
+            breakdown: finalBreakdown
           };
           setLastUsageStats(stats);
+          if (finalBreakdown) {
+            window.telemetryLog?.('TOKEN_BREAKDOWN', `Token Consumption Breakdown: ${totalPromptTokens.toLocaleString()} in (${finalBreakdown.glossaryTokens.toLocaleString()} glossary · ${finalBreakdown.sourceTokens.toLocaleString()} source · ${finalBreakdown.genderTokens.toLocaleString()} gender · ${finalBreakdown.systemTokens.toLocaleString()} system) + ${totalOutputTokens.toLocaleString()} out`, {
+              totalTokens: totalToks,
+              promptTokens: totalPromptTokens,
+              outputTokens: totalOutputTokens,
+              breakdown: finalBreakdown
+            });
+          }
           window.sendTelemetry?.('REPORT', '\n' + getReportSummaryText(stats));
           addToHistory(srcLang, tgtLang, provider, inputText, result, stats);
           toast(`Translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
@@ -8793,6 +8943,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         let totalPromptTokens = 0;
         let totalOutputTokens = 0;
         let totalTokensUsed = 0;
+        let accumulatedBreakdown = {
+          sourceTokens: 0,
+          glossaryTokens: 0,
+          genderTokens: 0,
+          contextTokens: 0,
+          systemTokens: 0
+        };
 
         const allParts = curSession ? [...curSession.allParts] : [];
         const newChapters = curSession ? [...curSession.newChapters] : [];
@@ -8940,6 +9097,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       totalPromptTokens += tRes.usage.promptTokens || 0;
                       totalOutputTokens += tRes.usage.outputTokens || 0;
                       totalTokensUsed += tRes.usage.totalTokens || 0;
+                      if (tRes.usage.breakdown) {
+                        accumulatedBreakdown.sourceTokens += tRes.usage.breakdown.sourceTokens || 0;
+                        accumulatedBreakdown.glossaryTokens += tRes.usage.breakdown.glossaryTokens || 0;
+                        accumulatedBreakdown.genderTokens += tRes.usage.breakdown.genderTokens || 0;
+                        accumulatedBreakdown.contextTokens += tRes.usage.breakdown.contextTokens || 0;
+                        accumulatedBreakdown.systemTokens += tRes.usage.breakdown.systemTokens || 0;
+                      }
                     }
                   } catch (e) { console.warn('Title translation failed, keeping original title:', e.message); }
                 }
@@ -8980,6 +9144,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   totalPromptTokens += translated.usage.promptTokens || 0;
                   totalOutputTokens += translated.usage.outputTokens || 0;
                   totalTokensUsed += translated.usage.totalTokens || 0;
+                  if (translated.usage.breakdown) {
+                    accumulatedBreakdown.sourceTokens += translated.usage.breakdown.sourceTokens || 0;
+                    accumulatedBreakdown.glossaryTokens += translated.usage.breakdown.glossaryTokens || 0;
+                    accumulatedBreakdown.genderTokens += translated.usage.breakdown.genderTokens || 0;
+                    accumulatedBreakdown.contextTokens += translated.usage.breakdown.contextTokens || 0;
+                    accumulatedBreakdown.systemTokens += translated.usage.breakdown.systemTokens || 0;
+                  }
                 }
               } catch (e) {
                 if (e.name === 'AbortError' || opts?.signal?.aborted) throw e;
@@ -9115,6 +9286,19 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             ? (useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel)
             : (useCustomModel && customModel ? customModel : geminiModel);
           const finalCost = calculateRealCost(totalPromptTokens, totalOutputTokens, activeM, provider);
+          const finalBreakdown = totalPromptTokens > 0 ? {
+            sourceTokens: accumulatedBreakdown.sourceTokens,
+            glossaryTokens: accumulatedBreakdown.glossaryTokens,
+            genderTokens: accumulatedBreakdown.genderTokens,
+            contextTokens: accumulatedBreakdown.contextTokens,
+            systemTokens: accumulatedBreakdown.systemTokens,
+            sourcePct: ((accumulatedBreakdown.sourceTokens / totalPromptTokens) * 100).toFixed(1),
+            glossaryPct: ((accumulatedBreakdown.glossaryTokens / totalPromptTokens) * 100).toFixed(1),
+            genderPct: ((accumulatedBreakdown.genderTokens / totalPromptTokens) * 100).toFixed(1),
+            contextPct: ((accumulatedBreakdown.contextTokens / totalPromptTokens) * 100).toFixed(1),
+            systemPct: ((accumulatedBreakdown.systemTokens / totalPromptTokens) * 100).toFixed(1)
+          } : null;
+
           const stats = {
             promptTokens: totalPromptTokens,
             outputTokens: totalOutputTokens,
@@ -9134,9 +9318,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             smartGlossary: Boolean(smartGlossary),
             glossaryTermCount: Number(glossaryTermCount || 0),
             hasGlossary: Boolean(terminology && terminology.trim()),
-            hasInstructions: Boolean(customInstructions && customInstructions.trim())
+            hasInstructions: Boolean(customInstructions && customInstructions.trim()),
+            breakdown: finalBreakdown
           };
           setLastUsageStats(stats);
+          if (finalBreakdown) {
+            window.telemetryLog?.('TOKEN_BREAKDOWN', `Token Consumption Breakdown: ${totalPromptTokens.toLocaleString()} in (${finalBreakdown.glossaryTokens.toLocaleString()} glossary · ${finalBreakdown.sourceTokens.toLocaleString()} source · ${finalBreakdown.genderTokens.toLocaleString()} gender · ${finalBreakdown.systemTokens.toLocaleString()} system) + ${totalOutputTokens.toLocaleString()} out`, {
+              totalTokens: totalToks,
+              promptTokens: totalPromptTokens,
+              outputTokens: totalOutputTokens,
+              breakdown: finalBreakdown
+            });
+          }
           window.sendTelemetry?.('REPORT', '\n' + getReportSummaryText(stats));
           addToHistory(srcLang, tgtLang, provider, inputText || (chapters || []).map(c => c.text).join('\n\n'), final, stats);
           if (newChapters && newChapters.length > 0) {
@@ -10640,7 +10833,43 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Pipeline Config'), h('span', { className: 'count' }, `Context: ${lastUsageStats.contextAware ? 'ON' : 'OFF'} · ${lastUsageStats.concurrency || 1} Stream(s)`)),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Chunk Size'), h('span', { className: 'count' }, `${(lastUsageStats.chunkSizePreset || 'turbo').toUpperCase()}`)),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Smart Glossary'), h('span', { className: 'count' }, `${lastUsageStats.smartGlossary ? 'ON' : 'OFF'} (${lastUsageStats.glossaryTermCount || 0} terms loaded)`)),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Tokens'), h('span', { className: 'count' }, `${(lastUsageStats.totalTokens || 0).toLocaleString()} (${(lastUsageStats.promptTokens || 0).toLocaleString()} in · ${(lastUsageStats.outputTokens || 0).toLocaleString()} out)`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Tokens'), h('span', { className: 'count', style: { fontWeight: 700 } }, `${(lastUsageStats.totalTokens || 0).toLocaleString()} (${(lastUsageStats.promptTokens || 0).toLocaleString()} in · ${(lastUsageStats.outputTokens || 0).toLocaleString()} out)`)),
+                lastUsageStats.breakdown && h('div', {
+                  style: {
+                    background: 'var(--bg-card-hover, rgba(255, 255, 255, 0.04))',
+                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    margin: '6px 0 8px 0',
+                    fontSize: 12,
+                    lineHeight: 1.6
+                  }
+                },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontWeight: 600, color: 'var(--accent, #6366f1)' } },
+                    h('span', null, '📊 Token Breakdown'),
+                    h('span', { style: { fontSize: 11, opacity: 0.8 } }, `${lastUsageStats.promptTokens.toLocaleString()} in · ${lastUsageStats.outputTokens.toLocaleString()} out`)
+                  ),
+                  lastUsageStats.breakdown.glossaryTokens > 0 && h('div', { style: { display: 'flex', justifyContent: 'space-between', color: '#38bdf8' } },
+                    h('span', null, '├─ Injected Glossary'),
+                    h('span', { style: { fontFamily: 'monospace', fontWeight: 600 } }, `${lastUsageStats.breakdown.glossaryTokens.toLocaleString()} (${lastUsageStats.breakdown.glossaryPct}%)`)
+                  ),
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', color: '#4ade80' } },
+                    h('span', null, '├─ Raw Source Text'),
+                    h('span', { style: { fontFamily: 'monospace', fontWeight: 600 } }, `${lastUsageStats.breakdown.sourceTokens.toLocaleString()} (${lastUsageStats.breakdown.sourcePct}%)`)
+                  ),
+                  lastUsageStats.breakdown.genderTokens > 0 && h('div', { style: { display: 'flex', justifyContent: 'space-between', color: '#f472b6' } },
+                    h('span', null, '├─ Gender Lock Protocol'),
+                    h('span', { style: { fontFamily: 'monospace', fontWeight: 600 } }, `${lastUsageStats.breakdown.genderTokens.toLocaleString()} (${lastUsageStats.breakdown.genderPct}%)`)
+                  ),
+                  lastUsageStats.breakdown.contextTokens > 0 && h('div', { style: { display: 'flex', justifyContent: 'space-between', color: '#fbbf24' } },
+                    h('span', null, '├─ Context-Aware Memory'),
+                    h('span', { style: { fontFamily: 'monospace', fontWeight: 600 } }, `${lastUsageStats.breakdown.contextTokens.toLocaleString()} (${lastUsageStats.breakdown.contextPct}%)`)
+                  ),
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary, #94a3b8)' } },
+                    h('span', null, '└─ System & Rules Overhead'),
+                    h('span', { style: { fontFamily: 'monospace', fontWeight: 600 } }, `${lastUsageStats.breakdown.systemTokens.toLocaleString()} (${lastUsageStats.breakdown.systemPct}%)`)
+                  )
+                ),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Cost'), h('span', { className: 'count' }, lastUsageStats.cost || '$0.0000')),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Time & Speed'), h('span', { className: 'count' }, `${lastUsageStats.duration || ''}${lastUsageStats.speed ? ' · ' + lastUsageStats.speed : ''}`)),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Words Translated'), h('span', { className: 'count' }, outputWordCount.toLocaleString()))
