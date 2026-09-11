@@ -128,6 +128,32 @@
       const fflateLib = (typeof window !== 'undefined' && window.fflate) ? window.fflate : (typeof fflate !== 'undefined' ? fflate : null);
       const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
       if (!fflateLib && !JSZipClass) throw new Error('Neither fflate nor JSZip library loaded');
+
+      // Canonicalize book title to prevent "Table of Contents" or branding leaks
+      let canonicalBookTitle = String(bookTitle || '').trim();
+      if (!canonicalBookTitle || /table\s*of\s*contents?/i.test(canonicalBookTitle)) {
+        canonicalBookTitle = options.novelTitle || options.bookTitle || '';
+        if (!canonicalBookTitle || /table\s*of\s*contents?/i.test(canonicalBookTitle)) {
+          if (chaptersList && chaptersList.some(c => /witch\s*cult|re:zero|arc\s*\d/i.test(c.title || c.arc || ''))) {
+            canonicalBookTitle = 'Re:Zero Starting Life in Another World — Web Novel Complete Edition';
+          } else {
+            canonicalBookTitle = 'Web Novel';
+          }
+        }
+      }
+      canonicalBookTitle = canonicalBookTitle.replace(/\s*[\-\|–—]\s*(?:Witch\s*Cult\s*Translations|Translation\s*Chicken|Eminent\s*Translations).*$/i, '').trim();
+      bookTitle = canonicalBookTitle;
+
+      let canonicalAuthor = String(bookAuthor || '').trim();
+      if (!canonicalAuthor || canonicalAuthor.toLowerCase() === 'author' || /witch\s*cult/i.test(canonicalAuthor)) {
+        if (/re:zero/i.test(bookTitle) || (chaptersList && chaptersList.some(c => /re:zero|witch\s*cult/i.test(c.title || c.arc || '')))) {
+          canonicalAuthor = 'Tappei Nagatsuki';
+        } else {
+          canonicalAuthor = canonicalAuthor || 'Author';
+        }
+      }
+      bookAuthor = canonicalAuthor;
+
       window.telemetryLog?.('EPUB_GEN', `Building EPUB archive: "${bookTitle}" (${chaptersList?.length || 0} chapters, author: "${bookAuthor}")`);
 
       const useFflate = !!fflateLib;
@@ -695,7 +721,12 @@ hr {
           const ch = exportChapters[idx];
           const chId = `chapter_${idx + 1}`;
           const chFilename = `${chId}.xhtml`;
-          const chTitle = ch.title ? decodeHtmlEntities(ch.title).trim() : `Chapter ${idx + 1}`;
+          let chTitle = ch.title ? decodeHtmlEntities(ch.title).trim() : `Chapter ${idx + 1}`;
+          chTitle = chTitle.replace(/\s*(?:\||–|—|-)\s*Witch\s*Cult\s*Translations/gi, '').trim();
+          chTitle = chTitle.replace(/\s*\((?:Originally\s+translated\s+by\s+TranslationChicken|Translation\s*Chicken)\)/gi, '').trim();
+          chTitle = chTitle.replace(/^Re:Zero(?:\s*\(WN\))?\s*[-–—:|]?\s*/i, '').trim();
+          chTitle = chTitle.replace(/^[\s,;:–—-]+\s*/, '').trim();
+          if (!chTitle) chTitle = `Chapter ${idx + 1}`;
 
           manifestItems.push(`<item id="${chId}" href="${chFilename}" media-type="application/xhtml+xml"/>`);
           spineItems.push(`<itemref idref="${chId}"/>`);
@@ -878,17 +909,25 @@ ${bodyHtml.join('\n ')}
 
         // ── HIERARCHICAL TABLE OF CONTENTS (Volume Collapsible Hierarchy) ──
         const useHierarchicalToc = options.hierarchicalToc !== false;
-        const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s:–—-]*(.*)$/i;
+        const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s,;:–—-]*(.*)$/i;
         const volumeGroups = [];
         let curVolGroup = null;
 
         for (let i = 0; i < tocEntries.length; i++) {
           const entry = tocEntries[i];
           let volName = entry.volume || entry.arc || null;
-          let cleanTitle = decodeHtmlEntities(entry.title);
+          let cleanTitle = decodeHtmlEntities(entry.title).trim();
+
+          // Strip any website branding from chapter title
+          cleanTitle = cleanTitle.replace(/\s*(?:\||–|—|-)\s*Witch\s*Cult\s*Translations/gi, '').trim();
+          cleanTitle = cleanTitle.replace(/\s*\((?:Originally\s+translated\s+by\s+TranslationChicken|Translation\s*Chicken)\)/gi, '').trim();
+          cleanTitle = cleanTitle.replace(/^Re:Zero(?:\s*\(WN\))?\s*[-–—:|]?\s*/i, '').trim();
 
           if (volName) {
-            volName = decodeHtmlEntities(volName);
+            volName = decodeHtmlEntities(volName).trim();
+            // If cleanTitle starts with this volume name, strip it so the nested item doesn't repeat the volume name
+            const escapedVol = volName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            cleanTitle = cleanTitle.replace(new RegExp(`^(?:\\[\\s*)?${escapedVol}[\\s,;:–—-]*(.*)$`, 'i'), '$1').trim();
           } else {
             const match = cleanTitle.match(volRegex);
             if (match) {
@@ -898,6 +937,10 @@ ${bodyHtml.join('\n ')}
               cleanTitle = match[3] ? match[3].trim() : cleanTitle;
             }
           }
+
+          // Strip any residual leading punctuation left over (comma, colon, dash)
+          cleanTitle = cleanTitle.replace(/^[\s,;:–—-]+\s*/, '').trim();
+          if (!cleanTitle) cleanTitle = entry.title;
 
           if (!curVolGroup || (volName && curVolGroup.volName !== volName)) {
             curVolGroup = {

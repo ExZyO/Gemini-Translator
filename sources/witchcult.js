@@ -35,9 +35,15 @@
       const targetHtml = await fetchHtml('https://witchculttranslation.com/table-of-content/');
       const doc = new DOMParser().parseFromString(targetHtml, 'text/html');
 
-      const title = isArcSpecific 
-        ? `Re:Zero Web Novel — ${specificArcName}` 
-        : this.decodeHtml(doc.querySelector('h1.entry-title, .site-title, title')?.textContent || 'Re:Zero - Starting Life in Another World');
+      let title = 'Re:Zero Starting Life in Another World — Web Novel Complete Edition';
+      if (isArcSpecific && specificArcName) {
+        title = `Re:Zero Web Novel — ${specificArcName}`;
+      } else {
+        const rawTitle = this.decodeHtml(doc.querySelector('h1.entry-title, .site-title, title')?.textContent || '').trim();
+        if (rawTitle && !/table\s*of\s*contents?/i.test(rawTitle)) {
+          title = rawTitle.replace(/\s*[\-\|–—]\s*(?:Witch\s*Cult\s*Translations|Translation\s*Chicken|Eminent\s*Translations).*$/i, '').trim();
+        }
+      }
       const author = 'Tappei Nagatsuki';
       const cover = 'https://witchculttranslation.com/wp-content/uploads/2024/09/png-echidna-beatrice-2-editado-2.jpg';
 
@@ -227,7 +233,40 @@
         }
       } catch (_) {}
 
-      // Step 4: Sort numerically by Arc
+      // Step 4: Re:Zero IF Stories & Special Side Content
+      try {
+        const ifWidgetMatch = targetHtml.match(/Re:\s*Zero\s*IF\s*Stories[\s\S]*?<\/section>/i) ||
+                              targetHtml.match(/id=["']text-2["'][\s\S]*?<\/section>/i);
+        const ifHtml = ifWidgetMatch ? ifWidgetMatch[0] : '';
+        const ifMatches = [...ifHtml.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+        for (const im of ifMatches) {
+          let href = im[1].trim();
+          if (href.startsWith('/')) href = 'https://witchculttranslation.com' + href;
+          if (href.startsWith('http://')) href = href.replace('http://', 'https://');
+          let rawText = this.decodeHtml(im[2].replace(/<[^>]+>/g, '').trim());
+          if (href.includes('/category/') || !rawText) continue;
+
+          // Normalize Ayamatsu IF PDF link from WCT uploads
+          if (/ayamatsu.*\.pdf/i.test(href)) {
+            href = 'https://witchculttranslation.com/wp-content/uploads/2019/02/ayamatsu-april-fools-2017.pdf';
+            rawText = 'Ayamatsu IF (Pride Route)';
+          } else if (href.endsWith('.pdf')) {
+            continue;
+          }
+
+          if (!seen.has(href)) {
+            seen.add(href);
+            allLinks.push({
+              title: rawText.replace(/^Re:\s*/i, '').trim(),
+              url: href,
+              arc: 'IF Stories',
+              order: allLinks.length + 1
+            });
+          }
+        }
+      } catch (_) {}
+
+      // Step 5: Sort numerically by Arc
       const byArc = new Map();
       for (const ch of allLinks) {
         if (!byArc.has(ch.arc)) byArc.set(ch.arc, []);
@@ -246,7 +285,10 @@
         if (filtered.length > 0) finalChapters = filtered;
       }
 
-      finalChapters.forEach((ch, idx) => { ch.order = idx + 1; });
+      finalChapters.forEach((ch, idx) => {
+        ch.order = idx + 1;
+        ch.title = this.formatCanonicalTitle(ch.title, ch.arc);
+      });
 
       if (finalChapters.length === 0) {
         finalChapters.push({
@@ -268,7 +310,57 @@
       };
     }
 
+    formatCanonicalTitle(rawTitle, arcName) {
+      if (!rawTitle) return 'Chapter';
+      let t = this.decodeHtml(rawTitle).trim();
+
+      // 1. Strip site branding suffixes
+      t = t.replace(/\s*[\-\|–—]\s*(?:Witch\s*Cult\s*Translations|Translation\s*Chicken|Eminent\s*Translations|Rem\s*on\s*Water).*$/i, '');
+      t = t.replace(/\s*\(Originally translated.*?\)/i, '');
+
+      // 2. Strip redundant series prefixes (e.g., "Re:Zero (WN) Arc 2 | Chapter 1" or "Re: Ayamatsu IF")
+      t = t.replace(/^(?:Re:\s*Zero\s*(?:\([^\)]+\)|\[[^\]]+\])?\s*[\-\|–—:]*\s*)/i, '');
+      t = t.replace(/^Re:\s+/i, '');
+
+      // 3. Strip redundant Arc prefix from start of title if it matches current arc or generic Arc
+      if (arcName && arcName !== 'Side Content' && arcName !== 'IF Stories') {
+        t = t.replace(new RegExp(`^(?:${arcName})[\\s,:–—\\-\\|\\/]+`, 'i'), '');
+      }
+      t = t.replace(/^(?:Arc\s*\d+|Volume\s*\d+|Vol\.?\s*\d+)[\s,:–—\-\|\/]+/i, '');
+
+      // 4. Strip any leading commas, colons, or punctuation
+      t = t.replace(/^[\s,:–—\-\|\/]+/, '').trim();
+
+      // 5. Standardize "Vol 3 Ch 1" or "Ch 1"
+      t = t.replace(/^Vol\.?\s*\d+\s*Ch\.?\s*(\d+)[:\s–—-]*/i, 'Chapter $1: ');
+      t = t.replace(/^Ch\.?\s*(\d+)[:\s–—-]*/i, 'Chapter $1: ');
+
+      return t.trim() || rawTitle.trim();
+    }
+
     async getChapter(chapterUrl, options = {}) {
+      if (chapterUrl.endsWith('.pdf') || chapterUrl.includes('.pdf')) {
+        let pdfText = '';
+        try {
+          const extractFn = (window.WebNovelImporter && window.WebNovelImporter.extractPdfText) || null;
+          if (typeof extractFn === 'function') {
+            const res = await fetch(chapterUrl);
+            const buf = await res.arrayBuffer();
+            pdfText = extractFn(buf);
+          }
+        } catch (pdfErr) {
+          console.warn('PDF extraction error in getChapter:', pdfErr);
+        }
+        const chapterTitle = options.title || 'Ayamatsu IF (Pride Route)';
+        return {
+          title: chapterTitle,
+          content: pdfText || 'Ayamatsu IF (Pride Route)',
+          originalTitle: chapterTitle,
+          arc: options.arc || 'IF Stories',
+          volume: options.volume || options.arc || 'IF Stories'
+        };
+      }
+
       const fetchHtml = (window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
       if (!fetchHtml) throw new Error('HTML fetcher not initialized');
 
@@ -277,7 +369,7 @@
 
       // Title
       let rawTitle = doc.querySelector('h1.entry-title, .entry-title, title')?.textContent || options.title || 'Chapter';
-      const title = this.decodeHtml(rawTitle.replace(/\s*–\s*Witch Cult Translations.*$/i, '').trim());
+      const title = this.formatCanonicalTitle(rawTitle, options.arc);
 
       // Content
       let contentEl = doc.querySelector('.entry-content, .post-content, article .content, article, main');

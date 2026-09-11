@@ -718,27 +718,166 @@
     // 5. SITE SOURCE CRAWLERS (LNCRAWL TEMPLATE DRIVEN)
     // ══════════════════════════════════════════════════════════════════════
 
+    // Helper: Pure JS CMap-based PDF text extractor for official PDF IF releases (Ayamatsu IF)
+    function extractPdfText(bufferOrArrayBuffer) {
+        try {
+            const bytes = new Uint8Array(bufferOrArrayBuffer);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+
+            const fflateLib = (typeof window !== 'undefined' && window.fflate) ? window.fflate : (typeof fflate !== 'undefined' ? fflate : null);
+            const zlibLib = (typeof require === 'function') ? (function() { try { return require('zlib'); } catch(_) { return null; } })() : null;
+
+            const decompress = (u8) => {
+                if (zlibLib && typeof zlibLib.inflateSync === 'function') {
+                    try { return zlibLib.inflateSync(Buffer.from(u8)); } catch(_) {}
+                }
+                if (fflateLib && typeof fflateLib.unzlibSync === 'function') {
+                    try { return fflateLib.unzlibSync(u8); } catch(_) {}
+                }
+                if (fflateLib && typeof fflateLib.inflateSync === 'function') {
+                    try { return fflateLib.inflateSync(u8); } catch(_) {}
+                }
+                return null;
+            };
+
+            const cmaps = {};
+            [218, 223, 228, 233].forEach(id => {
+                const re = new RegExp(`${id}\\s+0\\s+obj[\\s\\S]*?stream\\r?\\n([\\s\\S]*?)\\r?\\nendstream`);
+                const m = binary.match(re);
+                if (m) {
+                    try {
+                        const raw = m[1];
+                        const u8 = new Uint8Array(raw.length);
+                        for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i);
+                        const decomp = decompress(u8);
+                        if (decomp) {
+                            let uStr = '';
+                            if (typeof Buffer !== 'undefined' && Buffer.isBuffer(decomp)) {
+                                uStr = decomp.toString('utf-8');
+                            } else {
+                                uStr = new TextDecoder('utf-8').decode(decomp);
+                            }
+                            const cmap = {};
+                            const bfMatches = [...uStr.matchAll(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>/g)];
+                            for (const bf of bfMatches) {
+                                cmap[bf[1].toLowerCase()] = String.fromCharCode(parseInt(bf[2], 16));
+                            }
+                            cmaps[id] = cmap;
+                        }
+                    } catch (_) {}
+                }
+            });
+
+            const fontToCmap = {
+                'F1': cmaps[223] || {},
+                'F2': cmaps[228] || {},
+                'F3': cmaps[233] || {},
+                'F4': cmaps[218] || {}
+            };
+
+            const pageRegex = /\/Type\s*\/Page\b[\s\S]*?\/Contents\s+(\d+)\s+(\d+)\s+R/g;
+            const contentObjIds = [];
+            let pMatch;
+            while ((pMatch = pageRegex.exec(binary)) !== null) {
+                contentObjIds.push(pMatch[1]);
+            }
+
+            const pages = [];
+            for (const cId of contentObjIds) {
+                const objRegex = new RegExp(`${cId}\\s+0\\s+obj[\\s\\S]*?stream\\r?\\n([\\s\\S]*?)\\r?\\nendstream`);
+                const streamM = binary.match(objRegex);
+                if (!streamM) continue;
+
+                try {
+                    const raw = streamM[1];
+                    const u8 = new Uint8Array(raw.length);
+                    for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i);
+                    const decomp = decompress(u8);
+                    if (!decomp) continue;
+
+                    let streamText = '';
+                    if (typeof Buffer !== 'undefined' && Buffer.isBuffer(decomp)) {
+                        streamText = decomp.toString('utf-8');
+                    } else {
+                        streamText = new TextDecoder('utf-8').decode(decomp);
+                    }
+
+                    let pageText = '';
+                    let activeFont = 'F1';
+
+                    const lines = streamText.split(/\r?\n/);
+                    for (const line of lines) {
+                        const fontM = line.match(/\/([A-Z0-9]+)\s+[\d.]+\s+Tf/);
+                        if (fontM && fontToCmap[fontM[1]]) {
+                            activeFont = fontM[1];
+                        }
+
+                        const cmap = fontToCmap[activeFont] || fontToCmap['F1'];
+
+                        if (line.includes('TJ')) {
+                            const arrM = line.match(/\[(.*?)\]\s*TJ/);
+                            if (arrM) {
+                                let lineStr = '';
+                                const hexParts = [...arrM[1].matchAll(/<([0-9a-fA-F]+)>/g)];
+                                for (const h of hexParts) {
+                                    const hex = h[1];
+                                    for (let i = 0; i < hex.length; i += 2) {
+                                        const code = hex.slice(i, i + 2).toLowerCase();
+                                        lineStr += cmap[code] !== undefined ? cmap[code] : '';
+                                    }
+                                }
+                                if (lineStr.trim()) pageText += lineStr + '\n';
+                            }
+                        } else if (line.includes('Tj')) {
+                            const hexM = line.match(/<([0-9a-fA-F]+)>\s*Tj/);
+                            if (hexM) {
+                                let lineStr = '';
+                                const hex = hexM[1];
+                                for (let i = 0; i < hex.length; i += 2) {
+                                    const code = hex.slice(i, i + 2).toLowerCase();
+                                    lineStr += cmap[code] !== undefined ? cmap[code] : '';
+                                }
+                                if (lineStr.trim()) pageText += lineStr + ' ';
+                            }
+                        }
+                    }
+                    if (pageText.trim()) pages.push(pageText.trim());
+                } catch (_) {}
+            }
+
+            return pages.join('\n\n');
+        } catch (e) {
+            console.warn('PDF text extraction error:', e);
+            return '';
+        }
+    }
+
     // --- A. WITCH CULT TRANSLATIONS (Re:Zero Web Novel Pipeline) ---
     function cleanWitchCultChapter(rawHtml) {
         let content = rawHtml || '';
 
-        // 1. Strip legacy the-artifice.com translator avatars and broken markdown artifacts
+        // 1. Strip WordPress comments and response forms
+        content = content.replace(/<(?:div|section)\b[^>]*\bid=["']comments["'][\s\S]*$/gi, '');
+        content = content.replace(/<(?:div|section)\b[^>]*\bclass=["'][^"']*\b(?:comments-area|comment-respond|comment-list|comments)\b[^"']*["'][\s\S]*$/gi, '');
+        content = content.replace(/<div\b[^>]*\bid=["']respond["'][\s\S]*$/gi, '');
+
+        // 2. Strip legacy the-artifice.com translator avatars and broken markdown artifacts
         content = content.replace(/<p[^>]*>\s*<img[^>]*the-artifice\.com[^>]*>\s*<\/p>/gi, '');
         content = content.replace(/<img[^>]*the-artifice\.com[^>]*>/gi, '');
         content = content.replace(/!\[.*?\]\([^\)]*the-artifice\.com[^\)]*\)/gi, '');
         content = content.replace(/!\([^\)]*the-artifice\.com[^\)]*\)/gi, '');
 
-        // 2. Strip decorative WCT website logos and pins
+        // 3. Strip decorative WCT website logos and pins
         content = content.replace(/<p[^>]*>\s*<img[^>]*(?:wct_logo|Satella_Pin|Emilia_Pin|Pin\.png|pin\.png)[^>]*>\s*<\/p>/gi, '');
         content = content.replace(/<img[^>]*(?:wct_logo|Satella_Pin|Emilia_Pin|Pin\.png|pin\.png)[^>]*>/gi, '');
 
-        // 3. Strip language flag icons (jp.png, France-Flag, br.png, etc.)
+        // 4. Strip language flag icons (jp.png, France-Flag, br.png, etc.)
         content = content.replace(/<p[^>]*>\s*<a[^>]*>\s*<img[^>]*(?:jp\.png|France-Flag|flag)[^>]*>\s*<\/a>\s*<\/p>/gi, '');
         content = content.replace(/<a[^>]*>\s*<img[^>]*(?:jp\.png|France-Flag|flag)[^>]*>\s*<\/a>/gi, '');
         content = content.replace(/<img[^>]*(?:jp\.png|France-Flag|flag)[^>]*>/gi, '');
 
-        // 4. Strip the credit/disclaimer boilerplate header at the top of the chapter:
-        // Matches from opening divider(s) (※ or △▼) through credit lines to closing divider before the story starts
+        // 5. Strip the credit/disclaimer boilerplate header at the top of the chapter
         content = content.replace(/(?:<p[^>]*>\s*[※　*#_\-△▼\s]{3,}\s*<\/p>[\s\S]*?){1,5}<p[^>]*>\s*[※　*#_\-△▼\s]{3,}\s*<\/p>/i, (match) => {
             if (/translated\s+by|proofread|proofreaders?|all\s+rights\s+belong|japanese\s+web\s+novel\s+source|art\s+sources?|archbishop|snuser/i.test(match)) {
                 return '';
@@ -746,7 +885,41 @@
             return match;
         });
 
+        // 6. Strip bottom post navigation and donation prompts
+        content = content.replace(/<p[^>]*>\s*(?:&lt;&lt;|\<\<|&gt;&gt;|\>\>|Previous|Next|Table of Contents)[\s\S]*?<\/p>/gi, '');
+        content = content.replace(/<p[^>]*>\s*(?:Previous Chapter|Next Chapter|Next Post|Previous Post)[\s\S]*?<\/p>/gi, '');
+        content = content.replace(/<p[^>]*>\s*(?:Support us on|Donate via|Patreon|PayPal|Ko-fi)[\s\S]*?<\/p>/gi, '');
+        content = content.replace(/<div\b[^>]*\bclass=["'][^"']*\b(?:sharedaddy|wpcnt|jp-relatedposts|nav-links|post-navigation|likes-widget|ads|advertisement)\b[^"']*["'][\s\S]*?<\/div>/gi, '');
+
         return cleanChapterHtmlWithImages(content);
+    }
+
+    function formatCanonicalWctChapterTitle(rawTitle, arcName) {
+        if (!rawTitle) return 'Chapter';
+        let t = decodeHtmlEntities(rawTitle).trim();
+
+        // 1. Strip site branding suffixes
+        t = t.replace(/\s*[\-\|–—]\s*(?:Witch\s*Cult\s*Translations|Translation\s*Chicken|Eminent\s*Translations|Rem\s*on\s*Water).*$/i, '');
+        t = t.replace(/\s*\(Originally translated.*?\)/i, '');
+
+        // 2. Strip redundant series prefixes (e.g., "Re:Zero (WN) Arc 2 | Chapter 1" or "Re: Ayamatsu IF")
+        t = t.replace(/^(?:Re:\s*Zero\s*(?:\([^\)]+\)|\[[^\]]+\])?\s*[\-\|–—:]*\s*)/i, '');
+        t = t.replace(/^Re:\s+/i, '');
+
+        // 3. Strip redundant Arc prefix from start of title if it matches current arc or generic Arc
+        if (arcName && arcName !== 'Side Content' && arcName !== 'IF Stories') {
+            t = t.replace(new RegExp(`^(?:${arcName})[\\s,:–—\\-\\|\\/]+`, 'i'), '');
+        }
+        t = t.replace(/^(?:Arc\s*\d+|Volume\s*\d+|Vol\.?\s*\d+)[\s,:–—\-\|\/]+/i, '');
+
+        // 4. Strip any leading commas, colons, or punctuation
+        t = t.replace(/^[\s,:–—\-\|\/]+/, '').trim();
+
+        // 5. Standardize "Vol 3 Ch 1" or "Ch 1"
+        t = t.replace(/^Vol\.?\s*\d+\s*Ch\.?\s*(\d+)[:\s–—-]*/i, 'Chapter $1: ');
+        t = t.replace(/^Ch\.?\s*(\d+)[:\s–—-]*/i, 'Chapter $1: ');
+
+        return t.trim() || rawTitle.trim();
     }
 
     function normalizeWctArc(rawHeading) {
@@ -976,7 +1149,42 @@
                 console.warn('Arc 6 missing chapters fetch error:', a6Err);
             }
 
-            // Step 4: Sort chapters numerically within each Arc to ensure 100% chronological order
+            // Step 4: Re:Zero IF Stories & Special Side Content
+            try {
+                const ifWidgetMatch = targetHtml.match(/Re:\s*Zero\s*IF\s*Stories[\s\S]*?<\/section>/i) ||
+                                      targetHtml.match(/id=["']text-2["'][\s\S]*?<\/section>/i);
+                const ifHtml = ifWidgetMatch ? ifWidgetMatch[0] : '';
+                const ifMatches = [...ifHtml.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+                for (const im of ifMatches) {
+                    let href = im[1].trim();
+                    if (href.startsWith('/')) href = 'https://witchculttranslation.com' + href;
+                    if (href.startsWith('http://')) href = href.replace('http://', 'https://');
+                    let rawText = decodeHtmlEntities(im[2].replace(/<[^>]+>/g, '').trim());
+                    if (href.includes('/category/') || !rawText) continue;
+
+                    // Normalize Ayamatsu IF PDF link from WCT uploads
+                    if (/ayamatsu.*\.pdf/i.test(href)) {
+                        href = 'https://witchculttranslation.com/wp-content/uploads/2019/02/ayamatsu-april-fools-2017.pdf';
+                        rawText = 'Ayamatsu IF (Pride Route)';
+                    } else if (href.endsWith('.pdf')) {
+                        continue;
+                    }
+
+                    if (!seenHref.has(href)) {
+                        seenHref.add(href);
+                        allLinks.push({
+                            href,
+                            text: rawText.replace(/^Re:\s*/i, '').trim(),
+                            arc: 'IF Stories',
+                            volume: 'IF Stories'
+                        });
+                    }
+                }
+            } catch (ifErr) {
+                console.warn('IF Stories discovery error:', ifErr);
+            }
+
+            // Step 5: Sort chapters numerically within each Arc to ensure 100% chronological order
             const byArc = new Map();
             for (const ch of allLinks) {
                 if (!byArc.has(ch.arc)) byArc.set(ch.arc, []);
@@ -1001,11 +1209,12 @@
             }
 
             for (let i = 0; i < targetList.length; i++) {
+                const canonicalTitle = formatCanonicalWctChapterTitle(targetList[i].text, targetList[i].arc);
                 chapterList.push({
                     url: targetList[i].href,
-                    title: targetList[i].text || `Chapter ${i + 1}`,
+                    title: canonicalTitle || `Chapter ${i + 1}`,
                     arc: targetList[i].arc,
-                    volume: targetList[i].volume
+                    volume: targetList[i].volume || targetList[i].arc
                 });
             }
         } catch (tocErr) {
@@ -1039,6 +1248,16 @@
         const { chapters, totalWords, totalImages } = await crawlChapterPool(
             chapterList,
             async (item) => {
+                if (item.url.endsWith('.pdf') || item.url.includes('.pdf')) {
+                    try {
+                        const res = await fetch(item.url);
+                        const buf = await res.arrayBuffer();
+                        const txt = extractPdfText(buf);
+                        return { title: item.title, text: txt, arc: item.arc, volume: item.volume };
+                    } catch (pdfErr) {
+                        console.warn('PDF chapter extract error:', pdfErr);
+                    }
+                }
                 const html = await fetchHtml(item.url);
                 let contentHtml = '';
                 if (typeof DOMParser !== 'undefined') {
@@ -3394,6 +3613,9 @@
     window.WebNovelImporter = {
         fetchHtml,
         importEpubBuffer,
+        cleanWitchCultChapter,
+        formatCanonicalWctChapterTitle,
+        extractPdfText,
         detectType: detectUrlType,
         getBestImageUrl,
         cleanChapterHtmlWithImages,
