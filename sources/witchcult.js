@@ -20,7 +20,7 @@
 
     matches(url) {
       if (!url) return false;
-      return /witchculttranslation\.com/i.test(url);
+      return /(witchculttranslation\.com|translationchicken\.com|eminenttranslations\.com)/i.test(url);
     }
 
     async getNovelDetails(url) {
@@ -42,7 +42,7 @@
       }
 
       const chapters = [];
-      const links = doc.querySelectorAll('.entry-content a[href*="witchculttranslation.com"], .entry-content a[href*="eminenttranslations.com"], .entry-content a[href*="kagurojp.wordpress.com"], .entry-content a[href*="remonwater.wordpress.com"]');
+      const links = doc.querySelectorAll('.entry-content a[href*="witchculttranslation.com"], .entry-content a[href*="eminenttranslations.com"], .entry-content a[href*="kagurojp.wordpress.com"], .entry-content a[href*="remonwater.wordpress.com"], .entry-content a[href*="translationchicken.com"], .post-content a[href*="translationchicken.com"]');
       const seen = new Set();
 
       links.forEach((a, idx) => {
@@ -71,6 +71,32 @@
         });
       });
 
+      // If Arc 4 has very few chapters, backfill from Translation Chicken archive
+      if (chapters.filter(c => /arc\s*4/i.test(c.arc)).length < 5 && (!arcMatch || arcMatch[1].includes('4') || url.includes('table-of-content'))) {
+        try {
+          const tcHtml = await fetchHtml('https://translationchicken.com/2016/09/21/rezero-web-novel-fan-translation-table-of-contents/');
+          const tcDoc = new DOMParser().parseFromString(tcHtml, 'text/html');
+          const tcLinks = tcDoc.querySelectorAll('a[href*="translationchicken.com/20"]');
+          tcLinks.forEach(a => {
+            let href = a.getAttribute('href') || '';
+            if (/arc-4/i.test(href) && !seen.has(href) && !href.includes('#')) {
+              seen.add(href);
+              let cTitle = this.decodeHtml(a.textContent.trim());
+              if (cTitle.startsWith('http') || cTitle.length < 5) {
+                const slug = href.replace(/\/$/, '').split('/').pop();
+                cTitle = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+              }
+              chapters.push({
+                title: cTitle,
+                url: href,
+                arc: 'Arc 4',
+                order: chapters.length + 1
+              });
+            }
+          });
+        } catch(e) {}
+      }
+
       // Fallback: If on a single chapter page, return as single chapter
       if (chapters.length === 0) {
         chapters.push({
@@ -86,7 +112,7 @@
         title,
         author,
         cover,
-        summary: 'Official Re:Zero Web Novel English Translations by Witch Cult Translations.',
+        summary: 'Official Re:Zero Web Novel English Translations by Witch Cult Translations & Translation Chicken.',
         status: 'Ongoing',
         chapters
       };
@@ -104,7 +130,7 @@
       const title = this.decodeHtml(rawTitle.replace(/\s*–\s*Witch Cult Translations.*$/i, '').trim());
 
       // Content
-      let contentEl = doc.querySelector('.entry-content, article, main');
+      let contentEl = doc.querySelector('.entry-content, .post-content, article, main');
       let content = '';
 
       if (contentEl) {

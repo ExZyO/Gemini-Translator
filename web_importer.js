@@ -776,6 +776,49 @@
                 }
             }
 
+            // If Arc 4 has very few chapters (since WCT stores Arc 4 as compiled PDFs),
+            // seamlessly backfill Arc 4 from Translation Chicken's official fan translation archive!
+            const arc4Count = allLinks.filter(l => /arc\s*4/i.test(l.arc)).length;
+            if (arc4Count < 5 && (!isArcPage || url.includes('arc-4'))) {
+                try {
+                    progressCb?.(' Indexing Arc 4 chapters from Translation Chicken archive...', 12);
+                    const tcHtml = await fetchHtml('https://translationchicken.com/2016/09/21/rezero-web-novel-fan-translation-table-of-contents/');
+                    const tcMatches = [...tcHtml.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+                    let lastArc3Idx = -1;
+                    for (let i = allLinks.length - 1; i >= 0; i--) {
+                        if (/arc\s*3/i.test(allLinks[i].arc)) {
+                            lastArc3Idx = i;
+                            break;
+                        }
+                    }
+                    const insertIdx = lastArc3Idx !== -1 ? lastArc3Idx + 1 : allLinks.length;
+                    const tcItems = [];
+
+                    for (const m of tcMatches) {
+                        const href = m[1].replace(/\/$/, '') + '/';
+                        let rawText = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
+                        if (href.includes('translationchicken.com/20') && /arc-4/i.test(href) && !href.includes('#') && !seenHref.has(href)) {
+                            seenHref.add(href);
+                            if (rawText.startsWith('http') || rawText.length < 5) {
+                                const slug = href.replace(/^.*\/([^\/]+)\/?$/, '$1');
+                                rawText = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            }
+                            tcItems.push({
+                                href,
+                                text: rawText,
+                                arc: 'Arc 4 – Everlasting Contract',
+                                volume: 'Arc 4 – Everlasting Contract'
+                            });
+                        }
+                    }
+                    if (tcItems.length > 0) {
+                        allLinks.splice(insertIdx, 0, ...tcItems);
+                    }
+                } catch (tcErr) {
+                    console.warn('Translation Chicken TOC fetch error:', tcErr);
+                }
+            }
+
             let targetIdx = 0;
             if (targetSlug && targetSlug !== 'table-of-content' && !isArcPage) {
                 const foundIdx = allLinks.findIndex(l => l.href.includes(targetSlug));
@@ -822,13 +865,13 @@
             chapterList,
             async (item) => {
                 const html = await fetchHtml(item.url);
-                let cMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-                if (!cMatch && item.url.includes('eminenttranslations.com')) {
+                let cMatch = html.match(/<div[^>]*class="[^"]*(?:entry-content|post-content)[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+                if (!cMatch && (item.url.includes('eminenttranslations.com') || item.url.includes('translationchicken.com'))) {
                     const pMatches = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
                     if (pMatches.length > 0) {
                         const cleanPs = pMatches
                             .map(p => p[1].replace(/<[^>]+>/g, '').trim())
-                            .filter(t => t.length > 0 && !/^(Chapter List|Previous Chapter|Next Chapter|Menu|Close|Search)/i.test(t));
+                            .filter(t => t.length > 0 && !/^(Chapter List|Previous Chapter|Next Chapter|Menu|Close|Search|Start Reading)/i.test(t));
                         cMatch = [null, cleanPs.map(p => `<p>${p}</p>`).join('\n')];
                     }
                 }
@@ -2857,7 +2900,7 @@
         if (clean.includes('novel-bin.') || clean.includes('novelbin.') || clean.includes('mvlempyr.')) return 'novelbin';
         if (clean.includes('novelfire.')) return 'novelfire';
         if (clean.includes('archiveofourown.org')) return 'ao3';
-        if (clean.includes('witchculttranslation.com')) return 'witchcult';
+        if (clean.includes('witchculttranslation.com') || clean.includes('translationchicken.com')) return 'witchcult';
         if (clean.includes('lofter.com')) return 'lofter';
         if (clean.includes('royalroad.com') || clean.includes('scribblehub.com')) return 'royalroad';
         if (clean.includes('syosetu.com') || clean.includes('syosetu.org') || clean.includes('kakuyomu.jp')) return 'syosetu';

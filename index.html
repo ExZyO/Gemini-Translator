@@ -12159,15 +12159,23 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
                   chs.forEach((ch, globalIdx) => {
                     const title = ch?.title || '';
-                    const match = title.match(volRegex);
+                    const explicitVol = ch?.volume || ch?.arc;
                     let volName = null;
                     let cleanTitle = title;
 
-                    if (match) {
-                      const prefix = match[1].toLowerCase().startsWith('vol') ? 'Volume' : (match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase());
-                      const num = parseInt(match[2], 10) || match[2];
-                      volName = `${prefix} ${num}`;
-                      cleanTitle = match[3] ? match[3].trim() : title;
+                    if (explicitVol) {
+                      const arcM = String(explicitVol).match(/^(Arc\s*\d+|Arc\s*[IVXLCDM]+|Volume\s*\d+|Book\s*\d+|Side\s*Content|EX\s*Novel|IF\s*Stories)/i);
+                      volName = arcM ? arcM[1].replace(/\b\w/g, l => l.toUpperCase()) : String(explicitVol).trim();
+                      const tMatch = title.match(volRegex);
+                      if (tMatch && tMatch[3]) cleanTitle = tMatch[3].trim();
+                    } else {
+                      const match = title.match(volRegex);
+                      if (match) {
+                        const prefix = match[1].toLowerCase().startsWith('vol') ? 'Volume' : (match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase());
+                        const num = parseInt(match[2], 10) || match[2];
+                        volName = `${prefix} ${num}`;
+                        cleanTitle = match[3] ? match[3].trim() : title;
+                      }
                     }
 
                     if (!curGroup || (volName && curGroup.volName !== volName)) {
