@@ -1,9 +1,9 @@
 {
-  "version": "8.14.4",
-  "versionCode": 8224,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.4/app-release.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.4/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.14.4",
+  "version": "8.14.5",
+  "versionCode": 8225,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.5/app-release.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.5/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.14.5",
   "releaseDate": "2026-09-11",
-  "releaseNotes": "v8.14.4: Fix Settings Tab ReferenceError & Library State Persistence: 1) Fix Settings Tab Crash: resolves undeclared historyNovels reference that caused 'Something went wrong: historyNovels is not defined' when opening Settings or restarting with Settings as active tab; 2) Library State Resolution: safely aliases and maps historyNovels to webImportHistory library state across Settings action rows, Witch Cult updater, and Re:Zero crawler; 3) Dynamic Version Code: ensures Settings headers and update checks reflect dynamic build numbers."
+  "releaseNotes": "v8.14.5: Fix Translated EPUB Cover Art & Preservation Pipeline: 1) getEpubOptions Spread Fix: eliminates object spread overwrite where empty coverUrl previously wiped detected covers; 2) Multi-Tier Cover Inheritance: automatically falls back to webImportHistory by matching base novel title, preserving genuine web novel illustration covers for translated EPUBs; 3) Persistent Cover State: synchronizes currentDocCover with localStorage and activeNovelRecord so covers survive app restarts and tab switches; 4) Celebratory & Library Card Sync: ensures translated EPUB download buttons in Celebratory card and Library inherit genuine cover art instead of AI fallback."
 }

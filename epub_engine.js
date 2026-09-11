@@ -585,8 +585,31 @@ hr {
           }
         }
 
-        // Scan for cover image across options and chapter front-matter
+        // Scan for cover image across options, chapter front-matter, and local library persistence
         let coverUrl = (options.coverUrl || options.cover || options.coverImage || '').trim();
+        if (!coverUrl && typeof window !== 'undefined') {
+          try {
+            if (window.currentDocCover && typeof window.currentDocCover === 'string') {
+              coverUrl = window.currentDocCover.trim();
+            }
+            if (!coverUrl && typeof localStorage !== 'undefined') {
+              const saved = localStorage.getItem('gemini_current_doc_cover');
+              if (saved) coverUrl = saved.trim();
+            }
+            if (!coverUrl && typeof localStorage !== 'undefined' && bookTitle) {
+              const metaRaw = localStorage.getItem('gemini_web_import_history_meta');
+              if (metaRaw) {
+                const metaList = JSON.parse(metaRaw);
+                const cleanBT = String(bookTitle).replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                const matched = (metaList || []).find(n => {
+                  const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                  return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
+                });
+                if (matched?.cover) coverUrl = matched.cover.trim();
+              }
+            }
+          } catch (_) {}
+        }
         if (!coverUrl) {
           for (let i = 0; i < Math.min(5, exportChapters.length); i++) {
             const ch = exportChapters[i];
@@ -598,6 +621,9 @@ hr {
               break;
             }
           }
+        }
+        if (coverUrl && coverUrl.includes('i.pximg.net')) {
+          coverUrl = coverUrl.replace('i.pximg.net', 'i.pixiv.re');
         }
         if (coverUrl) {
           uniqueImgUrls.add(coverUrl);

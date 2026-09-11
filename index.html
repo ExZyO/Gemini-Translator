@@ -3987,14 +3987,25 @@ const formatModelName = (id, displayName) => {
         const totalChapters = novelData.totalChapterCount || (novelData.chapterList ? novelData.chapterList.length : cleanChapters.length);
         const isIncomplete = novelData.isIncomplete !== undefined ? !!novelData.isIncomplete : (cleanChapters.length < totalChapters);
         const isTranslated = !!novelData.isTranslated || (novelData.title || '').includes('(Translated)');
-        const existingMeta = (webImportHistory || []).find(n => (novelId && n.id === novelId) || (n.title && novelData.title && n.title.trim().toLowerCase() === novelData.title.trim().toLowerCase()));
+        const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+        const existingMeta = (webImportHistory || []).find(n => (novelId && n.id === novelId) || (n.title && novelData.title && cleanT(n.title) === cleanT(novelData.title)));
         const inSavedSpace = novelData.inSavedSpace !== undefined
           ? !!novelData.inSavedSpace
           : (existingMeta?.inSavedSpace !== undefined ? !!existingMeta.inSavedSpace : false);
         const folderOpts = getNovelFolderOptions(novelData);
         const folderTreeUri = novelData.folderTreeUri || folderOpts.treeUri || existingMeta?.folderTreeUri || '';
         const folderPath = novelData.folderPath || folderOpts.folderPath || existingMeta?.folderPath || '';
-        const coverArt = novelData.cover || existingMeta?.cover || '';
+        let coverArt = novelData.cover || existingMeta?.cover || '';
+        if (!coverArt && novelData.title) {
+          const matchedAny = (webImportHistory || []).find(n => n.cover && cleanT(n.title) === cleanT(novelData.title));
+          if (matchedAny?.cover) coverArt = matchedAny.cover;
+        }
+        if (!coverArt && typeof currentDocCover !== 'undefined' && currentDocCover) {
+          coverArt = currentDocCover;
+        }
+        if (!coverArt && typeof localStorage !== 'undefined') {
+          coverArt = localStorage.getItem('gemini_current_doc_cover') || '';
+        }
 
         const novelRecord = {
           id: novelId,
@@ -5091,7 +5102,30 @@ const formatModelName = (id, displayName) => {
 
       const getEpubOptions = (extraOpts = {}) => {
         const activeNovel = (typeof activeNovelView !== 'undefined' && activeNovelView) ? activeNovelView : ((activeCrawlSession?.chapters?.length >= (webImportData?.chapters?.length || 0)) ? activeCrawlSession : (webImportData || activeCrawlSession));
-        const coverCandidate = extraOpts.coverUrl || extraOpts.cover || (typeof currentDocCover !== 'undefined' && currentDocCover) || activeNovel?.cover || (typeof activeCrawlSession !== 'undefined' ? activeCrawlSession?.cover : '') || (typeof activeNovelRecord !== 'undefined' ? activeNovelRecord?.cover : '') || (typeof coverImage !== 'undefined' ? coverImage : '') || '';
+        let coverCandidate = (extraOpts && (extraOpts.coverUrl || extraOpts.cover)) || (typeof currentDocCover !== 'undefined' && currentDocCover) || activeNovel?.cover || (typeof activeCrawlSession !== 'undefined' ? activeCrawlSession?.cover : '') || (typeof activeNovelRecord !== 'undefined' ? activeNovelRecord?.cover : '') || (typeof coverImage !== 'undefined' ? coverImage : '') || '';
+
+        if (!coverCandidate && typeof window !== 'undefined' && window.currentDocCover) {
+          coverCandidate = window.currentDocCover;
+        }
+        if (!coverCandidate && typeof localStorage !== 'undefined') {
+          coverCandidate = localStorage.getItem('gemini_current_doc_cover') || '';
+        }
+        if (!coverCandidate && typeof webImportHistory !== 'undefined' && Array.isArray(webImportHistory)) {
+          const searchTitle = extraOpts?.novelId || extraOpts?.title || (typeof fileName !== 'undefined' ? fileName : '') || (typeof currentDocTitle !== 'undefined' ? currentDocTitle : '');
+          if (searchTitle) {
+            const cleanST = String(searchTitle).replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+            const matchedMeta = webImportHistory.find(n => {
+              const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+              return nt && (nt === cleanST || cleanST.includes(nt) || nt.includes(cleanST)) && n.cover;
+            });
+            if (matchedMeta?.cover) coverCandidate = matchedMeta.cover;
+          }
+        }
+
+        const cleanExtra = { ...extraOpts };
+        if (!cleanExtra.coverUrl) delete cleanExtra.coverUrl;
+        if (!cleanExtra.cover) delete cleanExtra.cover;
+
         return {
           includeImages: (epubIncludeImages !== false) && (scrapeImages !== false),
           dropCaps: epubDropCaps,
@@ -5100,8 +5134,8 @@ const formatModelName = (id, displayName) => {
           fontTheme: epubFontTheme,
           justifyText: epubJustifyText,
           fixedFilename: epubFixedFilename !== false,
-          coverUrl: coverCandidate,
-          ...extraOpts
+          ...cleanExtra,
+          coverUrl: cleanExtra.coverUrl || coverCandidate
         };
       };
 
@@ -5577,7 +5611,17 @@ const formatModelName = (id, displayName) => {
       const [currentFileHash, setCurrentFileHash] = useState('');
       const [currentOriginalZip, setCurrentOriginalZip] = useState(null);
       const [currentIsEpub, setCurrentIsEpub] = useState(false);
-      const [currentDocCover, setCurrentDocCover] = useState('');
+      const [currentDocCover, setCurrentDocCover] = useState(() => {
+        try { return localStorage.getItem('gemini_current_doc_cover') || ''; } catch (_) { return ''; }
+      });
+      useEffect(() => {
+        try {
+          if (currentDocCover) {
+            localStorage.setItem('gemini_current_doc_cover', currentDocCover);
+            window.currentDocCover = currentDocCover;
+          }
+        } catch (_) {}
+      }, [currentDocCover]);
       const [fileName, setFileName] = useState('');
       const [currentDocTitle, setCurrentDocTitle] = useState('');
 
@@ -9640,6 +9684,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               totalChunks,
               chapters: (chapters || []).map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, text: c?.text || c?.content || '' })),
               isEpub,
+              cover: currentDocCover || activeNovelRecord?.cover || curSession?.cover || '',
+              novelRecord: activeNovelRecord || curSession?.novelRecord || null,
               timestamp: Date.now(),
               isDeltaUpdate: Boolean(curSession?.isDeltaUpdate),
               deltaStart: curSession?.deltaStart,
@@ -9996,9 +10042,15 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             }));
 
             if (activeNovelRecord && activeNovelRecord.id) {
+              const cleanBT = String(activeNovelRecord.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+              const matchedMeta = (webImportHistory || []).find(n => {
+                const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
+              });
+              const resolvedCover = activeNovelRecord.cover || currentDocCover || matchedMeta?.cover || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
               const updatedRec = {
                 ...activeNovelRecord,
-                cover: activeNovelRecord.cover || currentDocCover || '',
+                cover: resolvedCover,
                 isTranslated: true,
                 translatedChapters: mappedTranslated,
                 targetLang: tgtLang,
@@ -10009,6 +10061,10 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               };
               saveNovelToHistory(updatedRec).catch(e => console.warn('History save error:', e));
               setActiveNovelRecord(updatedRec);
+              if (resolvedCover) {
+                setCurrentDocCover(resolvedCover);
+                try { localStorage.setItem('gemini_current_doc_cover', resolvedCover); } catch (_) {}
+              }
               setNovelUpdateBadges(prev => {
                 const next = { ...prev };
                 delete next[activeNovelRecord.id];
@@ -10016,8 +10072,14 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               });
             } else {
               const bTitle = (fileName && fileName.trim()) ? fileName.replace(/\.[^/.]+$/, '') : ((chapters && chapters[0]?.title) || 'Translated Novel');
-              const recCover = currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || '';
-              saveNovelToHistory({
+              const cleanBT = bTitle.replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+              const matchedMeta = (webImportHistory || []).find(n => {
+                const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
+              });
+              const recCover = currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || activeCrawlSession?.cover || webImportData?.cover || matchedMeta?.cover || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
+              const newRec = {
+                id: (activeNovelRecord && activeNovelRecord.id) || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)),
                 title: bTitle.includes('(Translated)') ? bTitle : `${bTitle} (Translated)`,
                 author: (activeNovelRecord && activeNovelRecord.author) || 'Gemini Translator',
                 cover: recCover,
@@ -10027,7 +10089,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 targetLang: tgtLang,
                 originalChapters: srcChaps,
                 originalText: inputText || ''
-              }).catch(e => console.warn('History save error:', e));
+              };
+              saveNovelToHistory(newRec).catch(e => console.warn('History save error:', e));
+              setActiveNovelRecord(newRec);
+              if (recCover) {
+                setCurrentDocCover(recCover);
+                try { localStorage.setItem('gemini_current_doc_cover', recCover); } catch (_) {}
+              }
             }
           }
           localStorage.removeItem(jobId); activeSessionRef.current = null; setActiveSession(null); setSavedTranslationSession(null); setIsTranslationPaused(false);
@@ -10578,11 +10646,28 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             return { blob: zipBlob, fileName: outFileName, path: res?.path };
           }
 
+          const cleanDocBase = String(cleanDocTitle || fileName || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+          const matchedFromHistory = (typeof webImportHistory !== 'undefined' && Array.isArray(webImportHistory))
+            ? webImportHistory.find(n => {
+                const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                return nt && (nt === cleanDocBase || cleanDocBase.includes(nt) || nt.includes(cleanDocBase)) && n.cover;
+              })
+            : null;
+          const resolvedCover = (typeof currentDocCover !== 'undefined' && currentDocCover) ||
+                                activeNovelRecord?.cover ||
+                                activeCrawlSession?.cover ||
+                                webImportData?.cover ||
+                                matchedFromHistory?.cover ||
+                                (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
+
           // Always compile a clean, standardized EPUB with translated TOC and proper paragraph spacing
           setEpubPackagingModal({ title: cleanDocTitle, status: ' Assembling translated EPUB archive...', pct: 10 });
+          const epubOpts = typeof getEpubOptions === 'function'
+            ? getEpubOptions({ title: cleanDocTitle, coverUrl: resolvedCover })
+            : { coverUrl: resolvedCover };
           const blob = await generateEpubFromChapters(chaptersToExport, cleanDocTitle, cleanAuthor, lang, (status, pct, elapsed) => {
             setEpubPackagingModal({ title: cleanDocTitle, status, pct, elapsed });
-          }, typeof getEpubOptions === 'function' ? getEpubOptions({ coverUrl: currentDocCover || activeNovelRecord?.cover || activeCrawlSession?.cover || webImportData?.cover || '' }) : { coverUrl: currentDocCover || activeNovelRecord?.cover || activeCrawlSession?.cover || webImportData?.cover || '' });
+          }, epubOpts);
           setEpubPackagingModal(null);
           toast(' EPUB downloaded successfully!', 'success');
           const cleanDocName = cleanDocTitle && !isGenericTitle(cleanDocTitle) ? sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
@@ -11502,7 +11587,14 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               !isTranslating && !(savedTranslationSession || isTranslationPaused || activeSessionRef.current) && assembledText && translatedChapters && translatedChapters.filter(c => c && (c.content || c.text)).length > 0 && (activeNovelRecord || (chapters && chapters.length > 0)) && (() => {
                 const transCount = translatedChapters.filter(c => c && (c.content || c.text)).length;
                 const novelTitle = (activeNovelRecord && activeNovelRecord.title) || (fileName && fileName.trim()) || 'Translated Novel';
-                const effectiveCover = currentDocCover || activeNovelRecord?.cover || activeCrawlSession?.cover || webImportData?.cover || '';
+                const cleanNT = String(novelTitle || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                const historyMatch = (typeof webImportHistory !== 'undefined' && Array.isArray(webImportHistory))
+                  ? webImportHistory.find(n => {
+                      const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                      return nt && (nt === cleanNT || cleanNT.includes(nt) || nt.includes(cleanNT)) && n.cover;
+                    })
+                  : null;
+                const effectiveCover = currentDocCover || activeNovelRecord?.cover || activeCrawlSession?.cover || webImportData?.cover || historyMatch?.cover || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
 
                 const handleCoverFileSelect = (e) => {
                   const file = e.target?.files?.[0];
@@ -13532,8 +13624,14 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             const bookAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(item.author) : (item.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                             const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
                             try {
+                              const cleanBT = String(bookTitle).replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                              const matchingOriginal = (webImportHistory || []).find(n => {
+                                const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                                return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
+                              });
+                              const resolvedCover = item.cover || full?.cover || matchingOriginal?.cover || (typeof currentDocCover !== 'undefined' ? currentDocCover : '') || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
                               setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                              const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle, coverUrl: item.cover || full?.cover || '' }) : { novelId: item.id, coverUrl: item.cover || full?.cover || '' };
+                              const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle, title: bookTitle, coverUrl: resolvedCover }) : { novelId: item.id, title: bookTitle, coverUrl: resolvedCover };
                               const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
                                 setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
                               }, opts);
