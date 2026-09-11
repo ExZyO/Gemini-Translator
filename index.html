@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.12.6';
+    const VERSION = '8.12.7';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3771,31 +3771,14 @@ const formatModelName = (id, displayName) => {
           let aiScannedCount = 0;
           let glossaryTagCount = 0;
 
-          // Known context figures across popular web novels (gender-fluid, transitioning, or dynamic form characters)
-          const KNOWN_CONTEXT_NAMES = new Set([
-            'trissy', 'tris', '特莉丝', '特里斯',
-            'cheek', '奇克',
-            'primordial demoness', '原初魔女',
-            'bai ning bing', '白凝冰',
-            'lumian', 'lumian lee', '卢米安', '卢米安·李'
-          ]);
-
-          // Non-character pattern exclusions
-          const abstractRankExclusions = /\b(?:Sequence|Pathway|Potion|Formula|Spell|Artifact|Curse|Smog|Abyss|Spirit World|Astral World|Underworld|Nation of|Church of|Order of|School of|Ruins of|City of|Land of|Sea of|Mausoleum|Card of|Uniqueness|Sefirah|Ring|Emblem|Belt|Hat|Sword|Whistle|Mirror|Lamp|Quill|Gorgon)\b/i;
-          const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation|Characteristics?|Sect|Form|Ring|Emblem)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港|特性|唯一性|尊名|神话生物形态|之戒|戒指)$/i;
-
-          const pathwayNames = new Set([
-            'demoness', 'red priest', 'fool', 'door', 'error', 'visionary', 'twilight giant',
-            'sun', 'moon', 'death', 'tyrant', 'chained', 'abyss', 'darkness', 'justiciar',
-            'black emperor', 'paragon', 'hermit', 'white tower', 'hanged man', 'wheel of fortune',
-            'mother', 'earth mother', 'eternal aeon', 'human', 'patriarch', 'unknown', 'condenser',
-            'second law'
-          ]);
+          // Universal non-character worldbuilding & entity patterns
+          const abstractExclusions = /\b(?:Empire|Kingdom|Republic|Nation|Federation|Church|Order|Guild|Sect|School|Academy|Association|Faction|Alliance|Clan|Family|Tribe|City|Town|Village|Port|Harbour|Street|Island|Archipelago|Ocean|Sea|River|Mountain|Range|Valley|Forest|Cave|Ruins|Castle|Palace|Mausoleum|Continent|World|Realm|Domain|Dimension|Abyss|Plane|Universe|Galaxy|Star|Planet|Epoch|Era|Age|Calendar|System|Rank|Level|Tier|Grade|Class|Sequence|Formula|Potion|Elixir|Spell|Skill|Technique|Art|Method|Curse|Hex|Artifact|Weapon|Armor|Shield|Sword|Blade|Spear|Bow|Staff|Wand|Ring|Amulet|Necklace|Crown|Helmet|Robe|Mirror|Lamp|Bell|Cauldron|Scroll|Book|Tome|Manual|Scripture|Law|Rule|Code|Card|Slate|Token|Badge|Coin|Crystal|Stone|Gem|Ore|Mineral|Core|Pill|Herb|Fruit|Flower|Seed|Tree|Beast|Monster|Creature|Demon|Spirit|Ghost|Soul|Corpse|Zombie|Puppet|Marionette|Avatar|Clone|Form|State|Phase|Body|Physique|Bloodline|Constitution|Aura|Qi|Mana|Energy|Force|Power|Authority|Domain|Ailment|Disease|Plague|Poison|Toxin|Venom|Smog|Fog|Mist|Storm|Thunder|Lightning|Fire|Flame|Water|Ice|Frost|Wind|Earth|Soil|Metal|Wood|Light|Darkness|Shadow|Space|Time|Void|Chaos)\b/i;
+          const universalItemEndingPattern = /(?:\b(?:Empire|Kingdom|Republic|Church|Order|Guild|Sect|School|Academy|Association|Faction|Alliance|City|Town|Village|Port|Street|Island|Ocean|Sea|River|Mountain|Valley|Forest|Cave|Ruins|Castle|Palace|Continent|World|Realm|Domain|Dimension|Abyss|Epoch|Era|Rank|Level|Tier|Grade|Class|Sequence|Formula|Potion|Spell|Skill|Technique|Artifact|Weapon|Armor|Shield|Sword|Blade|Spear|Bow|Staff|Ring|Amulet|Mirror|Lamp|Cauldron|Scroll|Book|Manual|Scripture|Law|Rule|Card|Slate|Token|Badge|Crystal|Stone|Pill|Herb|Core|Avatar|Marionette|Puppet|Form|Physique|Bloodline|Aura|Qi|Mana|Force|Power|Smog|Fog)\b|帝国|王国|教派|教会|工会|宗门|学府|学院|宗|门|派|帮|盟|殿|宫|城|市|镇|村|港|街|岛|海|江|河|湖|山|峰|谷|林|洞|遗迹|府|世界|界|域|深渊|纪元|纪|阶|级|层|序列|配方|魔药|丹方|法术|技能|功法|心法|秘籍|武技|神通|法宝|灵宝|神器|圣器|灵器|宝物|武器|铠甲|盔甲|盾|剑|刀|枪|弓|杖|戒|之戒|戒指|项链|符|符咒|镜|宝鉴|钟|鼎|壶|卷轴|书|典|录|谱|经|法|法则|定律|牌|令|令牌|徽章|晶石|灵石|原石|仙晶|灵丹|丹|仙丹|灵药|药草|灵草|果|核|傀儡|神话生物形态|神态|体|圣体|神体|霸体|血脉|真气|灵气|法力|仙力|神力|迷雾|毒雾|大雾)$/i;
 
           // Strict unambiguous gender tags on glossary lines
-          const strictContextTag = /\[(?:m\/f|f\/m|both|context)\]|\((?:m\/f|f\/m|both|context)\)|（(?:男\/女|女\/男)）|\b(?:m\/f|f\/m|he\/she|she\/he|gender[\s-]*(?:fluid|bender|bending|switch|change)|gender\s*:\s*context|historically\s+(?:male|female)|formerly\s+(?:male|female))\b/i;
-          const strictFemaleTag = /\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女|雌)）|\b(?:female)\b|小姐|女士|夫人|魔女|女神|公主|皇后/i;
-          const strictMaleTag = /\((?:m|male)\)|\[(?:m|male)\]|（(?:男|雄)）|\b(?:male)\b|先生|大帝|少爷|皇帝|国王|王子/i;
+          const strictContextTag = /\[(?:m\/f|f\/m|both|context)\]|\((?:m\/f|f\/m|both|context)\)|（(?:男\/女|女\/男)）|\b(?:m\/f|f\/m|he\/she|she\/he|gender[\s-]*(?:fluid|bender|bending|switch|change)|gender\s*:\s*context|historically\s+(?:male|female)|formerly\s+(?:male|female)|dual\s+gender|both\s+he\s+and\s+she)\b/i;
+          const strictFemaleTag = /\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女|雌)）|\b(?:female)\b|小姐|女士|夫人|魔女|女神|公主|皇后|女帝/i;
+          const strictMaleTag = /\((?:m|male)\)|\[(?:m|male)\]|（(?:男|雄)）|\b(?:male)\b|先生|大帝|少爷|皇帝|国王|王子|王爷|宗主|掌门/i;
 
           // 1. GLOSSARY EXTRACTION (if source is 'glossary' or 'both')
           if (aiGenderSource === 'glossary' || aiGenderSource === 'both') {
@@ -3811,14 +3794,14 @@ const formatModelName = (id, displayName) => {
               const otherCandidates = [];
               const seenGlossaryTerms = new Set();
 
-              const charHeaderPattern = /(?:character|student|figure|clan|immortal|people|person|deity|god|venerable|member|leader|hero|villain|key student|cast|directory)/i;
+              const charHeaderPattern = /(?:character|student|figure|clan|immortal|people|person|deity|god|venerable|member|leader|hero|villain|key student|cast|directory|dramatis personae|roster|登場人物|人物|角色|主要人物)/i;
               const nonCharHeaderPattern = /(?:system|rule|cosmology|region|domain|geography|device|app|facility|exam|point|s-system|concept|cultivation|pathway|sequence|item|artifact|weapon|organization|faction|location|place|phrase|arc|volume|spoiler|style)/i;
 
               for (const rawLine of lines) {
                 const l = rawLine.trim();
                 if (!l || l.startsWith('//') || l.startsWith('/*')) continue;
 
-                if (/^(?:#+\s*)?(?:[I|V|X\d]+\.|\bSection\b|\bPart\b|\bcharacters\b)/i.test(l) || l.startsWith('#')) {
+                if (/^(?:#+\s*)?(?:[I|V|X\d]+\.|\bSection\b|\bPart\b|\bcharacters\b|\bstudents\b|\broster\b)/i.test(l) || l.startsWith('#')) {
                   if (/^(?:#+\s*)?I\.\s*(?:SYSTEM|RULES)/i.test(l)) inRulesSection = true;
                   else inRulesSection = false;
 
@@ -3830,10 +3813,10 @@ const formatModelName = (id, displayName) => {
                 }
 
                 if (inRulesSection) continue;
-                if (/^(?:Example|\* Example|\- Example|Correct:|Incorrect:|Rule:|Note:|Legend:|Warning:|Stop writing|Translate with|Use the whole|Do NOT|Sometimes you|You don't|When translating|Ignore all|Instead,|Fix that|Some lines|Some more words)/i.test(l)) continue;
+                if (/^(?:Example|\* Example|\- Example|Correct:|Incorrect:|Rule:|Note:|Legend:|Warning:|Stop writing|Translate with|Use the whole|Do NOT|Sometimes you|You don't|When translating|Ignore all|Instead,|Fix that|Some lines|Some more words|Remember)/i.test(l)) continue;
                 if (l.includes('you mistakenly') || l.includes('don’t do that') || l.includes('cross reference') || l.includes('based on context')) continue;
                 if (l.includes('+')) continue;
-                if (/^(?:序列\s*\d|Sequence\s*\d)/i.test(l)) continue;
+                if (/^(?:序列\s*\d|Sequence\s*\d|Rank\s*\d|Tier\s*\d|Level\s*\d|Grade\s*\d)/i.test(l)) continue;
 
                 let srcPart = '';
                 let tgtPart = '';
@@ -3881,7 +3864,7 @@ const formatModelName = (id, displayName) => {
                 srcPart = srcPart.trim();
                 tgtPart = tgtPart.trim();
 
-                const lineForGenderCheck = l.replace(/\((?:Sequence|\d)[^)]*\)/gi, '').replace(/（(?:序列|\d)[^）]*）/g, '');
+                const lineForGenderCheck = l.replace(/\((?:Sequence|Seq|Rank|Tier|Level|\d)[^)]*\)/gi, '').replace(/（(?:序列|等级|\d)[^）]*）/g, '');
                 let explicitGender = null;
                 if (strictContextTag.test(lineForGenderCheck)) {
                   explicitGender = 'context';
@@ -3902,7 +3885,7 @@ const formatModelName = (id, displayName) => {
                   let pm;
                   while ((pm = parenRegex.exec(part)) !== null) {
                     const inside = pm[1].trim();
-                    if (inside.length <= 25 && !/\b(?:Sequence|Seq|序列|\d+|Female|Male|historically|context)\b/i.test(inside)) {
+                    if (inside.length <= 25 && !/\b(?:Sequence|Seq|Rank|Tier|Level|序列|等级|\d+|Female|Male|historically|context)\b/i.test(inside)) {
                       aliases.push(inside);
                     }
                   }
@@ -3917,13 +3900,11 @@ const formatModelName = (id, displayName) => {
                     if (!x || x.length < 2 || x.length > 40) return false;
                     if (/^[a-z]/.test(x)) return false;
                     if (/^[A-Z\s]{4,}$/.test(x)) return false;
-                    if (/\b(?:said|referring|example|based on|noble|quotation|instead|chapter|untranslated|completely|replaced|outcome|facing)\b/i.test(x)) return false;
+                    if (/\b(?:said|referring|example|based on|noble|quotation|instead|chapter|volume|arc|untranslated|completely|replaced|outcome|facing)\b/i.test(x)) return false;
                     if (/^(?:male|female|man|woman|person|human|character|hero|heroine|boy|girl|both)$/i.test(x)) return false;
-                    if (/^(?:Main|Side|Villain|Class|Sequence|Pathway|Epoch|Chapter)/i.test(x)) return false;
-                    if (abstractRankExclusions.test(x) || entityEndingPattern.test(x)) return false;
-                    if (/^(?:序列|Sequence)\s*\d+/i.test(x)) return false;
-                    if (pathwayNames.has(x.toLowerCase())) return false;
-                    if (x.includes('尊名') || x.includes('神话生物形态') || x.includes('唯一性') || x.includes('特性') || x.includes('配方') || x.includes('魔药')) return false;
+                    if (/^(?:Main|Side|Villain|Class|Sequence|Pathway|Epoch|Chapter|Volume|Arc)/i.test(x)) return false;
+                    if (abstractExclusions.test(x) || universalItemEndingPattern.test(x)) return false;
+                    if (/^(?:序列|Sequence|Rank|Tier|Level)\s*\d+/i.test(x)) return false;
                     return true;
                   });
                 };
@@ -3932,14 +3913,6 @@ const formatModelName = (id, displayName) => {
                 for (const name of cleanNamesList) {
                   if (seenGlossaryTerms.has(name)) continue;
                   seenGlossaryTerms.add(name);
-
-                  const lower = name.toLowerCase();
-                  const isKnownContext = KNOWN_CONTEXT_NAMES.has(lower) || Array.from(KNOWN_CONTEXT_NAMES).some(k => lower === k || lower.startsWith(k + ' ') || lower.endsWith(' ' + k));
-                  if (isKnownContext) {
-                    combinedMap.set(name, { gender: 'context', sourceTag: 'lore' });
-                    glossaryTagCount++;
-                    continue;
-                  }
 
                   if (explicitGender) {
                     combinedMap.set(name, { gender: explicitGender, sourceTag: 'glossary' });
@@ -3960,7 +3933,7 @@ const formatModelName = (id, displayName) => {
               // Send ungendered candidate terms to AI in batches of up to 100
               if (ungenderedCandidates.length > 0) {
                 const batch = ungenderedCandidates.slice(0, 100);
-                const prompt = `Given this list of candidate terms from a web novel:\n${JSON.stringify(batch, null, 2)}\n\n1. Identify which terms are INDIVIDUAL CHARACTERS (people or sentient entities with a biological/narrative gender).\n2. Determine their gender: "female", "male", or "context" (use "context" for characters who change/transition gender or have dynamic M/F forms across the story, e.g. Bai Ning Bing, Trissy, Lumian, Cheek / Primordial Demoness).\n3. OMIT non-characters, organizations, locations, abilities, concepts, and items.\n\nReturn ONLY a valid JSON object mapping name to "female", "male", or "context":\n{\n  "Audrey Hall": "female",\n  "Klein Moretti": "male",\n  "Trissy": "context"\n}`;
+                const prompt = `Given this list of candidate terms from a web novel:\n${JSON.stringify(batch, null, 2)}\n\n1. Identify which terms are INDIVIDUAL CHARACTERS (people or sentient entities with a biological or narrative gender).\n2. Determine their gender: "female", "male", or "context" (use "context" for characters whose gender shifts, transitions, or depends on vessel/form in the story).\n3. OMIT non-characters, organizations, locations, abilities, concepts, and items.\n\nReturn ONLY a valid JSON object mapping character name to "female", "male", or "context":\n{\n  "Heroine Name": "female",\n  "Hero Name": "male",\n  "Shifter Entity": "context"\n}`;
                 const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
                 const cleanJson = aiResp.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
                 const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
@@ -3971,8 +3944,7 @@ const formatModelName = (id, displayName) => {
                       const g = typeof v === 'string' ? v.toLowerCase().trim() : '';
                       if (k && ['female', 'male', 'context'].includes(g)) {
                         const cleanName = k.trim();
-                        const isKnown = KNOWN_CONTEXT_NAMES.has(cleanName.toLowerCase()) || Array.from(KNOWN_CONTEXT_NAMES).some(kn => cleanName.toLowerCase() === kn);
-                        combinedMap.set(cleanName, { gender: isKnown ? 'context' : g, sourceTag: 'ai' });
+                        combinedMap.set(cleanName, { gender: g, sourceTag: 'ai' });
                         aiScannedCount++;
                       }
                     });
@@ -4004,7 +3976,7 @@ const formatModelName = (id, displayName) => {
                 throw new Error('No novel text loaded. Please load a novel or EPUB first.');
               }
             } else {
-              const prompt = `Carefully read the following web novel chapter excerpts and identify ALL named individual characters (protagonists, villains, allies, side characters, deities, companions).\n\nExcerpts:\n${novelCorpus.slice(0, 30000)}\n\nInstructions:\n1. Extract ALL named individual characters appearing or mentioned in the text.\n2. For each character, include BOTH their translated English name AND their original foreign/RAW name if available (e.g. "Medici" and "梅迪奇", "Amon" and "阿蒙", "Bethel" and "伯特利", "Antigonus" and "安提哥努斯", "Trissy" and "特莉丝", "Bai Ning Bing" and "白凝冰").\n3. Determine whether each character is "female", "male", or "context" (for characters who transition or alter forms dynamically across the story, e.g. Bai Ning Bing, Trissy, Lumian, Cheek / Primordial Demoness).\n4. Omit organizations, places, skills, items, and concepts.\n\nReturn ONLY a valid JSON object mapping every name or alias to "female", "male", or "context":\n{\n  "Medici": "male",\n  "梅迪奇": "male",\n  "Amon": "male",\n  "阿蒙": "male",\n  "Bethel": "male",\n  "伯特利": "male",\n  "Antigonus": "male",\n  "安提哥努斯": "male",\n  "Trissy": "context",\n  "特莉丝": "context"\n}`;
+              const prompt = `Carefully read the following web novel chapter excerpts and identify ALL named individual characters (protagonists, villains, allies, side characters, deities, companions).\n\nExcerpts:\n${novelCorpus.slice(0, 30000)}\n\nInstructions:\n1. Extract ALL named individual characters appearing or mentioned in the text.\n2. For each character, include BOTH their translated English name AND their original foreign/RAW name if available.\n3. Determine whether each character is "female", "male", or "context" (use "context" for entities whose gender is fluid, transitions, or depends on current vessel/form).\n4. Omit organizations, places, skills, items, and concepts.\n\nReturn ONLY a valid JSON object mapping every name or alias to "female", "male", or "context":\n{\n  "Hero Name": "male",\n  "主角": "male",\n  "Heroine Name": "female",\n  "女主角": "female",\n  "Shifter Figure": "context",\n  "变形者": "context"\n}`;
               const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
               const cleanJson = aiResp.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
               const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
@@ -4015,13 +3987,9 @@ const formatModelName = (id, displayName) => {
                     const g = typeof v === 'string' ? v.toLowerCase().trim() : '';
                     if (k && ['female', 'male', 'context'].includes(g)) {
                       const cleanName = k.trim();
-                      const isKnown = KNOWN_CONTEXT_NAMES.has(cleanName.toLowerCase()) || Array.from(KNOWN_CONTEXT_NAMES).some(kn => cleanName.toLowerCase() === kn);
-                      const finalGender = isKnown ? 'context' : g;
                       if (!combinedMap.has(cleanName)) {
-                        combinedMap.set(cleanName, { gender: finalGender, sourceTag: 'novel' });
+                        combinedMap.set(cleanName, { gender: g, sourceTag: 'novel' });
                         aiScannedCount++;
-                      } else if (isKnown && combinedMap.get(cleanName).gender !== 'context') {
-                        combinedMap.set(cleanName, { gender: 'context', sourceTag: 'novel' });
                       }
                     }
                   });
@@ -14426,7 +14394,36 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                 className: 'mini-btn ghost',
                                 style: { fontSize: 11, padding: '4px 10px' },
                                 onClick: () => {
-                                  setReaderChapterIdx(iss.chapterIdx);
+                                  const targetNovel = qaAuditNovelRef;
+                                  if (targetNovel && targetNovel.chapters && targetNovel.chapters.length > 0) {
+                                    const chs = targetNovel.chapters;
+                                    const isTrans = targetNovel.isTranslated || (targetNovel.title || '').includes('(Translated)') || chs.some(c => c && (c.translated || c.targetLang || c.content));
+                                    const cleanCh = c => typeof c === 'string' ? c : (c.content || c.text || c.rawContent || '');
+                                    const cleanedChs = chs.map((c, i) => ({
+                                      title: (typeof c === 'object' && c.title) ? c.title : `Chapter ${i + 1}`,
+                                      content: cleanCh(c)
+                                    }));
+                                    if (targetNovel.title) {
+                                      setCurrentDocTitle(targetNovel.title);
+                                      setFileName(targetNovel.title);
+                                    }
+                                    setActiveNovelRecord(targetNovel);
+                                    if (isTrans) {
+                                      setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+                                      setTranslatedChapters(cleanedChs);
+                                      if (targetNovel.originalChapters && targetNovel.originalChapters.length > 0) {
+                                        const srcChs = targetNovel.originalChapters;
+                                        setInputText(srcChs.map(c => `# ${c.title || ''}\n\n${cleanCh(c)}`).join('\n\n'));
+                                        setChapters(srcChs.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, content: cleanCh(c) })));
+                                      }
+                                    } else {
+                                      setChapters(cleanedChs);
+                                      setInputText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+                                      setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+                                      setTranslatedChapters(cleanedChs);
+                                    }
+                                  }
+                                  setReaderChapterIdx(Math.max(0, iss.chapterIdx || 0));
                                   setReaderOpen(true);
                                   setQaModalOpen(false);
                                 }

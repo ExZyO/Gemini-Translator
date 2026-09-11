@@ -1,7 +1,7 @@
 {
-  "version": "8.12.6",
-  "versionCode": 8186,
+  "version": "8.12.7",
+  "versionCode": 8187,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.12.6: Fix EPUB export crash — coverImage ReferenceError. Removes reference to undeclared coverImage variable in handleDownloadEPUB that caused 'coverImage is not defined' error and stuck the export at 10%."
+  "releaseNotes": "v8.12.7: Universal AI Gender Scanner (zero hardcoded novel lore) & Library QA 'Inspect in Reader' chapter auto-load. Makes character & gender detection 100% generic across all web novels and ensures inspecting QA audit issues in the reader populates chapter text and opens at the exact issue index."
 }
