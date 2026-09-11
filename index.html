@@ -1588,7 +1588,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         'human', 'in', 'into', 'is', 'it', 'its', 'of', 'on', 'or', 'pathway', 'sequence', 'she', 'the',
         'this', 'to', 'unknown', 'was', 'with', 'year', 'ability', 'abilities', 'authority', 'authorities',
         'appearance', 'aliases', 'counters', 'formula', 'history', 'symbolism', 'physical', 'enhanced', 'enhancement',
-        'notes', 'note', 'chapter', 'chapters', 'form', 'forms', 'grade', 'level', 'item', 'items'
+        'notes', 'note', 'chapter', 'chapters', 'volume', 'volumes', 'vol', 'vols', 'form', 'forms', 'grade', 'level', 'item', 'items'
       ]);
 
       const normalizeKey = value => String(value || '')
@@ -1617,10 +1617,13 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         return Array.from(new Set(variants)).filter(v => v.length >= 2 && !genericKeys.has(v));
       };
 
+      const bulletRegex = /^(?:[-*+\u2022#\s]+|(?:\d+|[a-zA-Z])[.)]\s+)+/;
+
       const addTermKeys = (target, value) => {
-        const clean = String(value || '').replace(/^[-*+\u2022#\d.\s]+/, '').trim();
+        const clean = String(value || '').replace(bulletRegex, '').trim();
         if (!clean) return;
-        const cjkMatches = clean.match(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af·・]+/g) || [];
+        const cjkMatches = (clean.match(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\uff10-\uff19\uff21-\uff3a\uff41-\uff5aa-zA-Z0-9·・_-]+/g) || [])
+          .filter(token => /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(token));
         cjkMatches.forEach(key => {
           target.push(key);
           key.split(/[·・]/).filter(part => part.length >= 2).forEach(part => target.push(part));
@@ -1634,7 +1637,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       const addLineSearchKeys = (target, line) => {
         const trimmed = String(line || '').trim();
         if (!trimmed) return;
-        const content = trimmed.replace(/^[-*+\u2022#\d.\s]+/, '').trim();
+        const content = trimmed.replace(bulletRegex, '').trim();
         if (!content) return;
         const mapping = content.match(/^(.*?)\s*(?:->|=>|=)\s*(.*?)\s*$/);
         if (mapping) {
