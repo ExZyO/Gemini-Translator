@@ -220,7 +220,7 @@ VI. MAJOR FACTIONS, SECTS, CLANS, TRIBES & VARIANT HUMANS
 VII. NOTABLE CHARACTERS & EXPERTS
 - 古月方源 / 方源 -> Gu Yue Fang Yuan / Fang Yuan
 - 古月方正 / 方正 -> Gu Yue Fang Zheng / Fang Zheng
-- 白凝冰 -> Bai Ning Bing
+- 白凝冰 -> Bai Ning Bing [M/F]
 - 黑楼兰 -> Hei Lou Lan
 - 太白云生 -> Tai Bai Yun Sheng
 - 风九歌 -> Feng Jiu Ge

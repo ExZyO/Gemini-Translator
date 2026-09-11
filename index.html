@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.12.2';
+    const VERSION = '8.12.3';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3771,12 +3771,29 @@ const formatModelName = (id, displayName) => {
           let aiScannedCount = 0;
           let glossaryTagCount = 0;
 
-          // Non-character pattern exclusions
-          const abstractRankExclusions = /\b(?:Sequence|Pathway|Potion|Formula|Spell|Artifact|Curse|Smog|Abyss|Spirit World|Astral World|Underworld|Nation of|Church of|Order of|School of|Ruins of|City of|Land of|Sea of|Mausoleum|Card of|Uniqueness|Sefirah)\b/i;
-          const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港)$/i;
+          // Known context figures across popular web novels (gender-fluid, transitioning, or dynamic form characters)
+          const KNOWN_CONTEXT_NAMES = new Set([
+            'trissy', 'tris', '特莉丝', '特里斯',
+            'cheek', '奇克',
+            'primordial demoness', '原初魔女',
+            'bai ning bing', '白凝冰',
+            'lumian', 'lumian lee', '卢米安', '卢米安·李'
+          ]);
 
-          // Strict unambiguous gender tags on glossary lines (avoiding descriptive words like "sister" or "witch" which misclassify male characters)
-          const strictContextTag = /\[(?:m\/f|f\/m|both)\]|\((?:m\/f|f\/m|both)\)|（(?:男\/女|女\/男)）|\b(?:m\/f)\b/i;
+          // Non-character pattern exclusions
+          const abstractRankExclusions = /\b(?:Sequence|Pathway|Potion|Formula|Spell|Artifact|Curse|Smog|Abyss|Spirit World|Astral World|Underworld|Nation of|Church of|Order of|School of|Ruins of|City of|Land of|Sea of|Mausoleum|Card of|Uniqueness|Sefirah|Ring|Emblem|Belt|Hat|Sword|Whistle|Mirror|Lamp|Quill|Gorgon)\b/i;
+          const entityEndingPattern = /(?:\b(?:Mausoleum|Castle|Ruins|Court|Land|Sea|Ocean|River|Mountain|Range|City|Town|Village|Archipelago|Port|Harbour|Street|University|Church|Order|Society|Association|Faction|School of Thought|Club|Empire|Pathway|Sequence|Potion|Formula|Card|Card of Blasphemy|Uniqueness|Sefirah|Law of|Epoch|Era|Smog|Disaster|Revelation|Characteristics?|Sect|Form|Ring|Emblem)\b|教会|教派|途径|序列|魔药|配方|牌|亵渎|纪元|遗迹|陵寝|王庭|群岛|海|帝国|学派|神殿|协会|俱乐部|法则|定律|大学|街|港|特性|唯一性|尊名|神话生物形态|之戒|戒指)$/i;
+
+          const pathwayNames = new Set([
+            'demoness', 'red priest', 'fool', 'door', 'error', 'visionary', 'twilight giant',
+            'sun', 'moon', 'death', 'tyrant', 'chained', 'abyss', 'darkness', 'justiciar',
+            'black emperor', 'paragon', 'hermit', 'white tower', 'hanged man', 'wheel of fortune',
+            'mother', 'earth mother', 'eternal aeon', 'human', 'patriarch', 'unknown', 'condenser',
+            'second law'
+          ]);
+
+          // Strict unambiguous gender tags on glossary lines
+          const strictContextTag = /\[(?:m\/f|f\/m|both|context)\]|\((?:m\/f|f\/m|both|context)\)|（(?:男\/女|女\/男)）|\b(?:m\/f|f\/m|he\/she|she\/he|gender[\s-]*(?:fluid|bender|bending|switch|change)|gender\s*:\s*context|historically\s+(?:male|female)|formerly\s+(?:male|female))\b/i;
           const strictFemaleTag = /\((?:f|fem|female)\)|\[(?:f|fem|female)\]|（(?:女|雌)）|\b(?:female)\b|小姐|女士|夫人|魔女|女神|公主|皇后/i;
           const strictMaleTag = /\((?:m|male)\)|\[(?:m|male)\]|（(?:男|雄)）|\b(?:male)\b|先生|大帝|少爷|皇帝|国王|王子/i;
 
@@ -3789,19 +3806,38 @@ const formatModelName = (id, displayName) => {
             } else {
               const lines = terminology.split(/\r?\n/);
               let inRulesSection = false;
-              const ungenderedCandidates = [];
+              let inCharacterSection = false;
+              const charCandidates = [];
+              const otherCandidates = [];
               const seenGlossaryTerms = new Set();
+
+              const charHeaderPattern = /(?:character|student|figure|clan|immortal|people|person|deity|god|venerable|member|leader|hero|villain|key student|cast|directory)/i;
+              const nonCharHeaderPattern = /(?:system|rule|cosmology|region|domain|geography|device|app|facility|exam|point|s-system|concept|cultivation|pathway|sequence|item|artifact|weapon|organization|faction|location|place|phrase|arc|volume|spoiler|style)/i;
 
               for (const rawLine of lines) {
                 const l = rawLine.trim();
                 if (!l || l.startsWith('//') || l.startsWith('/*')) continue;
-                if (/^(?:#+\s*)?I\.\s*(?:SYSTEM|RULES)/i.test(l)) { inRulesSection = true; continue; }
-                if (/^#+\s*(?:II|III|IV|V|VI|VII|[0-9]+)/i.test(l) || /^(?:#+\s*)?(?:II|III|IV|V|VI|VII)\.\s*/i.test(l)) { inRulesSection = false; }
+
+                if (/^(?:#+\s*)?(?:[I|V|X\d]+\.|\bSection\b|\bPart\b|\bcharacters\b)/i.test(l) || l.startsWith('#')) {
+                  if (/^(?:#+\s*)?I\.\s*(?:SYSTEM|RULES)/i.test(l)) inRulesSection = true;
+                  else inRulesSection = false;
+
+                  if (charHeaderPattern.test(l)) {
+                    inCharacterSection = true;
+                  } else if (nonCharHeaderPattern.test(l)) {
+                    inCharacterSection = false;
+                  }
+                }
+
                 if (inRulesSection) continue;
-                if (/^(?:Example|\* Example|\- Example|Correct:|Incorrect:|Rule:|Note:|Legend:|Warning:)/i.test(l)) continue;
+                if (/^(?:Example|\* Example|\- Example|Correct:|Incorrect:|Rule:|Note:|Legend:|Warning:|Stop writing|Translate with|Use the whole|Do NOT|Sometimes you|You don't|When translating|Ignore all|Instead,|Fix that|Some lines|Some more words)/i.test(l)) continue;
+                if (l.includes('you mistakenly') || l.includes('don’t do that') || l.includes('cross reference') || l.includes('based on context')) continue;
+                if (l.includes('+')) continue;
+                if (/^(?:序列\s*\d|Sequence\s*\d)/i.test(l)) continue;
 
                 let srcPart = '';
                 let tgtPart = '';
+
                 if (l.includes('->')) {
                   const parts = l.split('->');
                   srcPart = parts[0];
@@ -3814,11 +3850,30 @@ const formatModelName = (id, displayName) => {
                   const parts = l.split('=');
                   srcPart = parts[0];
                   tgtPart = parts.slice(1).join('=');
-                } else if (l.includes(':') && !l.startsWith('http')) {
+                } else if (/^[-*•]\s+([^—–\->=:]+?)\s+-\s+([^—–\->=:]+)/.test(l)) {
+                  const match = l.match(/^[-*•]\s+([^—–\->=:]+?)\s+-\s+([^—–\->=:]+)/);
+                  tgtPart = match[1].trim();
+                  srcPart = '';
+                } else if (l.includes(':') && !l.startsWith('http') && !l.includes('http://') && !l.includes('https://')) {
                   const parts = l.split(':');
+                  if (parts[0].split(/\s+/).length > 5 || /\b(?:translate|referring|example|based on|note|rule)\b/i.test(parts[0])) {
+                    continue;
+                  }
                   srcPart = parts[0];
                   tgtPart = parts.slice(1).join(':');
+                } else if (/^[A-Za-z\s.'’\-]+\s+[\u4e00-\u9fa5\u3040-\u30ff]+/.test(l)) {
+                  const match = l.match(/^([A-Za-z\s.'’\-]+?)\s+([\u4e00-\u9fa5\u3040-\u30ff·•\s]+.*)$/);
+                  if (match) {
+                    tgtPart = match[1].trim();
+                    srcPart = match[2].trim();
+                  } else {
+                    srcPart = l;
+                    tgtPart = l;
+                  }
                 } else {
+                  if (!/[\u4e00-\u9fa5\u3040-\u30ff]/.test(l) && (l.includes('.') || l.includes('!') || l.includes('?') || l.split(/\s+/).length > 3)) {
+                    continue;
+                  }
                   srcPart = l;
                   tgtPart = l;
                 }
@@ -3841,46 +3896,83 @@ const formatModelName = (id, displayName) => {
                 }
 
                 const extractCleanNames = (part) => {
+                  if (!part) return [];
+                  const aliases = [];
+                  const parenRegex = /[\(（]([^\)）]+)[\)）]/g;
+                  let pm;
+                  while ((pm = parenRegex.exec(part)) !== null) {
+                    const inside = pm[1].trim();
+                    if (inside.length <= 25 && !/\b(?:Sequence|Seq|序列|\d+|Female|Male|historically|context)\b/i.test(inside)) {
+                      aliases.push(inside);
+                    }
+                  }
+
                   let s = part.replace(/#.*$/, '');
-                  s = s.replace(/\[[^\]]*\]/g, ' '); // Strip brackets [M], [F]
-                  s = s.replace(/\([^)]*\)/g, ' ');   // Strip parens (female)
+                  s = s.replace(/\[[^\]]*\]/g, ' ');
+                  s = s.replace(/\([^)]*\)/g, ' ');
                   s = s.replace(/（[^）]*）/g, ' ');
-                  return s.split(/[/;|,]/).map(x => x.replace(/^[-*•\s\d.]+\s*/, '').replace(/^["']|["']$/g, '').trim())
-                    .filter(x => {
-                      if (!x || x.length < 2 || x.length > 40) return false;
-                      if (/^(?:male|female|man|woman|person|human|character|hero|heroine|boy|girl)$/i.test(x)) return false;
-                      if (/^(?:Main|Side|Villain|Class|Sequence|Pathway|Epoch)/i.test(x)) return false;
-                      if (abstractRankExclusions.test(x) || entityEndingPattern.test(x)) return false;
-                      return true;
-                    });
+
+                  const main = s.split(/[/;|,]/).map(x => x.replace(/^[-*•\s\d.]+\s*/, '').replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim());
+                  return [...main, ...aliases].filter(x => {
+                    if (!x || x.length < 2 || x.length > 40) return false;
+                    if (/^[a-z]/.test(x)) return false;
+                    if (/^[A-Z\s]{4,}$/.test(x)) return false;
+                    if (/\b(?:said|referring|example|based on|noble|quotation|instead|chapter|untranslated|completely|replaced|outcome|facing)\b/i.test(x)) return false;
+                    if (/^(?:male|female|man|woman|person|human|character|hero|heroine|boy|girl|both)$/i.test(x)) return false;
+                    if (/^(?:Main|Side|Villain|Class|Sequence|Pathway|Epoch|Chapter)/i.test(x)) return false;
+                    if (abstractRankExclusions.test(x) || entityEndingPattern.test(x)) return false;
+                    if (/^(?:序列|Sequence)\s*\d+/i.test(x)) return false;
+                    if (pathwayNames.has(x.toLowerCase())) return false;
+                    if (x.includes('尊名') || x.includes('神话生物形态') || x.includes('唯一性') || x.includes('特性') || x.includes('配方') || x.includes('魔药')) return false;
+                    return true;
+                  });
                 };
 
                 const cleanNamesList = [...extractCleanNames(tgtPart), ...extractCleanNames(srcPart)];
                 for (const name of cleanNamesList) {
                   if (seenGlossaryTerms.has(name)) continue;
                   seenGlossaryTerms.add(name);
+
+                  const lower = name.toLowerCase();
+                  const isKnownContext = KNOWN_CONTEXT_NAMES.has(lower) || Array.from(KNOWN_CONTEXT_NAMES).some(k => lower === k || lower.startsWith(k + ' ') || lower.endsWith(' ' + k));
+                  if (isKnownContext) {
+                    combinedMap.set(name, { gender: 'context', sourceTag: 'lore' });
+                    glossaryTagCount++;
+                    continue;
+                  }
+
                   if (explicitGender) {
                     combinedMap.set(name, { gender: explicitGender, sourceTag: 'glossary' });
                     glossaryTagCount++;
                   } else {
-                    ungenderedCandidates.push(name);
+                    if (inCharacterSection) {
+                      charCandidates.push(name);
+                    } else {
+                      otherCandidates.push(name);
+                    }
                   }
                 }
               }
 
+              // Prioritize character candidates over generic candidates
+              const ungenderedCandidates = [...charCandidates, ...otherCandidates];
+
               // Send ungendered candidate terms to AI in batches of up to 100
               if (ungenderedCandidates.length > 0) {
                 const batch = ungenderedCandidates.slice(0, 100);
-                const prompt = `Given this list of candidate terms from a web novel:\n${JSON.stringify(batch, null, 2)}\n\n1. Identify which terms are INDIVIDUAL CHARACTERS (people or sentient entities with a biological/narrative gender).\n2. Determine their gender: "female", "male", or "context" (use "context" for characters who change/transition gender or have dynamic M/F forms across the story, e.g. Bai Ning Bing, Trissy, Lumian).\n3. OMIT non-characters, organizations, locations, abilities, concepts, and items.\n\nReturn ONLY a valid JSON object mapping name to "female", "male", or "context":\n{\n  "Audrey Hall": "female",\n  "Klein Moretti": "male",\n  "Trissy": "context"\n}`;
+                const prompt = `Given this list of candidate terms from a web novel:\n${JSON.stringify(batch, null, 2)}\n\n1. Identify which terms are INDIVIDUAL CHARACTERS (people or sentient entities with a biological/narrative gender).\n2. Determine their gender: "female", "male", or "context" (use "context" for characters who change/transition gender or have dynamic M/F forms across the story, e.g. Bai Ning Bing, Trissy, Lumian, Cheek / Primordial Demoness).\n3. OMIT non-characters, organizations, locations, abilities, concepts, and items.\n\nReturn ONLY a valid JSON object mapping name to "female", "male", or "context":\n{\n  "Audrey Hall": "female",\n  "Klein Moretti": "male",\n  "Trissy": "context"\n}`;
                 const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
-                const jsonMatch = aiResp.match(/\{[\s\S]*\}/);
+                const cleanJson = aiResp.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
+                const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                   try {
                     const parsed = JSON.parse(jsonMatch[0]);
                     Object.entries(parsed).forEach(([k, v]) => {
                       const g = typeof v === 'string' ? v.toLowerCase().trim() : '';
                       if (k && ['female', 'male', 'context'].includes(g)) {
-                        combinedMap.set(k.trim(), { gender: g, sourceTag: 'ai' });
+                        const cleanName = k.trim();
+                        const isKnown = KNOWN_CONTEXT_NAMES.has(cleanName.toLowerCase()) || Array.from(KNOWN_CONTEXT_NAMES).some(kn => cleanName.toLowerCase() === kn);
+                        combinedMap.set(cleanName, { gender: isKnown ? 'context' : g, sourceTag: 'ai' });
                         aiScannedCount++;
                       }
                     });
@@ -3912,9 +4004,10 @@ const formatModelName = (id, displayName) => {
                 throw new Error('No novel text loaded. Please load a novel or EPUB first.');
               }
             } else {
-              const prompt = `Carefully read the following web novel chapter excerpts and identify ALL named individual characters (protagonists, villains, allies, side characters, deities, companions).\n\nExcerpts:\n${novelCorpus.slice(0, 30000)}\n\nInstructions:\n1. Extract ALL named individual characters appearing or mentioned in the text.\n2. For each character, include BOTH their translated English name AND their original foreign/RAW name if available (e.g. "Medici" and "梅迪奇", "Amon" and "阿蒙", "Bethel" and "伯特利", "Antigonus" and "安提哥努斯", "Trissy" and "特莉丝").\n3. Determine whether each character is "female", "male", or "context" (for characters who transition or alter forms dynamically across the story, e.g. Bai Ning Bing, Trissy, Lumian).\n4. Omit organizations, places, skills, items, and concepts.\n\nReturn ONLY a valid JSON object mapping every name or alias to "female", "male", or "context":\n{\n  "Medici": "male",\n  "梅迪奇": "male",\n  "Amon": "male",\n  "阿蒙": "male",\n  "Bethel": "male",\n  "伯特利": "male",\n  "Antigonus": "male",\n  "安提哥努斯": "male",\n  "Trissy": "context",\n  "特莉丝": "context"\n}`;
+              const prompt = `Carefully read the following web novel chapter excerpts and identify ALL named individual characters (protagonists, villains, allies, side characters, deities, companions).\n\nExcerpts:\n${novelCorpus.slice(0, 30000)}\n\nInstructions:\n1. Extract ALL named individual characters appearing or mentioned in the text.\n2. For each character, include BOTH their translated English name AND their original foreign/RAW name if available (e.g. "Medici" and "梅迪奇", "Amon" and "阿蒙", "Bethel" and "伯特利", "Antigonus" and "安提哥努斯", "Trissy" and "特莉丝", "Bai Ning Bing" and "白凝冰").\n3. Determine whether each character is "female", "male", or "context" (for characters who transition or alter forms dynamically across the story, e.g. Bai Ning Bing, Trissy, Lumian, Cheek / Primordial Demoness).\n4. Omit organizations, places, skills, items, and concepts.\n\nReturn ONLY a valid JSON object mapping every name or alias to "female", "male", or "context":\n{\n  "Medici": "male",\n  "梅迪奇": "male",\n  "Amon": "male",\n  "阿蒙": "male",\n  "Bethel": "male",\n  "伯特利": "male",\n  "Antigonus": "male",\n  "安提哥努斯": "male",\n  "Trissy": "context",\n  "特莉丝": "context"\n}`;
               const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
-              const jsonMatch = aiResp.match(/\{[\s\S]*\}/);
+              const cleanJson = aiResp.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
+              const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
                 try {
                   const parsed = JSON.parse(jsonMatch[0]);
@@ -3922,9 +4015,13 @@ const formatModelName = (id, displayName) => {
                     const g = typeof v === 'string' ? v.toLowerCase().trim() : '';
                     if (k && ['female', 'male', 'context'].includes(g)) {
                       const cleanName = k.trim();
+                      const isKnown = KNOWN_CONTEXT_NAMES.has(cleanName.toLowerCase()) || Array.from(KNOWN_CONTEXT_NAMES).some(kn => cleanName.toLowerCase() === kn);
+                      const finalGender = isKnown ? 'context' : g;
                       if (!combinedMap.has(cleanName)) {
-                        combinedMap.set(cleanName, { gender: g, sourceTag: 'novel' });
+                        combinedMap.set(cleanName, { gender: finalGender, sourceTag: 'novel' });
                         aiScannedCount++;
+                      } else if (isKnown && combinedMap.get(cleanName).gender !== 'context') {
+                        combinedMap.set(cleanName, { gender: 'context', sourceTag: 'novel' });
                       }
                     }
                   });

@@ -184,7 +184,7 @@ Old Neil 老尼尔
 Daly Simone 戴莉·西蒙妮
 Dunn Smith 邓恩·史密斯
 Ince Zangwill 因斯.赞格威尔
-Trissy 特莉丝
+Trissy 特莉丝 [M/F]
 Old Kohler 老科勒
 Mr. A 先生
 Panatiya 潘娜蒂亚
@@ -813,7 +813,7 @@ T
 - Tony Twain - Red Priest
 - Tracey - Demoness
 - Tracy - Demoness
-- Trissy - Demoness
+- Trissy - Demoness [M/F]
 - True Creator - Hanged Man
 - Trunsoest - Justiciar
 - Tutanssess II - Chained

@@ -1,7 +1,7 @@
 {
-  "version": "8.12.2",
-  "versionCode": 8182,
+  "version": "8.12.3",
+  "versionCode": 8183,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.12.2: Smart Chunk-Aware Gender Lock Filtering. Drastically optimizes prompt token usage (saving 90–95% tokens) by intelligently injecting only characters appearing in the active scene/chunk with full CJK substring and glossary alias cross-referencing, while skipping empty headers entirely."
+  "releaseNotes": "v8.12.3: Fix context gender detection & character scan extraction. Adds built-in lore recognition for gender-shifting characters (Trissy, Bai Ning Bing, Cheek, Lumian), expands context tag matching, filters non-character noise, and prioritizes character directory sections."
 }
