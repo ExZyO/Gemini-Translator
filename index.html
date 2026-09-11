@@ -303,7 +303,7 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 140;
+  z-index: 10050;
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -599,12 +599,12 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 .sheet-row .chev { margin-left: auto; color: var(--slate); font-size: 11px; }
 
 /* ── Toast / confirm ── */
-.toast-wrap { position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); z-index: 120; display: flex; flex-direction: column; gap: 8px; width: min(92vw, 380px); align-items: center; pointer-events: none; }
+.toast-wrap { position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); z-index: 11000; display: flex; flex-direction: column; gap: 8px; width: min(92vw, 380px); align-items: center; pointer-events: none; }
 .toast { padding: 12px 20px; border-radius: 10px; border: 1px solid var(--hairline); background: rgba(17, 19, 26, 0.96); backdrop-filter: blur(20px); color: var(--paper); font-size: 14px; font-weight: 600; text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,.7); pointer-events: auto; }
 .toast.error { border-color: rgba(255, 69, 58, 0.4); color: #FF6B6B; }
 .toast.info { border-color: rgba(99, 112, 255, 0.4); color: #B9C0FF; }
 .toast.success { border-color: rgba(52, 199, 89, 0.4); color: #6BE594; }
-.confirm-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 130; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.confirm-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .confirm-box { background: #11131A; border: 1px solid var(--hairline); border-radius: 14px; padding: 24px 22px; max-width: 360px; width: 100%; box-shadow: 0 24px 80px rgba(0,0,0,.8); }
 .confirm-box p { font-size: 15px; font-weight: 600; text-align: center; color: var(--paper); margin-bottom: 20px; line-height: 1.5; }
 .confirm-actions { display: flex; gap: 10px; justify-content: center; }
@@ -5974,6 +5974,34 @@ const formatModelName = (id, displayName) => {
           ...diffResult
         });
         setDiffModalOpen(true);
+      };
+
+      const handleManualSnapshot = async () => {
+        if (!window.TMDiffEngine || !activeDiffData) return;
+        const chs = (translatedChapters && translatedChapters.length > 0)
+          ? translatedChapters
+          : (activeNovelRecord?.translatedChapters && activeNovelRecord.translatedChapters.length > 0
+              ? activeNovelRecord.translatedChapters
+              : (chapters && chapters.length > 0 ? chapters : []));
+        const targetCh = chs[activeDiffData.chapterIdx] || { content: assembledText || inputText || '' };
+        const curText = (targetCh.content || targetCh.text || assembledText || '').trim();
+        if (!curText) {
+          toast('No text available in this chapter to snapshot.', 'info');
+          return;
+        }
+        await window.TMDiffEngine.Snapshots.createSnapshot({
+          novelId: activeDiffData.novelKey,
+          chapterIdx: activeDiffData.chapterIdx,
+          chapterTitle: activeDiffData.title || `Chapter ${activeDiffData.chapterIdx + 1}`,
+          text: curText,
+          model: `${geminiModel || 'Current'} (Manual)`
+        });
+        const refreshedSnaps = await window.TMDiffEngine.Snapshots.getChapterSnapshots(activeDiffData.novelKey, activeDiffData.chapterIdx);
+        setDiffSnapshotsList(refreshedSnaps);
+        if (refreshedSnaps && refreshedSnaps.length > 0) {
+          setSelectedDiffSnapId(refreshedSnaps[refreshedSnaps.length - 1].id);
+        }
+        toast('Snapshot saved successfully!', 'success');
       };
 
       const handleSelectDiffSnapshot = (snapId) => {
@@ -13872,7 +13900,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           setFontSize: setReaderFontSize,
           tgtLang,
           onVerifyConsistency: handleRunConsistencyCheck,
-          onOpenHealthAudit: handleOpenActiveQaModal
+          onOpenHealthAudit: handleOpenActiveQaModal,
+          onOpenDiff: (idx) => handleOpenDiffModal(idx ?? readerChapterIdx)
         }),
 
         // ── NOVEL HEALTH & TRANSLATION QA REPORT MODAL (§5.9 + §7.1 + §7.5) ──
@@ -14208,7 +14237,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
               // Revision Selector & Metrics Banner
               h('div', { style: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)' } },
-                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
                   h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' } }, 'Compare with Snapshot:'),
                   h('select', {
                     className: 'field-select',
@@ -14219,12 +14248,43 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     diffSnapshotsList.map((s, idx) => h('option', { key: s.id, value: s.id },
                       `v${diffSnapshotsList.length - idx}: ${s.model || 'Model'} (${new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) · ${s.wordCount || 0}w`
                     ))
-                  )
+                  ),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    style: { padding: '4px 10px', fontSize: 11.5, background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', border: '1px solid rgba(99, 102, 241, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 4 },
+                    onClick: handleManualSnapshot,
+                    title: 'Save a snapshot of current text now'
+                  }, '⚡ Snapshot Current Text')
                 ),
                 h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', fontSize: 11, fontWeight: 600 } },
                   h('span', { style: { background: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7', padding: '3px 8px', borderRadius: 4 } }, `+${activeDiffData?.addedWords || 0} words`),
                   h('span', { style: { background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5', padding: '3px 8px', borderRadius: 4 } }, `-${activeDiffData?.removedWords || 0} words`),
                   h('span', { style: { background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '3px 8px', borderRadius: 4 } }, `${activeDiffData?.similarityPct ?? 100}% similarity`)
+                )
+              ),
+
+              // Quick Testing Guide Banner
+              h('div', {
+                style: {
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  fontSize: 12,
+                  color: '#c7d2fe',
+                  lineHeight: 1.5,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 8
+                }
+              },
+                h('span', { style: { fontSize: 14 } }, '💡'),
+                h('div', null,
+                  h('strong', { style: { color: '#ffffff' } }, 'How to test Translation Diffs: '),
+                  '1) Take a snapshot or let translation run. 2) Switch models, adjust prompt/glossary, or edit text and translate again. 3) Select the revision above to see color-coded additions (green) & deletions (red), or click ',
+                  h('strong', null, 'Rollback'),
+                  ' to restore!'
                 )
               ),
 

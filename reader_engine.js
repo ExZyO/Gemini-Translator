@@ -166,12 +166,101 @@
         background: var(--r-card);
         border-bottom: 1px solid var(--r-border);
         box-shadow: 0 4px 20px rgba(0,0,0,0.35);
-        padding: 10px 16px;
+        padding: 8px 14px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
         transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+      }
+      .reader-top-btn {
+        min-height: 40px;
+        min-width: 40px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        border: 1px solid var(--r-border);
+        background: rgba(255, 255, 255, 0.05);
+        color: inherit;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        white-space: nowrap;
+        user-select: none;
+      }
+      .reader-top-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: var(--r-accent);
+      }
+      .reader-top-btn:active {
+        transform: scale(0.96);
+        background: rgba(255, 255, 255, 0.18);
+      }
+      .reader-top-btn.active {
+        background: var(--r-accent);
+        color: #ffffff;
+        border-color: var(--r-accent);
+      }
+      .reader-v2-search-bar {
+        position: absolute;
+        top: 58px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(94vw, 540px);
+        z-index: 60;
+        background: var(--r-card);
+        border: 1px solid var(--r-border);
+        border-radius: 12px;
+        box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+        padding: 6px 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        backdrop-filter: blur(12px);
+      }
+      .reader-search-input {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: inherit;
+        font-size: 13.5px;
+        padding: 6px 4px;
+        font-family: inherit;
+      }
+      .reader-search-nav-btn {
+        min-width: 34px;
+        min-height: 34px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--r-border);
+        background: rgba(255, 255, 255, 0.05);
+        color: inherit;
+        cursor: pointer;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+      }
+      .reader-search-nav-btn:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: var(--r-accent);
+      }
+      .reader-search-nav-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      .reader-search-nav-btn.close {
+        color: #f87171;
+        border-color: rgba(248, 113, 113, 0.25);
       }
       .reader-v2-hud-bottom {
         position: absolute;
@@ -310,7 +399,8 @@
     setFontSize,
     tgtLang,
     onVerifyConsistency,
-    onOpenHealthAudit
+    onOpenHealthAudit,
+    onOpenDiff
   }) => {
     if (!open) return null;
     ensureStyles();
@@ -321,6 +411,7 @@
         ? chapters.filter(c => c && typeof c === 'object').map(c => ({
             title: decodeEntities(c.title || 'Chapter'),
             text: c.content || c.text || '',
+            content: c.content || c.text || '',
             originalTitle: c.originalTitle || '',
             arc: c.arc || c.volume || '',
             volume: c.volume || c.arc || ''
@@ -334,7 +425,7 @@
         let curLines = [];
         for (const line of lines) {
           if (isHeading(line) && curLines.length > 0) {
-            list.push({ title: decodeEntities(curTitle), text: curLines.join('\n'), arc: '', volume: '' });
+            list.push({ title: decodeEntities(curTitle), text: curLines.join('\n'), content: curLines.join('\n'), arc: '', volume: '' });
             curTitle = line.trim();
             curLines = [];
           } else {
@@ -342,12 +433,12 @@
           }
         }
         if (curLines.length > 0) {
-          list.push({ title: decodeEntities(curTitle), text: curLines.join('\n'), arc: '', volume: '' });
+          list.push({ title: decodeEntities(curTitle), text: curLines.join('\n'), content: curLines.join('\n'), arc: '', volume: '' });
         }
       }
 
       if (list.length === 0) {
-        list = [{ title: 'Chapter 1', text: text || 'No text loaded.', arc: '', volume: '' }];
+        list = [{ title: 'Chapter 1', text: text || 'No text loaded.', content: text || 'No text loaded.', arc: '', volume: '' }];
       }
       return list;
     }, [chapters, text]);
@@ -422,19 +513,32 @@
     const [renderTick, setRenderTick] = useState(0);
 
     const handleSwapPronounsCurrentChapter = useCallback(() => {
-      if (!currentChapter || !currentChapter.text) return;
-      const swapped = swapPronouns(currentChapter.text);
+      const raw = currentChapter?.text || currentChapter?.content || '';
+      if (!currentChapter || !raw.trim()) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('No text in current chapter to swap pronouns.', 'info');
+        }
+        return;
+      }
+      const swapped = swapPronouns(raw);
       currentChapter.text = swapped;
       currentChapter.content = swapped;
+
+      // Also persist to parent chapters array if available
+      if (Array.isArray(chapters) && chapters[activeIdx]) {
+        chapters[activeIdx].text = swapped;
+        chapters[activeIdx].content = swapped;
+      }
+
       setRenderTick(t => t + 1);
       if (typeof window !== 'undefined' && window.toast) {
         window.toast('Swapped He ↔ She pronouns across current chapter!', 'success');
       }
-    }, [currentChapter]);
+    }, [currentChapter, chapters, activeIdx]);
 
     // Clean chapter paragraphs and images
     const chapterElements = useMemo(() => {
-      let raw = currentChapter?.text || '';
+      let raw = currentChapter?.text || currentChapter?.content || '';
       const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
       if (typeof stripFn === 'function' && currentChapter?.title) {
         raw = stripFn(raw, currentChapter.title, currentChapter.originalTitle);
@@ -559,6 +663,62 @@
       }
     };
 
+    // ── In-Chapter Search Engine ──
+    const searchMatches = useMemo(() => {
+      if (!showSearch || !searchQuery.trim()) return [];
+      const query = searchQuery.trim().toLowerCase();
+      const matches = [];
+      chapterElements.forEach((el, pIdx) => {
+        if (el.type !== 'text' || !el.content) return;
+        const lower = el.content.toLowerCase();
+        let idx = 0;
+        while ((idx = lower.indexOf(query, idx)) !== -1) {
+          matches.push({ pIdx, elId: el.id, charIdx: idx });
+          idx += query.length;
+        }
+      });
+      return matches;
+    }, [showSearch, searchQuery, chapterElements]);
+
+    const scrollToMatch = useCallback((mIdx) => {
+      if (!searchMatches || searchMatches.length === 0) return;
+      const targetMatch = searchMatches[mIdx];
+      if (!targetMatch) return;
+
+      if (viewMode === 'paginated') {
+        const el = document.getElementById(targetMatch.elId);
+        if (el && colWidth > 0) {
+          const trackLeft = el.offsetLeft;
+          const page = Math.max(0, Math.min(totalPages - 1, Math.floor(trackLeft / (colWidth + 60))));
+          setCurrentPage(page);
+        }
+      } else {
+        setTimeout(() => {
+          const markEl = document.getElementById(`search-match-${mIdx}`);
+          if (markEl) {
+            markEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else {
+            const pEl = document.getElementById(targetMatch.elId);
+            if (pEl) pEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 50);
+      }
+    }, [searchMatches, viewMode, colWidth, totalPages]);
+
+    const handleNextSearchMatch = useCallback(() => {
+      if (searchMatches.length === 0) return;
+      const nextIdx = (activeMatchIndex + 1) % searchMatches.length;
+      setActiveMatchIndex(nextIdx);
+      scrollToMatch(nextIdx);
+    }, [activeMatchIndex, searchMatches, scrollToMatch]);
+
+    const handlePrevSearchMatch = useCallback(() => {
+      if (searchMatches.length === 0) return;
+      const prevIdx = activeMatchIndex > 0 ? activeMatchIndex - 1 : searchMatches.length - 1;
+      setActiveMatchIndex(prevIdx);
+      scrollToMatch(prevIdx);
+    }, [activeMatchIndex, searchMatches, scrollToMatch]);
+
     // ── 3. TTS Engine ──
     const [ttsActive, setTtsActive] = useState(false);
     const [ttsPaused, setTtsPaused] = useState(false);
@@ -569,49 +729,118 @@
 
     // Extract sentences for TTS
     useEffect(() => {
-      const textOnly = chapterElements.filter(e => e.type === 'text').map(e => e.content).join(' ');
-      const rawSentences = textOnly.match(/[^.!?。！？]+[.!?。！？]+/g) || [textOnly];
-      sentencesRef.current = rawSentences.map(s => s.trim()).filter(Boolean);
+      const textOnly = chapterElements.filter(e => e.type === 'text').map(e => e.content).filter(Boolean);
+      const splitSentences = [];
+      for (const p of textOnly) {
+        const parts = p.split(/(?<=[.!?。！？\n])\s+/).map(s => s.trim()).filter(Boolean);
+        if (parts.length > 0) {
+          splitSentences.push(...parts);
+        } else if (p.trim()) {
+          splitSentences.push(p.trim());
+        }
+      }
+      sentencesRef.current = splitSentences;
     }, [chapterElements]);
 
     const stopTts = useCallback(() => {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+      window.__ttsActiveUtterance = null;
       setTtsActive(false);
       setTtsPaused(false);
       setActiveSentenceIdx(-1);
     }, []);
 
     const speakSentence = useCallback((idx) => {
-      if (!window.speechSynthesis || idx >= sentencesRef.current.length) {
+      if (typeof window === 'undefined' || !window.speechSynthesis) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Speech synthesis is not supported on this browser/device.', 'error');
+        }
         stopTts();
+        return;
+      }
+      if (idx >= sentencesRef.current.length) {
+        stopTts();
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Finished reading chapter.', 'info');
+        }
         return;
       }
       window.speechSynthesis.cancel();
       const sentence = sentencesRef.current[idx];
+      if (!sentence || !sentence.trim()) {
+        speakSentence(idx + 1);
+        return;
+      }
       setActiveSentenceIdx(idx);
 
       const utt = new SpeechSynthesisUtterance(sentence);
       utt.rate = ttsRate;
-      utt.lang = tgtLang === 'zh' ? 'zh-CN' : (tgtLang === 'ja' ? 'ja-JP' : 'en-US');
+      const langMap = {
+        'zh': 'zh-CN',
+        'ja': 'ja-JP',
+        'ko': 'ko-KR',
+        'es': 'es-ES',
+        'fr': 'fr-FR',
+        'de': 'de-DE',
+        'ru': 'ru-RU',
+        'en': 'en-US'
+      };
+      utt.lang = langMap[tgtLang] || (tgtLang && tgtLang.length === 2 ? `${tgtLang}-${tgtLang.toUpperCase()}` : 'en-US');
+
+      try {
+        const voices = window.speechSynthesis.getVoices?.() || [];
+        if (voices.length > 0) {
+          const matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(utt.lang.toLowerCase().slice(0, 2)));
+          if (matchedVoice) utt.voice = matchedVoice;
+        }
+      } catch (e) {}
+
       utt.onend = () => {
+        window.__ttsActiveUtterance = null;
         speakSentence(idx + 1);
       };
-      utt.onerror = () => {
-        stopTts();
+      utt.onerror = (err) => {
+        window.__ttsActiveUtterance = null;
+        if (err.error !== 'canceled' && err.error !== 'interrupted') {
+          console.warn('[TTS] Synthesis warning:', err);
+          if (typeof window !== 'undefined' && window.toast) {
+            window.toast(`TTS Notice: ${err.error || 'Interrupted'}`, 'info');
+          }
+          stopTts();
+        }
       };
+
+      // Guard against Chrome garbage-collection bug
+      window.__ttsActiveUtterance = utt;
       utteranceRef.current = utt;
+
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
       window.speechSynthesis.speak(utt);
     }, [ttsRate, tgtLang, stopTts]);
 
     const toggleTts = () => {
+      if (typeof window === 'undefined' || !window.speechSynthesis) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Speech synthesis is not supported on this browser/device.', 'error');
+        }
+        return;
+      }
+      if (sentencesRef.current.length === 0) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('No readable text found in this chapter for Read Aloud.', 'warning');
+        }
+        return;
+      }
       if (ttsActive) {
         if (ttsPaused) {
-          window.speechSynthesis?.resume();
+          window.speechSynthesis.resume();
           setTtsPaused(false);
         } else {
-          window.speechSynthesis?.pause();
+          window.speechSynthesis.pause();
           setTtsPaused(true);
         }
       } else {
@@ -705,8 +934,8 @@
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 } },
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
-            style: { border: 'none', fontSize: 16, padding: '4px 8px' },
+            className: 'reader-top-btn',
+            style: { minWidth: 40, minHeight: 40, fontSize: 16 },
             onClick: () => { stopTts(); onClose(); },
             title: 'Close Reader'
           }, '✕'),
@@ -714,32 +943,34 @@
             currentChapter.title
           )
         ),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, overflowX: 'auto' } },
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
-            style: { border: 'none', padding: '4px 8px', fontSize: 12, fontWeight: 600 },
+            className: `reader-top-btn ${ttsActive ? 'active' : ''}`,
+            onClick: toggleTts,
+            title: ttsActive ? (ttsPaused ? 'Resume Read Aloud' : 'Pause Read Aloud') : 'Read Aloud (TTS)'
+          }, ttsActive ? (ttsPaused ? '▶ TTS' : '⏸ TTS') : '🎧 TTS'),
+          h('button', {
+            type: 'button',
+            className: 'reader-top-btn',
             onClick: handleSwapPronounsCurrentChapter,
             title: 'Swap He ↔ She Pronouns in Chapter (Anti-Pronoun Drift)'
           }, '⚥ He↔She'),
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
-            style: { border: 'none', padding: '4px 8px' },
+            className: `reader-top-btn ${showSearch ? 'active' : ''}`,
             onClick: () => setShowSearch(s => !s),
             title: 'Search in Chapter'
-          }, '🔍'),
+          }, '🔍 Find'),
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
-            style: { border: 'none', padding: '4px 8px' },
+            className: 'reader-top-btn',
             onClick: () => setShowToc(true),
             title: 'Table of Contents'
-          }, '📑'),
+          }, '📑 TOC'),
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
-            style: { border: 'none', padding: '4px 8px', fontSize: 12, fontWeight: 600 },
+            className: 'reader-top-btn',
             onClick: () => {
               if (typeof onOpenHealthAudit === 'function') {
                 onOpenHealthAudit();
@@ -751,23 +982,85 @@
           }, '🩺 QA'),
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
-            style: { border: 'none', padding: '4px 8px', fontSize: 12, fontWeight: 600 },
+            className: 'reader-top-btn',
             onClick: () => {
-              if (typeof window !== 'undefined' && typeof window.openDiffInspector === 'function') {
-                window.openDiffInspector(currentChapterIndex);
+              if (typeof onOpenDiff === 'function') {
+                onOpenDiff(activeIdx);
+              } else if (typeof window !== 'undefined' && typeof window.openDiffInspector === 'function') {
+                window.openDiffInspector(activeIdx);
               }
             },
             title: 'Translation Revisions & Diffs (§8.6)'
           }, '📜 Diffs'),
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
-            style: { border: 'none', padding: '4px 8px' },
+            className: 'reader-top-btn',
             onClick: () => setShowSettings(true),
             title: 'Typography & Appearance'
-          }, '⚙')
+          }, '⚙ Settings')
         )
+      ),
+
+      // ── FLOATING IN-CHAPTER SEARCH BAR ──
+      showSearch && h('div', {
+        className: 'reader-v2-search-bar',
+        onClick: (e) => e.stopPropagation()
+      },
+        h('span', { style: { fontSize: 15, opacity: 0.7 } }, '🔍'),
+        h('input', {
+          type: 'text',
+          className: 'reader-search-input',
+          placeholder: 'Search chapter text…',
+          value: searchQuery,
+          autoFocus: true,
+          onChange: (e) => {
+            setSearchQuery(e.target.value);
+            setActiveMatchIndex(0);
+          },
+          onKeyDown: (e) => {
+            if (e.key === 'Enter') {
+              if (e.shiftKey) {
+                handlePrevSearchMatch();
+              } else {
+                handleNextSearchMatch();
+              }
+            } else if (e.key === 'Escape') {
+              setShowSearch(false);
+            }
+          }
+        }),
+        h('span', {
+          style: {
+            fontSize: 12,
+            fontWeight: 600,
+            color: searchMatches.length > 0 ? 'var(--r-accent)' : 'var(--r-muted)',
+            whiteSpace: 'nowrap',
+            padding: '2px 6px'
+          }
+        }, searchQuery.trim() ? (searchMatches.length > 0 ? `${activeMatchIndex + 1} of ${searchMatches.length}` : '0 found') : ''),
+        h('button', {
+          type: 'button',
+          className: 'reader-search-nav-btn',
+          disabled: searchMatches.length === 0,
+          onClick: handlePrevSearchMatch,
+          title: 'Previous match (Shift+Enter)'
+        }, '▲'),
+        h('button', {
+          type: 'button',
+          className: 'reader-search-nav-btn',
+          disabled: searchMatches.length === 0,
+          onClick: handleNextSearchMatch,
+          title: 'Next match (Enter)'
+        }, '▼'),
+        h('button', {
+          type: 'button',
+          className: 'reader-search-nav-btn close',
+          onClick: () => {
+            setShowSearch(false);
+            setSearchQuery('');
+          },
+          title: 'Close search'
+        }, '✕')
       ),
 
       // ── READING CANVAS CONTAINER ──
@@ -828,49 +1121,62 @@
               ),
 
               // Paragraphs and Illustrations
-              chapterElements.map((el) => {
-                if (el.type === 'image') {
-                  return h('div', {
-                    key: el.id,
-                    style: {
-                      margin: '20px 0',
-                      textAlign: 'center',
-                      cursor: 'zoom-in',
-                      breakInside: 'avoid',
-                      pageBreakInside: 'avoid'
-                    },
-                    onClick: () => setLightboxImg(el.src)
-                  },
-                    h('img', {
-                      src: el.src,
-                      alt: el.alt,
-                      loading: 'lazy',
+              (() => {
+                let matchCounter = 0;
+                return chapterElements.map((el) => {
+                  if (el.type === 'image') {
+                    return h('div', {
+                      key: el.id,
+                      id: el.id,
                       style: {
-                        maxWidth: '100%',
-                        maxHeight: 'calc(100vh - 180px)',
-                        borderRadius: 8,
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.25)'
-                      }
-                    })
-                  );
-                }
+                        margin: '20px 0',
+                        textAlign: 'center',
+                        cursor: 'zoom-in',
+                        breakInside: 'avoid',
+                        pageBreakInside: 'avoid'
+                      },
+                      onClick: () => setLightboxImg(el.src)
+                    },
+                      h('img', {
+                        src: el.src,
+                        alt: el.alt,
+                        loading: 'lazy',
+                        style: {
+                          maxWidth: '100%',
+                          maxHeight: 'calc(100vh - 180px)',
+                          borderRadius: 8,
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.25)'
+                        }
+                      })
+                    );
+                  }
 
-                // Text Paragraph with Search Highlighting
-                let paragraphContent = el.content;
-                if (showSearch && searchQuery.trim().length > 0) {
-                  const query = searchQuery.trim();
-                  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                  const parts = paragraphContent.split(regex);
-                  return h('p', { key: el.id, id: el.id },
-                    parts.map((part, i) => regex.test(part)
-                      ? h('mark', { key: i, className: 'reader-v2-search-match' }, part)
-                      : part
-                    )
-                  );
-                }
+                  // Text Paragraph with Search Highlighting
+                  let paragraphContent = el.content;
+                  if (showSearch && searchQuery.trim().length > 0) {
+                    const query = searchQuery.trim();
+                    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`(${escaped})`, 'gi');
+                    const parts = paragraphContent.split(regex);
+                    return h('p', { key: el.id, id: el.id },
+                      parts.map((part, i) => {
+                        if (part.toLowerCase() === query.toLowerCase()) {
+                          const mIdx = matchCounter++;
+                          const isCurrentActive = mIdx === activeMatchIndex;
+                          return h('mark', {
+                            key: i,
+                            id: `search-match-${mIdx}`,
+                            className: `reader-v2-search-match ${isCurrentActive ? 'active' : ''}`
+                          }, part);
+                        }
+                        return part;
+                      })
+                    );
+                  }
 
-                return h('p', { key: el.id, id: el.id }, el.content);
-              })
+                  return h('p', { key: el.id, id: el.id }, el.content);
+                });
+              })()
             ),
 
             // Bottom Paginated Page Indicator Pill
@@ -900,38 +1206,51 @@
           ),
 
           // Chapter Paragraphs & Illustrations
-          chapterElements.map((el, pIdx) => {
-            if (el.type === 'image') {
-              return h('div', {
-                key: el.id,
-                style: { margin: '24px 0', textAlign: 'center', cursor: 'zoom-in' },
-                onClick: () => setLightboxImg(el.src)
-              },
-                h('img', {
-                  src: el.src,
-                  alt: el.alt,
-                  loading: 'lazy',
-                  style: { maxWidth: '100%', maxHeight: '80vh', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }
-                })
-              );
-            }
+          (() => {
+            let matchCounter = 0;
+            return chapterElements.map((el, pIdx) => {
+              if (el.type === 'image') {
+                return h('div', {
+                  key: el.id,
+                  id: el.id,
+                  style: { margin: '24px 0', textAlign: 'center', cursor: 'zoom-in' },
+                  onClick: () => setLightboxImg(el.src)
+                },
+                  h('img', {
+                    src: el.src,
+                    alt: el.alt,
+                    loading: 'lazy',
+                    style: { maxWidth: '100%', maxHeight: '80vh', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }
+                  })
+                );
+              }
 
-            // Text Paragraph with Search Highlighting
-            let paragraphContent = el.content;
-            if (showSearch && searchQuery.trim().length > 0) {
-              const query = searchQuery.trim();
-              const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-              const parts = paragraphContent.split(regex);
-              return h('p', { key: el.id },
-                parts.map((part, i) => regex.test(part)
-                  ? h('mark', { key: i, className: 'reader-v2-search-match' }, part)
-                  : part
-                )
-              );
-            }
+              // Text Paragraph with Search Highlighting
+              let paragraphContent = el.content;
+              if (showSearch && searchQuery.trim().length > 0) {
+                const query = searchQuery.trim();
+                const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(${escaped})`, 'gi');
+                const parts = paragraphContent.split(regex);
+                return h('p', { key: el.id, id: el.id },
+                  parts.map((part, i) => {
+                    if (part.toLowerCase() === query.toLowerCase()) {
+                      const mIdx = matchCounter++;
+                      const isCurrentActive = mIdx === activeMatchIndex;
+                      return h('mark', {
+                        key: i,
+                        id: `search-match-${mIdx}`,
+                        className: `reader-v2-search-match ${isCurrentActive ? 'active' : ''}`
+                      }, part);
+                    }
+                    return part;
+                  })
+                );
+              }
 
-            return h('p', { key: el.id }, el.content);
-          }),
+              return h('p', { key: el.id, id: el.id }, el.content);
+            });
+          })(),
 
           // Bottom Chapter Navigation Stepper
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 40, paddingTop: 24, borderTop: '1px solid var(--r-border)' } },
