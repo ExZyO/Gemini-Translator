@@ -10,6 +10,27 @@ const LOG_FILE = path.join(__dirname, 'telemetry_live.log');
 const WCT_TEST_LOG = path.join(LOGS_DIR, 'witchcult_test_deep.log');
 const MAX_LOG_SIZE = 15 * 1024 * 1024; // 15MB
 
+let appVersion = '8.14.5';
+try {
+  const v = JSON.parse(fs.readFileSync(path.join(__dirname, 'version.json'), 'utf8'));
+  if (v.version) appVersion = v.version;
+} catch(_) {}
+
+function getLocalIpv4Addresses() {
+  const ips = [];
+  try {
+    const ifaces = os.networkInterfaces();
+    for (const name of Object.keys(ifaces)) {
+      for (const net of ifaces[name]) {
+        if (net.family === 'IPv4' && !net.internal) {
+          ips.push({ name, address: net.address });
+        }
+      }
+    }
+  } catch (_) {}
+  return ips;
+}
+
 if (!fs.existsSync(LOGS_DIR)) {
   try { fs.mkdirSync(LOGS_DIR, { recursive: true }); } catch (_) {}
 }
@@ -412,13 +433,14 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'active',
-      version: '8.13.1',
+      version: appVersion,
       host: os.hostname(),
       uptimeSeconds: Math.floor(process.uptime()),
       totalEventsReceived: totalEvents,
+      networkInterfaces: getLocalIpv4Addresses(),
       logPath: LOG_FILE,
       testLogPath: WCT_TEST_LOG
-    }));
+    }, null, 2));
     return;
   }
 
@@ -427,13 +449,180 @@ const server = http.createServer(async (req, res) => {
     try {
       if (fs.existsSync(LOG_FILE)) fs.writeFileSync(LOG_FILE, '', 'utf8');
     } catch(e) {}
+    totalEvents = 0;
+    broadcastSse({ time: new Date().toISOString(), tag: 'SYS', message: 'Logs cleared.' });
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'cleared' }));
     return;
   }
 
-  // 3. Read Raw Logs
-  if (req.method === 'GET' && req.url.startsWith('/logs')) {
+  // 3. Server-Sent Events (SSE) Live Log Streaming (Evaluated before /logs prefix!)
+  if (req.method === 'GET' && (req.url === '/logs/stream' || req.url === '/stream')) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.write(`data: {"type":"connected","time":"${new Date().toISOString()}"}\n\n`);
+    sseClients.add(res);
+    req.on('close', () => { sseClients.delete(res); });
+    return;
+  }
+
+  // 4. Interactive Live Log Web Dashboard
+  if (req.method === 'GET' && (req.url === '/logs/ui' || req.url === '/logs/live' || req.url === '/logs/dashboard')) {
+    const wifiIps = getLocalIpv4Addresses();
+    const primaryIp = wifiIps.find(i => /wi-?fi|wlan/i.test(i.name))?.address || wifiIps[0]?.address || '127.0.0.1';
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gemini Translator · Live Telemetry</title>
+<style>
+  :root { --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9; --accent: #58a6ff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 12px 18px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+  .title-group { display: flex; align-items: center; gap: 10px; }
+  .pulse { width: 10px; height: 10px; border-radius: 50%; background: #238636; box-shadow: 0 0 8px #2ea043; animation: blink 2s infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .badge { background: #21262d; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12px; color: var(--accent); }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button { background: #21262d; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  button:hover { background: #30363d; color: #fff; }
+  button.active { background: #1f6feb; border-color: #388bfd; color: #fff; }
+  input[type="text"] { background: #0d1117; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 12px; outline: none; width: 160px; }
+  input[type="text"]:focus { border-color: var(--accent); }
+  #log-container { flex: 1; overflow-y: auto; padding: 14px 18px; font-size: 12px; line-height: 1.6; }
+  .log-line { display: flex; gap: 10px; margin-bottom: 4px; word-break: break-word; white-space: pre-wrap; }
+  .time { color: #8b949e; flex-shrink: 0; }
+  .tag { font-weight: 700; flex-shrink: 0; padding: 0 4px; border-radius: 4px; }
+  .msg { flex: 1; }
+  .tag-UI_ACTION { color: #38bdf8; }
+  .tag-FETCH_OK, .tag-TRANSLAT, .tag-GEMINI, .tag-PING { color: #4ade80; }
+  .tag-WARN, .tag-CRAWLER { color: #facc15; }
+  .tag-ERROR, .tag-FAIL { color: #f87171; background: rgba(248, 113, 113, 0.15); }
+  .tag-GENDER, .tag-GLOSSARY { color: #818cf8; }
+  .data-block { background: rgba(255,255,255,0.04); border-left: 2px solid var(--accent); padding: 4px 8px; margin-top: 4px; border-radius: 4px; font-size: 11px; color: #8b949e; }
+</style>
+</head>
+<body>
+<header>
+  <div class="title-group">
+    <div id="pulse" class="pulse"></div>
+    <span style="font-weight: 700; font-size: 14px;">📡 Live Telemetry</span>
+    <span class="badge">v${appVersion}</span>
+    <span class="badge" title="WiFi Address">📶 ${primaryIp}:${PORT}</span>
+    <span id="counter" class="badge">0 events</span>
+  </div>
+  <div class="controls">
+    <input type="text" id="search" placeholder="Search logs..." oninput="filterLogs()">
+    <button id="autoscroll-btn" class="active" onclick="toggleAutoScroll()">Auto-scroll: ON</button>
+    <button onclick="clearDisplay()">Clear View</button>
+    <button onclick="clearServer()">Clear Server</button>
+  </div>
+</header>
+<div id="log-container"></div>
+<script>
+  let autoScroll = true;
+  let count = 0;
+  let logs = [];
+  const container = document.getElementById('log-container');
+  const counter = document.getElementById('counter');
+  const search = document.getElementById('search');
+
+  function toggleAutoScroll() {
+    autoScroll = !autoScroll;
+    const btn = document.getElementById('autoscroll-btn');
+    btn.textContent = 'Auto-scroll: ' + (autoScroll ? 'ON' : 'OFF');
+    btn.className = autoScroll ? 'active' : '';
+  }
+
+  function clearDisplay() {
+    container.innerHTML = '';
+    logs = [];
+    count = 0;
+    counter.textContent = '0 events';
+  }
+
+  async function clearServer() {
+    if (confirm('Clear telemetry log on server?')) {
+      await fetch('/clear', { method: 'POST' });
+      clearDisplay();
+    }
+  }
+
+  function renderLog(item) {
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    const tagClass = 'tag-' + (item.tag || 'LOG').replace(/[^a-zA-Z0-9_]/g, '');
+    const dataHtml = item.data ? '<div class="data-block">' + escapeHtml(JSON.stringify(item.data, null, 2)) + '</div>' : '';
+    div.innerHTML = '<span class="time">[' + escapeHtml(item.time ? item.time.split('T')[1].replace('Z', '') : '') + ']</span>' +
+                    '<span class="tag ' + tagClass + '">[' + escapeHtml(item.tag || 'LOG') + ']</span>' +
+                    '<div class="msg">' + escapeHtml(item.message || '') + dataHtml + '</div>';
+    div.dataset.text = ((item.tag || '') + ' ' + (item.message || '') + ' ' + (item.data ? JSON.stringify(item.data) : '')).toLowerCase();
+    
+    if (search.value.trim() && !div.dataset.text.includes(search.value.trim().toLowerCase())) {
+      div.style.display = 'none';
+    }
+    container.appendChild(div);
+    if (autoScroll) container.scrollTop = container.scrollHeight;
+  }
+
+  function filterLogs() {
+    const q = search.value.trim().toLowerCase();
+    const rows = container.querySelectorAll('.log-line');
+    rows.forEach(r => {
+      r.style.display = !q || r.dataset.text.includes(q) ? '' : 'none';
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Load existing history
+  fetch('/logs?raw=1').then(r => r.text()).then(txt => {
+    const lines = txt.split('\\n').filter(l => l.trim().startsWith('['));
+    lines.slice(-100).forEach(l => {
+      const m = l.match(/^\\[(.*?)\\]\\[(.*?)\\]\\s*(.*)$/);
+      if (m) {
+        renderLog({ time: m[1], tag: m[2], message: m[3] });
+        count++;
+      }
+    });
+    counter.textContent = count + ' events';
+  }).catch(() => {});
+
+  // Connect SSE live stream
+  const es = new EventSource('/logs/stream');
+  es.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'connected') return;
+      count++;
+      counter.textContent = count + ' events';
+      renderLog(data);
+    } catch (_) {}
+  };
+  es.onerror = () => {
+    document.getElementById('pulse').style.background = '#da3633';
+  };
+  es.onopen = () => {
+    document.getElementById('pulse').style.background = '#238636';
+  };
+</script>
+</body>
+</html>`;
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=UTF-8' });
+    res.end(html);
+    return;
+  }
+
+  // 5. Read Raw Text Logs
+  if (req.method === 'GET' && (req.url === '/logs' || req.url.startsWith('/logs?'))) {
     const parsed = new URL(req.url, `http://${req.headers.host || '127.0.0.1:9090'}`);
     const isWctTest = parsed.searchParams.get('test') === 'wct';
     const target = isWctTest ? WCT_TEST_LOG : LOG_FILE;
@@ -445,20 +634,6 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end('Error reading log: ' + e.message);
     }
-    return;
-  }
-
-  // 4. Server-Sent Events (SSE) Live Log Streaming
-  if (req.method === 'GET' && req.url === '/logs/stream') {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*'
-    });
-    res.write(`data: {"type":"connected","time":"${new Date().toISOString()}"}\n\n`);
-    sseClients.add(res);
-    req.on('close', () => { sseClients.delete(res); });
     return;
   }
 
@@ -579,16 +754,25 @@ if (process.argv.includes('--test-wct') || process.argv.includes('--test')) {
     process.exit(1);
   });
 } else {
+  const ips = getLocalIpv4Addresses();
+  const wifiEntry = ips.find(i => /wi-?fi|wlan/i.test(i.name)) || ips[0];
+  const wifiIp = wifiEntry ? wifiEntry.address : '127.0.0.1';
+
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`\n======================================================`);
-    console.log(`📡 Gemini Translator Server & Diagnostic Hub (v8.13.1)`);
+    console.log(`📡 Gemini Translator Server & Diagnostic Hub (v${appVersion})`);
     console.log(`======================================================`);
-    console.log(`🌐 Web App & Reader:     http://localhost:${PORT}`);
-    console.log(`⚡ Proxy & API Status:    http://localhost:${PORT}/status`);
-    console.log(`📝 Live Telemetry Log:    http://localhost:${PORT}/logs`);
-    console.log(`📡 SSE Stream:            http://localhost:${PORT}/logs/stream`);
-    console.log(`🧪 Run WCT Deep Test:    http://localhost:${PORT}/test/wct`);
+    console.log(`🌐 Local Web App:        http://localhost:${PORT}`);
+    console.log(`📶 WiFi Web App:         http://${wifiIp}:${PORT}`);
+    console.log(`📊 Live Telemetry UI:    http://${wifiIp}:${PORT}/logs/ui`);
+    console.log(`📝 Raw Telemetry Log:    http://${wifiIp}:${PORT}/logs`);
+    console.log(`📡 SSE Stream:            http://${wifiIp}:${PORT}/logs/stream`);
+    console.log(`⚡ API Status:            http://${wifiIp}:${PORT}/status`);
+    console.log(`🧪 Run WCT Deep Test:    http://${wifiIp}:${PORT}/test/wct`);
     console.log(`📁 Persistent Log File:   ${LOG_FILE}`);
+    console.log(`------------------------------------------------------`);
+    console.log(`Available IPv4 Interfaces:`);
+    ips.forEach(i => console.log(` - ${i.name.padEnd(25)}: http://${i.address}:${PORT}`));
     console.log(`======================================================\n`);
   });
 }
