@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.12.10';
+    let VERSION = '8.13.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -5813,6 +5813,18 @@ const formatModelName = (id, displayName) => {
       }, [culturalFootnotesEnabled]);
 
       const [toasts, setToasts] = useState([]);
+      const [appVersion, setAppVersion] = useState(VERSION);
+      useEffect(() => {
+        fetch('./version.json?t=' + Date.now())
+          .then(r => r.json())
+          .then(d => {
+            if (d && d.version) {
+              VERSION = d.version;
+              setAppVersion(d.version);
+            }
+          })
+          .catch(() => {});
+      }, []);
       const [availableUpdate, setAvailableUpdate] = useState(null);
       const [downloadSuccessModal, setDownloadSuccessModal] = useState(null);
       const [epubPackagingModal, setEpubPackagingModal] = useState(null);
@@ -10368,7 +10380,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       const logsContainerRef = useRef(null);
       const [liveLogs, setLiveLogs] = useState(() => window.AppLogger ? [...window.AppLogger.logs] : []);
       useEffect(() => {
-        if (!window.AppLogger) return;
+        if (!logsModalOpen || !window.AppLogger) return;
+        setLiveLogs([...window.AppLogger.logs]);
         let rafId = null;
         let latestLogs = null;
         const unsub = window.AppLogger.subscribe(logs => {
@@ -10389,7 +10402,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           if (rafId) cancelAnimationFrame(rafId);
           if (unsub) unsub();
         };
-      }, []);
+      }, [logsModalOpen]);
 
       // Live Agent Telemetry & Debugging (Method 2 Wireless Wi-Fi)
       const [telemetryEnabled, setTelemetryEnabled] = useState(() => localStorage.getItem('telemetry_enabled') !== 'false');
@@ -10412,6 +10425,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           const data = await res.json();
           setTelemetryStatus('connected');
           setTelemetryStatusMsg(`✅ Connected! Telemetry Server active at ${cleanUrl} (Host: ${data.host || 'PC'})`);
+          window.updateTelemetryConfig?.({ serverUrl: cleanUrl });
           toast('Connected to PC Agent Telemetry!', 'success');
           window.sendTelemetry?.('PING', 'Android device successfully connected to PC Telemetry Server!', { userAgent: navigator.userAgent });
         } catch (err) {
@@ -10757,7 +10771,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               ),
               h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
                 h('button', { type: 'button', className: 'version-chip', title: 'Check for updates', onClick: () => checkForAppUpdate(true) },
-                  `v${VERSION}`, availableUpdate ? h('span', { className: 'dot' }) : null
+                  `v${appVersion}`, availableUpdate ? h('span', { className: 'dot' }) : null
                 ),
                 !isStandalone && h('button', { type: 'button', className: 'icon-btn', title: 'Install App on Device', onClick: handleInstallPWA }, ic(Download, 16))
               )
@@ -13463,11 +13477,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 switchRow('Stream Real-time Logs to Agent (PC)', telemetryEnabled, (v) => {
                   setTelemetryEnabled(v);
                   localStorage.setItem('telemetry_enabled', String(v));
-                  toast(v ? 'Live telemetry enabled! Logs stream to PC.' : 'Live telemetry disabled.', 'info');
+                  window.updateTelemetryConfig?.({ enabled: v });
+                  toast(v ? 'Live telemetry enabled! Logs stream to PC.' : 'Live telemetry disabled (zero overhead).', 'info');
                 }),
                 switchRow('🔬 Deep Debugging (All Buttons & Backgrounds)', telemetryVerbose, (v) => {
                   setTelemetryVerbose(v);
                   localStorage.setItem('telemetry_verbose', String(v));
+                  window.updateTelemetryConfig?.({ verbose: v });
                   window.telemetryLog?.('CONFIG', `Deep Debugging set to ${v}`);
                   toast(v ? '🔬 Deep Debugging enabled! All buttons & background actions logged.' : 'Standard telemetry enabled.', 'info');
                 }),
@@ -13481,6 +13497,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       const val = e.target.value.trim();
                       setTelemetryServerUrl(val);
                       localStorage.setItem('telemetry_server_url', val);
+                      window.updateTelemetryConfig?.({ serverUrl: val });
                     },
                     style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
                   })
@@ -13922,11 +13939,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   h('span', { className: 'sec-tag' }, '//'),
                   h('span', { className: 'sec-title' }, 'SYSTEM & BUILD')
                 ),
-                h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, `v${VERSION}`)
+                h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, `v${appVersion}`)
               ),
               h('div', { className: 'card' },
                 h('div', { className: 'card-title' }, h('span', null, 'App Version & Runtime')),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Check for updates'), h('button', { type: 'button', className: 'chip-act', onClick: () => checkForAppUpdate(true) }, `v${VERSION}`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Check for updates'), h('button', { type: 'button', className: 'chip-act', onClick: () => checkForAppUpdate(true) }, `v${appVersion}`)),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Notifications & Sound'),
                   h('button', {

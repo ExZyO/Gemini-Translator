@@ -1,20 +1,69 @@
 /**
- * Gemini Translator - System Diagnostics & Telemetry Logger (v8.12.2)
- * Manages KeyPool leasing, error tracking, and universal live Wi-Fi telemetry
+ * Gemini Translator - System Diagnostics & Telemetry Logger (v8.13.1)
+ * Manages KeyPool leasing, error tracking, and ultra-high-performance zero-overhead telemetry
  */
 (function(window) {
+  // In-memory zero-cost cache of settings to avoid continuous synchronous localStorage.getItem calls
+  let _telemetryEnabled = false;
+  let _telemetryVerbose = false;
+  let _telemetryServerUrl = 'http://127.0.0.1:9090';
+  let _backoffUntil = 0;
+  let _consecutiveFailures = 0;
+
+  function syncConfigFromStorage() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        _telemetryEnabled = localStorage.getItem('telemetry_enabled') !== 'false';
+        _telemetryVerbose = localStorage.getItem('telemetry_verbose') === 'true';
+        const defaultServer = (typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+          ? 'http://127.0.0.1:9090'
+          : (localStorage.getItem('telemetry_server_url') || 'http://127.0.0.1:9090');
+        _telemetryServerUrl = localStorage.getItem('telemetry_server_url') || defaultServer;
+      }
+    } catch(e) {}
+  }
+  syncConfigFromStorage();
+
+  // Keep in-memory cache instantly updated if localStorage is modified
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const _origSetItem = localStorage.setItem.bind(localStorage);
+      localStorage.setItem = function(key, val) {
+        _origSetItem(key, val);
+        if (key === 'telemetry_enabled') _telemetryEnabled = val !== 'false';
+        else if (key === 'telemetry_verbose') _telemetryVerbose = val === 'true';
+        else if (key === 'telemetry_server_url') {
+          _telemetryServerUrl = val;
+          _consecutiveFailures = 0;
+          _backoffUntil = 0;
+        }
+      };
+    } catch(_) {}
+  }
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('storage', syncConfigFromStorage);
+  }
+
+  // Explicit helper to update telemetry configuration programmatically
+  window.updateTelemetryConfig = function(opts = {}) {
+    if (opts.enabled !== undefined) _telemetryEnabled = !!opts.enabled;
+    if (opts.verbose !== undefined) _telemetryVerbose = !!opts.verbose;
+    if (opts.serverUrl !== undefined) {
+      _telemetryServerUrl = opts.serverUrl;
+      _consecutiveFailures = 0;
+      _backoffUntil = 0;
+    }
+  };
+  window.isTelemetryActive = () => _telemetryEnabled;
+
   const maskKey = (k) => (!k ? '' : (k.length > 10 ? `${k.slice(0, 6)}…${k.slice(-4)}` : k));
 
-  const isVerbose = () => {
-    try {
-      return typeof localStorage !== 'undefined' && localStorage.getItem('telemetry_verbose') === 'true';
-    } catch(e) { return false; }
-  };
+  const isVerbose = () => _telemetryVerbose;
 
   // Sanitize telemetry payloads: mask API keys and truncate massive novel texts (allows deep inspection when Deep Debugging is ON)
   const sanitizePayload = (obj, depth = 0) => {
     if (!obj || depth > 3) return obj;
-    const verbose = isVerbose();
+    const verbose = _telemetryVerbose;
     const maxStringLen = verbose ? 12000 : 300;
     const maxPreviewLen = verbose ? 10000 : 200;
 
@@ -60,10 +109,13 @@
    * Streams real-time diagnostics, crawler events, and UI actions to PC Agent
    */
   window.sendTelemetry = function(tag, message, data) {
+    // ZERO-COST BAILOUT: When telemetry is turned off, return immediately with zero allocations
+    if (!_telemetryEnabled) return;
+    if (Date.now() < _backoffUntil) return; // Circuit breaker: do not spam unreachable server
+
     try {
-      const enabled = localStorage.getItem('telemetry_enabled') !== 'false';
-      const serverUrl = localStorage.getItem('telemetry_server_url') || 'http://192.168.1.216:9090';
-      if (!enabled || !serverUrl) return;
+      const serverUrl = _telemetryServerUrl;
+      if (!serverUrl) return;
 
       const payload = {
         tag: tag || 'APP',
@@ -80,10 +132,22 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       }).then(res => {
-        if (res.ok && offlineQueue.length > 0 && !isFlushing) {
-          flushOfflineQueue(endpoint);
+        if (res.ok) {
+          _consecutiveFailures = 0;
+          if (offlineQueue.length > 0 && !isFlushing) {
+            flushOfflineQueue(endpoint);
+          }
+        } else {
+          _consecutiveFailures++;
+          if (_consecutiveFailures >= 4) {
+            _backoffUntil = Date.now() + 30000; // Pause network attempts for 30s
+          }
         }
       }).catch(() => {
+        _consecutiveFailures++;
+        if (_consecutiveFailures >= 4) {
+          _backoffUntil = Date.now() + 30000; // Pause network attempts for 30s
+        }
         // Queue if offline
         if (offlineQueue.length < MAX_QUEUE) {
           offlineQueue.push(payload);
@@ -117,6 +181,8 @@
    * window.telemetryLog('CRAWLER', 'Scraped chapter 5', { novelId, length })
    */
   window.telemetryLog = function(category, action, details = null, level = 'info') {
+    // ZERO-COST BAILOUT: Instant return when logs are disabled
+    if (!_telemetryEnabled) return;
     try {
       window.AppLogger?.log(level, category, action, details);
     } catch(e) {
@@ -129,6 +195,7 @@
   const _origError = console.error;
   console.warn = function(...args) {
     _origWarn.apply(console, args);
+    if (!_telemetryEnabled) return;
     try {
       const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
       window.sendTelemetry('WARN', msg);
@@ -136,6 +203,7 @@
   };
   console.error = function(...args) {
     _origError.apply(console, args);
+    if (!_telemetryEnabled) return;
     try {
       const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
       window.sendTelemetry('ERROR', msg);
@@ -147,14 +215,24 @@
     maxLogs: 300,
     listeners: new Set(),
     log(level, tag, message, details = null) {
+      // ZERO-COST BAILOUT: If logs/telemetry are off, exit immediately
+      if (!_telemetryEnabled) return;
+
       const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-      const entry = { time, level, tag, message, details: details ? sanitizePayload(details) : null };
+      const cleanDetails = details ? sanitizePayload(details) : null;
+      const entry = { time, level, tag, message, details: cleanDetails };
       this.logs.push(entry);
       if (this.logs.length > this.maxLogs) this.logs.shift();
-      const detailStr = details ? (typeof details === 'object' ? JSON.stringify(sanitizePayload(details)) : String(details)) : '';
-      console.log(`[${time}][${tag}] ${message}`, detailStr);
-      this.listeners.forEach(fn => { try { fn([...this.logs]); } catch(e) {} });
-      window.sendTelemetry(tag, `[${level.toUpperCase()}] ${message}`, details);
+
+      if (_telemetryVerbose) {
+        const detailStr = cleanDetails ? (typeof cleanDetails === 'object' ? JSON.stringify(cleanDetails) : String(cleanDetails)) : '';
+        console.log(`[${time}][${tag}] ${message}`, detailStr);
+      }
+
+      if (this.listeners.size > 0) {
+        this.listeners.forEach(fn => { try { fn(this.logs); } catch(e) {} });
+      }
+      window.sendTelemetry(tag, `[${level.toUpperCase()}] ${message}`, cleanDetails);
     },
     subscribe(fn) {
       this.listeners.add(fn);
@@ -286,10 +364,9 @@
 
     // Global click delegation
     document.addEventListener('click', (e) => {
+      // FAST-PATH: If telemetry or deep debugging is OFF, bail out in 0ns before inspecting DOM
+      if (!_telemetryEnabled || !_telemetryVerbose) return;
       try {
-        const isDeep = localStorage.getItem('telemetry_verbose') !== 'false';
-        if (!isDeep) return;
-
         const target = e.target.closest('button, a, input[type="button"], input[type="submit"], input[type="checkbox"], input[type="radio"], .btn, .mini-btn, .icon-btn, .pill-btn, .tab-btn, [role="button"]');
         if (!target || target.hasAttribute('data-telemetry-ignore')) return;
 
@@ -307,10 +384,9 @@
 
     // Global change delegation (select, range slider, toggle)
     document.addEventListener('change', (e) => {
+      // FAST-PATH: If telemetry or deep debugging is OFF, bail out in 0ns before inspecting DOM
+      if (!_telemetryEnabled || !_telemetryVerbose) return;
       try {
-        const isDeep = localStorage.getItem('telemetry_verbose') !== 'false';
-        if (!isDeep) return;
-
         const target = e.target;
         if (!target || target.hasAttribute('data-telemetry-ignore')) return;
 

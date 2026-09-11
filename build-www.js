@@ -32,6 +32,13 @@ function copyRecursive(src, dest) {
 
 copyRecursive(srcDir, destDir);
 
+// Also sync to Android Capacitor assets directory if present
+const androidPublicDir = path.join(__dirname, 'android', 'app', 'src', 'main', 'assets', 'public');
+if (fs.existsSync(androidPublicDir)) {
+    copyRecursive(srcDir, androidPublicDir);
+    console.log('✅ Recursively synced all web assets to android/app/src/main/assets/public directory');
+}
+
 // Check if a local gitignored client_secrets.json exists to safely inject for local builds
 try {
     const secretFiles = fs.readdirSync(srcDir).filter(f => f.startsWith('client_secret') && f.endsWith('.json'));

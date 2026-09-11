@@ -6,7 +6,9 @@
   "scripts": {
     "build:www": "node build-www.js",
     "cap:sync": "node build-www.js && npx cap sync android",
-    "cap:open": "npx cap open android"
+    "cap:open": "npx cap open android",
+    "server": "node telemetry_server.js",
+    "test:wct": "node telemetry_server.js --test-wct"
   },
   "repository": {
     "type": "git",

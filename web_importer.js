@@ -309,6 +309,14 @@
         const timeoutMs = options.timeout || 25000;
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
+        const startTime = Date.now();
+        const context = options.context || options.why || 'General Crawl';
+
+        window.sendTelemetry?.('FETCH_REQ', `[${context}] Fetching: ${url}`, {
+            url,
+            context,
+            timeoutMs
+        });
 
         // 1. Android Native Bridge (Zero CORS / Full Chromium Engine)
         if (window.NativeBridge && window.NativeBridge.fetchNative) {
@@ -321,16 +329,25 @@
                     const text = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
                     if (!isBlockOrChallenge(text)) {
                         clearTimeout(timer);
+                        const latency = Date.now() - startTime;
+                        window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched via Android Native Bridge in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
+                            url,
+                            context,
+                            tier: 'NativeBridge',
+                            latencyMs: latency,
+                            charCount: text.length
+                        });
                         return text;
                     }
                 }
             } catch (e) {
                 console.warn('NativeBridge fetch error, fallback to proxy:', e);
+                window.sendTelemetry?.('FETCH_WARN', `[${context}] NativeBridge failed, falling back to local proxy: ${e.message}`, { url, context, error: e.message });
             }
         }
 
         // 2. High-Speed Local Direct-Socket Proxy (lncrawl Parity on Desktop)
-        // Runs on http://127.0.0.1:9090 when running alongside telemetry-server.js
+        // Runs on http://127.0.0.1:9090 when running alongside telemetry_server.js
         const now = Date.now();
         if (localProxyState !== false || (now - lastLocalProxyCheck > 30000)) {
             try {
@@ -349,9 +366,18 @@
                     if (!isBlockOrChallenge(text)) {
                         localProxyState = true;
                         clearTimeout(timer);
+                        const latency = Date.now() - startTime;
+                        window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched via Local Direct Proxy (port 9090) in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
+                            url,
+                            context,
+                            tier: 'LocalProxy',
+                            latencyMs: latency,
+                            charCount: text.length
+                        });
                         return text;
                     } else {
                         console.warn('[Local Proxy] Cloudflare challenge or block encountered, failing over to public proxy pool...');
+                        window.sendTelemetry?.('FETCH_WARN', `[${context}] Local proxy hit Cloudflare challenge, failing over to public proxies`, { url, context });
                     }
                 }
             } catch (localErr) {
@@ -363,18 +389,18 @@
 
         // 3. Tiered Public Proxy Failover Pool (Fast sub-second proxies prioritized)
         const proxyPool = [
-            (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
-            (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-            (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+            { name: 'corsproxy.org', getUrl: (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}` },
+            { name: 'allorigins.win', getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+            { name: 'codetabs.com', getUrl: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
         ];
 
         for (let i = 0; i < proxyPool.length; i++) {
-            const proxyFn = proxyPool[i];
+            const proxy = proxyPool[i];
             let proxyTimer = null;
             let onParentAbort = null;
             try {
                 const proxyCtrl = new AbortController();
-                proxyTimer = setTimeout(() => proxyCtrl.abort(), 3500); // Strict 3.5s per proxy attempt
+                proxyTimer = setTimeout(() => proxyCtrl.abort(), 4500);
 
                 onParentAbort = () => {
                     clearTimeout(proxyTimer);
@@ -389,19 +415,28 @@
                 if (options.method) fetchOpts.method = options.method;
                 if (options.body) fetchOpts.body = options.body;
 
-                const res = await fetch(proxyFn(url), fetchOpts);
+                const res = await fetch(proxy.getUrl(url), fetchOpts);
 
                 if (res.ok) {
                     const text = await res.text();
                     if (isBlockOrChallenge(text)) {
-                        console.warn('[Proxy Failover] Cloudflare challenge or block detected, switching to next proxy...');
+                        console.warn(`[Proxy Failover] Cloudflare challenge on ${proxy.name}, switching...`);
+                        window.sendTelemetry?.('FETCH_WARN', `[${context}] ${proxy.name} returned challenge page, switching to next proxy`, { url, context, proxy: proxy.name });
                         continue;
                     }
                     clearTimeout(timer);
+                    const latency = Date.now() - startTime;
+                    window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched via ${proxy.name} in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
+                        url,
+                        context,
+                        tier: proxy.name,
+                        latencyMs: latency,
+                        charCount: text.length
+                    });
                     return text;
                 }
             } catch (proxyErr) {
-                // Strict 3.5s timeout aborts immediately and switches to next proxy without stalling
+                // Strict timeout switches immediately
             } finally {
                 if (proxyTimer) clearTimeout(proxyTimer);
                 if (onParentAbort) controller.signal.removeEventListener('abort', onParentAbort);
@@ -409,7 +444,13 @@
         }
 
         clearTimeout(timer);
-        throw new Error(`Failed to fetch ${url}. All proxies exhausted or rate-limited.`);
+        const err = new Error(`Failed to fetch ${url}. All proxies exhausted or rate-limited.`);
+        window.sendTelemetry?.('FETCH_FAIL', `[${context}] All network tiers failed for: ${url} (${Date.now() - startTime}ms total)`, {
+            url,
+            context,
+            totalDurationMs: Date.now() - startTime
+        });
+        throw err;
     }
 
     // ══════════════════════════════════════════════════════════════════════
