@@ -1,9 +1,9 @@
 {
-  "version": "8.13.1",
-  "versionCode": 8210,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.13.1/app-release.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.13.1/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.13.1",
+  "version": "8.14.1",
+  "versionCode": 8221,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.1/app-release.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.1/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.14.1",
   "releaseDate": "2026-09-11",
-  "releaseNotes": "v8.13.1: Witch Cult Translations (Re:Zero) Complete Overhaul: 1) Full chapter restoration across Arcs 1-10 + Side Content with 100% numerical chronological sorting (Prologue -> Ch 1..N -> Interludes -> Epilogue); 2) Restored missing Arc 6 Chapters 33 ('■■■・■■■') and 34 ('Coming Out of the Convenience Store'); 3) Complete Arc 3 KaguroJP chapters (1-12) & Arc 4 Translation Chicken chapters (1-111, 257 parts) backfill; 4) Lossless illustration preservation with WordPress lazy-load extraction; 5) Filtered out UI flags and pins; 6) Fixed mobile reader HUD layout."
+  "releaseNotes": "v8.14.1: Smart Glossary Optimization & Complete Chapter Title Translation: 1) Precision Smart Glossary filtering prevents dictionary mappings inside style/consistency sections from being treated as permanent global rules, saving ~80% of unnecessary glossary tokens and eliminating 429 TPM exhaustion; 2) Lightweight chapter title prompt preventing prompt bloat and 429 thundering herd; 3) Automated Title Healing Pass guaranteeing 100% of chapter titles are translated to English in exported EPUBs with zero Japanese left behind."
 }

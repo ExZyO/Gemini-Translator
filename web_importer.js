@@ -496,17 +496,51 @@
         }
 
         // Restore downloaded chapters if resuming from a previous or paused session or incremental update
-        const chapters = Array.isArray(ctrl.initialChapters) ? ctrl.initialChapters.map((c, i) => ({ ...c, idx: c.idx !== undefined ? c.idx : i })) : [];
-        const completedIndices = new Set(chapters.map(c => c.idx));
+        const normalizeTitleForMatching = (t) => {
+            let s = (t || '').toLowerCase();
+            s = s.replace(/\s*[\-|–—]\s*(?:witch\s*cult\s*translations|translation\s*chicken|eminent\s*translations|rem\s*on\s*water).*$/i, '');
+            s = s.replace(/^arc\s*\d+[\s,:\-–—]+/i, '');
+            s = s.replace(/[–—\-_,:]+/g, ' ');
+            return s.replace(/\s+/g, ' ').trim();
+        };
 
-        // Also match existing chapters by URL and normalized title for robust incremental updates
-        const completedUrls = new Set(chapters.map(c => c.url).filter(Boolean));
-        const completedTitles = new Set(chapters.map(c => (c.title || '').trim().toLowerCase()).filter(Boolean));
+        const existingByUrl = new Map();
+        const existingByNormTitle = new Map();
+        const existingByExactTitle = new Map();
+
+        const initialChapters = Array.isArray(ctrl.initialChapters) ? ctrl.initialChapters : [];
+        for (const c of initialChapters) {
+            if (c.url) existingByUrl.set(c.url.replace(/\/$/, ''), c);
+            if (c.title) {
+                const norm = normalizeTitleForMatching(c.title);
+                if (norm) existingByNormTitle.set(norm, c);
+                existingByExactTitle.set(c.title.trim().toLowerCase(), c);
+            }
+        }
+
+        const chapters = [];
+        const completedIndices = new Set();
 
         for (let i = 0; i < chapterList.length; i++) {
             const item = chapterList[i];
-            if (item && ((item.url && completedUrls.has(item.url)) || (item.title && completedTitles.has(item.title.trim().toLowerCase())))) {
+            const cleanItemUrl = item.url ? item.url.replace(/\/$/, '') : '';
+            const normItemTitle = normalizeTitleForMatching(item.title);
+            const exactItemTitle = (item.title || '').trim().toLowerCase();
+
+            const match = (cleanItemUrl && existingByUrl.get(cleanItemUrl)) ||
+                          (exactItemTitle && existingByExactTitle.get(exactItemTitle)) ||
+                          (normItemTitle && existingByNormTitle.get(normItemTitle));
+
+            if (match && (match.text || match.content) && (match.text || match.content).length > 20) {
                 completedIndices.add(i);
+                chapters.push({
+                    ...match,
+                    idx: i,
+                    url: item.url || match.url || '',
+                    title: item.title || match.title,
+                    arc: item.arc || match.arc || '',
+                    volume: item.volume || match.volume || ''
+                });
             }
         }
         let completedCount = completedIndices.size;
@@ -609,10 +643,13 @@
                     totalWordsEstimate += words;
                     const newChapterObj = {
                         idx: currentIndex,
+                        url: item.url || '',
                         title: chData.title || item.title || `Chapter ${currentIndex + 1}`,
                         text: chData.text,
                         content: chData.text,
-                        words
+                        words,
+                        arc: chData.arc || item.arc || '',
+                        volume: chData.volume || item.volume || ''
                     };
                     chapters.push(newChapterObj);
                     completedIndices.add(currentIndex);
@@ -954,7 +991,43 @@
         return 70000;
     }
 
-    async function crawlWitchCult(url, progressCb) {
+    function extractNextJsRscText(html) {
+        if (!html || typeof html !== 'string') return '';
+        const pushes = [...html.matchAll(/self\.__next_f\.push\(\[1,\s*"([\s\S]*?)"\]\)/g)];
+        const extractedParas = [];
+        for (const m of pushes) {
+            let unescaped = m[1];
+            try {
+                unescaped = JSON.parse(`"${unescaped}"`);
+            } catch(e) {
+                unescaped = unescaped.replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
+            }
+            const textMatches = [...unescaped.matchAll(/"text":\s*"([^"]+)"/g)];
+            for (const tm of textMatches) {
+                let t = tm[1];
+                try { t = JSON.parse(`"${t}"`); } catch(_) {}
+                t = t.trim();
+                if (t && !t.startsWith('http') && t !== 'Previous' && t !== 'Next' && !/^Chapter\s*\d+:/i.test(t)) {
+                    extractedParas.push(t);
+                }
+            }
+        }
+        if (extractedParas.length > 0) {
+            return extractedParas.map(p => `<p>${p}</p>`).join('\n\n');
+        }
+        return '';
+    }
+
+    function normalizeEminentUrl(url) {
+        if (!url || typeof url !== 'string' || !url.includes('eminenttranslations.com')) return url;
+        const m = url.match(/(?:arc-2.*chapter-|volume-2\/chapter-)(\d+)/i) || url.match(/chapter-(\d+)/i);
+        if (m && (url.includes('arc-2') || url.includes('volume-2'))) {
+            return `https://eminenttranslations.com/reader/rezero-starting-life-in-another-world-wn/volume-2/chapter-${m[1]}`;
+        }
+        return url;
+    }
+
+    async function crawlWitchCult(url, progressCb, options = {}) {
         progressCb?.('Connecting to Witch Cult Translations...', 5);
         const cleanUrl = url.replace(/^http:\/\//i, 'https://');
         const targetSlug = cleanUrl.replace(/\/$/, '').split('/').filter(Boolean).pop();
@@ -1009,6 +1082,11 @@
                     if (href.startsWith('http://')) href = href.replace('http://', 'https://');
                     let rawText = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
 
+                    if (href.includes('eminenttranslations.com')) {
+                        href = normalizeEminentUrl(href);
+                    }
+
+                    const isPdfLink = href.toLowerCase().endsWith('.pdf') || href.toLowerCase().includes('.pdf?') || href.toLowerCase().includes('.pdf/');
                     const isTranslatorHome = href === 'https://eminenttranslations.com/' || 
                                              href === 'https://kagurojp.wordpress.com/' || 
                                              href === 'https://translationchicken.com/' ||
@@ -1024,20 +1102,19 @@
                                       href.includes('/tag/') ||
                                       href.includes('cut-content') ||
                                       href.includes('trelling.php') ||
-                                      href.includes('wp-content/uploads') ||
+                                      (!isPdfLink && href.includes('wp-content/uploads')) ||
                                       rawText.toLowerCase().includes('cut content') ||
                                       rawText.toLowerCase().includes('mega archive') ||
                                       rawText.toLowerCase().includes('side content+') ||
                                       rawText.toLowerCase().includes('progress monitor') ||
-                                      rawText.toLowerCase().includes('anniversary space') ||
-                                      rawText.toLowerCase().includes('azamuku supplement') ||
-                                      rawText.toLowerCase().includes('twitter sidestory');
+                                      rawText.toLowerCase().includes('anniversary space');
 
                     const isAllowedDomain = href.includes('witchculttranslation.com/20') ||
                                             href.includes('witchculttranslation.com/arc-') ||
                                             href.includes('eminenttranslations.com') ||
                                             href.includes('kagurojp.wordpress.com') ||
-                                            href.includes('remonwater.wordpress.com');
+                                            href.includes('remonwater.wordpress.com') ||
+                                            (isPdfLink && href.includes('witchculttranslation.com/wp-content/uploads'));
 
                     if (isAllowedDomain && !isTranslatorHome && !isGarbage && rawText.length > 0 && !seenHref.has(href)) {
                         seenHref.add(href);
@@ -1088,6 +1165,7 @@
             // Step 2: Supplement Arc 4 chapters from Translation Chicken archive (WCT only provides PDFs)
             const arc4Count = allLinks.filter(l => l.arc === 'Arc 4').length;
             if (arc4Count < 5) {
+                let tcAdded = 0;
                 try {
                     progressCb?.(' Indexing Arc 4 chapters from Translation Chicken archive...', 14);
                     const tcHtml = await fetchHtml('https://translationchicken.com/2016/09/21/rezero-web-novel-fan-translation-table-of-contents/');
@@ -1121,9 +1199,41 @@
                     }
                     if (tcItems.length > 0) {
                         allLinks.splice(insertIdx, 0, ...tcItems);
+                        tcAdded = tcItems.length;
                     }
                 } catch (tcErr) {
                     console.warn('Translation Chicken TOC fetch error:', tcErr);
+                }
+
+                // Resilient fallback: If Translation Chicken remote TOC timed out, load pre-indexed manifest
+                if (tcAdded < 5) {
+                    const fallbackManifest = (typeof window !== 'undefined' && window.TRANSLATION_CHICKEN_ARC4_MANIFEST) ||
+                                             (typeof require === 'function' ? (function() { try { return require('./sources/rezero_manifest'); } catch(_) { return null; } })() : null);
+                    if (Array.isArray(fallbackManifest)) {
+                        let lastArc3Idx = -1;
+                        for (let i = allLinks.length - 1; i >= 0; i--) {
+                            if (allLinks[i].arc === 'Arc 3') {
+                                lastArc3Idx = i;
+                                break;
+                            }
+                        }
+                        const insertIdx = lastArc3Idx !== -1 ? lastArc3Idx + 1 : allLinks.length;
+                        const fallbackItems = [];
+                        for (const item of fallbackManifest) {
+                            if (!seenHref.has(item.href)) {
+                                seenHref.add(item.href);
+                                fallbackItems.push({
+                                    href: item.href,
+                                    text: item.title,
+                                    arc: 'Arc 4',
+                                    volume: 'Arc 4'
+                                });
+                            }
+                        }
+                        if (fallbackItems.length > 0) {
+                            allLinks.splice(insertIdx, 0, ...fallbackItems);
+                        }
+                    }
                 }
             }
 
@@ -1182,6 +1292,77 @@
                 }
             } catch (ifErr) {
                 console.warn('IF Stories discovery error:', ifErr);
+            }
+
+            // Step 4b: Harvest Eminent Translations Side Stories and IF Routes (62 special chapters)
+            try {
+                progressCb?.(' Indexing Eminent Translations side stories & IF routes...', 14);
+                const emHtml = await fetchHtml('https://eminenttranslations.com/reader/rezero-starting-life-in-another-world-wn/volume-2/chapter-1');
+                const emOptions = [...emHtml.matchAll(/<option\s+value="([^"]+)"[^>]*>([\s\S]*?)<\/option>/gi)];
+                for (const o of emOptions) {
+                    const val = o[1];
+                    const rawText = decodeHtmlEntities(o[2].replace(/<[^>]+>/g, '').trim());
+                    if (val.includes('-heading') || !val.includes('rezero-starting-life-in-another-world-wn/')) continue;
+                    if (val.includes('/volume-')) continue; // Skip main volumes
+                    const emHref = `https://eminenttranslations.com/reader/${val}`;
+                    if (!seenHref.has(emHref)) {
+                        seenHref.add(emHref);
+                        const isIf = val.includes('/if-stories/');
+                        const arcName = isIf ? 'IF Stories' : 'Side Content';
+                        allLinks.push({
+                            href: emHref,
+                            text: rawText,
+                            arc: arcName,
+                            volume: arcName
+                        });
+                    }
+                }
+            } catch (emErr) {
+                console.warn('Eminent side stories discovery error:', emErr);
+            }
+
+            // Step 4c: Harvest Remonwater Sloth IF / Rem IF
+            try {
+                const remonHtml = await fetchHtml('https://remonwater.wordpress.com/2017/06/04/reif-starting-life-in-a-different-world-prologue-the-beginning/');
+                const rMatches = [...remonHtml.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+                for (const m of rMatches) {
+                    let rHref = m[1].replace(/\/$/, '') + '/';
+                    const rText = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
+                    if (rHref.includes('remonwater.wordpress.com/20') && !seenHref.has(rHref) && rText.length > 3) {
+                        seenHref.add(rHref);
+                        allLinks.push({
+                            href: rHref,
+                            text: `Rem IF — ${rText}`,
+                            arc: 'IF Stories',
+                            volume: 'IF Stories'
+                        });
+                    }
+                }
+            } catch (remonErr) {
+                console.warn('Remonwater IF discovery error:', remonErr);
+            }
+
+            // Step 4d: Harvest WCT Side Content posts (Azamuku Supplement, Otto Suwen Sidestory, Julius Birthday, etc.)
+            try {
+                const wctSideHtml = await fetchHtml('https://witchculttranslation.com/side-content/');
+                const wsMatches = [...wctSideHtml.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+                for (const m of wsMatches) {
+                    let wsHref = m[1].replace(/\/$/, '') + '/';
+                    const wsText = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
+                    if (wsHref.includes('witchculttranslation.com/20') && !seenHref.has(wsHref) && wsText.length > 3 && !wsHref.includes('/category/')) {
+                        seenHref.add(wsHref);
+                        const isIf = wsText.toLowerCase().includes('if') || wsHref.includes('if');
+                        const arcName = isIf ? 'IF Stories' : 'Side Content';
+                        allLinks.push({
+                            href: wsHref,
+                            text: wsText,
+                            arc: arcName,
+                            volume: arcName
+                        });
+                    }
+                }
+            } catch (wsErr) {
+                console.warn('WCT side content discovery error:', wsErr);
             }
 
             // Step 5: Sort chapters numerically within each Arc to ensure 100% chronological order
@@ -1260,7 +1441,11 @@
                 }
                 const html = await fetchHtml(item.url);
                 let contentHtml = '';
-                if (typeof DOMParser !== 'undefined') {
+                if (item.url.includes('eminenttranslations.com') || html.includes('self.__next_f.push')) {
+                    const rscText = extractNextJsRscText(html);
+                    if (rscText) contentHtml = rscText;
+                }
+                if (!contentHtml && typeof DOMParser !== 'undefined') {
                     try {
                         const doc = new DOMParser().parseFromString(html, 'text/html');
                         const contentEl = doc.querySelector('.entry-content, .post-content, article .content, article, main');
@@ -1282,7 +1467,8 @@
             },
             12,
             progressCb,
-            { title, author: 'Tappei Nagatsuki (Witch Cult Translations)', summary: `Re:Zero Starting Life in Another World Web Novel. ${chapterList.length} complete chapters.`, cover, chapterList }
+            { title, author: 'Tappei Nagatsuki (Witch Cult Translations)', summary: `Re:Zero Starting Life in Another World Web Novel. ${chapterList.length} complete chapters.`, cover, chapterList },
+            options
         );
 
         progressCb?.(` Compiled ${chapters.length} Re:Zero chapters with ${totalImages} illustrations! (~${totalWords.toLocaleString()} words)`, 100);
@@ -1293,7 +1479,7 @@
             summary: `Re:Zero Starting Life in Another World Web Novel. ${chapters.length} complete chapters (~${totalWords.toLocaleString()} words, ${totalImages} illustrations) starting from ${chapterList[0]?.title}.`,
             cover,
             tags: ['Re:Zero', 'Witch Cult Translations', 'Web Novel', 'Complete Edition'],
-            chapters: chapters.map(c => ({ title: c.title, text: c.text, arc: c.arc, volume: c.volume })),
+            chapters: chapters.map(c => ({ title: c.title, text: c.text, url: c.url, arc: c.arc, volume: c.volume })),
             chapterList,
             totalChapterCount: chapterList.length,
             isEpub: false,
@@ -3666,7 +3852,7 @@
                 else if (type === 'fucknovelpia') result = await crawlFuckNovelPia(url, progressCb);
                 else if (type === 'novelbin') result = await crawlNovelBin(url, progressCb);
                 else if (type === 'novelfire') result = await crawlNovelFire(url, progressCb);
-                else if (type === 'witchcult') result = await crawlWitchCult(url, progressCb);
+                else if (type === 'witchcult') result = await crawlWitchCult(url, progressCb, options);
                 else if (type === 'ao3') result = await crawlAO3(url, progressCb);
                 else if (type === 'royalroad') result = await crawlRoyalRoad(url, progressCb);
                 else if (type === 'syosetu') result = await crawlSyosetu(url, progressCb);

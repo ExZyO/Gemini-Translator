@@ -27,3 +27,4 @@ new-reader.txt
 USER_PREFERENCES.md
 *.log
 telemetry_live*.log
+dist/

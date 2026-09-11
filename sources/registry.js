@@ -211,7 +211,7 @@
     /**
      * Search novels across all registered sources supporting search
      * @param {string} query
-     * @returns {Promise<Array<{ name: string, path: string, url: string, cover: string, source: string }>>}
+     * @returns {Promise<Array<{ name: string, path: string, url: string, cover: string, source: string, sourceId: string }>>}
      */
     async searchAll(query) {
       const searches = [];
@@ -219,7 +219,14 @@
         if (typeof plugin.search === 'function') {
           searches.push(
             plugin.search(query).then(results => 
-              results.map(r => ({ ...r, source: plugin.name, sourceId: plugin.id }))
+              (results || []).map(r => ({
+                ...r,
+                title: r.title || r.name || 'Untitled Novel',
+                name: r.name || r.title || 'Untitled Novel',
+                url: r.url || r.path || '',
+                source: r.source || plugin.name,
+                sourceId: plugin.id
+              }))
             ).catch(err => {
               console.warn(`[SourceRegistry] Search failed on ${plugin.name}:`, err.message);
               return [];
@@ -229,6 +236,27 @@
       }
       const nested = await Promise.all(searches);
       return nested.flat();
+    }
+
+    /**
+     * Search novels within a specific registered plugin by ID
+     * @param {string} pluginId
+     * @param {string} query
+     * @returns {Promise<Array<{ name: string, path: string, url: string, cover: string, source: string, sourceId: string }>>}
+     */
+    async searchPlugin(pluginId, query) {
+      const plugin = this.plugins.get(pluginId);
+      if (!plugin) throw new Error(`Plugin "${pluginId}" is not installed or active.`);
+      if (typeof plugin.search !== 'function') throw new Error(`Plugin "${plugin.name}" does not support novel search.`);
+      const results = await plugin.search(query);
+      return (results || []).map(r => ({
+        ...r,
+        title: r.title || r.name || 'Untitled Novel',
+        name: r.name || r.title || 'Untitled Novel',
+        url: r.url || r.path || '',
+        source: r.source || plugin.name,
+        sourceId: plugin.id
+      }));
     }
 
     /**
@@ -272,6 +300,8 @@
   SourceRegistry.loadPluginById = (id) => defaultRegistry.loadPluginById(id);
   SourceRegistry.loadPluginFromUrl = (url, meta) => defaultRegistry.loadPluginFromUrl(url, meta);
   SourceRegistry.fetchCatalog = () => defaultRegistry.fetchCatalog();
+  SourceRegistry.searchAll = (query) => defaultRegistry.searchAll(query);
+  SourceRegistry.searchPlugin = (id, query) => defaultRegistry.searchPlugin(id, query);
   SourceRegistry.defaultRegistry = defaultRegistry;
 
   if (typeof module !== 'undefined' && module.exports) {

@@ -23,6 +23,29 @@
       return /(witchculttranslation\.com|translationchicken\.com|eminenttranslations\.com)/i.test(url);
     }
 
+    async search(query) {
+      const q = (query || '').toLowerCase().trim();
+      const rezeroTerms = ['re:zero', 'rezero', 'witch', 'cult', 'subaru', 'emilia', 'rem', 'ram', 'echidna', 'tappei'];
+      const matches = !q || rezeroTerms.some(t => q.includes(t) || t.includes(q));
+      if (!matches) return [];
+
+      return [
+        {
+          id: 'https://witchculttranslation.com/table-of-content/',
+          title: 'Re:Zero − Starting Life in Another World (Witch Cult Translations)',
+          name: 'Re:Zero − Starting Life in Another World (Witch Cult Translations)',
+          url: 'https://witchculttranslation.com/table-of-content/',
+          path: 'https://witchculttranslation.com/table-of-content/',
+          author: 'Tappei Nagatsuki',
+          cover: 'https://witchculttranslation.com/wp-content/uploads/2024/09/png-echidna-beatrice-2-editado-2.jpg',
+          summary: 'Complete Web Novel archive including Arcs 1–10, Eminent Arc 2, Translation Chicken Arc 4, Remonwater Rem IF, and 60+ Side Stories & IF Routes.',
+          source: 'Witch Cult Translations',
+          sourceId: 'witchcult',
+          chapters: 'Arcs 1–10 + IF'
+        }
+      ];
+    }
+
     async getNovelDetails(url) {
       const fetchHtml = (window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
       if (!fetchHtml) throw new Error('HTML fetcher not initialized');
@@ -103,6 +126,14 @@
           if (href.startsWith('http://')) href = href.replace('http://', 'https://');
           let rawChapterTitle = this.decodeHtml(m[2].replace(/<[^>]+>/g, '').trim());
 
+          if (href.includes('eminenttranslations.com')) {
+            const emM = href.match(/(?:arc-2.*chapter-|volume-2\/chapter-)(\d+)/i) || href.match(/chapter-(\d+)/i);
+            if (emM && (href.includes('arc-2') || href.includes('volume-2'))) {
+              href = `https://eminenttranslations.com/reader/rezero-starting-life-in-another-world-wn/volume-2/chapter-${emM[1]}`;
+            }
+          }
+
+          const isPdfLink = href.toLowerCase().endsWith('.pdf') || href.toLowerCase().includes('.pdf?') || href.toLowerCase().includes('.pdf/');
           const isTranslatorHome = href === 'https://eminenttranslations.com/' || 
                                    href === 'https://kagurojp.wordpress.com/' || 
                                    href === 'https://translationchicken.com/' ||
@@ -118,20 +149,19 @@
                             href.includes('/tag/') ||
                             href.includes('cut-content') ||
                             href.includes('trelling.php') ||
-                            href.includes('wp-content/uploads') ||
+                            (!isPdfLink && href.includes('wp-content/uploads')) ||
                             rawChapterTitle.toLowerCase().includes('cut content') ||
                             rawChapterTitle.toLowerCase().includes('mega archive') ||
                             rawChapterTitle.toLowerCase().includes('side content+') ||
                             rawChapterTitle.toLowerCase().includes('progress monitor') ||
-                            rawChapterTitle.toLowerCase().includes('anniversary space') ||
-                            rawChapterTitle.toLowerCase().includes('azamuku supplement') ||
-                            rawChapterTitle.toLowerCase().includes('twitter sidestory');
+                            rawChapterTitle.toLowerCase().includes('anniversary space');
 
           const isAllowed = href.includes('witchculttranslation.com/20') ||
                             href.includes('witchculttranslation.com/arc-') ||
                             href.includes('eminenttranslations.com') ||
                             href.includes('kagurojp.wordpress.com') ||
-                            href.includes('remonwater.wordpress.com');
+                            href.includes('remonwater.wordpress.com') ||
+                            (isPdfLink && href.includes('witchculttranslation.com/wp-content/uploads'));
 
           if (isAllowed && !isTranslatorHome && !isGarbage && rawChapterTitle.length > 0 && !seen.has(href)) {
             seen.add(href);
@@ -178,6 +208,7 @@
       // Step 2: Arc 4 Translation Chicken backfill
       const arc4Count = allLinks.filter(l => l.arc === 'Arc 4').length;
       if (arc4Count < 5) {
+        let tcAdded = 0;
         try {
           const tcHtml = await fetchHtml('https://translationchicken.com/2016/09/21/rezero-web-novel-fan-translation-table-of-contents/');
           const tcMatches = [...tcHtml.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
@@ -209,8 +240,39 @@
           }
           if (tcItems.length > 0) {
             allLinks.splice(insertIdx, 0, ...tcItems);
+            tcAdded = tcItems.length;
           }
         } catch (_) {}
+
+        if (tcAdded < 5) {
+          const fallbackManifest = (typeof window !== 'undefined' && window.TRANSLATION_CHICKEN_ARC4_MANIFEST) ||
+                                   (typeof require === 'function' ? (function() { try { return require('./rezero_manifest'); } catch(_) { return null; } })() : null);
+          if (Array.isArray(fallbackManifest)) {
+            let lastArc3Idx = -1;
+            for (let i = allLinks.length - 1; i >= 0; i--) {
+              if (allLinks[i].arc === 'Arc 3') {
+                lastArc3Idx = i;
+                break;
+              }
+            }
+            const insertIdx = lastArc3Idx !== -1 ? lastArc3Idx + 1 : allLinks.length;
+            const fallbackItems = [];
+            for (const item of fallbackManifest) {
+              if (!seen.has(item.href)) {
+                seen.add(item.href);
+                fallbackItems.push({
+                  title: item.title,
+                  url: item.href,
+                  arc: 'Arc 4',
+                  order: allLinks.length + 1
+                });
+              }
+            }
+            if (fallbackItems.length > 0) {
+              allLinks.splice(insertIdx, 0, ...fallbackItems);
+            }
+          }
+        }
       }
 
       // Step 3: Arc 6 missing chapters (33, 34) backfill
@@ -266,6 +328,70 @@
         }
       } catch (_) {}
 
+      // Step 4b: Harvest Eminent Translations side stories & IF routes
+      try {
+        const emHtml = await fetchHtml('https://eminenttranslations.com/reader/rezero-starting-life-in-another-world-wn/volume-2/chapter-1');
+        const emOptions = [...emHtml.matchAll(/<option\s+value="([^"]+)"[^>]*>([\s\S]*?)<\/option>/gi)];
+        for (const o of emOptions) {
+          const val = o[1];
+          const rawText = this.decodeHtml(o[2].replace(/<[^>]+>/g, '').trim());
+          if (val.includes('-heading') || !val.includes('rezero-starting-life-in-another-world-wn/')) continue;
+          if (val.includes('/volume-')) continue;
+          const emHref = `https://eminenttranslations.com/reader/${val}`;
+          if (!seen.has(emHref)) {
+            seen.add(emHref);
+            const isIf = val.includes('/if-stories/');
+            const arcName = isIf ? 'IF Stories' : 'Side Content';
+            allLinks.push({
+              title: rawText,
+              url: emHref,
+              arc: arcName,
+              order: allLinks.length + 1
+            });
+          }
+        }
+      } catch (_) {}
+
+      // Step 4c: Harvest Remonwater Sloth IF / Rem IF
+      try {
+        const remonHtml = await fetchHtml('https://remonwater.wordpress.com/2017/06/04/reif-starting-life-in-a-different-world-prologue-the-beginning/');
+        const rMatches = [...remonHtml.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+        for (const m of rMatches) {
+          let rHref = m[1].replace(/\/$/, '') + '/';
+          const rText = this.decodeHtml(m[2].replace(/<[^>]+>/g, '').trim());
+          if (rHref.includes('remonwater.wordpress.com/20') && !seen.has(rHref) && rText.length > 3) {
+            seen.add(rHref);
+            allLinks.push({
+              title: `Rem IF — ${rText}`,
+              url: rHref,
+              arc: 'IF Stories',
+              order: allLinks.length + 1
+            });
+          }
+        }
+      } catch (_) {}
+
+      // Step 4d: Harvest WCT Side Content posts
+      try {
+        const wctSideHtml = await fetchHtml('https://witchculttranslation.com/side-content/');
+        const wsMatches = [...wctSideHtml.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+        for (const m of wsMatches) {
+          let wsHref = m[1].replace(/\/$/, '') + '/';
+          const wsText = this.decodeHtml(m[2].replace(/<[^>]+>/g, '').trim());
+          if (wsHref.includes('witchculttranslation.com/20') && !seen.has(wsHref) && wsText.length > 3 && !wsHref.includes('/category/')) {
+            seen.add(wsHref);
+            const isIf = wsText.toLowerCase().includes('if') || wsHref.includes('if');
+            const arcName = isIf ? 'IF Stories' : 'Side Content';
+            allLinks.push({
+              title: wsText,
+              url: wsHref,
+              arc: arcName,
+              order: allLinks.length + 1
+            });
+          }
+        }
+      } catch (_) {}
+
       // Step 5: Sort numerically by Arc
       const byArc = new Map();
       for (const ch of allLinks) {
@@ -308,6 +434,28 @@
         status: 'Ongoing',
         chapters: finalChapters
       };
+    }
+
+    async search(query) {
+      const q = (query || '').toLowerCase().trim();
+      if (!q) return [];
+      // Re:Zero matching keywords
+      if (/re[:\s-]*zero|witch\s*cult|subaru|rem|ram|emilia|echidna|tappei|arc\s*\d|if\s*stor/i.test(q)) {
+        return [{
+          id: 'witchcult_rezero_complete',
+          name: 'Re:Zero Starting Life in Another World — Web Novel Complete Edition',
+          title: 'Re:Zero Starting Life in Another World — Web Novel Complete Edition',
+          author: 'Tappei Nagatsuki (Witch Cult Translations)',
+          url: 'https://witchculttranslation.com/table-of-content/',
+          path: 'https://witchculttranslation.com/table-of-content/',
+          cover: 'https://witchculttranslation.com/wp-content/uploads/2024/09/png-echidna-beatrice-2-editado-2.jpg',
+          summary: 'Complete Web Novel English translation: Arcs 1–9, side content, IF stories (including Ayamatsu Pride Route). Clean volume hierarchy and zero AI tokens needed.',
+          status: 'Ongoing',
+          chapters: '700+ Chapters',
+          source: 'Witch Cult Translations'
+        }];
+      }
+      return [];
     }
 
     formatCanonicalTitle(rawTitle, arcName) {
@@ -375,7 +523,30 @@
       let contentEl = doc.querySelector('.entry-content, .post-content, article .content, article, main');
       let content = '';
 
-      if (contentEl) {
+      if (chapterUrl.includes('eminenttranslations.com') || html.includes('self.__next_f.push')) {
+        const pushes = [...html.matchAll(/self\.__next_f\.push\(\[1,\s*"([\s\S]*?)"\]\)/g)];
+        const extractedParas = [];
+        for (const m of pushes) {
+          let unescaped = m[1];
+          try { unescaped = JSON.parse(`"${unescaped}"`); } catch(e) {
+            unescaped = unescaped.replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
+          }
+          const textMatches = [...unescaped.matchAll(/"text":\s*"([^"]+)"/g)];
+          for (const tm of textMatches) {
+            let t = tm[1];
+            try { t = JSON.parse(`"${t}"`); } catch(_) {}
+            t = t.trim();
+            if (t && !t.startsWith('http') && t !== 'Previous' && t !== 'Next' && !/^Chapter\s*\d+:/i.test(t)) {
+              extractedParas.push(t);
+            }
+          }
+        }
+        if (extractedParas.length > 0) {
+          content = extractedParas.map(p => `<p>${p}</p>`).join('\n\n');
+        }
+      }
+
+      if (!content && contentEl) {
         // Remove WP share buttons, related posts, navigation
         const trash = contentEl.querySelectorAll('.sharedaddy, .jp-relatedposts, .navigation, script, style, .wp-block-navigation, header, footer, .widget-area');
         trash.forEach(t => t.remove());

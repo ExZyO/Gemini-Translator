@@ -737,6 +737,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="sources/base_plugin.js"></script>
   <script src="sources/lnreader_adapter.js"></script>
   <script src="sources/syosetu.js"></script>
+  <script src="sources/rezero_manifest.js"></script>
   <script src="sources/witchcult.js"></script>
   <script src="sources/royalroad.js"></script>
   <script src="sources/universal.js"></script>
@@ -855,7 +856,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.13.1';
+    let VERSION = '8.14.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1580,7 +1581,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 
       const topSectionPattern = /^(?:#+\s*)?[IVXLCDM]+\.\s+\S/i;
       const globalSectionPattern = /^(?:#+\s*)?(?:I\.)?\s*(?:SYSTEM TRANSLATION RULES|STYLE GUIDELINES|SYSTEM RULES|TRANSLATION RULES|GENERAL RULES|PROMPT RULES)/i;
-      const alwaysIncludeSectionPattern = /\b(?:RULES?|GUIDELINES?|STYLE|SPOILER|CONSISTENCY|CONTINUITY|CANON|PRONOUN|FORMATTING|NAMING|GENDER|DO\s+NOT)\b/i;
+      const alwaysIncludeSectionPattern = /\b(?:RULES?|GUIDELINES?|CONTINUITY|FORMATTING|DO\s+NOT)\b/i;
 
       const genericKeys = new Set([
         'a', 'an', 'and', 'as', 'at', 'be', 'by', 'for', 'from', 'god', 'goddess', 'he', 'her', 'his',
@@ -1667,11 +1668,15 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         if (topSectionPattern.test(trimmed)) {
           flushCurrentBlock();
           currentSectionHeading = line;
-          isGlobalSection = globalSectionPattern.test(trimmed) || alwaysIncludeSectionPattern.test(trimmed);
+          const hasDictionaryName = /\b(?:PHRASES?|TERMS?|VOCABULARY|DICTIONARY|NAMES?|CHARACTERS?|PERSONAS?|LOCATIONS?|NOTES?)\b/i.test(trimmed);
+          isGlobalSection = (globalSectionPattern.test(trimmed) || alwaysIncludeSectionPattern.test(trimmed)) && !hasDictionaryName;
           if (isGlobalSection) globalRules.push(line);
           continue;
         }
-        if (isGlobalSection) {
+
+        // Even within a global section, any line with a mapping arrow (A -> B or A => B) is a dictionary entry, NOT a global meta-rule!
+        const isMappingLine = /^(?:[-*+\u2022\s]*)?.+?\s*(?:->|=>|=)\s*.+$/.test(trimmed);
+        if (isGlobalSection && !isMappingLine) {
           globalRules.push(line);
           continue;
         }
@@ -5386,11 +5391,8 @@ const formatModelName = (id, displayName) => {
       // ── NOVEL SEARCH HANDLER ──
       const handleSearchNovels = async (queryOrUrl, sourceOverride = 'all') => {
         const target = (queryOrUrl || webImportUrl || '').trim();
-        if (!target || target === 'https://novelbuddy.me' || target === 'https://www.royalroad.com' || target === 'https://novelfire.net' || target === 'https://lnori.com/') {
-          return toast('Please enter a novel title or keyword to search (e.g. Horror Game Developer, Shadow Slave)', 'warning');
-        }
-        if (!window.WebNovelImporter || !window.WebNovelImporter.searchNovels) {
-          return toast('Novel search engine is initializing, please try again in a moment…', 'info');
+        if (!target || target === 'https://novelbuddy.me' || target === 'https://www.royalroad.com' || target === 'https://novelfire.net' || target === 'https://lnori.com/' || target === 'https://witchculttranslation.com/table-of-content/') {
+          return toast('Please enter a novel title or keyword to search (e.g. Horror Game Developer, Shadow Slave, Re:Zero)', 'warning');
         }
 
         // If user pasted a direct novel chapter or book URL, initiate crawl directly
@@ -5400,18 +5402,57 @@ const formatModelName = (id, displayName) => {
         }
 
         setIsSearchingNovels(true);
-        setWebImportStatus('Searching novel sources (NovelBuddy, RoyalRoad, NovelFire)…');
+        setWebImportStatus('Searching novel sources and installed plugins…');
         try {
           const q = target.replace(/^https?:\/\/[^\/]+\/(?:search|fictions\/search)\?[^=]+=/i, '');
-          const results = await window.WebNovelImporter.searchNovels(q || target, sourceOverride || 'all');
-          setNovelSearchResults(results);
+          let results = [];
+          if (window.WebNovelImporter?.searchNovels && sourceOverride !== 'plugins_only') {
+            try {
+              results = await window.WebNovelImporter.searchNovels(q || target, sourceOverride || 'all');
+            } catch (sErr) {
+              console.warn('[searchNovels] Scraper search error:', sErr);
+            }
+          }
+
+          // Search all active community & built-in source plugins via SourceRegistry
+          const reg = window.sourceRegistry || window.SourceRegistry;
+          if (reg && (sourceOverride === 'all' || sourceOverride === 'plugins' || sourceOverride === 'plugins_only')) {
+            try {
+              const pluginResults = await reg.searchAll(q || target);
+              if (Array.isArray(pluginResults) && pluginResults.length > 0) {
+                const existingUrls = new Set((results || []).map(r => (r.url || '').replace(/\/$/, '')));
+                for (const p of pluginResults) {
+                  const pUrl = (p.url || p.path || '').replace(/\/$/, '');
+                  if (pUrl && !existingUrls.has(pUrl)) {
+                    existingUrls.add(pUrl);
+                    results.push({
+                      id: p.id || pUrl,
+                      title: p.title || p.name || 'Untitled Novel',
+                      author: p.author || '',
+                      url: p.url || p.path,
+                      cover: p.cover || '',
+                      summary: p.summary || '',
+                      chapters: p.chapters || '',
+                      rating: p.rating || '',
+                      status: p.status || '',
+                      source: p.source || 'Source Plugin'
+                    });
+                  }
+                }
+              }
+            } catch (pErr) {
+              console.warn('[handleSearchNovels] Plugin search failed:', pErr);
+            }
+          }
+
+          setNovelSearchResults(results || []);
           if (!results || results.length === 0) {
-            toast(`No novels found matching "${target}". Try different keywords.`, 'info');
+            toast(`No novels found matching "${target}". Try different keywords or browse 278+ Source Plugins!`, 'info');
           } else {
-            toast(`Found ${results.length} novels across supported sources!`, 'success');
+            toast(`Found ${results.length} novels across supported sources & plugins!`, 'success');
           }
         } catch (e) {
-          toast('Novel search error: ' + e.message, 'error');
+          toast('Novel search error: ' + (e?.message || e), 'error');
         } finally {
           setIsSearchingNovels(false);
           setWebImportStatus('');
@@ -5799,6 +5840,18 @@ const formatModelName = (id, displayName) => {
       const [pluginSelectedTab, setPluginSelectedTab] = useState('catalog');
       const [customPluginUrl, setCustomPluginUrl] = useState('');
       const [pluginCatalogTick, setPluginCatalogTick] = useState(0);
+      const [pluginNovelSearchQuery, setPluginNovelSearchQuery] = useState('');
+      const [pluginNovelSearchSource, setPluginNovelSearchSource] = useState('all');
+      const [pluginNovelSearchResults, setPluginNovelSearchResults] = useState([]);
+      const [isPluginNovelSearching, setIsPluginNovelSearching] = useState(false);
+
+      // Tachiyomi / Mihon Style Quick Toggles
+      const [downloadedOnly, setDownloadedOnly] = useState(() => {
+        try { return localStorage.getItem('downloadedOnly') === 'true'; } catch (_) { return false; }
+      });
+      const [incognitoMode, setIncognitoMode] = useState(() => {
+        try { return localStorage.getItem('incognitoMode') === 'true'; } catch (_) { return false; }
+      });
 
       // Cost & Time Estimator State (§7.2)
       const [costEstimatorModalOpen, setCostEstimatorModalOpen] = useState(false);
@@ -6157,6 +6210,103 @@ const formatModelName = (id, displayName) => {
           setCustomPluginUrl('');
         } catch (err) {
           toast(`Custom plugin load failed: ${err.message}`, 'error');
+        }
+      };
+
+      const handleSearchNovelsInPlugins = async (query, sourceId = 'all') => {
+        const q = (query || pluginNovelSearchQuery || '').trim();
+        if (!q) {
+          return toast('Please enter a novel title or keyword to search (e.g. Shadow Slave, Re:Zero).', 'warning');
+        }
+        setIsPluginNovelSearching(true);
+        try {
+          const reg = window.sourceRegistry || window.SourceRegistry;
+          let results = [];
+          if (sourceId && sourceId !== 'all' && reg && typeof reg.searchPlugin === 'function') {
+            results = await reg.searchPlugin(sourceId, q);
+          } else if (reg && typeof reg.searchAll === 'function') {
+            results = await reg.searchAll(q);
+          } else if (window.WebNovelImporter?.searchNovels) {
+            results = await window.WebNovelImporter.searchNovels(q, 'all');
+          }
+          setPluginNovelSearchResults(results || []);
+          if (!results || results.length === 0) {
+            toast(`No novels found for "${q}". Try another query or install more plugins!`, 'info');
+          } else {
+            toast(`Found ${results.length} novels across active plugins!`, 'success');
+          }
+        } catch (err) {
+          console.error('[handleSearchNovelsInPlugins]', err);
+          toast('Plugin novel search error: ' + (err?.message || err), 'error');
+        } finally {
+          setIsPluginNovelSearching(false);
+        }
+      };
+
+      const handleCheckRezeroUpdates = async () => {
+        try {
+          toast('👑 Checking Witch Cult Translations for new chapters…', 'info');
+          const wctUrl = 'https://witchculttranslation.com/table-of-content/';
+          setWebImportUrl(wctUrl);
+
+          const existing = (historyNovels || []).find(n => /witchcult|rezero/i.test(n?.sourceUrl || n?.url || n?.title || ''))
+            || (activeCrawlSession && /witchcult|rezero/i.test(activeCrawlSession?.sourceUrl || activeCrawlSession?.url || activeCrawlSession?.title || '') ? activeCrawlSession : null);
+
+          const existingChapters = existing?.chapters || existing?.rawChapters || (chapters && chapters.length > 0 && /rezero|witch/i.test(activeNovelRecord?.title || '') ? chapters : []);
+
+          if (!window.WebNovelImporter || typeof window.WebNovelImporter.importUrl !== 'function') {
+            return toast('Web Importer engine not loaded.', 'error');
+          }
+
+          setWebImportStatus('Scanning live Table of Contents…');
+          const tocResult = await window.WebNovelImporter.importUrl(wctUrl, (msg) => setWebImportStatus(msg), { tocOnly: true });
+          const remoteList = tocResult?.chapterList || (tocResult?.chapters && tocResult.chapters.length > 0 ? tocResult.chapters : []);
+
+          if (!remoteList || remoteList.length === 0) {
+            toast('Could not scan WCT chapter list. Check network connection.', 'warning');
+            return;
+          }
+
+          const existingUrls = new Set((existingChapters || []).map(c => (c.url || '').replace(/\/$/, '')).filter(Boolean));
+          const existingTitles = new Set((existingChapters || []).map(c => (c.title || '').trim().toLowerCase()).filter(Boolean));
+
+          const newChapters = remoteList.filter(c => {
+            const cleanU = (c.url || '').replace(/\/$/, '');
+            const cleanT = (c.title || '').trim().toLowerCase();
+            const hasUrl = cleanU && existingUrls.has(cleanU);
+            const hasTitle = cleanT && existingTitles.has(cleanT);
+            return !hasUrl && !hasTitle;
+          });
+
+          if (newChapters.length === 0 && existingChapters.length > 0) {
+            toast(`👑 Re:Zero is 100% up to date! All ${existingChapters.length} chapters downloaded.`, 'success');
+            setWebImportStatus('');
+            return;
+          }
+
+          if (existingChapters.length === 0) {
+            toast(`👑 Re:Zero TOC discovered ${remoteList.length} chapters. Starting ingestion…`, 'info');
+            handleStartFetch(false, null, false, wctUrl);
+            return;
+          }
+
+          toast(`👑 Found ${newChapters.length} new chapters! Downloading incrementally…`, 'success');
+          handleStartFetch(true, {
+            id: existing?.id,
+            url: wctUrl,
+            sourceUrl: wctUrl,
+            title: existing?.title || 'Re:Zero − Starting Life in Another World (WCT)',
+            author: 'Tappei Nagatsuki',
+            cover: existing?.cover || 'https://witchculttranslation.com/wp-content/uploads/2024/09/png-echidna-beatrice-2-editado-2.jpg',
+            chapters: existingChapters,
+            rawChapters: existingChapters,
+            totalChapterCount: remoteList.length
+          }, false, wctUrl);
+        } catch (err) {
+          console.error('[handleCheckRezeroUpdates]', err);
+          toast('Re:Zero update check failed: ' + (err?.message || err), 'error');
+        } finally {
+          setWebImportStatus('');
         }
       };
 
@@ -9523,25 +9673,38 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   title = translatedTitleCache.get(title);
                 } else {
                   try {
-                    const tRes = await translateWithRotation(title, { ...workerOpts, context: undefined, needContextUpdate: false });
-                    const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
-                    if (trans && trans.trim()) {
-                      translatedTitleCache.set(title, trans.trim());
-                      title = trans.trim();
-                    }
-                    if (tRes?.usage) {
-                      totalPromptTokens += tRes.usage.promptTokens || 0;
-                      totalOutputTokens += tRes.usage.outputTokens || 0;
-                      totalTokensUsed += tRes.usage.totalTokens || 0;
-                      if (tRes.usage.breakdown) {
-                        accumulatedBreakdown.sourceTokens += tRes.usage.breakdown.sourceTokens || 0;
-                        accumulatedBreakdown.glossaryTokens += tRes.usage.breakdown.glossaryTokens || 0;
-                        accumulatedBreakdown.genderTokens += tRes.usage.breakdown.genderTokens || 0;
-                        accumulatedBreakdown.contextTokens += tRes.usage.breakdown.contextTokens || 0;
-                        accumulatedBreakdown.systemTokens += tRes.usage.breakdown.systemTokens || 0;
+                    const hasCjk = /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(title);
+                    if (!hasCjk) {
+                      translatedTitleCache.set(title, title.trim());
+                    } else {
+                      const titleWorkerOpts = {
+                        ...workerOpts,
+                        context: undefined,
+                        needContextUpdate: false,
+                        glossary: '', // Titles are 1-10 words; omitting huge story glossary saves ~2,100 tokens per title!
+                        smartGlossary: false,
+                        instructions: 'Translate this novel chapter title accurately and concisely into English. Output ONLY the translated title, without quotes or markdown formatting.'
+                      };
+                      const tRes = await translateWithRotation(title, titleWorkerOpts);
+                      const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
+                      if (trans && trans.trim()) {
+                        translatedTitleCache.set(title, trans.trim());
+                        title = trans.trim();
+                      }
+                      if (tRes?.usage) {
+                        totalPromptTokens += tRes.usage.promptTokens || 0;
+                        totalOutputTokens += tRes.usage.outputTokens || 0;
+                        totalTokensUsed += tRes.usage.totalTokens || 0;
+                        if (tRes.usage.breakdown) {
+                          accumulatedBreakdown.sourceTokens += tRes.usage.breakdown.sourceTokens || 0;
+                          accumulatedBreakdown.glossaryTokens += tRes.usage.breakdown.glossaryTokens || 0;
+                          accumulatedBreakdown.genderTokens += tRes.usage.breakdown.genderTokens || 0;
+                          accumulatedBreakdown.contextTokens += tRes.usage.breakdown.contextTokens || 0;
+                          accumulatedBreakdown.systemTokens += tRes.usage.breakdown.systemTokens || 0;
+                        }
                       }
                     }
-                  } catch (e) { console.warn('Title translation failed, keeping original title:', e.message); }
+                  } catch (e) { console.warn('Title translation failed, keeping original title for now:', e.message); }
                 }
                 done++;
                 const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
@@ -9707,6 +9870,37 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             setTranslatedChapters([...newChapters]);
             saveState(chapterCtx, done, i + 1, 0, allParts, newChapters);
           }, effectiveConcurrency, opts.signal);
+
+          // Title Healing Pass: Ensure zero chapters are left with raw untranslated CJK titles
+          const hasCjkTitle = s => /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(s || '');
+          const untranslatedTitles = newChapters
+            .map((nc, idx) => ({ nc, idx }))
+            .filter(({ nc }) => nc && hasCjkTitle(nc.title));
+
+          if (untranslatedTitles.length > 0 && !opts.signal?.aborted) {
+            console.log(`[Title Healing] Found ${untranslatedTitles.length} untranslated title(s). Running healing pass...`);
+            setProgressLabel(`Healing ${untranslatedTitles.length} untranslated chapter title(s)...`);
+            for (const { nc, idx } of untranslatedTitles) {
+              if (opts.signal?.aborted) break;
+              try {
+                const hRes = await translateWithRotation(nc.title, {
+                  ...opts,
+                  context: undefined,
+                  needContextUpdate: false,
+                  glossary: '',
+                  smartGlossary: false,
+                  instructions: 'Translate this novel chapter title accurately and concisely into English. Output ONLY the translated title, without quotes or markdown formatting.'
+                });
+                const hTrans = (hRes && typeof hRes === 'object') ? (hRes.text || '') : (typeof hRes === 'string' ? hRes : '');
+                if (hTrans && hTrans.trim()) {
+                  nc.title = hTrans.trim();
+                  allParts[idx] = `${nc.title}\n\n${nc.content}`;
+                }
+              } catch (hErr) {
+                console.warn(`[Title Healing] Failed for Ch. ${idx + 1}:`, hErr.message);
+              }
+            }
+          }
 
           if (isEpub && originalZip) {
             window.currentTranslatedZip = originalZip;
@@ -11426,6 +11620,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             // ═══ TAB 2: WEB IMPORTER ═══
             activeTab === 'web_importer' && (() => {
               const isLnoriUrl = /lnori\.(?:org|com)/i.test(webImportUrl);
+              const isWitchCultUrl = /witchculttranslation\.com|rezero/i.test(webImportUrl);
               const isSwiftAudioDetected = isSwiftAudioMode || /swiftaudiobooks\.com|ipaudio7\.com/i.test(webImportUrl);
               const isSpecificSwiftAudioBook = /^https?:\/\/(?:www\.)?(?:swiftaudiobooks\.com|ipaudio7\.com)\/[a-z0-9-]+/i.test((webImportUrl || '').trim()) &&
                 !/https?:\/\/(?:www\.)?swiftaudiobooks\.com\/?$/i.test((webImportUrl || '').trim()) &&
@@ -11541,34 +11736,46 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     onClick: handleOpenSourcePluginsModal,
                     title: 'Manage built-in source plugins and browse 278 LNReader community plugins'
                   }, '🔌 Source Plugins (278+)'),
-                  ['Lnori', 'SwiftAudio', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'NovelBin', 'AO3', 'Pixiv', 'Syosetu', 'Witch Cult'].map(s => h('span', {
-                  key: s,
-                  className: `src-chip ${(s === 'SwiftAudio' && isSwiftAudioDetected) ? 'accent' : ''}`,
-                  style: (s === 'SwiftAudio' && isSwiftAudioDetected) ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : { cursor: 'pointer' },
-                  onClick: () => {
-                    if (s === 'SwiftAudio') {
-                      setIsSwiftAudioMode(true);
-                      if (!webImportUrl || webImportUrl === 'https://swiftaudiobooks.com/') {
-                        setWebImportUrl('');
-                      }
-                      toast('SwiftAudiobooks selected! Type any book title or paste link.', 'info');
-                    } else {
-                      setIsSwiftAudioMode(false);
-                      if (s === 'Lnori' && !webImportUrl) {
-                        setWebImportUrl('https://lnori.com/');
-                      } else if (['NovelBuddy', 'RoyalRoad', 'NovelFire'].includes(s)) {
-                        setNovelSearchFilter(s);
-                        if (webImportUrl && !/^https?:\/\//i.test(webImportUrl.trim())) {
-                          handleSearchNovels(webImportUrl, s);
-                        } else if (!webImportUrl) {
-                          toast(`${s} selected! Type a title or keyword to search.`, 'info');
+                  ['👑 Re:Zero (WCT)', 'Lnori', 'SwiftAudio', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'NovelBin', 'AO3', 'Pixiv', 'Syosetu'].map(s => {
+                    const isRezeroChip = s === '👑 Re:Zero (WCT)';
+                    const isSwiftChip = s === 'SwiftAudio';
+                    const isRezeroActive = isRezeroChip && isWitchCultUrl;
+                    const isSwiftActive = isSwiftChip && isSwiftAudioDetected;
+                    return h('span', {
+                      key: s,
+                      className: `src-chip ${(isSwiftActive || isRezeroActive) ? 'accent' : ''}`,
+                      style: isRezeroActive
+                        ? { borderColor: 'rgba(168, 85, 247, 0.6)', color: '#c084fc', background: 'rgba(168, 85, 247, 0.15)', fontWeight: 700, cursor: 'pointer' }
+                        : (isSwiftActive ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : { cursor: 'pointer' }),
+                      onClick: () => {
+                        if (isRezeroChip) {
+                          setIsSwiftAudioMode(false);
+                          setWebImportUrl('https://witchculttranslation.com/table-of-content/');
+                          toast('👑 Re:Zero (Witch Cult Translations) selected! Ready to ingest or update.', 'info');
+                        } else if (isSwiftChip) {
+                          setIsSwiftAudioMode(true);
+                          if (!webImportUrl || webImportUrl === 'https://swiftaudiobooks.com/') {
+                            setWebImportUrl('');
+                          }
+                          toast('SwiftAudiobooks selected! Type any book title or paste link.', 'info');
+                        } else {
+                          setIsSwiftAudioMode(false);
+                          if (s === 'Lnori' && !webImportUrl) {
+                            setWebImportUrl('https://lnori.com/');
+                          } else if (['NovelBuddy', 'RoyalRoad', 'NovelFire'].includes(s)) {
+                            setNovelSearchFilter(s);
+                            if (webImportUrl && !/^https?:\/\//i.test(webImportUrl.trim())) {
+                              handleSearchNovels(webImportUrl, s);
+                            } else if (!webImportUrl) {
+                              toast(`${s} selected! Type a title or keyword to search.`, 'info');
+                            }
+                          } else if (s === 'AO3') {
+                            toast('AO3 works via direct work links (e.g. archiveofourown.org/works/...). Paste any link to import!', 'info');
+                          }
                         }
-                      } else if (s === 'AO3') {
-                        toast('AO3 works via direct work links (e.g. archiveofourown.org/works/...). Paste any link to import!', 'info');
                       }
-                    }
-                  }
-                }, s === 'SwiftAudio' ? '🎧 SwiftAudio' : (s === 'NovelBuddy' ? '✨ NovelBuddy' : s)))),
+                    }, isSwiftChip ? '🎧 SwiftAudio' : (s === 'NovelBuddy' ? '✨ NovelBuddy' : s));
+                  })),
                 h('input', {
                   className: 'url-input',
                   type: 'text',
@@ -11633,6 +11840,97 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     onClick: () => handleLnoriDirectEpubDownload(webImportUrl)
                   }, '⚡ 1-Click Download Clean EPUB')
                 ),
+
+                // Re:Zero (Witch Cult Translations) Dedicated Command Card
+                isWitchCultUrl && !isFetchingUrl && (() => {
+                  const existingRezero = (historyNovels || []).find(n => /witchcult|rezero/i.test(n?.sourceUrl || n?.url || n?.title || ''))
+                    || (activeCrawlSession && /witchcult|rezero/i.test(activeCrawlSession?.sourceUrl || activeCrawlSession?.url || activeCrawlSession?.title || '') ? activeCrawlSession : null);
+                  const existingChCount = existingRezero?.chapters?.length || existingRezero?.rawChapters?.length || 0;
+
+                  return h('div', {
+                    className: 'card',
+                    style: {
+                      background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.14), rgba(16, 185, 129, 0.12))',
+                      border: '1px solid rgba(168, 85, 247, 0.45)',
+                      padding: '12px 14px',
+                      margin: '8px 0 10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
+                      borderRadius: 8
+                    }
+                  },
+                    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' } },
+                      h('div', { style: { flex: '1 1 240px' } },
+                        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--paper)', fontSize: 13.5 } },
+                          h('span', null, '👑 Re:Zero Web Novel Complete Archive'),
+                          h('span', { className: 'chip', style: { color: '#c084fc', borderColor: 'rgba(192, 132, 252, 0.4)', fontSize: 10.5 } }, 'WCT + TC + Eminent')
+                        ),
+                        h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2, lineHeight: 1.4 } },
+                          'Includes Arcs 1–10, Eminent Arc 2 (Next.js RSC decoded), Translation Chicken Arc 4 (257 chapters), Remonwater Rem IF, and 60+ Side Stories & IF Routes.'
+                        ),
+                        existingChCount > 0 && h('div', { style: { fontSize: 11, color: '#10b981', fontWeight: 600, marginTop: 4 } },
+                          `✅ Saved in Library: ${existingChCount} chapters downloaded locally.`
+                        )
+                      ),
+                      h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' } },
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn',
+                          style: {
+                            background: 'linear-gradient(90deg, #a855f7, #7c3aed)',
+                            color: '#fff',
+                            fontWeight: 700,
+                            padding: '8px 14px',
+                            border: 'none',
+                            fontSize: 12,
+                            boxShadow: '0 2px 10px rgba(168, 85, 247, 0.35)',
+                            cursor: 'pointer'
+                          },
+                          onClick: () => handleStartFetch(false, null, false, 'https://witchculttranslation.com/table-of-content/')
+                        }, '⚡ 1-Click Ingest Re:Zero'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn',
+                          style: {
+                            background: 'rgba(16, 185, 129, 0.2)',
+                            color: '#10b981',
+                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                            fontWeight: 700,
+                            padding: '8px 12px',
+                            fontSize: 12,
+                            cursor: 'pointer'
+                          },
+                          onClick: handleCheckRezeroUpdates
+                        }, '🔄 Check for Updates'),
+                        existingChCount > 0 && h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { borderColor: 'rgba(255, 255, 255, 0.2)', fontWeight: 600, fontSize: 11.5 },
+                          onClick: async () => {
+                            const chs = existingRezero?.chapters || [];
+                            if (chs.length === 0) return toast('No chapters available to download.', 'warning');
+                            const novelTitle = 'Re:Zero - Starting Life in Another World WN';
+                            const novelAuthor = 'Tappei Nagatsuki';
+                            try {
+                              setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 10 });
+                              const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
+                                setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
+                              }, { coverUrl: existingRezero?.cover || 'https://witchculttranslation.com/wp-content/uploads/2024/09/png-echidna-beatrice-2-editado-2.jpg' });
+                              const epubFileName = `${novelTitle} (${chs.length} Ch).epub`;
+                              await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(existingRezero));
+                              toast(`Re:Zero EPUB (${chs.length} ch) downloaded successfully!`, 'success');
+                            } catch (err) {
+                              toast('EPUB generation error: ' + err.message, 'error');
+                            } finally {
+                              setEpubPackagingModal(null);
+                            }
+                          }
+                        }, `📥 Download EPUB (${existingChCount})`)
+                      )
+                    )
+                  );
+                })(),
 
                 // SwiftAudiobooks Detection Card (only for specific book URLs)
                 isSpecificSwiftAudioBook && !isFetchingUrl && h('div', {
@@ -13107,7 +13405,183 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           ),
 
             // ═══ TAB 5: SETTINGS ═══
-            activeTab === 'settings' && h(React.Fragment, null,
+            activeTab === 'settings' && (() => {
+              const actionRow = (icon, title, subtitle, onClick, badge = null) => h('div', {
+                style: {
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease',
+                  userSelect: 'none'
+                },
+                onClick: (e) => {
+                  try {
+                    if (typeof onClick === 'function') onClick(e);
+                  } catch (err) {
+                    console.warn('[actionRow]', err);
+                  }
+                }
+              },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 } },
+                  h('div', { style: { width: 34, height: 34, borderRadius: 8, background: 'rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 } }, icon),
+                  h('div', { style: { flex: 1, minWidth: 0 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                      h('span', { style: { fontWeight: 600, fontSize: 13.5, color: 'var(--paper)' } }, title),
+                      badge && h('span', { className: 'badge', style: { fontSize: 9.5, padding: '1px 6px', background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)' } }, badge)
+                    ),
+                    subtitle && h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, subtitle)
+                  )
+                ),
+                h('span', { style: { fontSize: 16, color: 'var(--slate)', marginLeft: 8 } }, '›')
+              );
+
+              const downloadStatusSubtitle = isFetchingUrl
+                ? `Downloading… ${(webImportStatus || '').substring(0, 36)}`
+                : (isFetchingPaused
+                  ? '⏸ Crawl paused · Tap to resume in Importer'
+                  : (activeCrawlSession
+                    ? `⏸ ${(activeCrawlSession.chapters || []).length} / ${activeCrawlSession.totalChapterCount || '?'} chapters cached`
+                    : '0 active downloads · Idle'));
+
+              return h(React.Fragment, null,
+                // Top Quick Status & Mihon-Style Toggles
+                h('div', {
+                  className: 'card',
+                  style: {
+                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    marginBottom: 12,
+                    padding: '12px 14px'
+                  }
+                },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                      h('span', { style: { fontSize: 18 } }, '📱'),
+                      h('div', null,
+                        h('div', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)' } }, 'Gemini Novel Studio & Reader'),
+                        h('div', { style: { fontSize: 10.5, color: 'var(--slate)' } }, `v${appVersion} (Build 8221) · Pure AMOLED Black`)
+                      )
+                    ),
+                    h('button', {
+                      type: 'button',
+                      className: 'chip-act',
+                      style: { fontSize: 10.5, padding: '3px 8px' },
+                      onClick: () => checkForAppUpdate(true)
+                    }, '🔄 Updates')
+                  ),
+                  h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+                    h('div', {
+                      style: {
+                        background: downloadedOnly ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                        border: downloadedOnly ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid var(--hairline)',
+                        borderRadius: 8,
+                        padding: '8px 10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      },
+                      onClick: () => {
+                        const next = !downloadedOnly;
+                        setDownloadedOnly(next);
+                        localStorage.setItem('downloadedOnly', String(next));
+                        toast(next ? '📥 Downloaded only: ON' : '📥 Downloaded only: OFF', 'info');
+                      }
+                    },
+                      h('div', { style: { fontSize: 11.5, fontWeight: 600, color: downloadedOnly ? 'var(--iris)' : 'var(--paper)' } }, '📥 Downloaded only'),
+                      h('button', { type: 'button', className: `switch ${downloadedOnly ? 'on' : ''}`, style: { pointerEvents: 'none' } })
+                    ),
+                    h('div', {
+                      style: {
+                        background: incognitoMode ? 'rgba(236, 72, 153, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                        border: incognitoMode ? '1px solid rgba(236, 72, 153, 0.4)' : '1px solid var(--hairline)',
+                        borderRadius: 8,
+                        padding: '8px 10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      },
+                      onClick: () => {
+                        const next = !incognitoMode;
+                        setIncognitoMode(next);
+                        localStorage.setItem('incognitoMode', String(next));
+                        toast(next ? '🕶️ Incognito mode: ON (history paused)' : '🕶️ Incognito mode: OFF', 'info');
+                      }
+                    },
+                      h('div', { style: { fontSize: 11.5, fontWeight: 600, color: incognitoMode ? '#ec4899' : 'var(--paper)' } }, '🕶️ Incognito mode'),
+                      h('button', { type: 'button', className: `switch ${incognitoMode ? 'on' : ''}`, style: { pointerEvents: 'none' } })
+                    ),
+                    h('div', {
+                      style: {
+                        background: enableStreaming ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                        border: enableStreaming ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--hairline)',
+                        borderRadius: 8,
+                        padding: '8px 10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      },
+                      onClick: () => {
+                        const next = !enableStreaming;
+                        setEnableStreaming(next);
+                        toast(next ? '⚡ Typewriter streaming: ON' : '⚡ Typewriter streaming: OFF', 'info');
+                      }
+                    },
+                      h('div', { style: { fontSize: 11.5, fontWeight: 600, color: enableStreaming ? '#10b981' : 'var(--paper)' } }, '⚡ Stream tokens'),
+                      h('button', { type: 'button', className: `switch ${enableStreaming ? 'on' : ''}`, style: { pointerEvents: 'none' } })
+                    ),
+                    h('div', {
+                      style: {
+                        background: enableThinking ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                        border: enableThinking ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid var(--hairline)',
+                        borderRadius: 8,
+                        padding: '8px 10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      },
+                      onClick: () => {
+                        const next = !enableThinking;
+                        setEnableThinking(next);
+                        localStorage.setItem('enableThinking', String(next));
+                        toast(next ? '🧠 Extended Thinking: ON' : '🧠 Extended Thinking: OFF', 'info');
+                      }
+                    },
+                      h('div', { style: { fontSize: 11.5, fontWeight: 600, color: enableThinking ? '#c084fc' : 'var(--paper)' } }, '🧠 Thinking AI'),
+                      h('button', { type: 'button', className: `switch ${enableThinking ? 'on' : ''}`, style: { pointerEvents: 'none' } })
+                    )
+                  )
+                ),
+
+                // Tachiyomi / Mihon Style Action Rows Card
+                h('div', {
+                  className: 'card',
+                  style: {
+                    padding: 0,
+                    marginBottom: 14,
+                    overflow: 'hidden'
+                  }
+                },
+                  actionRow('📥', 'Download queue', downloadStatusSubtitle, () => setActiveTab('web_importer'), isFetchingUrl ? 'Active' : null),
+                  actionRow('📁', 'Categories & Saved Space', `${(historyNovels || []).length} novels saved in library · Tap to organize`, () => setActiveTab('history')),
+                  actionRow('📊', 'Statistics & Cache Metrics', `${tmStats.totalUnits || 0} indexed units · ~${(tmStats.tokensSaved || 0).toLocaleString()} tokens saved`, () => {
+                    refreshTmStats();
+                    toast(`TM Cache: ${tmStats.totalUnits || 0} indexed segments (~${(tmStats.tokensSaved || 0).toLocaleString()} tokens saved)`, 'info');
+                  }),
+                  actionRow('🔌', 'Source Plugins & Search', `${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length} active sources · Browse 278+ LNReader plugins`, handleOpenSourcePluginsModal),
+                  actionRow('🔄', 'Check for updates', `Current: v${appVersion} (Build 8221) · Tap to verify`, () => checkForAppUpdate(true), availableUpdate ? 'Update Available' : null),
+                  actionRow('💾', 'Data & storage / Backup', 'Mihon 1-tap Google Drive backup, WebDAV NAS sync & JSON exports', () => {
+                    const el = document.getElementById('cloud-backup-section');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    else toast('Scroll down to Cloud Backup & Restore', 'info');
+                  })
+                ),
               h('div', { className: 'sec-banner' },
                 h('div', { style: { display: 'flex', alignItems: 'center' } },
                   h('span', { className: 'sec-tag' }, '//'),
@@ -13982,10 +14456,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Install App (PWA)'), h('button', { type: 'button', className: 'chip-act', onClick: handleInstallPWA }, 'Install')),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Keyboard Shortcuts'), h('span', { className: 'count' }, 'Ctrl+Enter · Ctrl+Shift+C · Ctrl+Alt+R'))
               )
-            )
-          ),
+            );
+          })()
+        ),
 
-          // ── BOTTOM NAV ──
+        // ── BOTTOM NAV ──
           h('nav', { className: 'bottomnav' },
             navItems.map(([key, label, Icon]) => {
               const isActive = activeTab === key;
@@ -15864,6 +16339,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               h('div', { className: 'seg-wide', style: { marginBottom: 4 } },
                 h('span', { className: pluginSelectedTab === 'catalog' ? 'on' : '', onClick: () => setPluginSelectedTab('catalog') }, `🌐 Catalog (${pluginCatalog.length || '278+'})`),
                 h('span', { className: pluginSelectedTab === 'installed' ? 'on' : '', onClick: () => setPluginSelectedTab('installed') }, `✅ Installed (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`),
+                h('span', { className: pluginSelectedTab === 'search' ? 'on' : '', onClick: () => setPluginSelectedTab('search') }, '🔍 Search Novels'),
                 h('span', { className: pluginSelectedTab === 'custom' ? 'on' : '', onClick: () => setPluginSelectedTab('custom') }, '🔗 Sideload Custom')
               ),
 
@@ -15982,6 +16458,152 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       }, 'Uninstall')
                     );
                   })
+                );
+              })(),
+
+              pluginSelectedTab === 'search' && (() => {
+                const reg = window.sourceRegistry || window.SourceRegistry;
+                const installedPlugins = reg && typeof reg.getAll === 'function' ? reg.getAll() : [];
+                return h(React.Fragment, null,
+                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+                    h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                      h('select', {
+                        value: pluginNovelSearchSource,
+                        onChange: e => setPluginNovelSearchSource(e.target.value),
+                        style: {
+                          padding: '7px 10px',
+                          fontSize: 12,
+                          borderRadius: 6,
+                          border: '1px solid var(--hairline)',
+                          background: 'var(--void)',
+                          color: 'var(--paper)',
+                          minWidth: 160
+                        }
+                      },
+                        h('option', { value: 'all' }, '⚡ All Active Plugins & Sources'),
+                        installedPlugins.map(p => h('option', { key: p.id, value: p.id }, `${p.name} (${p.id})`))
+                      ),
+                      h('div', { style: { display: 'flex', flex: 1, minWidth: 220, gap: 6 } },
+                        h('input', {
+                          type: 'text',
+                          placeholder: 'Type novel title or keyword (e.g. Re:Zero, Shadow Slave)...',
+                          value: pluginNovelSearchQuery,
+                          onChange: e => setPluginNovelSearchQuery(e.target.value),
+                          onKeyDown: e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSearchNovelsInPlugins(pluginNovelSearchQuery, pluginNovelSearchSource);
+                            }
+                          },
+                          style: { flex: 1, padding: '7px 10px', fontSize: 12.5, borderRadius: 6, border: '1px solid var(--hairline)', background: 'var(--void)', color: 'var(--paper)' }
+                        }),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn',
+                          style: { background: 'var(--iris)', color: '#fff', fontWeight: 600, padding: '7px 14px' },
+                          disabled: isPluginNovelSearching,
+                          onClick: () => handleSearchNovelsInPlugins(pluginNovelSearchQuery, pluginNovelSearchSource)
+                        }, isPluginNovelSearching ? 'Searching…' : '🔍 Search')
+                      )
+                    ),
+                    h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', fontSize: 11, color: 'var(--slate)', paddingTop: 2 } },
+                      h('span', null, 'Quick suggestions:'),
+                      ['👑 Re:Zero', 'Shadow Slave', 'Lord of the Mysteries', 'Super Gene', 'Overlord'].map(term => h('button', {
+                        key: term,
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: { fontSize: 10.5, padding: '2px 7px', borderRadius: 12 },
+                        onClick: () => {
+                          const cleanTerm = term.replace(/^[^\w\s:]+/, '').trim();
+                          setPluginNovelSearchQuery(cleanTerm);
+                          handleSearchNovelsInPlugins(cleanTerm, pluginNovelSearchSource);
+                        }
+                      }, term))
+                    )
+                  ),
+                  (() => {
+                    if (isPluginNovelSearching) {
+                      return h('div', { style: { textAlign: 'center', padding: '30px 10px', color: 'var(--slate)', fontSize: 13 } }, 'Searching novels across active plugins…');
+                    }
+                    if (!pluginNovelSearchResults || pluginNovelSearchResults.length === 0) {
+                      return h('div', { style: { textAlign: 'center', padding: '35px 10px', color: 'var(--slate)', fontSize: 12.5, lineHeight: 1.5 } },
+                        'No search results to display.',
+                        h('br', null),
+                        'Type any web novel title above or pick one of the quick suggestions to search across installed extensions.'
+                      );
+                    }
+                    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 380, overflowY: 'auto' } },
+                      pluginNovelSearchResults.map((novel, idx) => {
+                        return h('div', {
+                          key: novel.url || novel.id || idx,
+                          style: {
+                            display: 'flex',
+                            gap: 12,
+                            padding: '10px 12px',
+                            borderRadius: 8,
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid var(--hairline)',
+                            alignItems: 'center'
+                          }
+                        },
+                          novel.cover ? h('img', {
+                            src: novel.cover,
+                            style: { width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0 },
+                            onError: e => { e.target.style.display = 'none'; }
+                          }) : h('div', {
+                            style: { width: 44, height: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }
+                          }, '📖'),
+                          h('div', { style: { flex: 1, minWidth: 0 } },
+                            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+                              h('span', { style: { fontWeight: 700, fontSize: 13, color: 'var(--paper)' } }, novel.title || novel.name || 'Untitled Novel'),
+                              novel.source && h('span', { className: 'badge', style: { fontSize: 9, padding: '1px 5px' } }, novel.source),
+                              novel.chapters && h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, `${novel.chapters}`)
+                            ),
+                            novel.author && h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2 } }, `By ${novel.author}`),
+                            novel.summary && h('div', {
+                              style: {
+                                fontSize: 11,
+                                color: 'var(--paper-dim)',
+                                marginTop: 4,
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                lineHeight: 1.35
+                              }
+                            }, novel.summary)
+                          ),
+                          h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 } },
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn',
+                              style: { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700, fontSize: 11, padding: '6px 10px' },
+                              onClick: () => {
+                                setSourcePluginsModalOpen(false);
+                                setWebImportUrl(novel.url || novel.path);
+                                toast(`Importing "${novel.title || novel.name}"…`, 'info');
+                                handleStartFetch(false, null, false, novel.url || novel.path);
+                              }
+                            }, '⚡ Ingest Novel'),
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn ghost',
+                              style: { fontSize: 10.5, padding: '4px 8px' },
+                              onClick: () => {
+                                const u = novel.url || novel.path || '';
+                                if (u) {
+                                  setWebImportUrl(u);
+                                  navigator.clipboard?.writeText(u);
+                                  toast('Copied URL & loaded into importer!', 'success');
+                                }
+                              }
+                            }, '📋 Copy URL')
+                          )
+                        );
+                      })
+                    );
+                  })()
                 );
               })(),
 

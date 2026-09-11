@@ -104,6 +104,45 @@
         originalTitle: title
       };
     }
+
+    async search(query) {
+      if (!query || !query.trim()) return [];
+      const fetchHtml = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
+      if (!fetchHtml) return [];
+      try {
+        const url = `https://www.royalroad.com/fictions/search?title=${encodeURIComponent(query.trim())}`;
+        const html = await fetchHtml(url);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const items = [];
+        const fictionCards = doc.querySelectorAll('.fiction-list-item, .search-item');
+        fictionCards.forEach(card => {
+          const titleA = card.querySelector('h2.fiction-title a, .fiction-title a, a[href*="/fiction/"]');
+          if (!titleA) return;
+          const href = titleA.getAttribute('href') || '';
+          const fullUrl = href.startsWith('http') ? href : 'https://www.royalroad.com' + href;
+          const name = this.decodeHtml(titleA.textContent.trim());
+          const img = card.querySelector('img');
+          const cover = img?.getAttribute('src') || '';
+          const author = this.decodeHtml(card.querySelector('.author a, span.author')?.textContent?.trim() || '');
+          const summary = this.decodeHtml(card.querySelector('.description, p')?.textContent?.trim() || '');
+          items.push({
+            id: 'rr_' + (href.match(/fiction\/(\d+)/)?.[1] || Math.random().toString(36).slice(2)),
+            name,
+            title: name,
+            url: fullUrl,
+            path: fullUrl,
+            author,
+            cover: cover.startsWith('http') ? cover : (cover ? 'https://www.royalroad.com' + cover : ''),
+            summary,
+            source: 'Royal Road'
+          });
+        });
+        return items;
+      } catch (err) {
+        console.warn('[RoyalRoadPlugin] Search failed:', err);
+        return [];
+      }
+    }
   }
 
   if (typeof module !== 'undefined' && module.exports) {
