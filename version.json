@@ -1,7 +1,7 @@
 {
-  "version": "8.11.8",
-  "versionCode": 8178,
+  "version": "8.11.9",
+  "versionCode": 8179,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest",
-  "releaseNotes": "v8.11.8: Hybrid Multi-Source Character Gender Engine. Fixes narrow novel slicing and glossary fallback; features 3 source modes (Active Glossary, Deep Multi-Chapter Novel Scan, Hybrid Both), instant recognition of explicit glossary gender tags, and full character origin pills."
+  "releaseNotes": "v8.11.9: Deep Chapter Body Novel Mining. Fixes novel text extraction to inspect chapter content and HTML text properly; extracts full dual-name character entities (English and RAW names like Medici, Amon, Bethel, Antigonus, 梅迪奇, 阿蒙, 伯特利, 安提哥努斯)."
 }

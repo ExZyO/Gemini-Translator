@@ -855,7 +855,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    const VERSION = '8.11.8';
+    const VERSION = '8.11.9';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3845,11 +3845,12 @@ const formatModelName = (id, displayName) => {
               for (let i = 0; i < chapters.length && i < 20 * step; i += step) {
                 const ch = chapters[i];
                 if (ch) {
-                  novelCorpus += `\n[Chapter ${i + 1}: ${ch.title || ''}]\n${(ch.text || '').slice(0, 2000)}\n`;
+                  const rawBody = (ch.content || ch.text || ch.rawContent || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                  novelCorpus += `\n[Chapter ${i + 1}: ${ch.title || ''}]\n${rawBody.slice(0, 4000)}\n`;
                 }
               }
             } else if (inputText) {
-              novelCorpus = inputText.slice(0, 15000);
+              novelCorpus = inputText.slice(0, 25000);
             }
 
             if (!novelCorpus.trim()) {
@@ -3857,7 +3858,7 @@ const formatModelName = (id, displayName) => {
                 throw new Error('No novel text loaded. Please load a novel or EPUB first.');
               }
             } else {
-              const prompt = `Carefully read the following web novel chapter excerpts and identify ALL named individual characters (protagonists, villains, allies, side characters, deities, companions).\n\nExcerpts:\n${novelCorpus.slice(0, 25000)}\n\nInstructions:\n1. Identify every individual character by their most common name or alias.\n2. Determine whether they are narrative/biological "female" or "male" based on novel lore, actions, pronouns, and titles.\n3. Omit organizations, places, skills, items, and concepts.\n\nReturn ONLY a valid JSON object mapping character name to "female" or "male":\n{\n  "Medici": "male",\n  "Klein": "male",\n  "Audrey": "female"\n}`;
+              const prompt = `Carefully read the following web novel chapter excerpts and identify ALL named individual characters (protagonists, villains, allies, side characters, deities, companions).\n\nExcerpts:\n${novelCorpus.slice(0, 30000)}\n\nInstructions:\n1. Extract ALL named individual characters appearing or mentioned in the text.\n2. For each character, include BOTH their translated English name AND their original foreign/RAW name if available (e.g. "Medici" and "梅迪奇", "Amon" and "阿蒙", "Bethel" and "伯特利", "Antigonus" and "安提哥努斯").\n3. Determine whether each character is narrative/biological "female" or "male".\n4. Omit organizations, places, skills, items, and concepts.\n\nReturn ONLY a valid JSON object mapping every name or alias to "female" or "male":\n{\n  "Medici": "male",\n  "梅迪奇": "male",\n  "Amon": "male",\n  "阿蒙": "male",\n  "Bethel": "male",\n  "伯特利": "male",\n  "Antigonus": "male",\n  "安提哥努斯": "male"\n}`;
               const aiResp = await callAiAnalysis(prompt, 'You are an expert web novel character lore analyst. Output ONLY valid JSON without markdown code blocks.', selectedModel);
               const jsonMatch = aiResp.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
