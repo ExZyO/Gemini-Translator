@@ -890,7 +890,7 @@ hr {
 
           manifestItems.push(`<item id="${chId}" href="${chFilename}" media-type="application/xhtml+xml"/>`);
           spineItems.push(`<itemref idref="${chId}"/>`);
-          tocEntries.push({ id: chId, filename: chFilename, title: chTitle, idx, volume: ch.volume || ch.arc, arc: ch.arc || ch.volume });
+          tocEntries.push({ id: chId, filename: chFilename, title: chTitle, idx, volume: ch.volume || ch.arc, arc: ch.arc || ch.volume, level: ch.level || 1 });
 
           const rawLines = ch.content.split(/\r?\n/);
           const bodyHtml = [];
@@ -1073,56 +1073,81 @@ ${bodyHtml.join('\n ')}
         const volumeGroups = [];
         let curVolGroup = null;
 
-        for (let i = 0; i < tocEntries.length; i++) {
-          const entry = tocEntries[i];
-          let volName = entry.volume || entry.arc || null;
-          let cleanTitle = decodeHtmlEntities(entry.title).trim();
+        const hasExplicitSubChapters = tocEntries.some(e => e.level === 2);
 
-          // Strip any website branding from chapter title
-          cleanTitle = cleanTitle.replace(/\s*(?:\||–|—|-)\s*Witch\s*Cult\s*Translations/gi, '').trim();
-          cleanTitle = cleanTitle.replace(/\s*\((?:Originally\s+translated\s+by\s+TranslationChicken|Translation\s*Chicken)\)/gi, '').trim();
-          cleanTitle = cleanTitle.replace(/^Re:Zero(?:\s*\(WN\))?\s*[-–—:|]?\s*/i, '').trim();
-
-          if (volName) {
-            volName = decodeHtmlEntities(volName).trim();
-            // If cleanTitle starts with this volume name, strip it so the nested item doesn't repeat the volume name
-            const escapedVol = volName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            cleanTitle = cleanTitle.replace(new RegExp(`^(?:\\[\\s*)?${escapedVol}[\\s,;:–—-]*(.*)$`, 'i'), '$1').trim();
-          } else {
-            const match = cleanTitle.match(volRegex);
-            if (match) {
-              const prefix = match[1].toLowerCase().startsWith('vol') ? 'Volume' : (match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase());
-              const num = parseInt(match[2], 10) || match[2];
-              volName = `${prefix} ${num}`;
-              cleanTitle = match[3] ? match[3].trim() : cleanTitle;
+        if (hasExplicitSubChapters) {
+          for (let i = 0; i < tocEntries.length; i++) {
+            const entry = tocEntries[i];
+            const cleanT = decodeHtmlEntities(entry.title).trim();
+            if (entry.level === 1 || !curVolGroup) {
+              curVolGroup = {
+                id: entry.id,
+                volName: cleanT,
+                firstFilename: entry.filename,
+                hasRealVolume: true,
+                items: []
+              };
+              volumeGroups.push(curVolGroup);
+            } else {
+              curVolGroup.items.push({
+                id: entry.id,
+                filename: entry.filename,
+                cleanTitle: cleanT,
+                fullTitle: entry.title
+              });
             }
           }
+        } else {
+          for (let i = 0; i < tocEntries.length; i++) {
+            const entry = tocEntries[i];
+            let volName = entry.volume || entry.arc || null;
+            let cleanTitle = decodeHtmlEntities(entry.title).trim();
 
-          // Strip any residual leading punctuation left over (comma, colon, dash)
-          cleanTitle = cleanTitle.replace(/^[\s,;:–—-]+\s*/, '').trim();
-          if (!cleanTitle) cleanTitle = entry.title;
+            // Strip any website branding from chapter title
+            cleanTitle = cleanTitle.replace(/\s*(?:\||–|—|-)\s*Witch\s*Cult\s*Translations/gi, '').trim();
+            cleanTitle = cleanTitle.replace(/\s*\((?:Originally\s+translated\s+by\s+TranslationChicken|Translation\s*Chicken)\)/gi, '').trim();
+            cleanTitle = cleanTitle.replace(/^Re:Zero(?:\s*\(WN\))?\s*[-–—:|]?\s*/i, '').trim();
 
-          if (!curVolGroup || (volName && curVolGroup.volName !== volName)) {
-            curVolGroup = {
-              volName: volName || 'General',
-              hasRealVolume: Boolean(volName),
-              firstFilename: entry.filename,
-              items: []
-            };
-            volumeGroups.push(curVolGroup);
+            if (volName) {
+              volName = decodeHtmlEntities(volName).trim();
+              // If cleanTitle starts with this volume name, strip it so the nested item doesn't repeat the volume name
+              const escapedVol = volName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              cleanTitle = cleanTitle.replace(new RegExp(`^(?:\\[\\s*)?${escapedVol}[\\s,;:–—-]*(.*)$`, 'i'), '$1').trim();
+            } else {
+              const match = cleanTitle.match(volRegex);
+              if (match) {
+                const prefix = match[1].toLowerCase().startsWith('vol') ? 'Volume' : (match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase());
+                const num = parseInt(match[2], 10) || match[2];
+                volName = `${prefix} ${num}`;
+                cleanTitle = match[3] ? match[3].trim() : cleanTitle;
+              }
+            }
+
+            // Strip any residual leading punctuation left over (comma, colon, dash)
+            cleanTitle = cleanTitle.replace(/^[\s,;:–—-]+\s*/, '').trim();
+            if (!cleanTitle) cleanTitle = entry.title;
+
+            if (!curVolGroup || (volName && curVolGroup.volName !== volName)) {
+              curVolGroup = {
+                volName: volName || 'General',
+                hasRealVolume: Boolean(volName),
+                firstFilename: entry.filename,
+                items: []
+              };
+              volumeGroups.push(curVolGroup);
+            }
+
+            curVolGroup.items.push({
+              id: entry.id,
+              filename: entry.filename,
+              cleanTitle: cleanTitle || entry.title,
+              fullTitle: entry.title
+            });
           }
-
-          curVolGroup.items.push({
-            id: entry.id,
-            filename: entry.filename,
-            cleanTitle: cleanTitle || entry.title,
-            fullTitle: entry.title
-          });
         }
 
-
         const distinctNamedVolumes = volumeGroups.filter(v => v.hasRealVolume);
-        const isMultiVolume = useHierarchicalToc && (distinctNamedVolumes.length >= 2 || (volumeGroups.length >= 2 && distinctNamedVolumes.length >= 1));
+        const isMultiVolume = useHierarchicalToc && (hasExplicitSubChapters || distinctNamedVolumes.length >= 2 || (volumeGroups.length >= 2 && distinctNamedVolumes.length >= 1));
 
         const tocNavPoints = [];
         const tocNavLinks = [];
@@ -1133,30 +1158,39 @@ ${bodyHtml.join('\n ')}
           dtbDepth = 2;
           volumeGroups.forEach((vol, vIdx) => {
             const volId = `vol_${vIdx + 1}`;
-            const firstFile = vol.items[0]?.filename || `chapter_1.xhtml`;
+            const firstFile = vol.firstFilename || vol.items[0]?.filename || `chapter_1.xhtml`;
             const parentPlayOrder = playOrder++;
 
-            // Nested navPoints for EPUB 2 NCX (renders as collapsible volume tree in Moon+ Reader)
-            const childNavPoints = vol.items.map(item => `
+            if (vol.items.length === 0) {
+              tocNavPoints.push(`
+  <navPoint id="${volId}" playOrder="${parentPlayOrder}">
+    <navLabel><text>${escapeXml(vol.volName)}</text></navLabel>
+    <content src="${firstFile}"/>
+  </navPoint>`);
+              tocNavLinks.push(`  <li><a href="${firstFile}">${escapeXml(vol.volName)}</a></li>`);
+            } else {
+              // Nested navPoints for EPUB 2 NCX (renders as collapsible volume tree in Moon+ Reader)
+              const childNavPoints = vol.items.map(item => `
     <navPoint id="nav_${item.id}" playOrder="${playOrder++}">
       <navLabel><text>${escapeXml(item.cleanTitle)}</text></navLabel>
       <content src="${item.filename}"/>
     </navPoint>`).join('');
 
-            tocNavPoints.push(`
+              tocNavPoints.push(`
   <navPoint id="${volId}" playOrder="${parentPlayOrder}">
     <navLabel><text>${escapeXml(vol.volName)}</text></navLabel>
     <content src="${firstFile}"/>${childNavPoints}
   </navPoint>`);
 
-            // Nested <ol> for EPUB 3 navigation (nav.xhtml)
-            const childNavLinks = vol.items.map(item => `      <li><a href="${item.filename}">${escapeXml(item.cleanTitle)}</a></li>`).join('\n');
-            tocNavLinks.push(`  <li>
+              // Nested <ol> for EPUB 3 navigation (nav.xhtml)
+              const childNavLinks = vol.items.map(item => `      <li><a href="${item.filename}">${escapeXml(item.cleanTitle)}</a></li>`).join('\n');
+              tocNavLinks.push(`  <li>
     <a href="${firstFile}">${escapeXml(vol.volName)}</a>
     <ol>
 ${childNavLinks}
     </ol>
   </li>`);
+            }
           });
         } else {
           // Standard flat TOC for single-volume books

@@ -734,6 +734,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="splitter.js"></script>
   <script src="merger.js"></script>
   <script src="epub_studio_ui.js"></script>
+  <script src="epub_editor.js"></script>
   <script src="sources/base_plugin.js"></script>
   <script src="sources/lnreader_adapter.js"></script>
   <script src="sources/syosetu.js"></script>
@@ -7069,8 +7070,15 @@ const formatModelName = (id, displayName) => {
 
       useEffect(() => {
         localStorage.setItem('activeTab', activeTab);
+        window.setActiveAppTab = (tab, subTab) => {
+          if (tab) { setActiveTab(tab); localStorage.setItem('activeTab', tab); }
+          if (subTab) { setStudioSubTab(subTab); localStorage.setItem('studioSubTab', subTab); }
+        };
         if (activeTab === 'studio') {
           setTimeout(() => {
+            if (studioSubTab === 'edit' && typeof window.initEpubEditor === 'function') {
+              try { window.initEpubEditor(); } catch (e) { console.warn('Editor init error:', e); }
+            }
             if (studioSubTab === 'split' && typeof window.initSplitter === 'function') {
               try { window.initSplitter(); } catch (e) { console.warn('Splitter init error:', e); }
             }
@@ -12974,12 +12982,19 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
             // ═══ TAB 3: EPUB STUDIO ═══
             activeTab === 'studio' && h(React.Fragment, null,
               h('div', { className: 'seg-wide' },
-                h('span', { className: studioSubTab === 'split' ? 'on' : '', onClick: () => { setStudioSubTab('split'); window.switchStudioSubTab && window.switchStudioSubTab('split'); } }, 'Split into Volumes'),
-                h('span', { className: studioSubTab === 'merge' ? 'on' : '', onClick: () => { setStudioSubTab('merge'); window.switchStudioSubTab && window.switchStudioSubTab('merge'); } }, 'Merge into One Book')
+                h('span', { className: studioSubTab === 'edit' ? 'on' : '', onClick: () => { setStudioSubTab('edit'); localStorage.setItem('studioSubTab', 'edit'); window.switchStudioSubTab && window.switchStudioSubTab('edit'); } }, '✏️ Edit Ebook'),
+                h('span', { className: studioSubTab === 'split' ? 'on' : '', onClick: () => { setStudioSubTab('split'); localStorage.setItem('studioSubTab', 'split'); window.switchStudioSubTab && window.switchStudioSubTab('split'); } }, 'Split into Volumes'),
+                h('span', { className: studioSubTab === 'merge' ? 'on' : '', onClick: () => { setStudioSubTab('merge'); localStorage.setItem('studioSubTab', 'merge'); window.switchStudioSubTab && window.switchStudioSubTab('merge'); } }, 'Merge into One Book')
               ),
               h('div', {
                 className: 'studio-host',
-                dangerouslySetInnerHTML: { __html: studioSubTab === 'split' ? (window.splitHtml || (typeof splitHtml !== 'undefined' ? splitHtml : '')) : (window.mergeHtml || (typeof mergeHtml !== 'undefined' ? mergeHtml : '')) }
+                dangerouslySetInnerHTML: {
+                  __html: studioSubTab === 'edit'
+                    ? (window.editHtml || (typeof editHtml !== 'undefined' ? editHtml : ''))
+                    : (studioSubTab === 'split'
+                        ? (window.splitHtml || (typeof splitHtml !== 'undefined' ? splitHtml : ''))
+                        : (window.mergeHtml || (typeof mergeHtml !== 'undefined' ? mergeHtml : '')))
+                }
               })
             ),
 
@@ -13557,6 +13572,24 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                 toast(`Reading "${item.title}" (${chs.length} ch)!`, 'success');
                               }
                             }, '📖 Read'),
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn ghost',
+                              style: { borderColor: 'rgba(168, 85, 247, 0.4)', color: '#c084fc', fontWeight: 600 },
+                              title: 'Edit chapters, prose, covers, and TOC in Ebook Studio',
+                              onClick: async () => {
+                                const full = await loadFullNovel(item);
+                                if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+                                setActiveTab('studio');
+                                setStudioSubTab('edit');
+                                localStorage.setItem('activeTab', 'studio');
+                                localStorage.setItem('studioSubTab', 'edit');
+                                if (window.loadEpubForEditing) {
+                                  window.loadEpubForEditing(full);
+                                }
+                                toast(`Opened "${item.title || 'Novel'}" in Ebook Studio!`, 'success');
+                              }
+                            }, '✏️ Edit'),
                             h('button', {
                               type: 'button',
                               className: 'mini-btn',

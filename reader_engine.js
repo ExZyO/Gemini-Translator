@@ -1263,6 +1263,26 @@
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
+            onClick: () => {
+              if (typeof onClose === 'function') onClose();
+              if (window.loadEpubForEditing) {
+                window.loadEpubForEditing({
+                  id: novelId,
+                  chapters: chapters
+                });
+              }
+              if (typeof window.setActiveAppTab === 'function') {
+                window.setActiveAppTab('studio', 'edit');
+              }
+            },
+            title: 'Edit Book & TOC in Ebook Studio'
+          },
+            h('span', null, '✏️'),
+            h('span', { className: 'reader-top-btn-text' }, ' Edit')
+          ),
+          h('button', {
+            type: 'button',
+            className: 'reader-top-btn',
             onClick: () => setShowSettings(true),
             title: 'Typography & Appearance'
           },
