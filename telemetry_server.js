@@ -10,7 +10,7 @@ const LOG_FILE = path.join(__dirname, 'telemetry_live.log');
 const WCT_TEST_LOG = path.join(LOGS_DIR, 'witchcult_test_deep.log');
 const MAX_LOG_SIZE = 15 * 1024 * 1024; // 15MB
 
-let appVersion = '8.14.5';
+let appVersion = '8.14.7';
 try {
   const v = JSON.parse(fs.readFileSync(path.join(__dirname, 'version.json'), 'utf8'));
   if (v.version) appVersion = v.version;
@@ -413,13 +413,14 @@ const MIME_TYPES = {
   '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.txt': 'text/plain; charset=UTF-8',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.apk': 'application/vnd.android.package-archive'
 };
 
 const server = http.createServer(async (req, res) => {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -734,9 +735,18 @@ const server = http.createServer(async (req, res) => {
   const filePath = path.join(__dirname, reqPath.replace(/^\//, ''));
 
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+    const stat = fs.statSync(filePath);
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Content-Length': stat.size,
+      'Access-Control-Allow-Origin': '*'
+    });
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
     fs.createReadStream(filePath).pipe(res);
     return;
   }

@@ -271,7 +271,7 @@
       if (keys.length === 1) return keys[0].key;
 
       const hasCoolingKeys = Array.from(this.coolingUntil.values()).some(t => t > Date.now());
-      const minGap = hasCoolingKeys ? 350 : 40;
+      const minGap = hasCoolingKeys ? 450 : 300;
       const elapsedSinceLastLease = Date.now() - (this.lastLeaseTime || 0);
       if (elapsedSinceLastLease < minGap) {
         await new Promise(r => setTimeout(r, minGap - elapsedSinceLastLease));
@@ -279,7 +279,7 @@
 
       const now = Date.now();
       if (failingKey) {
-        const jitter = Math.floor(Math.random() * 4000);
+        const jitter = Math.floor(Math.random() * 5000);
         const totalCoolMs = 15000 + jitter;
         this.coolingUntil.set(failingKey, now + totalCoolMs);
         window.AppLogger?.log('warn', 'KeyPool', `Key ${maskKey(failingKey)} hit 429 rate-limit. Cooling for ${(totalCoolMs / 1000).toFixed(1)}s.`);

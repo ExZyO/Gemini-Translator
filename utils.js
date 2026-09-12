@@ -399,8 +399,20 @@ function cleanNovelProse(text) {
     return t.trim();
 }
 
+function sanitizeChapterTitle(title) {
+    if (!title || typeof title !== 'string') return '';
+    let t = title.trim();
+    t = t.replace(/\s*(?:\[\d+\])?\s*[-—–]+\s*FOOTNOTES?\s*[-—–]+[\s\S]*/i, '');
+    t = t.replace(/\s*\[\s*(?:TL|TN|Note|Translator'?s?\s*Note)[:\s][^\]]*\]\s*$/i, '');
+    t = t.replace(/\s*\[[0-9¹²³⁴⁵⁶⁷⁸⁹]+\]\s*$/g, '');
+    t = t.replace(/[¹²³⁴⁵⁶⁷⁸⁹]+$/g, '');
+    t = t.replace(/^["'“”‘’](.*)["'“”‘’]$/, '$1');
+    return t.trim() || title.trim();
+}
+
 window.decodeHtmlEntities = decodeHtmlEntities;
 window.cleanNovelProse = cleanNovelProse;
+window.sanitizeChapterTitle = sanitizeChapterTitle;
 
 window.normalizeTextForComparison = normalizeTextForComparison;
 window.isSimilarToTitle = isSimilarToTitle;

@@ -881,6 +881,10 @@ hr {
           chTitle = chTitle.replace(/\s*(?:\||–|—|-)\s*Witch\s*Cult\s*Translations/gi, '').trim();
           chTitle = chTitle.replace(/\s*\((?:Originally\s+translated\s+by\s+TranslationChicken|Translation\s*Chicken)\)/gi, '').trim();
           chTitle = chTitle.replace(/^Re:Zero(?:\s*\(WN\))?\s*[-–—:|]?\s*/i, '').trim();
+          chTitle = chTitle.replace(/\s*(?:\[\d+\])?\s*[-—–]+\s*FOOTNOTES?\s*[-—–]+[\s\S]*/i, '').trim();
+          chTitle = chTitle.replace(/\s*\[\s*(?:TL|TN|Note|Translator'?s?\s*Note)[:\s][^\]]*\]\s*$/i, '').trim();
+          chTitle = chTitle.replace(/\s*\[[0-9¹²³⁴⁵⁶⁷⁸⁹]+\]\s*$/g, '').trim();
+          chTitle = chTitle.replace(/[¹²³⁴⁵⁶⁷⁸⁹]+$/g, '').trim();
           chTitle = chTitle.replace(/^[\s,;:–—-]+\s*/, '').trim();
           if (!chTitle) chTitle = `Chapter ${idx + 1}`;
 

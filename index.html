@@ -856,7 +856,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.14.3';
+    let VERSION = '8.14.7';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2193,7 +2193,9 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       const updatedFinishReason = j?.candidates?.[0]?.finishReason;
       if ((updatedFinishReason === 'SAFETY' || updatedFinishReason === 'MAX_TOKENS') && t.trim().length > 0) {
         console.warn(`Gemini translation cut off due to ${updatedFinishReason}. Auto-continuing seamlessly...`);
-        console.warn('Gemini translation cut off due to SAFETY filter. Attempting solemn auto-continuation...');
+        if (updatedFinishReason === 'SAFETY') {
+          console.warn('Gemini translation cut off due to SAFETY filter. Attempting solemn auto-continuation...');
+        }
         const tailSummary = t.trim().slice(-200);
         const contPrompt = `You are translating an authorized Chinese dark fantasy literature chapter into ${tgtLang || 'English'}.\n` +
           `The translation was partially completed up to this line:\n"...${tailSummary}"\n\n` +
@@ -2752,7 +2754,8 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
               if (allKeys.length > 1) {
                 const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
                 if (freshKey && freshKey !== currentOpts.apiKey) {
-                  console.warn(`Retryable error (${errMsg.slice(0, 50)}) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
+                  const errBrief = (err.message || '').replace(/\s+/g, ' ').trim().slice(0, 75);
+                  console.warn(`Retryable error (${errBrief}) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
                   currentOpts.apiKey = freshKey;
                   await new Promise(r => setTimeout(r, 600));
                   continue;
@@ -2839,7 +2842,8 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
               if (allKeys.length > 1) {
                 const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
                 if (freshKey && freshKey !== currentOpts.apiKey) {
-                  console.warn(`Retryable error (${errMsg.slice(0, 50)}) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
+                  const errBrief = (err.message || '').replace(/\s+/g, ' ').trim().slice(0, 75);
+                  console.warn(`Retryable error (${errBrief}) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
                   currentOpts.apiKey = freshKey;
                   await new Promise(r => setTimeout(r, 600));
                   continue;
@@ -5933,7 +5937,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8223);
+      const [appVersionCode, setAppVersionCode] = useState(8227);
       useEffect(() => {
         fetch('./version.json?t=' + Date.now())
           .then(r => r.json())
@@ -9758,8 +9762,9 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       const tRes = await translateWithRotation(title, titleWorkerOpts);
                       const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
                       if (trans && trans.trim()) {
-                        translatedTitleCache.set(title, trans.trim());
-                        title = trans.trim();
+                        const cleanT = (typeof window !== 'undefined' && window.sanitizeChapterTitle) ? window.sanitizeChapterTitle(trans.trim()) : trans.trim();
+                        translatedTitleCache.set(title, cleanT);
+                        title = cleanT;
                       }
                       if (tRes?.usage) {
                         totalPromptTokens += tRes.usage.promptTokens || 0;
@@ -10789,7 +10794,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       const logsContainerRef = useRef(null);
       const [liveLogs, setLiveLogs] = useState(() => window.AppLogger ? [...window.AppLogger.logs] : []);
       useEffect(() => {
-        if (!logsModalOpen || !window.AppLogger) return;
+        if ((!logsModalOpen && !showLiveLogs) || !window.AppLogger) return;
         setLiveLogs([...window.AppLogger.logs]);
         let rafId = null;
         let latestLogs = null;
@@ -10811,7 +10816,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           if (rafId) cancelAnimationFrame(rafId);
           if (unsub) unsub();
         };
-      }, [logsModalOpen]);
+      }, [logsModalOpen, showLiveLogs]);
 
       // Live Agent Telemetry & Debugging (Method 2 Wireless Wi-Fi)
       const [telemetryEnabled, setTelemetryEnabled] = useState(() => localStorage.getItem('telemetry_enabled') !== 'false');
@@ -10894,10 +10899,31 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         if (libTab === 'incomplete') return (filteredBooks || []).filter(b => b && b.isIncomplete);
         return (filteredBooks || []).filter(Boolean);
       }, [filteredBooks, libTab]);
+      const translateStartRef = useRef(null);
       useEffect(() => {
-        if (!isTranslating) { setElapsedSec(0); return; }
-        const t = setInterval(() => setElapsedSec(s => s + 1), 1000);
-        return () => clearInterval(t);
+        if (!isTranslating) {
+          translateStartRef.current = null;
+          setElapsedSec(0);
+          return;
+        }
+        if (!translateStartRef.current) {
+          translateStartRef.current = Date.now();
+        }
+        const updateElapsed = () => {
+          if (translateStartRef.current) {
+            setElapsedSec(Math.max(0, Math.floor((Date.now() - translateStartRef.current) / 1000)));
+          }
+        };
+        updateElapsed();
+        const t = setInterval(updateElapsed, 1000);
+        const handleVisibilityChange = () => {
+          if (!document.hidden) updateElapsed();
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+          clearInterval(t);
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
       }, [isTranslating]);
 
       useEffect(() => { localStorage.setItem('readerTheme', readerTheme); }, [readerTheme]);

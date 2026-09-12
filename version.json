@@ -1,9 +1,9 @@
 {
-  "version": "8.14.6",
-  "versionCode": 8226,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.6/app-release.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.6/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.14.6",
-  "releaseDate": "2026-09-11",
-  "releaseNotes": "v8.14.6: Precision Smart Glossary Filtering & Token Optimization: 1) Prevent Volume Label Token Leaks: resolves regex splitting bug where terms like '1年1巻' or '2年6巻' were split on digits into the isolated kanji '年', causing all 40+ volume entries to falsely match every paragraph containing '年' (saving 1,500-3,000+ unnecessary tokens per chunk); 2) Preserved Alphanumeric CJK Keys: properly treats mixed terms like '3年A組' and '1年1巻' as single holistic keys; 3) Generic Stop-Key Expansion: added volume, volumes, vol, vols to generic filter list."
+  "version": "8.14.7",
+  "versionCode": 8227,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.7/app-release.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.7/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.14.7",
+  "releaseDate": "2026-09-12",
+  "releaseNotes": "v8.14.7: High-Speed Multi-Stream Background Resilience & Title Sanitization: 1) Wall-Clock Elapsed Timer: upgraded translation progress timer to use Date.now() and visibilitychange event listener, eliminating frozen/stalled timer display when switching between apps or returning from background; 2) Chapter Title Sanitizer: automated cleanup of cultural footnote blocks, superscript citations, and translator tags from EPUB headings and table of contents; 3) Live Diagnostics Feed: real-time streaming of telemetry logs directly inside the Translator tab; 4) KeyPool Dispatch Micro-Staggering: randomized jitter and 300ms minimum inter-worker lease spacing to eliminate 40ms burst stampedes on Google Gemini API gateways."
 }
