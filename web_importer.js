@@ -1507,7 +1507,7 @@
         chapters.push(chapter);
     };
 
-    async function crawlAO3(url, progressCb) {
+    async function crawlAO3(url, progressCb, options = {}) {
         progressCb?.('Analyzing AO3 work URL...', 10);
         const match = url.match(/works\/(\d+)/);
         if (!match) throw new Error('Invalid AO3 URL. Could not find work ID.');
@@ -1569,7 +1569,7 @@
     }
 
     // --- C. ROYAL ROAD & SCRIBBLEHUB TEMPLATE ---
-    async function crawlRoyalRoad(url, progressCb) {
+    async function crawlRoyalRoad(url, progressCb, options = {}) {
         progressCb?.('Fetching novel info from RoyalRoad...', 15);
         const html = await fetchHtml(url);
         const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -1666,7 +1666,7 @@
     }
 
     // --- D. SYOSETU (小説家になろう) & KAKUYOMU (カクヨム) & HAMELN (ハーメルン) ---
-    async function crawlSyosetu(url, progressCb) {
+    async function crawlSyosetu(url, progressCb, options = {}) {
         progressCb?.('Connecting to Syosetu / Kakuyomu / Hameln...', 15);
         let html;
         try {
@@ -1777,7 +1777,7 @@
     }
 
     // --- E. NOVELFULL & BOXNOVEL & READLIGHTNOVEL TEMPLATE ---
-    async function crawlNovelFull(url, progressCb) {
+    async function crawlNovelFull(url, progressCb, options = {}) {
         progressCb?.('Connecting to NovelFull / BoxNovel...', 15);
         const html = await fetchHtml(url);
         const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -1854,7 +1854,7 @@
     }
 
     // --- E1. NOVELBIN & MVLEMPYR TEMPLATE (novel-bin.com, novelbin.me, mvlempyr.com) ---
-    async function crawlNovelBin(url, progressCb) {
+    async function crawlNovelBin(url, progressCb, options = {}) {
         progressCb?.('Connecting to NovelBin...', 15);
         const origin = new URL(url).origin;
         
@@ -1977,7 +1977,7 @@
     }
 
     // --- F. NOVELFIRE TEMPLATE (novelfire.net) ---
-    async function crawlNovelFire(url, progressCb) {
+    async function crawlNovelFire(url, progressCb, options = {}) {
         progressCb?.('Connecting to NovelFire...', 15);
         const origin = new URL(url).origin;
         
@@ -2148,7 +2148,7 @@
     }
 
     // --- F. LOFTER (乐乎 WITH HIGH-RES ARTWORK) ---
-    async function crawlLofter(url, progressCb) {
+    async function crawlLofter(url, progressCb, options = {}) {
         progressCb?.('Connecting to NetEase Lofter...', 15);
         const mobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15";
         const permalinkMatch = url.match(/\/post\/([a-zA-Z0-9_-]+)/i);
@@ -2297,7 +2297,7 @@
             .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
     }
 
-    async function crawlPixiv(url, progressCb) {
+    async function crawlPixiv(url, progressCb, options = {}) {
         const parsed = new URL(url);
         const novelId = parsed.pathname.match(/\/novel\/show\.php$/i) ? parsed.searchParams.get('id') : null;
         const seriesId = parsed.pathname.match(/\/novel\/series\/(\d+)/i)?.[1] || null;
@@ -2396,7 +2396,7 @@
     }
 
     // --- G. NOVELBUDDY TEMPLATE (novelbuddy.me / novelbuddy.com) ---
-    async function crawlNovelBuddy(url, progressCb) {
+    async function crawlNovelBuddy(url, progressCb, options = {}) {
         progressCb?.('Connecting to NovelBuddy...', 15);
         let bookUrl = url.trim().replace(/\/chapter[-/].*$/i, '');
         const origin = new URL(url).origin;
@@ -2420,13 +2420,16 @@
         const tags = (manga.genres || []).map(g => g.name || g).concat(['NovelBuddy', 'Web Novel']);
         const cover = manga.cover || extractPageCover(doc, origin);
 
-        // Check if TOC is already known from resume session
+        // Check if TOC is already known from resume session or update options
         let chapterLinks = [];
-        const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
-        const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
+        const allowReuseTOC = !options.tocOnly && !activeCrawlController?.tocOnly && !options.refreshToc && !activeCrawlController?.refreshToc && !options.isUpdate && !activeCrawlController?.isUpdate && (options.reuseToc || activeCrawlController?.reuseToc);
+        const existingTOC = allowReuseTOC ? (options.chapterList || activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
             console.log(`⚡ [NovelBuddy] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
+        } else if (options.chapterList && Array.isArray(options.chapterList) && options.chapterList.length > 0 && (options.isUpdate || activeCrawlController?.isUpdate)) {
+            console.log(`⚡ [NovelBuddy] Using verified update TOC (${options.chapterList.length} chapters).`);
+            chapterLinks = [...options.chapterList];
         } else if (mangaId) {
             // First fetch complete chapter index via official REST API
             try {
@@ -2486,6 +2489,11 @@
         }
 
         if (chapterLinks.length === 0) chapterLinks = [{ url, title: 'Chapter 1' }];
+
+        if (options.tocOnly || activeCrawlController?.tocOnly) {
+            progressCb?.(` Table of contents verified: ${chapterLinks.length} remote chapters found.`, 100);
+            return { title, author, summary, cover, tags, chapters: [], chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
+        }
 
         progressCb?.(`Found ${chapterLinks.length} chapters on NovelBuddy! Ingesting in parallel...`, 30);
 
@@ -2914,7 +2922,7 @@
     }
 
     // --- I. WUXIA BOX TEMPLATE (wuxiabox.com / wuxiap.com / wuxiaclick.com) ---
-    async function crawlWuxiaBox(url, progressCb) {
+    async function crawlWuxiaBox(url, progressCb, options = {}) {
         progressCb?.('Connecting to Wuxia Box...', 15);
         let bookUrl = url.trim().replace(/_\d+\.html$/i, '.html');
         const origin = new URL(url).origin;
@@ -2981,7 +2989,7 @@
     }
 
     // --- J. WTR-LAB TEMPLATE (wtr-lab.com - High-Speed Clean AI JSON API) ---
-    async function crawlWtrLab(url, progressCb) {
+    async function crawlWtrLab(url, progressCb, options = {}) {
         progressCb?.('Connecting to WTR-LAB...', 15);
         let bookUrl = url.trim().replace(/\/chapter[-/].*$/i, '');
         const origin = 'https://wtr-lab.com';
@@ -3084,7 +3092,7 @@
     }
 
     // --- K. FUCKNOVELPIA TEMPLATE (fucknovelpia.com - WAF Referer Protected) ---
-    async function crawlFuckNovelPia(url, progressCb) {
+    async function crawlFuckNovelPia(url, progressCb, options = {}) {
         progressCb?.('Connecting to FuckNovelPia...', 15);
         let bookUrl = url.trim().replace(/\/chapter\.php.*$/i, '');
         const origin = 'https://fucknovelpia.com';
@@ -3157,7 +3165,7 @@
         return { title, author, summary, cover: extractPageCover(doc, bookUrl), tags, chapters, chapterList: chapterLinks, totalChapterCount: chapterLinks.length, isEpub: false, sourceUrl: url };
     }
 
-    async function crawlUniversal(url, progressCb) {
+    async function crawlUniversal(url, progressCb, options = {}) {
         progressCb?.('Analyzing web page structure with Universal Readability Engine (@mozilla/readability)...', 20);
         const html = await fetchHtml(url);
         const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -3851,21 +3859,21 @@
                     console.log(`⚡ [LNCrawl Engine] Routing to active source plugin: ${registeredPlugin.name} (${registeredPlugin.id})`);
                     result = await crawlWithPlugin(registeredPlugin, url, progressCb, options);
                 }
-                else if (type === 'novelbuddy') result = await crawlNovelBuddy(url, progressCb);
+                else if (type === 'novelbuddy') result = await crawlNovelBuddy(url, progressCb, options);
                 else if (type === 'lnori') result = await crawlLnori(url, progressCb, options);
-                else if (type === 'wuxiabox') result = await crawlWuxiaBox(url, progressCb);
-                else if (type === 'wtrlab') result = await crawlWtrLab(url, progressCb);
-                else if (type === 'fucknovelpia') result = await crawlFuckNovelPia(url, progressCb);
-                else if (type === 'novelbin') result = await crawlNovelBin(url, progressCb);
-                else if (type === 'novelfire') result = await crawlNovelFire(url, progressCb);
+                else if (type === 'wuxiabox') result = await crawlWuxiaBox(url, progressCb, options);
+                else if (type === 'wtrlab') result = await crawlWtrLab(url, progressCb, options);
+                else if (type === 'fucknovelpia') result = await crawlFuckNovelPia(url, progressCb, options);
+                else if (type === 'novelbin') result = await crawlNovelBin(url, progressCb, options);
+                else if (type === 'novelfire') result = await crawlNovelFire(url, progressCb, options);
                 else if (type === 'witchcult') result = await crawlWitchCult(url, progressCb, options);
-                else if (type === 'ao3') result = await crawlAO3(url, progressCb);
-                else if (type === 'royalroad') result = await crawlRoyalRoad(url, progressCb);
-                else if (type === 'syosetu') result = await crawlSyosetu(url, progressCb);
-                else if (type === 'novelfull') result = await crawlNovelFull(url, progressCb);
-                else if (type === 'lofter') result = await crawlLofter(url, progressCb);
-                else if (type === 'pixiv') result = await crawlPixiv(url, progressCb);
-                else result = await crawlUniversal(url, progressCb);
+                else if (type === 'ao3') result = await crawlAO3(url, progressCb, options);
+                else if (type === 'royalroad') result = await crawlRoyalRoad(url, progressCb, options);
+                else if (type === 'syosetu') result = await crawlSyosetu(url, progressCb, options);
+                else if (type === 'novelfull') result = await crawlNovelFull(url, progressCb, options);
+                else if (type === 'lofter') result = await crawlLofter(url, progressCb, options);
+                else if (type === 'pixiv') result = await crawlPixiv(url, progressCb, options);
+                else result = await crawlUniversal(url, progressCb, options);
 
                 if (result && activeCrawlController) {
                     result.isPaused = !!activeCrawlController.isPaused;
