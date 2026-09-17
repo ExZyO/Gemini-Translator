@@ -254,6 +254,9 @@
                     <button type="button" id="btn-edit-auto-number" class="tl-btn" title="Renumber chapters sequentially (e.g. Chapter 1 - [Title])">
                         🔢 Auto-Number
                     </button>
+                    <button type="button" id="btn-edit-auto-hierarchy" class="tl-btn" title="Automatically detect volume dividers and nest chapters into a collapsible tree">
+                        🪄 Auto-Hierarchy
+                    </button>
                     <button type="button" id="btn-edit-find-replace" class="tl-btn" title="Search and replace across all chapters">
                         🔍 Find & Replace
                     </button>
@@ -442,9 +445,14 @@
                         <input type="text" id="edit-replace-input" placeholder="Replacement text…" class="tl-field" style="width:100%;">
                     </div>
                     <div class="flex items-center justify-between pt-1">
-                        <label class="tl-check">
-                            <input type="checkbox" id="edit-find-case-sensitive"> Match Case
-                        </label>
+                        <div style="display:flex; align-items:center; gap:14px;">
+                            <label class="tl-check">
+                                <input type="checkbox" id="edit-find-case-sensitive"> Match Case
+                            </label>
+                            <label class="tl-check">
+                                <input type="checkbox" id="edit-find-regex"> Regular Expression (.*)
+                            </label>
+                        </div>
                         <span id="edit-find-matches-count" class="text-xs font-mono" style="color:var(--iris);">0 occurrences</span>
                     </div>
                 </div>
@@ -516,7 +524,7 @@
     async function parseEpubFile(file) {
         const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
         if (!JSZipClass) {
-            alert('JSZip library is required to unpack EPUBs.');
+            if (typeof window.toast === 'function') window.toast('JSZip library is required to unpack EPUBs.', 'error');
             return;
         }
 
@@ -743,7 +751,7 @@
             }
         } catch (err) {
             console.error('EPUB parse error:', err);
-            alert('Failed to parse EPUB: ' + err.message);
+            if (typeof window.toast === 'function') window.toast('Failed to parse EPUB: ' + err.message, 'error');
         } finally {
             if (spinner) spinner.classList.add('hidden');
             if (progWrap) progWrap.classList.add('hidden');
@@ -818,7 +826,7 @@
         const preview = document.getElementById('edit-cover-preview');
         if (!preview) return;
         if (state.coverUrl) {
-            preview.innerHTML = `<img src="${state.coverUrl}" style="width:100%; height:100%; object-fit:cover;" alt="Cover" />`;
+            preview.innerHTML = `<img src="${state.coverUrl}" style="width:100%; height:100%; object-fit:cover;" alt="Cover" onerror="this.style.display='none'; if(this.parentElement) this.parentElement.innerHTML='<span style=\\'font-size:10px; color:#ef4444; text-align:center; padding:6px;\\'>⚠️ Broken Cover Link</span>';" />`;
         } else {
             preview.innerHTML = `<span style="font-size:11px; color:var(--slate); text-align:center; padding:8px;">No Cover<br><span style="font-size:9px; opacity:0.7;">Click to set</span></span>`;
         }
@@ -839,6 +847,108 @@
         if (statW) statW.textContent = `${totalWords.toLocaleString()} words`;
         if (statImg) statImg.textContent = `${allImages.size} images`;
         if (tocBadge) tocBadge.textContent = `${state.chapters.length} Chapters`;
+    }
+
+    // ── Hierarchy & Block Range Helpers ──
+    function getChapterBlockRange(idx) {
+        if (idx < 0 || idx >= state.chapters.length) return [idx, idx];
+        const ch = state.chapters[idx];
+        if (ch.level !== 1) {
+            return [idx, idx];
+        }
+        let end = idx;
+        while (end + 1 < state.chapters.length && state.chapters[end + 1].level === 2) {
+            end++;
+        }
+        return [idx, end];
+    }
+
+    function moveChapterBlock(startIdx, endIdx, dir) {
+        if (state.chapters.length <= 1) return;
+        const blockLen = endIdx - startIdx + 1;
+
+        if (dir === 'top') {
+            if (startIdx === 0) return;
+            const block = state.chapters.splice(startIdx, blockLen);
+            state.chapters.unshift(...block);
+        } else if (dir === 'bottom') {
+            if (endIdx >= state.chapters.length - 1) return;
+            const block = state.chapters.splice(startIdx, blockLen);
+            state.chapters.push(...block);
+        } else if (dir === -1) {
+            if (startIdx === 0) return;
+            if (state.chapters[startIdx].level === 1) {
+                let targetPos = startIdx - 1;
+                while (targetPos > 0 && state.chapters[targetPos].level === 2) {
+                    targetPos--;
+                }
+                const block = state.chapters.splice(startIdx, blockLen);
+                state.chapters.splice(targetPos, 0, ...block);
+            } else {
+                const temp = state.chapters[startIdx - 1];
+                state.chapters[startIdx - 1] = state.chapters[startIdx];
+                state.chapters[startIdx] = temp;
+            }
+        } else if (dir === 1) {
+            if (endIdx >= state.chapters.length - 1) return;
+            if (state.chapters[startIdx].level === 1) {
+                const nextTargetIdx = endIdx + 1;
+                const [nextStart, nextEnd] = getChapterBlockRange(nextTargetIdx);
+                const block = state.chapters.splice(startIdx, blockLen);
+                const insertAt = nextEnd - blockLen + 1;
+                state.chapters.splice(insertAt, 0, ...block);
+            } else {
+                const temp = state.chapters[startIdx + 1];
+                state.chapters[startIdx + 1] = state.chapters[startIdx];
+                state.chapters[startIdx] = temp;
+            }
+        }
+
+        if (state.chapters.length > 0) state.chapters[0].level = 1;
+        renderChapterList();
+        updateStats();
+    }
+
+    function autoDetectHierarchy() {
+        if (!state.chapters || state.chapters.length === 0) {
+            if (typeof window.toast === 'function') window.toast('No chapters in the book.', 'warning');
+            return;
+        }
+
+        const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s,;:–—-]*(.*)$/i;
+        let volumeCount = 0;
+        let chapterCount = 0;
+        let inVolume = false;
+
+        state.chapters.forEach((ch) => {
+            const t = (ch.title || '').trim();
+            const isVolHeader = volRegex.test(t) && !/chapter|ch\.\s*\d+/i.test(t);
+
+            if (isVolHeader) {
+                ch.level = 1;
+                volumeCount++;
+                inVolume = true;
+            } else if (inVolume) {
+                ch.level = 2;
+                chapterCount++;
+            } else {
+                ch.level = 1;
+            }
+        });
+
+        if (state.chapters.length > 0) state.chapters[0].level = 1;
+        renderChapterList();
+        updateStats();
+
+        if (volumeCount > 0) {
+            if (typeof window.toast === 'function') {
+                window.toast(`Auto-organized ${volumeCount} volumes and ${chapterCount} sub-chapters!`, 'success');
+            }
+        } else {
+            if (typeof window.toast === 'function') {
+                window.toast('No volume headers detected. Use "→ Sub" to nest chapters manually.', 'info');
+            }
+        }
     }
 
     // ── Render Interactive Chapters List ──
@@ -862,12 +972,18 @@
             }
 
             const isSub = ch.level === 2;
+            const hasChildren = !isSub && (idx + 1 < state.chapters.length && state.chapters[idx + 1].level === 2);
+            const [blockStart, blockEnd] = getChapterBlockRange(idx);
+
             const row = document.createElement('div');
             row.className = `chap-row flex items-center justify-between gap-2 p-2.5 rounded-lg border transition-all ${
                 isSub ? 'ml-6 bg-slate-900/40 border-indigo-950/60' : 'bg-slate-900/80 border-slate-800'
             }`;
-            row.style.background = isSub ? 'rgba(99,102,241,0.04)' : 'rgba(255,255,255,0.02)';
-            row.style.borderColor = isSub ? 'rgba(99,102,241,0.3)' : 'var(--hairline)';
+            row.style.background = isSub ? 'rgba(99,102,241,0.03)' : (hasChildren ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.03)');
+            row.style.borderColor = isSub ? 'rgba(99,102,241,0.25)' : (hasChildren ? 'rgba(99,102,241,0.5)' : 'var(--hairline)');
+            if (hasChildren) {
+                row.style.borderLeft = '4px solid #6366f1';
+            }
 
             // Left side: hierarchy marker, reorder buttons, inline title input
             const left = document.createElement('div');
@@ -892,57 +1008,66 @@
             }
             levelBtn.onclick = () => {
                 ch.level = isSub ? 1 : 2;
+                if (state.chapters.length > 0) state.chapters[0].level = 1;
                 renderChapterList();
             };
             left.appendChild(levelBtn);
 
-            // Reorder buttons (▲ / ▼)
+            // Reorder buttons (⤒ / ↑ / ↓ / ⤓)
             const reorderGroup = document.createElement('div');
-            reorderGroup.className = 'flex items-center gap-1 shrink-0';
+            reorderGroup.className = 'flex items-center gap-0.5 shrink-0';
+
+            const topBtn = document.createElement('button');
+            topBtn.type = 'button';
+            topBtn.className = 'chip-act';
+            topBtn.style.padding = '2px 4px';
+            topBtn.style.fontSize = '9px';
+            topBtn.textContent = '⤒';
+            topBtn.disabled = idx === 0;
+            topBtn.title = hasChildren ? 'Move entire volume to top' : 'Move chapter to top';
+            topBtn.onclick = () => moveChapterBlock(blockStart, blockEnd, 'top');
 
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
             upBtn.className = 'chip-act';
             upBtn.style.padding = '2px 5px';
             upBtn.style.fontSize = '9px';
-            upBtn.textContent = '▲';
+            upBtn.textContent = '↑';
             upBtn.disabled = idx === 0;
-            upBtn.title = 'Move chapter up';
-            upBtn.onclick = () => {
-                if (idx > 0) {
-                    const temp = state.chapters[idx - 1];
-                    state.chapters[idx - 1] = state.chapters[idx];
-                    state.chapters[idx] = temp;
-                    renderChapterList();
-                }
-            };
+            upBtn.title = hasChildren ? 'Move entire volume up' : 'Move chapter up';
+            upBtn.onclick = () => moveChapterBlock(blockStart, blockEnd, -1);
 
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
             downBtn.className = 'chip-act';
             downBtn.style.padding = '2px 5px';
             downBtn.style.fontSize = '9px';
-            downBtn.textContent = '▼';
-            downBtn.disabled = idx === state.chapters.length - 1;
-            downBtn.title = 'Move chapter down';
-            downBtn.onclick = () => {
-                if (idx < state.chapters.length - 1) {
-                    const temp = state.chapters[idx + 1];
-                    state.chapters[idx + 1] = state.chapters[idx];
-                    state.chapters[idx] = temp;
-                    renderChapterList();
-                }
-            };
+            downBtn.textContent = '↓';
+            downBtn.disabled = blockEnd >= state.chapters.length - 1;
+            downBtn.title = hasChildren ? 'Move entire volume down' : 'Move chapter down';
+            downBtn.onclick = () => moveChapterBlock(blockStart, blockEnd, 1);
 
+            const bottomBtn = document.createElement('button');
+            bottomBtn.type = 'button';
+            bottomBtn.className = 'chip-act';
+            bottomBtn.style.padding = '2px 4px';
+            bottomBtn.style.fontSize = '9px';
+            bottomBtn.textContent = '⤓';
+            bottomBtn.disabled = blockEnd >= state.chapters.length - 1;
+            bottomBtn.title = hasChildren ? 'Move entire volume to bottom' : 'Move chapter to bottom';
+            bottomBtn.onclick = () => moveChapterBlock(blockStart, blockEnd, 'bottom');
+
+            reorderGroup.appendChild(topBtn);
             reorderGroup.appendChild(upBtn);
             reorderGroup.appendChild(downBtn);
+            reorderGroup.appendChild(bottomBtn);
             left.appendChild(reorderGroup);
 
             // Index badge
             const numBadge = document.createElement('span');
             numBadge.className = 'text-[11px] font-mono font-bold shrink-0';
-            numBadge.style.color = isSub ? '#818cf8' : 'var(--paper-dim)';
-            numBadge.textContent = `#${idx + 1}`;
+            numBadge.style.color = isSub ? '#818cf8' : (hasChildren ? '#a5b4fc' : 'var(--paper-dim)');
+            numBadge.textContent = isSub ? `↳ #${idx + 1}` : (hasChildren ? `📁 #${idx + 1}` : `#${idx + 1}`);
             left.appendChild(numBadge);
 
             // Inline Title Input
@@ -1287,35 +1412,68 @@
     }
 
     // ── Global Find & Replace Logic ──
+    let findCountDebounceTimer = null;
+
     function openFindReplaceModal() {
         const modal = document.getElementById('edit-find-replace-modal');
         const findIn = document.getElementById('edit-find-input');
-        const replaceIn = document.getElementById('edit-replace-input');
         const countSpan = document.getElementById('edit-find-matches-count');
-        if (countSpan) countSpan.textContent = '0 occurrences';
+        if (countSpan) {
+            countSpan.textContent = '0 occurrences';
+            countSpan.style.color = 'var(--iris)';
+        }
         modal?.classList.remove('hidden');
         findIn?.focus();
 
         const updateCount = () => {
-            const query = findIn?.value || '';
-            const caseSens = document.getElementById('edit-find-case-sensitive')?.checked;
-            if (!query) {
-                if (countSpan) countSpan.textContent = '0 occurrences';
-                return;
-            }
-            let total = 0;
-            const flags = caseSens ? 'g' : 'gi';
-            const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(escaped, flags);
-            state.chapters.forEach(c => {
-                const matches = (c.content || '').match(regex);
-                if (matches) total += matches.length;
-            });
-            if (countSpan) countSpan.textContent = `${total} occurrence${total === 1 ? '' : 's'}`;
+            clearTimeout(findCountDebounceTimer);
+            findCountDebounceTimer = setTimeout(() => {
+                const query = findIn?.value || '';
+                const caseSens = document.getElementById('edit-find-case-sensitive')?.checked;
+                const isRegex = document.getElementById('edit-find-regex')?.checked;
+
+                if (!query) {
+                    if (countSpan) {
+                        countSpan.textContent = '0 occurrences';
+                        countSpan.style.color = 'var(--iris)';
+                    }
+                    return;
+                }
+
+                let regex;
+                try {
+                    const flags = caseSens ? 'g' : 'gi';
+                    if (isRegex) {
+                        regex = new RegExp(query, flags);
+                    } else {
+                        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        regex = new RegExp(escaped, flags);
+                    }
+                } catch (e) {
+                    if (countSpan) {
+                        countSpan.textContent = 'Invalid regex: ' + e.message;
+                        countSpan.style.color = '#ef4444';
+                    }
+                    return;
+                }
+
+                let total = 0;
+                state.chapters.forEach(c => {
+                    const matches = (c.content || '').match(regex);
+                    if (matches) total += matches.length;
+                });
+                if (countSpan) {
+                    countSpan.textContent = `${total.toLocaleString()} occurrence${total === 1 ? '' : 's'}`;
+                    countSpan.style.color = total > 0 ? '#10b981' : 'var(--slate)';
+                }
+            }, 180);
         };
 
         if (findIn) findIn.oninput = updateCount;
-        document.getElementById('edit-find-case-sensitive').onchange = updateCount;
+        const caseSensEl = document.getElementById('edit-find-case-sensitive');
+        if (caseSensEl) caseSensEl.onchange = updateCount;
+        const regexEl = document.getElementById('edit-find-regex');
+        if (regexEl) regexEl.onchange = updateCount;
     }
 
     function doGlobalReplace() {
@@ -1324,33 +1482,76 @@
         const query = findIn?.value || '';
         const replacement = replaceIn?.value || '';
         const caseSens = document.getElementById('edit-find-case-sensitive')?.checked;
+        const isRegex = document.getElementById('edit-find-regex')?.checked;
+        const replaceBtn = document.getElementById('btn-edit-do-replace');
 
-        if (!query) return;
+        if (!query) {
+            if (typeof window.toast === 'function') window.toast('Enter search text first.', 'warning');
+            return;
+        }
 
-        const flags = caseSens ? 'g' : 'gi';
-        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(escaped, flags);
+        let regex;
+        try {
+            const flags = caseSens ? 'g' : 'gi';
+            if (isRegex) {
+                regex = new RegExp(query, flags);
+            } else {
+                const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                regex = new RegExp(escaped, flags);
+            }
+        } catch (e) {
+            if (typeof window.toast === 'function') window.toast('Invalid regex: ' + e.message, 'error');
+            return;
+        }
+
+        if (replaceBtn) {
+            replaceBtn.disabled = true;
+            replaceBtn.textContent = '⏳ Replacing…';
+        }
 
         let replacedCount = 0;
         let affectedChapters = 0;
+        const total = state.chapters.length;
+        const chunkSize = 25;
+        let currentIdx = 0;
 
-        state.chapters.forEach(c => {
-            const matches = (c.content || '').match(regex);
-            if (matches && matches.length > 0) {
-                replacedCount += matches.length;
-                affectedChapters++;
-                c.content = c.content.replace(regex, replacement);
-                c.words = countWords(c.content);
+        function processChunk() {
+            const limit = Math.min(currentIdx + chunkSize, total);
+            for (let i = currentIdx; i < limit; i++) {
+                const c = state.chapters[i];
+                if (c && c.content) {
+                    const matches = c.content.match(regex);
+                    if (matches && matches.length > 0) {
+                        replacedCount += matches.length;
+                        affectedChapters++;
+                        c.content = c.content.replace(regex, replacement);
+                        c.words = countWords(c.content);
+                    }
+                }
             }
-        });
+            currentIdx = limit;
 
-        document.getElementById('edit-find-replace-modal')?.classList.add('hidden');
-        renderChapterList();
-        updateStats();
+            if (currentIdx < total) {
+                if (replaceBtn) {
+                    replaceBtn.textContent = `⏳ Replacing… (${currentIdx}/${total})`;
+                }
+                setTimeout(processChunk, 10);
+            } else {
+                if (replaceBtn) {
+                    replaceBtn.disabled = false;
+                    replaceBtn.textContent = 'Replace in All Chapters';
+                }
+                document.getElementById('edit-find-replace-modal')?.classList.add('hidden');
+                renderChapterList();
+                updateStats();
 
-        if (typeof window.toast === 'function') {
-            window.toast(`Replaced ${replacedCount} occurrences across ${affectedChapters} chapters!`, 'success');
+                if (typeof window.toast === 'function') {
+                    window.toast(`Replaced ${replacedCount.toLocaleString()} occurrences across ${affectedChapters} chapters!`, 'success');
+                }
+            }
         }
+
+        processChunk();
     }
 
     // ── Auto-Numbering Logic ──
@@ -1381,7 +1582,7 @@
     // ── Save to IndexedDB Library & Reader Sync ──
     async function saveEditedBookToLibrary() {
         if (!window.GeminiNovelDB) {
-            alert('Novel Database is not available.');
+            if (typeof window.toast === 'function') window.toast('Novel Database is not available.', 'error');
             return;
         }
 
@@ -1426,19 +1627,19 @@
                 window.loadSavedNovels();
             }
         } else {
-            alert('Failed to save novel to database.');
+            if (typeof window.toast === 'function') window.toast('Failed to save novel to database.', 'error');
         }
     }
 
     // ── Export Clean EPUB File ──
     async function exportCleanEpub() {
         if (!state.chapters || state.chapters.length === 0) {
-            alert('No chapters to export.');
+            if (typeof window.toast === 'function') window.toast('No chapters to export.', 'warning');
             return;
         }
 
         if (typeof window.generateEpubFromChapters !== 'function') {
-            alert('EPUB packaging engine is not available.');
+            if (typeof window.toast === 'function') window.toast('EPUB packaging engine is not available.', 'error');
             return;
         }
 
@@ -1497,7 +1698,7 @@
             }
         } catch (err) {
             console.error('EPUB packaging error:', err);
-            alert('Failed to package EPUB: ' + err.message);
+            if (typeof window.toast === 'function') window.toast('Failed to package EPUB: ' + err.message, 'error');
         } finally {
             if (btnExport) {
                 btnExport.disabled = false;
@@ -1629,6 +1830,7 @@
             document.getElementById('edit-autonumber-modal')?.classList.remove('hidden');
         });
         document.getElementById('btn-edit-do-autonumber')?.addEventListener('click', doAutoNumber);
+        document.getElementById('btn-edit-auto-hierarchy')?.addEventListener('click', autoDetectHierarchy);
 
         document.getElementById('btn-edit-find-replace')?.addEventListener('click', openFindReplaceModal);
         document.getElementById('btn-edit-do-replace')?.addEventListener('click', doGlobalReplace);
