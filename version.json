@@ -1,8 +1,8 @@
 {
   "version": "8.15.0",
   "versionCode": 8228,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.15.0/app-release.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.15.0/app-release.apk",
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.15.0/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.15.0/GeminiTranslator.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.15.0",
   "releaseDate": "2026-09-17",
   "releaseNotes": "v8.15.0: App-Wide Overhaul & Resilience Update: 1) Grouped Settings Categories: categorized engine, quality, reader display, and backup settings into clean tabbed groups; 2) Ebook Studio TOC Hierarchy: group-aware volume and chapter reordering, visual hierarchy badges, 1-click Auto-Hierarchy detection, and non-blocking regex Find & Replace; 3) Crawler Circuit Breaker & Cloudflare Guard: smart consecutive-failure circuit breaker to prevent placeholder corruption, missing chapter healing on resume, and actionable Cloudflare Turnstile recovery guidance; 4) Mobile Ergonomics & Parity: 3-dot action sheet for novel cards, safe touch targets, deletion protection, and smooth desktop drag dividers."
