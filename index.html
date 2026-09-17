@@ -4907,6 +4907,53 @@ const formatModelName = (id, displayName) => {
       const [translatedChapters, setTranslatedChapters] = useState([]);
       const [chapters, setChapters] = useState([]);
       const [lastUsageStats, setLastUsageStats] = useState(null);
+      const [activeBookMenuNovel, setActiveBookMenuNovel] = useState(null);
+
+      const parseAssembledTextToChapters = (text, fallbackTitle = 'Chapter 1') => {
+        if (!text || !text.trim()) return [];
+        const lines = text.split(/\r?\n/);
+        const headingRegex = /^#{1,3}\s+(.+)$/;
+        const parts = [];
+        let cur = null;
+        for (const line of lines) {
+          const match = line.match(headingRegex);
+          if (match) {
+            if (cur) parts.push({ title: cur.title, content: cur.content.trim() });
+            cur = { title: match[1].trim(), content: '' };
+          } else if (cur) {
+            cur.content += line + '\n';
+          } else {
+            cur = { title: fallbackTitle, content: line + '\n' };
+          }
+        }
+        if (cur) parts.push({ title: cur.title, content: cur.content.trim() });
+        return parts;
+      };
+
+      const handleAssembledTextChange = (newText) => {
+        setAssembledText(newText);
+        if (!translatedChapters || translatedChapters.length <= 1) {
+          const defaultTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Chapter 1';
+          const parsed = parseAssembledTextToChapters(newText, defaultTitle);
+          if (parsed.length > 0) {
+            setTranslatedChapters(parsed);
+          } else {
+            setTranslatedChapters([{ title: defaultTitle, content: newText }]);
+          }
+        } else {
+          const parsed = parseAssembledTextToChapters(newText, translatedChapters[0]?.title || 'Chapter 1');
+          if (parsed.length > 1) {
+            setTranslatedChapters(parsed);
+          } else {
+            setTranslatedChapters(prev => {
+              if (!prev || prev.length === 0) return [{ title: 'Chapter 1', content: newText }];
+              const next = [...prev];
+              next[0] = { ...next[0], content: newText };
+              return next;
+            });
+          }
+        }
+      };
 
       // --- Provider State ---
       const [provider, setProvider] = useState(() => localStorage.getItem('translationProvider') || 'gemini');
@@ -5861,7 +5908,18 @@ const formatModelName = (id, displayName) => {
           return;
         }
         const title = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || (translatedChapters && translatedChapters[0]?.title && !isGenericTitle(translatedChapters[0].title) ? translatedChapters[0].title : 'Translated Document');
-        const chs = (translatedChapters && translatedChapters.length > 0)
+        const exportChs = (typeof parseAssembledTextToChapters === 'function' && assembledText.trim())
+          ? parseAssembledTextToChapters(assembledText, title)
+          : [];
+        const chs = (exportChs.length > 0)
+          ? exportChs.map((c, i) => ({
+              idx: i,
+              title: c?.title || `Chapter ${i + 1}`,
+              text: c?.content || c?.text || '',
+              content: c?.content || c?.text || '',
+              words: (c?.content || c?.text || '').split(/\s+/).filter(Boolean).length
+            }))
+          : (translatedChapters && translatedChapters.length > 0)
           ? translatedChapters.filter(Boolean).map((c, i) => ({
               idx: i,
               title: c?.title || `Chapter ${i + 1}`,
@@ -6968,6 +7026,54 @@ const formatModelName = (id, displayName) => {
       const [instructionsBoxHeight, setInstructionsBoxHeight] = useState(() => parseInt(localStorage.getItem('instructionsBoxHeight'), 10) || 80);
       const [glossaryBoxHeight, setGlossaryBoxHeight] = useState(() => parseInt(localStorage.getItem('glossaryBoxHeight'), 10) || 140);
 
+      const handlePointerResizeStart = (e, boxType) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        const startY = e.clientY;
+        const initialHeights = {
+          input: inputBoxHeight,
+          output: outputBoxHeight,
+          instructions: instructionsBoxHeight,
+          glossary: glossaryBoxHeight
+        };
+        const minHeights = { input: 120, output: 120, instructions: 50, glossary: 80 };
+        const maxHeights = { input: 3500, output: 3500, instructions: 1200, glossary: 2500 };
+        const startH = initialHeights[boxType] || 200;
+        let lastH = startH;
+
+        const targetEl = e.currentTarget || e.target;
+        try {
+          if (targetEl && typeof targetEl.setPointerCapture === 'function') {
+            targetEl.setPointerCapture(e.pointerId);
+          }
+        } catch (_) {}
+
+        const onPointerMove = (moveEvt) => {
+          const delta = (moveEvt.clientY - startY);
+          const newH = Math.max(minHeights[boxType] || 80, Math.min(maxHeights[boxType] || 2500, Math.round(startH + delta)));
+          lastH = newH;
+          if (boxType === 'input') setInputBoxHeight(newH);
+          else if (boxType === 'output') setOutputBoxHeight(newH);
+          else if (boxType === 'instructions') setInstructionsBoxHeight(newH);
+          else if (boxType === 'glossary') setGlossaryBoxHeight(newH);
+        };
+
+        const onPointerUp = (upEvt) => {
+          try {
+            if (targetEl && typeof targetEl.releasePointerCapture === 'function') {
+              targetEl.releasePointerCapture(upEvt.pointerId);
+            }
+          } catch (_) {}
+          window.removeEventListener('pointermove', onPointerMove);
+          window.removeEventListener('pointerup', onPointerUp);
+          window.removeEventListener('pointercancel', onPointerUp);
+          localStorage.setItem(`${boxType}BoxHeight`, lastH);
+        };
+
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+      };
+
       const handleTouchResizeStart = (e, boxType) => {
         const touch = e.touches && e.touches[0];
         if (!touch) return;
@@ -7065,9 +7171,10 @@ const formatModelName = (id, displayName) => {
 
         return h('div', {
           className: 'py-2 flex items-center justify-center cursor-row-resize touch-none group select-none',
+          onPointerDown: (e) => handlePointerResizeStart(e, boxType),
           onTouchStart: (e) => handleTouchResizeStart(e, boxType),
           onDoubleClick: () => toggleBoxExpand(boxType),
-          title: 'Drag to resize · double-tap to expand or collapse'
+          title: 'Drag to resize · double-click to expand or collapse'
         },
           h('div', { className: 'w-24 h-1.5 rounded-full transition-colors', style: { background: isExp ? 'var(--iris-deep)' : 'var(--hairline)' } })
         );
@@ -10627,13 +10734,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       const isGenericTitle = t => !t || t.trim() === '' || /^translated\s*(document|file)?$/i.test(t.trim());
 
       const getExportChapters = () => {
+        const curText = assembledText && assembledText.trim();
+        if (curText) {
+          const fallbackTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Translated Document';
+          const parsed = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(assembledText, fallbackTitle) : [];
+          if (parsed.length > 0) {
+            return parsed;
+          }
+          return [{ title: fallbackTitle, content: curText }];
+        }
         if (translatedChapters && translatedChapters.length > 0) {
           const valid = translatedChapters.filter(ch => ch && (ch.content || ch.text) && String(ch.content || ch.text).trim() && !String(ch.content || ch.text).startsWith('[Error:'));
           if (valid.length > 0) return valid;
-        }
-        const curText = assembledText || (translatedChapters || []).filter(Boolean).map(c => `${c?.title || ''}\n\n${c?.content || c?.text || ''}`).join('\n\n\n').trim();
-        if (curText && curText.trim()) {
-          return [{ title: 'Translated Document', content: curText.trim() }];
         }
         // Fallback: allow exporting source/raw chapters as EPUB even if translation is incomplete or unstarted
         if (chapters && chapters.length > 0) {
@@ -11059,11 +11171,16 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
       };
 
       const removeImportChapter = (idx) => {
-        setWebImportData(prev => {
-          if (!prev || !prev.chapters) return prev;
-          const chapters = prev.chapters.filter((_, i) => i !== idx);
-          syncCrawlSessionChapters(chapters);
-          return { ...prev, chapters };
+        const targetChapter = (webImportData?.chapters && webImportData.chapters[idx]) ||
+                              (activeCrawlSession?.chapters && activeCrawlSession.chapters[idx]) || null;
+        const chTitle = targetChapter?.title ? `"${targetChapter.title}"` : `Chapter ${idx + 1}`;
+        confirmAction(`Remove ${chTitle} from the chapter list?`, () => {
+          setWebImportData(prev => {
+            if (!prev || !prev.chapters) return prev;
+            const chapters = prev.chapters.filter((_, i) => i !== idx);
+            syncCrawlSessionChapters(chapters);
+            return { ...prev, chapters };
+          });
         });
       };
 
@@ -11538,7 +11655,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 ),
                 h('textarea', {
                   className: 'pane-textarea out', ref: outputRef, value: assembledText,
-                  onChange: e => setAssembledText(e.target.value),
+                  onChange: e => handleAssembledTextChange(e.target.value),
                   placeholder: 'Translated text will appear here…',
                   style: { height: `${outputBoxHeight}px` }
                 })
@@ -13624,75 +13741,6 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                 : `📥 Fetch & Download Raw EPUB (+${badge.newCount})`))
                           );
                         })(),
-                        item.sourceUrl && h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          disabled: checkingUpdates[item.id] || isBatchChecking,
-                          onClick: () => handleCheckNovelUpdate(item),
-                          title: 'Check online source for newly published chapters'
-                        }, checkingUpdates[item.id] ? 'Checking…' : '🔄 Check'),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: {
-                            borderColor: item.inSavedSpace ? '#f59e0b' : 'var(--hairline)',
-                            color: item.inSavedSpace ? '#f59e0b' : 'var(--paper)',
-                            fontWeight: 600
-                          },
-                          onClick: () => toggleNovelSavedSpace(item.id, item)
-                        }, item.inSavedSpace ? '⭐ In Space' : '☆ Save to Space'),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: {
-                            borderColor: 'rgba(99, 102, 241, 0.4)',
-                            color: 'var(--iris)',
-                            fontWeight: 600
-                          },
-                          title: 'Run Novel Health & Translation QA Audit (§5.9 + §7.1 + §7.5)',
-                          onClick: (e) => {
-                            e?.stopPropagation?.();
-                            handleOpenNovelHealthModal(item);
-                          }
-                        }, '🩺 Audit'),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: {
-                            borderColor: 'rgba(56, 189, 248, 0.4)',
-                            color: '#38bdf8',
-                            fontWeight: 600
-                          },
-                          title: 'View Translation Diffs & Revision History (§8.6)',
-                          onClick: async (e) => {
-                            e?.stopPropagation?.();
-                            const full = await loadFullNovel(item);
-                            if (full) {
-                              handleOpenDiffModal(0, full);
-                            } else {
-                              toast('Novel data not found.', 'error');
-                            }
-                          }
-                        }, '📜 Diffs'),
-                        (() => {
-                          const fOpts = getNovelFolderOptions(item);
-                          const dispPath = item.folderPath || fOpts.folderPath || '';
-                          const hasFolder = !!(dispPath || item.folderTreeUri || fOpts.treeUri);
-                          return h('button', {
-                            type: 'button',
-                            className: 'mini-btn ghost',
-                            style: {
-                              borderColor: hasFolder ? '#10b981' : 'var(--hairline)',
-                              color: hasFolder ? '#10b981' : 'var(--paper)',
-                              fontWeight: 600
-                            },
-                            title: 'Set designated folder on device for Moon+ Reader continuity',
-                            onClick: (e) => {
-                              e?.stopPropagation?.();
-                              handleSetNovelFolder(item);
-                            }
-                          }, (dispPath ? `📁 ${dispPath.length > 18 ? dispPath.slice(0, 16) + '…' : dispPath}` : '📁 Folder'));
-                        })(),
                         item.isIncomplete && h('button', {
                           type: 'button',
                           className: 'mini-btn',
@@ -13756,24 +13804,6 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                             }, '📖 Read'),
                             h('button', {
                               type: 'button',
-                              className: 'mini-btn ghost',
-                              style: { borderColor: 'rgba(168, 85, 247, 0.4)', color: '#c084fc', fontWeight: 600 },
-                              title: 'Edit chapters, prose, covers, and TOC in Ebook Studio',
-                              onClick: async () => {
-                                const full = await loadFullNovel(item);
-                                if (!full) { toast('Novel data not found in local store.', 'error'); return; }
-                                setActiveTab('studio');
-                                setStudioSubTab('edit');
-                                localStorage.setItem('activeTab', 'studio');
-                                localStorage.setItem('studioSubTab', 'edit');
-                                if (window.loadEpubForEditing) {
-                                  window.loadEpubForEditing(full);
-                                }
-                                toast(`Opened "${item.title || 'Novel'}" in Ebook Studio!`, 'success');
-                              }
-                            }, '✏️ Edit'),
-                            h('button', {
-                              type: 'button',
                               className: 'mini-btn',
                               onClick: async () => {
                                 const full = await loadFullNovel(item);
@@ -13781,7 +13811,6 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                 const isBookTranslated = full.isTranslated || (full.title || '').includes('(Translated)') || isTrans;
                                 
                                 if (isBookTranslated) {
-                                  // 1. Check if original source chapters are stored on this record
                                   if (full.originalChapters && full.originalChapters.length > 0) {
                                     const srcChs = full.originalChapters;
                                     setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
@@ -13797,7 +13826,6 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                     toast(`Loaded original source chapters into Translator!`, 'success');
                                     return;
                                   }
-                                  // 2. Check if the original source book is in the library under its base title
                                   const baseTitle = (full.title || item.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim();
                                   if (baseTitle && window.GeminiNovelDB) {
                                     try {
@@ -13823,7 +13851,6 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                       }
                                     } catch(e) {}
                                   }
-                                  // 3. Fallback: Cannot find source. NEVER put translated text into source input!
                                   const tgtChs = full.rawChapters || full.chapters || [];
                                   setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
                                   setTranslatedChapters(tgtChs.map(c => ({ title: c.title, content: cleanCh(c) })));
@@ -13836,7 +13863,6 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                   setActiveTab('text');
                                   toast(`This is an already-translated book. Loaded into reader. (Original source was not preserved in this copy)`, 'info');
                                 } else {
-                                  // Untranslated source novel: load its raw chapters into source input & queue
                                   const chs = full.rawChapters || full.chapters || [];
                                   setInputText(chs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
                                   setChapters(chs.map(c => ({ title: c.title, content: cleanCh(c) })));
@@ -13894,24 +13920,20 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         h('button', {
                           type: 'button',
                           className: 'mini-btn ghost',
-                          style: { borderColor: 'rgba(168, 85, 247, 0.4)', color: '#c084fc', fontWeight: 600 },
-                          title: 'Enrich novel metadata, synopsis, genres, and cover via AniList GraphQL (§7.4 / §4.2)',
+                          style: {
+                            padding: '4px 10px',
+                            fontSize: '15px',
+                            fontWeight: 700,
+                            lineHeight: 1,
+                            borderColor: 'var(--hairline)',
+                            color: 'var(--paper)'
+                          },
+                          title: 'More options for this novel',
                           onClick: (e) => {
                             e?.stopPropagation?.();
-                            handleEnrichNovelMetadata(item);
+                            setActiveBookMenuNovel(item);
                           }
-                        }, '🏷️ Enrich'),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: { borderColor: 'rgba(234, 179, 8, 0.4)', color: '#facc15', fontWeight: 600 },
-                          title: 'Split novel into distinct Story Arcs / Volumes (§7.3 / §6.3)',
-                          onClick: (e) => {
-                            e?.stopPropagation?.();
-                            handleSplitNovelIntoArcs(item);
-                          }
-                        }, '✂️ Split Arcs'),
-                        h('button', { type: 'button', className: 'mini-btn danger', onClick: () => confirmAction(`Remove "${item.title}" from the library?`, async () => { await deleteNovelFromHistory(item.id); }) }, 'Remove')
+                        }, '⋮')
                       )
                     ))
                   )),
@@ -15379,6 +15401,100 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           onOpenHealthAudit: handleOpenActiveQaModal,
           onOpenDiff: (idx) => handleOpenDiffModal(idx ?? readerChapterIdx)
         }),
+
+        // ── LIBRARY NOVEL ACTION SHEET (3-DOT MENU) ──
+        activeBookMenuNovel && (() => {
+          const item = activeBookMenuNovel;
+          const fOpts = typeof getNovelFolderOptions === 'function' ? getNovelFolderOptions(item) : {};
+          const dispPath = item.folderPath || fOpts.folderPath || '';
+          const hasFolder = !!(dispPath || item.folderTreeUri || fOpts.treeUri);
+
+          const menuRow = (icon, title, desc, onClick, isDanger = false, badgeText = null) => h('div', {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 14px',
+              borderRadius: 8,
+              cursor: 'pointer',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: isDanger ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--hairline)',
+              marginBottom: 8,
+              transition: 'background 0.15s ease'
+            },
+            onClick: (e) => {
+              e?.stopPropagation?.();
+              setActiveBookMenuNovel(null);
+              onClick();
+            }
+          },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 } },
+              h('span', { style: { fontSize: 20, flexShrink: 0 } }, icon),
+              h('div', { style: { minWidth: 0, flex: 1 } },
+                h('div', { style: { fontWeight: 600, fontSize: 13.5, color: isDanger ? '#ef4444' : 'var(--paper)' } }, title),
+                desc && h('div', { style: { fontSize: 11, color: isDanger ? 'rgba(239, 68, 68, 0.8)' : 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, desc)
+              )
+            ),
+            badgeText && h('span', { className: 'badge', style: { marginLeft: 8, fontSize: 11, padding: '3px 8px', flexShrink: 0 } }, badgeText)
+          );
+
+          return h('div', { className: 'modal-overlay', onClick: () => setActiveBookMenuNovel(null) },
+            h('div', { className: 'modal-box', style: { maxWidth: 460, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation() },
+              h('div', { className: 'modal-hd' },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 } },
+                  item.cover
+                    ? h('img', { src: item.cover, style: { width: 32, height: 42, objectFit: 'cover', borderRadius: 4, flexShrink: 0 } })
+                    : h('span', { style: { fontSize: 22, flexShrink: 0 } }, '📚'),
+                  h('div', { style: { minWidth: 0, flex: 1 } },
+                    h('div', { style: { fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.title || 'Novel Options'),
+                    h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, `${item.chapterCount || 0} chapters · ${item.author || 'Author'}`)
+                  )
+                ),
+                h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setActiveBookMenuNovel(null) }, '✕')
+              ),
+              h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '14px 16px' } },
+                menuRow('✏️', 'Edit in Ebook Studio', 'Edit chapters, prose, covers, and table of contents', async () => {
+                  const full = await loadFullNovel(item);
+                  if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+                  setActiveTab('studio');
+                  setStudioSubTab('edit');
+                  localStorage.setItem('activeTab', 'studio');
+                  localStorage.setItem('studioSubTab', 'edit');
+                  if (window.loadEpubForEditing) window.loadEpubForEditing(full);
+                  toast(`Opened "${item.title || 'Novel'}" in Ebook Studio!`, 'success');
+                }),
+                item.sourceUrl && menuRow('🔄', 'Check Online Updates', 'Check online web source for newly published chapters', () => {
+                  handleCheckNovelUpdate(item);
+                }),
+                menuRow('⭐', item.inSavedSpace ? 'Remove from Saved Space' : 'Save to Space', item.inSavedSpace ? 'Remove priority star bookmark' : 'Pin to personal Saved Space shelf', () => {
+                  toggleNovelSavedSpace(item.id, item);
+                }, false, item.inSavedSpace ? 'In Space' : null),
+                menuRow('📁', 'Designated Device Folder', dispPath ? `Current: ${dispPath.length > 24 ? dispPath.slice(0, 22) + '…' : dispPath}` : 'Set auto-export folder for Moon+ Reader continuity', () => {
+                  handleSetNovelFolder(item);
+                }, false, hasFolder ? 'Configured' : null),
+                menuRow('🩺', 'Novel Health & QA Audit', 'Audit for CJK leaks, empty chapters, and AI loops', () => {
+                  handleOpenNovelHealthModal(item);
+                }),
+                menuRow('📜', 'Translation Diffs & History', 'Inspect chapter changes and rollback revisions', async () => {
+                  const full = await loadFullNovel(item);
+                  if (full) handleOpenDiffModal(0, full);
+                  else toast('Novel data not found.', 'error');
+                }),
+                menuRow('🏷️', 'Enrich Metadata (AniList)', 'Fetch high-res cover, synopsis, and genres', () => {
+                  handleEnrichNovelMetadata(item);
+                }),
+                menuRow('✂️', 'Split into Story Arcs', 'Divide large multi-volume novel into separate books', () => {
+                  handleSplitNovelIntoArcs(item);
+                }),
+                menuRow('🗑️', 'Remove from Library', 'Delete novel and cached chapters from local library', () => {
+                  confirmAction(`Remove "${item.title}" from the library?`, async () => {
+                    await deleteNovelFromHistory(item.id);
+                  });
+                }, true)
+              )
+            )
+          );
+        })(),
 
         // ── NOVEL HEALTH & TRANSLATION QA REPORT MODAL (§5.9 + §7.1 + §7.5) ──
         qaModalOpen && h('div', { className: 'modal-overlay', onClick: () => setQaModalOpen(false) },
