@@ -326,6 +326,16 @@
         this.inUse.delete(key);
         window.AppLogger?.log('info', 'KeyPool', `Released key ${maskKey(key)} (${this.inUse.size} in-flight)`);
       }
+    },
+
+    getKeyStatus(key) {
+      if (!key) return null;
+      const inFlight = this.inUse.has(key);
+      const coolUntil = this.coolingUntil.get(key) || 0;
+      const now = Date.now();
+      const isCooling = coolUntil > now;
+      const coolSecondsRemaining = isCooling ? Math.ceil((coolUntil - now) / 1000) : 0;
+      return { inFlight, isCooling, coolSecondsRemaining };
     }
   };
 

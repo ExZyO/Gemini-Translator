@@ -6783,23 +6783,24 @@ const formatModelName = (id, displayName) => {
       
       const testSingleKey = async (prov, keyStr, keyId) => {
         if (!keyStr || !keyStr.trim()) {
-          setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: 'Empty key' } }));
+          setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: '❌ Key is empty' } }));
           return;
         }
-        setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'testing', message: 'Testing…' } }));
+        setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'testing', message: 'Testing connection & latency…' } }));
         const start = performance.now();
+        const trimmedKey = keyStr.trim();
         try {
           if (prov === 'gemini') {
-            const targetTestModel = (prov === 'gemini' ? (geminiModel || 'gemini-3.8-flash') : 'deepseek-chat');
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetTestModel}:generateContent?key=${encodeURIComponent(keyStr.trim())}`;
+            const targetTestModel = (geminiModel || 'gemini-3.8-flash');
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetTestModel}:generateContent?key=${encodeURIComponent(trimmedKey)}`;
             const r = await fetch(url, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': keyStr.trim() },
+              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': trimmedKey },
               body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }], generationConfig: { maxOutputTokens: 5 } })
             });
             const latency = Math.round(performance.now() - start);
             if (r.ok) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', message: `✅ Active (${latency}ms)` } }));
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', latency, message: `🟢 Healthy & Active (${latency}ms)` } }));
             } else {
               const body = await r.text().catch(() => '');
               let detail = '';
@@ -6808,20 +6809,67 @@ const formatModelName = (id, displayName) => {
                 detail = j.error?.message || `HTTP ${r.status}`;
               } catch(e) { detail = body.slice(0, 120) || `HTTP ${r.status}`; }
               
-              // Check if Google provided exact cooldown timer (e.g. "Please retry in 7.5s")
               const retryMatch = detail.match(/retry in\s+([\d\.]+)\s*s/i);
-              if (r.status === 429 && retryMatch) {
-                const sec = Math.ceil(parseFloat(retryMatch[1]));
-                setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ Rolling Quota Cooling (Ready in ${sec}s · Key is Healthy!)` } }));
+              if (r.status === 429) {
+                if (retryMatch) {
+                  const sec = Math.ceil(parseFloat(retryMatch[1]));
+                  setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ Cooldown (${sec}s remaining · Key is Valid)` } }));
+                } else if (/quota|exhausted/i.test(detail)) {
+                  setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'exhausted', message: `🔴 Daily Quota Exhausted (${latency}ms)` } }));
+                } else {
+                  setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ Rate Limited (429 · ${latency}ms)` } }));
+                }
+              } else if (r.status === 400 || r.status === 403) {
+                setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid Key / Unauthorized (${r.status})` } }));
               } else {
-                setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ ${r.status}: ${detail}` } }));
+                setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ HTTP ${r.status}: ${detail}` } }));
               }
             }
+          } else if (prov === 'deepseek') {
+            const r = await fetch('https://api.deepseek.com/models', {
+              headers: { 'Authorization': `Bearer ${trimmedKey}` }
+            });
+            const latency = Math.round(performance.now() - start);
+            if (r.ok) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', latency, message: `🟢 DeepSeek Active (${latency}ms)` } }));
+            } else if (r.status === 401 || r.status === 403) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid DeepSeek Key (${r.status})` } }));
+            } else if (r.status === 429) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ DeepSeek Rate Limited (429 · ${latency}ms)` } }));
+            } else {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ DeepSeek Error: HTTP ${r.status}` } }));
+            }
+          } else if (prov === 'openai') {
+            const r = await fetch('https://api.openai.com/v1/models', {
+              headers: { 'Authorization': `Bearer ${trimmedKey}` }
+            });
+            const latency = Math.round(performance.now() - start);
+            if (r.ok) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', latency, message: `🟢 OpenAI Active (${latency}ms)` } }));
+            } else if (r.status === 401 || r.status === 403) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid OpenAI Key (${r.status})` } }));
+            } else if (r.status === 429) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ OpenAI Rate Limited / Quota Exceeded (429)` } }));
+            } else {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ OpenAI Error: HTTP ${r.status}` } }));
+            }
+          } else if (prov === 'claude') {
+            const r = await fetch('https://api.anthropic.com/v1/models', {
+              headers: { 'x-api-key': trimmedKey, 'anthropic-version': '2023-06-01' }
+            });
+            const latency = Math.round(performance.now() - start);
+            if (r.ok) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', latency, message: `🟢 Anthropic Active (${latency}ms)` } }));
+            } else if (r.status === 401 || r.status === 403) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid Anthropic Key (${r.status})` } }));
+            } else {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Anthropic HTTP ${r.status}` } }));
+            }
           } else {
-            setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', message: '✅ Ready' } }));
+            setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', message: '🟢 Key Saved & Ready' } }));
           }
         } catch(err) {
-          setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Network Error: ${err.message || 'failed'}` } }));
+          setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Network Error: ${err.message || 'connection failed'}` } }));
         }
       };
 
@@ -14007,6 +14055,43 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         h('button', {
                           type: 'button',
                           className: 'mini-btn ghost',
+                          disabled: !!checkingUpdates[item.id],
+                          style: {
+                            padding: '4px 9px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            lineHeight: 1,
+                            borderColor: checkingUpdates[item.id] ? 'var(--accent, #6366f1)' : 'var(--hairline)',
+                            color: checkingUpdates[item.id] ? 'var(--accent, #6366f1)' : 'var(--paper)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            cursor: checkingUpdates[item.id] ? 'wait' : 'pointer',
+                            opacity: item.sourceUrl ? 1 : 0.45
+                          },
+                          title: item.sourceUrl ? (checkingUpdates[item.id] ? 'Checking web source for new chapters…' : 'Check for new online chapters') : 'No web source URL linked to this novel',
+                          onClick: (e) => {
+                            e?.stopPropagation?.();
+                            if (!item.sourceUrl) {
+                              toast('This novel has no web source URL to check for updates.', 'info');
+                              return;
+                            }
+                            handleCheckNovelUpdate(item);
+                          }
+                        },
+                          h('span', {
+                            style: {
+                              display: 'inline-block',
+                              animation: checkingUpdates[item.id] ? 'spin 0.85s linear infinite' : 'none',
+                              fontSize: 12
+                            }
+                          }, '🔄'),
+                          checkingUpdates[item.id] ? h('span', { style: { fontSize: 10.5, fontWeight: 700 } }, 'Checking…') : null
+                        ),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
                           style: {
                             padding: '4px 10px',
                             fontSize: '15px',
@@ -14426,6 +14511,14 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       h('button', {
                         type: 'button',
                         className: 'icon-btn',
+                        style: { width: 30, height: 30, color: '#10b981' },
+                        title: 'Test this API key latency and validity',
+                        disabled: !k.key || keyHealth[k.id]?.status === 'testing',
+                        onClick: () => testSingleKey(provider, k.key, k.id)
+                      }, keyHealth[k.id]?.status === 'testing' ? '⏳' : '⚡'),
+                      h('button', {
+                        type: 'button',
+                        className: 'icon-btn',
                         style: { width: 30, height: 30 },
                         title: 'Copy this key to clipboard',
                         disabled: !k.key,
@@ -14463,18 +14556,61 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                         placeholder: `Enter ${provider.toUpperCase()} API Key…`,
                         style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '9px 12px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
                       }),
-                      keyHealth[k.id] && h('div', {
-                        style: {
-                          marginTop: 4,
-                          fontSize: 11,
-                          fontWeight: 500,
-                          padding: '4px 8px',
-                          borderRadius: 6,
-                          background: keyHealth[k.id].status === 'ok' ? 'rgba(16, 185, 129, 0.15)' : (keyHealth[k.id].status === 'cooling' ? 'rgba(245, 158, 11, 0.15)' : (keyHealth[k.id].status === 'testing' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(239, 68, 68, 0.15)')),
-                          color: keyHealth[k.id].status === 'ok' ? '#34d399' : (keyHealth[k.id].status === 'cooling' ? '#fbbf24' : (keyHealth[k.id].status === 'testing' ? '#818cf8' : '#f87171')),
-                          wordBreak: 'break-word'
+                      (() => {
+                        const hInfo = keyHealth[k.id];
+                        const poolStatus = window.KeyPool?.getKeyStatus?.(k.key);
+                        if (!hInfo && (!poolStatus || (!poolStatus.inFlight && !poolStatus.isCooling))) {
+                          return null;
                         }
-                      }, keyHealth[k.id].message)
+                        const statusType = hInfo?.status || (poolStatus?.isCooling ? 'cooling' : (poolStatus?.inFlight ? 'inflight' : 'idle'));
+                        let msg = hInfo?.message;
+                        if (!msg && poolStatus?.isCooling) {
+                          msg = `⏳ In-Flight Cooldown (${poolStatus.coolSecondsRemaining}s remaining)`;
+                        } else if (!msg && poolStatus?.inFlight) {
+                          msg = `⚡ In-Flight (Leased by active worker)`;
+                        }
+
+                        const bgMap = {
+                          ok: 'rgba(16, 185, 129, 0.15)',
+                          cooling: 'rgba(245, 158, 11, 0.15)',
+                          exhausted: 'rgba(239, 68, 68, 0.2)',
+                          inflight: 'rgba(99, 102, 241, 0.15)',
+                          testing: 'rgba(99, 102, 241, 0.15)',
+                          error: 'rgba(239, 68, 68, 0.15)'
+                        };
+                        const colorMap = {
+                          ok: '#34d399',
+                          cooling: '#fbbf24',
+                          exhausted: '#f87171',
+                          inflight: '#818cf8',
+                          testing: '#818cf8',
+                          error: '#f87171'
+                        };
+
+                        return h('div', {
+                          style: {
+                            marginTop: 4,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: '5px 8px',
+                            borderRadius: 6,
+                            background: bgMap[statusType] || bgMap.error,
+                            color: colorMap[statusType] || colorMap.error,
+                            border: `1px solid ${colorMap[statusType] || colorMap.error}33`,
+                            wordBreak: 'break-word',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                          }
+                        },
+                          h('span', null, msg),
+                          h('button', {
+                            type: 'button',
+                            style: { background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 10, opacity: 0.85, textDecoration: 'underline' },
+                            onClick: () => testSingleKey(provider, k.key, k.id)
+                          }, 'Re-test')
+                        );
+                      })()
                     )
                   );
                 })

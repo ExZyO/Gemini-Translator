@@ -43,6 +43,7 @@ body {
 .version-chip:hover { background: rgba(99, 112, 255, 0.2); color: #fff; }
 .version-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pine); animation: pulse-dot 2s infinite; }
 @keyframes pulse-dot { 50% { opacity: .4; } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* ── Elevated Rounded Card Surfaces with Visual Separation ── */
 .card {
