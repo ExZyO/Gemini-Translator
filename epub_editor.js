@@ -298,7 +298,7 @@
         <!-- ═══ MODAL 1: CHAPTER PROSE & IN-CHAPTER IMAGE EDITOR ═══ -->
         <div id="edit-chapter-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
              style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
-             onclick="if(event.target===this) document.getElementById('edit-chapter-modal').classList.add('hidden');">
+             onclick="if(event.target===this) (window.requestCloseChapterModal ? window.requestCloseChapterModal() : this.classList.add('hidden'));">
             <div class="rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden"
                  style="background:var(--ember); border:1px solid var(--hairline);">
                 <!-- Modal Top Header -->
@@ -307,14 +307,14 @@
                         <span id="edit-ch-modal-idx" class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
                               style="background:rgba(99,102,241,.2); color:var(--iris);">#1</span>
                         <input type="text" id="edit-ch-modal-title" placeholder="Chapter Title" class="tl-field"
-                               style="font-size:15px; font-weight:700; color:var(--paper); margin:0; flex:1;">
+                                style="font-size:15px; font-weight:700; color:var(--paper); margin:0; flex:1;">
                         <!-- Level Switcher -->
                         <select id="edit-ch-modal-level" class="tl-field shrink-0" style="width:auto; font-size:12px; margin:0;">
                             <option value="1">Main Chapter (Level 1)</option>
                             <option value="2">↳ Sub-Chapter (Level 2)</option>
                         </select>
                     </div>
-                    <button type="button" onclick="document.getElementById('edit-chapter-modal').classList.add('hidden')"
+                    <button type="button" onclick="window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden')"
                             class="w-8 h-8 rounded-lg flex items-center justify-center text-base font-bold" style="color:var(--slate);">✕</button>
                 </div>
 
@@ -364,9 +364,28 @@
                         <button type="button" id="btn-edit-modal-next-ch" class="tl-btn" style="padding:6px 12px; font-size:12px;">Next Chapter →</button>
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" onclick="document.getElementById('edit-chapter-modal').classList.add('hidden')" class="tl-btn">Close</button>
+                        <button type="button" onclick="window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden')" class="tl-btn">Close</button>
                         <button type="button" id="btn-edit-modal-save" class="tl-btn accent">✓ Save Chapter</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ MODAL 1.5: UNSAVED CHANGES CONFIRMATION DIALOG ═══ -->
+        <div id="edit-unsaved-confirm-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(6px);"
+             onclick="if(event.target===this) document.getElementById('edit-unsaved-confirm-modal').classList.add('hidden');">
+            <div class="rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center"
+                 style="background:var(--ember); border:1px solid var(--hairline);"
+                 onclick="event.stopPropagation();">
+                <div class="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl"
+                     style="background:rgba(245,158,11,0.15); color:#f59e0b;">⚠️</div>
+                <h4 class="text-base font-bold mb-1" style="color:var(--paper);">Unsaved Prose Changes</h4>
+                <p class="text-xs mb-5 leading-relaxed" style="color:var(--slate);">You have modified chapter prose or title. Save your edits before closing?</p>
+                <div class="flex flex-col gap-2.5">
+                    <button type="button" id="btn-unsaved-save-close" class="tl-btn accent w-full justify-center" style="padding:10px; font-weight:600;">✓ Save & Close</button>
+                    <button type="button" id="btn-unsaved-discard" class="tl-btn danger w-full justify-center" style="padding:10px; color:#f87171; border-color:rgba(239,68,68,0.4);">🗑️ Discard Changes</button>
+                    <button type="button" id="btn-unsaved-cancel" class="tl-btn w-full justify-center" style="padding:8px; font-size:12px;">Keep Editing</button>
                 </div>
             </div>
         </div>
@@ -1004,6 +1023,44 @@
     // ── Chapter Prose & Image Modal Logic ──
     let modalActiveIdx = 0;
     let isPreviewMode = false;
+    let initialChapterSnapshot = { title: '', level: 1, content: '' };
+
+    function isChapterModalDirty() {
+        const modalTitle = document.getElementById('edit-ch-modal-title');
+        const modalLevel = document.getElementById('edit-ch-modal-level');
+        const textarea = document.getElementById('edit-ch-modal-textarea');
+        if (!modalTitle && !textarea) return false;
+        const curTitle = modalTitle ? modalTitle.value.trim() : '';
+        const curLevel = modalLevel ? (parseInt(modalLevel.value, 10) || 1) : 1;
+        const curContent = textarea ? textarea.value : '';
+        return curTitle !== (initialChapterSnapshot.title || '').trim() ||
+               curLevel !== initialChapterSnapshot.level ||
+               curContent !== (initialChapterSnapshot.content || '');
+    }
+
+    function requestCloseChapterModal() {
+        const confirmModal = document.getElementById('edit-unsaved-confirm-modal');
+        const chapterModal = document.getElementById('edit-chapter-modal');
+        if (!isChapterModalDirty()) {
+            chapterModal?.classList.add('hidden');
+            return;
+        }
+
+        if (confirmModal) {
+            confirmModal.classList.remove('hidden');
+        } else {
+            // Fallback to native confirm if element not found
+            if (confirm('You have unsaved changes in this chapter.\n\nClick OK to Save & Close.\nClick Cancel to Discard.')) {
+                saveCurrentModalChapter();
+                chapterModal?.classList.add('hidden');
+                if (typeof window.toast === 'function') window.toast('Chapter saved!', 'success');
+            } else {
+                chapterModal?.classList.add('hidden');
+                if (typeof window.toast === 'function') window.toast('Unsaved changes discarded.', 'info');
+            }
+        }
+    }
+    if (typeof window !== 'undefined') window.requestCloseChapterModal = requestCloseChapterModal;
 
     function openChapterModal(idx) {
         if (idx < 0 || idx >= state.chapters.length) return;
@@ -1011,6 +1068,12 @@
         isPreviewMode = false;
 
         const ch = state.chapters[idx];
+        initialChapterSnapshot = {
+            title: ch.title || '',
+            level: ch.level || 1,
+            content: ch.content || ''
+        };
+
         const modal = document.getElementById('edit-chapter-modal');
         const modalIdx = document.getElementById('edit-ch-modal-idx');
         const modalTitle = document.getElementById('edit-ch-modal-title');
@@ -1717,6 +1780,27 @@
                 reader.readAsDataURL(file);
             }
         });
+
+        // Unsaved Confirmation Modal handlers
+        document.getElementById('btn-unsaved-save-close')?.addEventListener('click', () => {
+            saveCurrentModalChapter();
+            document.getElementById('edit-unsaved-confirm-modal')?.classList.add('hidden');
+            document.getElementById('edit-chapter-modal')?.classList.add('hidden');
+            if (typeof window.toast === 'function') window.toast('Chapter saved!', 'success');
+        });
+        document.getElementById('btn-unsaved-discard')?.addEventListener('click', () => {
+            document.getElementById('edit-unsaved-confirm-modal')?.classList.add('hidden');
+            document.getElementById('edit-chapter-modal')?.classList.add('hidden');
+            if (typeof window.toast === 'function') window.toast('Unsaved changes discarded.', 'info');
+        });
+        document.getElementById('btn-unsaved-cancel')?.addEventListener('click', () => {
+            document.getElementById('edit-unsaved-confirm-modal')?.classList.add('hidden');
+        });
+
+        // Tab-Switch Redraw: Restore active workspace if book was already loaded
+        if (state.chapters && state.chapters.length > 0) {
+            renderEditorView();
+        }
     }
 
     // ── Global Exports ──

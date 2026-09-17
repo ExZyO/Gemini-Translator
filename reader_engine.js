@@ -469,6 +469,41 @@
   };
   window.swapPronouns = swapPronouns;
 
+  // ── Reading Progress Persistence (Moon+ Reader standard) ──
+  const getReadingProgressMap = () => {
+    try {
+      const raw = localStorage.getItem('gemini_reading_progress');
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  };
+
+  const getReadingProgress = (key) => {
+    if (!key) return null;
+    const map = getReadingProgressMap();
+    return map[String(key)] || null;
+  };
+
+  const saveReadingProgress = (key, chapterIdx, scrollTop, pct) => {
+    if (!key) return;
+    try {
+      const map = getReadingProgressMap();
+      map[String(key)] = {
+        chapterIdx: typeof chapterIdx === 'number' ? chapterIdx : 0,
+        scrollTop: typeof scrollTop === 'number' ? Math.round(scrollTop) : 0,
+        pct: typeof pct === 'number' ? Math.round(pct * 10) / 10 : 0,
+        updatedAt: Date.now()
+      };
+      localStorage.setItem('gemini_reading_progress', JSON.stringify(map));
+    } catch (e) {
+      console.warn('saveReadingProgress error:', e);
+    }
+  };
+
+  window.getReadingProgress = getReadingProgress;
+  window.saveReadingProgress = saveReadingProgress;
+
   const MoonReaderModal = ({
     open,
     onClose,
@@ -484,6 +519,7 @@
     setFontSize,
     tgtLang,
     novelId,
+    novelTitle,
     onVerifyConsistency,
     onOpenHealthAudit,
     onOpenDiff
@@ -529,8 +565,24 @@
       return list;
     }, [chapters, text]);
 
+    // Active Novel Key for Reading Progress
+    const activeNovelKey = novelId || novelTitle || (safeChapters?.[0]?.title ? 'novel_' + safeChapters[0].title.slice(0, 30) : 'current_session');
+
+    // Initial Progress Lookup
+    const initialSavedProgress = useMemo(() => {
+      if (!open) return null;
+      return getReadingProgress(activeNovelKey);
+    }, [open, activeNovelKey]);
+
     // Active Chapter
-    const [activeIdx, setActiveIdx] = useState(typeof currentIdx === 'number' && currentIdx >= 0 ? currentIdx : 0);
+    const [activeIdx, setActiveIdx] = useState(() => {
+      if (typeof currentIdx === 'number' && currentIdx >= 0) return currentIdx;
+      if (initialSavedProgress && typeof initialSavedProgress.chapterIdx === 'number') {
+        return initialSavedProgress.chapterIdx;
+      }
+      return 0;
+    });
+
     useEffect(() => {
       if (typeof currentIdx === 'number' && currentIdx >= 0 && currentIdx !== activeIdx) {
         setActiveIdx(currentIdx);
@@ -541,10 +593,46 @@
       if (newIdx < 0 || newIdx >= safeChapters.length) return;
       setActiveIdx(newIdx);
       if (typeof onChapterChange === 'function') onChapterChange(newIdx);
+      saveReadingProgress(activeNovelKey, newIdx, 0, 0);
       // Reset scroll
       const container = document.getElementById('gemini-reader-scroll-area');
       if (container) container.scrollTo({ top: 0, behavior: 'instant' });
-    }, [safeChapters.length, onChapterChange]);
+    }, [safeChapters.length, onChapterChange, activeNovelKey]);
+
+    // Scroll Position Restoration
+    const scrollRestoredRef = useRef(false);
+    useEffect(() => {
+      scrollRestoredRef.current = false;
+    }, [activeNovelKey]);
+
+    useEffect(() => {
+      if (!open || scrollRestoredRef.current) return;
+      const prog = getReadingProgress(activeNovelKey);
+      if (prog && prog.chapterIdx === activeIdx && prog.scrollTop > 0) {
+        scrollRestoredRef.current = true;
+        const timer = setTimeout(() => {
+          const container = document.getElementById('gemini-reader-scroll-area');
+          if (container) {
+            container.scrollTo({ top: prog.scrollTop, behavior: 'instant' });
+          }
+        }, 80);
+        return () => clearTimeout(timer);
+      }
+    }, [open, activeIdx, activeNovelKey]);
+
+    // Debounced Scroll Persistence
+    const saveScrollTimeoutRef = useRef(null);
+    const handleScroll = useCallback((e) => {
+      const el = e.currentTarget;
+      if (!el) return;
+      if (saveScrollTimeoutRef.current) clearTimeout(saveScrollTimeoutRef.current);
+      saveScrollTimeoutRef.current = setTimeout(() => {
+        const top = el.scrollTop || 0;
+        const scrollHeight = el.scrollHeight - el.clientHeight;
+        const pct = scrollHeight > 0 ? (top / scrollHeight) * 100 : 0;
+        saveReadingProgress(activeNovelKey, activeIdx, top, pct);
+      }, 200);
+    }, [activeNovelKey, activeIdx]);
 
     // ── 2. UI Chrome & Menus ──
     const [hudVisible, setHudVisible] = useState(false);
@@ -891,6 +979,13 @@
       setTtsPaused(false);
       setActiveSentenceIdx(-1);
     }, []);
+
+    // Stop speech synthesis if reader unmounts or closes
+    useEffect(() => {
+      return () => {
+        stopTts();
+      };
+    }, [stopTts]);
 
     const speakSentence = useCallback((idx) => {
       if (typeof window === 'undefined' || !window.speechSynthesis) {
@@ -1426,6 +1521,7 @@
         : h('div', {
             id: 'gemini-reader-scroll-area',
             className: 'reader-v2-scroll-container',
+            onScroll: handleScroll,
             onClick: (e) => {
               // Toggle HUD on central canvas click (ignore if user is selecting text)
               const selection = window.getSelection();
