@@ -10,7 +10,7 @@ const LOG_FILE = path.join(__dirname, 'telemetry_live.log');
 const WCT_TEST_LOG = path.join(LOGS_DIR, 'witchcult_test_deep.log');
 const MAX_LOG_SIZE = 15 * 1024 * 1024; // 15MB
 
-let appVersion = '8.14.7';
+let appVersion = '8.15.0';
 try {
   const v = JSON.parse(fs.readFileSync(path.join(__dirname, 'version.json'), 'utf8'));
   if (v.version) appVersion = v.version;

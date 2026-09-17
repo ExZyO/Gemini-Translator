@@ -857,7 +857,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.14.7';
+    let VERSION = '8.15.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3758,9 +3758,11 @@ const formatModelName = (id, displayName) => {
       const [tmStats, setTmStats] = useState({ totalUnits: 0, tokensSaved: 0, exactHits: 0, fuzzyHits: 0 });
 
       const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'text');
+      const [settingsCategory, setSettingsCategory] = useState(() => localStorage.getItem('gemini_settings_category') || 'engine');
       const [isFetchingUrl, setIsFetchingUrl] = useState(false);
       const [isFetchingPaused, setIsFetchingPaused] = useState(false);
       const [webImportStatus, setWebImportStatus] = useState('');
+      const [webImportError, setWebImportError] = useState(null);
       const [activeCrawlSession, setActiveCrawlSession] = useState(() => {
         try {
           const s = localStorage.getItem('gemini_active_crawl_session');
@@ -6062,7 +6064,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8227);
+      const [appVersionCode, setAppVersionCode] = useState(8228);
       useEffect(() => {
         fetch('./version.json?t=' + Date.now())
           .then(r => r.json())
@@ -8910,6 +8912,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
         setIsFetchingUrl(true);
         setIsFetchingPaused(false);
+        setWebImportError(null);
         setWebImportStatus(isResume ? 'Resuming novel crawl…' : 'Connecting to source…');
         window.__scrapeImages = scrapeImages;
 
@@ -9001,7 +9004,16 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               setWebImportData(finalSession);
               flushCrawlPersistence(finalSession);
             }
-            toast(`⏸ Fetch paused. ${finalSession?.chapters?.length || data?.chapters?.length || initialChapters.length} chapters saved to Library.`, 'info');
+            if (ctrl.circuitBreakerTripped) {
+              setWebImportError({
+                message: ctrl.pauseReason || '3 consecutive chapters unreachable. Crawl auto-paused to protect novel data.',
+                isCircuitBreaker: true,
+                targetUrl,
+                partialCount: finalSession?.chapters?.length || initialChapters.length,
+                totalCount: finalSession?.totalChapterCount || 0
+              });
+            }
+            toast(ctrl.pauseReason ? `⏸ ${ctrl.pauseReason}` : `⏸ Fetch paused. ${finalSession?.chapters?.length || data?.chapters?.length || initialChapters.length} chapters saved to Library.`, 'info');
             return;
           }
 
@@ -9037,6 +9049,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               setIsFetchingPaused(false);
               setIsFetchingUrl(false);
               setWebImportStatus('');
+              setWebImportError(null);
               toast(`Imported "${data.title}" — ${data.chapters.length} chapters! 🎉`, 'success');
               try {
                 window.NativeBridge?.clearProgressNotification?.(true);
@@ -9075,13 +9088,30 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           if (ctrl?.isPaused) {
             setIsFetchingPaused(true);
             window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', 'Fetch paused. Progress saved.');
-            toast('Fetch paused.', 'info');
+            toast(ctrl?.pauseReason || 'Fetch paused. Progress saved.', 'info');
           } else if (ctrl?.isCancelled) {
             setIsFetchingPaused(false);
             toast('Fetch cancelled.', 'warning');
           } else {
             console.error('Fetch novel error:', err);
-            toast('Failed to fetch URL: ' + err.message, 'error');
+            const partialCount = latestSessionSnapshot?.chapters?.length || targetSession?.chapters?.length || 0;
+            const totalCount = latestSessionSnapshot?.totalChapterCount || targetSession?.totalChapterCount || 0;
+            if (partialCount > 0) {
+              setIsFetchingPaused(true);
+            }
+            setWebImportError({
+              message: err.message || 'Failed to fetch remote novel.',
+              isCloudflare: !!err.isCloudflare,
+              challengeType: err.challengeType || null,
+              targetUrl: err.targetUrl || targetUrl,
+              partialCount,
+              totalCount
+            });
+            if (err.isCloudflare) {
+              toast('🛡️ Remote site has Cloudflare verification active.', 'warning');
+            } else {
+              toast('Failed to fetch URL: ' + err.message, 'error');
+            }
           }
         } finally {
           setIsFetchingUrl(false);
@@ -12179,6 +12209,63 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 isLnoriUrl
               );
               return h(React.Fragment, null,
+                // Actionable Cloudflare & Crawler Interruption Guidance Card
+                webImportError && h('div', {
+                  className: 'card',
+                  style: {
+                    background: webImportError.isCloudflare ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                    borderColor: webImportError.isCloudflare ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)',
+                    marginBottom: 12,
+                    padding: '12px 14px'
+                  }
+                },
+                  h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                      h('span', { style: { fontSize: 13 } }, webImportError.isCloudflare ? '🛡️' : '⚠️'),
+                      h('span', { style: { fontSize: 12, fontWeight: 700, color: webImportError.isCloudflare ? '#f87171' : '#fbbf24' } },
+                        webImportError.isCloudflare ? 'Cloudflare Security Challenge Detected' : 'Crawl Paused to Protect Data'
+                      )
+                    ),
+                    h('button', {
+                      type: 'button',
+                      style: { background: 'none', border: 'none', color: 'var(--slate)', cursor: 'pointer', fontSize: 14, padding: '2px 6px' },
+                      onClick: () => setWebImportError(null)
+                    }, '✕')
+                  ),
+                  h('div', { style: { fontSize: 11.5, color: 'var(--paper)', lineHeight: 1.45, marginBottom: 8 } },
+                    webImportError.message || (webImportError.isCloudflare ? 'The remote novel website has active Turnstile human verification or anti-bot rate limits.' : 'Crawl paused due to consecutive connection failures.')
+                  ),
+                  webImportError.partialCount > 0 && h('div', { style: { fontSize: 11, color: '#34d399', marginBottom: 8, fontWeight: 600 } },
+                    `✨ ${webImportError.partialCount} chapter(s) were safely saved to your Library before the pause.`
+                  ),
+                  h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                      onClick: () => {
+                        setWebImportError(null);
+                        handleStartFetch(true);
+                      }
+                    }, '▶ Resume Fetch'),
+                    webImportError.targetUrl && h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8', fontWeight: 600 },
+                      onClick: () => {
+                        window.open(webImportError.targetUrl, '_blank');
+                      }
+                    }, '🌐 Open Source in Browser'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      onClick: () => {
+                        setActiveTab('text');
+                        toast('Switched to Translate tab: paste text or upload EPUB directly.', 'info');
+                      }
+                    }, '📋 Tab 1 / Upload EPUB')
+                  )
+                ),
                 // Incomplete Crawl Session Banner (only shown when returning to tab, suppressed when actively paused in card)
                 activeCrawlSession && !isFetchingPaused && !isFetchingUrl && h('div', {
                   className: 'card',
@@ -13956,45 +14043,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
             // ═══ TAB 5: SETTINGS ═══
             activeTab === 'settings' && (() => {
-              const actionRow = (icon, title, subtitle, onClick, badge = null) => h('div', {
-                style: {
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 14px',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease',
-                  userSelect: 'none'
-                },
-                onClick: (e) => {
-                  try {
-                    if (typeof onClick === 'function') onClick(e);
-                  } catch (err) {
-                    console.warn('[actionRow]', err);
-                  }
-                }
-              },
-                h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 } },
-                  h('div', { style: { width: 34, height: 34, borderRadius: 8, background: 'rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 } }, icon),
-                  h('div', { style: { flex: 1, minWidth: 0 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                      h('span', { style: { fontWeight: 600, fontSize: 13.5, color: 'var(--paper)' } }, title),
-                      badge && h('span', { className: 'badge', style: { fontSize: 9.5, padding: '1px 6px', background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)' } }, badge)
-                    ),
-                    subtitle && h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, subtitle)
-                  )
-                ),
-                h('span', { style: { fontSize: 16, color: 'var(--slate)', marginLeft: 8 } }, '›')
-              );
-
-              const downloadStatusSubtitle = isFetchingUrl
-                ? `Downloading… ${(webImportStatus || '').substring(0, 36)}`
-                : (isFetchingPaused
-                  ? '⏸ Crawl paused · Tap to resume in Importer'
-                  : (activeCrawlSession
-                    ? `⏸ ${(activeCrawlSession.chapters || []).length} / ${activeCrawlSession.totalChapterCount || '?'} chapters cached`
-                    : '0 active downloads · Idle'));
+              const SETTINGS_CATEGORIES = [
+                { id: 'engine', label: '🌐 Engine & Keys' },
+                { id: 'quality', label: '🩺 Quality & TM' },
+                { id: 'display', label: '🎨 Reader & Display' },
+                { id: 'backup', label: '💾 Backup & Storage' },
+                { id: 'all', label: '📋 All Settings' }
+              ];
 
               return h(React.Fragment, null,
                 // Top Quick Status & Mihon-Style Toggles
@@ -14003,7 +14058,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   style: {
                     background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)',
                     borderColor: 'rgba(255, 255, 255, 0.1)',
-                    marginBottom: 12,
+                    marginBottom: 10,
                     padding: '12px 14px'
                   }
                 },
@@ -14012,7 +14067,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       h('span', { style: { fontSize: 18 } }, '📱'),
                       h('div', null,
                         h('div', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)' } }, 'Gemini Novel Studio & Reader'),
-                        h('div', { style: { fontSize: 10.5, color: 'var(--slate)' } }, `v${appVersion} (Build ${appVersionCode || 8223}) · Pure AMOLED Black`)
+                        h('div', { style: { fontSize: 10.5, color: 'var(--slate)' } }, `v${appVersion} (Build ${appVersionCode || 8228}) · Pure AMOLED Black`)
                       )
                     ),
                     h('button', {
@@ -14109,29 +14164,47 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   )
                 ),
 
-                // Tachiyomi / Mihon Style Action Rows Card
+                // Settings Category Group Switcher
                 h('div', {
-                  className: 'card',
                   style: {
-                    padding: 0,
-                    marginBottom: 14,
-                    overflow: 'hidden'
+                    display: 'flex',
+                    gap: 6,
+                    overflowX: 'auto',
+                    paddingBottom: 8,
+                    marginBottom: 12,
+                    WebkitOverflowScrolling: 'touch',
+                    scrollbarWidth: 'none'
                   }
                 },
-                  actionRow('📥', 'Download queue', downloadStatusSubtitle, () => setActiveTab('web_importer'), isFetchingUrl ? 'Active' : null),
-                  actionRow('📁', 'Categories & Saved Space', `${(webImportHistory || []).length} novels saved in library · Tap to organize`, () => setActiveTab('history')),
-                  actionRow('📊', 'Statistics & Cache Metrics', `${tmStats.totalUnits || 0} indexed units · ~${(tmStats.tokensSaved || 0).toLocaleString()} tokens saved`, () => {
-                    refreshTmStats();
-                    toast(`TM Cache: ${tmStats.totalUnits || 0} indexed segments (~${(tmStats.tokensSaved || 0).toLocaleString()} tokens saved)`, 'info');
-                  }),
-                  actionRow('🔌', 'Source Plugins & Search', `${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length} active sources · Browse 278+ LNReader plugins`, handleOpenSourcePluginsModal),
-                  actionRow('🔄', 'Check for updates', `Current: v${appVersion} (Build ${appVersionCode || 8223}) · Tap to verify`, () => checkForAppUpdate(true), availableUpdate ? 'Update Available' : null),
-                  actionRow('💾', 'Data & storage / Backup', 'Mihon 1-tap Google Drive backup, WebDAV NAS sync & JSON exports', () => {
-                    const el = document.getElementById('cloud-backup-section');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    else toast('Scroll down to Cloud Backup & Restore', 'info');
+                  SETTINGS_CATEGORIES.map(cat => {
+                    const isCatActive = settingsCategory === cat.id;
+                    return h('button', {
+                      key: cat.id,
+                      type: 'button',
+                      className: `chip-act ${isCatActive ? 'active' : ''}`,
+                      style: {
+                        padding: '8px 14px',
+                        fontSize: 12,
+                        fontWeight: isCatActive ? 700 : 500,
+                        whiteSpace: 'nowrap',
+                        borderRadius: 20,
+                        background: isCatActive ? 'var(--accent, #6366f1)' : 'rgba(255, 255, 255, 0.04)',
+                        color: isCatActive ? '#fff' : 'var(--slate)',
+                        border: isCatActive ? '1px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
+                        cursor: 'pointer',
+                        transition: 'all 0.18s ease',
+                        flexShrink: 0
+                      },
+                      onClick: () => {
+                        setSettingsCategory(cat.id);
+                        try { localStorage.setItem('gemini_settings_category', cat.id); } catch(e) {}
+                      }
+                    }, cat.label);
                   })
                 ),
+
+                // ═══ GROUP 1: ENGINE & API KEYS ═══
+                (settingsCategory === 'engine' || settingsCategory === 'all') && h(React.Fragment, null,
               h('div', { className: 'sec-banner' },
                 h('div', { style: { display: 'flex', alignItems: 'center' } },
                   h('span', { className: 'sec-tag' }, '//'),
@@ -14287,9 +14360,129 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     h('option', { value: 'medium' }, '⚖️ Medium (~2,500 chars)'),
                     h('option', { value: 'small' }, '🐢 Small (~1,800 chars)')
                   )
+                ),
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'Source Plugins (LNReader)'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    onClick: handleOpenSourcePluginsModal
+                  }, `🔌 Browse Sources (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`)
                 )
               ),
 
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'API KEYS & ROTATION')
+                )
+              ),
+              h('div', { className: 'card' },
+                (() => {
+                  const provKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
+                  const uniqueCount = new Set(provKeys.map(k => k.key.trim())).size;
+                  const hasDuplicates = provKeys.length > uniqueCount;
+                  return h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+                      h('span', null, `API Keys (${provider.toUpperCase()}) · ${provKeys.length} slots (${uniqueCount} unique)`),
+                      hasDuplicates && h('span', { className: 'badge', style: { background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid currentColor', fontSize: 10 } }, `⚠️ ${provKeys.length - uniqueCount} duplicate(s)`)
+                    ),
+                  h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      title: 'Copy all active keys for this provider to clipboard',
+                      onClick: () => {
+                        const allK = (apiKeysByProvider[provider] || []).map(k => (k.key || '').trim()).filter(Boolean);
+                        if (allK.length === 0) { toast('No keys to copy', 'info'); return; }
+                        navigator.clipboard.writeText(allK.join('\n')).then(() => toast(`📋 Copied all ${allK.length} keys to clipboard!`, 'success'));
+                      }
+                    }, '📋 Copy All'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontWeight: 600 },
+                      disabled: testingKeys,
+                      onClick: () => handleTestAllKeys(provider)
+                    }, testingKeys ? 'Testing…' : '⚡ Test All Keys'),
+                    h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => setBulkKeyModalOpen(true) }, '⚡ Bulk Paste'),
+                    h('button', { type: 'button', className: 'mini-btn', onClick: () => addApiKey(provider) }, '+ Add')
+                  )
+                );
+                })(),
+                (apiKeysByProvider[provider] || []).map(k => {
+                  const allProvKeys = apiKeysByProvider[provider] || [];
+                  const isActive = (activeKeyIds[provider] === k.id) || (allProvKeys.length === 1);
+                  const isVisible = showKeys[k.id] || false;
+                  const firstWithThisKey = allProvKeys.find(other => other.key && k.key && other.key.trim() === k.key.trim());
+                  const isDuplicate = firstWithThisKey && firstWithThisKey.id !== k.id;
+                  return h('div', { key: k.id, style: { padding: '6px 0', borderBottom: '1px solid rgba(36,39,48,.5)' } },
+                    h('div', { className: 'set-row' },
+                      h('input', { type: 'text', value: k.name || '', onChange: e => updateApiKey(provider, k.id, 'name', e.target.value), placeholder: 'Key profile name…', style: { background: 'transparent', border: 'none', color: 'var(--paper)', fontSize: 12, fontWeight: 600, flex: 1, minWidth: 0, outline: 'none' } }),
+                      isActive
+                        ? h('span', { className: 'badge' }, 'Active')
+                        : h('button', { type: 'button', className: 'chip-act', onClick: () => setActiveKey(provider, k.id) }, 'Set Active'),
+                      isDuplicate && h('span', { className: 'badge', style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 10 } }, '⚠️ Duplicate'),
+                      h('button', {
+                        type: 'button',
+                        className: 'icon-btn',
+                        style: { width: 30, height: 30 },
+                        title: 'Copy this key to clipboard',
+                        disabled: !k.key,
+                        onClick: () => {
+                          if (!k.key) return;
+                          navigator.clipboard.writeText(k.key).then(() => toast('Key copied to clipboard!', 'success')).catch(() => toast('Could not copy key', 'error'));
+                        }
+                      }, '📋'),
+                      h('button', {
+                        type: 'button',
+                        className: 'icon-btn',
+                        style: { width: 30, height: 30 },
+                        title: 'Paste key from clipboard',
+                        onClick: async () => {
+                          try {
+                            const clipText = await navigator.clipboard.readText();
+                            if (clipText && clipText.trim()) {
+                              updateApiKey(provider, k.id, 'key', clipText.trim());
+                              toast('Pasted key from clipboard!', 'success');
+                            } else {
+                              toast('Clipboard is empty', 'info');
+                            }
+                          } catch(err) {
+                            toast('Clipboard access denied. Please paste manually.', 'error');
+                          }
+                        }
+                      }, '📥'),
+                      h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: isVisible ? 'Hide key' : 'Show key', onClick: () => setShowKeys(prev => ({ ...prev, [k.id]: !isVisible })) }, isVisible ? '🙈' : '👁'),
+                      h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: 'Delete key', onClick: () => deleteApiKey(provider, k.id) }, '🗑')
+                    ),
+                    h('div', { style: { position: 'relative' } },
+                      h('input', {
+                        type: isVisible ? 'text' : 'password', value: k.key || '',
+                        onChange: e => updateApiKey(provider, k.id, 'key', e.target.value),
+                        placeholder: `Enter ${provider.toUpperCase()} API Key…`,
+                        style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '9px 12px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
+                      }),
+                      keyHealth[k.id] && h('div', {
+                        style: {
+                          marginTop: 4,
+                          fontSize: 11,
+                          fontWeight: 500,
+                          padding: '4px 8px',
+                          borderRadius: 6,
+                          background: keyHealth[k.id].status === 'ok' ? 'rgba(16, 185, 129, 0.15)' : (keyHealth[k.id].status === 'cooling' ? 'rgba(245, 158, 11, 0.15)' : (keyHealth[k.id].status === 'testing' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(239, 68, 68, 0.15)')),
+                          color: keyHealth[k.id].status === 'ok' ? '#34d399' : (keyHealth[k.id].status === 'cooling' ? '#fbbf24' : (keyHealth[k.id].status === 'testing' ? '#818cf8' : '#f87171')),
+                          wordBreak: 'break-word'
+                        }
+                      }, keyHealth[k.id].message)
+                    )
+                  );
+                })
+              )
+            ),
+
+            // ═══ GROUP 2: QUALITY & TM ═══
+            (settingsCategory === 'quality' || settingsCategory === 'all') && h(React.Fragment, null,
               // ── QUALITY ASSURANCE & NOVEL HEALTH ──
               h('div', { className: 'sec-banner' },
                 h('div', { style: { display: 'flex', alignItems: 'center' } },
@@ -14369,8 +14562,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     }, '🗑 Clear TM')
                   )
                 )
-              ),
+              )
+            ),
 
+            // ═══ GROUP 3: READER & DISPLAY ═══
+            (settingsCategory === 'display' || settingsCategory === 'all') && h(React.Fragment, null,
               h('div', { className: 'sec-banner' },
                 h('div', { style: { display: 'flex', alignItems: 'center' } },
                   h('span', { className: 'sec-tag' }, '//'),
@@ -14465,8 +14661,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     '💡 In Moon+ Reader Pro: Open side menu ➔ "Net Library" ➔ tap "Add new catalog" ➔ enter the URL above and name it "Gemini Translator".'
                   )
                 )
-              ),
+              )
+            ),
 
+            // ═══ GROUP 4: BACKUP, HARDWARE & SYSTEM ═══
+            (settingsCategory === 'backup' || settingsCategory === 'all') && h(React.Fragment, null,
               h('div', { className: 'sec-banner' },
                 h('div', { style: { display: 'flex', alignItems: 'center' } },
                   h('span', { className: 'sec-tag' }, '//'),
@@ -14855,115 +15054,6 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
               h('div', { className: 'sec-banner' },
                 h('div', { style: { display: 'flex', alignItems: 'center' } },
                   h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'API KEYS & ROTATION')
-                )
-              ),
-              h('div', { className: 'card' },
-                (() => {
-                  const provKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
-                  const uniqueCount = new Set(provKeys.map(k => k.key.trim())).size;
-                  const hasDuplicates = provKeys.length > uniqueCount;
-                  return h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
-                      h('span', null, `API Keys (${provider.toUpperCase()}) · ${provKeys.length} slots (${uniqueCount} unique)`),
-                      hasDuplicates && h('span', { className: 'badge', style: { background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid currentColor', fontSize: 10 } }, `⚠️ ${provKeys.length - uniqueCount} duplicate(s)`)
-                    ),
-                  h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn ghost',
-                      title: 'Copy all active keys for this provider to clipboard',
-                      onClick: () => {
-                        const allK = (apiKeysByProvider[provider] || []).map(k => (k.key || '').trim()).filter(Boolean);
-                        if (allK.length === 0) { toast('No keys to copy', 'info'); return; }
-                        navigator.clipboard.writeText(allK.join('\n')).then(() => toast(`📋 Copied all ${allK.length} keys to clipboard!`, 'success'));
-                      }
-                    }, '📋 Copy All'),
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn',
-                      style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontWeight: 600 },
-                      disabled: testingKeys,
-                      onClick: () => handleTestAllKeys(provider)
-                    }, testingKeys ? 'Testing…' : '⚡ Test All Keys'),
-                    h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => setBulkKeyModalOpen(true) }, '⚡ Bulk Paste'),
-                    h('button', { type: 'button', className: 'mini-btn', onClick: () => addApiKey(provider) }, '+ Add')
-                  )
-                );
-                })(),
-                (apiKeysByProvider[provider] || []).map(k => {
-                  const allProvKeys = apiKeysByProvider[provider] || [];
-                  const isActive = (activeKeyIds[provider] === k.id) || (allProvKeys.length === 1);
-                  const isVisible = showKeys[k.id] || false;
-                  const firstWithThisKey = allProvKeys.find(other => other.key && k.key && other.key.trim() === k.key.trim());
-                  const isDuplicate = firstWithThisKey && firstWithThisKey.id !== k.id;
-                  return h('div', { key: k.id, style: { padding: '6px 0', borderBottom: '1px solid rgba(36,39,48,.5)' } },
-                    h('div', { className: 'set-row' },
-                      h('input', { type: 'text', value: k.name || '', onChange: e => updateApiKey(provider, k.id, 'name', e.target.value), placeholder: 'Key profile name…', style: { background: 'transparent', border: 'none', color: 'var(--paper)', fontSize: 12, fontWeight: 600, flex: 1, minWidth: 0, outline: 'none' } }),
-                      isActive
-                        ? h('span', { className: 'badge' }, 'Active')
-                        : h('button', { type: 'button', className: 'chip-act', onClick: () => setActiveKey(provider, k.id) }, 'Set Active'),
-                      isDuplicate && h('span', { className: 'badge', style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 10 } }, '⚠️ Duplicate'),
-                      h('button', {
-                        type: 'button',
-                        className: 'icon-btn',
-                        style: { width: 30, height: 30 },
-                        title: 'Copy this key to clipboard',
-                        disabled: !k.key,
-                        onClick: () => {
-                          if (!k.key) return;
-                          navigator.clipboard.writeText(k.key).then(() => toast('Key copied to clipboard!', 'success')).catch(() => toast('Could not copy key', 'error'));
-                        }
-                      }, '📋'),
-                      h('button', {
-                        type: 'button',
-                        className: 'icon-btn',
-                        style: { width: 30, height: 30 },
-                        title: 'Paste key from clipboard',
-                        onClick: async () => {
-                          try {
-                            const clipText = await navigator.clipboard.readText();
-                            if (clipText && clipText.trim()) {
-                              updateApiKey(provider, k.id, 'key', clipText.trim());
-                              toast('Pasted key from clipboard!', 'success');
-                            } else {
-                              toast('Clipboard is empty', 'info');
-                            }
-                          } catch(err) {
-                            toast('Clipboard access denied. Please paste manually.', 'error');
-                          }
-                        }
-                      }, '📥'),
-                      h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: isVisible ? 'Hide key' : 'Show key', onClick: () => setShowKeys(prev => ({ ...prev, [k.id]: !isVisible })) }, isVisible ? '🙈' : '👁'),
-                      h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: 'Delete key', onClick: () => deleteApiKey(provider, k.id) }, '🗑')
-                    ),
-                    h('div', { style: { position: 'relative' } },
-                      h('input', {
-                        type: isVisible ? 'text' : 'password', value: k.key || '',
-                        onChange: e => updateApiKey(provider, k.id, 'key', e.target.value),
-                        placeholder: `Enter ${provider.toUpperCase()} API Key…`,
-                        style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '9px 12px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                      }),
-                      keyHealth[k.id] && h('div', {
-                        style: {
-                          marginTop: 4,
-                          fontSize: 11,
-                          fontWeight: 500,
-                          padding: '4px 8px',
-                          borderRadius: 6,
-                          background: keyHealth[k.id].status === 'ok' ? 'rgba(16, 185, 129, 0.15)' : (keyHealth[k.id].status === 'cooling' ? 'rgba(245, 158, 11, 0.15)' : (keyHealth[k.id].status === 'testing' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(239, 68, 68, 0.15)')),
-                          color: keyHealth[k.id].status === 'ok' ? '#34d399' : (keyHealth[k.id].status === 'cooling' ? '#fbbf24' : (keyHealth[k.id].status === 'testing' ? '#818cf8' : '#f87171')),
-                          wordBreak: 'break-word'
-                        }
-                      }, keyHealth[k.id].message)
-                    )
-                  );
-                })
-              ),
-
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
                   h('span', { className: 'sec-title' }, 'SYSTEM & BUILD')
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, `v${appVersion}`)
@@ -15006,7 +15096,8 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Install App (PWA)'), h('button', { type: 'button', className: 'chip-act', onClick: handleInstallPWA }, 'Install')),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Keyboard Shortcuts'), h('span', { className: 'count' }, 'Ctrl+Enter · Ctrl+Shift+C · Ctrl+Alt+R'))
               )
-            );
+            )
+          );
           })()
         ),
 

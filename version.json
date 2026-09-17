@@ -1,9 +1,9 @@
 {
-  "version": "8.14.7",
-  "versionCode": 8227,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.7/app-release.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.14.7/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.14.7",
-  "releaseDate": "2026-09-12",
-  "releaseNotes": "v8.14.7: High-Speed Multi-Stream Background Resilience & Title Sanitization: 1) Wall-Clock Elapsed Timer: upgraded translation progress timer to use Date.now() and visibilitychange event listener, eliminating frozen/stalled timer display when switching between apps or returning from background; 2) Chapter Title Sanitizer: automated cleanup of cultural footnote blocks, superscript citations, and translator tags from EPUB headings and table of contents; 3) Live Diagnostics Feed: real-time streaming of telemetry logs directly inside the Translator tab; 4) KeyPool Dispatch Micro-Staggering: randomized jitter and 300ms minimum inter-worker lease spacing to eliminate 40ms burst stampedes on Google Gemini API gateways."
+  "version": "8.15.0",
+  "versionCode": 8228,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.15.0/app-release.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.15.0/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.15.0",
+  "releaseDate": "2026-09-17",
+  "releaseNotes": "v8.15.0: App-Wide Overhaul & Resilience Update: 1) Grouped Settings Categories: categorized engine, quality, reader display, and backup settings into clean tabbed groups; 2) Ebook Studio TOC Hierarchy: group-aware volume and chapter reordering, visual hierarchy badges, 1-click Auto-Hierarchy detection, and non-blocking regex Find & Replace; 3) Crawler Circuit Breaker & Cloudflare Guard: smart consecutive-failure circuit breaker to prevent placeholder corruption, missing chapter healing on resume, and actionable Cloudflare Turnstile recovery guidance; 4) Mobile Ergonomics & Parity: 3-dot action sheet for novel cards, safe touch targets, deletion protection, and smooth desktop drag dividers."
 }

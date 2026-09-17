@@ -293,16 +293,25 @@
     let localProxyState = null; // null = unverified, true = active, false = unavailable
     let lastLocalProxyCheck = 0;
 
-    function isBlockOrChallenge(text) {
-        if (!text || typeof text !== 'string' || text.length < 80) return true;
+    function detectBlockOrChallenge(text) {
+        if (!text || typeof text !== 'string' || text.length < 80) return { blocked: true, type: 'empty_or_short' };
         const lower = text.toLowerCase();
         // Detect genuine Cloudflare rate limit (1015) or block/challenge pages
-        if (lower.includes('error 1015') || (lower.includes('rate limit') && lower.includes('cloudflare'))) return true;
-        if (lower.includes('<title>just a moment...</title>') || lower.includes('attention required! | cloudflare') || lower.includes('cf-browser-verification')) return true;
-        if (lower.includes('401 unauthorized') || lower.includes('403 forbidden')) return true;
-        // If it's a tiny page containing Cloudflare challenge scripts without chapter content, it's a challenge interstitial
-        if (text.length < 3000 && lower.includes('/cdn-cgi/challenge-platform') && !lower.includes('id="content"') && !lower.includes('class="chapter-content"') && !lower.includes('class="entry-content"')) return true;
-        return false;
+        if (lower.includes('error 1015') || (lower.includes('rate limit') && lower.includes('cloudflare')) || lower.includes('error 429') || lower.includes('too many requests')) {
+            return { blocked: true, type: 'rate_limit', label: 'Cloudflare 1015 / 429 Rate Limit' };
+        }
+        if (lower.includes('<title>just a moment...</title>') || lower.includes('attention required! | cloudflare') || lower.includes('cf-browser-verification') || lower.includes('turnstile') ||
+            (text.length < 3500 && lower.includes('/cdn-cgi/challenge-platform') && !lower.includes('id="content"') && !lower.includes('class="chapter-content"') && !lower.includes('class="entry-content"'))) {
+            return { blocked: true, type: 'turnstile', label: 'Cloudflare Turnstile Verification' };
+        }
+        if (lower.includes('401 unauthorized') || lower.includes('403 forbidden') || lower.includes('access denied') || lower.includes('checking your browser')) {
+            return { blocked: true, type: 'waf_block', label: 'Access Denied / Security Firewall' };
+        }
+        return { blocked: false, type: null };
+    }
+
+    function isBlockOrChallenge(text) {
+        return detectBlockOrChallenge(text).blocked;
     }
 
     async function fetchHtml(url, options = {}) {
@@ -311,6 +320,7 @@
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         const startTime = Date.now();
         const context = options.context || options.why || 'General Crawl';
+        let lastDetectedBlock = null;
 
         window.sendTelemetry?.('FETCH_REQ', `[${context}] Fetching: ${url}`, {
             url,
@@ -327,7 +337,8 @@
                 ]);
                 if (res && res.data) {
                     const text = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
-                    if (!isBlockOrChallenge(text)) {
+                    const blockCheck = detectBlockOrChallenge(text);
+                    if (!blockCheck.blocked) {
                         clearTimeout(timer);
                         const latency = Date.now() - startTime;
                         window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched via Android Native Bridge in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
@@ -338,6 +349,8 @@
                             charCount: text.length
                         });
                         return text;
+                    } else {
+                        lastDetectedBlock = blockCheck;
                     }
                 }
             } catch (e) {
@@ -363,7 +376,8 @@
                 clearTimeout(localTimer);
                 if (localRes.ok) {
                     const text = await localRes.text();
-                    if (!isBlockOrChallenge(text)) {
+                    const blockCheck = detectBlockOrChallenge(text);
+                    if (!blockCheck.blocked) {
                         localProxyState = true;
                         clearTimeout(timer);
                         const latency = Date.now() - startTime;
@@ -376,8 +390,9 @@
                         });
                         return text;
                     } else {
+                        lastDetectedBlock = blockCheck;
                         console.warn('[Local Proxy] Cloudflare challenge or block encountered, failing over to public proxy pool...');
-                        window.sendTelemetry?.('FETCH_WARN', `[${context}] Local proxy hit Cloudflare challenge, failing over to public proxies`, { url, context });
+                        window.sendTelemetry?.('FETCH_WARN', `[${context}] Local proxy hit Cloudflare challenge (${blockCheck.label}), failing over to public proxies`, { url, context });
                     }
                 }
             } catch (localErr) {
@@ -419,9 +434,11 @@
 
                 if (res.ok) {
                     const text = await res.text();
-                    if (isBlockOrChallenge(text)) {
-                        console.warn(`[Proxy Failover] Cloudflare challenge on ${proxy.name}, switching...`);
-                        window.sendTelemetry?.('FETCH_WARN', `[${context}] ${proxy.name} returned challenge page, switching to next proxy`, { url, context, proxy: proxy.name });
+                    const blockCheck = detectBlockOrChallenge(text);
+                    if (blockCheck.blocked) {
+                        lastDetectedBlock = blockCheck;
+                        console.warn(`[Proxy Failover] Cloudflare challenge on ${proxy.name} (${blockCheck.label}), switching...`);
+                        window.sendTelemetry?.('FETCH_WARN', `[${context}] ${proxy.name} returned challenge page (${blockCheck.label}), switching to next proxy`, { url, context, proxy: proxy.name });
                         continue;
                     }
                     clearTimeout(timer);
@@ -444,10 +461,32 @@
         }
 
         clearTimeout(timer);
-        const err = new Error(`Failed to fetch ${url}. All proxies exhausted or rate-limited.`);
-        window.sendTelemetry?.('FETCH_FAIL', `[${context}] All network tiers failed for: ${url} (${Date.now() - startTime}ms total)`, {
+        let errMsg = `Failed to fetch ${url}. All proxies exhausted or rate-limited.`;
+        let isCloudflare = false;
+        let challengeType = null;
+        if (lastDetectedBlock && lastDetectedBlock.type) {
+            if (lastDetectedBlock.type === 'turnstile') {
+                errMsg = `Cloudflare Turnstile verification challenge active on remote host. Human verification required.`;
+                isCloudflare = true;
+                challengeType = 'turnstile';
+            } else if (lastDetectedBlock.type === 'rate_limit') {
+                errMsg = `Cloudflare rate-limit (Error 1015 / 429) active on remote host. Temporary cooldown needed.`;
+                isCloudflare = true;
+                challengeType = 'rate_limit';
+            } else if (lastDetectedBlock.type === 'waf_block') {
+                errMsg = `Firewall block (403 Forbidden / Access Denied) encountered on remote host.`;
+                isCloudflare = true;
+                challengeType = 'waf_block';
+            }
+        }
+        const err = new Error(errMsg);
+        err.isCloudflare = isCloudflare;
+        err.challengeType = challengeType;
+        err.targetUrl = url;
+        window.sendTelemetry?.('FETCH_FAIL', `[${context}] All network tiers failed for: ${url} (${Date.now() - startTime}ms total, reason: ${challengeType || 'exhausted'})`, {
             url,
             context,
+            challengeType,
             totalDurationMs: Date.now() - startTime
         });
         throw err;
@@ -531,7 +570,10 @@
                           (exactItemTitle && existingByExactTitle.get(exactItemTitle)) ||
                           (normItemTitle && existingByNormTitle.get(normItemTitle));
 
-            if (match && (match.text || match.content) && (match.text || match.content).length > 20) {
+            const isPlaceholder = match && (match.isPlaceholder === true || 
+                                           (match.text && (match.text.includes('could not be retrieved from remote source') || match.text.includes('Network error'))));
+
+            if (match && !isPlaceholder && (match.text || match.content) && (match.text || match.content).length > 20) {
                 completedIndices.add(i);
                 chapters.push({
                     ...match,
@@ -569,6 +611,7 @@
         let lastNotifTime = 0;
         const startTime = Date.now();
         let isBackingOff = false;
+        let consecutiveFailures = 0;
 
         window.sendTelemetry?.('CRAWL', `Starting ingestion pool (${concurrency} workers, ${interRequestDelay}ms delay) for ${chapterList.length} chapters: ${meta?.title || 'Novel'}`);
 
@@ -615,7 +658,8 @@
                         if (errMsg.includes('1015') || errMsg.includes('rate limit') || errMsg.includes('429')) {
                             rateLimitDetected = true;
                         } else if (attempts < 4) {
-                            await new Promise(r => setTimeout(r, 600 * attempts));
+                            const backoffDelay = Math.min(8000, (1000 * Math.pow(2, attempts - 1)) + (Math.random() * 500));
+                            await new Promise(r => setTimeout(r, backoffDelay));
                         }
                     }
 
@@ -637,6 +681,7 @@
                 if (ctrl.isPaused || ctrl.isCancelled) break;
 
                 if (chData && chData.text && chData.text.length > 30) {
+                    consecutiveFailures = 0; // Reset circuit breaker
                     const words = chData.text.split(/\s+/).filter(Boolean).length;
                     const imgCount = (chData.text.match(/!\[Illustration\]/g) || []).length;
                     totalImagesCount += imgCount;
@@ -678,18 +723,34 @@
                     const retries = (chapterRetryCounts.get(currentIndex) || 0) + 1;
                     chapterRetryCounts.set(currentIndex, retries);
                     if (retries <= 3) {
-                        console.warn(`Chapter ${currentIndex + 1} incomplete/rate-limited; retry ${retries}/3.`);
-                        window.sendTelemetry?.('CHAPTER_RETRY', `Ch ${currentIndex + 1} retry ${retries}/3.`);
+                        const retryBackoff = Math.min(6000, (1000 * Math.pow(2, retries - 1)) + (Math.random() * 500));
+                        console.warn(`Chapter ${currentIndex + 1} incomplete/rate-limited; retry ${retries}/3 in ${Math.round(retryBackoff)}ms.`);
+                        window.sendTelemetry?.('CHAPTER_RETRY', `Ch ${currentIndex + 1} retry ${retries}/3 in ${Math.round(retryBackoff)}ms.`);
                         pendingQueue.push(currentIndex);
-                        await new Promise(r => setTimeout(r, 1200));
+                        await new Promise(r => setTimeout(r, retryBackoff));
                     } else {
+                        consecutiveFailures++;
+                        console.warn(`Chapter ${currentIndex + 1} failed after 3 retries (consecutive failures: ${consecutiveFailures}).`);
+
+                        if (consecutiveFailures >= 3) {
+                            console.warn(`[Circuit Breaker] 3 consecutive chapters failed. Auto-pausing crawl session to protect novel data.`);
+                            window.sendTelemetry?.('CIRCUIT_BREAKER', `Auto-paused: 3 consecutive chapters failed.`, { currentIndex, novel: meta?.title });
+                            ctrl.isPaused = true;
+                            ctrl.circuitBreakerTripped = true;
+                            ctrl.pauseReason = '3 consecutive chapters unreachable (remote block or connection drop).';
+                            progressCb?.(`⏸ Auto-paused to protect novel: 3 consecutive chapters unreachable. Progress saved.`);
+                            pendingQueue.unshift(currentIndex);
+                            break;
+                        }
+
                         console.warn(`Chapter ${currentIndex + 1} failed after 3 retries; generating placeholder.`);
                         const placeholder = {
                             idx: currentIndex,
                             title: item.title || `Chapter ${currentIndex + 1}`,
                             text: `<p>[Chapter content could not be retrieved from remote source: ${item.url || 'Network error'}]</p>`,
                             content: `<p>[Chapter content could not be retrieved from remote source: ${item.url || 'Network error'}]</p>`,
-                            words: 10
+                            words: 10,
+                            isPlaceholder: true
                         };
                         chapters.push(placeholder);
                         completedIndices.add(currentIndex);
