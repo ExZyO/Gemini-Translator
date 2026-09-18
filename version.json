@@ -1,9 +1,9 @@
 {
-  "version": "8.16.0",
-  "versionCode": 8229,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.16.0/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.16.0/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.16.0",
+  "version": "8.16.1",
+  "versionCode": 8230,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.16.1/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.16.1/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.16.1",
   "releaseDate": "2026-09-18",
-  "releaseNotes": "v8.16.0: Import Tab Ergonomics & Source Plugins Engine Overhaul: 1) Reordered Import Tab (Tab 2): novel info card and Table of Contents (TOC) are now positioned directly at the top when a novel is fetched, moving search results to the bottom inside a clean collapsible drawer; 2) Source Plugins Engine Overhaul: full browser DOM Cheerio & htmlparser2 shims, resolving 'Untitled Novel' titles, enabling LNReader community scrapers, and auto-recovering missing titles from URL slugs; 3) Multi-Source Parallel Search: concurrent querying across installed plugins and built-in scrapers; 4) Plugin Catalog Polish: added language filter pills (All, EN, JA, ZH, ES, RU, KO) and one-tap Open site buttons."
+  "releaseNotes": "v8.16.1: Hotfix for blank screen on startup: resolved syntax delimiter in Tab 2 TOC component hierarchy, verified full browser parsing across all 44 script blocks, synchronized all web assets, and bumped release build to 8230."
 }

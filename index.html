@@ -857,7 +857,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.16.0';
+    let VERSION = '8.16.1';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6067,7 +6067,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8229);
+      const [appVersionCode, setAppVersionCode] = useState(8230);
       useEffect(() => {
         fetch('./version.json?t=' + Date.now())
           .then(r => r.json())
@@ -13190,7 +13190,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                           ))
                     )
                   );
-                })()
+                })(),
 
                 h('div', { className: 'note-row' },
                   h('span', null, 'Scrape images with chapters'),
