@@ -1,9 +1,9 @@
 {
-  "version": "8.16.1",
-  "versionCode": 8230,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.16.1/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.16.1/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.16.1",
+  "version": "8.17.0",
+  "versionCode": 8240,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.0/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.0/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.0",
   "releaseDate": "2026-09-18",
-  "releaseNotes": "v8.16.1: Hotfix for blank screen on startup: resolved syntax delimiter in Tab 2 TOC component hierarchy, verified full browser parsing across all 44 script blocks, synchronized all web assets, and bumped release build to 8230."
+  "releaseNotes": "v8.17.0: §5.8 Smart Glossary Auto-Builder shipped: 1-click Auto-Build Glossary on Import Tab novel cards and Library 3-dot action sheet; lossless Smart Dynamic Glossary formatting with section continuity and alias detection; anti-pronoun drift gender locking; automatic novel-to-glossary profile binding."
 }

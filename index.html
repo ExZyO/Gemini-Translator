@@ -857,7 +857,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.16.1';
+    let VERSION = '8.17.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1643,13 +1643,28 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
         const mapping = content.match(/^(.*?)\s*(?:->|=>|=)\s*(.*?)\s*$/);
         if (mapping) {
           addTermKeys(target, mapping[1]);
-          addTermKeys(target, mapping[2]);
+          let targetClean = mapping[2];
+          const hashIdx = targetClean.indexOf('#');
+          if (hashIdx !== -1) targetClean = targetClean.slice(0, hashIdx).trim();
+          const dSlashIdx = targetClean.indexOf('//');
+          if (dSlashIdx !== -1) targetClean = targetClean.slice(0, dSlashIdx).trim();
+          addTermKeys(target, targetClean);
         } else {
           const dashEntry = content.match(/^(.+?)\s+-\s+.+$/);
           const colonEntry = content.match(/^(.+?)\s*:\s*(.*)$/);
           addTermKeys(target, dashEntry ? dashEntry[1] : (colonEntry ? colonEntry[1] : content));
-          if (colonEntry?.[2] && colonEntry[2].length <= 80) addTermKeys(target, colonEntry[2]);
-          if (dashEntry?.[2] && dashEntry[2].length <= 80) addTermKeys(target, dashEntry[2]);
+          if (colonEntry?.[2] && colonEntry[2].length <= 80) {
+            let rightClean = colonEntry[2];
+            const hashIdx = rightClean.indexOf('#');
+            if (hashIdx !== -1) rightClean = rightClean.slice(0, hashIdx).trim();
+            addTermKeys(target, rightClean);
+          }
+          if (dashEntry?.[2] && dashEntry[2].length <= 80) {
+            let rightClean = dashEntry[2];
+            const hashIdx = rightClean.indexOf('#');
+            if (hashIdx !== -1) rightClean = rightClean.slice(0, hashIdx).trim();
+            addTermKeys(target, rightClean);
+          }
         }
         (content.match(/\b\d+-\d+\b/g) || []).forEach(number => target.push(number));
       };
@@ -6024,6 +6039,7 @@ const formatModelName = (id, displayName) => {
       // AI Auto-Glossary Extractor State
       const [autoGlossaryModalOpen, setAutoGlossaryModalOpen] = useState(false);
       const [autoGlossaryChapterCount, setAutoGlossaryChapterCount] = useState(5);
+      const [autoGlossaryTargetNovel, setAutoGlossaryTargetNovel] = useState(null);
       const [isExtractingGlossary, setIsExtractingGlossary] = useState(false);
       const [extractedTerms, setExtractedTerms] = useState([]);
 
@@ -7525,6 +7541,25 @@ const formatModelName = (id, displayName) => {
         toast(`Loaded "${g.name}"`);
       };
 
+      const checkAndApplyNovelGlossary = (novelRecord) => {
+        if (!novelRecord) return;
+        if (novelRecord.glossaryProfile) {
+          const match = savedGlossaries.find(g => g.name === novelRecord.glossaryProfile);
+          if (match) {
+            handleLoadGlossary(match);
+            return;
+          }
+        }
+        if (novelRecord.glossary && (!terminology || !terminology.trim())) {
+          setTerminology(novelRecord.glossary);
+          localStorage.setItem('terminology', novelRecord.glossary);
+          const profName = novelRecord.glossaryProfile || `${novelRecord.title || 'Novel'} Glossary`;
+          setActiveGlossaryId(profName);
+          localStorage.setItem('activeGlossaryId', profName);
+          toast(`Loaded bound glossary for "${novelRecord.title || 'Novel'}"!`, 'info');
+        }
+      };
+
       const handleUnloadGlossary = () => {
         setTerminology('');
         setActiveGlossaryId(null);
@@ -7897,19 +7932,22 @@ FORMATTING & STRUCTURE RULES:
         }
       };
 
-      const handleOpenAutoGlossary = () => {
-        const maxCh = (chapters && chapters.length > 0) ? chapters.length : 1;
+      const handleOpenAutoGlossary = (targetNovel = null) => {
+        setAutoGlossaryTargetNovel(targetNovel);
+        const targetChs = targetNovel?.chapters || targetNovel?.rawChapters || chapters || [];
+        const maxCh = (targetChs && targetChs.length > 0) ? targetChs.length : 1;
         setAutoGlossaryChapterCount(Math.min(5, maxCh));
         setExtractedTerms([]);
         setAutoGlossaryModalOpen(true);
       };
 
       const handleExtractGlossary = async () => {
+        const targetChs = autoGlossaryTargetNovel?.chapters || autoGlossaryTargetNovel?.rawChapters || chapters || [];
         let sampleText = '';
-        if (chapters && chapters.length > 0) {
-          const count = Math.min(autoGlossaryChapterCount, chapters.length);
+        if (targetChs && targetChs.length > 0) {
+          const count = Math.min(autoGlossaryChapterCount, targetChs.length);
           for (let i = 0; i < count; i++) {
-            const c = chapters[i];
+            const c = targetChs[i];
             const title = (typeof c === 'object' && c?.title) ? c.title : `Chapter ${i + 1}`;
             const txt = (typeof c === 'string' ? c : (c?.text || c?.content || '')).slice(0, 4000);
             sampleText += `\n--- ${title} ---\n${txt}\n`;
@@ -7930,18 +7968,20 @@ Analyze the provided novel chapter excerpts and extract:
 3. Special fantasy terminology, cultivation ranks, magical skills, or key locations
 
 For each entity, output a single line in this exact format:
-OriginalTerm = TranslatedTerm # Category: Note
+- OriginalTerm = TranslatedTerm # Category: Note
 
 For characters, explicitly specify their gender in the Category tag if known from context, pronouns, or honorifics:
 - Character (male)
 - Character (female)
 
+If a character or term has aliases, multiple names, or honorific forms, include them separated by slashes on the left and right sides so the Smart Glossary matches all variations:
 Examples:
-綾小路 清隆 = Kiyotaka Ayanokouji # Character (male): Main protagonist, Class D
-堀北 鈴音 = Suzune Horikita # Character (female): Class D leader
-高度育成高等学校 = Advanced Nurturing High School # Location: Main setting
+- 綾小路 清隆 / 綾小路 = Kiyotaka Ayanokouji / Kiyo # Character (male): Main protagonist, Class D
+- 堀北 鈴音 = Suzune Horikita # Character (female): Class D leader
+- 高度育成高等学校 = Advanced Nurturing High School # Location: Main setting
+- 鬼道 / 破道 = Kido / Hado # Skill: Soul Reaper incantation magic
 
-Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conversational chatter.`;
+Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown code blocks or add conversational chatter.`;
 
           const raw = await callAiAnalysis(`NOVEL TEXT EXCERPTS:\n${sampleText}`, sysPrompt);
           const parsed = [];
@@ -7949,10 +7989,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           lines.forEach((line, idx) => {
             line = line.trim();
             if (!line || line.startsWith('//') || line.startsWith('/*')) return;
-            const eqIdx = line.indexOf('=');
-            if (eqIdx !== -1) {
-              const orig = line.slice(0, eqIdx).trim();
-              let rest = line.slice(eqIdx + 1).trim();
+            line = line.replace(/^[-*•\s]+/, '').trim();
+            const match = line.match(/^(.*?)\s*(?:->|=>|=)\s*(.*?)$/);
+            if (match) {
+              const orig = match[1].trim();
+              let rest = match[2].trim();
               let cat = 'Character';
               let note = '';
               const hashIdx = rest.indexOf('#');
@@ -8003,7 +8044,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
 
         terms.forEach(t => {
           const cat = (t.category || '').toLowerCase();
-          const line = `${t.orig} = ${t.trans}${t.note ? ` # ${t.category}: ${t.note}` : ''}`;
+          const line = `- ${t.orig} = ${t.trans}${t.note ? ` # ${t.category}: ${t.note}` : ''}`;
           if (cat.includes('char') || cat.includes('person') || cat.includes('protagonist') || cat.includes('antagonist')) {
             characters.push(line);
           } else if (cat.includes('faction') || cat.includes('sect') || cat.includes('guild') || cat.includes('clan') || cat.includes('org')) {
@@ -8031,7 +8072,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         if (characters.length > 0 || factions.length > 0) {
           sections.push('', `## ${roman[sectionNum - 2]}. CHARACTER & FACTION DIRECTORY`);
           if (characters.length > 0) sections.push(...characters);
-          if (factions.length > 0) sections.push('', '# Factions & Organizations', ...factions);
+          if (factions.length > 0) sections.push('', '### Factions & Organizations', ...factions);
           sectionNum++;
         }
 
@@ -8055,7 +8096,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         return sections.join('\n');
       };
 
-      const handleApplyExtractedTerms = (asNewProfile = false) => {
+      const handleApplyExtractedTerms = async (asNewProfile = false) => {
         const selected = extractedTerms.filter(t => t.checked);
         if (selected.length === 0) return toast('No terms selected', 'warning');
         
@@ -8065,8 +8106,16 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         selected.forEach(t => {
           const gen = t.gender || (/\b(?:female|f)\b/i.test(t.category) ? 'female' : (/\b(?:male|m)\b/i.test(t.category) ? 'male' : null));
           if (gen) {
-            if (t.trans) updatedLocks[t.trans] = gen;
-            if (t.orig && t.orig !== t.trans) updatedLocks[t.orig] = gen;
+            if (t.trans) {
+              t.trans.split(/[/|,]/).map(x => x.trim()).filter(Boolean).forEach(alias => {
+                updatedLocks[alias] = gen;
+              });
+            }
+            if (t.orig && t.orig !== t.trans) {
+              t.orig.split(/[/|,]/).map(x => x.trim()).filter(Boolean).forEach(alias => {
+                updatedLocks[alias] = gen;
+              });
+            }
             autoLockedCount++;
           }
         });
@@ -8084,16 +8133,32 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         }
 
         const structuredGlossary = formatExtractedTermsIntoMasterGlossary(selected);
-        const formattedLines = selected.map(t => `${t.orig} = ${t.trans}${t.note ? ` # ${t.category}: ${t.note}` : ''}`).join('\n');
+        const formattedLines = selected.map(t => `- ${t.orig} = ${t.trans}${t.note ? ` # ${t.category}: ${t.note}` : ''}`).join('\n');
         
         if (asNewProfile) {
-          const defaultName = (chapters && chapters[0]?.title) ? `${chapters[0].title.slice(0, 20)} Glossary` : 'Auto Extracted Glossary';
+          const targetTitle = (autoGlossaryTargetNovel?.title || (chapters && chapters[0]?.title) || (activeNovelRecord && activeNovelRecord.title) || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+          const defaultName = targetTitle ? `${targetTitle} Glossary` : 'Auto Extracted Glossary';
           const name = prompt('Enter profile name for these terms:', defaultName);
           if (!name || !name.trim()) return;
-          handleSaveGlossary(name.trim(), structuredGlossary);
+          await handleSaveGlossary(name.trim(), structuredGlossary);
+
+          if (autoGlossaryTargetNovel && window.GeminiNovelDB) {
+            try {
+              const novelId = autoGlossaryTargetNovel.id || autoGlossaryTargetNovel.sourceUrl;
+              if (novelId) {
+                await window.GeminiNovelDB.updateNovel(novelId, {
+                  glossaryProfile: name.trim(),
+                  glossary: structuredGlossary
+                });
+              }
+            } catch(e) {
+              console.warn('Could not bind glossary to novel in DB:', e);
+            }
+          }
           setAutoGlossaryModalOpen(false);
+          setAutoGlossaryTargetNovel(null);
           window.telemetryLog?.('AUTO_GLOSSARY', `Saved ${selected.length} terms as profile "${name.trim()}".`);
-          toast(`Saved ${selected.length} terms as "${name.trim()}"!`, 'success');
+          toast(`Saved ${selected.length} terms as profile "${name.trim()}"!`, 'success');
         } else {
           const current = (terminology || '').trim();
           let updated = '';
@@ -8106,7 +8171,18 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
           }
           setTerminology(updated);
           localStorage.setItem('terminology', updated);
+          if (autoGlossaryTargetNovel && window.GeminiNovelDB) {
+            try {
+              const novelId = autoGlossaryTargetNovel.id || autoGlossaryTargetNovel.sourceUrl;
+              if (novelId) {
+                await window.GeminiNovelDB.updateNovel(novelId, {
+                  glossary: updated
+                });
+              }
+            } catch(e) {}
+          }
           setAutoGlossaryModalOpen(false);
+          setAutoGlossaryTargetNovel(null);
           window.telemetryLog?.('AUTO_GLOSSARY', `Applied ${selected.length} terms to active glossary.`);
           toast(`Applied ${selected.length} terms to active glossary!`, 'success');
         }
@@ -12977,9 +13053,17 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                       setCurrentDocCover(activeNovelView?.cover || '');
                       setFileName(activeNovelView.title || 'Web Novel');
                       setCurrentDocTitle(activeNovelView.title || 'Web Novel');
+                      checkAndApplyNovelGlossary(activeNovelView);
                       setActiveTab('text');
                       toast(`Loaded "${activeNovelView.title || 'Novel'}" (${chs.length} ch) to Translator!`, 'info');
                     } }, isLnoriNovel ? '🌐 Translate to Other Lang' : 'Send to Translator'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 600 },
+                      title: 'Pre-scan chapters with AI to extract characters, genders, and lore terms into a Smart Glossary',
+                      onClick: () => handleOpenAutoGlossary(activeNovelView)
+                    }, '⚡ Auto-Build Glossary'),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
@@ -14013,6 +14097,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                     setCurrentDocCover(full.cover || item.cover || '');
                                     setFileName(full.title || item.title || 'Novel');
                                     setCurrentDocTitle(full.title || item.title || 'Novel');
+                                    checkAndApplyNovelGlossary(full);
                                     setActiveTab('text');
                                     toast(`Loaded original source chapters into Translator!`, 'success');
                                     return;
@@ -14036,6 +14121,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                         setCurrentDocCover(sourceNovel.cover || full.cover || item.cover || '');
                                         setFileName(sourceNovel.title || full.title || item.title || 'Novel');
                                         setCurrentDocTitle(sourceNovel.title || full.title || item.title || 'Novel');
+                                        checkAndApplyNovelGlossary(sourceNovel || full);
                                         setActiveTab('text');
                                         toast(`Linked to source novel "${sourceNovel.title}"! Original loaded in input.`, 'success');
                                         return;
@@ -14051,6 +14137,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                   setCurrentDocCover(full.cover || item.cover || '');
                                   setFileName(full.title || item.title || 'Novel');
                                   setCurrentDocTitle(full.title || item.title || 'Novel');
+                                  checkAndApplyNovelGlossary(full);
                                   setActiveTab('text');
                                   toast(`This is an already-translated book. Loaded into reader. (Original source was not preserved in this copy)`, 'info');
                                 } else {
@@ -14063,6 +14150,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                   setCurrentDocCover(full.cover || item.cover || '');
                                   setFileName(full.title || item.title || 'Novel');
                                   setCurrentDocTitle(full.title || item.title || 'Novel');
+                                  checkAndApplyNovelGlossary(full);
                                   setActiveTab('text');
                                   toast(`Loaded "${full.title}" (${chs.length} chapters) into Translator!`, 'info');
                                 }
@@ -15749,6 +15837,11 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 item.sourceUrl && menuRow('🔄', 'Check Online Updates', 'Check online web source for newly published chapters', () => {
                   handleCheckNovelUpdate(item);
                 }),
+                menuRow('🧬', 'Auto-Build Glossary', 'Extract character cast and lore into a locked Smart Glossary', async () => {
+                  const full = await loadFullNovel(item);
+                  if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+                  handleOpenAutoGlossary(full);
+                }),
                 menuRow('⭐', item.inSavedSpace ? 'Remove from Saved Space' : 'Save to Space', item.inSavedSpace ? 'Remove priority star bookmark' : 'Pin to personal Saved Space shelf', () => {
                   toggleNovelSavedSpace(item.id, item);
                 }, false, item.inSavedSpace ? 'In Space' : null),
@@ -16213,130 +16306,140 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
         ),
 
         // ── AUTO-GLOSSARY & CHARACTER EXTRACTOR MODAL ──
-        autoGlossaryModalOpen && h('div', { className: 'modal-overlay', onClick: () => setAutoGlossaryModalOpen(false) },
-          h('div', { className: 'modal-box', onClick: e => e.stopPropagation() },
-            h('div', { className: 'modal-hd' },
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h('span', { style: { fontSize: 18 } }, '⚡'),
-                h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'AI Auto-Glossary & Character Extractor')
-              ),
-              h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setAutoGlossaryModalOpen(false) }, '✕')
-            ),
-            h('div', { className: 'modal-bd' },
-              h('p', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 14, lineHeight: 1.5 } },
-                'Deeply scans novel text using Gemini to discover character names, aliases, sects, factions, and realm terminology with clean translations.'
-              ),
-              h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: 12, borderRadius: 4, marginBottom: 16 } },
-                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
-                  h('span', { style: { fontSize: 12, fontWeight: 600 } }, 'Chapters to Sample:'),
-                  h('span', { className: 'badge', style: { fontFamily: "'IBM Plex Mono', monospace" } },
-                    chapters && chapters.length > 0
-                      ? `${autoGlossaryChapterCount} / ${chapters.length} chapters (${autoGlossaryChapterCount === chapters.length ? 'ALL' : `Ch. 1 - ${autoGlossaryChapterCount}`})`
-                      : 'Single Input Text'
+        autoGlossaryModalOpen && (() => {
+          const targetNovel = autoGlossaryTargetNovel;
+          const targetChapters = targetNovel?.chapters || targetNovel?.rawChapters || chapters || [];
+          const totalChs = targetChapters.length;
+          const novelTitle = (targetNovel?.title || (chapters && chapters[0]?.title) || (activeNovelRecord && activeNovelRecord.title) || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+
+          return h('div', { className: 'modal-overlay', onClick: () => { setAutoGlossaryModalOpen(false); setAutoGlossaryTargetNovel(null); } },
+            h('div', { className: 'modal-box', onClick: e => e.stopPropagation() },
+              h('div', { className: 'modal-hd' },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 } },
+                  h('span', { style: { fontSize: 18, flexShrink: 0 } }, '⚡'),
+                  h('div', { style: { minWidth: 0, flex: 1 } },
+                    h('div', { style: { fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, 'AI Auto-Glossary & Character Extractor'),
+                    novelTitle && h('div', { style: { fontSize: 11, color: 'var(--iris)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `📖 ${novelTitle}`)
                   )
                 ),
-                chapters && chapters.length > 1 && h('input', {
-                  type: 'range',
-                  min: 1,
-                  max: chapters.length,
-                  value: autoGlossaryChapterCount,
-                  onChange: e => setAutoGlossaryChapterCount(parseInt(e.target.value)),
-                  style: { width: '100%', accentColor: 'var(--iris)' }
-                }),
-                h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--slate)', marginTop: 4 } },
-                  h('span', null, '1 Chapter'),
-                  h('span', null, chapters && chapters.length > 0 ? `All (${chapters.length} Chs)` : 'Input Box')
-                )
+                h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => { setAutoGlossaryModalOpen(false); setAutoGlossaryTargetNovel(null); } }, '✕')
               ),
-              h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
-                h('button', {
-                  type: 'button',
-                  className: 'btn primary',
-                  style: { flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 },
-                  disabled: isExtractingGlossary,
-                  onClick: handleExtractGlossary
-                }, isExtractingGlossary ? 'Analyzing Chapters with AI…' : '⚡ Extract Characters & Lore')
-              ),
-              extractedTerms.length > 0 && h('div', null,
-                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid var(--hairline)' } },
-                  h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)' } }, `Extracted Entities (${extractedTerms.filter(t => t.checked).length}/${extractedTerms.length} selected)`),
+              h('div', { className: 'modal-bd' },
+                h('p', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 14, lineHeight: 1.5 } },
+                  'Deeply scans novel text using Gemini to discover character names, aliases, sects, factions, and realm terminology formatted for Smart Glossary with locked character genders.'
+                ),
+                h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', padding: 12, borderRadius: 4, marginBottom: 16 } },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
+                    h('span', { style: { fontSize: 12, fontWeight: 600 } }, 'Chapters to Sample:'),
+                    h('span', { className: 'badge', style: { fontFamily: "'IBM Plex Mono', monospace" } },
+                      totalChs > 0
+                        ? `${autoGlossaryChapterCount} / ${totalChs} chapters (${autoGlossaryChapterCount === totalChs ? 'ALL' : `Ch. 1 - ${autoGlossaryChapterCount}`})`
+                        : 'Single Input Text'
+                    )
+                  ),
+                  totalChs > 1 && h('input', {
+                    type: 'range',
+                    min: 1,
+                    max: totalChs,
+                    value: autoGlossaryChapterCount,
+                    onChange: e => setAutoGlossaryChapterCount(parseInt(e.target.value)),
+                    style: { width: '100%', accentColor: 'var(--iris)' }
+                  }),
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--slate)', marginTop: 4 } },
+                    h('span', null, '1 Chapter'),
+                    h('span', null, totalChs > 0 ? `All (${totalChs} Chs)` : 'Input Box')
+                  )
+                ),
+                h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
                   h('button', {
                     type: 'button',
-                    className: 'mini-btn ghost',
-                    style: { fontSize: 11, padding: '2px 8px' },
-                    onClick: () => {
-                      const allChecked = extractedTerms.every(t => t.checked);
-                      setExtractedTerms(extractedTerms.map(t => ({ ...t, checked: !allChecked })));
-                    }
-                  }, extractedTerms.every(t => t.checked) ? 'Deselect All' : 'Select All')
+                    className: 'btn primary',
+                    style: { flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 },
+                    disabled: isExtractingGlossary,
+                    onClick: handleExtractGlossary
+                  }, isExtractingGlossary ? 'Analyzing Chapters with AI…' : '⚡ Extract Characters & Lore')
                 ),
-                h('div', { style: { maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 } },
-                  extractedTerms.map((t, idx) => h('div', {
-                    key: t.id || idx,
-                    style: {
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid var(--hairline)',
-                      borderRadius: 4,
-                      padding: '6px 10px'
-                    }
-                  },
-                    h('input', {
-                      type: 'checkbox',
-                      checked: !!t.checked,
-                      onChange: e => {
-                        const checked = e.target.checked;
-                        setExtractedTerms(prev => prev.map(item => item.id === t.id ? { ...item, checked } : item));
-                      },
-                      style: { accentColor: 'var(--iris)' }
-                    }),
-                    h('div', { style: { flex: 1, minWidth: 0 } },
-                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
-                        h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--paper)' } }, t.orig),
-                        h('span', { style: { color: 'var(--slate)', fontSize: 11 } }, '➔'),
-                        h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--iris)' } }, t.trans),
-                        h('span', { className: 'badge', style: { fontSize: 9, textTransform: 'uppercase', padding: '1px 5px' } }, t.category || 'Term'),
-                        t.gender && h('span', {
-                          className: 'badge',
-                          style: {
-                            fontSize: 9,
-                            padding: '1px 6px',
-                            cursor: 'pointer',
-                            background: t.gender === 'female' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(59, 130, 246, 0.2)',
-                            color: t.gender === 'female' ? '#ec4899' : '#3b82f6',
-                            border: `1px solid ${t.gender === 'female' ? 'rgba(236, 72, 153, 0.4)' : 'rgba(59, 130, 246, 0.4)'}`
-                          },
-                          title: 'Click to toggle gender',
-                          onClick: (e) => {
-                            e.stopPropagation();
-                            const nextGen = t.gender === 'female' ? 'male' : 'female';
-                            setExtractedTerms(prev => prev.map(item => item.id === t.id ? { ...item, gender: nextGen, category: `Character (${nextGen})` } : item));
-                          }
-                        }, t.gender === 'female' ? '♀ Female' : '♂ Male')
-                      ),
-                      t.note && h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.note)
-                    )
-                  ))
+                extractedTerms.length > 0 && h('div', null,
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid var(--hairline)' } },
+                    h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)' } }, `Extracted Entities (${extractedTerms.filter(t => t.checked).length}/${extractedTerms.length} selected)`),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { fontSize: 11, padding: '2px 8px' },
+                      onClick: () => {
+                        const allChecked = extractedTerms.every(t => t.checked);
+                        setExtractedTerms(extractedTerms.map(t => ({ ...t, checked: !allChecked })));
+                      }
+                    }, extractedTerms.every(t => t.checked) ? 'Deselect All' : 'Select All')
+                  ),
+                  h('div', { style: { maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 } },
+                    extractedTerms.map((t, idx) => h('div', {
+                      key: t.id || idx,
+                      style: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid var(--hairline)',
+                        borderRadius: 4,
+                        padding: '6px 10px'
+                      }
+                    },
+                      h('input', {
+                        type: 'checkbox',
+                        checked: !!t.checked,
+                        onChange: e => {
+                          const checked = e.target.checked;
+                          setExtractedTerms(prev => prev.map(item => item.id === t.id ? { ...item, checked } : item));
+                        },
+                        style: { accentColor: 'var(--iris)' }
+                      }),
+                      h('div', { style: { flex: 1, minWidth: 0 } },
+                        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+                          h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--paper)' } }, t.orig),
+                          h('span', { style: { color: 'var(--slate)', fontSize: 11 } }, '➔'),
+                          h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--iris)' } }, t.trans),
+                          h('span', { className: 'badge', style: { fontSize: 9, textTransform: 'uppercase', padding: '1px 5px' } }, t.category || 'Term'),
+                          t.gender && h('span', {
+                            className: 'badge',
+                            style: {
+                              fontSize: 9,
+                              padding: '1px 6px',
+                              cursor: 'pointer',
+                              background: t.gender === 'female' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                              color: t.gender === 'female' ? '#ec4899' : '#3b82f6',
+                              border: `1px solid ${t.gender === 'female' ? 'rgba(236, 72, 153, 0.4)' : 'rgba(59, 130, 246, 0.4)'}`
+                            },
+                            title: 'Click to toggle gender',
+                            onClick: (e) => {
+                              e.stopPropagation();
+                              const nextGen = t.gender === 'female' ? 'male' : 'female';
+                              setExtractedTerms(prev => prev.map(item => item.id === t.id ? { ...item, gender: nextGen, category: `Character (${nextGen})` } : item));
+                            }
+                          }, t.gender === 'female' ? '♀ Female' : '♂ Male')
+                        ),
+                        t.note && h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.note)
+                      )
+                    ))
+                  )
                 )
+              ),
+              extractedTerms.length > 0 && h('div', { className: 'modal-ft' },
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  onClick: () => handleApplyExtractedTerms(true)
+                }, targetNovel ? '💾 Save as Novel Profile' : '💾 Save as New Profile'),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn',
+                  style: { background: 'var(--iris)', color: '#fff', fontWeight: 600 },
+                  onClick: () => handleApplyExtractedTerms(false)
+                }, `➕ Append to Glossary (${extractedTerms.filter(t => t.checked).length})`)
               )
-            ),
-            extractedTerms.length > 0 && h('div', { className: 'modal-ft' },
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                onClick: () => handleApplyExtractedTerms(true)
-              }, '💾 Save as New Profile'),
-              h('button', {
-                type: 'button',
-                className: 'mini-btn',
-                style: { background: 'var(--iris)', color: '#fff', fontWeight: 600 },
-                onClick: () => handleApplyExtractedTerms(false)
-              }, `➕ Append to Glossary (${extractedTerms.filter(t => t.checked).length})`)
             )
-          )
-        ),
+          );
+        })(),
 
 
 

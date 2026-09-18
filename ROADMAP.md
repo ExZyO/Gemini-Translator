@@ -35,7 +35,7 @@
 | 1 | **§4.1** | LNReader Plugin Architecture | v8.14.0 | Standardized source plugin interface; keeps existing built-in crawlers primary | 📋 Planned |
 | 2 | **§4.1b** | Universal Fallback Parser | v8.11.1 | `@mozilla/readability` + DOMPurify; falls back ONLY when existing crawlers don't match | ✅ Shipped |
 | 3 | **§5.4** | Language Learning Mode & FSRS | v8.17.0 | `ts-fsrs` (modern Anki scheduler) + Kuromoji / Hanzi dictionary popups | 📋 Planned |
-| 4 | **§5.8** | Smart Glossary Auto-Builder | v8.19.0 | Automated pre-read entity extractor populating book profiles | 📋 Planned |
+| 4 | **§5.8** | Smart Glossary Auto-Builder | v8.17.0 | Automated pre-read entity extractor with Smart Glossary formatting & gender lock | ✅ Shipped |
 | 5 | **§5.9** | Translation Proofreader QA | v8.11.2 | Merged into Unified Health & QA Suite (CJK leak detection, loop guard) | ✅ Shipped |
 | 6 | **§5.10** | Cultural Context Footnotes | v8.19.0 | `[¹]` explanatory popover tooltips for cultural lore and slang | 📋 Planned |
 | 7 | **§5.11** | Auto-Chapter Descriptive Subtitle Naming | v8.19.0 | AI generates descriptive, spoiler-safe chapter subtitles (e.g. "Ch 147 — The Witch's Tea Party") | 📋 Planned |
@@ -261,7 +261,7 @@ Run 2-3 engines in parallel. Side-by-side diff comparison. AI judges fluency/acc
 AI pre-reads Ch 1-2, extracts names/honorifics/terms as JSON. User reviews in approval modal. Glossary locked in from chapter 1.
 
 ### 🧬 5.8 Smart Glossary Auto-Builder 🔥 [PRIORITY]
-**v8.19.0 · Medium · 📋 Planned**
+**v8.17.0 · Medium · ✅ Shipped**
 
 AI pre-reads Ch 1-2, extracts character names, aliases, honorifics, and lore terms as structured JSON. User reviews in approval modal. Glossary and gender profiles are locked in from chapter 1.
 
