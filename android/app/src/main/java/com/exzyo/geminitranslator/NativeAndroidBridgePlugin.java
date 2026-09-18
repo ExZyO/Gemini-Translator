@@ -92,7 +92,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private static final int NOTIFICATION_ID = 1001;
     private static final int COMPLETE_NOTIFICATION_ID = 1002;
     private static final int AUDIO_NOTIFICATION_ID = 8888;
-    private static final String DEFAULT_UA = "Mozilla/5.0 (Linux; Android 14; Mobile; rv:125.0) Gecko/125.0 Firefox/125.0";
+    private static final String DEFAULT_UA = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36";
 
     public static final String ACTION_AUDIO_PLAY_PAUSE = "com.exzyo.geminitranslator.AUDIO_PLAY_PAUSE";
     public static final String ACTION_AUDIO_REWIND_5 = "com.exzyo.geminitranslator.AUDIO_REWIND_5";
@@ -995,17 +995,22 @@ public class NativeAndroidBridgePlugin extends Plugin {
     // ══════════════════════════════════════════════════════════════════════
     private boolean isCloudflareChallengeHtml(String html) {
         if (html == null || html.isEmpty()) return true;
+        if (html.length() < 120) return true;
         String lower = html.toLowerCase();
-        return lower.contains("cf-browser-verification")
-            || lower.contains("challenges.cloudflare.com")
+
+        // If the page contains real book or site content, it is NOT a challenge page
+        if (lower.contains("__next_data__") || lower.contains("chapter-content") || lower.contains("content-inner") ||
+            lower.contains("reading-content") || lower.contains("class=\"book-info\"") || lower.contains("class=\"book-item\"") ||
+            lower.contains("class=\"site-header\"") || (html.length() > 6000 && (lower.contains("<h1") || lower.contains("<main") || lower.contains("<article")))) {
+            return false;
+        }
+
+        return lower.contains("<title>just a moment...</title>")
+            || lower.contains("<title>attention required! | cloudflare</title>")
+            || lower.contains("cf-browser-verification")
             || lower.contains("security service to protect against malicious bots")
             || lower.contains("performance and security by cloudflare")
-            || lower.contains("waiting for syosetu")
-            || lower.contains("waiting for ")
             || lower.contains("enable javascript and cookies to continue")
-            || lower.contains("just a moment...")
-            || lower.contains("attention required! | cloudflare")
-            || lower.contains("cf-turnstile")
             || lower.contains("cf_chl_")
             || lower.contains("shields are up!");
     }
@@ -1049,7 +1054,16 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 settings.setJavaScriptEnabled(true);
                 settings.setDomStorageEnabled(true);
                 settings.setDatabaseEnabled(true);
-                settings.setUserAgentString(DEFAULT_UA);
+                settings.setJavaScriptCanOpenWindowsAutomatically(true);
+                try {
+                    String systemUa = WebSettings.getDefaultUserAgent(context);
+                    settings.setUserAgentString(systemUa);
+                } catch (Throwable t) {
+                    settings.setUserAgentString(DEFAULT_UA);
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                }
 
                 CookieManager cookieManager = CookieManager.getInstance();
                 cookieManager.setAcceptCookie(true);
@@ -1076,6 +1090,8 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     if (resolved[0]) return;
                     String currentUrl = webView.getUrl();
                     String cookies = cookieManager.getCookie(currentUrl != null ? currentUrl : targetUrl);
+                    boolean hasClearance = cookies != null && cookies.contains("cf_clearance");
+
                     webView.evaluateJavascript("document.documentElement.outerHTML", html -> {
                         if (resolved[0]) return;
                         if (html != null && html.length() > 200) {
@@ -1086,9 +1102,12 @@ public class NativeAndroidBridgePlugin extends Plugin {
                                 Log.w(TAG, "HTML tokener parse fallback");
                             }
                             
-                            if (!isCloudflareChallengeHtml(cleanHtml)) {
+                            if (hasClearance || !isCloudflareChallengeHtml(cleanHtml)) {
                                 resolved[0] = true;
                                 try {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                        cookieManager.flush();
+                                    }
                                     JSObject ret = new JSObject();
                                     ret.put("success", true);
                                     ret.put("cookies", cookies != null ? cookies : "");

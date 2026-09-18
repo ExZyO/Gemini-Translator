@@ -2465,7 +2465,39 @@
         let bookUrl = url.trim().replace(/\/chapter[-/].*$/i, '');
         const origin = new URL(url).origin;
 
-        const html = await fetchHtml(bookUrl, { headers: { 'Referer': 'https://novelbuddy.me/' } });
+        let html;
+        try {
+            html = await fetchHtml(bookUrl, { headers: { 'Referer': 'https://novelbuddy.me/' } });
+        } catch (err) {
+            if (err.isCloudflare || err.message?.includes('403') || err.message?.includes('Cloudflare') || err.message?.includes('Turnstile') || err.message?.includes('Firewall')) {
+                if (window.NativeBridge?.resolveCloudflare) {
+                    progressCb?.('NovelBuddy security verification required. Opening solver in Android...', 10);
+                    const cfRes = await window.NativeBridge.resolveCloudflare(bookUrl);
+                    if (cfRes && cfRes.html && !isBlockOrChallenge(cfRes.html)) {
+                        html = cfRes.html;
+                    } else {
+                        html = await fetchHtml(bookUrl, { headers: { 'Referer': 'https://novelbuddy.me/' } });
+                    }
+                } else {
+                    throw err;
+                }
+            } else {
+                throw err;
+            }
+        }
+
+        if (html && isBlockOrChallenge(html)) {
+            if (window.NativeBridge?.resolveCloudflare) {
+                progressCb?.('Solving NovelBuddy security challenge in Android...', 10);
+                const cfRes = await window.NativeBridge.resolveCloudflare(bookUrl);
+                if (cfRes && cfRes.html && !isBlockOrChallenge(cfRes.html)) {
+                    html = cfRes.html;
+                } else {
+                    html = await fetchHtml(bookUrl, { headers: { 'Referer': 'https://novelbuddy.me/' } });
+                }
+            }
+        }
+
         const doc = new DOMParser().parseFromString(html, 'text/html');
 
         let nextData = null;
