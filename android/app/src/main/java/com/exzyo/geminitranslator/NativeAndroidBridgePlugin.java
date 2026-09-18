@@ -1838,38 +1838,55 @@ public class NativeAndroidBridgePlugin extends Plugin {
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
-                URL url = new URL(urlStr);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(20000);
-                conn.setReadTimeout(20000);
-                conn.setInstanceFollowRedirects(true);
-                conn.setRequestProperty("User-Agent", DEFAULT_UA);
-                conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-                conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ja;q=0.8");
+                String currentUrl = urlStr;
+                JSObject customHeaders = call.getObject("headers");
+                String method = call.getString("method", "GET").toUpperCase();
+                int redirects = 0;
+                int status = 0;
 
-                CookieManager cookieManager = CookieManager.getInstance();
-                String cookies = cookieManager != null ? cookieManager.getCookie(urlStr) : null;
-                if (cookies != null && !cookies.isEmpty()) {
-                    conn.setRequestProperty("Cookie", cookies);
-                }
+                while (redirects < 5) {
+                    URL url = new URL(currentUrl);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod(method);
+                    conn.setConnectTimeout(25000);
+                    conn.setReadTimeout(25000);
+                    conn.setInstanceFollowRedirects(false);
+                    conn.setRequestProperty("User-Agent", DEFAULT_UA);
+                    conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8");
+                    conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ja;q=0.8");
 
-                int status = conn.getResponseCode();
-                if (status >= 300 && status < 400) {
-                    String loc = conn.getHeaderField("Location");
-                    if (loc != null) {
-                        conn.disconnect();
-                        url = new URL(loc);
-                        conn = (HttpURLConnection) url.openConnection();
-                        conn.setRequestProperty("User-Agent", DEFAULT_UA);
-                        conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-                        conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ja;q=0.8");
-                        String redirectCookies = cookieManager != null ? cookieManager.getCookie(loc) : null;
-                        if (redirectCookies != null && !redirectCookies.isEmpty()) {
-                            conn.setRequestProperty("Cookie", redirectCookies);
+                    try {
+                        CookieManager cookieManager = CookieManager.getInstance();
+                        String cookies = cookieManager != null ? cookieManager.getCookie(currentUrl) : null;
+                        if (cookies != null && !cookies.isEmpty()) {
+                            conn.setRequestProperty("Cookie", cookies);
                         }
-                        status = conn.getResponseCode();
+                    } catch (Throwable ignored) {}
+
+                    if (customHeaders != null) {
+                        Iterator<String> it = customHeaders.keys();
+                        while (it.hasNext()) {
+                            String k = it.next();
+                            try {
+                                conn.setRequestProperty(k, customHeaders.getString(k));
+                            } catch (Exception ignored) {}
+                        }
                     }
+
+                    status = conn.getResponseCode();
+                    if (status >= 300 && status < 400) {
+                        String loc = conn.getHeaderField("Location");
+                        if (loc != null && !loc.isEmpty()) {
+                            if (!loc.startsWith("http")) {
+                                loc = new URL(url, loc).toString();
+                            }
+                            currentUrl = loc;
+                            conn.disconnect();
+                            redirects++;
+                            continue;
+                        }
+                    }
+                    break;
                 }
 
                 InputStream is = (status >= 200 && status < 400) ? conn.getInputStream() : conn.getErrorStream();

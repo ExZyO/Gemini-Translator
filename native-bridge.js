@@ -258,11 +258,15 @@
             }
         },
 
-        fetchNative: async (url) => {
+        fetchNative: async (url, options = {}) => {
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.fetchNative) {
-                    const res = await bridge.fetchNative({ url });
+                    const res = await bridge.fetchNative({
+                        url,
+                        headers: options?.headers || {},
+                        method: options?.method || 'GET'
+                    });
                     if (res && res.data) {
                         return { success: res.success, status: res.status || 200, data: res.data };
                     }
@@ -273,7 +277,6 @@
             // Local direct proxy check + prioritized fast public proxies
             const proxies = [
                 (u) => `http://127.0.0.1:9090/proxy?url=${encodeURIComponent(u)}`,
-                (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
                 (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
                 (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
             ];

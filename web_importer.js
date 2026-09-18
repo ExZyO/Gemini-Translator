@@ -307,6 +307,9 @@
         if (lower.includes('401 unauthorized') || lower.includes('403 forbidden') || lower.includes('access denied') || lower.includes('checking your browser')) {
             return { blocked: true, type: 'waf_block', label: 'Access Denied / Security Firewall' };
         }
+        if (lower.includes('301 moved permanently') || lower.includes('hide.mn') || (lower.includes('error code: 522') && lower.includes('cloudflare'))) {
+            return { blocked: true, type: 'proxy_dead', label: 'CORS Proxy Error / Redirect' };
+        }
         return { blocked: false, type: null };
     }
 
@@ -3591,54 +3594,119 @@
     }
 
     async function searchNovelBuddy(query) {
-        const url = `https://novelbuddy.me/search?q=${encodeURIComponent(query)}`;
-        const html = await fetchHtml(url, { headers: { 'Referer': 'https://novelbuddy.me/' } });
-        if (!html) return [];
-
+        if (!query || !query.trim()) return [];
+        const cleanQ = encodeURIComponent(query.trim());
         const results = [];
+        const seenUrls = new Set();
+
+        // 1. Direct Official High-Speed JSON API Query
         try {
-            const nextMatch = html.match(/<script\s+id=["']__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/i);
-            if (nextMatch) {
-                const data = JSON.parse(nextMatch[1]);
-                const items = data.props?.pageProps?.ssrItems || [];
+            const apiUrl = `https://api.novelbuddy.me/titles/search?q=${cleanQ}`;
+            const apiRes = await fetchHtml(apiUrl, {
+                context: 'NovelBuddy API Search',
+                headers: {
+                    'Referer': 'https://novelbuddy.me/',
+                    'Accept': 'application/json, text/plain, */*'
+                }
+            });
+            if (apiRes) {
+                let json = null;
+                try {
+                    json = typeof apiRes === 'string' ? JSON.parse(apiRes) : apiRes;
+                } catch (_) {}
+
+                const items = json?.data?.items || json?.items || [];
                 for (const it of items) {
                     if (!it.name || !it.url) continue;
+                    const fullUrl = it.url.startsWith('http') ? it.url : `https://novelbuddy.me${it.url}`;
+                    if (seenUrls.has(fullUrl)) continue;
+                    seenUrls.add(fullUrl);
+
+                    const authorStr = Array.isArray(it.authors) ? it.authors.map(a => a.name || a).filter(Boolean).join(', ') : (it.author || 'NovelBuddy Author');
+                    const chStr = it.stats?.chapters_count ? `${it.stats.chapters_count} chapters` : (it.displayChapters || (it.stats?.chaptersCount ? `${it.stats.chaptersCount} chapters` : ''));
+                    const ratingStr = it.rating ? `${it.rating} ★` : (it.rating_avg ? `${it.rating_avg} ★` : '');
+
                     results.push({
                         id: it.id || ('nb_' + Math.random().toString(36).substring(2, 8)),
                         source: 'NovelBuddy',
-                        title: it.name.trim(),
-                        url: it.url.startsWith('http') ? it.url : `https://novelbuddy.me${it.url}`,
+                        title: (it.name || '').trim(),
+                        url: fullUrl,
                         cover: it.cover || '',
-                        author: Array.isArray(it.authors) ? it.authors.map(a => a.name).filter(Boolean).join(', ') : (it.author || 'NovelBuddy Author'),
-                        chapters: it.displayChapters || (it.stats?.chaptersCount ? `${it.stats.chaptersCount} chapters` : ''),
-                        rating: it.rating ? `${it.rating} ★` : '',
+                        author: authorStr,
+                        chapters: chStr,
+                        rating: ratingStr,
                         summary: it.summary ? stripSearchHtml(it.summary).substring(0, 240) + '…' : '',
                         tags: (it.genres || []).map(g => g.name || g).slice(0, 4),
                         status: it.status || ''
                     });
                 }
+                if (results.length > 0) {
+                    return results;
+                }
+            }
+        } catch (apiErr) {
+            console.debug('[NovelBuddy] Direct API search fallback to HTML scraper:', apiErr.message);
+        }
+
+        // 2. Fallback: SSR HTML / __NEXT_DATA__
+        try {
+            const url = `https://novelbuddy.me/search?q=${cleanQ}`;
+            const html = await fetchHtml(url, {
+                context: 'NovelBuddy Web Search',
+                headers: { 'Referer': 'https://novelbuddy.me/' }
+            });
+            if (html) {
+                const nextMatch = html.match(/<script\s+id=["']__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/i);
+                if (nextMatch) {
+                    const data = JSON.parse(nextMatch[1]);
+                    const items = data.props?.pageProps?.ssrItems || [];
+                    for (const it of items) {
+                        if (!it.name || !it.url) continue;
+                        const fullUrl = it.url.startsWith('http') ? it.url : `https://novelbuddy.me${it.url}`;
+                        if (seenUrls.has(fullUrl)) continue;
+                        seenUrls.add(fullUrl);
+
+                        results.push({
+                            id: it.id || ('nb_' + Math.random().toString(36).substring(2, 8)),
+                            source: 'NovelBuddy',
+                            title: it.name.trim(),
+                            url: fullUrl,
+                            cover: it.cover || '',
+                            author: Array.isArray(it.authors) ? it.authors.map(a => a.name).filter(Boolean).join(', ') : (it.author || 'NovelBuddy Author'),
+                            chapters: it.displayChapters || (it.stats?.chaptersCount ? `${it.stats.chaptersCount} chapters` : ''),
+                            rating: it.rating ? `${it.rating} ★` : '',
+                            summary: it.summary ? stripSearchHtml(it.summary).substring(0, 240) + '…' : '',
+                            tags: (it.genres || []).map(g => g.name || g).slice(0, 4),
+                            status: it.status || ''
+                        });
+                    }
+                }
+
+                if (results.length === 0) {
+                    const itemRegex = /<div class="book-item"[\s\S]*?<\/div>\s*<\/div>/gi;
+                    let match;
+                    while ((match = itemRegex.exec(html)) !== null) {
+                        const block = match[0];
+                        const linkM = block.match(/<a[^>]+href="([^"]+)"[^>]*title="([^"]+)"/i);
+                        if (!linkM) continue;
+                        const imgM = block.match(/<img[^>]+(?:data-src|src)="([^"]+)"/i);
+                        const fullUrl = linkM[1].startsWith('http') ? linkM[1] : `https://novelbuddy.me${linkM[1]}`;
+                        if (seenUrls.has(fullUrl)) continue;
+                        seenUrls.add(fullUrl);
+
+                        results.push({
+                            source: 'NovelBuddy',
+                            title: stripSearchHtml(linkM[2]),
+                            url: fullUrl,
+                            cover: imgM ? imgM[1] : '',
+                            author: 'NovelBuddy Author',
+                            chapters: '',
+                            tags: ['NovelBuddy']
+                        });
+                    }
+                }
             }
         } catch (_) {}
-
-        if (results.length === 0) {
-            const itemRegex = /<div class="book-item"[\s\S]*?<\/div>\s*<\/div>/gi;
-            let match;
-            while ((match = itemRegex.exec(html)) !== null) {
-                const block = match[0];
-                const linkM = block.match(/<a[^>]+href="([^"]+)"[^>]*title="([^"]+)"/i);
-                if (!linkM) continue;
-                const imgM = block.match(/<img[^>]+(?:data-src|src)="([^"]+)"/i);
-                results.push({
-                    source: 'NovelBuddy',
-                    title: stripSearchHtml(linkM[2]),
-                    url: linkM[1].startsWith('http') ? linkM[1] : `https://novelbuddy.me${linkM[1]}`,
-                    cover: imgM ? imgM[1] : '',
-                    author: 'NovelBuddy Author',
-                    chapters: '',
-                    tags: ['NovelBuddy']
-                });
-            }
-        }
 
         return results;
     }
