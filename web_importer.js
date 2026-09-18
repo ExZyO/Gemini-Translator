@@ -294,22 +294,67 @@
     let lastLocalProxyCheck = 0;
 
     function detectBlockOrChallenge(text) {
-        if (!text || typeof text !== 'string' || text.length < 80) return { blocked: true, type: 'empty_or_short' };
+        if (!text || typeof text !== 'string') return { blocked: true, type: 'empty' };
+        const trimmed = text.trim();
         const lower = text.toLowerCase();
+
+        // 1. JSON API bypass: Valid JSON responses from NovelBuddy/crawlers are never Cloudflare HTML challenge pages
+        if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+            if (!lower.includes('error 1015') && !lower.includes('error 429') && !lower.includes('access denied')) {
+                return { blocked: false, type: null };
+            }
+        }
+
+        if (text.length < 80) return { blocked: true, type: 'empty_or_short' };
+
+        // 2. Legitimate content bypass: If the page has rich novel content, chapter body, or SSR data, it is NOT a challenge
+        if (text.length > 3500 && (
+            lower.includes('__next_data__') ||
+            lower.includes('initialmanga') ||
+            lower.includes('class="chapter-content"') ||
+            lower.includes('class="content-inner"') ||
+            lower.includes('class="reading-content"') ||
+            lower.includes('class="book-item"') ||
+            lower.includes('class="book-info"') ||
+            lower.includes('class="novel-item"') ||
+            lower.includes('class="entry-content"') ||
+            lower.includes('class="chapter-body"') ||
+            lower.includes('id="chapter-article"') ||
+            lower.includes('id="content"') ||
+            lower.includes('id="chapter-content"') ||
+            lower.includes('class="site-header"') ||
+            lower.includes('novel_honbun') ||
+            lower.includes('p-novel__body') ||
+            lower.includes('widget-episodebody')
+        )) {
+            return { blocked: false, type: null };
+        }
+
         // Detect genuine Cloudflare rate limit (1015) or block/challenge pages
         if (lower.includes('error 1015') || (lower.includes('rate limit') && lower.includes('cloudflare')) || lower.includes('error 429') || lower.includes('too many requests')) {
             return { blocked: true, type: 'rate_limit', label: 'Cloudflare 1015 / 429 Rate Limit' };
         }
-        if (lower.includes('<title>just a moment...</title>') || lower.includes('attention required! | cloudflare') || lower.includes('cf-browser-verification') || lower.includes('turnstile') ||
-            (text.length < 3500 && lower.includes('/cdn-cgi/challenge-platform') && !lower.includes('id="content"') && !lower.includes('class="chapter-content"') && !lower.includes('class="entry-content"'))) {
+
+        // Genuine Cloudflare challenge pages: title "Just a moment...", Cloudflare attention required, or challenge platform scripts on short pages
+        if (lower.includes('<title>just a moment...</title>') ||
+            lower.includes('<title>attention required! | cloudflare</title>') ||
+            lower.includes('attention required! | cloudflare') ||
+            lower.includes('cf-browser-verification') ||
+            lower.includes('shields are up!') ||
+            (text.length < 5000 && (lower.includes('challenges.cloudflare.com/turnstile') || lower.includes('cf-turnstile') || lower.includes('cf_chl_'))) ||
+            (text.length < 5000 && lower.includes('/cdn-cgi/challenge-platform') && !lower.includes('id="content"'))
+        ) {
             return { blocked: true, type: 'turnstile', label: 'Cloudflare Turnstile Verification' };
         }
-        if (lower.includes('401 unauthorized') || lower.includes('403 forbidden') || lower.includes('access denied') || lower.includes('checking your browser')) {
+
+        if (lower.includes('401 unauthorized') || lower.includes('403 forbidden') || lower.includes('access denied') || (text.length < 2500 && lower.includes('checking your browser'))) {
             return { blocked: true, type: 'waf_block', label: 'Access Denied / Security Firewall' };
         }
+
         if (lower.includes('301 moved permanently') || lower.includes('hide.mn') || (lower.includes('error code: 522') && lower.includes('cloudflare'))) {
             return { blocked: true, type: 'proxy_dead', label: 'CORS Proxy Error / Redirect' };
         }
+
         return { blocked: false, type: null };
     }
 
@@ -1713,20 +1758,9 @@
     }
 
     function isCloudflareChallenge(html) {
-        if (!html || typeof html !== 'string') return false;
-        const lower = html.toLowerCase();
-        return lower.includes('cf-browser-verification')
-            || lower.includes('challenges.cloudflare.com')
-            || lower.includes('security service to protect against malicious bots')
-            || lower.includes('performance and security by cloudflare')
-            || lower.includes('waiting for syosetu')
-            || lower.includes('waiting for ')
-            || lower.includes('enable javascript and cookies to continue')
-            || lower.includes('just a moment...')
-            || lower.includes('attention required! | cloudflare')
-            || lower.includes('cf-turnstile')
-            || lower.includes('cf_chl_')
-            || lower.includes('shields are up!');
+        if (!html || typeof html !== 'string' || html.length < 80) return false;
+        const res = detectBlockOrChallenge(html);
+        return res.blocked && (res.type === 'turnstile' || res.type === 'rate_limit' || res.type === 'waf_block');
     }
 
     // --- D. SYOSETU (小説家になろう) & KAKUYOMU (カクヨム) & HAMELN (ハーメルン) ---

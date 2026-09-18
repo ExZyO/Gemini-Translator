@@ -1,9 +1,9 @@
 {
-  "version": "8.17.2",
-  "versionCode": 8242,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.2/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.2/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.2",
+  "version": "8.17.3",
+  "versionCode": 8243,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.3/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.3/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.3",
   "releaseDate": "2026-09-18",
-  "releaseNotes": "v8.17.2: Fixed Cloudflare Turnstile verification dialog in Android; replaced mismatched Firefox UA with native system Chrome UA; prevented false-positive challenge detection on valid novel pages; added automatic Cloudflare resolution in crawlNovelBuddy."
+  "releaseNotes": "v8.17.3: Fixed false-positive Turnstile security detection on NovelBuddy and Next.js sites; added comprehensive legitimate content bypass guards for web importer; unified challenge detection across desktop and Android native bridge."
 }
