@@ -1,9 +1,9 @@
 {
-  "version": "8.15.0",
-  "versionCode": 8228,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.15.0/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.15.0/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.15.0",
-  "releaseDate": "2026-09-17",
-  "releaseNotes": "v8.15.0: App-Wide Overhaul & Resilience Update: 1) Grouped Settings Categories: categorized engine, quality, reader display, and backup settings into clean tabbed groups; 2) Ebook Studio TOC Hierarchy: group-aware volume and chapter reordering, visual hierarchy badges, 1-click Auto-Hierarchy detection, and non-blocking regex Find & Replace; 3) Crawler Circuit Breaker & Cloudflare Guard: smart consecutive-failure circuit breaker to prevent placeholder corruption, missing chapter healing on resume, and actionable Cloudflare Turnstile recovery guidance; 4) Mobile Ergonomics & Parity: 3-dot action sheet for novel cards, safe touch targets, deletion protection, and smooth desktop drag dividers."
+  "version": "8.16.0",
+  "versionCode": 8229,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.16.0/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.16.0/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.16.0",
+  "releaseDate": "2026-09-18",
+  "releaseNotes": "v8.16.0: Import Tab Ergonomics & Source Plugins Engine Overhaul: 1) Reordered Import Tab (Tab 2): novel info card and Table of Contents (TOC) are now positioned directly at the top when a novel is fetched, moving search results to the bottom inside a clean collapsible drawer; 2) Source Plugins Engine Overhaul: full browser DOM Cheerio & htmlparser2 shims, resolving 'Untitled Novel' titles, enabling LNReader community scrapers, and auto-recovering missing titles from URL slugs; 3) Multi-Source Parallel Search: concurrent querying across installed plugins and built-in scrapers; 4) Plugin Catalog Polish: added language filter pills (All, EN, JA, ZH, ES, RU, KO) and one-tap Open site buttons."
 }

@@ -27,8 +27,52 @@
   const defaultCover = 'https://github.com/LNReader/lnreader-plugins/blob/main/icons/src/coverNotAvailable.jpg?raw=true';
 
   /**
-   * Lightweight Cheerio browser/DOM shim for LNReader plugins.
-   * Maps Cheerio syntax directly to native DOM manipulation.
+   * Helper to query DOM elements safely supporting jQuery/Cheerio pseudo-selectors like :contains("...")
+   */
+  function safeQuerySelectorAll(root, selector) {
+    if (!root || !selector) return [];
+    const trimmed = selector.trim();
+
+    // Handle jQuery/Cheerio :contains("text") pseudo selector
+    if (/:contains\(/i.test(trimmed)) {
+      const match = trimmed.match(/^(.*?):contains\((['"]?)(.*?)\2\)(.*)$/i);
+      if (match) {
+        const baseSel = match[1].trim() || '*';
+        const needle = match[3];
+        const tailSel = match[4].trim();
+
+        let baseElements = [];
+        try {
+          baseElements = Array.from(root.querySelectorAll(baseSel));
+        } catch (_) {
+          baseElements = Array.from(root.querySelectorAll('*'));
+        }
+
+        const filtered = baseElements.filter(el => (el.textContent || '').includes(needle));
+        if (tailSel) {
+          const results = [];
+          filtered.forEach(parent => {
+            try {
+              const matched = parent.querySelectorAll(tailSel);
+              matched.forEach(m => results.push(m));
+            } catch (_) {}
+          });
+          return results;
+        }
+        return filtered;
+      }
+    }
+
+    try {
+      return Array.from(root.querySelectorAll(trimmed));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /**
+   * Comprehensive Cheerio browser/DOM shim for LNReader plugins.
+   * Maps Cheerio & jQuery traversal methods directly to native DOM manipulation.
    */
   function createCheerioShim() {
     return {
@@ -47,66 +91,240 @@
         }
 
         function wrapElements(elements) {
-          const list = Array.isArray(elements) ? elements : (elements ? [elements] : []);
+          const rawList = Array.isArray(elements) ? elements : (elements ? [elements] : []);
+          const list = rawList.filter(Boolean);
+
           const wrapper = function(selector) {
+            if (!selector) return wrapElements([]);
+            return wrapper.find(selector);
+          };
+
+          wrapper.__isCheerioWrapper = true;
+          wrapper.length = list.length;
+          wrapper[0] = list[0];
+          for (let i = 0; i < list.length; i++) {
+            wrapper[i] = list[i];
+          }
+
+          wrapper.get = (idx) => (typeof idx === 'number' ? list[idx] : list.slice());
+          wrapper.toArray = () => list.slice();
+
+          wrapper.find = function(selector) {
             if (!selector) return wrapElements([]);
             const results = [];
             list.forEach(el => {
               if (el && el.querySelectorAll) {
-                try {
-                  const matches = el.querySelectorAll(selector);
-                  matches.forEach(m => results.push(m));
-                } catch (_) {}
+                const matches = safeQuerySelectorAll(el, selector);
+                matches.forEach(m => {
+                  if (!results.includes(m)) results.push(m);
+                });
               }
             });
             return wrapElements(results);
           };
 
-          wrapper.length = list.length;
-          wrapper[0] = list[0];
-          wrapper.get = (idx) => (typeof idx === 'number' ? list[idx] : list);
-
-          wrapper.find = function(selector) {
-            return wrapper(selector);
-          };
-
-          wrapper.children = function() {
+          wrapper.children = function(selector) {
             const kids = [];
             list.forEach(el => {
               if (el && el.children) {
-                for (let i = 0; i < el.children.length; i++) kids.push(el.children[i]);
+                for (let i = 0; i < el.children.length; i++) {
+                  const child = el.children[i];
+                  if (!selector || (child.matches && child.matches(selector))) {
+                    kids.push(child);
+                  }
+                }
               }
             });
             return wrapElements(kids);
           };
 
-          wrapper.each = function(callback) {
-            list.forEach((el, i) => {
-              callback(i, el);
+          wrapper.parent = function(selector) {
+            const parents = [];
+            list.forEach(el => {
+              const p = el.parentElement;
+              if (p && (!selector || (p.matches && p.matches(selector)))) {
+                if (!parents.includes(p)) parents.push(p);
+              }
             });
+            return wrapElements(parents);
+          };
+
+          wrapper.parents = function(selector) {
+            const parents = [];
+            list.forEach(el => {
+              let cur = el.parentElement;
+              while (cur && cur !== (doc && doc.body) && cur !== (doc && doc.documentElement)) {
+                if (!selector || (cur.matches && cur.matches(selector))) {
+                  if (!parents.includes(cur)) parents.push(cur);
+                }
+                cur = cur.parentElement;
+              }
+            });
+            return wrapElements(parents);
+          };
+
+          wrapper.closest = function(selector) {
+            const matches = [];
+            list.forEach(el => {
+              if (el && el.closest) {
+                const c = el.closest(selector);
+                if (c && !matches.includes(c)) matches.push(c);
+              }
+            });
+            return wrapElements(matches);
+          };
+
+          wrapper.next = function(selector) {
+            const nexts = [];
+            list.forEach(el => {
+              const n = el.nextElementSibling;
+              if (n && (!selector || (n.matches && n.matches(selector)))) {
+                if (!nexts.includes(n)) nexts.push(n);
+              }
+            });
+            return wrapElements(nexts);
+          };
+
+          wrapper.prev = function(selector) {
+            const prevs = [];
+            list.forEach(el => {
+              const p = el.previousElementSibling;
+              if (p && (!selector || (p.matches && p.matches(selector)))) {
+                if (!prevs.includes(p)) prevs.push(p);
+              }
+            });
+            return wrapElements(prevs);
+          };
+
+          wrapper.first = function() {
+            return wrapElements(list[0] ? [list[0]] : []);
+          };
+
+          wrapper.last = function() {
+            return wrapElements(list.length > 0 ? [list[list.length - 1]] : []);
+          };
+
+          wrapper.eq = function(idx) {
+            if (typeof idx !== 'number') return wrapElements([]);
+            const target = idx >= 0 ? list[idx] : list[list.length + idx];
+            return wrapElements(target ? [target] : []);
+          };
+
+          wrapper.filter = function(filterFnOrSelector) {
+            if (typeof filterFnOrSelector === 'function') {
+              const passed = list.filter((el, i) => filterFnOrSelector.call(el, i, el));
+              return wrapElements(passed);
+            }
+            if (typeof filterFnOrSelector === 'string') {
+              const passed = list.filter(el => el.matches && el.matches(filterFnOrSelector));
+              return wrapElements(passed);
+            }
+            return wrapElements(list);
+          };
+
+          wrapper.not = function(filterFnOrSelector) {
+            if (typeof filterFnOrSelector === 'function') {
+              const passed = list.filter((el, i) => !filterFnOrSelector.call(el, i, el));
+              return wrapElements(passed);
+            }
+            if (typeof filterFnOrSelector === 'string') {
+              const passed = list.filter(el => !el.matches || !el.matches(filterFnOrSelector));
+              return wrapElements(passed);
+            }
+            return wrapElements(list);
+          };
+
+          wrapper.is = function(selector) {
+            return list.some(el => el.matches && el.matches(selector));
+          };
+
+          wrapper.hasClass = function(className) {
+            return list.some(el => el.classList && el.classList.contains(className));
+          };
+
+          wrapper.addClass = function(className) {
+            list.forEach(el => el.classList && el.classList.add(className));
+            return wrapper;
+          };
+
+          wrapper.removeClass = function(className) {
+            list.forEach(el => el.classList && el.classList.remove(className));
+            return wrapper;
+          };
+
+          wrapper.each = function(callback) {
+            for (let i = 0; i < list.length; i++) {
+              const el = list[i];
+              const res = callback.call(el, i, el);
+              if (res === false) break;
+            }
             return wrapper;
           };
 
           wrapper.map = function(callback) {
-            const results = list.map((el, i) => callback(i, el));
+            const results = list.map((el, i) => callback.call(el, i, el));
             return {
               get: () => results,
               toArray: () => results
             };
           };
 
-          wrapper.text = function() {
-            return list.map(el => (el ? el.textContent || '' : '')).join(' ');
+          wrapper.text = function(val) {
+            if (val !== undefined) {
+              list.forEach(el => { if (el) el.textContent = String(val); });
+              return wrapper;
+            }
+            return list.map(el => (el ? el.textContent || '' : '')).join(' ').trim();
           };
 
-          wrapper.html = function() {
+          wrapper.html = function(val) {
+            if (val !== undefined) {
+              list.forEach(el => { if (el) el.innerHTML = String(val); });
+              return wrapper;
+            }
             if (list.length === 0 || !list[0]) return '';
             return list[0].innerHTML || '';
           };
 
-          wrapper.attr = function(name) {
+          wrapper.attr = function(name, val) {
+            if (val !== undefined) {
+              list.forEach(el => { if (el && el.setAttribute) el.setAttribute(name, String(val)); });
+              return wrapper;
+            }
             if (list.length === 0 || !list[0] || !list[0].getAttribute) return undefined;
             return list[0].getAttribute(name) || undefined;
+          };
+
+          wrapper.prop = function(name) {
+            if (list.length === 0 || !list[0]) return undefined;
+            return list[0][name];
+          };
+
+          wrapper.data = function(name, val) {
+            if (list.length === 0 || !list[0]) return undefined;
+            if (val !== undefined) {
+              list.forEach(el => { if (el && el.dataset) el.dataset[name] = String(val); });
+              return wrapper;
+            }
+            return list[0].dataset ? list[0].dataset[name] : undefined;
+          };
+
+          wrapper.replaceWith = function(newContent) {
+            list.forEach(el => {
+              if (el && el.parentNode) {
+                if (typeof newContent === 'string') {
+                  const tmp = (doc || document).createElement('div');
+                  tmp.innerHTML = newContent;
+                  while (tmp.firstChild) {
+                    el.parentNode.insertBefore(tmp.firstChild, el);
+                  }
+                  el.parentNode.removeChild(el);
+                } else if (newContent && newContent.nodeType) {
+                  el.parentNode.replaceChild(newContent, el);
+                }
+              }
+            });
+            return wrapper;
           };
 
           wrapper.remove = function() {
@@ -116,21 +334,55 @@
             return wrapper;
           };
 
+          wrapper.empty = function() {
+            list.forEach(el => { if (el) el.innerHTML = ''; });
+            return wrapper;
+          };
+
+          wrapper.contents = function() {
+            const nodes = [];
+            list.forEach(el => {
+              if (el && el.childNodes) {
+                for (let i = 0; i < el.childNodes.length; i++) nodes.push(el.childNodes[i]);
+              }
+            });
+            return wrapElements(nodes);
+          };
+
+          wrapper.addBack = function() {
+            return wrapper;
+          };
+
           return wrapper;
         }
 
         const rootWrapper = function(selector) {
           if (!doc) return wrapElements([]);
+          if (selector && selector.__isCheerioWrapper) {
+            return selector;
+          }
+          if (typeof selector === 'function') {
+            return wrapElements([]);
+          }
           if (typeof selector === 'object' && selector) {
+            if (Array.isArray(selector)) return wrapElements(selector);
+            if (selector.nodeType) return wrapElements([selector]);
             return wrapElements(selector);
           }
           if (typeof selector === 'string') {
-            try {
-              const nodes = Array.from(doc.querySelectorAll(selector));
-              return wrapElements(nodes);
-            } catch (_) {
-              return wrapElements([]);
+            const trimmed = selector.trim();
+            // HTML fragment instantiation e.g. $("<br>") or $("<div>")
+            if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
+              try {
+                const tmp = (doc || document).createElement('div');
+                tmp.innerHTML = trimmed;
+                return wrapElements(Array.from(tmp.childNodes));
+              } catch (_) {
+                return wrapElements([]);
+              }
             }
+            const nodes = safeQuerySelectorAll(doc.documentElement || doc.body || doc, trimmed);
+            return wrapElements(nodes);
           }
           return wrapElements([]);
         };
@@ -141,6 +393,91 @@
 
         return rootWrapper;
       }
+    };
+  }
+
+  /**
+   * Native htmlparser2 event-stream bridge.
+   * Enables community scrapers (AllNovelFull, AllNovel, CPUNovel) to run seamlessly on the native DOMParser.
+   */
+  function createHtmlParser2Shim() {
+    class Parser {
+      constructor(cbs = {}, options = {}) {
+        this.cbs = cbs;
+        this.options = options;
+        this.buffer = '';
+      }
+
+      write(chunk) {
+        this.buffer += (chunk || '');
+      }
+
+      end(chunk) {
+        if (chunk) this.buffer += chunk;
+        this._parse();
+      }
+
+      reset() {
+        this.buffer = '';
+      }
+
+      _parse() {
+        const html = this.buffer;
+        this.buffer = '';
+        let doc;
+        if (typeof DOMParser !== 'undefined') {
+          try {
+            doc = new DOMParser().parseFromString(html || '', 'text/html');
+          } catch (_) {}
+        }
+        if (!doc && typeof document !== 'undefined') {
+          doc = document.implementation.createHTMLDocument('');
+          doc.documentElement.innerHTML = html || '';
+        }
+        if (!doc) return;
+
+        const traverse = (node) => {
+          if (!node) return;
+          if (node.nodeType === 1) { // ELEMENT_NODE
+            const tagName = node.tagName.toLowerCase();
+            const attribs = {};
+            if (node.attributes) {
+              for (let i = 0; i < node.attributes.length; i++) {
+                const attr = node.attributes[i];
+                attribs[attr.name.toLowerCase()] = attr.value;
+              }
+            }
+            if (this.cbs.onopentag) this.cbs.onopentag(tagName, attribs);
+            if (this.cbs.onopentagname) this.cbs.onopentagname(tagName);
+
+            let child = node.firstChild;
+            while (child) {
+              traverse(child);
+              child = child.nextSibling;
+            }
+
+            if (this.cbs.onclosetag) this.cbs.onclosetag(tagName);
+          } else if (node.nodeType === 3) { // TEXT_NODE
+            if (node.nodeValue && this.cbs.ontext) {
+              this.cbs.ontext(node.nodeValue);
+            }
+          }
+        };
+
+        const root = doc.body || doc.documentElement;
+        let child = root ? root.firstChild : null;
+        while (child) {
+          traverse(child);
+          child = child.nextSibling;
+        }
+
+        if (this.cbs.onend) this.cbs.onend();
+      }
+    }
+
+    return {
+      Parser,
+      Tokenizer: class Tokenizer {}
     };
   }
 
@@ -171,16 +508,58 @@
     }
 
     async search(query, page = 1) {
+      let results = [];
       if (typeof this.plugin.searchNovels === 'function') {
-        const results = await this.plugin.searchNovels(query, page);
-        return (results || []).map(r => ({
-          name: r.name || 'Untitled',
-          path: r.path || '',
-          url: this.resolveUrl(r.path),
-          cover: r.cover || defaultCover
-        }));
+        try {
+          results = await this.plugin.searchNovels(query, page);
+        } catch (e) {
+          console.warn(`[LNReaderPluginAdapter:${this.id}] searchNovels failed:`, e);
+        }
       }
-      return [];
+
+      // Fallback: If searchNovels returns empty or threw, try popularNovels with filter
+      if ((!results || results.length === 0) && typeof this.plugin.popularNovels === 'function') {
+        try {
+          const pop = await this.plugin.popularNovels(page, { filters: {}, showLatestNovels: false });
+          const qLower = (query || '').toLowerCase().trim();
+          if (Array.isArray(pop) && qLower) {
+            results = pop.filter(r => {
+              const n = (r.name || r.title || '').toLowerCase();
+              const p = (r.path || '').toLowerCase();
+              return n.includes(qLower) || p.includes(qLower);
+            });
+          }
+        } catch (_) {}
+      }
+
+      return (results || []).map(r => {
+        let title = (r.name || r.title || '').trim();
+        const path = r.path || r.url || '';
+        const fullUrl = this.resolveUrl(path);
+
+        // Smart slug recovery if title is missing or 'Untitled'
+        if (!title || title.toLowerCase() === 'untitled' || title.toLowerCase() === 'untitled novel') {
+          const slug = path.replace(/^https?:\/\/[^\/]+/i, '').replace(/^\/|\/$/g, '').split('/').pop() || '';
+          if (slug && !slug.includes('?') && !slug.includes('=')) {
+            title = slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+          }
+        }
+        if (!title) title = 'Web Novel';
+
+        return {
+          id: this.id + '_' + (path.replace(/[^a-zA-Z0-9]/g, '_') || Math.random().toString(36).slice(2)),
+          name: title,
+          title: title,
+          path,
+          url: fullUrl,
+          cover: r.cover || defaultCover,
+          author: r.author || '',
+          summary: r.summary || '',
+          chapters: r.chapters || '',
+          source: this.name,
+          sourceId: this.id
+        };
+      });
     }
 
     resolveUrl(path) {
@@ -195,7 +574,6 @@
     }
 
     async getNovelDetails(url) {
-      // In LNReader, path is usually relative or stripped
       let path = url;
       if (url.startsWith(this.site)) {
         path = url.substring(this.site.length);
@@ -210,9 +588,18 @@
         order: idx + 1
       }));
 
+      let title = (raw.name || raw.title || '').trim();
+      if (!title || title.toLowerCase() === 'untitled' || title.toLowerCase() === 'untitled novel') {
+        const slug = path.replace(/^https?:\/\/[^\/]+/i, '').replace(/^\/|\/$/g, '').split('/').pop() || '';
+        if (slug && !slug.includes('?') && !slug.includes('=')) {
+          title = slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+        }
+      }
+      if (!title) title = 'Web Novel';
+
       return {
         id: this.id + '_' + (path.replace(/[^a-zA-Z0-9]/g, '_')),
-        title: raw.name || 'Untitled Novel',
+        title,
         author: raw.author || 'Unknown Author',
         cover: raw.cover || defaultCover,
         summary: raw.summary || '',
@@ -245,38 +632,54 @@
    */
   function loadLNReaderPlugin(pluginJsCode, fetcherOverride = null) {
     const defaultFetchApi = async (url, init = {}) => {
-      const fetchFn = fetcherOverride || (window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
+      const fetchFn = fetcherOverride || (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
+      const targetUrl = typeof url === 'string' ? url : (url?.url || '');
       let rawText = '';
       if (fetchFn) {
-        rawText = await fetchFn(url, init);
+        rawText = await fetchFn(targetUrl, init);
       } else {
-        const res = await fetch(url, init);
+        const res = await fetch(targetUrl, init);
         rawText = await res.text();
       }
       return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        url: targetUrl,
+        headers: {
+          get: (headerName) => {
+            if (headerName && headerName.toLowerCase() === 'content-type') return 'text/html';
+            return null;
+          },
+          has: () => false,
+          entries: () => []
+        },
         text: async () => rawText,
-        json: async () => JSON.parse(rawText)
+        json: async () => JSON.parse(rawText),
+        blob: async () => new Blob([rawText], { type: 'text/html' })
       };
     };
 
     const cheerioShim = (typeof window !== 'undefined' && window.cheerio) ? window.cheerio : createCheerioShim();
+    const htmlparser2Shim = createHtmlParser2Shim();
 
     const mockRequire = (id) => {
       if (id === 'cheerio') return cheerioShim;
+      if (id === 'htmlparser2') return htmlparser2Shim;
       if (id === '@libs/fetch') return { fetchApi: defaultFetchApi, fetchFile: async () => '' };
       if (id === '@libs/defaultCover') return { defaultCover };
       if (id === '@libs/novelStatus') return { NovelStatus };
-      if (id === '@libs/filterInputs') return { FilterTypes };
-      if (id.includes('filterInputs')) return { FilterTypes };
+      if (id === '@libs/filterInputs' || id.includes('filterInputs')) return { FilterTypes };
       if (id.includes('defaultCover')) return { defaultCover };
       if (id.includes('novelStatus')) return { NovelStatus };
       if (id === 'dayjs') {
         const dayjsFn = (d) => ({
-          format: (f) => String(d || ''),
+          format: () => String(d || ''),
           isValid: () => true,
           fromNow: () => String(d || ''),
           toDate: () => new Date(d || Date.now()),
-          toISOString: () => new Date(d || Date.now()).toISOString()
+          toISOString: () => new Date(d || Date.now()).toISOString(),
+          subtract: () => dayjsFn(d)
         });
         dayjsFn.extend = () => {};
         return dayjsFn;
@@ -320,13 +723,16 @@
     NovelStatus,
     defaultCover,
     createCheerioShim,
+    createHtmlParser2Shim,
     LNReaderPluginAdapter,
     loadPlugin: loadLNReaderPlugin
   };
 
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = LNReaderEngine;
-  } else if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
     window.LNReaderEngine = LNReaderEngine;
   }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = LNReaderEngine;
+  }
 })();
+

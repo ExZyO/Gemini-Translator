@@ -857,7 +857,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.15.0';
+    let VERSION = '8.16.0';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3794,6 +3794,7 @@ const formatModelName = (id, displayName) => {
       const [novelSearchResults, setNovelSearchResults] = useState([]);
       const [isSearchingNovels, setIsSearchingNovels] = useState(false);
       const [novelSearchFilter, setNovelSearchFilter] = useState('all');
+      const [isSearchResultsCollapsed, setIsSearchResultsCollapsed] = useState(false);
 
       // --- SwiftAudio Engine & Player State ---
       const [swiftAudioResults, setSwiftAudioResults] = useState([]);
@@ -5559,6 +5560,7 @@ const formatModelName = (id, displayName) => {
         }
 
         setIsSearchingNovels(true);
+        setIsSearchResultsCollapsed(false);
         setWebImportStatus('Searching novel sources and installed plugins…');
         try {
           const q = target.replace(/^https?:\/\/[^\/]+\/(?:search|fictions\/search)\?[^=]+=/i, '');
@@ -6041,6 +6043,7 @@ const formatModelName = (id, displayName) => {
       const [pluginNovelSearchSource, setPluginNovelSearchSource] = useState('all');
       const [pluginNovelSearchResults, setPluginNovelSearchResults] = useState([]);
       const [isPluginNovelSearching, setIsPluginNovelSearching] = useState(false);
+      const [pluginSelectedLangFilter, setPluginSelectedLangFilter] = useState('all');
 
       // Tachiyomi / Mihon Style Quick Toggles
       const [downloadedOnly, setDownloadedOnly] = useState(() => {
@@ -6064,7 +6067,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8228);
+      const [appVersionCode, setAppVersionCode] = useState(8229);
       useEffect(() => {
         fetch('./version.json?t=' + Date.now())
           .then(r => r.json())
@@ -6432,16 +6435,51 @@ const formatModelName = (id, displayName) => {
           let results = [];
           if (sourceId && sourceId !== 'all' && reg && typeof reg.searchPlugin === 'function') {
             results = await reg.searchPlugin(sourceId, q);
-          } else if (reg && typeof reg.searchAll === 'function') {
-            results = await reg.searchAll(q);
-          } else if (window.WebNovelImporter?.searchNovels) {
-            results = await window.WebNovelImporter.searchNovels(q, 'all');
+          } else {
+            // Concurrent parallel search across plugins and built-in scrapers
+            const promises = [];
+            if (reg && typeof reg.searchAll === 'function') {
+              promises.push(reg.searchAll(q).catch(e => { console.warn('[searchAll]', e); return []; }));
+            }
+            if (window.WebNovelImporter?.searchNovels) {
+              promises.push(window.WebNovelImporter.searchNovels(q, 'all').catch(e => { console.warn('[importerSearch]', e); return []; }));
+            }
+            const resLists = await Promise.all(promises);
+            const seenUrls = new Set();
+            for (const list of resLists) {
+              if (Array.isArray(list)) {
+                for (const item of list) {
+                  const itemUrl = (item.url || item.path || '').replace(/\/$/, '');
+                  if (itemUrl && !seenUrls.has(itemUrl)) {
+                    seenUrls.add(itemUrl);
+                    let title = (item.title || item.name || '').trim();
+                    if (!title || /^untitled/i.test(title)) {
+                      try {
+                        const pathParts = itemUrl.split('/').filter(Boolean);
+                        const slug = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2] || '';
+                        if (slug && !slug.startsWith('http')) {
+                          title = slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                        }
+                      } catch (_) {}
+                    }
+                    results.push({
+                      ...item,
+                      id: item.id || itemUrl,
+                      title: title || 'Web Novel',
+                      name: title || 'Web Novel',
+                      url: item.url || item.path,
+                      source: item.source || 'Plugin'
+                    });
+                  }
+                }
+              }
+            }
           }
           setPluginNovelSearchResults(results || []);
           if (!results || results.length === 0) {
             toast(`No novels found for "${q}". Try another query or install more plugins!`, 'info');
           } else {
-            toast(`Found ${results.length} novels across active plugins!`, 'success');
+            toast(`Found ${results.length} novels across active plugins & sources!`, 'success');
           }
         } catch (err) {
           console.error('[handleSearchNovelsInPlugins]', err);
@@ -12875,247 +12913,6 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   h('span', null, `⏸ Ingestion paused. ${activeNovelView?.chapters?.length || 0} chapters saved. Click "Resume Fetch" to continue.`)
                 ),
 
-                // Web Novel Search Results Grid / List
-                novelSearchResults && novelSearchResults.length > 0 && h('div', { style: { margin: '14px 0 16px' } },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--paper)' } },
-                      h('span', null, '📚 Web Novel Search Results'),
-                      h('span', { className: 'badge', style: { fontSize: 10.5, background: 'rgba(99, 102, 241, 0.2)', color: 'var(--accent, #6366f1)' } }, `${novelSearchResults.length}`)
-                    ),
-                    h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
-                      ['all', 'NovelBuddy', 'RoyalRoad', 'NovelFire'].map(f => {
-                        const count = f === 'all' ? novelSearchResults.length : novelSearchResults.filter(n => (n.source || '').toLowerCase() === f.toLowerCase()).length;
-                        if (f !== 'all' && count === 0) return null;
-                        const isSel = (novelSearchFilter || 'all').toLowerCase() === f.toLowerCase();
-                        return h('button', {
-                          key: f,
-                          type: 'button',
-                          className: `mini-btn ${isSel ? '' : 'ghost'}`,
-                          style: {
-                            fontSize: 10.5,
-                            padding: '2px 8px',
-                            fontWeight: isSel ? 700 : 500,
-                            borderColor: isSel ? 'var(--accent, #6366f1)' : 'var(--hairline)',
-                            background: isSel ? 'rgba(99, 102, 241, 0.15)' : undefined
-                          },
-                          onClick: () => setNovelSearchFilter(f)
-                        }, `${f === 'all' ? 'All' : f} (${count})`);
-                      }),
-                      h('button', {
-                        type: 'button',
-                        className: 'mini-btn ghost',
-                        style: { fontSize: 10.5, padding: '2px 8px', color: 'var(--slate)' },
-                        onClick: () => setNovelSearchResults([])
-                      }, '✕ Clear')
-                    )
-                  ),
-                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 } },
-                    novelSearchResults
-                      .filter(item => novelSearchFilter === 'all' || (item.source || '').toLowerCase() === novelSearchFilter.toLowerCase())
-                      .map((item, idx) => h('div', {
-                        key: item.id || idx,
-                        className: 'card',
-                        style: {
-                          padding: 12,
-                          display: 'flex',
-                          gap: 12,
-                          alignItems: 'flex-start',
-                          background: 'var(--card-bg)',
-                          border: '1px solid var(--hairline)'
-                        }
-                      },
-                        item.cover ? h('img', {
-                          src: item.cover,
-                          alt: item.title,
-                          referrerPolicy: 'no-referrer',
-                          onError: (e) => { e.target.style.display = 'none'; },
-                          style: { width: 68, height: 96, borderRadius: 6, objectFit: 'cover', flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }
-                        }) : h('div', {
-                          style: { width: 68, height: 96, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
-                        }, '📖'),
-
-                        h('div', { style: { flex: 1, minWidth: 0 } },
-                          h('div', { style: { display: 'flex', gap: 5, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' } },
-                            h('span', {
-                              className: 'badge',
-                              style: {
-                                fontSize: 10,
-                                fontWeight: 700,
-                                background: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.15)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.15)' : (item.source === 'NovelFire' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(236, 72, 153, 0.15)')),
-                                color: item.source === 'NovelBuddy' ? '#10b981' : (item.source === 'RoyalRoad' ? '#3b82f6' : (item.source === 'NovelFire' ? '#f59e0b' : '#ec4899')),
-                                borderColor: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.3)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.3)' : (item.source === 'NovelFire' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(236, 72, 153, 0.3)'))
-                              }
-                            }, item.source),
-                            item.status && h('span', { className: 'badge', style: { fontSize: 9.5, opacity: 0.8 } }, item.status)
-                          ),
-                          h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
-                          item.author && h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, `by ${item.author}`),
-                          h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 } },
-                            item.chapters && h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent, #6366f1)', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 } },
-                              `📑 ${item.chapters}`
-                            ),
-                            item.rating && h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 } },
-                              `${item.rating}`
-                            )
-                          ),
-                          item.summary && h('div', { style: { fontSize: 11, color: 'var(--paper-dim, #94a3b8)', lineHeight: 1.35, marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } },
-                            item.summary
-                          ),
-                          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                            h('button', {
-                              type: 'button',
-                              className: 'mini-btn',
-                              style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
-                              onClick: () => {
-                                setWebImportUrl(item.url);
-                                handleStartFetch(false, null, false, item.url);
-                              }
-                            }, '📥 Fetch Novel'),
-                            h('button', {
-                              type: 'button',
-                              className: 'mini-btn ghost',
-                              style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                              title: 'Fill URL into import box',
-                              onClick: () => {
-                                setWebImportUrl(item.url);
-                                toast(`Selected "${item.title}". Click "Fetch Novel" to begin!`, 'info');
-                              }
-                            }, '📋 Select URL'),
-                            h('button', {
-                              type: 'button',
-                              className: 'mini-btn ghost',
-                              style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                              onClick: () => window.open(item.url, '_blank')
-                            }, '🔗 Open')
-                          )
-                        )
-                      ))
-                  )
-                ),
-                // SwiftAudiobooks Search Results Grid / List
-                swiftAudioResults && swiftAudioResults.length > 0 && h('div', { style: { margin: '14px 0 16px' } },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--paper)' } },
-                      h('span', null, '🎧 SwiftAudiobooks Results'),
-                      h('span', { className: 'badge', style: { fontSize: 10.5, background: 'rgba(99, 102, 241, 0.2)', color: 'var(--accent, #6366f1)' } }, `${swiftAudioResults.length}`)
-                    ),
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn ghost',
-                      style: { fontSize: 10.5, padding: '2px 8px' },
-                      onClick: () => setSwiftAudioResults([])
-                    }, '✕ Clear')
-                  ),
-                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 } },
-                    swiftAudioResults.map((item, idx) => h('div', {
-                      key: idx,
-                      className: 'card',
-                      style: {
-                        padding: 12,
-                        display: 'flex',
-                        gap: 12,
-                        alignItems: 'flex-start',
-                        background: 'var(--card-bg)',
-                        border: '1px solid var(--hairline)'
-                      }
-                    },
-                      item.cover ? h('img', {
-                        src: item.cover,
-                        alt: 'Cover',
-                        referrerPolicy: 'no-referrer',
-                        onError: (e) => { e.target.style.display = 'none'; },
-                        style: { width: 64, height: 92, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
-                      }) : h('div', {
-                        style: { width: 64, height: 92, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
-                      }, '🎧'),
-
-                      h('div', { style: { flex: 1, minWidth: 0 } },
-                        h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
-                        h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, item.author ? `by ${item.author}` : ''),
-                        item.duration && h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent, #6366f1)', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600, marginBottom: 8 } },
-                          `⏱ ${item.duration}`
-                        ),
-                        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                          h('button', {
-                            type: 'button',
-                            className: 'mini-btn',
-                            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
-                            onClick: () => handleStartPlayAudiobook(item)
-                          }, '🎧 Listen Now'),
-                          h('button', {
-                            type: 'button',
-                            className: 'mini-btn ghost',
-                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                            onClick: () => handleOpenAudioDownload(item)
-                          }, '📥 Download'),
-                          (() => {
-                            const inLib = isAudiobookInLibrary(item);
-                            return h('button', {
-                              type: 'button',
-                              className: `mini-btn ${inLib ? '' : 'ghost'}`,
-                              style: {
-                                fontSize: 11,
-                                fontWeight: 600,
-                                padding: '5px 8px',
-                                color: inLib ? '#f59e0b' : 'var(--paper-dim)',
-                                borderColor: inLib ? 'rgba(245, 158, 11, 0.4)' : 'var(--hairline)',
-                                background: inLib ? 'rgba(245, 158, 11, 0.12)' : undefined
-                              },
-                              title: inLib ? 'In Library (tap to remove)' : 'Save to Library for later',
-                              onClick: () => inLib ? removeAudiobookFromLibrary(item) : saveAudiobookToLibrary(item)
-                            }, inLib ? '⭐ In Library' : '☆ Add to Library');
-                          })()
-                        )
-                      )
-                    ))
-                  )
-                ),
-
-                h('div', { className: 'note-row' },
-                  h('span', null, 'Scrape images with chapters'),
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('span', { className: 'hint' }, 'saved with the book'),
-                    h('button', {
-                      type: 'button',
-                      className: `switch ${scrapeImages ? 'on' : ''}`,
-                      title: 'Scrape illustrations alongside chapters',
-                      onClick: () => {
-                        const next = !scrapeImages;
-                        setScrapeImages(next);
-                        localStorage.setItem('scrapeImages', String(next));
-                        if (typeof window !== 'undefined') window.__scrapeImages = next;
-                        toast(next ? 'Image scraping enabled' : 'Image scraping disabled (text only)', 'info');
-                      }
-                    })
-                  )
-                ),
-                h('div', { className: 'note-row' },
-                  h('span', null, 'Embed images in EPUB'),
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('span', { className: 'hint' }, epubIncludeImages ? 'illustrations included' : 'text-only export'),
-                    h('button', {
-                      type: 'button',
-                      className: `switch ${epubIncludeImages ? 'on' : ''}`,
-                      title: 'Toggle embedding illustrations into exported EPUB files',
-                      onClick: () => {
-                        const next = !epubIncludeImages;
-                        setEpubIncludeImages(next);
-                        localStorage.setItem('epubIncludeImages', String(next));
-                        if (next && !scrapeImages) {
-                          setScrapeImages(true);
-                          localStorage.setItem('scrapeImages', 'true');
-                          if (typeof window !== 'undefined') window.__scrapeImages = true;
-                        }
-                        toast(next ? 'Illustrations will be embedded in EPUB' : 'Images excluded from EPUB (text only)', 'info');
-                      }
-                    })
-                  )
-                ),
-                h(InfoTooltip, {
-                  title: 'Supported Sources',
-                  text: 'Extracts full works and multi-chapter stories from NovelBuddy, Lnori, Wuxia Box, WTR-LAB, FUCKNOVELPIA, NovelBin, NovelFire, Pixiv, AO3, Syosetu, Lofter, Witch Cult Translations, and standard WordPress/Tumblr webnovels directly to EPUB.',
-                  tip: 'Paste either a novel page URL or any chapter URL to fetch the entire story.'
-                }),
                 activeNovelView && h('div', { className: 'book-card' },
                   h('div', { className: 't' }, activeNovelView.title || 'Untitled Web Novel'),
                   h('div', { className: 'm' }, `By ${activeNovelView.author || 'Unknown'} · ${(activeNovelView.chapters || []).length} chapter(s) · ${(activeNovelView.chapters || []).reduce((a, c) => a + ((c.text || c.content || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
@@ -13394,6 +13191,265 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                     )
                   );
                 })()
+
+                h('div', { className: 'note-row' },
+                  h('span', null, 'Scrape images with chapters'),
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('span', { className: 'hint' }, 'saved with the book'),
+                    h('button', {
+                      type: 'button',
+                      className: `switch ${scrapeImages ? 'on' : ''}`,
+                      title: 'Scrape illustrations alongside chapters',
+                      onClick: () => {
+                        const next = !scrapeImages;
+                        setScrapeImages(next);
+                        localStorage.setItem('scrapeImages', String(next));
+                        if (typeof window !== 'undefined') window.__scrapeImages = next;
+                        toast(next ? 'Image scraping enabled' : 'Image scraping disabled (text only)', 'info');
+                      }
+                    })
+                  )
+                ),
+                h('div', { className: 'note-row' },
+                  h('span', null, 'Embed images in EPUB'),
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('span', { className: 'hint' }, epubIncludeImages ? 'illustrations included' : 'text-only export'),
+                    h('button', {
+                      type: 'button',
+                      className: `switch ${epubIncludeImages ? 'on' : ''}`,
+                      title: 'Toggle embedding illustrations into exported EPUB files',
+                      onClick: () => {
+                        const next = !epubIncludeImages;
+                        setEpubIncludeImages(next);
+                        localStorage.setItem('epubIncludeImages', String(next));
+                        if (next && !scrapeImages) {
+                          setScrapeImages(true);
+                          localStorage.setItem('scrapeImages', 'true');
+                          if (typeof window !== 'undefined') window.__scrapeImages = true;
+                        }
+                        toast(next ? 'Illustrations will be embedded in EPUB' : 'Images excluded from EPUB (text only)', 'info');
+                      }
+                    })
+                  )
+                ),
+                h(InfoTooltip, {
+                  title: 'Supported Sources',
+                  text: 'Extracts full works and multi-chapter stories from NovelBuddy, Lnori, Wuxia Box, WTR-LAB, FUCKNOVELPIA, NovelBin, NovelFire, Pixiv, AO3, Syosetu, Lofter, Witch Cult Translations, and standard WordPress/Tumblr webnovels directly to EPUB.',
+                  tip: 'Paste either a novel page URL or any chapter URL to fetch the entire story.'
+                }),
+
+                // Web Novel Search Results Grid / List
+                novelSearchResults && novelSearchResults.length > 0 && h('div', {
+                  style: {
+                    margin: '14px 0 16px',
+                    padding: activeNovelView ? '12px 14px' : undefined,
+                    borderRadius: activeNovelView ? 8 : undefined,
+                    background: activeNovelView ? 'rgba(255, 255, 255, 0.02)' : undefined,
+                    border: activeNovelView ? '1px solid var(--hairline)' : undefined
+                  }
+                },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: (activeNovelView && isSearchResultsCollapsed) ? 0 : 10, flexWrap: 'wrap', gap: 8 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--paper)' } },
+                      h('span', null, '📚 Web Novel Search Results'),
+                      h('span', { className: 'badge', style: { fontSize: 10.5, background: 'rgba(99, 102, 241, 0.2)', color: 'var(--accent, #6366f1)' } }, `${novelSearchResults.length}`),
+                      activeNovelView && h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 500 } }, '· Tap to switch novel')
+                    ),
+                    h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+                      activeNovelView && h('button', {
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: { fontSize: 10.5, padding: '2px 8px', color: 'var(--iris)', borderColor: 'var(--iris)', fontWeight: 600 },
+                        onClick: () => setIsSearchResultsCollapsed(!isSearchResultsCollapsed)
+                      }, isSearchResultsCollapsed ? `▼ Show ${novelSearchResults.length} Results` : '▲ Hide Results'),
+                      (!activeNovelView || !isSearchResultsCollapsed) && ['all', 'NovelBuddy', 'RoyalRoad', 'NovelFire'].map(f => {
+                        const count = f === 'all' ? novelSearchResults.length : novelSearchResults.filter(n => (n.source || '').toLowerCase() === f.toLowerCase()).length;
+                        if (f !== 'all' && count === 0) return null;
+                        const isSel = (novelSearchFilter || 'all').toLowerCase() === f.toLowerCase();
+                        return h('button', {
+                          key: f,
+                          type: 'button',
+                          className: `mini-btn ${isSel ? '' : 'ghost'}`,
+                          style: {
+                            fontSize: 10.5,
+                            padding: '2px 8px',
+                            fontWeight: isSel ? 700 : 500,
+                            borderColor: isSel ? 'var(--accent, #6366f1)' : 'var(--hairline)',
+                            background: isSel ? 'rgba(99, 102, 241, 0.15)' : undefined
+                          },
+                          onClick: () => setNovelSearchFilter(f)
+                        }, `${f === 'all' ? 'All' : f} (${count})`);
+                      }),
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: { fontSize: 10.5, padding: '2px 8px', color: 'var(--slate)' },
+                        onClick: () => setNovelSearchResults([])
+                      }, '✕ Clear')
+                    )
+                  ),
+                  (!activeNovelView || !isSearchResultsCollapsed) && h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 } },
+                    novelSearchResults
+                      .filter(item => novelSearchFilter === 'all' || (item.source || '').toLowerCase() === novelSearchFilter.toLowerCase())
+                      .map((item, idx) => h('div', {
+                        key: item.id || idx,
+                        className: 'card',
+                        style: {
+                          padding: 12,
+                          display: 'flex',
+                          gap: 12,
+                          alignItems: 'flex-start',
+                          background: 'var(--card-bg)',
+                          border: '1px solid var(--hairline)'
+                        }
+                      },
+                        item.cover ? h('img', {
+                          src: item.cover,
+                          alt: item.title,
+                          referrerPolicy: 'no-referrer',
+                          onError: (e) => { e.target.style.display = 'none'; },
+                          style: { width: 68, height: 96, borderRadius: 6, objectFit: 'cover', flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }
+                        }) : h('div', {
+                          style: { width: 68, height: 96, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
+                        }, '📖'),
+
+                        h('div', { style: { flex: 1, minWidth: 0 } },
+                          h('div', { style: { display: 'flex', gap: 5, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' } },
+                            h('span', {
+                              className: 'badge',
+                              style: {
+                                fontSize: 10,
+                                fontWeight: 700,
+                                background: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.15)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.15)' : (item.source === 'NovelFire' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(236, 72, 153, 0.15)')),
+                                color: item.source === 'NovelBuddy' ? '#10b981' : (item.source === 'RoyalRoad' ? '#3b82f6' : (item.source === 'NovelFire' ? '#f59e0b' : '#ec4899')),
+                                borderColor: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.3)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.3)' : (item.source === 'NovelFire' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(236, 72, 153, 0.3)'))
+                              }
+                            }, item.source),
+                            item.status && h('span', { className: 'badge', style: { fontSize: 9.5, opacity: 0.8 } }, item.status)
+                          ),
+                          h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
+                          item.author && h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, `by ${item.author}`),
+                          h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 } },
+                            item.chapters && h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent, #6366f1)', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 } },
+                              `📑 ${item.chapters}`
+                            ),
+                            item.rating && h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 } },
+                              `${item.rating}`
+                            )
+                          ),
+                          item.summary && h('div', { style: { fontSize: 11, color: 'var(--paper-dim, #94a3b8)', lineHeight: 1.35, marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } },
+                            item.summary
+                          ),
+                          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn',
+                              style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
+                              onClick: () => {
+                                setIsSearchResultsCollapsed(true);
+                                setWebImportUrl(item.url);
+                                handleStartFetch(false, null, false, item.url);
+                              }
+                            }, '📥 Fetch Novel'),
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn ghost',
+                              style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                              title: 'Fill URL into import box',
+                              onClick: () => {
+                                setWebImportUrl(item.url);
+                                toast(`Selected "${item.title}". Click "Fetch Novel" to begin!`, 'info');
+                              }
+                            }, '📋 Select URL'),
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn ghost',
+                              style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                              onClick: () => window.open(item.url, '_blank')
+                            }, '🔗 Open')
+                          )
+                        )
+                      ))
+                  )
+                ),
+                // SwiftAudiobooks Search Results Grid / List
+                swiftAudioResults && swiftAudioResults.length > 0 && h('div', { style: { margin: '14px 0 16px' } },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--paper)' } },
+                      h('span', null, '🎧 SwiftAudiobooks Results'),
+                      h('span', { className: 'badge', style: { fontSize: 10.5, background: 'rgba(99, 102, 241, 0.2)', color: 'var(--accent, #6366f1)' } }, `${swiftAudioResults.length}`)
+                    ),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { fontSize: 10.5, padding: '2px 8px' },
+                      onClick: () => setSwiftAudioResults([])
+                    }, '✕ Clear')
+                  ),
+                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 } },
+                    swiftAudioResults.map((item, idx) => h('div', {
+                      key: idx,
+                      className: 'card',
+                      style: {
+                        padding: 12,
+                        display: 'flex',
+                        gap: 12,
+                        alignItems: 'flex-start',
+                        background: 'var(--card-bg)',
+                        border: '1px solid var(--hairline)'
+                      }
+                    },
+                      item.cover ? h('img', {
+                        src: item.cover,
+                        alt: 'Cover',
+                        referrerPolicy: 'no-referrer',
+                        onError: (e) => { e.target.style.display = 'none'; },
+                        style: { width: 64, height: 92, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
+                      }) : h('div', {
+                        style: { width: 64, height: 92, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
+                      }, '🎧'),
+
+                      h('div', { style: { flex: 1, minWidth: 0 } },
+                        h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
+                        h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, item.author ? `by ${item.author}` : ''),
+                        item.duration && h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent, #6366f1)', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600, marginBottom: 8 } },
+                          `⏱ ${item.duration}`
+                        ),
+                        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn',
+                            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
+                            onClick: () => handleStartPlayAudiobook(item)
+                          }, '🎧 Listen Now'),
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                            onClick: () => handleOpenAudioDownload(item)
+                          }, '📥 Download'),
+                          (() => {
+                            const inLib = isAudiobookInLibrary(item);
+                            return h('button', {
+                              type: 'button',
+                              className: `mini-btn ${inLib ? '' : 'ghost'}`,
+                              style: {
+                                fontSize: 11,
+                                fontWeight: 600,
+                                padding: '5px 8px',
+                                color: inLib ? '#f59e0b' : 'var(--paper-dim)',
+                                borderColor: inLib ? 'rgba(245, 158, 11, 0.4)' : 'var(--hairline)',
+                                background: inLib ? 'rgba(245, 158, 11, 0.12)' : undefined
+                              },
+                              title: inLib ? 'In Library (tap to remove)' : 'Save to Library for later',
+                              onClick: () => inLib ? removeAudiobookFromLibrary(item) : saveAudiobookToLibrary(item)
+                            }, inLib ? '⭐ In Library' : '☆ Add to Library');
+                          })()
+                        )
+                      )
+                    ))
+                  )
+                ),
+
               );
             })(),
 
@@ -17220,19 +17276,48 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                 h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
                   h('input', {
                     type: 'text',
-                    placeholder: 'Search 278+ source plugins by name, language code (en, ja, zh, es, ru)...',
+                    placeholder: 'Search 278+ source plugins by name, site, or tag...',
                     value: pluginSearchQuery,
                     onChange: e => setPluginSearchQuery(e.target.value),
                     style: { flex: 1, padding: '7px 10px', fontSize: 12.5, borderRadius: 6, border: '1px solid var(--hairline)', background: 'var(--void)', color: 'var(--paper)' }
                   }),
                   isCatalogLoading && h('span', { style: { fontSize: 12, color: 'var(--iris)' } }, 'Loading…')
                 ),
+                h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 2px' } },
+                  [
+                    { id: 'all', label: '🌐 All' },
+                    { id: 'en', label: '🇺🇸 English' },
+                    { id: 'ja', label: '🇯🇵 Japanese' },
+                    { id: 'zh', label: '🇨🇳 Chinese' },
+                    { id: 'es', label: '🇪🇸 Spanish' },
+                    { id: 'ru', label: '🇷🇺 Russian' },
+                    { id: 'ko', label: '🇰🇷 Korean' }
+                  ].map(pill => {
+                    const isSel = (pluginSelectedLangFilter || 'all') === pill.id;
+                    return h('button', {
+                      key: pill.id,
+                      type: 'button',
+                      className: `mini-btn ${isSel ? '' : 'ghost'}`,
+                      style: {
+                        fontSize: 11,
+                        padding: '3px 8px',
+                        fontWeight: isSel ? 700 : 500,
+                        borderColor: isSel ? 'var(--iris)' : 'var(--hairline)',
+                        background: isSel ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                        color: isSel ? 'var(--iris)' : 'var(--paper-dim)'
+                      },
+                      onClick: () => setPluginSelectedLangFilter(pill.id)
+                    }, pill.label);
+                  })
+                ),
                 (() => {
                   if (isCatalogLoading) {
                     return h('div', { style: { textAlign: 'center', padding: '30px 10px', color: 'var(--slate)', fontSize: 13 } }, 'Fetching community plugin catalog from GitHub…');
                   }
                   const q = (pluginSearchQuery || '').trim().toLowerCase();
+                  const targetLang = (pluginSelectedLangFilter || 'all').toLowerCase();
                   const list = (pluginCatalog || []).filter(p => {
+                    if (targetLang !== 'all' && (p.lang || 'en').toLowerCase() !== targetLang) return false;
                     if (!q) return true;
                     return (p.name && p.name.toLowerCase().includes(q)) ||
                            (p.id && p.id.toLowerCase().includes(q)) ||
@@ -17241,7 +17326,7 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                   });
 
                   if (list.length === 0) {
-                    return h('div', { style: { textAlign: 'center', padding: '30px 10px', color: 'var(--slate)', fontSize: 13 } }, 'No plugins match your search filter.');
+                    return h('div', { style: { textAlign: 'center', padding: '30px 10px', color: 'var(--slate)', fontSize: 13 } }, 'No plugins match your search or language filter.');
                   }
 
                   return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, overflowY: 'auto' } },
@@ -17471,7 +17556,13 @@ Output ONLY the glossary lines. Do not wrap in markdown code blocks or add conve
                                   toast('Copied URL & loaded into importer!', 'success');
                                 }
                               }
-                            }, '📋 Copy URL')
+                            }, '📋 Copy URL'),
+                            (novel.url || novel.path) && /^https?:\/\//i.test(novel.url || novel.path) && h('button', {
+                              type: 'button',
+                              className: 'mini-btn ghost',
+                              style: { fontSize: 10.5, padding: '4px 8px' },
+                              onClick: () => window.open(novel.url || novel.path, '_blank')
+                            }, '🔗 Open')
                           )
                         );
                       })

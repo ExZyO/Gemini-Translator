@@ -219,14 +219,28 @@
         if (typeof plugin.search === 'function') {
           searches.push(
             plugin.search(query).then(results => 
-              (results || []).map(r => ({
-                ...r,
-                title: r.title || r.name || 'Untitled Novel',
-                name: r.name || r.title || 'Untitled Novel',
-                url: r.url || r.path || '',
-                source: r.source || plugin.name,
-                sourceId: plugin.id
-              }))
+              (results || []).map(r => {
+                const rawTitle = (r.title || r.name || '').trim();
+                let cleanTitle = rawTitle;
+                if (!cleanTitle || cleanTitle.toLowerCase() === 'untitled' || cleanTitle.toLowerCase() === 'untitled novel') {
+                  const pathOrUrl = r.url || r.path || '';
+                  if (pathOrUrl) {
+                    const slug = pathOrUrl.replace(/^https?:\/\/[^\/]+/i, '').replace(/^\/|\/$/g, '').split('/').pop() || '';
+                    if (slug && !slug.includes('?') && !slug.includes('=')) {
+                      cleanTitle = slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+                    }
+                  }
+                }
+                if (!cleanTitle) cleanTitle = 'Web Novel';
+                return {
+                  ...r,
+                  title: cleanTitle,
+                  name: cleanTitle,
+                  url: r.url || r.path || '',
+                  source: r.source || plugin.name,
+                  sourceId: plugin.id
+                };
+              })
             ).catch(err => {
               console.warn(`[SourceRegistry] Search failed on ${plugin.name}:`, err.message);
               return [];
@@ -249,14 +263,28 @@
       if (!plugin) throw new Error(`Plugin "${pluginId}" is not installed or active.`);
       if (typeof plugin.search !== 'function') throw new Error(`Plugin "${plugin.name}" does not support novel search.`);
       const results = await plugin.search(query);
-      return (results || []).map(r => ({
-        ...r,
-        title: r.title || r.name || 'Untitled Novel',
-        name: r.name || r.title || 'Untitled Novel',
-        url: r.url || r.path || '',
-        source: r.source || plugin.name,
-        sourceId: plugin.id
-      }));
+      return (results || []).map(r => {
+        const rawTitle = (r.title || r.name || '').trim();
+        let cleanTitle = rawTitle;
+        if (!cleanTitle || cleanTitle.toLowerCase() === 'untitled' || cleanTitle.toLowerCase() === 'untitled novel') {
+          const pathOrUrl = r.url || r.path || '';
+          if (pathOrUrl) {
+            const slug = pathOrUrl.replace(/^https?:\/\/[^\/]+/i, '').replace(/^\/|\/$/g, '').split('/').pop() || '';
+            if (slug && !slug.includes('?') && !slug.includes('=')) {
+              cleanTitle = slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+            }
+          }
+        }
+        if (!cleanTitle) cleanTitle = 'Web Novel';
+        return {
+          ...r,
+          title: cleanTitle,
+          name: cleanTitle,
+          url: r.url || r.path || '',
+          source: r.source || plugin.name,
+          sourceId: plugin.id
+        };
+      });
     }
 
     /**
@@ -283,6 +311,13 @@
     }
 
     /**
+     * Alias for listPlugins to satisfy UI calls to reg.getAll()
+     */
+    getAll() {
+      return this.listPlugins();
+    }
+
+    /**
      * Get list of all active plugins (alias for listPlugins)
      */
     getAll() {
@@ -304,11 +339,12 @@
   SourceRegistry.searchPlugin = (id, query) => defaultRegistry.searchPlugin(id, query);
   SourceRegistry.defaultRegistry = defaultRegistry;
 
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { SourceRegistry, defaultRegistry };
-  } else if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
     window.SourceRegistry = defaultRegistry;
     window.SourceRegistryClass = SourceRegistry;
     window.sourceRegistry = defaultRegistry;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { SourceRegistry, defaultRegistry };
   }
 })();
