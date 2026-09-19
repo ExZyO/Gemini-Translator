@@ -449,6 +449,19 @@
             return false;
         },
 
+        setTtsSpeed: async (rate) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.setTtsSpeed) {
+                    const res = await bridge.setTtsSpeed({ rate: typeof rate === 'number' ? rate : parseFloat(rate) || 1.0 });
+                    return !!res?.success;
+                }
+            } catch (e) {
+                console.warn('setTtsSpeed error:', e);
+            }
+            return false;
+        },
+
         openTtsSettings: async () => {
             try {
                 const bridge = getBridge();

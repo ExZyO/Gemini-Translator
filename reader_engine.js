@@ -1063,7 +1063,12 @@
     // ── 3. Dual-Tier TTS Engine (Legado + Foliate + Piper Architecture) ──
     const [ttsActive, setTtsActive] = useState(false);
     const [ttsPaused, setTtsPaused] = useState(false);
-    const [ttsRate, setTtsRate] = useState(1.0);
+    const [ttsRate, setTtsRate] = useState(() => {
+      const saved = localStorage.getItem('gemini_tts_rate');
+      return saved ? (parseFloat(saved) || 1.0) : 1.0;
+    });
+    const ttsRateRef = useRef(ttsRate);
+    const speakSentenceRef = useRef(null);
     const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
     const activeSentenceIdxRef = useRef(-1);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -1088,7 +1093,39 @@
       ttsActiveRef.current = ttsActive;
       ttsPausedRef.current = ttsPaused;
       activeSentenceIdxRef.current = activeSentenceIdx;
-    }, [ttsActive, ttsPaused, activeSentenceIdx]);
+      ttsRateRef.current = ttsRate;
+    }, [ttsActive, ttsPaused, activeSentenceIdx, ttsRate]);
+
+    // Dedicated handler for changing speech speed (immediate audio restart + persistence)
+    const handleRateChange = useCallback((newRate) => {
+      const r = Math.max(0.5, Math.min(3.0, parseFloat(newRate) || 1.0));
+      const cleanR = Math.round(r * 100) / 100;
+      setTtsRate(cleanR);
+      ttsRateRef.current = cleanR;
+      try {
+        localStorage.setItem('gemini_tts_rate', String(cleanR));
+      } catch (e) {}
+
+      if (window.NativeBridge?.setTtsSpeed) {
+        window.NativeBridge.setTtsSpeed(cleanR);
+      }
+
+      // If speech is actively playing, immediately restart current sentence at the new speed
+      if (ttsActiveRef.current && !ttsPausedRef.current) {
+        const curIdx = activeSentenceIdxRef.current;
+        if (window.NativeBridge?.stopNativeSpeech) {
+          window.NativeBridge.stopNativeSpeech();
+        }
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+        setTimeout(() => {
+          if (ttsActiveRef.current && !ttsPausedRef.current && curIdx >= 0) {
+            speakSentenceRef.current?.(curIdx);
+          }
+        }, 60);
+      }
+    }, []);
 
     useEffect(() => {
       sleepTimerRef.current = sleepTimerMinutes;
@@ -1172,7 +1209,7 @@
       try {
         if (window.NativeBridge?.speakNative) {
           await window.NativeBridge.speakNative(sampleText, {
-            rate: ttsRate,
+            rate: ttsRateRef.current,
             pitch: 1.0,
             lang: 'en-US',
             voiceName: selectedTtsVoice,
@@ -1183,7 +1220,7 @@
         } else if (typeof window !== 'undefined' && window.speechSynthesis) {
           window.speechSynthesis.cancel();
           const u = new SpeechSynthesisUtterance(sampleText);
-          u.rate = ttsRate;
+          u.rate = ttsRateRef.current;
           u.onend = () => setPreviewSpeaking(false);
           u.onerror = () => setPreviewSpeaking(false);
           window.speechSynthesis.speak(u);
@@ -1363,7 +1400,7 @@
       if (window.NativeBridge && window.NativeBridge.speakNative) {
         try {
           const spoken = await window.NativeBridge.speakNative(sentence, {
-            rate: ttsRate,
+            rate: ttsRateRef.current,
             pitch: 1.0,
             lang: ttsLang,
             voiceName: selectedTtsVoice,
@@ -1371,13 +1408,13 @@
             utteranceId: `tts_${activeIdx}_${idx}_${Date.now()}`,
             onDone: () => {
               if (ttsActiveRef.current && !ttsPausedRef.current) {
-                speakSentence(idx + 1);
+                speakSentenceRef.current?.(idx + 1);
               }
             },
             onError: (err) => {
               console.warn('[Native TTS] Sentence error, skipping to next:', err);
               if (ttsActiveRef.current && !ttsPausedRef.current) {
-                speakSentence(idx + 1);
+                speakSentenceRef.current?.(idx + 1);
               }
             }
           });
@@ -1397,7 +1434,7 @@
 
         window.speechSynthesis.cancel();
         const utt = new SpeechSynthesisUtterance(sentence);
-        utt.rate = ttsRate;
+        utt.rate = ttsRateRef.current;
         utt.lang = ttsLang;
 
         try {
@@ -1411,7 +1448,7 @@
         utt.onend = () => {
           window.__ttsActiveUtterance = null;
           if (ttsActiveRef.current && !ttsPausedRef.current) {
-            speakSentence(idx + 1);
+            speakSentenceRef.current?.(idx + 1);
           }
         };
 
@@ -1420,7 +1457,7 @@
           if (err.error !== 'canceled' && err.error !== 'interrupted') {
             console.warn('[TTS] Synthesis warning:', err);
             if (ttsActiveRef.current && !ttsPausedRef.current) {
-              speakSentence(idx + 1);
+              speakSentenceRef.current?.(idx + 1);
             }
           }
         };
@@ -1433,7 +1470,9 @@
         }
         window.speechSynthesis.speak(utt);
       }
-    }, [activeIdx, safeChapters.length, ttsRate, tgtLang, currentChapter, bookTitle, selectedTtsVoice, dacDelayMs, changeChapter, stopTts]);
+    }, [activeIdx, safeChapters.length, tgtLang, currentChapter, bookTitle, selectedTtsVoice, dacDelayMs, changeChapter, stopTts]);
+
+    speakSentenceRef.current = speakSentence;
 
     const toggleTts = useCallback(() => {
       if (sentencesRef.current.length === 0) {
@@ -2135,12 +2174,12 @@
             type: 'button',
             className: 'reader-search-nav-btn',
             style: { fontWeight: 700, fontSize: 11, padding: '4px 8px', minWidth: 42 },
-            title: 'Change Speed',
+            title: 'Change Speed (0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x)',
             onClick: () => {
-              const rates = [0.75, 1.0, 1.25, 1.5, 2.0];
-              const curIdx = rates.indexOf(ttsRate);
+              const rates = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+              const curIdx = rates.findIndex(r => Math.abs(r - ttsRate) < 0.05);
               const nextRate = rates[(curIdx + 1) % rates.length];
-              setTtsRate(nextRate);
+              handleRateChange(nextRate);
             }
           }, `${ttsRate}x`),
           h('button', {
@@ -2451,6 +2490,32 @@
               )
             ),
 
+            // Speech Speed (Rate)
+            h('div', { style: { marginBottom: 12 } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
+                h('span', { style: { fontSize: 12, fontWeight: 600 } }, 'Speech Speed'),
+                h('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--r-accent)' } }, `${ttsRate}x`)
+              ),
+              h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginBottom: 8 } },
+                [0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map(r => h('button', {
+                  key: r,
+                  type: 'button',
+                  className: `mini-btn ${Math.abs(ttsRate - r) < 0.05 ? '' : 'ghost'}`,
+                  style: Math.abs(ttsRate - r) < 0.05 ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, fontSize: 11 } : { fontSize: 11 },
+                  onClick: () => handleRateChange(r)
+                }, `${r}x`))
+              ),
+              h('input', {
+                type: 'range',
+                min: '0.5',
+                max: '3.0',
+                step: '0.05',
+                value: ttsRate,
+                style: { width: '100%', accentColor: 'var(--r-accent)' },
+                onChange: (e) => handleRateChange(parseFloat(e.target.value))
+              })
+            ),
+
             // Inter-Sentence Pause (DAC Ramp-Up Safety for Piper)
             h('div', { style: { marginBottom: 12 } },
               h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, 'Sentence Pause (DAC Ramp-Up Buffer)'),
@@ -2586,9 +2651,38 @@
                 )
           ),
 
-          // 3. Inter-Sentence Pause (DAC Ramp-up Buffer)
+          // 3. Speech Speed (Rate)
           h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
-            h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)', marginBottom: 4 } }, '3. Sentence Pause (DAC Buffer)'),
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
+              h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)' } }, '3. Speech Speed'),
+              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-accent)' } }, `${ttsRate}x`)
+            ),
+            h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
+              'Adjust narration speed. Works with offline Piper/Sherpa models, Google TTS, and browser voices.'
+            ),
+            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6, marginBottom: 10 } },
+              [0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map(r => h('button', {
+                key: r,
+                type: 'button',
+                className: `mini-btn ${Math.abs(ttsRate - r) < 0.05 ? '' : 'ghost'}`,
+                style: Math.abs(ttsRate - r) < 0.05 ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
+                onClick: () => handleRateChange(r)
+              }, `${r}x`))
+            ),
+            h('input', {
+              type: 'range',
+              min: '0.5',
+              max: '3.0',
+              step: '0.05',
+              value: ttsRate,
+              style: { width: '100%', accentColor: 'var(--r-accent)' },
+              onChange: (e) => handleRateChange(parseFloat(e.target.value))
+            })
+          ),
+
+          // 4. Inter-Sentence Pause (DAC Ramp-up Buffer)
+          h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
+            h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)', marginBottom: 4 } }, '4. Sentence Pause (DAC Buffer)'),
             h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
               'Pause duration between sentences. 200ms is recommended for Piper ONNX models to prevent initial consonant clipping.'
             ),
@@ -2603,7 +2697,7 @@
             )
           ),
 
-          // 4. How-To Guide for SherpaTTS / Piper AI Voices
+          // 5. How-To Guide for SherpaTTS / Piper AI Voices
           h('div', { style: { background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)', borderRadius: 10, padding: 14, marginBottom: 16 } },
             h('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--r-accent)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 } },
               h('span', null, '💡'),

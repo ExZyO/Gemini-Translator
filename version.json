@@ -1,9 +1,9 @@
 {
-  "version": "8.17.6",
-  "versionCode": 8246,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.6/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.6/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.6",
+  "version": "8.17.7",
+  "versionCode": 8247,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.7/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.7/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.7",
   "releaseDate": "2026-09-19",
-  "releaseNotes": "v8.17.6: Fixed auto-scroll subpixel speed bug with fractional accumulator and auto-pagination switch; added dedicated Voice & Offline AI Engine Manager modal for SherpaTTS/Piper ONNX voices with engine switching, voice preview, and system TTS settings shortcut."
+  "releaseNotes": "v8.17.7: Fixed TTS speech speed bug with real-time utterance interruption and restart, ttsRateRef state synchronization, native setTtsSpeed method, Bundle speed parameter injection for SherpaTTS/Google/Samsung, localStorage speed persistence, and added speed presets + smooth slider in Settings and Voice modal."
 }

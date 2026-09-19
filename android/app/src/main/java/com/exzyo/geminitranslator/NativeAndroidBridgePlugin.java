@@ -2566,10 +2566,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                         android.os.Bundle params = new android.os.Bundle();
                         params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
+                        // Explicitly populate speed params so all engines (SherpaTTS, Google, Samsung) receive it directly
+                        params.putString(TextToSpeech.Engine.KEY_PARAM_RATE, Integer.toString((int) (rate * 100)));
+                        params.putFloat("rate", rate);
+                        params.putFloat("speechRate", rate);
                         res = nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId);
                     } else {
                         java.util.HashMap<String, String> params = new java.util.HashMap<>();
                         params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
+                        params.put(TextToSpeech.Engine.KEY_PARAM_RATE, Integer.toString((int) (rate * 100)));
                         res = nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params);
                     }
 
@@ -2583,6 +2588,28 @@ public class NativeAndroidBridgePlugin extends Plugin {
             call.reject("Native TTS not ready");
         } catch (Exception e) {
             call.reject("Native TTS error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void setTtsSpeed(PluginCall call) {
+        try {
+            ensureNativeTts();
+            Double dRate = call.getDouble("rate", 1.0);
+            float rate = dRate != null ? dRate.floatValue() : 1.0f;
+            if (nativeTts != null && isNativeTtsReady) {
+                nativeTts.setSpeechRate(rate);
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("rate", rate);
+                call.resolve(ret);
+                return;
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", false);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to set TTS speed: " + e.getMessage());
         }
     }
 
