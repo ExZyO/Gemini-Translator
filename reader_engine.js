@@ -1083,11 +1083,104 @@
     const [selectedTtsVoice, setSelectedTtsVoice] = useState(() => localStorage.getItem('gemini_tts_voice') || '');
     const [dacDelayMs, setDacDelayMs] = useState(() => parseInt(localStorage.getItem('gemini_tts_dac_delay') || '200', 10)); // 200ms DAC buffer
 
+    // Moon+ Reader TTS Options & Chars Filters
+    const [divideBy, setDivideBy] = useState(() => localStorage.getItem('gemini_tts_divide_by') || 'paragraph'); // 'paragraph' | 'sentence'
+    const [stopAfterEnabled, setStopAfterEnabled] = useState(() => localStorage.getItem('gemini_tts_stop_after_enabled') === 'true');
+    const [stopAfterMinutes, setStopAfterMinutes] = useState(() => parseInt(localStorage.getItem('gemini_tts_stop_after_min') || '10', 10));
+    const [showConfirmBeforeSpeak, setShowConfirmBeforeSpeak] = useState(() => localStorage.getItem('gemini_tts_confirm_speak') === 'true');
+    const [speakingIntervalMs, setSpeakingIntervalMs] = useState(() => parseInt(localStorage.getItem('gemini_tts_interval_ms') || '300', 10));
+    const [disableAudioFocus, setDisableAudioFocus] = useState(() => localStorage.getItem('gemini_tts_disable_audio_focus') !== 'false');
+
+    const [ttsCharFilters, setTtsCharFilters] = useState(() => {
+      try {
+        const saved = localStorage.getItem('gemini_tts_char_filters');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+      return [
+        { from: '『', to: '' },
+        { from: '』', to: '' },
+        { from: '「', to: '' },
+        { from: '」', to: '' },
+        { from: '【', to: '' },
+        { from: '】', to: '' },
+        { from: '—', to: '' },
+        { from: 'Qing', to: 'Ching' },
+        { from: 'Xiao', to: 'Shee-ow' },
+        { from: 'Zhou', to: 'Joe' },
+        { from: 'Zhang', to: 'Zahng' },
+        { from: 'Nephis', to: 'Ne fis' },
+        { from: 'Shi', to: 'Shee' },
+        { from: 'Zheng', to: 'Zeng' },
+        { from: 'Yi', to: 'Yee' },
+        { from: 'Liu', to: 'Lioooo' },
+        { from: 'Guan', to: 'Gwuaan' },
+        { from: 'Yun', to: 'Yoon' }
+      ];
+    });
+    const [ttsUseRegex, setTtsUseRegex] = useState(() => localStorage.getItem('gemini_tts_use_regex') === 'true');
+    const [filterSearchQuery, setFilterSearchQuery] = useState('');
+
+    // Moon+ Reader Dialog States
+    const [showTtsOptionsModal, setShowTtsOptionsModal] = useState(false);
+    const [showCharsFilterModal, setShowCharsFilterModal] = useState(false);
+    const [showGestureGuideModal, setShowGestureGuideModal] = useState(false);
+
     const sentencesRef = useRef([]);
     const utteranceRef = useRef(null);
     const ttsActiveRef = useRef(false);
     const ttsPausedRef = useRef(false);
     const pendingTtsStartRef = useRef(false);
+
+    useEffect(() => {
+      localStorage.setItem('gemini_tts_divide_by', divideBy);
+    }, [divideBy]);
+
+    useEffect(() => {
+      localStorage.setItem('gemini_tts_interval_ms', String(speakingIntervalMs));
+    }, [speakingIntervalMs]);
+
+    useEffect(() => {
+      localStorage.setItem('gemini_tts_disable_audio_focus', String(disableAudioFocus));
+      if (window.NativeBridge?.setDisableAudioFocus) {
+        window.NativeBridge.setDisableAudioFocus(disableAudioFocus);
+      }
+    }, [disableAudioFocus]);
+
+    useEffect(() => {
+      localStorage.setItem('gemini_tts_stop_after_enabled', String(stopAfterEnabled));
+      localStorage.setItem('gemini_tts_stop_after_min', String(stopAfterMinutes));
+      if (stopAfterEnabled && stopAfterMinutes > 0 && ttsActive) {
+        setSleepTimerMinutes(stopAfterMinutes);
+        setSleepTimerSecondsLeft(stopAfterMinutes * 60);
+      }
+    }, [stopAfterEnabled, stopAfterMinutes, ttsActive]);
+
+    useEffect(() => {
+      localStorage.setItem('gemini_tts_char_filters', JSON.stringify(ttsCharFilters));
+    }, [ttsCharFilters]);
+
+    useEffect(() => {
+      localStorage.setItem('gemini_tts_use_regex', String(ttsUseRegex));
+    }, [ttsUseRegex]);
+
+    const applyTtsCharFilters = useCallback((text) => {
+      if (!text || !Array.isArray(ttsCharFilters) || ttsCharFilters.length === 0) return text;
+      let result = text;
+      for (const f of ttsCharFilters) {
+        if (!f.from) continue;
+        try {
+          if (ttsUseRegex) {
+            const re = new RegExp(f.from, 'gi');
+            result = result.replace(re, f.to || '');
+          } else {
+            result = result.split(f.from).join(f.to || '');
+          }
+        } catch (e) {
+          result = result.split(f.from).join(f.to || '');
+        }
+      }
+      return result;
+    }, [ttsCharFilters, ttsUseRegex]);
 
     useEffect(() => {
       ttsActiveRef.current = ttsActive;
@@ -1260,7 +1353,7 @@
       const segmenterLang = langMap[tgtLang] || (tgtLang && tgtLang.length === 2 ? `${tgtLang}-${tgtLang.toUpperCase()}` : 'en-US');
 
       let segmenter = null;
-      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      if (divideBy === 'sentence' && typeof Intl !== 'undefined' && Intl.Segmenter) {
         try {
           segmenter = new Intl.Segmenter(segmenterLang, { granularity: 'sentence' });
         } catch (e) {}
@@ -1272,15 +1365,19 @@
         if (!raw) return;
 
         let parts = [];
-        if (segmenter) {
-          try {
-            parts = Array.from(segmenter.segment(raw))
-              .map(s => s.segment.trim())
-              .filter(s => s.length > 0);
-          } catch (e) {}
-        }
-        if (!parts || parts.length === 0) {
-          parts = raw.split(/(?<=[.!?。！？\n])\s+/).map(s => s.trim()).filter(Boolean);
+        if (divideBy === 'paragraph') {
+          parts = [raw];
+        } else {
+          if (segmenter) {
+            try {
+              parts = Array.from(segmenter.segment(raw))
+                .map(s => s.segment.trim())
+                .filter(s => s.length > 0);
+            } catch (e) {}
+          }
+          if (!parts || parts.length === 0) {
+            parts = raw.split(/(?<=[.!?。！？\n])\s+/).map(s => s.trim()).filter(Boolean);
+          }
         }
 
         if (parts.length > 0) {
@@ -1296,7 +1393,7 @@
         pendingTtsStartRef.current = false;
         speakSentence(0);
       }
-    }, [chapterElements, tgtLang]);
+    }, [chapterElements, tgtLang, divideBy]);
 
     const stopTts = useCallback(() => {
       ttsActiveRef.current = false;
@@ -1358,11 +1455,14 @@
       }
 
       const item = sentencesRef.current[idx];
-      const sentence = typeof item === 'string' ? item : item?.text;
-      if (!sentence || !sentence.trim()) {
-        speakSentence(idx + 1);
+      const rawText = typeof item === 'string' ? item : item?.text;
+      if (!rawText || !rawText.trim()) {
+        speakSentenceRef.current?.(idx + 1);
         return;
       }
+
+      // Apply Moon+ Reader TTS Character & Pronunciation Filters
+      const sentence = applyTtsCharFilters(rawText);
 
       setActiveSentenceIdx(idx);
 
@@ -1404,7 +1504,7 @@
             pitch: 1.0,
             lang: ttsLang,
             voiceName: selectedTtsVoice,
-            delayMs: dacDelayMs,
+            delayMs: speakingIntervalMs || dacDelayMs,
             utteranceId: `tts_${activeIdx}_${idx}_${Date.now()}`,
             onDone: () => {
               if (ttsActiveRef.current && !ttsPausedRef.current) {
@@ -2112,114 +2212,157 @@
         )
       ),
 
-      // ── FLOATING TTS AUDIO PLAYER BAR (WHEN ACTIVE) ──
+      // ── MOON+ READER FLOATING TTS PLAYER (Screenshots 1 & 3) ──
       ttsActive && h('div', {
         className: 'reader-v2-tts-bar',
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          padding: '12px 16px',
+          background: 'rgba(20, 20, 24, 0.95)',
+          backdropFilter: 'blur(16px)',
+          borderRadius: 16,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1)',
+          maxWidth: 540,
+          margin: '0 auto',
+          position: 'fixed',
+          bottom: 24,
+          left: 16,
+          right: 16,
+          zIndex: 9999
+        },
         onClick: (e) => e.stopPropagation()
       },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+        // Row 1: Speed Slider & Buttons (Screenshots 1 & 3)
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, width: '100%' } },
+          h('span', { style: { fontSize: 12, fontWeight: 700, minWidth: 42, color: 'var(--r-muted)' } }, 'Speed'),
+          h('span', { style: { fontSize: 12.5, fontWeight: 800, color: 'var(--r-accent)', minWidth: 40 } }, `${ttsRate}x`),
+          h('input', {
+            type: 'range',
+            min: '0.5',
+            max: '3.0',
+            step: '0.05',
+            value: ttsRate,
+            style: { flex: 1, accentColor: 'var(--r-accent)', height: 4, cursor: 'pointer' },
+            onChange: (e) => handleRateChange(parseFloat(e.target.value))
+          }),
           h('button', {
             type: 'button',
-            className: 'reader-search-nav-btn',
-            title: 'Previous Sentence',
+            className: 'mini-btn ghost',
+            style: { padding: '2px 7px', fontSize: 11, fontWeight: 700, borderRadius: 5, border: '1px solid var(--r-border)' },
+            title: 'Reset to 1.0x',
+            onClick: () => handleRateChange(1.0)
+          }, '↺'),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { padding: '2px 9px', fontSize: 13, fontWeight: 700, borderRadius: 5, border: '1px solid var(--r-border)' },
+            title: 'Decrease Speed',
+            onClick: () => handleRateChange(Math.max(0.5, Math.round((ttsRate - 0.1) * 10) / 10))
+          }, '–'),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { padding: '2px 9px', fontSize: 13, fontWeight: 700, borderRadius: 5, border: '1px solid var(--r-border)' },
+            title: 'Increase Speed',
+            onClick: () => handleRateChange(Math.min(3.0, Math.round((ttsRate + 0.1) * 10) / 10))
+          }, '+')
+        ),
+
+        // Row 2: Transport Controls (Screenshots 1 & 3)
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 4 } },
+          // Stop button
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { fontSize: 15, padding: '7px 11px', borderRadius: 8 },
+            title: 'Stop TTS',
+            onClick: stopTts
+          }, '⏹'),
+
+          // Prev Chapter
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { fontSize: 13, padding: '7px 11px', borderRadius: 8 },
+            disabled: activeIdx <= 0,
+            title: 'Previous Chapter',
+            onClick: () => {
+              if (activeIdx > 0) changeChapter(activeIdx - 1);
+            }
+          }, '|◀'),
+
+          // Prev Sentence/Paragraph
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { fontSize: 13, padding: '7px 11px', borderRadius: 8 },
             disabled: activeSentenceIdx <= 0,
+            title: 'Previous Chunk',
             onClick: () => speakSentence(Math.max(0, activeSentenceIdx - 1))
-          }, '⏮'),
+          }, '◀◀'),
+
+          // Play / Pause button
           h('button', {
             type: 'button',
             style: {
-              width: 38,
-              height: 38,
+              width: 44,
+              height: 44,
               borderRadius: '50%',
               background: 'var(--r-accent)',
               color: '#ffffff',
               border: 'none',
-              fontSize: 16,
+              fontSize: 18,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              boxShadow: '0 0 12px rgba(99, 102, 241, 0.4)'
+              boxShadow: '0 0 16px rgba(99, 102, 241, 0.45)'
             },
             title: ttsPaused ? 'Resume' : 'Pause',
             onClick: toggleTts
           }, ttsPaused ? '▶' : '⏸'),
+
+          // Next Sentence/Paragraph
           h('button', {
             type: 'button',
-            className: 'reader-search-nav-btn',
-            title: 'Next Sentence',
+            className: 'mini-btn ghost',
+            style: { fontSize: 13, padding: '7px 11px', borderRadius: 8 },
             disabled: activeSentenceIdx >= sentencesRef.current.length - 1,
+            title: 'Next Chunk',
             onClick: () => speakSentence(activeSentenceIdx + 1)
-          }, '⏭')
-        ),
+          }, '▶▶'),
 
-        h('div', { style: { flex: 1, minWidth: 0, textAlign: 'center' } },
-          h('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--r-accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-            `🎧 Sentence ${activeSentenceIdx + 1}/${sentencesRef.current.length}`
-          ),
-          h('div', { style: { fontSize: 10, color: 'var(--r-muted)', marginTop: 2 } },
-            `${ttsRate}x Speed · Tap any sentence to jump`
-          )
-        ),
-
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+          // Next Chapter
           h('button', {
             type: 'button',
-            className: 'reader-search-nav-btn',
-            style: { fontWeight: 700, fontSize: 11, padding: '4px 8px', minWidth: 46, color: 'var(--r-accent)' },
-            title: 'Choose Voice & Offline Engine (SherpaTTS / Piper / Google)',
+            className: 'mini-btn ghost',
+            style: { fontSize: 13, padding: '7px 11px', borderRadius: 8 },
+            disabled: activeIdx >= safeChapters.length - 1,
+            title: 'Next Chapter',
+            onClick: () => {
+              if (activeIdx < safeChapters.length - 1) changeChapter(activeIdx + 1);
+            }
+          }, '▶|'),
+
+          // TTS Options (Screenshot 3)
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { fontSize: 15, padding: '7px 11px', borderRadius: 8, color: 'var(--r-accent)' },
+            title: 'TTS Options',
+            onClick: () => setShowTtsOptionsModal(true)
+          }, '⚙'),
+
+          // More Options (...)
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { fontSize: 15, padding: '7px 11px', borderRadius: 8 },
+            title: 'Voice & Engine Manager',
             onClick: () => setShowVoiceModal(true)
-          }, '🎙 Voice'),
-          h('button', {
-            type: 'button',
-            className: 'reader-search-nav-btn',
-            style: { fontWeight: 700, fontSize: 11, padding: '4px 8px', minWidth: 42 },
-            title: 'Change Speed (0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x)',
-            onClick: () => {
-              const rates = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
-              const curIdx = rates.findIndex(r => Math.abs(r - ttsRate) < 0.05);
-              const nextRate = rates[(curIdx + 1) % rates.length];
-              handleRateChange(nextRate);
-            }
-          }, `${ttsRate}x`),
-          h('button', {
-            type: 'button',
-            className: 'reader-search-nav-btn',
-            style: { fontWeight: 700, fontSize: 11, padding: '4px 8px', minWidth: 48, color: sleepTimerMinutes !== 0 ? 'var(--r-accent)' : 'inherit' },
-            title: 'Legado-style Sleep Timer (15m, 30m, 45m, 60m, End of Chapter)',
-            onClick: () => {
-              if (sleepTimerMinutes === 0) {
-                setSleepTimerMinutes(15);
-                setSleepTimerSecondsLeft(15 * 60);
-                if (window.toast) window.toast('⏱ Sleep timer: 15 minutes', 'info');
-              } else if (sleepTimerMinutes === 15) {
-                setSleepTimerMinutes(30);
-                setSleepTimerSecondsLeft(30 * 60);
-                if (window.toast) window.toast('⏱ Sleep timer: 30 minutes', 'info');
-              } else if (sleepTimerMinutes === 30) {
-                setSleepTimerMinutes(45);
-                setSleepTimerSecondsLeft(45 * 60);
-                if (window.toast) window.toast('⏱ Sleep timer: 45 minutes', 'info');
-              } else if (sleepTimerMinutes === 45) {
-                setSleepTimerMinutes(60);
-                setSleepTimerSecondsLeft(60 * 60);
-                if (window.toast) window.toast('⏱ Sleep timer: 60 minutes', 'info');
-              } else if (sleepTimerMinutes === 60) {
-                setSleepTimerMinutes(-1);
-                if (window.toast) window.toast('⏱ Sleep timer: Pause at End of Chapter', 'info');
-              } else {
-                setSleepTimerMinutes(0);
-                setSleepTimerSecondsLeft(0);
-                if (window.toast) window.toast('⏱ Sleep timer: Off', 'info');
-              }
-            }
-          }, sleepTimerMinutes === -1 ? '⏱ Ch.' : (sleepTimerMinutes > 0 ? `⏱ ${Math.ceil(sleepTimerSecondsLeft / 60)}m` : '⏱ Off')),
-          h('button', {
-            type: 'button',
-            className: 'reader-search-nav-btn close',
-            title: 'Stop Read Aloud',
-            onClick: stopTts
-          }, '✕')
+          }, '···')
         )
       ),
 
@@ -2617,7 +2760,7 @@
           h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
             h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)', marginBottom: 6 } }, '2. Select Voice'),
             h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
-              'Pick your favorite voice model installed in the selected engine.'
+              'Pick your favorite voice model or choose "System Default" to use whatever voice you set in Android Settings.'
             ),
             ttsVoices.length > 0
               ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
@@ -2626,7 +2769,7 @@
                     style: { width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--r-bg)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13.5, fontWeight: 600 },
                     onChange: (e) => handleVoiceChange(e.target.value)
                   },
-                    h('option', { value: '' }, 'Default Engine Voice'),
+                    h('option', { value: '' }, '⚙ System Default Voice (Android Settings - Recommended)'),
                     ttsVoices.map(v => h('option', { key: v.name, value: v.name },
                       `${v.name} (${v.locale || 'all'}) ${v.requiresNetwork ? '☁ Online' : '⚡ Offline'}`
                     ))
@@ -2640,7 +2783,7 @@
                   }, previewSpeaking ? '🔊 Speaking Preview…' : '▶ Preview / Test Voice')
                 )
               : h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 } },
-                  h('span', { style: { fontSize: 12.5, color: 'var(--r-muted)', fontStyle: 'italic' } }, 'Default voice will be used based on chapter language.'),
+                  h('span', { style: { fontSize: 12.5, color: 'var(--r-muted)', fontStyle: 'italic' } }, 'System Default voice from Android Settings is active.'),
                   h('button', {
                     type: 'button',
                     className: 'mini-btn',
@@ -2711,7 +2854,7 @@
             )
           ),
 
-          // 5. Open Android System Settings Button
+          // 6. Open Android System Settings Button
           window.NativeBridge?.openTtsSettings && h('button', {
             type: 'button',
             className: 'mini-btn ghost',
@@ -2722,6 +2865,404 @@
               }
             }
           }, '⚙ Open Android System Text-to-Speech Settings')
+        )
+      ),
+
+      // ── MOON+ READER TTS OPTIONS MODAL (Screenshot 3) ──
+      showTtsOptionsModal && h('div', {
+        style: { position: 'fixed', inset: 0, zIndex: 10002, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+        onClick: () => setShowTtsOptionsModal(false)
+      },
+        h('div', {
+          style: { width: '100%', maxWidth: 440, maxHeight: '90vh', overflowY: 'auto', background: 'var(--r-card, #1a1a1f)', color: 'var(--r-text, #e2e8f0)', borderRadius: 16, padding: 22, boxShadow: '0 20px 50px rgba(0,0,0,0.7)', border: '1px solid var(--r-border, rgba(255,255,255,0.1))' },
+          onClick: (e) => e.stopPropagation()
+        },
+          // Header
+          h('div', { style: { fontSize: 18, fontWeight: 800, marginBottom: 18, color: 'var(--r-text)' } }, 'TTS Options'),
+
+          // 1. Divide content by
+          h('div', { style: { marginBottom: 16 } },
+            h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 6 } }, 'Divide content by'),
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+              h('select', {
+                value: divideBy,
+                style: { flex: 1, padding: '9px 12px', borderRadius: 8, background: 'var(--r-bg, #111)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13.5, fontWeight: 600 },
+                onChange: (e) => setDivideBy(e.target.value)
+              },
+                h('option', { value: 'paragraph' }, 'paragraph'),
+                h('option', { value: 'sentence' }, 'sentence')
+              ),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--r-border)' },
+                title: 'TTS Voice & Offline Engine Manager',
+                onClick: () => { setShowTtsOptionsModal(false); setShowVoiceModal(true); }
+              }, '⚙')
+            )
+          ),
+
+          // 2. Stop TTS after X minutes
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 } },
+            h('input', {
+              type: 'checkbox',
+              id: 'cb-stop-after',
+              checked: stopAfterEnabled,
+              style: { width: 17, height: 17, accentColor: 'var(--r-accent)', cursor: 'pointer' },
+              onChange: (e) => setStopAfterEnabled(e.target.checked)
+            }),
+            h('label', { htmlFor: 'cb-stop-after', style: { fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 } },
+              'Stop TTS after',
+              h('input', {
+                type: 'number',
+                min: '1',
+                max: '300',
+                value: stopAfterMinutes,
+                style: { width: 50, padding: '2px 6px', textAlign: 'center', borderRadius: 4, background: 'var(--r-bg, #111)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13, fontWeight: 700 },
+                onChange: (e) => setStopAfterMinutes(parseInt(e.target.value, 10) || 10)
+              }),
+              'minutes'
+            ),
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { marginLeft: 'auto', padding: '4px 8px', borderRadius: 6, fontSize: 11, border: '1px solid var(--r-border)' },
+              title: 'Sleep timer presets',
+              onClick: () => {
+                const presets = [10, 15, 30, 45, 60, -1];
+                const curIdx = presets.indexOf(stopAfterMinutes);
+                const next = presets[(curIdx + 1) % presets.length];
+                setStopAfterMinutes(next);
+                setStopAfterEnabled(true);
+              }
+            }, stopAfterMinutes === -1 ? 'End Ch.' : `${stopAfterMinutes}m`)
+          ),
+
+          // 3. Show confirmation dialog before speak
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 } },
+            h('input', {
+              type: 'checkbox',
+              id: 'cb-confirm-speak',
+              checked: showConfirmBeforeSpeak,
+              style: { width: 17, height: 17, accentColor: 'var(--r-accent)', cursor: 'pointer' },
+              onChange: (e) => setShowConfirmBeforeSpeak(e.target.checked)
+            }),
+            h('label', { htmlFor: 'cb-confirm-speak', style: { fontSize: 13, cursor: 'pointer' } },
+              'Show confirmation dialog before speak'
+            )
+          ),
+
+          // 4. Speaking Interval: X millisecond
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 } },
+            h('input', {
+              type: 'checkbox',
+              id: 'cb-interval',
+              checked: speakingIntervalMs > 0,
+              style: { width: 17, height: 17, accentColor: 'var(--r-accent)', cursor: 'pointer' },
+              onChange: (e) => setSpeakingIntervalMs(e.target.checked ? 300 : 0)
+            }),
+            h('label', { htmlFor: 'cb-interval', style: { fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 } },
+              'Speaking Interval:',
+              h('input', {
+                type: 'number',
+                min: '0',
+                max: '2000',
+                step: '50',
+                value: speakingIntervalMs,
+                style: { width: 62, padding: '2px 6px', textAlign: 'center', borderRadius: 4, background: 'var(--r-bg, #111)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13, fontWeight: 700 },
+                onChange: (e) => setSpeakingIntervalMs(parseInt(e.target.value, 10) || 0)
+              }),
+              'millisecond'
+            )
+          ),
+
+          // 5. TTS CHARS FILTERS button (Screenshot 3)
+          h('button', {
+            type: 'button',
+            className: 'mini-btn',
+            style: { width: '100%', padding: '11px 0', marginBottom: 16, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--r-border)', borderRadius: 8, fontWeight: 700, fontSize: 13, letterSpacing: 0.5, color: 'var(--r-text)' },
+            onClick: () => setShowCharsFilterModal(true)
+          }, 'TTS CHARS FILTERS'),
+
+          // 6. Disable AudioFocus communication with other audio Apps
+          h('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 16 } },
+            h('input', {
+              type: 'checkbox',
+              id: 'cb-audio-focus',
+              checked: disableAudioFocus,
+              style: { width: 17, height: 17, marginTop: 2, accentColor: 'var(--r-accent)', cursor: 'pointer' },
+              onChange: (e) => setDisableAudioFocus(e.target.checked)
+            }),
+            h('label', { htmlFor: 'cb-audio-focus', style: { fontSize: 12.5, lineHeight: 1.4, cursor: 'pointer', color: 'var(--r-text)' } },
+              'Disable AudioFocus communication with other audio Apps (TTS can run in background)'
+            )
+          ),
+
+          // 7. Tip Box (Screenshot 3)
+          h('div', { style: { background: 'rgba(255,255,255,0.04)', border: '1px solid var(--r-border)', borderRadius: 8, padding: '12px 14px', marginBottom: 14 } },
+            h('div', { style: { fontSize: 11.5, lineHeight: 1.5, color: 'var(--r-muted)' } },
+              h('strong', { style: { color: 'var(--r-text)' } }, 'Tip: '),
+              'Please add the reader and TTS engine to the system battery Not optimized list and allow the app notification permission so that the reader can continue TTS in the background when the screen is turned off.'
+            )
+          ),
+
+          // 8. Try control gestures row
+          h('div', {
+            style: { padding: '10px 0', borderTop: '1px solid var(--r-border)', borderBottom: '1px solid var(--r-border)', marginBottom: 16, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+            onClick: () => setShowGestureGuideModal(true)
+          },
+            h('span', { style: { fontSize: 13, color: 'var(--r-muted)' } }, 'Try control gestures'),
+            h('span', { style: { fontSize: 12, color: 'var(--r-accent)', fontWeight: 700 } }, 'View ➔')
+          ),
+
+          // 9. Open Android TTS Settings Button
+          window.NativeBridge?.openTtsSettings && h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { width: '100%', padding: '9px 0', marginBottom: 16, borderRadius: 8, fontSize: 12.5, fontWeight: 600, border: '1px solid var(--r-border)' },
+            onClick: () => window.NativeBridge.openTtsSettings()
+          }, '⚙ Open Android System Text-to-Speech Settings'),
+
+          // Footer: CANCEL / OK
+          h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 12 } },
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { padding: '8px 18px', fontWeight: 700, fontSize: 13 },
+              onClick: () => setShowTtsOptionsModal(false)
+            }, 'CANCEL'),
+            h('button', {
+              type: 'button',
+              className: 'mini-btn',
+              style: { padding: '8px 22px', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, fontSize: 13, borderRadius: 8 },
+              onClick: () => setShowTtsOptionsModal(false)
+            }, 'OK')
+          )
+        )
+      ),
+
+      // ── MOON+ READER TTS CHARS FILTERS MODAL (Screenshot 2) ──
+      showCharsFilterModal && h('div', {
+        style: { position: 'fixed', inset: 0, zIndex: 10003, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+        onClick: () => setShowCharsFilterModal(false)
+      },
+        h('div', {
+          style: { width: '100%', maxWidth: 460, height: '88vh', display: 'flex', flexDirection: 'column', background: 'var(--r-card, #1a1a1f)', color: 'var(--r-text, #e2e8f0)', borderRadius: 16, padding: 20, boxShadow: '0 20px 50px rgba(0,0,0,0.7)', border: '1px solid var(--r-border, rgba(255,255,255,0.1))' },
+          onClick: (e) => e.stopPropagation()
+        },
+          // Header with search icon
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 } },
+            h('div', { style: { fontSize: 18, fontWeight: 800 } }, 'TTS Chars Filters'),
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, background: 'var(--r-bg, #111)', padding: '4px 8px', borderRadius: 8, border: '1px solid var(--r-border)' } },
+              h('span', { style: { fontSize: 12, opacity: 0.7 } }, '🔍'),
+              h('input', {
+                type: 'text',
+                placeholder: 'Search filters…',
+                value: filterSearchQuery,
+                style: { background: 'transparent', border: 'none', color: 'var(--r-text)', fontSize: 12, width: 110, outline: 'none' },
+                onChange: (e) => setFilterSearchQuery(e.target.value)
+              })
+            )
+          ),
+
+          // Scrollable Filter List
+          h('div', { style: { flex: 1, overflowY: 'auto', paddingRight: 4, marginBottom: 14 } },
+            ttsCharFilters
+              .map((f, idx) => ({ ...f, origIdx: idx }))
+              .filter(f => !filterSearchQuery || f.from.toLowerCase().includes(filterSearchQuery.toLowerCase()) || f.to.toLowerCase().includes(filterSearchQuery.toLowerCase()))
+              .map((item) => h('div', {
+                key: item.origIdx,
+                style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid rgba(255,255,255,0.06)' }
+              },
+                h('input', {
+                  type: 'text',
+                  value: item.from,
+                  placeholder: 'Match text / regex',
+                  style: { flex: 1, padding: '6px 8px', borderRadius: 6, background: 'transparent', color: 'var(--r-text)', border: 'none', borderBottom: '1px solid var(--r-border)', fontSize: 13, outline: 'none' },
+                  onChange: (e) => {
+                    const updated = [...ttsCharFilters];
+                    updated[item.origIdx].from = e.target.value;
+                    setTtsCharFilters(updated);
+                  }
+                }),
+                h('span', { style: { color: 'var(--r-muted)', fontWeight: 700 } }, '>'),
+                h('input', {
+                  type: 'text',
+                  value: item.to,
+                  placeholder: 'Replacement (leave blank to delete)',
+                  style: { flex: 1, padding: '6px 8px', borderRadius: 6, background: 'transparent', color: 'var(--r-text)', border: 'none', borderBottom: '1px solid var(--r-border)', fontSize: 13, outline: 'none' },
+                  onChange: (e) => {
+                    const updated = [...ttsCharFilters];
+                    updated[item.origIdx].to = e.target.value;
+                    setTtsCharFilters(updated);
+                  }
+                }),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--r-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--r-muted)', fontSize: 16 },
+                  title: 'Delete Filter Rule',
+                  onClick: () => {
+                    const updated = ttsCharFilters.filter((_, i) => i !== item.origIdx);
+                    setTtsCharFilters(updated);
+                  }
+                }, '–')
+              )),
+
+            // (+) Add row button
+            h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 10 } },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--r-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--r-accent)', fontSize: 18, fontWeight: 700 },
+                title: 'Add new filter',
+                onClick: () => {
+                  setTtsCharFilters([...ttsCharFilters, { from: '', to: '' }]);
+                }
+              }, '+')
+            )
+          ),
+
+          // Bottom Checkbox & Links (Screenshot 2)
+          h('div', { style: { borderTop: '1px solid var(--r-border)', paddingTop: 12, marginBottom: 14 } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 } },
+              h('input', {
+                type: 'checkbox',
+                id: 'cb-use-regex',
+                checked: ttsUseRegex,
+                style: { width: 16, height: 16, accentColor: 'var(--r-accent)', cursor: 'pointer' },
+                onChange: (e) => setTtsUseRegex(e.target.checked)
+              }),
+              h('label', { htmlFor: 'cb-use-regex', style: { fontSize: 12.5, cursor: 'pointer' } }, 'Use regular expression'),
+              h('span', {
+                style: { fontSize: 11, cursor: 'pointer', color: 'var(--r-accent)' },
+                title: 'When enabled, Match text is evaluated as a regular expression (e.g. \\d+ or [a-z])'
+              }, 'ℹ')
+            ),
+
+            h('div', { style: { display: 'flex', gap: 16 } },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { border: 'none', padding: 0, color: '#6366f1', fontSize: 12.5, fontWeight: 600 },
+                onClick: () => {
+                  const input = prompt('Paste filter rules JSON or CSV (from,to):');
+                  if (!input) return;
+                  try {
+                    const parsed = JSON.parse(input);
+                    if (Array.isArray(parsed)) {
+                      setTtsCharFilters(parsed);
+                      alert('Successfully imported filters!');
+                    }
+                  } catch (e) {
+                    // Try CSV parsing
+                    const lines = input.split('\n');
+                    const parsed = [];
+                    for (const l of lines) {
+                      const parts = l.split(',');
+                      if (parts.length >= 2) parsed.push({ from: parts[0].trim(), to: parts[1].trim() });
+                    }
+                    if (parsed.length > 0) {
+                      setTtsCharFilters(parsed);
+                      alert('Successfully imported ' + parsed.length + ' filters!');
+                    } else {
+                      alert('Invalid format. Please provide valid JSON array or CSV.');
+                    }
+                  }
+                }
+              }, 'Import'),
+
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { border: 'none', padding: 0, color: '#6366f1', fontSize: 12.5, fontWeight: 600 },
+                onClick: () => {
+                  const json = JSON.stringify(ttsCharFilters, null, 2);
+                  if (navigator.clipboard?.writeText) {
+                    navigator.clipboard.writeText(json);
+                    alert('Filter rules copied to clipboard!');
+                  } else {
+                    prompt('Copy filter rules JSON:', json);
+                  }
+                }
+              }, 'Export'),
+
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { border: 'none', padding: 0, color: '#6366f1', fontSize: 12.5, fontWeight: 600 },
+                onClick: () => {
+                  if (confirm('Clear all custom filter rules?')) {
+                    setTtsCharFilters([]);
+                  }
+                }
+              }, 'Clear')
+            )
+          ),
+
+          // Footer: CANCEL / OK
+          h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 12 } },
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { padding: '8px 18px', fontWeight: 700, fontSize: 13 },
+              onClick: () => setShowCharsFilterModal(false)
+            }, 'CANCEL'),
+            h('button', {
+              type: 'button',
+              className: 'mini-btn',
+              style: { padding: '8px 22px', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, fontSize: 13, borderRadius: 8 },
+              onClick: () => setShowCharsFilterModal(false)
+            }, 'OK')
+          )
+        )
+      ),
+
+      // ── MOON+ READER GESTURE CARD (Screenshot 1) ──
+      showGestureGuideModal && h('div', {
+        style: { position: 'fixed', inset: 0, zIndex: 10004, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+        onClick: () => setShowGestureGuideModal(false)
+      },
+        h('div', {
+          style: { width: '100%', maxWidth: 360, background: 'rgba(28, 28, 34, 0.96)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 16, padding: '24px 20px', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', textAlign: 'center' },
+          onClick: (e) => e.stopPropagation()
+        },
+          h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px 16px', marginBottom: 20 } },
+            // 1. Speak (1 finger vertical swipe)
+            h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
+              h('div', { style: { fontSize: 32 } }, '👆↕️'),
+              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Speak'),
+              h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, '1 finger vertical swipe')
+            ),
+
+            // 2. Speed (2 fingers vertical swipe)
+            h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
+              h('div', { style: { fontSize: 32 } }, '✌️↕️'),
+              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Speed'),
+              h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, '2 fingers vertical swipe')
+            ),
+
+            // 3. Pause / Resume (Single tap)
+            h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
+              h('div', { style: { fontSize: 32 } }, '👆'),
+              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Pause/Resume'),
+              h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, 'Single tap')
+            ),
+
+            // 4. Stop (Horizontal swipe)
+            h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
+              h('div', { style: { fontSize: 32 } }, '👆↔️'),
+              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Stop'),
+              h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, 'Horizontal swipe')
+            )
+          ),
+
+          h('button', {
+            type: 'button',
+            className: 'mini-btn',
+            style: { width: '100%', padding: '10px 0', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8 },
+            onClick: () => setShowGestureGuideModal(false)
+          }, 'Got It')
         )
       ),
 

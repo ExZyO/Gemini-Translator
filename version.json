@@ -1,9 +1,9 @@
 {
-  "version": "8.17.7",
-  "versionCode": 8247,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.7/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.7/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.7",
+  "version": "8.17.8",
+  "versionCode": 8248,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.8/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.8/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.8",
   "releaseDate": "2026-09-19",
-  "releaseNotes": "v8.17.7: Fixed TTS speech speed bug with real-time utterance interruption and restart, ttsRateRef state synchronization, native setTtsSpeed method, Bundle speed parameter injection for SherpaTTS/Google/Samsung, localStorage speed persistence, and added speed presets + smooth slider in Settings and Voice modal."
+  "releaseNotes": "v8.17.8: Added Moon+ Reader TTS Options modal (paragraph/sentence divide, sleep timer, speaking interval, audiofocus toggle), Moon+ Reader TTS Chars Filters modal (regex/plain replacement rules, import/export, web novel presets), Moon+ Reader Control Gestures guide, Moon+ Reader 2-row bottom player bar, and System Default voice mode for Android Settings SherpaTTS compatibility."
 }

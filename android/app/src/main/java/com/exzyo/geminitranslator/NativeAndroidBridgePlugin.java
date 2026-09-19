@@ -2096,8 +2096,11 @@ public class NativeAndroidBridgePlugin extends Plugin {
         }
     }
 
+    private boolean isAudioFocusDisabled = false;
+
     private void requestAudioFocus() {
         try {
+            if (isAudioFocusDisabled) return;
             Context ctx = getContext();
             if (ctx == null) return;
             if (audioManager == null) {
@@ -2105,6 +2108,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
             }
             if (audioFocusChangeListener == null) {
                 audioFocusChangeListener = focusChange -> {
+                    if (isAudioFocusDisabled) return;
                     JSObject data = new JSObject();
                     switch (focusChange) {
                         case AudioManager.AUDIOFOCUS_LOSS:
@@ -2127,6 +2131,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 noisyReceiver = new BroadcastReceiver() {
                     @Override
                     public void onReceive(Context context, Intent intent) {
+                        if (isAudioFocusDisabled) return;
                         if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())) {
                             JSObject data = new JSObject();
                             data.put("action", "pause");
@@ -2154,6 +2159,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
         } catch (Exception e) {
             Log.w(TAG, "Error abandoning audio focus: " + e.getMessage());
         }
+    }
+
+    @PluginMethod
+    public void setDisableAudioFocus(PluginCall call) {
+        isAudioFocusDisabled = call.getBoolean("disabled", false);
+        JSObject ret = new JSObject();
+        ret.put("success", true);
+        ret.put("disabled", isAudioFocusDisabled);
+        call.resolve(ret);
     }
 
     private void updateMediaSessionAndNotification(boolean playing) {
@@ -2521,8 +2535,8 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     requestAudioFocus();
                     updateMediaSessionAndNotification(true);
 
-                    // Set Voice if provided
-                    if (!voiceName.isEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    // Set Voice if explicitly provided and not system default
+                    if (voiceName != null && !voiceName.isEmpty() && !voiceName.equalsIgnoreCase("SYSTEM_DEFAULT") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                         try {
                             Set<Voice> voices = nativeTts.getVoices();
                             if (voices != null) {
@@ -2534,25 +2548,9 @@ public class NativeAndroidBridgePlugin extends Plugin {
                                 }
                             }
                         } catch (Exception ignored) {}
-                    } else {
-                        // Fallback to language matching
-                        try {
-                            Locale loc = Locale.forLanguageTag(lang);
-                            if (loc != null && nativeTts.isLanguageAvailable(loc) >= TextToSpeech.LANG_AVAILABLE) {
-                                nativeTts.setLanguage(loc);
-                            } else if (lang.startsWith("zh") && nativeTts.isLanguageAvailable(Locale.CHINESE) >= TextToSpeech.LANG_AVAILABLE) {
-                                nativeTts.setLanguage(Locale.CHINESE);
-                            } else if (lang.startsWith("ja") && nativeTts.isLanguageAvailable(Locale.JAPANESE) >= TextToSpeech.LANG_AVAILABLE) {
-                                nativeTts.setLanguage(Locale.JAPANESE);
-                            } else if (lang.startsWith("ko") && nativeTts.isLanguageAvailable(Locale.KOREAN) >= TextToSpeech.LANG_AVAILABLE) {
-                                nativeTts.setLanguage(Locale.KOREAN);
-                            } else {
-                                nativeTts.setLanguage(Locale.US);
-                            }
-                        } catch (Exception e) {
-                            Log.w(TAG, "Error setting TTS language: " + e.getMessage());
-                        }
                     }
+                    // Note: When voiceName is empty or "SYSTEM_DEFAULT", we do NOT call setLanguage() or setVoice().
+                    // This preserves the exact voice and language chosen by the user in Android Settings (like Moon+ Reader).
 
                     nativeTts.setSpeechRate(rate);
                     nativeTts.setPitch(pitch);
