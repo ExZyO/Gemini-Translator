@@ -1091,6 +1091,11 @@
     const [speakingIntervalMs, setSpeakingIntervalMs] = useState(() => parseInt(localStorage.getItem('gemini_tts_interval_ms') || '300', 10));
     const [disableAudioFocus, setDisableAudioFocus] = useState(() => localStorage.getItem('gemini_tts_disable_audio_focus') !== 'false');
 
+    useEffect(() => {
+      window.__openVoiceModal = () => setShowVoiceModal(true);
+      return () => { window.__openVoiceModal = null; };
+    }, []);
+
     const [ttsCharFilters, setTtsCharFilters] = useState(() => {
       try {
         const saved = localStorage.getItem('gemini_tts_char_filters');
@@ -1885,6 +1890,16 @@
             h('span', null, ttsActive ? (ttsPaused ? '▶' : '⏸') : '🎧'),
             h('span', { className: 'reader-top-btn-text' }, ' TTS')
           ),
+          // 2b. Voice & Engine Selector
+          h('button', {
+            type: 'button',
+            className: 'reader-top-btn',
+            onClick: () => { setShowMoreMenu(false); setShowVoiceModal(true); },
+            title: 'Change Voice & Speech Engine (SherpaTTS / Piper / Android Settings)'
+          },
+            h('span', null, '🎙'),
+            h('span', { className: 'reader-top-btn-text' }, ' Voice')
+          ),
           // 3. Settings (Typography & Themes)
           h('button', {
             type: 'button',
@@ -2346,7 +2361,16 @@
             }
           }, '▶|'),
 
-          // TTS Options (Screenshot 3)
+          // 8. Voice & Engine Selector
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { fontSize: 15, padding: '7px 11px', borderRadius: 8 },
+            title: 'Change Voice & Speech Engine (SherpaTTS / Piper)',
+            onClick: () => setShowVoiceModal(true)
+          }, '🎙'),
+
+          // 9. TTS Options (Screenshot 3)
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
@@ -2355,13 +2379,13 @@
             onClick: () => setShowTtsOptionsModal(true)
           }, '⚙'),
 
-          // More Options (...)
+          // 10. More Options (...)
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
             style: { fontSize: 15, padding: '7px 11px', borderRadius: 8 },
-            title: 'Voice & Engine Manager',
-            onClick: () => setShowVoiceModal(true)
+            title: 'More Actions',
+            onClick: () => setShowMoreMenu(!showMoreMenu)
           }, '···')
         )
       ),
@@ -2727,6 +2751,34 @@
             }, '✕')
           ),
 
+          // Android Settings Quick Link Banner (Moon+ Reader style)
+          h('div', {
+            style: {
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(16, 185, 129, 0.15))',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              borderRadius: 12,
+              padding: '12px 14px',
+              marginBottom: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8
+            }
+          },
+            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+              h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--r-text)' } }, '📱 Moon+ Reader Mode (Android Settings)'),
+              h('span', { style: { fontSize: 10.5, padding: '2px 8px', borderRadius: 9999, background: 'rgba(16,185,129,0.2)', color: '#34d399', fontWeight: 700 } }, 'Recommended')
+            ),
+            h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)', lineHeight: 1.4 } },
+              'Just like in Moon+ Reader, select SherpaTTS and your Piper voice (e.g. Callum) in your phone\'s Android Settings. This app will use it automatically!'
+            ),
+            window.NativeBridge?.openTtsSettings && h('button', {
+              type: 'button',
+              className: 'mini-btn',
+              style: { width: '100%', padding: '10px 0', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13 },
+              onClick: () => window.NativeBridge.openTtsSettings()
+            }, '⚙ Open Android System Text-to-Speech Settings')
+          ),
+
           // 1. Engine Selector
           h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
@@ -2879,6 +2931,34 @@
         },
           // Header
           h('div', { style: { fontSize: 18, fontWeight: 800, marginBottom: 18, color: 'var(--r-text)' } }, 'TTS Options'),
+
+          // 0. Voice & Speech Engine (Prominent & Clear)
+          h('div', { style: { background: 'rgba(255,255,255,0.04)', border: '1px solid var(--r-border)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 } },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+              h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)' } }, '🎙 Voice & Speech Engine'),
+              h('span', { style: { fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(99,102,241,0.2)', color: 'var(--r-accent)', fontWeight: 700 } },
+                selectedTtsVoice || (selectedTtsEngine ? selectedTtsEngine.split('.').pop() : 'Android Settings Default')
+              )
+            ),
+            h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
+              'Current voice: ' + (selectedTtsVoice ? selectedTtsVoice : 'System Default (Android Settings)')
+            ),
+            h('div', { style: { display: 'flex', gap: 8 } },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: { flex: 1, padding: '9px 12px', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+                onClick: () => { setShowTtsOptionsModal(false); setShowVoiceModal(true); }
+              }, '🎙 Select Voice / Engine'),
+              window.NativeBridge?.openTtsSettings && h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--r-border)', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 12 },
+                title: 'Open Android System Text-to-Speech Settings',
+                onClick: () => window.NativeBridge.openTtsSettings()
+              }, '⚙ Android Settings')
+            )
+          ),
 
           // 1. Divide content by
           h('div', { style: { marginBottom: 16 } },

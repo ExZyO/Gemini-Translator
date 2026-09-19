@@ -732,28 +732,28 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="utils.js"></script>
   <script src="db_engine.js"></script>
   <script src="splitter.js"></script>
-  <script src="merger.js"></script>
-  <script src="epub_studio_ui.js"></script>
-  <script src="epub_editor.js"></script>
-  <script src="sources/base_plugin.js"></script>
-  <script src="sources/lnreader_adapter.js"></script>
-  <script src="sources/syosetu.js"></script>
-  <script src="sources/rezero_manifest.js"></script>
-  <script src="sources/witchcult.js"></script>
-  <script src="sources/royalroad.js"></script>
-  <script src="sources/universal.js"></script>
-  <script src="sources/registry.js"></script>
-  <script src="web_importer.js"></script>
-  <script type="module" src="vendor/foliate/foliate_bridge.js"></script>
-  <script src="telemetry_logger.js"></script>
-  <script src="reader_engine.js"></script>
-  <script src="qa_engine.js"></script>
-  <script src="vendor/diff_match_patch.js"></script>
-  <script src="tm_diff_engine.js"></script>
-  <script src="epub_engine.js"></script>
-  <script src="glossary_presets.js"></script>
-  <script src="gdrive_sync.js"></script>
-  <script src="swiftaudio_engine.js"></script>
+  <script src="merger.js?v=8.17.8"></script>
+  <script src="epub_studio_ui.js?v=8.17.8"></script>
+  <script src="epub_editor.js?v=8.17.8"></script>
+  <script src="sources/base_plugin.js?v=8.17.8"></script>
+  <script src="sources/lnreader_adapter.js?v=8.17.8"></script>
+  <script src="sources/syosetu.js?v=8.17.8"></script>
+  <script src="sources/rezero_manifest.js?v=8.17.8"></script>
+  <script src="sources/witchcult.js?v=8.17.8"></script>
+  <script src="sources/royalroad.js?v=8.17.8"></script>
+  <script src="sources/universal.js?v=8.17.8"></script>
+  <script src="sources/registry.js?v=8.17.8"></script>
+  <script src="web_importer.js?v=8.17.8"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.8"></script>
+  <script src="telemetry_logger.js?v=8.17.8"></script>
+  <script src="reader_engine.js?v=8.17.8"></script>
+  <script src="qa_engine.js?v=8.17.8"></script>
+  <script src="vendor/diff_match_patch.js?v=8.17.8"></script>
+  <script src="tm_diff_engine.js?v=8.17.8"></script>
+  <script src="epub_engine.js?v=8.17.8"></script>
+  <script src="glossary_presets.js?v=8.17.8"></script>
+  <script src="gdrive_sync.js?v=8.17.8"></script>
+  <script src="swiftaudio_engine.js?v=8.17.8"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -6083,7 +6083,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8230);
+      const [appVersionCode, setAppVersionCode] = useState(8248);
       useEffect(() => {
         fetch('./version.json?t=' + Date.now())
           .then(r => r.json())
@@ -15334,13 +15334,79 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
               h('div', { className: 'sec-banner' },
                 h('div', { style: { display: 'flex', alignItems: 'center' } },
                   h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'TEXT-TO-SPEECH & VOICES')
+                ),
+                h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, 'Moon+ Reader & SherpaTTS')
+              ),
+              h('div', { className: 'card' },
+                h('div', { className: 'card-title' }, h('span', null, 'Voice & Offline Speech Engine')),
+                h('div', { style: { fontSize: 12.5, color: 'var(--slate)', marginBottom: 12, lineHeight: 1.5 } },
+                  'Configure your Text-to-Speech voice, offline neural Piper/SherpaTTS models (e.g. Callum), and Android system speech.'
+                ),
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'Select Voice & Speech Engine'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    onClick: () => {
+                      if (window.__openVoiceModal) window.__openVoiceModal();
+                      else if (window.NativeBridge?.openTtsSettings) window.NativeBridge.openTtsSettings();
+                      else toast('Open any book in Reader and tap 🎙 Voice to choose voices.', 'info');
+                    }
+                  }, '🎙 Voice Manager')
+                ),
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'Android System TTS Settings'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    onClick: () => {
+                      if (window.NativeBridge?.openTtsSettings) {
+                        window.NativeBridge.openTtsSettings();
+                      } else {
+                        toast('Open phone Settings > Accessibility > Text-to-Speech to select SherpaTTS/Piper models.', 'info');
+                      }
+                    }
+                  }, '⚙ Open Android TTS Settings')
+                ),
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'Default Voice Mode'),
+                  h('span', { className: 'count', style: { color: 'var(--pine)' } }, 'System Default (Android Settings)')
+                )
+              ),
+
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
                   h('span', { className: 'sec-title' }, 'SYSTEM & BUILD')
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, `v${appVersion}`)
               ),
               h('div', { className: 'card' },
                 h('div', { className: 'card-title' }, h('span', null, 'App Version & Runtime')),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Check for updates'), h('button', { type: 'button', className: 'chip-act', onClick: () => checkForAppUpdate(true) }, `v${appVersion}`)),
+                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Check for updates'), h('button', { type: 'button', className: 'chip-act', onClick: () => checkForAppUpdate(true) }, `v${appVersion} (Build ${appVersionCode})`)),
+                h('div', { className: 'set-row' },
+                  h('span', { className: 'l' }, 'Force Refresh & Clear Stale Cache'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    style: { background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' },
+                    onClick: async () => {
+                      try {
+                        if ('serviceWorker' in navigator) {
+                          const regs = await navigator.serviceWorker.getRegistrations();
+                          for (let reg of regs) await reg.unregister();
+                        }
+                        if ('caches' in window) {
+                          const keys = await caches.keys();
+                          for (let key of keys) await caches.delete(key);
+                        }
+                      } catch (e) {}
+                      localStorage.setItem('gemini_force_reload', Date.now());
+                      window.location.reload(true);
+                    }
+                  }, '🔄 Force Clear Cache')
+                ),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Notifications & Sound'),
                   h('button', {

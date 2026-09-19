@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gemini-translator-v8.13.1';
+const CACHE_NAME = 'gemini-translator-v8.17.8';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -75,8 +75,16 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // NETWORK-FIRST FOR HTML DOCUMENTS TO PREVENT STALE CACHE BUGS
-    if (event.request.mode === 'navigate' || url.endsWith('.html') || url.endsWith('/')) {
+    // Always fetch version.json directly from network so version checks are immediate
+    if (url.includes('version.json')) {
+        event.respondWith(
+            fetch(event.request).catch(() => caches.match(event.request))
+        );
+        return;
+    }
+
+    // NETWORK-FIRST FOR HTML, JS, CSS TO PREVENT STALE CACHE BUGS
+    if (event.request.mode === 'navigate' || url.endsWith('.html') || url.includes('.js') || url.includes('.css') || url.endsWith('/')) {
         event.respondWith(
             fetch(event.request)
                 .then((networkResponse) => {
@@ -93,7 +101,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Cache-first with network fallback for other static assets
+    // Cache-first with network fallback for other static assets (images, fonts)
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             if (cachedResponse) {
