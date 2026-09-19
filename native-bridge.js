@@ -475,6 +475,19 @@
             return false;
         },
 
+        openSherpaApp: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.openSherpaApp) {
+                    const res = await bridge.openSherpaApp();
+                    return !!res?.success;
+                }
+            } catch (e) {
+                console.warn('openSherpaApp error:', e);
+            }
+            return false;
+        },
+
         setDisableAudioFocus: async (disabled) => {
             try {
                 const bridge = getBridge();

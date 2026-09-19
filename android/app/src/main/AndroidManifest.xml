@@ -22,6 +22,15 @@
             <action android:name="android.intent.action.INSTALL_PACKAGE" />
             <data android:mimeType="application/vnd.android.package-archive" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <package android:name="com.k2fsa.sherpa.onnx.ttsengine" />
+        <package android:name="com.k2fsa.sherpa.onnx.ttsEngine" />
+        <package android:name="de.woheller69.ttsengine" />
+        <package android:name="de.woheller69.ttsEngine" />
+        <package android:name="com.google.android.tts" />
+        <package android:name="com.samsung.SMT" />
         <package android:name="com.google.android.packageinstaller" />
         <package android:name="com.android.packageinstaller" />
     </queries>

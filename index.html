@@ -732,32 +732,37 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="utils.js"></script>
   <script src="db_engine.js"></script>
   <script src="splitter.js"></script>
-  <script src="merger.js?v=8.17.9"></script>
-  <script src="epub_studio_ui.js?v=8.17.9"></script>
-  <script src="epub_editor.js?v=8.17.9"></script>
-  <script src="sources/base_plugin.js?v=8.17.9"></script>
-  <script src="sources/lnreader_adapter.js?v=8.17.9"></script>
-  <script src="sources/syosetu.js?v=8.17.9"></script>
-  <script src="sources/rezero_manifest.js?v=8.17.9"></script>
-  <script src="sources/witchcult.js?v=8.17.9"></script>
-  <script src="sources/royalroad.js?v=8.17.9"></script>
-  <script src="sources/universal.js?v=8.17.9"></script>
-  <script src="sources/registry.js?v=8.17.9"></script>
-  <script src="web_importer.js?v=8.17.9"></script>
-  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.9"></script>
-  <script src="telemetry_logger.js?v=8.17.9"></script>
-  <script src="reader_engine.js?v=8.17.9"></script>
-  <script src="qa_engine.js?v=8.17.9"></script>
-  <script src="vendor/diff_match_patch.js?v=8.17.9"></script>
-  <script src="tm_diff_engine.js?v=8.17.9"></script>
-  <script src="epub_engine.js?v=8.17.9"></script>
-  <script src="glossary_presets.js?v=8.17.9"></script>
-  <script src="gdrive_sync.js?v=8.17.9"></script>
-  <script src="swiftaudio_engine.js?v=8.17.9"></script>
+  <script src="merger.js?v=8.17.10"></script>
+  <script src="epub_studio_ui.js?v=8.17.10"></script>
+  <script src="epub_editor.js?v=8.17.10"></script>
+  <script src="sources/base_plugin.js?v=8.17.10"></script>
+  <script src="sources/lnreader_adapter.js?v=8.17.10"></script>
+  <script src="sources/syosetu.js?v=8.17.10"></script>
+  <script src="sources/rezero_manifest.js?v=8.17.10"></script>
+  <script src="sources/witchcult.js?v=8.17.10"></script>
+  <script src="sources/royalroad.js?v=8.17.10"></script>
+  <script src="sources/universal.js?v=8.17.10"></script>
+  <script src="sources/registry.js?v=8.17.10"></script>
+  <script src="web_importer.js?v=8.17.10"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.10"></script>
+  <script src="telemetry_logger.js?v=8.17.10"></script>
+  <script src="reader_engine.js?v=8.17.10"></script>
+  <script src="qa_engine.js?v=8.17.10"></script>
+  <script src="vendor/diff_match_patch.js?v=8.17.10"></script>
+  <script src="tm_diff_engine.js?v=8.17.10"></script>
+  <script src="epub_engine.js?v=8.17.10"></script>
+  <script src="glossary_presets.js?v=8.17.10"></script>
+  <script src="gdrive_sync.js?v=8.17.10"></script>
+  <script src="swiftaudio_engine.js?v=8.17.10"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
     window.studioSubTab = 'split';
+
+    // Global event listener for errors
+    window.addEventListener('error', function(event) {
+      console.warn("Global error caught:", event.message, event.filename, event.lineno);
+    });
 
     // Bulletproof Lucide Icon Component Factory (Dynamic UMD Adapter)
     const createLucideIcon = (name) => {
@@ -857,7 +862,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.9';
+    let VERSION = '8.17.10';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6083,7 +6088,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8249);
+      const [appVersionCode, setAppVersionCode] = useState(8250);
       useEffect(() => {
         fetch('./version.json?t=' + Date.now())
           .then(r => r.json())

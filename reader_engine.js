@@ -1080,10 +1080,11 @@
     const [sleepTimerSecondsLeft, setSleepTimerSecondsLeft] = useState(0);
     const sleepTimerRef = useRef(0);
     const [ttsEngines, setTtsEngines] = useState([]);
-    const [selectedTtsEngine, setSelectedTtsEngine] = useState(() => localStorage.getItem('gemini_tts_engine') || '');
+    const [selectedTtsEngine, setSelectedTtsEngine] = useState(() => localStorage.getItem('gemini_tts_engine') || 'SYSTEM_DEFAULT');
     const [ttsVoices, setTtsVoices] = useState([]);
     const [selectedTtsVoice, setSelectedTtsVoice] = useState(() => localStorage.getItem('gemini_tts_voice') || '');
     const [dacDelayMs, setDacDelayMs] = useState(() => parseInt(localStorage.getItem('gemini_tts_dac_delay') || '200', 10)); // 200ms DAC buffer
+    const [showSherpaHelp, setShowSherpaHelp] = useState(false);
 
     // Moon+ Reader TTS Options & Chars Filters
     const [divideBy, setDivideBy] = useState(() => localStorage.getItem('gemini_tts_divide_by') || 'paragraph'); // 'paragraph' | 'sentence'
@@ -1266,9 +1267,70 @@
       }
     }, []);
 
+    // All available engines list (SherpaTTS & System Default always present)
+    const allAvailableEngines = useMemo(() => {
+      const list = [];
+      // 1. Android System Default (Moon+ Reader Mode)
+      list.push({
+        name: 'SYSTEM_DEFAULT',
+        title: 'Android Settings Default',
+        subtitle: 'Uses whatever engine & voice is active in Android Settings (Moon+ Reader style)',
+        icon: '📱',
+        badge: 'Recommended',
+        badgeColor: 'rgba(16,185,129,0.2)',
+        badgeTextColor: '#34d399',
+        isDefault: true
+      });
+
+      // 2. SherpaTTS (Offline Piper AI)
+      const sherpaDetected = ttsEngines.find(e => e.name && (e.name.toLowerCase().includes('sherpa') || e.name.toLowerCase().includes('woheller')));
+      list.push({
+        name: sherpaDetected ? sherpaDetected.name : 'com.k2fsa.sherpa.onnx.ttsengine',
+        title: 'SherpaTTS (Offline Piper AI)',
+        subtitle: 'Studio offline neural voices (Callum & Piper models) with zero lag',
+        icon: '⚡',
+        badge: 'Offline Neural',
+        badgeColor: 'rgba(99,102,241,0.2)',
+        badgeTextColor: '#818cf8'
+      });
+
+      // 3. Google Speech Services
+      const googleDetected = ttsEngines.find(e => e.name && e.name.toLowerCase().includes('google'));
+      list.push({
+        name: googleDetected ? googleDetected.name : 'com.google.android.tts',
+        title: 'Google Speech Services',
+        subtitle: 'Google official speech engine (Online & offline voice packs)',
+        icon: '☁'
+      });
+
+      // 4. Any other detected engines (Samsung, etc.)
+      ttsEngines.forEach(e => {
+        if (!e.name) return;
+        const n = e.name.toLowerCase();
+        if (!n.includes('sherpa') && !n.includes('woheller') && !n.includes('google')) {
+          list.push({
+            name: e.name,
+            title: e.label || e.name,
+            subtitle: `Detected engine: ${e.name}`,
+            icon: '🔊'
+          });
+        }
+      });
+
+      return list;
+    }, [ttsEngines]);
+
     const handleEngineChange = async (eng) => {
       setSelectedTtsEngine(eng);
       localStorage.setItem('gemini_tts_engine', eng);
+      if (eng === 'SYSTEM_DEFAULT') {
+        setSelectedTtsVoice('');
+        localStorage.setItem('gemini_tts_voice', '');
+        if (window.toast) {
+          window.toast('Speech engine set to: Android Settings Default (Moon+ Reader mode)', 'info');
+        }
+        return;
+      }
       if (window.NativeBridge?.setTtsEngine) {
         try {
           await window.NativeBridge.setTtsEngine(eng);
@@ -2727,138 +2789,201 @@
         )
       ),
 
-      // ── VOICE & OFFLINE ENGINE SELECTION MODAL ──
+      // ── VOICE & OFFLINE ENGINE SELECTION MODAL (Premium Modern UI) ──
       showVoiceModal && h('div', {
-        style: { position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' },
+        style: {
+          position: 'fixed',
+          inset: 0,
+          zIndex: 10001,
+          background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center'
+        },
         onClick: () => setShowVoiceModal(false)
       },
         h('div', {
-          style: { width: '100%', maxWidth: 520, maxHeight: '85vh', overflowY: 'auto', background: 'var(--r-card)', color: 'var(--r-text)', borderRadius: '16px 16px 0 0', padding: 20, boxShadow: '0 -10px 40px rgba(0,0,0,0.6)' },
+          style: {
+            width: '100%',
+            maxWidth: 520,
+            maxHeight: '88vh',
+            overflowY: 'auto',
+            background: 'var(--r-card, #16161a)',
+            color: 'var(--r-text, #f1f5f9)',
+            borderRadius: '24px 24px 0 0',
+            padding: '22px 20px 32px',
+            boxShadow: '0 -10px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16
+          },
           onClick: (e) => e.stopPropagation()
         },
           // Header
-          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 } },
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-              h('span', { style: { fontSize: 20 } }, '🎙'),
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+              h('div', {
+                style: {
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 19,
+                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
+                }
+              }, '🎙'),
               h('div', null,
-                h('div', { style: { fontWeight: 800, fontSize: 16 } }, 'Voice & Speech Engine'),
-                h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)' } }, 'Configure offline Piper AI voices (SherpaTTS) & system speech')
+                h('div', { style: { fontWeight: 800, fontSize: 16.5, letterSpacing: -0.3 } }, 'Speech Engine & Voices'),
+                h('div', { style: { fontSize: 12, color: 'var(--r-muted, #94a3b8)' } }, 'Select offline Piper AI (SherpaTTS) or system speech')
               )
             ),
             h('button', {
               type: 'button',
-              className: 'mini-btn ghost',
-              style: { border: 'none', fontSize: 18, padding: '4px 8px' },
+              style: {
+                background: 'rgba(255,255,255,0.06)',
+                border: 'none',
+                color: 'var(--r-muted, #94a3b8)',
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 16,
+                cursor: 'pointer'
+              },
               onClick: () => setShowVoiceModal(false)
             }, '✕')
           ),
 
-          // Android Settings Quick Link Banner (Moon+ Reader style)
-          h('div', {
-            style: {
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(16, 185, 129, 0.15))',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
-              borderRadius: 12,
-              padding: '12px 14px',
-              marginBottom: 16,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8
-            }
-          },
-            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
-              h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--r-text)' } }, '📱 Moon+ Reader Mode (Android Settings)'),
-              h('span', { style: { fontSize: 10.5, padding: '2px 8px', borderRadius: 9999, background: 'rgba(16,185,129,0.2)', color: '#34d399', fontWeight: 700 } }, 'Recommended')
-            ),
-            h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)', lineHeight: 1.4 } },
-              'Just like in Moon+ Reader, select SherpaTTS and your Piper voice (e.g. Callum) in your phone\'s Android Settings. This app will use it automatically!'
-            ),
+          // ── 1. SPEECH ENGINE CARDS (Large touch targets, visual radio indicator) ──
+          h('div', null,
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8, marginBottom: 8 } }, '1. Speech Engine'),
+            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+              allAvailableEngines.map(eng => {
+                const isSelected = selectedTtsEngine === eng.name || (eng.isDefault && (!selectedTtsEngine || selectedTtsEngine === 'SYSTEM_DEFAULT'));
+                return h('div', {
+                  key: eng.name,
+                  style: {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: 14,
+                    background: isSelected ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                    border: isSelected ? '1.5px solid var(--r-accent, #6366f1)' : '1px solid var(--r-border, rgba(255,255,255,0.08))',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  },
+                  onClick: () => handleEngineChange(eng.name)
+                },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
+                    h('span', { style: { fontSize: 22 } }, eng.icon || '🎙'),
+                    h('div', null,
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                        h('span', { style: { fontWeight: 700, fontSize: 14, color: isSelected ? 'var(--r-accent, #6366f1)' : 'var(--r-text, #f1f5f9)' } }, eng.title),
+                        eng.badge && h('span', {
+                          style: {
+                            fontSize: 10,
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: 9999,
+                            background: eng.badgeColor || 'rgba(16,185,129,0.2)',
+                            color: eng.badgeTextColor || '#34d399'
+                          }
+                        }, eng.badge)
+                      ),
+                      h('div', { style: { fontSize: 11.5, color: 'var(--r-muted, #94a3b8)', marginTop: 2 } }, eng.subtitle)
+                    )
+                  ),
+                  // Radio circle indicator
+                  h('div', {
+                    style: {
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      border: isSelected ? '6px solid var(--r-accent, #6366f1)' : '2px solid rgba(255,255,255,0.2)',
+                      background: isSelected ? '#fff' : 'transparent',
+                      flexShrink: 0
+                    }
+                  })
+                );
+              })
+            )
+          ),
+
+          // ── 2. QUICK SHORTCUTS ──
+          h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
             window.NativeBridge?.openTtsSettings && h('button', {
               type: 'button',
-              className: 'mini-btn',
-              style: { width: '100%', padding: '10px 0', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13 },
+              className: 'mini-btn ghost',
+              style: { padding: '10px 12px', borderRadius: 10, border: '1px solid var(--r-border)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
               onClick: () => window.NativeBridge.openTtsSettings()
-            }, '⚙ Open Android System Text-to-Speech Settings')
+            }, '⚙ Android Settings'),
+            window.NativeBridge?.openSherpaApp && h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(16,185,129,0.3)', color: '#34d399', background: 'rgba(16,185,129,0.06)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+              onClick: () => window.NativeBridge.openSherpaApp()
+            }, '⚡ Open SherpaTTS App')
           ),
 
-          // 1. Engine Selector
-          h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
-            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
-              h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)' } }, '1. Speech Engine'),
-              selectedTtsEngine.includes('sherpa') || selectedTtsEngine.includes('woheller')
-                ? h('span', { style: { fontSize: 10.5, padding: '2px 8px', borderRadius: 9999, background: 'rgba(16,185,129,0.2)', color: '#34d399', fontWeight: 700 } }, '● Offline Neural Active')
-                : null
-            ),
-            h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
-              'Select which TTS engine synthesizes your text. Choose SherpaTTS for offline Piper AI voices (e.g. Callum), or Google / Samsung.'
-            ),
-            ttsEngines.length > 0
-              ? h('select', {
-                  value: selectedTtsEngine,
-                  style: { width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--r-bg)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13.5, fontWeight: 600 },
-                  onChange: (e) => handleEngineChange(e.target.value)
-                },
-                  ttsEngines.map(eng => {
-                    const isSherpa = eng.name.includes('sherpa') || eng.name.includes('woheller');
-                    return h('option', { key: eng.name, value: eng.name },
-                      `${eng.label || eng.name} ${isSherpa ? '★ (SherpaTTS Offline AI / Piper)' : ''}${eng.isDefault ? ' [System Default]' : ''}`
-                    );
-                  })
-                )
-              : h('div', { style: { fontSize: 12.5, color: 'var(--r-muted)', fontStyle: 'italic' } },
-                  window.NativeBridge?.isAvailable?.() ? 'Scanning installed Android engines…' : 'Browser Web Speech Engine (Desktop mode)'
-                )
-          ),
-
-          // 2. Voice Selector & Preview
-          h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
-            h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)', marginBottom: 6 } }, '2. Select Voice'),
-            h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
-              'Pick your favorite voice model or choose "System Default" to use whatever voice you set in Android Settings.'
+          // ── 3. VOICE SELECTOR & PREVIEW ──
+          h('div', {
+            style: {
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid var(--r-border, rgba(255,255,255,0.08))',
+              borderRadius: 14,
+              padding: 14
+            }
+          },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
+              h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8 } }, '2. Voice Model'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                disabled: previewSpeaking,
+                style: { padding: '6px 14px', background: 'var(--r-accent, #6366f1)', color: '#fff', fontWeight: 700, borderRadius: 8, fontSize: 12 },
+                onClick: previewVoice
+              }, previewSpeaking ? '🔊 Speaking…' : '▶ Test Voice')
             ),
             ttsVoices.length > 0
-              ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-                  h('select', {
-                    value: selectedTtsVoice,
-                    style: { width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--r-bg)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13.5, fontWeight: 600 },
-                    onChange: (e) => handleVoiceChange(e.target.value)
-                  },
-                    h('option', { value: '' }, '⚙ System Default Voice (Android Settings - Recommended)'),
-                    ttsVoices.map(v => h('option', { key: v.name, value: v.name },
-                      `${v.name} (${v.locale || 'all'}) ${v.requiresNetwork ? '☁ Online' : '⚡ Offline'}`
-                    ))
-                  ),
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn',
-                    disabled: previewSpeaking,
-                    style: { alignSelf: 'flex-start', padding: '8px 16px', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 6 },
-                    onClick: previewVoice
-                  }, previewSpeaking ? '🔊 Speaking Preview…' : '▶ Preview / Test Voice')
+              ? h('select', {
+                  value: selectedTtsVoice,
+                  style: { width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--r-bg)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13.5, fontWeight: 600 },
+                  onChange: (e) => handleVoiceChange(e.target.value)
+                },
+                  h('option', { value: '' }, '⚙ System Default Voice (Android Settings - Recommended)'),
+                  ttsVoices.map(v => h('option', { key: v.name, value: v.name },
+                    `${v.name} (${v.locale || 'all'}) ${v.requiresNetwork ? '☁ Online' : '⚡ Offline'}`
+                  ))
                 )
-              : h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 } },
-                  h('span', { style: { fontSize: 12.5, color: 'var(--r-muted)', fontStyle: 'italic' } }, 'System Default voice from Android Settings is active.'),
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn',
-                    disabled: previewSpeaking,
-                    style: { padding: '7px 14px', background: 'var(--r-accent)', color: '#fff', fontWeight: 600, borderRadius: 6 },
-                    onClick: previewVoice
-                  }, previewSpeaking ? '🔊 Speaking…' : '▶ Test Voice')
+              : h('div', { style: { fontSize: 12.5, color: 'var(--r-muted)', lineHeight: 1.5 } },
+                  selectedTtsEngine === 'SYSTEM_DEFAULT' || !selectedTtsEngine
+                    ? 'Android Settings Default is active. Speech will automatically use whatever engine and voice model (e.g. Callum in SherpaTTS) is active on your phone.'
+                    : 'Engine active. If voice models do not show, configure your voice in Android Settings or SherpaTTS app.'
                 )
           ),
 
-          // 3. Speech Speed (Rate)
-          h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
-            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
-              h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)' } }, '3. Speech Speed'),
-              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-accent)' } }, `${ttsRate}x`)
+          // ── 4. SPEECH SPEED (RATE) ──
+          h('div', {
+            style: {
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid var(--r-border, rgba(255,255,255,0.08))',
+              borderRadius: 14,
+              padding: 14
+            }
+          },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+              h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8 } }, '3. Speech Speed'),
+              h('div', { style: { fontSize: 13, fontWeight: 800, color: 'var(--r-accent, #6366f1)' } }, `${ttsRate}x`)
             ),
-            h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
-              'Adjust narration speed. Works with offline Piper/Sherpa models, Google TTS, and browser voices.'
-            ),
-            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6, marginBottom: 10 } },
-              [0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map(r => h('button', {
+            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 10 } },
+              [0.75, 1.0, 1.25, 1.5, 2.0].map(r => h('button', {
                 key: r,
                 type: 'button',
                 className: `mini-btn ${Math.abs(ttsRate - r) < 0.05 ? '' : 'ghost'}`,
@@ -2872,17 +2997,22 @@
               max: '3.0',
               step: '0.05',
               value: ttsRate,
-              style: { width: '100%', accentColor: 'var(--r-accent)' },
+              style: { width: '100%', accentColor: 'var(--r-accent)', height: 5, cursor: 'pointer' },
               onChange: (e) => handleRateChange(parseFloat(e.target.value))
             })
           ),
 
-          // 4. Inter-Sentence Pause (DAC Ramp-up Buffer)
-          h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
-            h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)', marginBottom: 4 } }, '4. Sentence Pause (DAC Buffer)'),
-            h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
-              'Pause duration between sentences. 200ms is recommended for Piper ONNX models to prevent initial consonant clipping.'
-            ),
+          // ── 5. INTER-SENTENCE PAUSE (DAC RAMP-UP BUFFER) ──
+          h('div', {
+            style: {
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid var(--r-border, rgba(255,255,255,0.08))',
+              borderRadius: 14,
+              padding: 14
+            }
+          },
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8, marginBottom: 4 } }, '4. Sentence Pause (DAC Buffer)'),
+            h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)', marginBottom: 8 } }, 'Recommended: 200ms to prevent initial consonant clipping on Piper models'),
             h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 } },
               [[0, '0ms'], [100, '100ms'], [200, '200ms (★)'], [300, '300ms'], [500, '500ms']].map(([ms, label]) => h('button', {
                 key: ms,
@@ -2894,31 +3024,31 @@
             )
           ),
 
-          // 5. How-To Guide for SherpaTTS / Piper AI Voices
-          h('div', { style: { background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)', borderRadius: 10, padding: 14, marginBottom: 16 } },
-            h('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--r-accent)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 } },
-              h('span', null, '💡'),
-              h('span', null, 'How to install Offline Voices in SherpaTTS')
+          // ── 6. COLLAPSIBLE SHERPATTS GUIDE ──
+          h('div', {
+            style: {
+              background: 'rgba(99, 102, 241, 0.05)',
+              border: '1px solid rgba(99, 102, 241, 0.2)',
+              borderRadius: 14,
+              padding: '12px 14px',
+              cursor: 'pointer'
+            },
+            onClick: () => setShowSherpaHelp(!showSherpaHelp)
+          },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              h('div', { style: { fontWeight: 700, fontSize: 12.5, color: 'var(--r-accent)', display: 'flex', alignItems: 'center', gap: 6 } },
+                h('span', null, '💡'),
+                h('span', null, 'How to install Callum / Piper models in SherpaTTS')
+              ),
+              h('span', { style: { fontSize: 12, color: 'var(--r-muted)' } }, showSherpaHelp ? '▲' : '▼')
             ),
-            h('ol', { style: { fontSize: 12, lineHeight: 1.6, color: 'var(--r-text)', paddingLeft: 18, margin: 0 } },
-              h('li', null, 'Install SherpaTTS / ttsEngine APK on your Android phone.'),
+            showSherpaHelp && h('ol', { style: { fontSize: 12, lineHeight: 1.6, color: 'var(--r-text)', paddingLeft: 18, margin: '10px 0 0 0' } },
+              h('li', null, 'Install the SherpaTTS APK on your Android device.'),
               h('li', null, 'Copy your model files (e.g. callum.onnx and tokens.txt) into your phone’s Download folder.'),
               h('li', null, 'Open SherpaTTS, tap "+" or "Install from SD", select the model & tokens file, and tap Install.'),
-              h('li', null, 'In this app, select SherpaTTS under "1. Speech Engine" above, choose your voice, and enjoy studio offline audio!')
+              h('li', null, 'Tap "Android Settings" above, set Preferred Engine to SherpaTTS, and enjoy studio offline audio!')
             )
-          ),
-
-          // 6. Open Android System Settings Button
-          window.NativeBridge?.openTtsSettings && h('button', {
-            type: 'button',
-            className: 'mini-btn ghost',
-            style: { width: '100%', padding: '11px 0', fontWeight: 600, fontSize: 13, border: '1px solid var(--r-border)' },
-            onClick: () => {
-              if (window.NativeBridge?.openTtsSettings) {
-                window.NativeBridge.openTtsSettings();
-              }
-            }
-          }, '⚙ Open Android System Text-to-Speech Settings')
+          )
         )
       ),
 

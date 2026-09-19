@@ -2329,22 +2329,87 @@ public class NativeAndroidBridgePlugin extends Plugin {
             String defaultEngine = nativeTts != null ? nativeTts.getDefaultEngine() : "";
             ret.put("defaultEngine", defaultEngine);
 
+            java.util.Map<String, String> foundEngines = new java.util.LinkedHashMap<>();
+
+            // 1. Query nativeTts.getEngines()
             if (nativeTts != null) {
-                List<TextToSpeech.EngineInfo> engines = nativeTts.getEngines();
-                if (engines != null) {
-                    for (TextToSpeech.EngineInfo info : engines) {
-                        JSObject item = new JSObject();
-                        item.put("name", info.name);
-                        item.put("label", info.label);
-                        item.put("isDefault", info.name != null && info.name.equals(defaultEngine));
-                        enginesArray.put(item);
+                try {
+                    List<TextToSpeech.EngineInfo> engines = nativeTts.getEngines();
+                    if (engines != null) {
+                        for (TextToSpeech.EngineInfo info : engines) {
+                            if (info != null && info.name != null) {
+                                foundEngines.put(info.name, info.label != null ? info.label : info.name);
+                            }
+                        }
                     }
-                }
+                } catch (Exception ignored) {}
+            }
+
+            // 2. Query PackageManager for android.intent.action.TTS_SERVICE (catches SherpaTTS, Piper, etc.)
+            Context ctx = getContext();
+            if (ctx != null) {
+                try {
+                    PackageManager pm = ctx.getPackageManager();
+                    if (pm != null) {
+                        Intent ttsIntent = new Intent("android.intent.action.TTS_SERVICE");
+                        List<ResolveInfo> resolveInfos = pm.queryIntentServices(ttsIntent, PackageManager.MATCH_ALL);
+                        if (resolveInfos != null) {
+                            for (ResolveInfo ri : resolveInfos) {
+                                if (ri != null && ri.serviceInfo != null && ri.serviceInfo.packageName != null) {
+                                    String pkg = ri.serviceInfo.packageName;
+                                    String label = ri.loadLabel(pm) != null ? ri.loadLabel(pm).toString() : pkg;
+                                    foundEngines.put(pkg, label);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            for (java.util.Map.Entry<String, String> entry : foundEngines.entrySet()) {
+                JSObject item = new JSObject();
+                item.put("name", entry.getKey());
+                item.put("label", entry.getValue());
+                item.put("isDefault", entry.getKey().equals(defaultEngine));
+                enginesArray.put(item);
             }
             ret.put("engines", enginesArray);
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to get TTS engines: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void openSherpaApp(PluginCall call) {
+        try {
+            Context ctx = getContext();
+            if (ctx != null) {
+                PackageManager pm = ctx.getPackageManager();
+                if (pm != null) {
+                    String[] knownSherpaPkgs = {
+                        "com.k2fsa.sherpa.onnx.ttsengine",
+                        "com.k2fsa.sherpa.onnx.ttsEngine",
+                        "de.woheller69.ttsengine",
+                        "de.woheller69.ttsEngine"
+                    };
+                    for (String pkg : knownSherpaPkgs) {
+                        Intent launch = pm.getLaunchIntentForPackage(pkg);
+                        if (launch != null) {
+                            launch.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            ctx.startActivity(launch);
+                            JSObject ret = new JSObject();
+                            ret.put("success", true);
+                            ret.put("package", pkg);
+                            call.resolve(ret);
+                            return;
+                        }
+                    }
+                }
+            }
+            openTtsSettings(call);
+        } catch (Exception e) {
+            call.reject("Failed to open SherpaTTS: " + e.getMessage());
         }
     }
 

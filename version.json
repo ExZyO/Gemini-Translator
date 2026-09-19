@@ -1,9 +1,9 @@
 {
-  "version": "8.17.9",
-  "versionCode": 8249,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.9/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.9/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.9",
+  "version": "8.17.10",
+  "versionCode": 8250,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.10/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.10/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.10",
   "releaseDate": "2026-09-19",
-  "releaseNotes": "v8.17.9: Fixed reader crash (bookTitle is not defined ReferenceError), resolved Android compilation errors (JSArray import, mediaSession duplicate, rate key), and added prominent Voice buttons across Reader & Settings."
+  "releaseNotes": "v8.17.10: Redesigned Voice & TTS modal with spacious touch cards, added Android TTS_SERVICE package queries for 100% SherpaTTS visibility, one-tap SherpaTTS app launcher, and fixed reader crash."
 }
