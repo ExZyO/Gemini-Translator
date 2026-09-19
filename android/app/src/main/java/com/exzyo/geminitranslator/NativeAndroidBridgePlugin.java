@@ -64,6 +64,7 @@ import java.util.Enumeration;
 import java.text.SimpleDateFormat;
 
 import com.getcapacitor.JSObject;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -1989,7 +1990,6 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = null;
     private BroadcastReceiver noisyReceiver = null;
     private BroadcastReceiver mediaActionReceiver = null;
-    private MediaSession mediaSession = null;
     private static final String TTS_NOTIFICATION_CHANNEL_ID = "gemini_reader_tts_channel";
     private static final int TTS_NOTIFICATION_ID = 9021;
     private String currentMediaTitle = "Novel Chapter";
@@ -2565,14 +2565,14 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         android.os.Bundle params = new android.os.Bundle();
                         params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
                         // Explicitly populate speed params so all engines (SherpaTTS, Google, Samsung) receive it directly
-                        params.putString(TextToSpeech.Engine.KEY_PARAM_RATE, Integer.toString((int) (rate * 100)));
+                        params.putString("rate", Integer.toString((int) (rate * 100)));
                         params.putFloat("rate", rate);
                         params.putFloat("speechRate", rate);
                         res = nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId);
                     } else {
                         java.util.HashMap<String, String> params = new java.util.HashMap<>();
                         params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
-                        params.put(TextToSpeech.Engine.KEY_PARAM_RATE, Integer.toString((int) (rate * 100)));
+                        params.put("rate", Integer.toString((int) (rate * 100)));
                         res = nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params);
                     }
 
