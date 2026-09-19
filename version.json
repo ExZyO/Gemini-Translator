@@ -1,9 +1,9 @@
 {
-  "version": "8.17.8",
-  "versionCode": 8248,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.8/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.8/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.8",
+  "version": "8.17.9",
+  "versionCode": 8249,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.9/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.9/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.9",
   "releaseDate": "2026-09-19",
-  "releaseNotes": "v8.17.8: Added Moon+ Reader TTS Options modal (paragraph/sentence divide, sleep timer, speaking interval, audiofocus toggle), Moon+ Reader TTS Chars Filters modal (regex/plain replacement rules, import/export, web novel presets), Moon+ Reader Control Gestures guide, Moon+ Reader 2-row bottom player bar, and System Default voice mode for Android Settings SherpaTTS compatibility."
+  "releaseNotes": "v8.17.9: Fixed reader crash (bookTitle is not defined ReferenceError), resolved Android compilation errors (JSArray import, mediaSession duplicate, rate key), and added prominent Voice buttons across Reader & Settings."
 }

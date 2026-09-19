@@ -592,11 +592,13 @@
     tgtLang,
     novelId,
     novelTitle,
+    bookTitle: propBookTitle,
     onVerifyConsistency,
     onOpenHealthAudit,
     onOpenDiff
   }) => {
     if (!open) return null;
+    const bookTitle = novelTitle || propBookTitle || '';
     ensureStyles();
 
     // ── 1. Chapter Normalization with Arc / Volume Hierarchy Detection ──
