@@ -1239,21 +1239,6 @@
       localStorage.setItem('gemini_tts_dac_delay', String(dacDelayMs));
     }, [dacDelayMs]);
 
-    // Fetch installed Android TTS engines and voices with persistence
-    useEffect(() => {
-      if (window.NativeBridge?.getTtsEngines) {
-        window.NativeBridge.getTtsEngines().then(async res => {
-          if (res?.engines?.length > 0) {
-            setTtsEngines(res.engines);
-            const savedEng = localStorage.getItem('gemini_tts_engine');
-            const engineToUse = (savedEng && res.engines.some(e => e.name === savedEng))
-            setTtsEngines(res.engines);
-            refreshSystemTts();
-          }
-        }).catch(() => {});
-      }
-    }, [refreshSystemTts]);
-
     const [systemTtsInfo, setSystemTtsInfo] = useState(() => ({
       enginePackage: 'SYSTEM_DEFAULT',
       engineLabel: 'System Default (Android Settings)',
@@ -1280,6 +1265,14 @@
       // Clear any legacy voice overrides so Android Settings voice is always used
       try { localStorage.removeItem('gemini_tts_voice'); } catch (_) {}
       refreshSystemTts();
+
+      if (window.NativeBridge?.getTtsEngines) {
+        window.NativeBridge.getTtsEngines().then(res => {
+          if (res?.engines?.length > 0) {
+            setTtsEngines(res.engines);
+          }
+        }).catch(() => {});
+      }
 
       const onFocusOrVisible = () => {
         if (document.visibilityState === 'visible') {

@@ -1,9 +1,9 @@
 {
-  "version": "8.17.12",
-  "versionCode": 8252,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.12/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.12/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.12",
+  "version": "8.17.13",
+  "versionCode": 8253,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.13/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.13/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.13",
   "releaseDate": "2026-09-19",
-  "releaseNotes": "v8.17.12: Direct Android Settings TTS integration — automatic detection of SherpaTTS & system engine, zero voice overrides so your chosen Callum/Piper model plays directly, removed confusing in-app dropdowns."
+  "releaseNotes": "v8.17.13: Fixed reader initialization crash (ReferenceError: Cannot access 'refreshSystemTts' before initialization) by ordering state & callback hooks before effect listeners."
 }
