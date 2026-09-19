@@ -1,9 +1,9 @@
 {
-  "version": "8.17.10",
-  "versionCode": 8250,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.10/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.10/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.10",
+  "version": "8.17.11",
+  "versionCode": 8251,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.11/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.11/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.11",
   "releaseDate": "2026-09-19",
-  "releaseNotes": "v8.17.10: Redesigned Voice & TTS modal with spacious touch cards, added Android TTS_SERVICE package queries for 100% SherpaTTS visibility, one-tap SherpaTTS app launcher, and fixed reader crash."
+  "releaseNotes": "v8.17.11: Fixed TTS player bar centering on all screen sizes, balanced transport controls symmetrically with Play/Pause in center, and aligned More popup menu."
 }

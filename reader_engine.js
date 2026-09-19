@@ -437,23 +437,26 @@
 
       /* Floating TTS Audio Player Bar */
       .reader-v2-tts-bar {
-        position: absolute;
-        bottom: 74px;
+        position: fixed;
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
         left: 50%;
         transform: translateX(-50%);
-        width: min(94vw, 480px);
-        z-index: 65;
-        background: var(--r-card);
-        border: 1px solid var(--r-border);
-        border-radius: 9999px;
-        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
-        padding: 6px 14px;
+        width: calc(100% - 32px);
+        max-width: 520px;
+        z-index: 9999;
+        background: rgba(18, 20, 26, 0.96);
+        -webkit-backdrop-filter: blur(20px);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+        padding: 12px 14px;
         display: flex;
-        align-items: center;
-        justify-content: space-between;
+        flex-direction: column;
         gap: 10px;
-        backdrop-filter: blur(16px);
+        box-sizing: border-box;
         animation: toastIn 0.2s ease-out;
+        user-select: none;
       }
       .tts-speaking-sentence {
         background: rgba(245, 158, 11, 0.22);
@@ -1989,6 +1992,11 @@
       // ── MORE ACTIONS POPUP MENU (...) ──
       showMoreMenu && h('div', {
         className: 'reader-v2-more-menu',
+        style: ttsActive ? {
+          top: 'auto',
+          bottom: 'calc(94px + env(safe-area-inset-bottom, 0px))',
+          right: 'max(16px, calc((100vw - 520px) / 2 + 16px))'
+        } : undefined,
         onClick: (e) => e.stopPropagation()
       },
         h('button', {
@@ -2295,76 +2303,87 @@
       ttsActive && h('div', {
         className: 'reader-v2-tts-bar',
         style: {
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          padding: '12px 16px',
-          background: 'rgba(20, 20, 24, 0.95)',
-          backdropFilter: 'blur(16px)',
-          borderRadius: 16,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1)',
-          maxWidth: 540,
-          margin: '0 auto',
           position: 'fixed',
-          bottom: 24,
-          left: 16,
-          right: 16,
+          bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'calc(100% - 32px)',
+          maxWidth: 520,
+          margin: 0,
+          boxSizing: 'border-box',
           zIndex: 9999
         },
         onClick: (e) => e.stopPropagation()
       },
         // Row 1: Speed Slider & Buttons (Screenshots 1 & 3)
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, width: '100%' } },
-          h('span', { style: { fontSize: 12, fontWeight: 700, minWidth: 42, color: 'var(--r-muted)' } }, 'Speed'),
-          h('span', { style: { fontSize: 12.5, fontWeight: 800, color: 'var(--r-accent)', minWidth: 40 } }, `${ttsRate}x`),
+        h('div', {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: '100%',
+            boxSizing: 'border-box'
+          }
+        },
+          h('span', { style: { fontSize: 12, fontWeight: 700, minWidth: 40, color: 'var(--r-muted)', flexShrink: 0 } }, 'Speed'),
+          h('span', { style: { fontSize: 12.5, fontWeight: 800, color: 'var(--r-accent)', minWidth: 38, flexShrink: 0 } }, `${ttsRate}x`),
           h('input', {
             type: 'range',
             min: '0.5',
             max: '3.0',
             step: '0.05',
             value: ttsRate,
-            style: { flex: 1, accentColor: 'var(--r-accent)', height: 4, cursor: 'pointer' },
+            style: { flex: 1, minWidth: 50, accentColor: 'var(--r-accent)', height: 4, cursor: 'pointer' },
             onChange: (e) => handleRateChange(parseFloat(e.target.value))
           }),
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { padding: '2px 7px', fontSize: 11, fontWeight: 700, borderRadius: 5, border: '1px solid var(--r-border)' },
+            style: { padding: '3px 8px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: '1px solid var(--r-border)', flexShrink: 0 },
             title: 'Reset to 1.0x',
             onClick: () => handleRateChange(1.0)
           }, '↺'),
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { padding: '2px 9px', fontSize: 13, fontWeight: 700, borderRadius: 5, border: '1px solid var(--r-border)' },
+            style: { padding: '3px 9px', fontSize: 13, fontWeight: 700, borderRadius: 6, border: '1px solid var(--r-border)', flexShrink: 0 },
             title: 'Decrease Speed',
             onClick: () => handleRateChange(Math.max(0.5, Math.round((ttsRate - 0.1) * 10) / 10))
           }, '–'),
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { padding: '2px 9px', fontSize: 13, fontWeight: 700, borderRadius: 5, border: '1px solid var(--r-border)' },
+            style: { padding: '3px 9px', fontSize: 13, fontWeight: 700, borderRadius: 6, border: '1px solid var(--r-border)', flexShrink: 0 },
             title: 'Increase Speed',
             onClick: () => handleRateChange(Math.min(3.0, Math.round((ttsRate + 0.1) * 10) / 10))
           }, '+')
         ),
 
-        // Row 2: Transport Controls (Screenshots 1 & 3)
-        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 4 } },
-          // Stop button
+        // Row 2: Transport Controls (Screenshots 1 & 3) - Perfectly Centered & Symmetrical
+        h('div', {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            gap: 4,
+            boxSizing: 'border-box'
+          }
+        },
+          // 1. Stop button
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { fontSize: 15, padding: '7px 11px', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, fontSize: 15, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
             title: 'Stop TTS',
             onClick: stopTts
           }, '⏹'),
 
-          // Prev Chapter
+          // 2. Prev Chapter
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { fontSize: 13, padding: '7px 11px', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, fontSize: 13, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
             disabled: activeIdx <= 0,
             title: 'Previous Chapter',
             onClick: () => {
@@ -2372,17 +2391,26 @@
             }
           }, '|◀'),
 
-          // Prev Sentence/Paragraph
+          // 3. Prev Sentence/Paragraph
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { fontSize: 13, padding: '7px 11px', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, fontSize: 13, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
             disabled: activeSentenceIdx <= 0,
             title: 'Previous Chunk',
             onClick: () => speakSentence(Math.max(0, activeSentenceIdx - 1))
           }, '◀◀'),
 
-          // Play / Pause button
+          // 4. Voice & Engine Selector
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { flex: 1, minWidth: 0, height: 38, fontSize: 15, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+            title: 'Change Voice & Speech Engine (SherpaTTS / Piper)',
+            onClick: () => setShowVoiceModal(true)
+          }, '🎙'),
+
+          // 5. Play / Pause button (DEAD CENTER)
           h('button', {
             type: 'button',
             style: {
@@ -2397,27 +2425,29 @@
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              boxShadow: '0 0 16px rgba(99, 102, 241, 0.45)'
+              boxShadow: '0 0 16px rgba(99, 102, 241, 0.45)',
+              flexShrink: 0,
+              margin: '0 4px'
             },
             title: ttsPaused ? 'Resume' : 'Pause',
             onClick: toggleTts
           }, ttsPaused ? '▶' : '⏸'),
 
-          // Next Sentence/Paragraph
+          // 6. Next Sentence/Paragraph
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { fontSize: 13, padding: '7px 11px', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, fontSize: 13, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
             disabled: activeSentenceIdx >= sentencesRef.current.length - 1,
             title: 'Next Chunk',
             onClick: () => speakSentence(activeSentenceIdx + 1)
           }, '▶▶'),
 
-          // Next Chapter
+          // 7. Next Chapter
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { fontSize: 13, padding: '7px 11px', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, fontSize: 13, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
             disabled: activeIdx >= safeChapters.length - 1,
             title: 'Next Chapter',
             onClick: () => {
@@ -2425,29 +2455,20 @@
             }
           }, '▶|'),
 
-          // 8. Voice & Engine Selector
+          // 8. TTS Options
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { fontSize: 15, padding: '7px 11px', borderRadius: 8 },
-            title: 'Change Voice & Speech Engine (SherpaTTS / Piper)',
-            onClick: () => setShowVoiceModal(true)
-          }, '🎙'),
-
-          // 9. TTS Options (Screenshot 3)
-          h('button', {
-            type: 'button',
-            className: 'mini-btn ghost',
-            style: { fontSize: 15, padding: '7px 11px', borderRadius: 8, color: 'var(--r-accent)' },
+            style: { flex: 1, minWidth: 0, height: 38, fontSize: 15, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: 'var(--r-accent)' },
             title: 'TTS Options',
             onClick: () => setShowTtsOptionsModal(true)
           }, '⚙'),
 
-          // 10. More Options (...)
+          // 9. More Options (...)
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { fontSize: 15, padding: '7px 11px', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, fontSize: 15, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
             title: 'More Actions',
             onClick: () => setShowMoreMenu(!showMoreMenu)
           }, '···')
