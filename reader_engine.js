@@ -1019,12 +1019,22 @@
       scrollToMatch(prevIdx);
     }, [activeMatchIndex, searchMatches, scrollToMatch]);
 
-    // ── 3. Dual-Tier TTS Engine (Native Android Bridge + Web Speech Fallback) ──
+    // ── 3. Dual-Tier TTS Engine (Legado + Foliate + Piper Architecture) ──
     const [ttsActive, setTtsActive] = useState(false);
     const [ttsPaused, setTtsPaused] = useState(false);
     const [ttsRate, setTtsRate] = useState(1.0);
     const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
+    const activeSentenceIdxRef = useRef(-1);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const [sleepTimerMinutes, setSleepTimerMinutes] = useState(0); // 0 = off, 15, 30, 45, 60, -1 = end of chapter
+    const [sleepTimerSecondsLeft, setSleepTimerSecondsLeft] = useState(0);
+    const sleepTimerRef = useRef(0);
+    const [ttsEngines, setTtsEngines] = useState([]);
+    const [selectedTtsEngine, setSelectedTtsEngine] = useState('');
+    const [ttsVoices, setTtsVoices] = useState([]);
+    const [selectedTtsVoice, setSelectedTtsVoice] = useState('');
+    const [dacDelayMs, setDacDelayMs] = useState(200); // 200ms DAC ramp-up buffer for Piper/hardware
+
     const sentencesRef = useRef([]);
     const utteranceRef = useRef(null);
     const ttsActiveRef = useRef(false);
@@ -1034,17 +1044,83 @@
     useEffect(() => {
       ttsActiveRef.current = ttsActive;
       ttsPausedRef.current = ttsPaused;
-    }, [ttsActive, ttsPaused]);
+      activeSentenceIdxRef.current = activeSentenceIdx;
+    }, [ttsActive, ttsPaused, activeSentenceIdx]);
 
-    // Extract sentences with paragraph mapping for precision highlighting
+    useEffect(() => {
+      sleepTimerRef.current = sleepTimerMinutes;
+    }, [sleepTimerMinutes]);
+
+    // Fetch installed Android TTS engines and voices if available
+    useEffect(() => {
+      if (window.NativeBridge?.getTtsEngines) {
+        window.NativeBridge.getTtsEngines().then(res => {
+          if (res?.engines?.length > 0) {
+            setTtsEngines(res.engines);
+            setSelectedTtsEngine(res.defaultEngine || res.engines[0]?.name || '');
+          }
+        }).catch(() => {});
+      }
+      if (window.NativeBridge?.getTtsVoices) {
+        window.NativeBridge.getTtsVoices().then(v => {
+          if (Array.isArray(v) && v.length > 0) {
+            setTtsVoices(v);
+          }
+        }).catch(() => {});
+      }
+    }, []);
+
+    // Legado-style Sleep Timer countdown
+    useEffect(() => {
+      if (sleepTimerMinutes <= 0 || !ttsActive || ttsPaused) return;
+      const interval = setInterval(() => {
+        setSleepTimerSecondsLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            stopTts();
+            setSleepTimerMinutes(0);
+            if (typeof window !== 'undefined' && window.toast) {
+              window.toast('⏱ Sleep timer ended. Audio paused.', 'info');
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }, [sleepTimerMinutes, ttsActive, ttsPaused]);
+
+    // Foliate-style Sentence Segmentation (Intl.Segmenter with Unicode boundary detection)
     useEffect(() => {
       const splitSentences = [];
       let sGlobalIdx = 0;
+      const langMap = { 'zh': 'zh-CN', 'ja': 'ja-JP', 'ko': 'ko-KR', 'es': 'es-ES', 'fr': 'fr-FR', 'de': 'de-DE', 'ru': 'ru-RU', 'en': 'en-US' };
+      const segmenterLang = langMap[tgtLang] || (tgtLang && tgtLang.length === 2 ? `${tgtLang}-${tgtLang.toUpperCase()}` : 'en-US');
+
+      let segmenter = null;
+      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        try {
+          segmenter = new Intl.Segmenter(segmenterLang, { granularity: 'sentence' });
+        } catch (e) {}
+      }
+
       chapterElements.forEach((el, pIdx) => {
         if (el.type !== 'text' || !el.content) return;
         const raw = el.content.trim();
         if (!raw) return;
-        const parts = raw.split(/(?<=[.!?。！？\n])\s+/).map(s => s.trim()).filter(Boolean);
+
+        let parts = [];
+        if (segmenter) {
+          try {
+            parts = Array.from(segmenter.segment(raw))
+              .map(s => s.segment.trim())
+              .filter(s => s.length > 0);
+          } catch (e) {}
+        }
+        if (!parts || parts.length === 0) {
+          parts = raw.split(/(?<=[.!?。！？\n])\s+/).map(s => s.trim()).filter(Boolean);
+        }
+
         if (parts.length > 0) {
           parts.forEach(part => {
             splitSentences.push({ text: part, pIdx, sentIdx: sGlobalIdx++ });
@@ -1058,7 +1134,7 @@
         pendingTtsStartRef.current = false;
         speakSentence(0);
       }
-    }, [chapterElements]);
+    }, [chapterElements, tgtLang]);
 
     const stopTts = useCallback(() => {
       ttsActiveRef.current = false;
@@ -1070,11 +1146,18 @@
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         try { window.speechSynthesis.cancel(); } catch (e) {}
       }
+      if (window.NativeBridge?.setMediaMetadata) {
+        window.NativeBridge.setMediaMetadata({
+          title: currentChapter?.title || `Chapter ${activeIdx + 1}`,
+          artist: bookTitle || 'Gemini Reader',
+          playing: false
+        });
+      }
       window.__ttsActiveUtterance = null;
       setTtsActive(false);
       setTtsPaused(false);
       setActiveSentenceIdx(-1);
-    }, []);
+    }, [currentChapter, activeIdx, bookTitle]);
 
     // Stop speech synthesis if reader unmounts or closes
     useEffect(() => {
@@ -1086,6 +1169,16 @@
     const speakSentence = useCallback(async (idx) => {
       if (!ttsActiveRef.current) return;
       if (idx >= sentencesRef.current.length) {
+        // Check if sleep timer is set to End of Chapter (-1)
+        if (sleepTimerRef.current === -1) {
+          stopTts();
+          setSleepTimerMinutes(0);
+          if (typeof window !== 'undefined' && window.toast) {
+            window.toast('⏱ Sleep timer: End of chapter reached. Audio paused.', 'info');
+          }
+          return;
+        }
+
         // End of chapter reached! Seamlessly advance to next chapter
         if (activeIdx < safeChapters.length - 1) {
           if (typeof window !== 'undefined' && window.toast) {
@@ -1131,7 +1224,16 @@
       };
       const ttsLang = langMap[tgtLang] || (tgtLang && tgtLang.length === 2 ? `${tgtLang}-${tgtLang.toUpperCase()}` : 'en-US');
 
-      // 1. Try Native Android TTS Bridge (Zero lag, works with screen off)
+      // Sync metadata to native lockscreen notification
+      if (window.NativeBridge?.setMediaMetadata) {
+        window.NativeBridge.setMediaMetadata({
+          title: currentChapter?.title || `Chapter ${activeIdx + 1}`,
+          artist: bookTitle || 'Gemini Reader',
+          playing: true
+        });
+      }
+
+      // 1. Try Native Android TTS Bridge (Zero lag, works with screen off, supports Piper/Sherpa-ONNX)
       let usedNative = false;
       if (window.NativeBridge && window.NativeBridge.speakNative) {
         try {
@@ -1139,6 +1241,8 @@
             rate: ttsRate,
             pitch: 1.0,
             lang: ttsLang,
+            voiceName: selectedTtsVoice,
+            delayMs: dacDelayMs,
             utteranceId: `tts_${activeIdx}_${idx}_${Date.now()}`,
             onDone: () => {
               if (ttsActiveRef.current && !ttsPausedRef.current) {
@@ -1204,11 +1308,13 @@
         }
         window.speechSynthesis.speak(utt);
       }
-    }, [activeIdx, safeChapters.length, ttsRate, tgtLang, changeChapter, stopTts]);
+    }, [activeIdx, safeChapters.length, ttsRate, tgtLang, currentChapter, bookTitle, selectedTtsVoice, dacDelayMs, changeChapter, stopTts]);
 
-    const toggleTts = () => {
+    const toggleTts = useCallback(() => {
       if (sentencesRef.current.length === 0) {
-        window.toast?.('No readable text found in this chapter for Read Aloud.', 'warning');
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('No readable text found in this chapter for Read Aloud.', 'warning');
+        }
         return;
       }
       if (ttsActive) {
@@ -1220,7 +1326,9 @@
         } else {
           ttsPausedRef.current = true;
           setTtsPaused(true);
-          if (window.NativeBridge?.stopNativeSpeech) {
+          if (window.NativeBridge?.pauseNativeSpeech) {
+            window.NativeBridge.pauseNativeSpeech();
+          } else if (window.NativeBridge?.stopNativeSpeech) {
             window.NativeBridge.stopNativeSpeech();
           }
           if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -1235,7 +1343,44 @@
         const startIdx = activeSentenceIdx >= 0 ? activeSentenceIdx : 0;
         speakSentence(startIdx);
       }
-    };
+    }, [ttsActive, ttsPaused, activeSentenceIdx, speakSentence]);
+
+    // Legado-style Native Media Actions listener (lock screen notification, headphone buttons, audio focus)
+    useEffect(() => {
+      let sub = null;
+      if (window.NativeBridge?.onMediaAction) {
+        window.NativeBridge.onMediaAction((action) => {
+          if (action === 'play') {
+            if (ttsPausedRef.current) {
+              toggleTts();
+            }
+          } else if (action === 'pause') {
+            if (ttsActiveRef.current && !ttsPausedRef.current) {
+              toggleTts();
+            }
+          } else if (action === 'play_pause') {
+            toggleTts();
+          } else if (action === 'next') {
+            const cur = activeSentenceIdxRef.current;
+            if (cur >= 0 && cur < sentencesRef.current.length - 1) {
+              speakSentence(cur + 1);
+            } else if (activeIdx < safeChapters.length - 1) {
+              changeChapter(activeIdx + 1);
+            }
+          } else if (action === 'prev') {
+            const cur = activeSentenceIdxRef.current;
+            if (cur > 0) {
+              speakSentence(cur - 1);
+            }
+          } else if (action === 'stop') {
+            stopTts();
+          }
+        }).then(s => { sub = s; });
+      }
+      return () => {
+        try { sub?.remove?.(); } catch (e) {}
+      };
+    }, [toggleTts, speakSentence, changeChapter, activeIdx, safeChapters.length, stopTts]);
 
     // ── 4. Hierarchical Arc / Volume TOC Grouping ──
     const arcGroups = useMemo(() => {
@@ -1860,6 +2005,38 @@
           }, `${ttsRate}x`),
           h('button', {
             type: 'button',
+            className: 'reader-search-nav-btn',
+            style: { fontWeight: 700, fontSize: 11, padding: '4px 8px', minWidth: 48, color: sleepTimerMinutes !== 0 ? 'var(--r-accent)' : 'inherit' },
+            title: 'Legado-style Sleep Timer (15m, 30m, 45m, 60m, End of Chapter)',
+            onClick: () => {
+              if (sleepTimerMinutes === 0) {
+                setSleepTimerMinutes(15);
+                setSleepTimerSecondsLeft(15 * 60);
+                if (window.toast) window.toast('⏱ Sleep timer: 15 minutes', 'info');
+              } else if (sleepTimerMinutes === 15) {
+                setSleepTimerMinutes(30);
+                setSleepTimerSecondsLeft(30 * 60);
+                if (window.toast) window.toast('⏱ Sleep timer: 30 minutes', 'info');
+              } else if (sleepTimerMinutes === 30) {
+                setSleepTimerMinutes(45);
+                setSleepTimerSecondsLeft(45 * 60);
+                if (window.toast) window.toast('⏱ Sleep timer: 45 minutes', 'info');
+              } else if (sleepTimerMinutes === 45) {
+                setSleepTimerMinutes(60);
+                setSleepTimerSecondsLeft(60 * 60);
+                if (window.toast) window.toast('⏱ Sleep timer: 60 minutes', 'info');
+              } else if (sleepTimerMinutes === 60) {
+                setSleepTimerMinutes(-1);
+                if (window.toast) window.toast('⏱ Sleep timer: Pause at End of Chapter', 'info');
+              } else {
+                setSleepTimerMinutes(0);
+                setSleepTimerSecondsLeft(0);
+                if (window.toast) window.toast('⏱ Sleep timer: Off', 'info');
+              }
+            }
+          }, sleepTimerMinutes === -1 ? '⏱ Ch.' : (sleepTimerMinutes > 0 ? `⏱ ${Math.ceil(sleepTimerSecondsLeft / 60)}m` : '⏱ Off')),
+          h('button', {
+            type: 'button',
             className: 'reader-search-nav-btn close',
             title: 'Stop Read Aloud',
             onClick: stopTts
@@ -2078,7 +2255,7 @@
           ),
 
           // Toggles: Indentation & Justification
-          h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 10 } },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 16 } },
             h('button', {
               type: 'button',
               className: `mini-btn ${paragraphIndent ? '' : 'ghost'}`,
@@ -2091,6 +2268,80 @@
               style: { flex: 1, padding: '8px 0' },
               onClick: () => setJustify(s => !s)
             }, justify ? '✓ Justify Text' : 'Align Left')
+          ),
+
+          // Audio & Speech (TTS) Engine & Voice Settings (Legado & Piper Integration)
+          h('div', { style: { marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--r-border)' } },
+            h('div', { style: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-muted)', marginBottom: 10 } }, '🎧 Audio & Speech (TTS)'),
+
+            // Installed TTS Engine Selector (SherpaTTS / Piper / Google / Samsung)
+            ttsEngines.length > 0 && h('div', { style: { marginBottom: 12 } },
+              h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, 'TTS Engine'),
+              h('select', {
+                value: selectedTtsEngine,
+                style: { width: '100%', padding: '8px 10px', borderRadius: 6, background: 'var(--r-bg)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13 },
+                onChange: async (e) => {
+                  const eng = e.target.value;
+                  setSelectedTtsEngine(eng);
+                  if (window.NativeBridge?.setTtsEngine) {
+                    await window.NativeBridge.setTtsEngine(eng);
+                    if (window.toast) window.toast(`TTS engine switched to: ${eng}`, 'success');
+                  }
+                }
+              },
+                ttsEngines.map(eng => h('option', { key: eng.name, value: eng.name }, `${eng.label || eng.name}${eng.name.includes('sherpa') ? ' (Offline Piper AI)' : ''}`))
+              )
+            ),
+
+            // Voice Selector (if available)
+            ttsVoices.length > 0 && h('div', { style: { marginBottom: 12 } },
+              h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, 'Voice'),
+              h('select', {
+                value: selectedTtsVoice,
+                style: { width: '100%', padding: '8px 10px', borderRadius: 6, background: 'var(--r-bg)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13 },
+                onChange: (e) => {
+                  setSelectedTtsVoice(e.target.value);
+                  if (window.NativeBridge?.setTtsVoice) {
+                    window.NativeBridge.setTtsVoice(e.target.value);
+                  }
+                }
+              },
+                h('option', { value: '' }, 'Default Voice'),
+                ttsVoices.map(v => h('option', { key: v.name, value: v.name }, `${v.name} (${v.locale})`))
+              )
+            ),
+
+            // Inter-Sentence Pause (DAC Ramp-Up Safety for Piper)
+            h('div', { style: { marginBottom: 12 } },
+              h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, 'Sentence Pause (DAC Ramp-Up Buffer)'),
+              h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 } },
+                [[0, '0ms'], [100, '100ms'], [200, '200ms'], [300, '300ms'], [500, '500ms']].map(([ms, label]) => h('button', {
+                  key: ms,
+                  type: 'button',
+                  className: `mini-btn ${dacDelayMs === ms ? '' : 'ghost'}`,
+                  style: dacDelayMs === ms ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
+                  title: ms === 200 ? 'Recommended for Piper ONNX' : undefined,
+                  onClick: () => setDacDelayMs(ms)
+                }, label))
+              )
+            ),
+
+            // Sleep Timer presets in settings
+            h('div', null,
+              h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, 'Sleep Timer'),
+              h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4 } },
+                [[0, 'Off'], [15, '15m'], [30, '30m'], [45, '45m'], [60, '60m'], [-1, 'End Ch.']].map(([m, label]) => h('button', {
+                  key: m,
+                  type: 'button',
+                  className: `mini-btn ${sleepTimerMinutes === m ? '' : 'ghost'}`,
+                  style: sleepTimerMinutes === m ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, fontSize: 11 } : { fontSize: 11 },
+                  onClick: () => {
+                    setSleepTimerMinutes(m);
+                    if (m > 0) setSleepTimerSecondsLeft(m * 60);
+                  }
+                }, label))
+              )
+            )
           )
         )
       ),

@@ -13,11 +13,15 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.Voice;
 import java.util.Locale;
+import java.util.Set;
+import java.util.List;
 import android.content.Intent;
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 import android.net.Uri;
+import android.media.AudioManager;
 import android.media.MediaScannerConnection;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
@@ -1976,10 +1980,21 @@ public class NativeAndroidBridgePlugin extends Plugin {
     public void load() {
         super.load();
         ensureNativeTts();
+        registerMediaActionReceiver();
     }
 
     private TextToSpeech nativeTts = null;
     private boolean isNativeTtsReady = false;
+    private AudioManager audioManager = null;
+    private AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = null;
+    private BroadcastReceiver noisyReceiver = null;
+    private BroadcastReceiver mediaActionReceiver = null;
+    private MediaSession mediaSession = null;
+    private static final String TTS_NOTIFICATION_CHANNEL_ID = "gemini_reader_tts_channel";
+    private static final int TTS_NOTIFICATION_ID = 9021;
+    private String currentMediaTitle = "Novel Chapter";
+    private String currentMediaArtist = "Gemini Reader";
+    private boolean isMediaPlaying = false;
 
     private synchronized void ensureNativeTts() {
         if (nativeTts == null) {
@@ -1989,49 +2004,443 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     nativeTts = new TextToSpeech(ctx.getApplicationContext(), status -> {
                         if (status == TextToSpeech.SUCCESS) {
                             isNativeTtsReady = true;
-                            nativeTts.setOnUtteranceProgressListener(new android.speech.tts.UtteranceProgressListener() {
-                                @Override
-                                public void onStart(String utteranceId) {
-                                    JSObject data = new JSObject();
-                                    data.put("utteranceId", utteranceId);
-                                    data.put("event", "start");
-                                    notifyListeners("nativeTtsStart", data);
-                                }
-
-                                @Override
-                                public void onDone(String utteranceId) {
-                                    JSObject data = new JSObject();
-                                    data.put("utteranceId", utteranceId);
-                                    data.put("event", "done");
-                                    notifyListeners("nativeTtsDone", data);
-                                }
-
-                                @Override
-                                public void onError(String utteranceId) {
-                                    JSObject data = new JSObject();
-                                    data.put("utteranceId", utteranceId);
-                                    data.put("event", "error");
-                                    notifyListeners("nativeTtsError", data);
-                                }
-
-                                @Override
-                                public void onError(String utteranceId, int errorCode) {
-                                    JSObject data = new JSObject();
-                                    data.put("utteranceId", utteranceId);
-                                    data.put("event", "error");
-                                    data.put("errorCode", errorCode);
-                                    notifyListeners("nativeTtsError", data);
-                                }
-                            });
-                            Log.d(TAG, " Native Android TextToSpeech initialized with UtteranceProgressListener!");
+                            setupTtsListener();
+                            Log.d(TAG, "Native Android TextToSpeech initialized with UtteranceProgressListener!");
                         } else {
-                            Log.e(TAG, " Native Android TextToSpeech initialization failed: " + status);
+                            Log.e(TAG, "Native Android TextToSpeech initialization failed: " + status);
                         }
                     });
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error initializing TextToSpeech: " + e.getMessage());
             }
+        }
+    }
+
+    private void setupTtsListener() {
+        if (nativeTts != null) {
+            nativeTts.setOnUtteranceProgressListener(new android.speech.tts.UtteranceProgressListener() {
+                @Override
+                public void onStart(String utteranceId) {
+                    JSObject data = new JSObject();
+                    data.put("utteranceId", utteranceId);
+                    data.put("event", "start");
+                    notifyListeners("nativeTtsStart", data);
+                }
+
+                @Override
+                public void onDone(String utteranceId) {
+                    JSObject data = new JSObject();
+                    data.put("utteranceId", utteranceId);
+                    data.put("event", "done");
+                    notifyListeners("nativeTtsDone", data);
+                }
+
+                @Override
+                public void onError(String utteranceId) {
+                    JSObject data = new JSObject();
+                    data.put("utteranceId", utteranceId);
+                    data.put("event", "error");
+                    notifyListeners("nativeTtsError", data);
+                }
+
+                @Override
+                public void onError(String utteranceId, int errorCode) {
+                    JSObject data = new JSObject();
+                    data.put("utteranceId", utteranceId);
+                    data.put("event", "error");
+                    data.put("errorCode", errorCode);
+                    notifyListeners("nativeTtsError", data);
+                }
+            });
+        }
+    }
+
+    private void registerMediaActionReceiver() {
+        if (mediaActionReceiver == null) {
+            mediaActionReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (intent == null || intent.getAction() == null) return;
+                    String action = intent.getAction();
+                    JSObject data = new JSObject();
+                    if ("com.exzyo.geminitranslator.ACTION_TTS_PREV".equals(action)) {
+                        data.put("action", "prev");
+                        notifyListeners("nativeMediaAction", data);
+                    } else if ("com.exzyo.geminitranslator.ACTION_TTS_PLAY_PAUSE".equals(action)) {
+                        data.put("action", "play_pause");
+                        notifyListeners("nativeMediaAction", data);
+                    } else if ("com.exzyo.geminitranslator.ACTION_TTS_NEXT".equals(action)) {
+                        data.put("action", "next");
+                        notifyListeners("nativeMediaAction", data);
+                    } else if ("com.exzyo.geminitranslator.ACTION_TTS_STOP".equals(action)) {
+                        data.put("action", "stop");
+                        notifyListeners("nativeMediaAction", data);
+                        stopNativeTtsInternal();
+                    }
+                }
+            };
+            Context ctx = getContext();
+            if (ctx != null) {
+                IntentFilter filter = new IntentFilter();
+                filter.addAction("com.exzyo.geminitranslator.ACTION_TTS_PREV");
+                filter.addAction("com.exzyo.geminitranslator.ACTION_TTS_PLAY_PAUSE");
+                filter.addAction("com.exzyo.geminitranslator.ACTION_TTS_NEXT");
+                filter.addAction("com.exzyo.geminitranslator.ACTION_TTS_STOP");
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    ctx.registerReceiver(mediaActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+                } else {
+                    ctx.registerReceiver(mediaActionReceiver, filter);
+                }
+            }
+        }
+    }
+
+    private void requestAudioFocus() {
+        try {
+            Context ctx = getContext();
+            if (ctx == null) return;
+            if (audioManager == null) {
+                audioManager = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+            }
+            if (audioFocusChangeListener == null) {
+                audioFocusChangeListener = focusChange -> {
+                    JSObject data = new JSObject();
+                    switch (focusChange) {
+                        case AudioManager.AUDIOFOCUS_LOSS:
+                        case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                            data.put("action", "pause");
+                            notifyListeners("nativeMediaAction", data);
+                            break;
+                        case AudioManager.AUDIOFOCUS_GAIN:
+                            data.put("action", "resume");
+                            notifyListeners("nativeMediaAction", data);
+                            break;
+                    }
+                };
+            }
+            if (audioManager != null) {
+                audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
+            }
+
+            if (noisyReceiver == null) {
+                noisyReceiver = new BroadcastReceiver() {
+                    @Override
+                    public void onReceive(Context context, Intent intent) {
+                        if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())) {
+                            JSObject data = new JSObject();
+                            data.put("action", "pause");
+                            notifyListeners("nativeMediaAction", data);
+                        }
+                    }
+                };
+                ctx.registerReceiver(noisyReceiver, new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY));
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error requesting audio focus: " + e.getMessage());
+        }
+    }
+
+    private void abandonAudioFocus() {
+        try {
+            if (audioManager != null && audioFocusChangeListener != null) {
+                audioManager.abandonAudioFocus(audioFocusChangeListener);
+            }
+            Context ctx = getContext();
+            if (ctx != null && noisyReceiver != null) {
+                try { ctx.unregisterReceiver(noisyReceiver); } catch (Exception ignored) {}
+                noisyReceiver = null;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error abandoning audio focus: " + e.getMessage());
+        }
+    }
+
+    private void updateMediaSessionAndNotification(boolean playing) {
+        isMediaPlaying = playing;
+        Context ctx = getContext();
+        if (ctx == null) return;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            try {
+                if (mediaSession == null) {
+                    mediaSession = new MediaSession(ctx, "GeminiNovelReaderSession");
+                    mediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+                    mediaSession.setCallback(new MediaSession.Callback() {
+                        @Override
+                        public void onPlay() {
+                            JSObject data = new JSObject(); data.put("action", "play");
+                            notifyListeners("nativeMediaAction", data);
+                        }
+                        @Override
+                        public void onPause() {
+                            JSObject data = new JSObject(); data.put("action", "pause");
+                            notifyListeners("nativeMediaAction", data);
+                        }
+                        @Override
+                        public void onSkipToNext() {
+                            JSObject data = new JSObject(); data.put("action", "next");
+                            notifyListeners("nativeMediaAction", data);
+                        }
+                        @Override
+                        public void onSkipToPrevious() {
+                            JSObject data = new JSObject(); data.put("action", "prev");
+                            notifyListeners("nativeMediaAction", data);
+                        }
+                        @Override
+                        public void onStop() {
+                            JSObject data = new JSObject(); data.put("action", "stop");
+                            notifyListeners("nativeMediaAction", data);
+                            stopNativeTtsInternal();
+                        }
+                    });
+                    mediaSession.setActive(true);
+                }
+
+                PlaybackState.Builder stateBuilder = new PlaybackState.Builder()
+                    .setActions(PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE |
+                                PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_SKIP_TO_NEXT |
+                                PlaybackState.ACTION_SKIP_TO_PREVIOUS | PlaybackState.ACTION_STOP)
+                    .setState(playing ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED,
+                              PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f);
+                mediaSession.setPlaybackState(stateBuilder.build());
+
+                MediaMetadata.Builder metaBuilder = new MediaMetadata.Builder()
+                    .putString(MediaMetadata.METADATA_KEY_TITLE, currentMediaTitle)
+                    .putString(MediaMetadata.METADATA_KEY_ARTIST, currentMediaArtist)
+                    .putString(MediaMetadata.METADATA_KEY_ALBUM, currentMediaArtist);
+                mediaSession.setMetadata(metaBuilder.build());
+            } catch (Exception e) {
+                Log.w(TAG, "Error updating MediaSession: " + e.getMessage());
+            }
+        }
+
+        showMediaNotification(playing);
+    }
+
+    private void showMediaNotification(boolean playing) {
+        try {
+            Context ctx = getContext();
+            if (ctx == null) return;
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel(
+                    TTS_NOTIFICATION_CHANNEL_ID,
+                    "Novel Audio & Read Aloud",
+                    NotificationManager.IMPORTANCE_LOW
+                );
+                channel.setDescription("Controls for reading novels aloud");
+                channel.setShowBadge(false);
+                nm.createNotificationChannel(channel);
+            }
+
+            Intent openAppIntent = new Intent(ctx, getActivity().getClass());
+            openAppIntent.setAction(Intent.ACTION_MAIN);
+            openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+            openAppIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent pOpenApp = PendingIntent.getActivity(ctx, 0, openAppIntent,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT);
+
+            Intent prevIntent = new Intent("com.exzyo.geminitranslator.ACTION_TTS_PREV");
+            prevIntent.setPackage(ctx.getPackageName());
+            PendingIntent pPrev = PendingIntent.getBroadcast(ctx, 1, prevIntent,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT);
+
+            Intent playPauseIntent = new Intent("com.exzyo.geminitranslator.ACTION_TTS_PLAY_PAUSE");
+            playPauseIntent.setPackage(ctx.getPackageName());
+            PendingIntent pPlayPause = PendingIntent.getBroadcast(ctx, 2, playPauseIntent,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT);
+
+            Intent nextIntent = new Intent("com.exzyo.geminitranslator.ACTION_TTS_NEXT");
+            nextIntent.setPackage(ctx.getPackageName());
+            PendingIntent pNext = PendingIntent.getBroadcast(ctx, 3, nextIntent,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT);
+
+            Intent stopIntent = new Intent("com.exzyo.geminitranslator.ACTION_TTS_STOP");
+            stopIntent.setPackage(ctx.getPackageName());
+            PendingIntent pStop = PendingIntent.getBroadcast(ctx, 4, stopIntent,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT);
+
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, TTS_NOTIFICATION_CHANNEL_ID)
+                .setContentTitle(currentMediaTitle)
+                .setContentText(currentMediaArtist)
+                .setSubText("Read Aloud")
+                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setContentIntent(pOpenApp)
+                .setOngoing(playing)
+                .setAutoCancel(!playing)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .addAction(android.R.drawable.ic_media_previous, "Prev", pPrev)
+                .addAction(playing ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play, playing ? "Pause" : "Play", pPlayPause)
+                .addAction(android.R.drawable.ic_media_next, "Next", pNext)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Close", pStop);
+
+            nm.notify(TTS_NOTIFICATION_ID, builder.build());
+        } catch (Exception e) {
+            Log.w(TAG, "Error showing media notification: " + e.getMessage());
+        }
+    }
+
+    private void cancelMediaNotification() {
+        try {
+            Context ctx = getContext();
+            if (ctx != null) {
+                NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) {
+                    nm.cancel(TTS_NOTIFICATION_ID);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void stopNativeTtsInternal() {
+        try {
+            if (nativeTts != null) {
+                nativeTts.stop();
+            }
+            abandonAudioFocus();
+            cancelMediaNotification();
+            isMediaPlaying = false;
+        } catch (Exception ignored) {}
+    }
+
+    @PluginMethod
+    public void getTtsEngines(PluginCall call) {
+        try {
+            ensureNativeTts();
+            JSObject ret = new JSObject();
+            JSArray enginesArray = new JSArray();
+            String defaultEngine = nativeTts != null ? nativeTts.getDefaultEngine() : "";
+            ret.put("defaultEngine", defaultEngine);
+
+            if (nativeTts != null) {
+                List<TextToSpeech.EngineInfo> engines = nativeTts.getEngines();
+                if (engines != null) {
+                    for (TextToSpeech.EngineInfo info : engines) {
+                        JSObject item = new JSObject();
+                        item.put("name", info.name);
+                        item.put("label", info.label);
+                        item.put("isDefault", info.name != null && info.name.equals(defaultEngine));
+                        enginesArray.put(item);
+                    }
+                }
+            }
+            ret.put("engines", enginesArray);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to get TTS engines: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void setTtsEngine(PluginCall call) {
+        try {
+            String engine = call.getString("engine", "");
+            if (engine.isEmpty()) {
+                call.reject("Engine package name is required");
+                return;
+            }
+            Context ctx = getContext();
+            if (ctx != null) {
+                stopNativeTtsInternal();
+                if (nativeTts != null) {
+                    try { nativeTts.shutdown(); } catch (Exception ignored) {}
+                    nativeTts = null;
+                    isNativeTtsReady = false;
+                }
+                nativeTts = new TextToSpeech(ctx.getApplicationContext(), status -> {
+                    if (status == TextToSpeech.SUCCESS) {
+                        isNativeTtsReady = true;
+                        setupTtsListener();
+                        Log.d(TAG, "Switched native TTS engine to: " + engine);
+                    } else {
+                        Log.e(TAG, "Failed to initialize TTS engine: " + engine);
+                    }
+                }, engine);
+
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("engine", engine);
+                call.resolve(ret);
+            } else {
+                call.reject("Context is null");
+            }
+        } catch (Exception e) {
+            call.reject("Failed to set TTS engine: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void getTtsVoices(PluginCall call) {
+        try {
+            ensureNativeTts();
+            JSObject ret = new JSObject();
+            JSArray voicesArray = new JSArray();
+            if (nativeTts != null && isNativeTtsReady && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Set<Voice> voices = nativeTts.getVoices();
+                if (voices != null) {
+                    for (Voice v : voices) {
+                        JSObject item = new JSObject();
+                        item.put("name", v.getName());
+                        item.put("locale", v.getLocale() != null ? v.getLocale().toLanguageTag() : "");
+                        item.put("requiresNetwork", v.isNetworkConnectionRequired());
+                        item.put("latency", v.getLatency());
+                        item.put("quality", v.getQuality());
+                        voicesArray.put(item);
+                    }
+                }
+            }
+            ret.put("voices", voicesArray);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to get TTS voices: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void setTtsVoice(PluginCall call) {
+        try {
+            ensureNativeTts();
+            String voiceName = call.getString("voiceName", "");
+            if (voiceName.isEmpty()) {
+                call.reject("Voice name required");
+                return;
+            }
+            if (nativeTts != null && isNativeTtsReady && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Set<Voice> voices = nativeTts.getVoices();
+                if (voices != null) {
+                    for (Voice v : voices) {
+                        if (v.getName().equalsIgnoreCase(voiceName)) {
+                            nativeTts.setVoice(v);
+                            JSObject ret = new JSObject();
+                            ret.put("success", true);
+                            ret.put("voiceName", voiceName);
+                            call.resolve(ret);
+                            return;
+                        }
+                    }
+                }
+            }
+            call.reject("Voice not found: " + voiceName);
+        } catch (Exception e) {
+            call.reject("Failed to set TTS voice: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void setMediaMetadata(PluginCall call) {
+        try {
+            currentMediaTitle = call.getString("title", currentMediaTitle);
+            currentMediaArtist = call.getString("artist", currentMediaArtist);
+            boolean playing = call.getBoolean("playing", isMediaPlaying);
+            updateMediaSessionAndNotification(playing);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to set media metadata: " + e.getMessage());
         }
     }
 
@@ -2052,6 +2461,8 @@ public class NativeAndroidBridgePlugin extends Plugin {
             Double dRate = call.getDouble("rate", 1.0); float rate = dRate != null ? dRate.floatValue() : 1.0f;
             Double dPitch = call.getDouble("pitch", 1.0); float pitch = dPitch != null ? dPitch.floatValue() : 1.0f;
             String lang = call.getString("lang", "en");
+            String voiceName = call.getString("voiceName", "");
+            int delayMs = call.getInt("delayMs", 200); // 200ms DAC ramp-up buffer (Piper/Android hardware safety)
 
             if (text == null || text.trim().isEmpty()) {
                 JSObject ret = new JSObject();
@@ -2071,25 +2482,49 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
 
                 if (isNativeTtsReady) {
-                    try {
-                        Locale loc = Locale.forLanguageTag(lang);
-                        if (loc != null && nativeTts.isLanguageAvailable(loc) >= TextToSpeech.LANG_AVAILABLE) {
-                            nativeTts.setLanguage(loc);
-                        } else if (lang.startsWith("zh") && nativeTts.isLanguageAvailable(Locale.CHINESE) >= TextToSpeech.LANG_AVAILABLE) {
-                            nativeTts.setLanguage(Locale.CHINESE);
-                        } else if (lang.startsWith("ja") && nativeTts.isLanguageAvailable(Locale.JAPANESE) >= TextToSpeech.LANG_AVAILABLE) {
-                            nativeTts.setLanguage(Locale.JAPANESE);
-                        } else if (lang.startsWith("ko") && nativeTts.isLanguageAvailable(Locale.KOREAN) >= TextToSpeech.LANG_AVAILABLE) {
-                            nativeTts.setLanguage(Locale.KOREAN);
-                        } else {
-                            nativeTts.setLanguage(Locale.US);
+                    requestAudioFocus();
+                    updateMediaSessionAndNotification(true);
+
+                    // Set Voice if provided
+                    if (!voiceName.isEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        try {
+                            Set<Voice> voices = nativeTts.getVoices();
+                            if (voices != null) {
+                                for (Voice v : voices) {
+                                    if (v.getName().equalsIgnoreCase(voiceName)) {
+                                        nativeTts.setVoice(v);
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                    } else {
+                        // Fallback to language matching
+                        try {
+                            Locale loc = Locale.forLanguageTag(lang);
+                            if (loc != null && nativeTts.isLanguageAvailable(loc) >= TextToSpeech.LANG_AVAILABLE) {
+                                nativeTts.setLanguage(loc);
+                            } else if (lang.startsWith("zh") && nativeTts.isLanguageAvailable(Locale.CHINESE) >= TextToSpeech.LANG_AVAILABLE) {
+                                nativeTts.setLanguage(Locale.CHINESE);
+                            } else if (lang.startsWith("ja") && nativeTts.isLanguageAvailable(Locale.JAPANESE) >= TextToSpeech.LANG_AVAILABLE) {
+                                nativeTts.setLanguage(Locale.JAPANESE);
+                            } else if (lang.startsWith("ko") && nativeTts.isLanguageAvailable(Locale.KOREAN) >= TextToSpeech.LANG_AVAILABLE) {
+                                nativeTts.setLanguage(Locale.KOREAN);
+                            } else {
+                                nativeTts.setLanguage(Locale.US);
+                            }
+                        } catch (Exception e) {
+                            Log.w(TAG, "Error setting TTS language: " + e.getMessage());
                         }
-                    } catch (Exception e) {
-                        Log.w(TAG, "Error setting TTS language: " + e.getMessage());
                     }
 
                     nativeTts.setSpeechRate(rate);
                     nativeTts.setPitch(pitch);
+
+                    // Optional hardware ramp-up delay before speech synthesis
+                    if (delayMs > 0 && delayMs <= 500) {
+                        try { Thread.sleep(delayMs); } catch (InterruptedException ignored) {}
+                    }
 
                     int res;
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -2118,14 +2553,27 @@ public class NativeAndroidBridgePlugin extends Plugin {
     @PluginMethod
     public void stopNativeTts(PluginCall call) {
         try {
-            if (nativeTts != null) {
-                nativeTts.stop();
-            }
+            stopNativeTtsInternal();
             JSObject ret = new JSObject();
             ret.put("success", true);
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Stop TTS error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void pauseNativeTts(PluginCall call) {
+        try {
+            if (nativeTts != null) {
+                nativeTts.stop();
+            }
+            updateMediaSessionAndNotification(false);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Pause TTS error: " + e.getMessage());
         }
     }
 

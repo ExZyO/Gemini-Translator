@@ -315,6 +315,8 @@
                     const rate = typeof options === 'number' ? options : (options.rate || 1.0);
                     const pitch = options.pitch || 1.0;
                     const lang = options.lang || 'en-US';
+                    const voiceName = options.voiceName || '';
+                    const delayMs = typeof options.delayMs === 'number' ? options.delayMs : 200;
                     const utteranceId = options.utteranceId || ('utt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
 
                     let startSub = null, doneSub = null, errSub = null;
@@ -346,7 +348,7 @@
                         });
                     }
 
-                    const res = await bridge.speakNativeTts({ text, rate, pitch, lang, utteranceId });
+                    const res = await bridge.speakNativeTts({ text, rate, pitch, lang, voiceName, delayMs, utteranceId });
                     return res && res.success;
                 }
             } catch (e) {
@@ -368,6 +370,19 @@
             return false;
         },
 
+        pauseNativeSpeech: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.pauseNativeTts) {
+                    await bridge.pauseNativeTts();
+                    return true;
+                }
+            } catch (e) {
+                console.warn('Native TTS pause error:', e);
+            }
+            return false;
+        },
+
         isNativeTtsAvailable: async () => {
             try {
                 const bridge = getBridge();
@@ -377,6 +392,90 @@
                 }
             } catch (e) {}
             return false;
+        },
+
+        getTtsEngines: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.getTtsEngines) {
+                    const res = await bridge.getTtsEngines();
+                    return {
+                        defaultEngine: res?.defaultEngine || '',
+                        engines: Array.isArray(res?.engines) ? res.engines : []
+                    };
+                }
+            } catch (e) {
+                console.warn('getTtsEngines error:', e);
+            }
+            return { defaultEngine: '', engines: [] };
+        },
+
+        setTtsEngine: async (engine) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.setTtsEngine) {
+                    const res = await bridge.setTtsEngine({ engine });
+                    return !!res?.success;
+                }
+            } catch (e) {
+                console.warn('setTtsEngine error:', e);
+            }
+            return false;
+        },
+
+        getTtsVoices: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.getTtsVoices) {
+                    const res = await bridge.getTtsVoices();
+                    return Array.isArray(res?.voices) ? res.voices : [];
+                }
+            } catch (e) {
+                console.warn('getTtsVoices error:', e);
+            }
+            return [];
+        },
+
+        setTtsVoice: async (voiceName) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.setTtsVoice) {
+                    const res = await bridge.setTtsVoice({ voiceName });
+                    return !!res?.success;
+                }
+            } catch (e) {
+                console.warn('setTtsVoice error:', e);
+            }
+            return false;
+        },
+
+        setMediaMetadata: async ({ title, artist, playing }) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.setMediaMetadata) {
+                    await bridge.setMediaMetadata({ title: title || '', artist: artist || '', playing: !!playing });
+                    return true;
+                }
+            } catch (e) {
+                console.warn('setMediaMetadata error:', e);
+            }
+            return false;
+        },
+
+        onMediaAction: async (callback) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.addListener) {
+                    return await bridge.addListener('nativeMediaAction', (data) => {
+                        if (data && data.action) {
+                            callback(data.action);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('onMediaAction error:', e);
+            }
+            return null;
         },
 
         saveBlob: async (blob, fileName, mimeType = "application/epub+zip", openChooser = false, options = {}) => {

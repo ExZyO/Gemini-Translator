@@ -1,9 +1,9 @@
 {
-  "version": "8.17.4",
-  "versionCode": 8244,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.4/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.4/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.4",
+  "version": "8.17.5",
+  "versionCode": 8245,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.5/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.5/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.5",
   "releaseDate": "2026-09-19",
-  "releaseNotes": "v8.17.4: Overhauled In-App Reader UI with clean 4-icon HUD and overflow '...' More Menu; integrated native Android Text-to-Speech (TTS) bridge with Foliate-style active sentence highlighting and auto-advance."
+  "releaseNotes": "v8.17.5: Upgraded TTS engine with Legado & Foliate open-source architecture: background media notification with lockscreen controls, audio focus & headphone disconnect auto-pause, Foliate-style Intl.Segmenter sentence boundaries, sleep timer, and Piper/Sherpa-ONNX offline voice support with 200ms DAC buffer."
 }
