@@ -1972,19 +1972,75 @@ public class NativeAndroidBridgePlugin extends Plugin {
         }
     }
 
+    @Override
+    public void load() {
+        super.load();
+        ensureNativeTts();
+    }
+
     private TextToSpeech nativeTts = null;
     private boolean isNativeTtsReady = false;
 
-    private void ensureNativeTts() {
+    private synchronized void ensureNativeTts() {
         if (nativeTts == null) {
-            nativeTts = new TextToSpeech(getContext(), status -> {
-                if (status == TextToSpeech.SUCCESS) {
-                    nativeTts.setLanguage(Locale.US);
-                    isNativeTtsReady = true;
-                    Log.d(TAG, " Native Android TextToSpeech initialized successfully!");
+            try {
+                Context ctx = getContext();
+                if (ctx != null) {
+                    nativeTts = new TextToSpeech(ctx.getApplicationContext(), status -> {
+                        if (status == TextToSpeech.SUCCESS) {
+                            isNativeTtsReady = true;
+                            nativeTts.setOnUtteranceProgressListener(new android.speech.tts.UtteranceProgressListener() {
+                                @Override
+                                public void onStart(String utteranceId) {
+                                    JSObject data = new JSObject();
+                                    data.put("utteranceId", utteranceId);
+                                    data.put("event", "start");
+                                    notifyListeners("nativeTtsStart", data);
+                                }
+
+                                @Override
+                                public void onDone(String utteranceId) {
+                                    JSObject data = new JSObject();
+                                    data.put("utteranceId", utteranceId);
+                                    data.put("event", "done");
+                                    notifyListeners("nativeTtsDone", data);
+                                }
+
+                                @Override
+                                public void onError(String utteranceId) {
+                                    JSObject data = new JSObject();
+                                    data.put("utteranceId", utteranceId);
+                                    data.put("event", "error");
+                                    notifyListeners("nativeTtsError", data);
+                                }
+
+                                @Override
+                                public void onError(String utteranceId, int errorCode) {
+                                    JSObject data = new JSObject();
+                                    data.put("utteranceId", utteranceId);
+                                    data.put("event", "error");
+                                    data.put("errorCode", errorCode);
+                                    notifyListeners("nativeTtsError", data);
+                                }
+                            });
+                            Log.d(TAG, " Native Android TextToSpeech initialized with UtteranceProgressListener!");
+                        } else {
+                            Log.e(TAG, " Native Android TextToSpeech initialization failed: " + status);
+                        }
+                    });
                 }
-            });
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing TextToSpeech: " + e.getMessage());
+            }
         }
+    }
+
+    @PluginMethod
+    public void isNativeTtsAvailable(PluginCall call) {
+        ensureNativeTts();
+        JSObject ret = new JSObject();
+        ret.put("available", nativeTts != null && isNativeTtsReady);
+        call.resolve(ret);
     }
 
     @PluginMethod
@@ -1992,17 +2048,68 @@ public class NativeAndroidBridgePlugin extends Plugin {
         try {
             ensureNativeTts();
             String text = call.getString("text", "");
+            String utteranceId = call.getString("utteranceId", "utt_" + System.currentTimeMillis());
             Double dRate = call.getDouble("rate", 1.0); float rate = dRate != null ? dRate.floatValue() : 1.0f;
-            
-            if (nativeTts != null && isNativeTtsReady && text != null && !text.isEmpty()) {
-                nativeTts.setSpeechRate(rate);
-                nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "gemini_reader_tts");
+            Double dPitch = call.getDouble("pitch", 1.0); float pitch = dPitch != null ? dPitch.floatValue() : 1.0f;
+            String lang = call.getString("lang", "en");
+
+            if (text == null || text.trim().isEmpty()) {
                 JSObject ret = new JSObject();
                 ret.put("success", true);
+                ret.put("utteranceId", utteranceId);
                 call.resolve(ret);
-            } else {
-                call.reject("Native TTS not ready");
+                return;
             }
+
+            if (nativeTts != null) {
+                if (!isNativeTtsReady) {
+                    int waited = 0;
+                    while (!isNativeTtsReady && waited < 1000) {
+                        try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+                        waited += 50;
+                    }
+                }
+
+                if (isNativeTtsReady) {
+                    try {
+                        Locale loc = Locale.forLanguageTag(lang);
+                        if (loc != null && nativeTts.isLanguageAvailable(loc) >= TextToSpeech.LANG_AVAILABLE) {
+                            nativeTts.setLanguage(loc);
+                        } else if (lang.startsWith("zh") && nativeTts.isLanguageAvailable(Locale.CHINESE) >= TextToSpeech.LANG_AVAILABLE) {
+                            nativeTts.setLanguage(Locale.CHINESE);
+                        } else if (lang.startsWith("ja") && nativeTts.isLanguageAvailable(Locale.JAPANESE) >= TextToSpeech.LANG_AVAILABLE) {
+                            nativeTts.setLanguage(Locale.JAPANESE);
+                        } else if (lang.startsWith("ko") && nativeTts.isLanguageAvailable(Locale.KOREAN) >= TextToSpeech.LANG_AVAILABLE) {
+                            nativeTts.setLanguage(Locale.KOREAN);
+                        } else {
+                            nativeTts.setLanguage(Locale.US);
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "Error setting TTS language: " + e.getMessage());
+                    }
+
+                    nativeTts.setSpeechRate(rate);
+                    nativeTts.setPitch(pitch);
+
+                    int res;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        android.os.Bundle params = new android.os.Bundle();
+                        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
+                        res = nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId);
+                    } else {
+                        java.util.HashMap<String, String> params = new java.util.HashMap<>();
+                        params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
+                        res = nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params);
+                    }
+
+                    JSObject ret = new JSObject();
+                    ret.put("success", res == TextToSpeech.SUCCESS);
+                    ret.put("utteranceId", utteranceId);
+                    call.resolve(ret);
+                    return;
+                }
+            }
+            call.reject("Native TTS not ready");
         } catch (Exception e) {
             call.reject("Native TTS error: " + e.getMessage());
         }

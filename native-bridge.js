@@ -308,12 +308,46 @@
 
         isAvailable: () => isCapacitor() && !!getBridge(),
 
-        speakNative: async (text, rate = 1.0) => {
+        speakNative: async (text, options = {}) => {
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.speakNativeTts) {
-                    await bridge.speakNativeTts({ text, rate });
-                    return true;
+                    const rate = typeof options === 'number' ? options : (options.rate || 1.0);
+                    const pitch = options.pitch || 1.0;
+                    const lang = options.lang || 'en-US';
+                    const utteranceId = options.utteranceId || ('utt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+
+                    let startSub = null, doneSub = null, errSub = null;
+                    const cleanup = () => {
+                        try { startSub?.remove?.(); } catch(e) {}
+                        try { doneSub?.remove?.(); } catch(e) {}
+                        try { errSub?.remove?.(); } catch(e) {}
+                    };
+
+                    if (bridge.addListener) {
+                        if (options.onStart) {
+                            startSub = await bridge.addListener('nativeTtsStart', (data) => {
+                                if (data && data.utteranceId === utteranceId) {
+                                    options.onStart(data);
+                                }
+                            });
+                        }
+                        doneSub = await bridge.addListener('nativeTtsDone', (data) => {
+                            if (data && data.utteranceId === utteranceId) {
+                                cleanup();
+                                options.onDone?.(data);
+                            }
+                        });
+                        errSub = await bridge.addListener('nativeTtsError', (data) => {
+                            if (data && data.utteranceId === utteranceId) {
+                                cleanup();
+                                options.onError?.(data);
+                            }
+                        });
+                    }
+
+                    const res = await bridge.speakNativeTts({ text, rate, pitch, lang, utteranceId });
+                    return res && res.success;
                 }
             } catch (e) {
                 console.warn('Native TTS speak error:', e);
@@ -331,6 +365,17 @@
             } catch (e) {
                 console.warn('Native TTS stop error:', e);
             }
+            return false;
+        },
+
+        isNativeTtsAvailable: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.isNativeTtsAvailable) {
+                    const res = await bridge.isNativeTtsAvailable();
+                    return !!res?.available;
+                }
+            } catch (e) {}
             return false;
         },
 

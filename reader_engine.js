@@ -391,6 +391,78 @@
         font-weight: 600;
       }
 
+      /* More Actions Popover Menu (...) */
+      .reader-v2-more-menu {
+        position: absolute;
+        top: 54px;
+        right: 12px;
+        z-index: 70;
+        background: var(--r-card);
+        border: 1px solid var(--r-border);
+        border-radius: 12px;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+        padding: 6px;
+        min-width: 230px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        backdrop-filter: blur(16px);
+        animation: fadeIn 0.15s ease-out;
+      }
+      .reader-more-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+        color: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: left;
+        width: 100%;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .reader-more-item:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--r-accent);
+      }
+      .reader-more-divider {
+        height: 1px;
+        background: var(--r-border);
+        margin: 4px 6px;
+      }
+
+      /* Floating TTS Audio Player Bar */
+      .reader-v2-tts-bar {
+        position: absolute;
+        bottom: 74px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(94vw, 480px);
+        z-index: 65;
+        background: var(--r-card);
+        border: 1px solid var(--r-border);
+        border-radius: 9999px;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+        padding: 6px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        backdrop-filter: blur(16px);
+        animation: toastIn 0.2s ease-out;
+      }
+      .tts-speaking-sentence {
+        background: rgba(245, 158, 11, 0.22);
+        border-radius: 4px;
+        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.38);
+        color: #fff;
+        transition: all 0.2s ease;
+      }
+
       /* Lightbox Modal */
       .reader-v2-lightbox {
         position: fixed;
@@ -947,32 +1019,56 @@
       scrollToMatch(prevIdx);
     }, [activeMatchIndex, searchMatches, scrollToMatch]);
 
-    // ── 3. TTS Engine ──
+    // ── 3. Dual-Tier TTS Engine (Native Android Bridge + Web Speech Fallback) ──
     const [ttsActive, setTtsActive] = useState(false);
     const [ttsPaused, setTtsPaused] = useState(false);
     const [ttsRate, setTtsRate] = useState(1.0);
     const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
     const sentencesRef = useRef([]);
     const utteranceRef = useRef(null);
+    const ttsActiveRef = useRef(false);
+    const ttsPausedRef = useRef(false);
+    const pendingTtsStartRef = useRef(false);
 
-    // Extract sentences for TTS
     useEffect(() => {
-      const textOnly = chapterElements.filter(e => e.type === 'text').map(e => e.content).filter(Boolean);
+      ttsActiveRef.current = ttsActive;
+      ttsPausedRef.current = ttsPaused;
+    }, [ttsActive, ttsPaused]);
+
+    // Extract sentences with paragraph mapping for precision highlighting
+    useEffect(() => {
       const splitSentences = [];
-      for (const p of textOnly) {
-        const parts = p.split(/(?<=[.!?。！？\n])\s+/).map(s => s.trim()).filter(Boolean);
+      let sGlobalIdx = 0;
+      chapterElements.forEach((el, pIdx) => {
+        if (el.type !== 'text' || !el.content) return;
+        const raw = el.content.trim();
+        if (!raw) return;
+        const parts = raw.split(/(?<=[.!?。！？\n])\s+/).map(s => s.trim()).filter(Boolean);
         if (parts.length > 0) {
-          splitSentences.push(...parts);
-        } else if (p.trim()) {
-          splitSentences.push(p.trim());
+          parts.forEach(part => {
+            splitSentences.push({ text: part, pIdx, sentIdx: sGlobalIdx++ });
+          });
+        } else {
+          splitSentences.push({ text: raw, pIdx, sentIdx: sGlobalIdx++ });
         }
-      }
+      });
       sentencesRef.current = splitSentences;
+      if (pendingTtsStartRef.current && splitSentences.length > 0) {
+        pendingTtsStartRef.current = false;
+        speakSentence(0);
+      }
     }, [chapterElements]);
 
     const stopTts = useCallback(() => {
+      ttsActiveRef.current = false;
+      ttsPausedRef.current = false;
+      pendingTtsStartRef.current = false;
+      if (window.NativeBridge?.stopNativeSpeech) {
+        window.NativeBridge.stopNativeSpeech();
+      }
       if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
+        try { window.speechSynthesis.cancel(); } catch (e) {}
       }
       window.__ttsActiveUtterance = null;
       setTtsActive(false);
@@ -987,31 +1083,42 @@
       };
     }, [stopTts]);
 
-    const speakSentence = useCallback((idx) => {
-      if (typeof window === 'undefined' || !window.speechSynthesis) {
-        if (typeof window !== 'undefined' && window.toast) {
-          window.toast('Speech synthesis is not supported on this browser/device.', 'error');
-        }
-        stopTts();
-        return;
-      }
+    const speakSentence = useCallback(async (idx) => {
+      if (!ttsActiveRef.current) return;
       if (idx >= sentencesRef.current.length) {
-        stopTts();
-        if (typeof window !== 'undefined' && window.toast) {
-          window.toast('Finished reading chapter.', 'info');
+        // End of chapter reached! Seamlessly advance to next chapter
+        if (activeIdx < safeChapters.length - 1) {
+          if (typeof window !== 'undefined' && window.toast) {
+            window.toast(` Advancing to Chapter ${activeIdx + 2}...`, 'info');
+          }
+          pendingTtsStartRef.current = true;
+          changeChapter(activeIdx + 1);
+        } else {
+          stopTts();
+          if (typeof window !== 'undefined' && window.toast) {
+            window.toast(' Finished reading entire book!', 'success');
+          }
         }
         return;
       }
-      window.speechSynthesis.cancel();
-      const sentence = sentencesRef.current[idx];
+
+      const item = sentencesRef.current[idx];
+      const sentence = typeof item === 'string' ? item : item?.text;
       if (!sentence || !sentence.trim()) {
         speakSentence(idx + 1);
         return;
       }
+
       setActiveSentenceIdx(idx);
 
-      const utt = new SpeechSynthesisUtterance(sentence);
-      utt.rate = ttsRate;
+      // Smoothly scroll active sentence into view
+      setTimeout(() => {
+        const sentEl = document.getElementById(`tts-sent-${idx}`);
+        if (sentEl) {
+          sentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+
       const langMap = {
         'zh': 'zh-CN',
         'ja': 'ja-JP',
@@ -1022,66 +1129,111 @@
         'ru': 'ru-RU',
         'en': 'en-US'
       };
-      utt.lang = langMap[tgtLang] || (tgtLang && tgtLang.length === 2 ? `${tgtLang}-${tgtLang.toUpperCase()}` : 'en-US');
+      const ttsLang = langMap[tgtLang] || (tgtLang && tgtLang.length === 2 ? `${tgtLang}-${tgtLang.toUpperCase()}` : 'en-US');
 
-      try {
-        const voices = window.speechSynthesis.getVoices?.() || [];
-        if (voices.length > 0) {
-          const matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(utt.lang.toLowerCase().slice(0, 2)));
-          if (matchedVoice) utt.voice = matchedVoice;
+      // 1. Try Native Android TTS Bridge (Zero lag, works with screen off)
+      let usedNative = false;
+      if (window.NativeBridge && window.NativeBridge.speakNative) {
+        try {
+          const spoken = await window.NativeBridge.speakNative(sentence, {
+            rate: ttsRate,
+            pitch: 1.0,
+            lang: ttsLang,
+            utteranceId: `tts_${activeIdx}_${idx}_${Date.now()}`,
+            onDone: () => {
+              if (ttsActiveRef.current && !ttsPausedRef.current) {
+                speakSentence(idx + 1);
+              }
+            },
+            onError: (err) => {
+              console.warn('[Native TTS] Sentence error, skipping to next:', err);
+              if (ttsActiveRef.current && !ttsPausedRef.current) {
+                speakSentence(idx + 1);
+              }
+            }
+          });
+          if (spoken) usedNative = true;
+        } catch (e) {
+          console.warn('Native speakNative failed, fallback to Web Speech:', e);
         }
-      } catch (e) {}
-
-      utt.onend = () => {
-        window.__ttsActiveUtterance = null;
-        speakSentence(idx + 1);
-      };
-      utt.onerror = (err) => {
-        window.__ttsActiveUtterance = null;
-        if (err.error !== 'canceled' && err.error !== 'interrupted') {
-          console.warn('[TTS] Synthesis warning:', err);
-          if (typeof window !== 'undefined' && window.toast) {
-            window.toast(`TTS Notice: ${err.error || 'Interrupted'}`, 'info');
-          }
-          stopTts();
-        }
-      };
-
-      // Guard against Chrome garbage-collection bug
-      window.__ttsActiveUtterance = utt;
-      utteranceRef.current = utt;
-
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
       }
-      window.speechSynthesis.speak(utt);
-    }, [ttsRate, tgtLang, stopTts]);
+
+      // 2. Web Speech Synthesis Fallback (Desktop / Web browsers)
+      if (!usedNative) {
+        if (typeof window === 'undefined' || !window.speechSynthesis) {
+          stopTts();
+          window.toast?.('Speech synthesis is not supported on this device.', 'error');
+          return;
+        }
+
+        window.speechSynthesis.cancel();
+        const utt = new SpeechSynthesisUtterance(sentence);
+        utt.rate = ttsRate;
+        utt.lang = ttsLang;
+
+        try {
+          const voices = window.speechSynthesis.getVoices?.() || [];
+          if (voices.length > 0) {
+            const matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(ttsLang.toLowerCase().slice(0, 2)));
+            if (matchedVoice) utt.voice = matchedVoice;
+          }
+        } catch (e) {}
+
+        utt.onend = () => {
+          window.__ttsActiveUtterance = null;
+          if (ttsActiveRef.current && !ttsPausedRef.current) {
+            speakSentence(idx + 1);
+          }
+        };
+
+        utt.onerror = (err) => {
+          window.__ttsActiveUtterance = null;
+          if (err.error !== 'canceled' && err.error !== 'interrupted') {
+            console.warn('[TTS] Synthesis warning:', err);
+            if (ttsActiveRef.current && !ttsPausedRef.current) {
+              speakSentence(idx + 1);
+            }
+          }
+        };
+
+        window.__ttsActiveUtterance = utt;
+        utteranceRef.current = utt;
+
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+        window.speechSynthesis.speak(utt);
+      }
+    }, [activeIdx, safeChapters.length, ttsRate, tgtLang, changeChapter, stopTts]);
 
     const toggleTts = () => {
-      if (typeof window === 'undefined' || !window.speechSynthesis) {
-        if (typeof window !== 'undefined' && window.toast) {
-          window.toast('Speech synthesis is not supported on this browser/device.', 'error');
-        }
-        return;
-      }
       if (sentencesRef.current.length === 0) {
-        if (typeof window !== 'undefined' && window.toast) {
-          window.toast('No readable text found in this chapter for Read Aloud.', 'warning');
-        }
+        window.toast?.('No readable text found in this chapter for Read Aloud.', 'warning');
         return;
       }
       if (ttsActive) {
         if (ttsPaused) {
-          window.speechSynthesis.resume();
+          ttsPausedRef.current = false;
           setTtsPaused(false);
+          const startIdx = activeSentenceIdx >= 0 ? activeSentenceIdx : 0;
+          speakSentence(startIdx);
         } else {
-          window.speechSynthesis.pause();
+          ttsPausedRef.current = true;
           setTtsPaused(true);
+          if (window.NativeBridge?.stopNativeSpeech) {
+            window.NativeBridge.stopNativeSpeech();
+          }
+          if (typeof window !== 'undefined' && window.speechSynthesis) {
+            try { window.speechSynthesis.cancel(); } catch (e) {}
+          }
         }
       } else {
+        ttsActiveRef.current = true;
+        ttsPausedRef.current = false;
         setTtsActive(true);
         setTtsPaused(false);
-        speakSentence(0);
+        const startIdx = activeSentenceIdx >= 0 ? activeSentenceIdx : 0;
+        speakSentence(startIdx);
       }
     };
 
@@ -1238,6 +1390,30 @@
         });
       };
 
+      const pSentences = ttsActive ? (sentencesRef.current || []).filter(s => s.pIdx === pIdx) : [];
+
+      if (ttsActive && pSentences.length > 0) {
+        return h('p', { key: el.id, id: el.id },
+          pSentences.map((s) => {
+            const isSpeaking = s.sentIdx === activeSentenceIdx;
+            return h('span', {
+              key: `sent-${s.sentIdx}`,
+              id: `tts-sent-${s.sentIdx}`,
+              className: `reader-tts-sentence ${isSpeaking ? 'tts-speaking-sentence' : ''}`,
+              style: {
+                cursor: 'pointer',
+                borderRadius: 4
+              },
+              title: 'Tap to read from here',
+              onClick: (e) => {
+                e.stopPropagation();
+                speakSentence(s.sentIdx);
+              }
+            }, renderTextWithSearch(s.text + ' ', s.sentIdx));
+          })
+        );
+      }
+
       return h('p', { key: el.id, id: el.id },
         segments.map((seg, sIdx) => {
           if (seg.type === 'footnote') {
@@ -1280,110 +1456,122 @@
           )
         ),
         h('div', { className: 'reader-top-btn-group' },
-          h('button', {
-            type: 'button',
-            className: `reader-top-btn ${ttsActive ? 'active' : ''}`,
-            onClick: toggleTts,
-            title: ttsActive ? (ttsPaused ? 'Resume Read Aloud' : 'Pause Read Aloud') : 'Read Aloud (TTS)'
-          },
-            h('span', null, ttsActive ? (ttsPaused ? '▶' : '⏸') : '🎧'),
-            h('span', { className: 'reader-top-btn-text' }, ' TTS')
-          ),
+          // 1. Table of Contents
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
-            onClick: handleSwapPronounsCurrentChapter,
-            title: 'Swap He ↔ She Pronouns in Chapter (Anti-Pronoun Drift)'
-          },
-            h('span', null, '⚥'),
-            h('span', { className: 'reader-top-btn-text' }, ' He↔She')
-          ),
-          h('button', {
-            type: 'button',
-            className: `reader-top-btn ${showSearch ? 'active' : ''}`,
-            onClick: () => setShowSearch(s => !s),
-            title: 'Search in Chapter'
-          },
-            h('span', null, '🔍'),
-            h('span', { className: 'reader-top-btn-text' }, ' Find')
-          ),
-          h('button', {
-            type: 'button',
-            className: 'reader-top-btn',
-            onClick: () => setShowToc(true),
+            onClick: () => { setShowMoreMenu(false); setShowToc(true); },
             title: 'Table of Contents'
           },
             h('span', null, '📑'),
             h('span', { className: 'reader-top-btn-text' }, ' TOC')
           ),
+          // 2. Read Aloud (TTS)
           h('button', {
             type: 'button',
-            className: 'reader-top-btn',
-            onClick: () => {
-              if (typeof onOpenHealthAudit === 'function') {
-                onOpenHealthAudit();
-              } else if (typeof window !== 'undefined' && typeof window.openNovelHealthAudit === 'function') {
-                window.openNovelHealthAudit();
-              }
-            },
-            title: 'Novel Health & Translation QA Audit (§5.9 + §7.1 + §7.5)'
+            className: `reader-top-btn ${ttsActive ? 'active' : ''}`,
+            onClick: () => { setShowMoreMenu(false); toggleTts(); },
+            title: ttsActive ? (ttsPaused ? 'Resume Read Aloud' : 'Pause Read Aloud') : 'Read Aloud (TTS)'
           },
-            h('span', null, '🩺'),
-            h('span', { className: 'reader-top-btn-text' }, ' QA')
+            h('span', null, ttsActive ? (ttsPaused ? '▶' : '⏸') : '🎧'),
+            h('span', { className: 'reader-top-btn-text' }, ' TTS')
           ),
+          // 3. Settings (Typography & Themes)
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
-            onClick: () => {
-              if (typeof onOpenDiff === 'function') {
-                onOpenDiff(activeIdx);
-              } else if (typeof window !== 'undefined' && typeof window.openDiffInspector === 'function') {
-                window.openDiffInspector(activeIdx);
-              }
-            },
-            title: 'Translation Revisions & Diffs (§8.6)'
-          },
-            h('span', null, '📜'),
-            h('span', { className: 'reader-top-btn-text' }, ' Diffs')
-          ),
-          h('button', {
-            type: 'button',
-            className: 'reader-top-btn',
-            onClick: handleShareDeepLink,
-            title: 'Share Chapter Deep Link (§10.8)'
-          },
-            h('span', null, '🔗'),
-            h('span', { className: 'reader-top-btn-text' }, ' Share')
-          ),
-          h('button', {
-            type: 'button',
-            className: 'reader-top-btn',
-            onClick: () => {
-              if (typeof onClose === 'function') onClose();
-              if (window.loadEpubForEditing) {
-                window.loadEpubForEditing({
-                  id: novelId,
-                  chapters: chapters
-                });
-              }
-              if (typeof window.setActiveAppTab === 'function') {
-                window.setActiveAppTab('studio', 'edit');
-              }
-            },
-            title: 'Edit Book & TOC in Ebook Studio'
-          },
-            h('span', null, '✏️'),
-            h('span', { className: 'reader-top-btn-text' }, ' Edit')
-          ),
-          h('button', {
-            type: 'button',
-            className: 'reader-top-btn',
-            onClick: () => setShowSettings(true),
+            onClick: () => { setShowMoreMenu(false); setShowSettings(true); },
             title: 'Typography & Appearance'
           },
             h('span', null, '⚙'),
             h('span', { className: 'reader-top-btn-text' }, ' Settings')
+          ),
+          // 4. More Actions Menu (...)
+          h('button', {
+            type: 'button',
+            className: `reader-top-btn ${showMoreMenu ? 'active' : ''}`,
+            onClick: (e) => { e.stopPropagation(); setShowMoreMenu(s => !s); },
+            title: 'More Actions'
+          },
+            h('span', { style: { fontSize: 16, fontWeight: 900, letterSpacing: 1 } }, '···')
           )
+        )
+      ),
+
+      // ── MORE ACTIONS POPUP MENU (...) ──
+      showMoreMenu && h('div', {
+        className: 'reader-v2-more-menu',
+        onClick: (e) => e.stopPropagation()
+      },
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          onClick: () => { setShowMoreMenu(false); setShowSearch(s => !s); }
+        },
+          h('span', null, '🔍'),
+          h('span', null, 'Find in Chapter')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          onClick: () => { setShowMoreMenu(false); handleSwapPronounsCurrentChapter(); }
+        },
+          h('span', null, '⚥'),
+          h('span', null, 'Swap Pronouns (He ↔ She)')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          onClick: () => { setShowMoreMenu(false); setAutoScroll(s => !s); }
+        },
+          h('span', null, '⚡'),
+          h('span', null, autoScroll ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')
+        ),
+        h('div', { className: 'reader-more-divider' }),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          onClick: () => {
+            setShowMoreMenu(false);
+            if (typeof onOpenHealthAudit === 'function') onOpenHealthAudit();
+            else if (typeof window !== 'undefined' && typeof window.openNovelHealthAudit === 'function') window.openNovelHealthAudit();
+          }
+        },
+          h('span', null, '🩺'),
+          h('span', null, 'Novel Health & QA Audit')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          onClick: () => {
+            setShowMoreMenu(false);
+            if (typeof onOpenDiff === 'function') onOpenDiff(activeIdx);
+            else if (typeof window !== 'undefined' && typeof window.openDiffInspector === 'function') window.openDiffInspector(activeIdx);
+          }
+        },
+          h('span', null, '📜'),
+          h('span', null, 'Translation Diffs & Revisions')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          onClick: () => {
+            setShowMoreMenu(false);
+            if (typeof onClose === 'function') onClose();
+            if (window.loadEpubForEditing) window.loadEpubForEditing({ id: novelId, chapters });
+            if (typeof window.setActiveAppTab === 'function') window.setActiveAppTab('studio', 'edit');
+          }
+        },
+          h('span', null, '✏️'),
+          h('span', null, 'Edit in Ebook Studio')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          onClick: () => { setShowMoreMenu(false); handleShareDeepLink(); }
+        },
+          h('span', null, '🔗'),
+          h('span', null, 'Share Chapter Deep Link')
         )
       ),
 
@@ -1569,9 +1757,9 @@
 
       // ── BOTTOM HUD ──
       h('div', { className: `reader-v2-hud-bottom ${hudVisible ? '' : 'reader-v2-hud-hidden'}` },
-        // Progress Slider
+        // Progress Scrubber Slider
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-          h('span', { style: { fontSize: 11, color: 'var(--r-muted)', width: 36, textAlign: 'right' } }, `${activeIdx + 1}`),
+          h('span', { style: { fontSize: 11, color: 'var(--r-muted)', minWidth: 38, textAlign: 'right' } }, `${activeIdx + 1}`),
           h('input', {
             type: 'range',
             min: 0,
@@ -1580,55 +1768,102 @@
             style: { flex: 1, accentColor: 'var(--r-accent)' },
             onChange: (e) => changeChapter(parseInt(e.target.value, 10))
           }),
-          h('span', { style: { fontSize: 11, color: 'var(--r-muted)', width: 36 } }, `${safeChapters.length}`)
+          h('span', { style: { fontSize: 11, color: 'var(--r-muted)', minWidth: 38 } }, `${safeChapters.length}`)
         ),
 
-        // Action Toolbar
-        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-          // Chapter navigation
-          h('div', { style: { display: 'flex', gap: 6 } },
-            h('button', {
-              type: 'button',
-              className: 'mini-btn ghost',
-              disabled: activeIdx <= 0,
-              onClick: () => changeChapter(activeIdx - 1)
-            }, '⏮ Prev'),
-            h('button', {
-              type: 'button',
-              className: 'mini-btn ghost',
-              disabled: activeIdx >= safeChapters.length - 1,
-              onClick: () => changeChapter(activeIdx + 1)
-            }, 'Next ⏭')
+        // Clean Navigation Toolbar
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 4px' } },
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            disabled: activeIdx <= 0,
+            style: { padding: '7px 14px', fontWeight: 600, fontSize: 12.5 },
+            onClick: () => changeChapter(activeIdx - 1)
+          }, '⏮ Previous'),
+
+          h('div', { style: { fontSize: 12, color: 'var(--r-muted)', fontWeight: 600 } },
+            `Chapter ${activeIdx + 1} of ${safeChapters.length} • ${Math.round(((activeIdx + 1) / safeChapters.length) * 100)}%`
           ),
 
-          // Tools: TTS, Auto-scroll, Font size
-          h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-            h('button', {
-              type: 'button',
-              className: `mini-btn ${ttsActive ? '' : 'ghost'}`,
-              style: ttsActive ? { background: '#f59e0b', color: '#000', fontWeight: 700 } : {},
-              onClick: toggleTts
-            }, ttsActive ? (ttsPaused ? '▶ Resume TTS' : '⏸ Pause TTS') : '🎧 Read Aloud'),
-            h('button', {
-              type: 'button',
-              className: `mini-btn ${autoScroll ? '' : 'ghost'}`,
-              style: autoScroll ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
-              onClick: () => setAutoScroll(s => !s)
-            }, autoScroll ? '⏸ Stop Scroll' : '⚡ Auto-Scroll'),
-            h('div', { style: { display: 'flex', alignItems: 'center', background: 'var(--r-bg)', borderRadius: 6, border: '1px solid var(--r-border)' } },
-              h('button', {
-                type: 'button',
-                style: { background: 'none', border: 'none', padding: '4px 8px', color: 'inherit', cursor: 'pointer', fontSize: 13 },
-                onClick: () => setFontSize?.(Math.max(12, fontSize - 1))
-              }, 'A-'),
-              h('span', { style: { fontSize: 11, padding: '0 4px', color: 'var(--r-muted)' } }, `${fontSize}`),
-              h('button', {
-                type: 'button',
-                style: { background: 'none', border: 'none', padding: '4px 8px', color: 'inherit', cursor: 'pointer', fontSize: 13 },
-                onClick: () => setFontSize?.(Math.min(36, fontSize + 1))
-              }, 'A+')
-            )
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            disabled: activeIdx >= safeChapters.length - 1,
+            style: { padding: '7px 14px', fontWeight: 600, fontSize: 12.5 },
+            onClick: () => changeChapter(activeIdx + 1)
+          }, 'Next ⏭')
+        )
+      ),
+
+      // ── FLOATING TTS AUDIO PLAYER BAR (WHEN ACTIVE) ──
+      ttsActive && h('div', {
+        className: 'reader-v2-tts-bar',
+        onClick: (e) => e.stopPropagation()
+      },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+          h('button', {
+            type: 'button',
+            className: 'reader-search-nav-btn',
+            title: 'Previous Sentence',
+            disabled: activeSentenceIdx <= 0,
+            onClick: () => speakSentence(Math.max(0, activeSentenceIdx - 1))
+          }, '⏮'),
+          h('button', {
+            type: 'button',
+            style: {
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              background: 'var(--r-accent)',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: 16,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 0 12px rgba(99, 102, 241, 0.4)'
+            },
+            title: ttsPaused ? 'Resume' : 'Pause',
+            onClick: toggleTts
+          }, ttsPaused ? '▶' : '⏸'),
+          h('button', {
+            type: 'button',
+            className: 'reader-search-nav-btn',
+            title: 'Next Sentence',
+            disabled: activeSentenceIdx >= sentencesRef.current.length - 1,
+            onClick: () => speakSentence(activeSentenceIdx + 1)
+          }, '⏭')
+        ),
+
+        h('div', { style: { flex: 1, minWidth: 0, textAlign: 'center' } },
+          h('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--r-accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+            `🎧 Sentence ${activeSentenceIdx + 1}/${sentencesRef.current.length}`
+          ),
+          h('div', { style: { fontSize: 10, color: 'var(--r-muted)', marginTop: 2 } },
+            `${ttsRate}x Speed · Tap any sentence to jump`
           )
+        ),
+
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+          h('button', {
+            type: 'button',
+            className: 'reader-search-nav-btn',
+            style: { fontWeight: 700, fontSize: 11, padding: '4px 8px', minWidth: 42 },
+            title: 'Change Speed',
+            onClick: () => {
+              const rates = [0.75, 1.0, 1.25, 1.5, 2.0];
+              const curIdx = rates.indexOf(ttsRate);
+              const nextRate = rates[(curIdx + 1) % rates.length];
+              setTtsRate(nextRate);
+            }
+          }, `${ttsRate}x`),
+          h('button', {
+            type: 'button',
+            className: 'reader-search-nav-btn close',
+            title: 'Stop Read Aloud',
+            onClick: stopTts
+          }, '✕')
         )
       ),
 
