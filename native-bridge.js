@@ -449,6 +449,19 @@
             return false;
         },
 
+        openTtsSettings: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.openTtsSettings) {
+                    const res = await bridge.openTtsSettings();
+                    return !!res?.success;
+                }
+            } catch (e) {
+                console.warn('openTtsSettings error:', e);
+            }
+            return false;
+        },
+
         setMediaMetadata: async ({ title, artist, playing }) => {
             try {
                 const bridge = getBridge();

@@ -692,11 +692,13 @@
       }
     }, [open, activeIdx, activeNovelKey]);
 
-    // Debounced Scroll Persistence
+    // Debounced Scroll Persistence & Auto-Scroll Subpixel Accumulator
     const saveScrollTimeoutRef = useRef(null);
+    const scrollAccumulatorRef = useRef(0);
     const handleScroll = useCallback((e) => {
       const el = e.currentTarget;
       if (!el) return;
+      scrollAccumulatorRef.current = el.scrollTop || 0;
       if (saveScrollTimeoutRef.current) clearTimeout(saveScrollTimeoutRef.current);
       saveScrollTimeoutRef.current = setTimeout(() => {
         const top = el.scrollTop || 0;
@@ -729,23 +731,62 @@
     useEffect(() => { localStorage.setItem('gemini_reader_indent', String(paragraphIndent)); }, [paragraphIndent]);
     useEffect(() => { localStorage.setItem('readerJustify', String(justify)); }, [justify]);
 
-    // Auto-Scroll
+    // Auto-Scroll Engine (Subpixel Precision & Chapter Auto-Advance)
     const [autoScroll, setAutoScroll] = useState(false);
     const [autoScrollSpeed, setAutoScrollSpeed] = useState(1.0);
     const autoScrollRaf = useRef(null);
+    const autoScrollSpeedRef = useRef(1.0);
+
+    useEffect(() => {
+      autoScrollSpeedRef.current = autoScrollSpeed;
+    }, [autoScrollSpeed]);
 
     useEffect(() => {
       if (!autoScroll) {
         if (autoScrollRaf.current) cancelAnimationFrame(autoScrollRaf.current);
         return;
       }
+
+      // If user starts auto-scroll in paginated mode, switch to continuous scroll
+      if (viewMode === 'paginated') {
+        setViewMode('scroll');
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Switched to continuous scroll mode for Auto-Scroll.', 'info');
+        }
+      }
+
+      const container = document.getElementById('gemini-reader-scroll-area');
+      if (container) {
+        scrollAccumulatorRef.current = container.scrollTop;
+      }
+
       let lastTime = performance.now();
       const step = (time) => {
-        const delta = (time - lastTime) / 1000;
+        const delta = Math.min((time - lastTime) / 1000, 0.1);
         lastTime = time;
-        const container = document.getElementById('gemini-reader-scroll-area');
-        if (container) {
-          container.scrollTop += (autoScrollSpeed * 40 * delta);
+        const c = document.getElementById('gemini-reader-scroll-area');
+        if (c) {
+          // Base speed: 60px/sec at 1.0x (comfortable reading pace)
+          const pxToScroll = autoScrollSpeedRef.current * 60 * delta;
+          scrollAccumulatorRef.current += pxToScroll;
+          c.scrollTop = Math.round(scrollAccumulatorRef.current);
+
+          // Check if bottom of chapter reached
+          if (c.scrollTop + c.clientHeight >= c.scrollHeight - 10) {
+            if (activeIdx < safeChapters.length - 1) {
+              if (typeof window !== 'undefined' && window.toast) {
+                window.toast(`⚡ Auto-scrolling to Chapter ${activeIdx + 2}...`, 'info');
+              }
+              changeChapter(activeIdx + 1);
+              scrollAccumulatorRef.current = 0;
+            } else {
+              setAutoScroll(false);
+              if (typeof window !== 'undefined' && window.toast) {
+                window.toast('Finished reading book. Auto-scroll stopped.', 'success');
+              }
+              return;
+            }
+          }
         }
         autoScrollRaf.current = requestAnimationFrame(step);
       };
@@ -753,7 +794,7 @@
       return () => {
         if (autoScrollRaf.current) cancelAnimationFrame(autoScrollRaf.current);
       };
-    }, [autoScroll, autoScrollSpeed]);
+    }, [autoScroll, viewMode, activeIdx, safeChapters.length, changeChapter]);
 
     const currentChapter = safeChapters[activeIdx] || safeChapters[0];
     const [renderTick, setRenderTick] = useState(0);
@@ -1026,14 +1067,16 @@
     const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
     const activeSentenceIdxRef = useRef(-1);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const [showVoiceModal, setShowVoiceModal] = useState(false);
+    const [previewSpeaking, setPreviewSpeaking] = useState(false);
     const [sleepTimerMinutes, setSleepTimerMinutes] = useState(0); // 0 = off, 15, 30, 45, 60, -1 = end of chapter
     const [sleepTimerSecondsLeft, setSleepTimerSecondsLeft] = useState(0);
     const sleepTimerRef = useRef(0);
     const [ttsEngines, setTtsEngines] = useState([]);
-    const [selectedTtsEngine, setSelectedTtsEngine] = useState('');
+    const [selectedTtsEngine, setSelectedTtsEngine] = useState(() => localStorage.getItem('gemini_tts_engine') || '');
     const [ttsVoices, setTtsVoices] = useState([]);
-    const [selectedTtsVoice, setSelectedTtsVoice] = useState('');
-    const [dacDelayMs, setDacDelayMs] = useState(200); // 200ms DAC ramp-up buffer for Piper/hardware
+    const [selectedTtsVoice, setSelectedTtsVoice] = useState(() => localStorage.getItem('gemini_tts_voice') || '');
+    const [dacDelayMs, setDacDelayMs] = useState(() => parseInt(localStorage.getItem('gemini_tts_dac_delay') || '200', 10)); // 200ms DAC buffer
 
     const sentencesRef = useRef([]);
     const utteranceRef = useRef(null);
@@ -1051,24 +1094,106 @@
       sleepTimerRef.current = sleepTimerMinutes;
     }, [sleepTimerMinutes]);
 
-    // Fetch installed Android TTS engines and voices if available
+    useEffect(() => {
+      localStorage.setItem('gemini_tts_dac_delay', String(dacDelayMs));
+    }, [dacDelayMs]);
+
+    // Fetch installed Android TTS engines and voices with persistence
     useEffect(() => {
       if (window.NativeBridge?.getTtsEngines) {
-        window.NativeBridge.getTtsEngines().then(res => {
+        window.NativeBridge.getTtsEngines().then(async res => {
           if (res?.engines?.length > 0) {
             setTtsEngines(res.engines);
-            setSelectedTtsEngine(res.defaultEngine || res.engines[0]?.name || '');
-          }
-        }).catch(() => {});
-      }
-      if (window.NativeBridge?.getTtsVoices) {
-        window.NativeBridge.getTtsVoices().then(v => {
-          if (Array.isArray(v) && v.length > 0) {
-            setTtsVoices(v);
+            const savedEng = localStorage.getItem('gemini_tts_engine');
+            const engineToUse = (savedEng && res.engines.some(e => e.name === savedEng))
+              ? savedEng
+              : (res.defaultEngine || res.engines[0]?.name || '');
+
+            setSelectedTtsEngine(engineToUse);
+            if (savedEng && window.NativeBridge.setTtsEngine) {
+              await window.NativeBridge.setTtsEngine(engineToUse).catch(() => {});
+            }
+
+            if (window.NativeBridge.getTtsVoices) {
+              const v = await window.NativeBridge.getTtsVoices().catch(() => []);
+              if (Array.isArray(v) && v.length > 0) {
+                setTtsVoices(v);
+                const savedVoice = localStorage.getItem('gemini_tts_voice');
+                if (savedVoice && v.some(voice => voice.name === savedVoice)) {
+                  setSelectedTtsVoice(savedVoice);
+                }
+              }
+            }
           }
         }).catch(() => {});
       }
     }, []);
+
+    const handleEngineChange = async (eng) => {
+      setSelectedTtsEngine(eng);
+      localStorage.setItem('gemini_tts_engine', eng);
+      if (window.NativeBridge?.setTtsEngine) {
+        try {
+          await window.NativeBridge.setTtsEngine(eng);
+          if (window.NativeBridge?.getTtsVoices) {
+            const v = await window.NativeBridge.getTtsVoices();
+            const voiceList = Array.isArray(v) ? v : [];
+            setTtsVoices(voiceList);
+            if (voiceList.length > 0) {
+              setSelectedTtsVoice(voiceList[0].name);
+              localStorage.setItem('gemini_tts_voice', voiceList[0].name);
+            }
+          }
+          if (window.toast) {
+            const label = eng.includes('sherpa') || eng.includes('woheller') ? 'SherpaTTS (Offline Piper AI)' : (eng.includes('google') ? 'Google Speech Services' : eng);
+            window.toast(`Speech engine set to: ${label}`, 'success');
+          }
+        } catch (e) {
+          console.warn('Failed to switch engine:', e);
+        }
+      }
+    };
+
+    const handleVoiceChange = (voiceName) => {
+      setSelectedTtsVoice(voiceName);
+      localStorage.setItem('gemini_tts_voice', voiceName);
+      if (window.NativeBridge?.setTtsVoice) {
+        window.NativeBridge.setTtsVoice(voiceName);
+      }
+      if (window.toast) {
+        window.toast(`Voice set to: ${voiceName || 'Default'}`, 'info');
+      }
+    };
+
+    const previewVoice = async () => {
+      if (previewSpeaking) return;
+      setPreviewSpeaking(true);
+      const sampleText = "Hello Exile! This is your offline voice model reading with zero delay.";
+      try {
+        if (window.NativeBridge?.speakNative) {
+          await window.NativeBridge.speakNative(sampleText, {
+            rate: ttsRate,
+            pitch: 1.0,
+            lang: 'en-US',
+            voiceName: selectedTtsVoice,
+            delayMs: dacDelayMs,
+            onDone: () => setPreviewSpeaking(false),
+            onError: () => setPreviewSpeaking(false)
+          });
+        } else if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(sampleText);
+          u.rate = ttsRate;
+          u.onend = () => setPreviewSpeaking(false);
+          u.onerror = () => setPreviewSpeaking(false);
+          window.speechSynthesis.speak(u);
+        } else {
+          setPreviewSpeaking(false);
+        }
+      } catch (e) {
+        setPreviewSpeaking(false);
+      }
+    };
 
     // Legado-style Sleep Timer countdown
     useEffect(() => {
@@ -1672,6 +1797,14 @@
           h('span', null, '⚡'),
           h('span', null, autoScroll ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')
         ),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          onClick: () => { setShowMoreMenu(false); setShowVoiceModal(true); }
+        },
+          h('span', null, '🎙'),
+          h('span', null, 'Voice & Offline Engine Settings')
+        ),
         h('div', { className: 'reader-more-divider' }),
         h('button', {
           type: 'button',
@@ -1991,6 +2124,13 @@
         ),
 
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+          h('button', {
+            type: 'button',
+            className: 'reader-search-nav-btn',
+            style: { fontWeight: 700, fontSize: 11, padding: '4px 8px', minWidth: 46, color: 'var(--r-accent)' },
+            title: 'Choose Voice & Offline Engine (SherpaTTS / Piper / Google)',
+            onClick: () => setShowVoiceModal(true)
+          }, '🎙 Voice'),
           h('button', {
             type: 'button',
             className: 'reader-search-nav-btn',
@@ -2341,8 +2481,153 @@
                   }
                 }, label))
               )
-            )
+            ),
+            // Button to open full Voice & Offline Engine Manager
+            h('button', {
+              type: 'button',
+              className: 'mini-btn',
+              style: { width: '100%', padding: '10px 0', marginTop: 14, background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8 },
+              onClick: () => { setShowSettings(false); setShowVoiceModal(true); }
+            }, '🎙 Open Voice & Offline AI Engine Manager')
           )
+        )
+      ),
+
+      // ── VOICE & OFFLINE ENGINE SELECTION MODAL ──
+      showVoiceModal && h('div', {
+        style: { position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' },
+        onClick: () => setShowVoiceModal(false)
+      },
+        h('div', {
+          style: { width: '100%', maxWidth: 520, maxHeight: '85vh', overflowY: 'auto', background: 'var(--r-card)', color: 'var(--r-text)', borderRadius: '16px 16px 0 0', padding: 20, boxShadow: '0 -10px 40px rgba(0,0,0,0.6)' },
+          onClick: (e) => e.stopPropagation()
+        },
+          // Header
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+              h('span', { style: { fontSize: 20 } }, '🎙'),
+              h('div', null,
+                h('div', { style: { fontWeight: 800, fontSize: 16 } }, 'Voice & Speech Engine'),
+                h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)' } }, 'Configure offline Piper AI voices (SherpaTTS) & system speech')
+              )
+            ),
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { border: 'none', fontSize: 18, padding: '4px 8px' },
+              onClick: () => setShowVoiceModal(false)
+            }, '✕')
+          ),
+
+          // 1. Engine Selector
+          h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+              h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)' } }, '1. Speech Engine'),
+              selectedTtsEngine.includes('sherpa') || selectedTtsEngine.includes('woheller')
+                ? h('span', { style: { fontSize: 10.5, padding: '2px 8px', borderRadius: 9999, background: 'rgba(16,185,129,0.2)', color: '#34d399', fontWeight: 700 } }, '● Offline Neural Active')
+                : null
+            ),
+            h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
+              'Select which TTS engine synthesizes your text. Choose SherpaTTS for offline Piper AI voices (e.g. Callum), or Google / Samsung.'
+            ),
+            ttsEngines.length > 0
+              ? h('select', {
+                  value: selectedTtsEngine,
+                  style: { width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--r-bg)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13.5, fontWeight: 600 },
+                  onChange: (e) => handleEngineChange(e.target.value)
+                },
+                  ttsEngines.map(eng => {
+                    const isSherpa = eng.name.includes('sherpa') || eng.name.includes('woheller');
+                    return h('option', { key: eng.name, value: eng.name },
+                      `${eng.label || eng.name} ${isSherpa ? '★ (SherpaTTS Offline AI / Piper)' : ''}${eng.isDefault ? ' [System Default]' : ''}`
+                    );
+                  })
+                )
+              : h('div', { style: { fontSize: 12.5, color: 'var(--r-muted)', fontStyle: 'italic' } },
+                  window.NativeBridge?.isAvailable?.() ? 'Scanning installed Android engines…' : 'Browser Web Speech Engine (Desktop mode)'
+                )
+          ),
+
+          // 2. Voice Selector & Preview
+          h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
+            h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)', marginBottom: 6 } }, '2. Select Voice'),
+            h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
+              'Pick your favorite voice model installed in the selected engine.'
+            ),
+            ttsVoices.length > 0
+              ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+                  h('select', {
+                    value: selectedTtsVoice,
+                    style: { width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--r-bg)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13.5, fontWeight: 600 },
+                    onChange: (e) => handleVoiceChange(e.target.value)
+                  },
+                    h('option', { value: '' }, 'Default Engine Voice'),
+                    ttsVoices.map(v => h('option', { key: v.name, value: v.name },
+                      `${v.name} (${v.locale || 'all'}) ${v.requiresNetwork ? '☁ Online' : '⚡ Offline'}`
+                    ))
+                  ),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    disabled: previewSpeaking,
+                    style: { alignSelf: 'flex-start', padding: '8px 16px', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 6 },
+                    onClick: previewVoice
+                  }, previewSpeaking ? '🔊 Speaking Preview…' : '▶ Preview / Test Voice')
+                )
+              : h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 } },
+                  h('span', { style: { fontSize: 12.5, color: 'var(--r-muted)', fontStyle: 'italic' } }, 'Default voice will be used based on chapter language.'),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    disabled: previewSpeaking,
+                    style: { padding: '7px 14px', background: 'var(--r-accent)', color: '#fff', fontWeight: 600, borderRadius: 6 },
+                    onClick: previewVoice
+                  }, previewSpeaking ? '🔊 Speaking…' : '▶ Test Voice')
+                )
+          ),
+
+          // 3. Inter-Sentence Pause (DAC Ramp-up Buffer)
+          h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--r-border)', borderRadius: 10, padding: 14, marginBottom: 16 } },
+            h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)', marginBottom: 4 } }, '3. Sentence Pause (DAC Buffer)'),
+            h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
+              'Pause duration between sentences. 200ms is recommended for Piper ONNX models to prevent initial consonant clipping.'
+            ),
+            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 } },
+              [[0, '0ms'], [100, '100ms'], [200, '200ms (★)'], [300, '300ms'], [500, '500ms']].map(([ms, label]) => h('button', {
+                key: ms,
+                type: 'button',
+                className: `mini-btn ${dacDelayMs === ms ? '' : 'ghost'}`,
+                style: dacDelayMs === ms ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
+                onClick: () => setDacDelayMs(ms)
+              }, label))
+            )
+          ),
+
+          // 4. How-To Guide for SherpaTTS / Piper AI Voices
+          h('div', { style: { background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)', borderRadius: 10, padding: 14, marginBottom: 16 } },
+            h('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--r-accent)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 } },
+              h('span', null, '💡'),
+              h('span', null, 'How to install Offline Voices in SherpaTTS')
+            ),
+            h('ol', { style: { fontSize: 12, lineHeight: 1.6, color: 'var(--r-text)', paddingLeft: 18, margin: 0 } },
+              h('li', null, 'Install SherpaTTS / ttsEngine APK on your Android phone.'),
+              h('li', null, 'Copy your model files (e.g. callum.onnx and tokens.txt) into your phone’s Download folder.'),
+              h('li', null, 'Open SherpaTTS, tap "+" or "Install from SD", select the model & tokens file, and tap Install.'),
+              h('li', null, 'In this app, select SherpaTTS under "1. Speech Engine" above, choose your voice, and enjoy studio offline audio!')
+            )
+          ),
+
+          // 5. Open Android System Settings Button
+          window.NativeBridge?.openTtsSettings && h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { width: '100%', padding: '11px 0', fontWeight: 600, fontSize: 13, border: '1px solid var(--r-border)' },
+            onClick: () => {
+              if (window.NativeBridge?.openTtsSettings) {
+                window.NativeBridge.openTtsSettings();
+              }
+            }
+          }, '⚙ Open Android System Text-to-Speech Settings')
         )
       ),
 

@@ -2355,15 +2355,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         isNativeTtsReady = true;
                         setupTtsListener();
                         Log.d(TAG, "Switched native TTS engine to: " + engine);
+                        JSObject ret = new JSObject();
+                        ret.put("success", true);
+                        ret.put("engine", engine);
+                        call.resolve(ret);
                     } else {
                         Log.e(TAG, "Failed to initialize TTS engine: " + engine);
+                        call.reject("Failed to initialize TTS engine: " + engine);
                     }
                 }, engine);
-
-                JSObject ret = new JSObject();
-                ret.put("success", true);
-                ret.put("engine", engine);
-                call.resolve(ret);
             } else {
                 call.reject("Context is null");
             }
@@ -2376,6 +2376,13 @@ public class NativeAndroidBridgePlugin extends Plugin {
     public void getTtsVoices(PluginCall call) {
         try {
             ensureNativeTts();
+            if (nativeTts != null && !isNativeTtsReady) {
+                int waited = 0;
+                while (!isNativeTtsReady && waited < 1500) {
+                    try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+                    waited += 50;
+                }
+            }
             JSObject ret = new JSObject();
             JSArray voicesArray = new JSArray();
             if (nativeTts != null && isNativeTtsReady && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -2396,6 +2403,35 @@ public class NativeAndroidBridgePlugin extends Plugin {
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to get TTS voices: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void openTtsSettings(PluginCall call) {
+        try {
+            Context ctx = getContext();
+            if (ctx != null) {
+                Intent intent = new Intent("com.android.settings.TTS_SETTINGS");
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                ctx.startActivity(intent);
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                call.resolve(ret);
+                return;
+            }
+            call.reject("Context is null");
+        } catch (Exception e) {
+            try {
+                Context ctx = getContext();
+                Intent intent = new Intent(Settings.ACTION_SETTINGS);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                ctx.startActivity(intent);
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                call.resolve(ret);
+            } catch (Exception ex) {
+                call.reject("Failed to open TTS settings: " + ex.getMessage());
+            }
         }
     }
 
