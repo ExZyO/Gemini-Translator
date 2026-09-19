@@ -1247,137 +1247,64 @@
             setTtsEngines(res.engines);
             const savedEng = localStorage.getItem('gemini_tts_engine');
             const engineToUse = (savedEng && res.engines.some(e => e.name === savedEng))
-              ? savedEng
-              : (res.defaultEngine || res.engines[0]?.name || '');
-
-            setSelectedTtsEngine(engineToUse);
-            if (savedEng && window.NativeBridge.setTtsEngine) {
-              await window.NativeBridge.setTtsEngine(engineToUse).catch(() => {});
-            }
-
-            if (window.NativeBridge.getTtsVoices) {
-              const v = await window.NativeBridge.getTtsVoices().catch(() => []);
-              if (Array.isArray(v) && v.length > 0) {
-                setTtsVoices(v);
-                const savedVoice = localStorage.getItem('gemini_tts_voice');
-                if (savedVoice && v.some(voice => voice.name === savedVoice)) {
-                  setSelectedTtsVoice(savedVoice);
-                }
-              }
-            }
+            setTtsEngines(res.engines);
+            refreshSystemTts();
           }
         }).catch(() => {});
       }
-    }, []);
+    }, [refreshSystemTts]);
 
-    // All available engines list (SherpaTTS & System Default always present)
-    const allAvailableEngines = useMemo(() => {
-      const list = [];
-      // 1. Android System Default (Moon+ Reader Mode)
-      list.push({
-        name: 'SYSTEM_DEFAULT',
-        title: 'Android Settings Default',
-        subtitle: 'Uses whatever engine & voice is active in Android Settings (Moon+ Reader style)',
-        icon: '📱',
-        badge: 'Recommended',
-        badgeColor: 'rgba(16,185,129,0.2)',
-        badgeTextColor: '#34d399',
-        isDefault: true
-      });
+    const [systemTtsInfo, setSystemTtsInfo] = useState(() => ({
+      enginePackage: 'SYSTEM_DEFAULT',
+      engineLabel: 'System Default (Android Settings)',
+      voiceName: '',
+      isReady: true
+    }));
 
-      // 2. SherpaTTS (Offline Piper AI)
-      const sherpaDetected = ttsEngines.find(e => e.name && (e.name.toLowerCase().includes('sherpa') || e.name.toLowerCase().includes('woheller')));
-      list.push({
-        name: sherpaDetected ? sherpaDetected.name : 'com.k2fsa.sherpa.onnx.ttsengine',
-        title: 'SherpaTTS (Offline Piper AI)',
-        subtitle: 'Studio offline neural voices (Callum & Piper models) with zero lag',
-        icon: '⚡',
-        badge: 'Offline Neural',
-        badgeColor: 'rgba(99,102,241,0.2)',
-        badgeTextColor: '#818cf8'
-      });
-
-      // 3. Google Speech Services
-      const googleDetected = ttsEngines.find(e => e.name && e.name.toLowerCase().includes('google'));
-      list.push({
-        name: googleDetected ? googleDetected.name : 'com.google.android.tts',
-        title: 'Google Speech Services',
-        subtitle: 'Google official speech engine (Online & offline voice packs)',
-        icon: '☁'
-      });
-
-      // 4. Any other detected engines (Samsung, etc.)
-      ttsEngines.forEach(e => {
-        if (!e.name) return;
-        const n = e.name.toLowerCase();
-        if (!n.includes('sherpa') && !n.includes('woheller') && !n.includes('google')) {
-          list.push({
-            name: e.name,
-            title: e.label || e.name,
-            subtitle: `Detected engine: ${e.name}`,
-            icon: '🔊'
-          });
-        }
-      });
-
-      return list;
-    }, [ttsEngines]);
-
-    const handleEngineChange = async (eng) => {
-      setSelectedTtsEngine(eng);
-      localStorage.setItem('gemini_tts_engine', eng);
-      if (eng === 'SYSTEM_DEFAULT') {
-        setSelectedTtsVoice('');
-        localStorage.setItem('gemini_tts_voice', '');
-        if (window.toast) {
-          window.toast('Speech engine set to: Android Settings Default (Moon+ Reader mode)', 'info');
-        }
-        return;
-      }
-      if (window.NativeBridge?.setTtsEngine) {
+    const refreshSystemTts = useCallback(async (forceReload = false) => {
+      if (window.NativeBridge?.getSystemTtsInfo) {
         try {
-          await window.NativeBridge.setTtsEngine(eng);
-          if (window.NativeBridge?.getTtsVoices) {
-            const v = await window.NativeBridge.getTtsVoices();
-            const voiceList = Array.isArray(v) ? v : [];
-            setTtsVoices(voiceList);
-            if (voiceList.length > 0) {
-              setSelectedTtsVoice(voiceList[0].name);
-              localStorage.setItem('gemini_tts_voice', voiceList[0].name);
-            }
-          }
-          if (window.toast) {
-            const label = eng.includes('sherpa') || eng.includes('woheller') ? 'SherpaTTS (Offline Piper AI)' : (eng.includes('google') ? 'Google Speech Services' : eng);
-            window.toast(`Speech engine set to: ${label}`, 'success');
+          const info = forceReload && window.NativeBridge.reloadSystemTts
+            ? await window.NativeBridge.reloadSystemTts()
+            : await window.NativeBridge.getSystemTtsInfo();
+          if (info && info.engineLabel) {
+            setSystemTtsInfo(info);
           }
         } catch (e) {
-          console.warn('Failed to switch engine:', e);
+          console.warn('Failed to detect system TTS info:', e);
         }
       }
-    };
+    }, []);
 
-    const handleVoiceChange = (voiceName) => {
-      setSelectedTtsVoice(voiceName);
-      localStorage.setItem('gemini_tts_voice', voiceName);
-      if (window.NativeBridge?.setTtsVoice) {
-        window.NativeBridge.setTtsVoice(voiceName);
-      }
-      if (window.toast) {
-        window.toast(`Voice set to: ${voiceName || 'Default'}`, 'info');
-      }
-    };
+    useEffect(() => {
+      // Clear any legacy voice overrides so Android Settings voice is always used
+      try { localStorage.removeItem('gemini_tts_voice'); } catch (_) {}
+      refreshSystemTts();
+
+      const onFocusOrVisible = () => {
+        if (document.visibilityState === 'visible') {
+          refreshSystemTts(true);
+        }
+      };
+      window.addEventListener('focus', onFocusOrVisible);
+      document.addEventListener('visibilitychange', onFocusOrVisible);
+      return () => {
+        window.removeEventListener('focus', onFocusOrVisible);
+        document.removeEventListener('visibilitychange', onFocusOrVisible);
+      };
+    }, [refreshSystemTts]);
 
     const previewVoice = async () => {
       if (previewSpeaking) return;
       setPreviewSpeaking(true);
-      const sampleText = "Hello Exile! This is your offline voice model reading with zero delay.";
+      const sampleText = "Hello Exile! This is a speech test using your active voice from Android settings.";
       try {
         if (window.NativeBridge?.speakNative) {
           await window.NativeBridge.speakNative(sampleText, {
             rate: ttsRateRef.current,
             pitch: 1.0,
             lang: 'en-US',
-            voiceName: selectedTtsVoice,
+            voiceName: '',
             delayMs: dacDelayMs,
             onDone: () => setPreviewSpeaking(false),
             onError: () => setPreviewSpeaking(false)
@@ -1575,7 +1502,7 @@
             rate: ttsRateRef.current,
             pitch: 1.0,
             lang: ttsLang,
-            voiceName: selectedTtsVoice,
+            voiceName: '',
             delayMs: speakingIntervalMs || dacDelayMs,
             utteranceId: `tts_${activeIdx}_${idx}_${Date.now()}`,
             onDone: () => {
@@ -2881,113 +2808,124 @@
             }, '✕')
           ),
 
-          // ── 1. SPEECH ENGINE CARDS (Large touch targets, visual radio indicator) ──
-          h('div', null,
-            h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8, marginBottom: 8 } }, '1. Speech Engine'),
-            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-              allAvailableEngines.map(eng => {
-                const isSelected = selectedTtsEngine === eng.name || (eng.isDefault && (!selectedTtsEngine || selectedTtsEngine === 'SYSTEM_DEFAULT'));
-                return h('div', {
-                  key: eng.name,
-                  style: {
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    borderRadius: 14,
-                    background: isSelected ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.03)',
-                    border: isSelected ? '1.5px solid var(--r-accent, #6366f1)' : '1px solid var(--r-border, rgba(255,255,255,0.08))',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  },
-                  onClick: () => handleEngineChange(eng.name)
-                },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
-                    h('span', { style: { fontSize: 22 } }, eng.icon || '🎙'),
-                    h('div', null,
-                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                        h('span', { style: { fontWeight: 700, fontSize: 14, color: isSelected ? 'var(--r-accent, #6366f1)' : 'var(--r-text, #f1f5f9)' } }, eng.title),
-                        eng.badge && h('span', {
-                          style: {
-                            fontSize: 10,
-                            fontWeight: 700,
-                            padding: '1px 6px',
-                            borderRadius: 9999,
-                            background: eng.badgeColor || 'rgba(16,185,129,0.2)',
-                            color: eng.badgeTextColor || '#34d399'
-                          }
-                        }, eng.badge)
-                      ),
-                      h('div', { style: { fontSize: 11.5, color: 'var(--r-muted, #94a3b8)', marginTop: 2 } }, eng.subtitle)
-                    )
-                  ),
-                  // Radio circle indicator
-                  h('div', {
-                    style: {
-                      width: 20,
-                      height: 20,
-                      borderRadius: '50%',
-                      border: isSelected ? '6px solid var(--r-accent, #6366f1)' : '2px solid rgba(255,255,255,0.2)',
-                      background: isSelected ? '#fff' : 'transparent',
-                      flexShrink: 0
-                    }
-                  })
-                );
-              })
-            )
-          ),
-
-          // ── 2. QUICK SHORTCUTS ──
-          h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
-            window.NativeBridge?.openTtsSettings && h('button', {
-              type: 'button',
-              className: 'mini-btn ghost',
-              style: { padding: '10px 12px', borderRadius: 10, border: '1px solid var(--r-border)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
-              onClick: () => window.NativeBridge.openTtsSettings()
-            }, '⚙ Android Settings'),
-            window.NativeBridge?.openSherpaApp && h('button', {
-              type: 'button',
-              className: 'mini-btn ghost',
-              style: { padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(16,185,129,0.3)', color: '#34d399', background: 'rgba(16,185,129,0.06)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
-              onClick: () => window.NativeBridge.openSherpaApp()
-            }, '⚡ Open SherpaTTS App')
-          ),
-
-          // ── 3. VOICE SELECTOR & PREVIEW ──
+          // ── 1. ACTIVE ANDROID SYSTEM SPEECH STATUS CARD ──
           h('div', {
             style: {
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid var(--r-border, rgba(255,255,255,0.08))',
-              borderRadius: 14,
-              padding: 14
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08))',
+              border: '1.5px solid rgba(99, 102, 241, 0.35)',
+              borderRadius: 16,
+              padding: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12
             }
           },
-            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
-              h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8 } }, '2. Voice Model'),
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' } },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                h('span', { style: { fontSize: 26 } }, '📱'),
+                h('div', null,
+                  h('div', { style: { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8 } }, 'Active Speech Engine (From Android)'),
+                  h('div', { style: { fontWeight: 800, fontSize: 16, color: 'var(--r-text, #f1f5f9)', marginTop: 2 } },
+                    systemTtsInfo.engineLabel || 'System Default'
+                  )
+                )
+              ),
+              h('span', {
+                style: {
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '3px 8px',
+                  borderRadius: 9999,
+                  background: 'rgba(16, 185, 129, 0.2)',
+                  color: '#34d399',
+                  border: '1px solid rgba(16, 185, 129, 0.3)'
+                }
+              }, '★ Active in Android')
+            ),
+
+            h('div', {
+              style: {
+                background: 'rgba(0, 0, 0, 0.25)',
+                borderRadius: 10,
+                padding: '10px 12px',
+                fontSize: 12.5,
+                color: 'var(--r-muted, #cbd5e1)',
+                lineHeight: 1.5,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4
+              }
+            },
+              h('div', null,
+                h('span', { style: { color: 'var(--r-text, #fff)', fontWeight: 600 } }, 'Voice Model: '),
+                systemTtsInfo.voiceName ? systemTtsInfo.voiceName : 'Exact model chosen in Android / SherpaTTS (e.g. Callum)'
+              ),
+              h('div', { style: { fontSize: 11.5, color: 'var(--r-muted, #94a3b8)' } },
+                'The app automatically detects and reads using your voice directly from Android. No in-app overrides.'
+              )
+            ),
+
+            // Action row: Test voice and Refresh
+            h('div', { style: { display: 'flex', gap: 8, marginTop: 4 } },
               h('button', {
                 type: 'button',
                 className: 'mini-btn',
                 disabled: previewSpeaking,
-                style: { padding: '6px 14px', background: 'var(--r-accent, #6366f1)', color: '#fff', fontWeight: 700, borderRadius: 8, fontSize: 12 },
-                onClick: previewVoice
-              }, previewSpeaking ? '🔊 Speaking…' : '▶ Test Voice')
-            ),
-            ttsVoices.length > 0
-              ? h('select', {
-                  value: selectedTtsVoice,
-                  style: { width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--r-bg)', color: 'var(--r-text)', border: '1px solid var(--r-border)', fontSize: 13.5, fontWeight: 600 },
-                  onChange: (e) => handleVoiceChange(e.target.value)
+                style: {
+                  flex: 1,
+                  padding: '10px 14px',
+                  background: 'var(--r-accent, #6366f1)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  borderRadius: 10,
+                  fontSize: 13,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6
                 },
-                  h('option', { value: '' }, '⚙ System Default Voice (Android Settings - Recommended)'),
-                  ttsVoices.map(v => h('option', { key: v.name, value: v.name },
-                    `${v.name} (${v.locale || 'all'}) ${v.requiresNetwork ? '☁ Online' : '⚡ Offline'}`
-                  ))
-                )
-              : h('div', { style: { fontSize: 12.5, color: 'var(--r-muted)', lineHeight: 1.5 } },
-                  selectedTtsEngine === 'SYSTEM_DEFAULT' || !selectedTtsEngine
-                    ? 'Android Settings Default is active. Speech will automatically use whatever engine and voice model (e.g. Callum in SherpaTTS) is active on your phone.'
-                    : 'Engine active. If voice models do not show, configure your voice in Android Settings or SherpaTTS app.'
-                )
+                onClick: previewVoice
+              }, previewSpeaking ? '🔊 Speaking…' : '▶ Test Audio Sample'),
+
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: {
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: '1px solid var(--r-border)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                },
+                title: 'Re-detect settings from Android',
+                onClick: () => {
+                  refreshSystemTts(true);
+                  if (window.toast) window.toast('🔄 Re-detected TTS settings from Android', 'info');
+                }
+              }, '🔄 Refresh')
+            )
+          ),
+
+          // ── 2. QUICK SHORTCUTS TO ANDROID & SHERPATTS ──
+          h('div', null,
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8, marginBottom: 8 } }, 'Configure Voice & Engine in Android'),
+            h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+              window.NativeBridge?.openTtsSettings && h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { padding: '12px 14px', borderRadius: 12, border: '1px solid var(--r-border)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+                onClick: () => window.NativeBridge.openTtsSettings()
+              }, '⚙ Android Settings'),
+              window.NativeBridge?.openSherpaApp && h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(16,185,129,0.35)', color: '#34d399', background: 'rgba(16,185,129,0.08)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+                onClick: () => window.NativeBridge.openSherpaApp()
+              }, '⚡ Open SherpaTTS App')
+            )
           ),
 
           // ── 4. SPEECH SPEED (RATE) ──
@@ -3089,12 +3027,12 @@
           h('div', { style: { background: 'rgba(255,255,255,0.04)', border: '1px solid var(--r-border)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 } },
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
               h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)' } }, '🎙 Voice & Speech Engine'),
-              h('span', { style: { fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(99,102,241,0.2)', color: 'var(--r-accent)', fontWeight: 700 } },
-                selectedTtsVoice || (selectedTtsEngine ? selectedTtsEngine.split('.').pop() : 'Android Settings Default')
+              h('span', { style: { fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(16,185,129,0.2)', color: '#34d399', fontWeight: 700 } },
+                systemTtsInfo.engineLabel || 'Android Settings Default'
               )
             ),
             h('div', { style: { fontSize: 12, color: 'var(--r-muted)', marginBottom: 10 } },
-              'Current voice: ' + (selectedTtsVoice ? selectedTtsVoice : 'System Default (Android Settings)')
+              'Active Engine: ' + (systemTtsInfo.engineLabel || 'System Default') + ' · Uses exact voice model chosen in Android / SherpaTTS'
             ),
             h('div', { style: { display: 'flex', gap: 8 } },
               h('button', {
@@ -3102,7 +3040,7 @@
                 className: 'mini-btn',
                 style: { flex: 1, padding: '9px 12px', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
                 onClick: () => { setShowTtsOptionsModal(false); setShowVoiceModal(true); }
-              }, '🎙 Select Voice / Engine'),
+              }, '🎙 Speech & Voice Info'),
               window.NativeBridge?.openTtsSettings && h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',

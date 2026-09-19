@@ -423,6 +423,30 @@
             return false;
         },
 
+        getSystemTtsInfo: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.getSystemTtsInfo) {
+                    return await bridge.getSystemTtsInfo();
+                }
+            } catch (e) {
+                console.warn('getSystemTtsInfo error:', e);
+            }
+            return { enginePackage: 'SYSTEM_DEFAULT', engineLabel: 'System Default (Android Settings)', isReady: false };
+        },
+
+        reloadSystemTts: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.reloadSystemTts) {
+                    return await bridge.reloadSystemTts();
+                }
+            } catch (e) {
+                console.warn('reloadSystemTts error:', e);
+            }
+            return { enginePackage: 'SYSTEM_DEFAULT', engineLabel: 'System Default (Android Settings)', isReady: false };
+        },
+
         getTtsVoices: async () => {
             try {
                 const bridge = getBridge();

@@ -2414,6 +2414,82 @@ public class NativeAndroidBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getSystemTtsInfo(PluginCall call) {
+        try {
+            ensureNativeTts();
+            JSObject ret = new JSObject();
+            String defaultEngine = "";
+            if (nativeTts != null) {
+                defaultEngine = nativeTts.getDefaultEngine();
+            }
+            if (defaultEngine == null || defaultEngine.isEmpty()) {
+                defaultEngine = "SYSTEM_DEFAULT";
+            }
+            ret.put("enginePackage", defaultEngine);
+
+            String label = defaultEngine;
+            try {
+                Context ctx = getContext();
+                if (ctx != null) {
+                    PackageManager pm = ctx.getPackageManager();
+                    android.content.pm.ApplicationInfo ai = pm.getApplicationInfo(defaultEngine, 0);
+                    label = pm.getApplicationLabel(ai).toString();
+                }
+            } catch (Exception ignored) {}
+
+            ret.put("engineLabel", label);
+            ret.put("isReady", isNativeTtsReady);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && nativeTts != null) {
+                try {
+                    Voice currentVoice = nativeTts.getVoice();
+                    if (currentVoice != null) {
+                        ret.put("voiceName", currentVoice.getName());
+                        ret.put("voiceLocale", currentVoice.getLocale() != null ? currentVoice.getLocale().toString() : "");
+                    }
+                } catch (Exception ignored) {}
+            }
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to get system TTS info: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void reloadSystemTts(PluginCall call) {
+        try {
+            Context ctx = getContext();
+            if (ctx != null) {
+                stopNativeTtsInternal();
+                if (nativeTts != null) {
+                    try { nativeTts.shutdown(); } catch (Exception ignored) {}
+                    nativeTts = null;
+                    isNativeTtsReady = false;
+                }
+                nativeTts = new TextToSpeech(ctx.getApplicationContext(), status -> {
+                    if (status == TextToSpeech.SUCCESS) {
+                        isNativeTtsReady = true;
+                        setupTtsListener();
+                        Log.d(TAG, "Native Android TextToSpeech re-initialized to system default: " + nativeTts.getDefaultEngine());
+                    } else {
+                        Log.e(TAG, "Native Android TextToSpeech re-initialization failed: " + status);
+                    }
+                });
+
+                // Wait briefly for init
+                int waited = 0;
+                while (!isNativeTtsReady && waited < 1200) {
+                    try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+                    waited += 50;
+                }
+            }
+            getSystemTtsInfo(call);
+        } catch (Exception e) {
+            call.reject("Failed to reload system TTS: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void setTtsEngine(PluginCall call) {
         try {
             String engine = call.getString("engine", "");

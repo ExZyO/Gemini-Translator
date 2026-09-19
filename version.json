@@ -1,9 +1,9 @@
 {
-  "version": "8.17.11",
-  "versionCode": 8251,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.11/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.11/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.11",
+  "version": "8.17.12",
+  "versionCode": 8252,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.12/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.12/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.12",
   "releaseDate": "2026-09-19",
-  "releaseNotes": "v8.17.11: Fixed TTS player bar centering on all screen sizes, balanced transport controls symmetrically with Play/Pause in center, and aligned More popup menu."
+  "releaseNotes": "v8.17.12: Direct Android Settings TTS integration — automatic detection of SherpaTTS & system engine, zero voice overrides so your chosen Callum/Piper model plays directly, removed confusing in-app dropdowns."
 }
