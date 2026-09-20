@@ -1,9 +1,9 @@
 {
-  "version": "8.17.14",
-  "versionCode": 8254,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.14/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.14/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.14",
+  "version": "8.17.15",
+  "versionCode": 8255,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.15/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.15/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.15",
   "releaseDate": "2026-09-20",
-  "releaseNotes": "v8.17.14: Added custom novel renaming across Library and Import tabs with persistent storage during chapter updates; fixed Royal Road missing source URL bug with auto-recovery; added built-in NovelFire plugin and resolved plugin installation issues; redesigned Extensions & Sources Hub."
+  "releaseNotes": "v8.17.15: Resolved black screen on app launch caused by a JavaScript syntax error in helper function closures."
 }
