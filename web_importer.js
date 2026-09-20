@@ -3831,7 +3831,7 @@
 
     async function searchNovelFire(query) {
         const url = `https://novelfire.net/search?keyword=${encodeURIComponent(query)}`;
-        const html = await fetchHtml(url);
+        const html = await fetchHtml(url, { headers: { 'Referer': 'https://novelfire.net/' } });
         if (!html) return [];
 
         const results = [];
@@ -3928,7 +3928,8 @@
                 cover: details.cover || '',
                 summary: details.summary || '',
                 totalChapterCount: details.chapters.length,
-                chapters: details.chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, url: c.url }))
+                chapters: details.chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, url: c.url })),
+                sourceUrl: url
             };
         }
 
@@ -3956,7 +3957,8 @@
                 cover: details.cover || '',
                 summary: details.summary || '',
                 totalChapterCount: chapters.length,
-                chapters
+                chapters,
+                sourceUrl: url
             };
         }
 
@@ -4001,7 +4003,8 @@
             cover: details.cover || '',
             summary: details.summary || '',
             totalChapterCount: chapters.length,
-            chapters
+            chapters,
+            sourceUrl: url
         };
     }
 
@@ -4070,6 +4073,9 @@
                 else if (type === 'pixiv') result = await crawlPixiv(url, progressCb, options);
                 else result = await crawlUniversal(url, progressCb, options);
 
+                if (result) {
+                    result.sourceUrl = result.sourceUrl || url;
+                }
                 if (result && activeCrawlController) {
                     result.isPaused = !!activeCrawlController.isPaused;
                     result.isCancelled = !!activeCrawlController.isCancelled;
@@ -4090,7 +4096,28 @@
             }
         },
         checkNovelUpdates: async (novelRecord, progressCb) => {
-            if (!novelRecord || !novelRecord.sourceUrl) {
+            if (!novelRecord) return { hasUpdates: false, error: 'No novel record provided.' };
+
+            // Self-heal: recover sourceUrl from chapter URLs if missing (e.g. Royal Road, NovelFire, Syosetu)
+            if (!novelRecord.sourceUrl) {
+                const chs = novelRecord.chapters || novelRecord.rawChapters || [];
+                const chUrl = chs.find(c => c && c.url)?.url || '';
+                if (chUrl.includes('royalroad.com/fiction/')) {
+                    const m = chUrl.match(/(https?:\/\/[^\/]*royalroad\.com\/fiction\/\d+)/i);
+                    if (m) novelRecord.sourceUrl = m[1];
+                } else if (chUrl.includes('novelfire.net/book/')) {
+                    const m = chUrl.match(/(https?:\/\/[^\/]*novelfire\.net\/book\/[^\/]+)/i);
+                    if (m) novelRecord.sourceUrl = m[1];
+                } else if (chUrl.includes('syosetu.com/')) {
+                    const m = chUrl.match(/(https?:\/\/[^\/]*syosetu\.com\/[^\/]+)/i);
+                    if (m) novelRecord.sourceUrl = m[1];
+                } else if (chUrl.includes('lnori.')) {
+                    const m = chUrl.match(/(https?:\/\/[^\/]*lnori\.(?:org|com)\/[^\/]+)/i);
+                    if (m) novelRecord.sourceUrl = m[1];
+                }
+            }
+
+            if (!novelRecord.sourceUrl) {
                 return { hasUpdates: false, error: 'No remote source URL associated with this novel.' };
             }
             try {

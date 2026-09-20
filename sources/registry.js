@@ -8,13 +8,14 @@
   const SyosetuPlugin = isNode ? require('./syosetu').SyosetuPlugin : window.SyosetuPlugin;
   const WitchCultPlugin = isNode ? require('./witchcult').WitchCultPlugin : window.WitchCultPlugin;
   const RoyalRoadPlugin = isNode ? require('./royalroad').RoyalRoadPlugin : window.RoyalRoadPlugin;
+  const NovelFirePlugin = isNode ? require('./novelfire').NovelFirePlugin : window.NovelFirePlugin;
   const UniversalPlugin = isNode ? require('./universal').UniversalPlugin : window.UniversalPlugin;
 
   class SourceRegistry {
     constructor() {
       this.plugins = new Map();
       this.universalPlugin = null;
-      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'universal']);
+      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'novelfire', 'universal']);
       this.initBuiltins();
       this.loadPersistedPlugins();
     }
@@ -23,6 +24,7 @@
       if (SyosetuPlugin) this.register(new SyosetuPlugin());
       if (WitchCultPlugin) this.register(new WitchCultPlugin());
       if (RoyalRoadPlugin) this.register(new RoyalRoadPlugin());
+      if (NovelFirePlugin) this.register(new NovelFirePlugin());
       if (UniversalPlugin) {
         this.universalPlugin = new UniversalPlugin();
       }
@@ -177,13 +179,28 @@
      * @returns {Promise<BaseSourcePlugin>}
      */
     async loadPluginFromUrl(pluginUrl, meta = {}) {
+      if (!pluginUrl || !pluginUrl.trim()) throw new Error('Missing plugin URL');
+      // Escape brackets in URL to comply with URI standards (prevents MalformedURLException on Android)
+      const safeUrl = pluginUrl.trim().replace(/\[/g, '%5B').replace(/\]/g, '%5D');
       const fetchFn = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
       let code = '';
+      let fetchErr = null;
       if (fetchFn) {
-        code = await fetchFn(pluginUrl);
-      } else {
-        const res = await fetch(pluginUrl);
-        code = await res.text();
+        try {
+          code = await fetchFn(safeUrl);
+        } catch (e) {
+          fetchErr = e;
+          console.warn('[SourceRegistry] fetchHtml failed, falling back to window.fetch:', e.message);
+        }
+      }
+      if (!code) {
+        try {
+          const res = await fetch(safeUrl);
+          if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+          code = await res.text();
+        } catch (e) {
+          throw new Error(`Failed to download plugin from ${safeUrl}: ${fetchErr ? fetchErr.message + ' / ' : ''}${e.message}`);
+        }
       }
       return this.registerLNReaderCode(code, true, meta);
     }

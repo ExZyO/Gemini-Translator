@@ -1862,7 +1862,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
-                String currentUrl = urlStr;
+                String currentUrl = urlStr.replace("[", "%5B").replace("]", "%5D").replace(" ", "%20");
                 JSObject customHeaders = call.getObject("headers");
                 String method = call.getString("method", "GET").toUpperCase();
                 int redirects = 0;
@@ -1904,7 +1904,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             if (!loc.startsWith("http")) {
                                 loc = new URL(url, loc).toString();
                             }
-                            currentUrl = loc;
+                            currentUrl = loc.replace("[", "%5B").replace("]", "%5D").replace(" ", "%20");
                             conn.disconnect();
                             redirects++;
                             continue;

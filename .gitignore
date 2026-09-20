@@ -28,3 +28,4 @@ USER_PREFERENCES.md
 *.log
 telemetry_live*.log
 dist/
+*.pt
