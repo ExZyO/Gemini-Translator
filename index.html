@@ -731,29 +731,29 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="utils.js"></script>
   <script src="db_engine.js"></script>
   <script src="splitter.js"></script>
-  <script src="merger.js?v=8.17.25"></script>
-  <script src="epub_studio_ui.js?v=8.17.25"></script>
-  <script src="epub_editor.js?v=8.17.25"></script>
-  <script src="sources/base_plugin.js?v=8.17.25"></script>
-  <script src="sources/lnreader_adapter.js?v=8.17.25"></script>
-  <script src="sources/syosetu.js?v=8.17.25"></script>
-  <script src="sources/rezero_manifest.js?v=8.17.25"></script>
-  <script src="sources/witchcult.js?v=8.17.25"></script>
-  <script src="sources/royalroad.js?v=8.17.25"></script>
-  <script src="sources/novelfire.js?v=8.17.25"></script>
-  <script src="sources/universal.js?v=8.17.25"></script>
-  <script src="sources/registry.js?v=8.17.25"></script>
-  <script src="web_importer.js?v=8.17.25"></script>
-  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.25"></script>
-  <script src="telemetry_logger.js?v=8.17.25"></script>
-  <script src="reader_engine.js?v=8.17.25"></script>
-  <script src="qa_engine.js?v=8.17.25"></script>
-  <script src="vendor/diff_match_patch.js?v=8.17.25"></script>
-  <script src="tm_diff_engine.js?v=8.17.25"></script>
-  <script src="epub_engine.js?v=8.17.25"></script>
-  <script src="glossary_presets.js?v=8.17.25"></script>
-  <script src="gdrive_sync.js?v=8.17.25"></script>
-  <script src="swiftaudio_engine.js?v=8.17.25"></script>
+  <script src="merger.js?v=8.17.26"></script>
+  <script src="epub_studio_ui.js?v=8.17.26"></script>
+  <script src="epub_editor.js?v=8.17.26"></script>
+  <script src="sources/base_plugin.js?v=8.17.26"></script>
+  <script src="sources/lnreader_adapter.js?v=8.17.26"></script>
+  <script src="sources/syosetu.js?v=8.17.26"></script>
+  <script src="sources/rezero_manifest.js?v=8.17.26"></script>
+  <script src="sources/witchcult.js?v=8.17.26"></script>
+  <script src="sources/royalroad.js?v=8.17.26"></script>
+  <script src="sources/novelfire.js?v=8.17.26"></script>
+  <script src="sources/universal.js?v=8.17.26"></script>
+  <script src="sources/registry.js?v=8.17.26"></script>
+  <script src="web_importer.js?v=8.17.26"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.26"></script>
+  <script src="telemetry_logger.js?v=8.17.26"></script>
+  <script src="reader_engine.js?v=8.17.26"></script>
+  <script src="qa_engine.js?v=8.17.26"></script>
+  <script src="vendor/diff_match_patch.js?v=8.17.26"></script>
+  <script src="tm_diff_engine.js?v=8.17.26"></script>
+  <script src="epub_engine.js?v=8.17.26"></script>
+  <script src="glossary_presets.js?v=8.17.26"></script>
+  <script src="gdrive_sync.js?v=8.17.26"></script>
+  <script src="swiftaudio_engine.js?v=8.17.26"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -862,7 +862,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.25';
+    let VERSION = '8.17.26';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2088,7 +2088,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       });
     };
 
-    const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, needContextUpdate = false, strictModel = true, genderLocks = null }) => {
+    const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary = true, enableThinking = false, needContextUpdate = false, strictModel = true, genderLocks = null, rotateApiKey = null }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
       const { prompt, components } = buildPromptResult(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -2132,6 +2132,21 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       } else {
         window.AppLogger?.log('info', 'GeminiAPI', `Response 200 OK in ${Math.round(performance.now() - apiStart)}ms`);
       }
+
+      // Automatic key rotation on HTTP 429 quota exhaustion
+      if (!r.ok && r.status === 429) {
+        const rotFn = rotateApiKey || (typeof window !== 'undefined' ? window.rotateApiKey : null);
+        if (typeof rotFn === 'function') {
+          const nextKey = rotFn(apiKey);
+          if (nextKey && nextKey !== apiKey) {
+            console.warn(`Gemini 429 quota/rate limit hit. Auto-rotated key from ${maskKey ? maskKey(apiKey) : 'key'} to ${maskKey ? maskKey(nextKey) : 'nextKey'}. Retrying translation...`);
+            return translateGemini(text, {
+              apiKey: nextKey, model, srcLang, tgtLang, glossary, instructions, signal, context, smartGlossary, enableThinking, needContextUpdate, strictModel, genderLocks, rotateApiKey: rotFn
+            });
+          }
+        }
+      }
+
       if (!r.ok && r.status === 400 && payload.generationConfig?.thinkingConfig) {
         delete payload.generationConfig.thinkingConfig;
         r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
@@ -2258,7 +2273,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       return parseTranslationOutput(t, context, { promptTokens, outputTokens, totalTokens, breakdown });
     };
 
-    const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, needContextUpdate = false, strictModel = true, genderLocks = null }) => {
+    const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, instructions, signal, onChunk, context, smartGlossary = true, enableThinking = false, needContextUpdate = false, strictModel = true, genderLocks = null, rotateApiKey = null }) => {
       if (!apiKey) throw new Error('Gemini API key required.');
       const { prompt, components } = buildPromptResult(text, srcLang, tgtLang, glossary, instructions, context, smartGlossary, needContextUpdate, genderLocks);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
@@ -2289,6 +2304,21 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
       }
       const reqHeaders = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
       let r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
+
+      // Automatic key rotation on HTTP 429 quota exhaustion in stream
+      if (!r.ok && r.status === 429) {
+        const rotFn = rotateApiKey || (typeof window !== 'undefined' ? window.rotateApiKey : null);
+        if (typeof rotFn === 'function') {
+          const nextKey = rotFn(apiKey);
+          if (nextKey && nextKey !== apiKey) {
+            console.warn(`Gemini stream 429 quota/rate limit hit. Auto-rotated key to ${maskKey ? maskKey(nextKey) : 'nextKey'}. Retrying stream...`);
+            return streamGemini(text, {
+              apiKey: nextKey, model, srcLang, tgtLang, glossary, instructions, onChunk, signal, context, smartGlossary, enableThinking, needContextUpdate, strictModel, genderLocks, rotateApiKey: rotFn
+            });
+          }
+        }
+      }
+
       if (!r.ok && r.status === 400 && payload.generationConfig?.thinkingConfig) {
         delete payload.generationConfig.thinkingConfig;
         r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
@@ -5502,6 +5532,7 @@ const formatModelName = (id, displayName) => {
         }
         return nextKey.key;
       };
+      if (typeof window !== 'undefined') window.rotateApiKey = rotateApiKey;
 
       const getActiveApiKey = (prov = provider) => {
         const keys = apiKeysByProvider[prov] || [];
@@ -6445,6 +6476,38 @@ const formatModelName = (id, displayName) => {
       const [isOptimizingGlossary, setIsOptimizingGlossary] = useState(false);
       const [isDragOver, setIsDragOver] = useState(false);
 
+      // Storage Diagnostics & Maintenance
+      const [storageDiag, setStorageDiag] = useState({ usedMB: 0, quotaMB: 0, pct: 0, available: false });
+      const [storageLoading, setStorageLoading] = useState(false);
+
+      const refreshStorageDiag = useCallback(async () => {
+        setStorageLoading(true);
+        try {
+          if (navigator.storage && navigator.storage.estimate) {
+            const est = await navigator.storage.estimate();
+            const usedMB = Math.round((est.usage || 0) / (1024 * 1024));
+            const quotaMB = Math.round((est.quota || 0) / (1024 * 1024));
+            const pct = quotaMB > 0 ? Math.min(100, Math.round((usedMB / quotaMB) * 100)) : 0;
+            setStorageDiag({ usedMB, quotaMB, pct, available: true });
+          } else {
+            setStorageDiag({ usedMB: 0, quotaMB: 0, pct: 0, available: false });
+          }
+          if (typeof loadTrashCount === 'function') {
+            await loadTrashCount();
+          }
+        } catch (e) {
+          console.warn('Storage estimate failed:', e);
+        } finally {
+          setStorageLoading(false);
+        }
+      }, [loadTrashCount]);
+
+      useEffect(() => {
+        if (activeTab === 'settings') {
+          refreshStorageDiag();
+        }
+      }, [activeTab, refreshStorageDiag]);
+
       // --- Core Toast Helper (Defined before any usage) ---
       const toast = (msg, type = 'success', action = null) => {
         if (!msg) return;
@@ -7267,6 +7330,32 @@ const formatModelName = (id, displayName) => {
               setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid Anthropic Key (${r.status})` } }));
             } else {
               setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Anthropic HTTP ${r.status}` } }));
+            }
+          } else if (prov === 'deepl') {
+            const isFree = trimmedKey.endsWith(':fx');
+            const endpoint = isFree ? 'https://api-free.deepl.com/v2/usage' : 'https://api.deepl.com/v2/usage';
+            const r = await fetch(endpoint, {
+              headers: { 'Authorization': `DeepL-Auth-Key ${trimmedKey}` }
+            });
+            const latency = Math.round(performance.now() - start);
+            if (r.ok) {
+              let usageInfo = '';
+              try {
+                const u = await r.json();
+                if (u.character_count !== undefined && u.character_limit !== undefined) {
+                  const pct = Math.round((u.character_count / u.character_limit) * 100);
+                  usageInfo = ` (${pct}% used · ${(u.character_count).toLocaleString()}/${(u.character_limit).toLocaleString()} chars)`;
+                }
+              } catch(e) {}
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', latency, message: `🟢 DeepL ${isFree ? 'Free' : 'Pro'} Active (${latency}ms)${usageInfo}` } }));
+            } else if (r.status === 403) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid DeepL Key (403)` } }));
+            } else if (r.status === 456) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'exhausted', message: `🔴 DeepL Quota Exceeded (456)` } }));
+            } else if (r.status === 429) {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ DeepL Rate Limited (429 · ${latency}ms)` } }));
+            } else {
+              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ DeepL Error: HTTP ${r.status}` } }));
             }
           } else {
             setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', message: '🟢 Key Saved & Ready' } }));
@@ -15932,7 +16021,89 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
               h('div', { className: 'sec-banner' },
                 h('div', { style: { display: 'flex', alignItems: 'center' } },
                   h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'LOCAL ARCHIVE & BACKUP')
+                  h('span', { className: 'sec-title' }, 'LOCAL ARCHIVE & STORAGE')
+                )
+              ),
+              h('div', { className: 'card' },
+                h('div', { className: 'card-title' },
+                  h('span', null, 'Local Storage & Memory Diagnostics'),
+                  h('span', { className: 'count', style: { color: storageDiag.pct > 80 ? '#f87171' : 'var(--pine)' } },
+                    storageLoading ? 'Estimating…' : (storageDiag.available ? `${storageDiag.usedMB} MB used (${storageDiag.pct}%)` : 'Estimates Ready')
+                  )
+                ),
+                h('div', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 10, lineHeight: 1.4 } },
+                  'Monitor device storage allocated to offline novels, cached audiobook audio, translation memory, and recycle bin.'
+                ),
+                storageDiag.available && h('div', {
+                  style: {
+                    width: '100%',
+                    height: 6,
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                    marginBottom: 12
+                  }
+                },
+                  h('div', {
+                    style: {
+                      width: `${Math.max(1, storageDiag.pct)}%`,
+                      height: '100%',
+                      background: storageDiag.pct > 85 ? '#ef4444' : storageDiag.pct > 65 ? '#f59e0b' : 'var(--iris)',
+                      transition: 'width 0.3s ease'
+                    }
+                  })
+                ),
+                h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 12 } },
+                  h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
+                    h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Books in Library'),
+                    h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, `📚 ${webImportHistory?.length || 0}`)
+                  ),
+                  h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
+                    h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Audiobook Tracks'),
+                    h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, `🎧 ${(window.SwiftAudioEngine?.Library?.getAllBooks?.() || []).length || 0}`)
+                  ),
+                  h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
+                    h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Recycle Bin'),
+                    h('div', { style: { fontSize: 15, fontWeight: 700, color: trashCount > 0 ? '#f87171' : 'var(--paper)', marginTop: 2 } }, `🗑️ ${trashCount} item${trashCount === 1 ? '' : 's'}`)
+                  ),
+                  h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
+                    h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Estimated Quota'),
+                    h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, storageDiag.available ? `${(storageDiag.quotaMB / 1024).toFixed(1)} GB` : 'Device Managed')
+                  )
+                ),
+                h('div', { className: 'toolbar-group', style: { width: '100%' } },
+                  h('button', {
+                    type: 'button',
+                    style: { flex: 1, textAlign: 'center' },
+                    disabled: storageLoading,
+                    onClick: () => refreshStorageDiag()
+                  }, storageLoading ? 'Estimating…' : '🔄 Refresh Storage'),
+                  h('button', {
+                    type: 'button',
+                    style: { flex: 1, textAlign: 'center', color: trashCount > 0 ? '#f87171' : 'var(--slate)' },
+                    disabled: trashCount === 0,
+                    onClick: () => {
+                      if (trashCount === 0) return toast('Recycle bin is already empty.', 'info');
+                      confirmAction(`Permanently empty ${trashCount} item(s) from Recycle Bin? This cannot be undone.`, async () => {
+                        await handleEmptyTrash();
+                        await refreshStorageDiag();
+                      });
+                    }
+                  }, '🗑️ Empty Recycle Bin'),
+                  h('button', {
+                    type: 'button',
+                    style: { flex: 1, textAlign: 'center' },
+                    onClick: () => {
+                      try {
+                        sessionStorage.clear();
+                        if (window.crawlCache) window.crawlCache = {};
+                        toast('Session and temporary cache cleared! Saved novels and settings remain safe.', 'success');
+                        refreshStorageDiag();
+                      } catch (e) {
+                        toast('Cache clear error: ' + e.message, 'error');
+                      }
+                    }
+                  }, '🧹 Clear Session Cache')
                 )
               ),
               h('div', { className: 'card' },
