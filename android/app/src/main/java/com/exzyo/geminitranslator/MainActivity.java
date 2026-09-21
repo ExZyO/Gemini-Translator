@@ -16,10 +16,10 @@ public class MainActivity extends BridgeActivity {
         // Enable Chrome remote debugging and verbose adb console output
         android.webkit.WebView.setWebContentsDebuggingEnabled(true);
 
-        // Enable hardware accelerated rendering for smooth 60/120Hz scrolling
+        // Ensure WebView uses default compositor pipeline and dark background to prevent any flash
         try {
             if (bridge != null && bridge.getWebView() != null) {
-                bridge.getWebView().setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
+                bridge.getWebView().setBackgroundColor(android.graphics.Color.parseColor("#090A0F"));
             }
         } catch (Exception ignored) {}
 

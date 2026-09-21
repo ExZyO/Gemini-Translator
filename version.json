@@ -1,9 +1,9 @@
 {
-  "version": "8.17.28",
-  "versionCode": 8268,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.28/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.28/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.28",
+  "version": "8.17.29",
+  "versionCode": 8269,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.29/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.29/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.29",
   "releaseDate": "2026-09-21",
-  "releaseNotes": "v8.17.28: High-performance hardware acceleration, eliminated scroll lag and black flashes by replacing heavy backdrop blur filters with crisp solid surfaces, and enhanced WebView rendering."
+  "releaseNotes": "v8.17.29: Fixed WebView crash on Samsung One UI (Galaxy S24 Ultra), removed harmful hardware layer wrapping, and eliminated card paint containment to fix black screen during fast scrolling."
 }
