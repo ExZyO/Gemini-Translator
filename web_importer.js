@@ -845,6 +845,7 @@
 
                 if (ctrl.isPaused || ctrl.isCancelled) break;
 
+                if (chData && (chData.text || chData.content)) {
                     let chapterText = chData.text || chData.content || '';
                     const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
                     const chTitle = chData.title || item.title || `Chapter ${currentIndex + 1}`;
@@ -4031,6 +4032,81 @@
         return results;
     }
 
+    async function searchNovelBin(query) {
+        if (!query || !query.trim()) return [];
+        const cleanQ = query.trim();
+        const url = `https://novel-bin.com/search?keyword=${encodeURIComponent(cleanQ)}`;
+        const html = await fetchHtml(url, { headers: { 'Referer': 'https://novel-bin.com/' } });
+        if (!html) return [];
+
+        const results = [];
+        // Pattern 1: Tailwind / Almanac card layout (novel-bin.com)
+        const cards = [...html.matchAll(/<a\s+href="([^"]+)"\s+class="[^"]*nl2-book-card[^"]*"\s+title="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+        for (const m of cards) {
+            const href = m[1];
+            const title = stripSearchHtml(m[2]);
+            const inner = m[3];
+            const coverMatch = inner.match(/<img[^>]+src="([^"]+)"/i);
+            let cover = coverMatch ? coverMatch[1] : '';
+            if (cover && !cover.startsWith('http')) cover = `https://novel-bin.com${cover}`;
+            if (cover.includes('default.jpg')) cover = '';
+
+            const authorMatch = inner.match(/almanac-row-author">[\s\S]*?(?:<\/span>)?([^<]+)<\/span>/i);
+            const author = authorMatch ? stripSearchHtml(authorMatch[1]).trim() : '';
+
+            const chMatch = inner.match(/almanac-row-chapters">[\s\S]*?(?:<\/span>)?([^<]+)<\/span>/i);
+            const chapters = chMatch ? stripSearchHtml(chMatch[1]).trim() : '';
+
+            const fullUrl = href.startsWith('http') ? href : `https://novel-bin.com${href}`;
+
+            results.push({
+                source: 'NovelBin',
+                title,
+                url: fullUrl,
+                cover,
+                author: author || 'NovelBin Author',
+                chapters: (chapters && chapters !== '—') ? chapters : '',
+                rating: '',
+                tags: ['NovelBin'],
+                summary: '',
+                status: 'Ongoing'
+            });
+        }
+
+        // Pattern 2: Classic NovelBin layout (row col-novel list-novel)
+        if (results.length === 0) {
+            const classicMatches = [...html.matchAll(/<div class="row">([\s\S]*?)<\/div>\s*<\/div>/gi)];
+            for (const cm of classicMatches) {
+                const block = cm[1];
+                const linkM = block.match(/<h3 class="novel-title">\s*<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+                if (!linkM) continue;
+                const fullUrl = linkM[1].startsWith('http') ? linkM[1] : `https://novel-bin.com${linkM[1]}`;
+                const title = stripSearchHtml(linkM[2]);
+                const coverM = block.match(/<img[^>]+src="([^"]+)"/i);
+                let cover = coverM ? coverM[1] : '';
+                if (cover && !cover.startsWith('http')) cover = `https://novel-bin.com${cover}`;
+
+                const authorM = block.match(/<span class="author">([\s\S]*?)<\/span>/i);
+                const author = authorM ? stripSearchHtml(authorM[1]) : '';
+
+                results.push({
+                    source: 'NovelBin',
+                    title,
+                    url: fullUrl,
+                    cover,
+                    author: author || 'NovelBin Author',
+                    chapters: '',
+                    rating: '',
+                    tags: ['NovelBin'],
+                    summary: '',
+                    status: 'Ongoing'
+                });
+            }
+        }
+
+        return results;
+    }
+
     async function searchLnori(query) {
         if (!query || !query.trim()) return [];
         const cleanQ = query.trim().toLowerCase();
@@ -4184,7 +4260,7 @@
     async function searchNovels(query, source = 'all') {
         if (!query || !query.trim()) return [];
         const cleanQ = query.trim();
-        const src = (source || 'all').toLowerCase();
+        const src = (source || 'all').replace(/[\s\-_]+/g, '').toLowerCase();
 
         const runners = [];
         if (src === 'all' || src === 'novelbuddy') {
@@ -4195,6 +4271,9 @@
         }
         if (src === 'all' || src === 'novelfire') {
             runners.push(searchNovelFire(cleanQ).catch(() => []));
+        }
+        if (src === 'all' || src === 'novelbin') {
+            runners.push(searchNovelBin(cleanQ).catch(() => []));
         }
         if (src === 'all' || src === 'lnori') {
             runners.push(searchLnori(cleanQ).catch(() => []));
@@ -4294,6 +4373,7 @@
         getBestImageUrl,
         cleanChapterHtmlWithImages,
         searchNovels,
+        searchNovelBin,
         searchLnori,
         pause: () => {
             if (activeCrawlController) {

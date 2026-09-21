@@ -101,6 +101,39 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private static final int AUDIO_NOTIFICATION_ID = 8888;
     private static final String DEFAULT_UA = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36";
 
+    private String getDefaultUserAgent() {
+        try {
+            if (getContext() != null) {
+                String ua = WebSettings.getDefaultUserAgent(getContext());
+                if (ua != null && !ua.isEmpty()) return ua;
+            }
+        } catch (Throwable ignored) {}
+        return DEFAULT_UA;
+    }
+
+    private InputStream wrapDecompressStream(HttpURLConnection conn, InputStream is) {
+        if (is == null) return null;
+        try {
+            String encoding = conn != null ? conn.getContentEncoding() : null;
+            if (encoding != null && encoding.equalsIgnoreCase("gzip")) {
+                return new java.util.zip.GZIPInputStream(is);
+            }
+            java.io.PushbackInputStream pis = new java.io.PushbackInputStream(is, 2);
+            byte[] header = new byte[2];
+            int len = pis.read(header);
+            if (len == 2 && header[0] == (byte) 0x1f && header[1] == (byte) 0x8b) {
+                pis.unread(header);
+                return new java.util.zip.GZIPInputStream(pis);
+            }
+            if (len > 0) {
+                pis.unread(header, 0, len);
+            }
+            return pis;
+        } catch (Exception e) {
+            return is;
+        }
+    }
+
     public static final String ACTION_AUDIO_PLAY_PAUSE = "com.exzyo.geminitranslator.AUDIO_PLAY_PAUSE";
     public static final String ACTION_AUDIO_REWIND_5 = "com.exzyo.geminitranslator.AUDIO_REWIND_5";
     public static final String ACTION_AUDIO_FORWARD_5 = "com.exzyo.geminitranslator.AUDIO_FORWARD_5";
@@ -559,7 +592,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setConnectTimeout(8000);
                     conn.setReadTimeout(10000);
-                    conn.setRequestProperty("User-Agent", DEFAULT_UA);
+                    conn.setRequestProperty("User-Agent", getDefaultUserAgent());
                     conn.connect();
                     if (conn.getResponseCode() == 200) {
                         try (InputStream is = conn.getInputStream()) {
@@ -1176,7 +1209,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     return;
                 }
 
-                String userAgent = call.getString("userAgent", DEFAULT_UA);
+                String userAgent = call.getString("userAgent", getDefaultUserAgent());
                 JSObject customHeaders = call.getObject("headers");
 
                 String currentUrl = targetUrl;
@@ -1186,8 +1219,20 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 String cookies = "";
 
                 // Carry cookies from the in-app WebView challenge/session into API requests.
-                String webViewCookies = CookieManager.getInstance().getCookie("https://www.pixiv.net/");
-                if (webViewCookies != null && !webViewCookies.isEmpty()) cookies = webViewCookies;
+                try {
+                    CookieManager cookieManager = CookieManager.getInstance();
+                    if (cookieManager != null) {
+                        String cookieUrl = currentUrl;
+                        try {
+                            java.net.URI uri = new java.net.URI(currentUrl);
+                            cookieUrl = uri.getScheme() + "://" + uri.getHost();
+                        } catch (Exception ignored) {}
+                        String webViewCookies = cookieManager.getCookie(cookieUrl);
+                        if (webViewCookies != null && !webViewCookies.isEmpty()) {
+                            cookies = cookies.isEmpty() ? webViewCookies : cookies + "; " + webViewCookies;
+                        }
+                    }
+                } catch (Throwable ignored) {}
 
                 while (redirects < 10) {
                     URL url = new URL(currentUrl);
@@ -1249,13 +1294,19 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
 
                 InputStream is = (statusCode >= 200 && statusCode < 400) ? conn.getInputStream() : conn.getErrorStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    response.append(line).append("\n");
+                if (is == null) {
+                    try { is = conn.getInputStream(); } catch (Exception ignored) {}
                 }
-                reader.close();
+                is = wrapDecompressStream(conn, is);
+                StringBuilder response = new StringBuilder();
+                if (is != null) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line).append("\n");
+                    }
+                    reader.close();
+                }
                 conn.disconnect();
 
                 JSObject ret = new JSObject();
@@ -1366,7 +1417,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     return;
                 }
 
-                String userAgent = call.getString("userAgent", DEFAULT_UA);
+                String userAgent = call.getString("userAgent", getDefaultUserAgent());
                 String currentUrl = targetUrl;
                 HttpURLConnection conn = null;
                 int redirects = 0;
@@ -1922,15 +1973,22 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     conn.setConnectTimeout(25000);
                     conn.setReadTimeout(25000);
                     conn.setInstanceFollowRedirects(false);
-                    conn.setRequestProperty("User-Agent", DEFAULT_UA);
+                    conn.setRequestProperty("User-Agent", getDefaultUserAgent());
                     conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8");
                     conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ja;q=0.8");
 
                     try {
                         CookieManager cookieManager = CookieManager.getInstance();
-                        String cookies = cookieManager != null ? cookieManager.getCookie(currentUrl) : null;
-                        if (cookies != null && !cookies.isEmpty()) {
-                            conn.setRequestProperty("Cookie", cookies);
+                        if (cookieManager != null) {
+                            String cookieUrl = currentUrl;
+                            try {
+                                java.net.URI uri = new java.net.URI(currentUrl);
+                                cookieUrl = uri.getScheme() + "://" + uri.getHost();
+                            } catch (Exception ignored) {}
+                            String cookies = cookieManager.getCookie(cookieUrl);
+                            if (cookies != null && !cookies.isEmpty()) {
+                                conn.setRequestProperty("Cookie", cookies);
+                            }
                         }
                     } catch (Throwable ignored) {}
 
@@ -1964,6 +2022,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 if (is == null) {
                     try { is = conn.getInputStream(); } catch (Exception ignored) {}
                 }
+                is = wrapDecompressStream(conn, is);
                 StringBuilder sb = new StringBuilder();
                 if (is != null) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));

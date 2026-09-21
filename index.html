@@ -5928,11 +5928,19 @@ const formatModelName = (id, displayName) => {
             }
           }
 
-          // Search all active community & built-in source plugins via SourceRegistry
+          // Search active community & built-in source plugins via SourceRegistry
           const reg = window.sourceRegistry || window.SourceRegistry;
-          if (reg && (sourceOverride === 'all' || sourceOverride === 'plugins' || sourceOverride === 'plugins_only')) {
+          if (reg) {
             try {
-              const pluginResults = await reg.searchAll(q || target);
+              let pluginResults = [];
+              const normOverride = (sourceOverride || 'all').replace(/[\s\-_]+/g, '').toLowerCase();
+              if (normOverride !== 'all' && normOverride !== 'plugins' && normOverride !== 'plugins_only') {
+                if (typeof reg.searchPlugin === 'function') {
+                  pluginResults = await reg.searchPlugin(sourceOverride, q || target);
+                }
+              } else {
+                pluginResults = await reg.searchAll(q || target);
+              }
               if (Array.isArray(pluginResults) && pluginResults.length > 0) {
                 const existingUrls = new Set((results || []).map(r => (r.url || '').replace(/\/$/, '')));
                 for (const p of pluginResults) {
@@ -14053,9 +14061,10 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                       (!activeNovelView || !isSearchResultsCollapsed) && (() => {
                         const allSources = ['all', ...Array.from(new Set(novelSearchResults.map(n => n.source).filter(Boolean)))];
                         return allSources.map(f => {
-                          const count = f === 'all' ? novelSearchResults.length : novelSearchResults.filter(n => (n.source || '').toLowerCase() === f.toLowerCase()).length;
+                          const normF = (f || '').replace(/[\s\-_]+/g, '').toLowerCase();
+                          const count = f === 'all' ? novelSearchResults.length : novelSearchResults.filter(n => (n.source || '').replace(/[\s\-_]+/g, '').toLowerCase() === normF).length;
                           if (f !== 'all' && count === 0) return null;
-                          const isSel = (novelSearchFilter || 'all').toLowerCase() === f.toLowerCase();
+                          const isSel = (novelSearchFilter || 'all').replace(/[\s\-_]+/g, '').toLowerCase() === normF;
                           return h('button', {
                             key: f,
                             type: 'button',
@@ -14081,7 +14090,12 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                   ),
                   (!activeNovelView || !isSearchResultsCollapsed) && h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 10 } },
                     novelSearchResults
-                      .filter(item => novelSearchFilter === 'all' || (item.source || '').toLowerCase() === novelSearchFilter.toLowerCase())
+                      .filter(item => {
+                        const f = (novelSearchFilter || 'all').replace(/[\s\-_]+/g, '').toLowerCase();
+                        if (f === 'all') return true;
+                        const s = (item.source || '').replace(/[\s\-_]+/g, '').toLowerCase();
+                        return s === f;
+                      })
                       .map((item, idx) => h('div', {
                         key: item.id || idx,
                         className: 'card',
