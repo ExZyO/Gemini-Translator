@@ -4252,7 +4252,26 @@
         checkNovelUpdates: async (novelRecord, progressCb) => {
             if (!novelRecord) return { hasUpdates: false, error: 'No novel record provided.' };
 
-            // Self-heal: recover sourceUrl from chapter URLs if missing (e.g. Royal Road, NovelFire, Syosetu)
+            // 1. Auto-load full novel from IndexedDB if chapters or sourceUrl are missing from a metadata stub
+            if ((!novelRecord.sourceUrl || !novelRecord.rawChapters || novelRecord.rawChapters.length === 0) && typeof window !== 'undefined' && window.GeminiNovelDB) {
+                try {
+                    let full = null;
+                    if (novelRecord.id) full = await window.GeminiNovelDB.getNovel(novelRecord.id);
+                    if (!full && novelRecord.title) {
+                        const all = await window.GeminiNovelDB.getAllNovels();
+                        const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                        const targetT = cleanT(novelRecord.title);
+                        full = all?.find(n => n.id === novelRecord.id || n.title === novelRecord.title || cleanT(n.title) === targetT);
+                    }
+                    if (full) {
+                        novelRecord = { ...full, ...novelRecord, sourceUrl: novelRecord.sourceUrl || full.sourceUrl || full.url, rawChapters: full.rawChapters || full.chapters || novelRecord.rawChapters };
+                    }
+                } catch (e) {
+                    console.warn('checkNovelUpdates failed to load full novel:', e);
+                }
+            }
+
+            // 2. Self-heal: recover sourceUrl from chapter URLs if missing (e.g. Royal Road, NovelFire, Syosetu)
             if (!novelRecord.sourceUrl) {
                 const chs = novelRecord.chapters || novelRecord.rawChapters || [];
                 const chUrl = chs.find(c => c && c.url)?.url || '';
@@ -4275,22 +4294,6 @@
                 return { hasUpdates: false, error: 'No remote source URL associated with this novel.' };
             }
             try {
-                // Auto-load full novel from IndexedDB if chapters or volumeCount are missing from a metadata stub
-                if ((!novelRecord.rawChapters || novelRecord.rawChapters.length === 0) && (!novelRecord.chapters || novelRecord.chapters.length === 0) && typeof window !== 'undefined' && window.GeminiNovelDB) {
-                    try {
-                        let full = null;
-                        if (novelRecord.id) full = await window.GeminiNovelDB.getNovel(novelRecord.id);
-                        if (!full && novelRecord.title) {
-                            const all = await window.GeminiNovelDB.getAllNovels();
-                            full = all?.find(n => n.id === novelRecord.id || n.title === novelRecord.title);
-                        }
-                        if (full) {
-                            novelRecord = { ...novelRecord, ...full };
-                        }
-                    } catch (e) {
-                        console.warn('checkNovelUpdates failed to load full novel:', e);
-                    }
-                }
 
                 progressCb?.(`Checking remote chapters for "${novelRecord.title || 'novel'}"...`, 15);
                 const remote = await window.WebNovelImporter.importUrl(novelRecord.sourceUrl, progressCb, { tocOnly: true });
