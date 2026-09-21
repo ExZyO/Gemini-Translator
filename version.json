@@ -1,9 +1,9 @@
 {
-  "version": "8.17.20",
-  "versionCode": 8260,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.20/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.20/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.20",
+  "version": "8.17.21",
+  "versionCode": 8261,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.21/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.21/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.21",
   "releaseDate": "2026-09-21",
-  "releaseNotes": "v8.17.20: Fix NovelFire and Saved Space update check. Auto-recover sourceUrl from IndexedDB, matching originals, and chapter URLs; ensure Saved Space preserves sourceUrl; remove blocking check on Library card update button."
+  "releaseNotes": "v8.17.21: Fix in-app updater permission check & eliminate browser redirect; fix Royal Road chapter rate-limiting and auto-recover Royal Road novel sourceUrl in Saved Space."
 }

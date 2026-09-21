@@ -9,8 +9,10 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import java.io.FileInputStream;
 import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.Voice;
@@ -1718,90 +1720,127 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
         new Thread(() -> {
             try {
-                updateNotification("Gemini Translator Updater", "Downloading update...", 0, true);
+                // 1. Check unknown app permission FIRST on Android 8+ (API 26+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    if (!context.getPackageManager().canRequestPackageInstalls()) {
+                        try {
+                            Intent manageIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.getPackageName()));
+                            manageIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            context.startActivity(manageIntent);
+                        } catch (Exception e) {
+                            Intent manageIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                            manageIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            context.startActivity(manageIntent);
+                        }
+                        updateNotification("Gemini Translator Updater", "Please enable 'Allow from this source', then tap Update again.", 0, false);
+                        call.reject("Please enable 'Allow from this source' (Install unknown apps) in Settings, then tap Update again.");
+                        return;
+                    }
+                }
 
                 File downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
                 if (downloadDir == null || !downloadDir.exists()) {
                     downloadDir = context.getCacheDir();
                 }
                 File targetFile = new File(downloadDir, "GeminiTranslator_update.apk");
-                if (targetFile.exists()) {
-                    targetFile.delete();
-                }
+                File tempFile = new File(downloadDir, "GeminiTranslator_update.tmp");
 
-                URL url = new URL(downloadUrl);
-                HttpURLConnection conn = null;
-                int redirects = 0;
-                int status = 0;
-
-                while (redirects < 10) {
-                    conn = (HttpURLConnection) url.openConnection();
-                    conn.setInstanceFollowRedirects(false);
-                    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) GeminiTranslator/8.6");
-                    conn.setRequestProperty("Accept", "application/octet-stream, application/vnd.android.package-archive, */*");
-                    conn.setConnectTimeout(20000);
-                    conn.setReadTimeout(35000);
-                    conn.connect();
-
-                    status = conn.getResponseCode();
-                    if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM ||
-                        status == 307 || status == 308 || status == 302 || status == 301) {
-                        String newUrl = conn.getHeaderField("Location");
-                        conn.disconnect();
-                        if (newUrl == null || newUrl.isEmpty()) {
-                            throw new java.io.IOException("Update server redirected without Location header");
+                // 2. Check if a valid APK was already downloaded recently (< 30 min old)
+                PackageManager pm = context.getPackageManager();
+                boolean hasValidCachedApk = false;
+                if (targetFile.exists() && targetFile.length() > 2000000 && (System.currentTimeMillis() - targetFile.lastModified() < 30 * 60 * 1000)) {
+                    try {
+                        PackageInfo existingInfo = pm.getPackageArchiveInfo(targetFile.getAbsolutePath(), 0);
+                        if (existingInfo != null && existingInfo.packageName != null) {
+                            hasValidCachedApk = true;
                         }
-                        url = new URL(newUrl);
-                        redirects++;
-                    } else if (status >= 200 && status < 300) {
-                        break;
-                    } else {
-                        conn.disconnect();
-                        throw new java.io.IOException("Update download returned HTTP " + status);
-                    }
+                    } catch (Exception ignored) {}
                 }
 
-                int totalLength = conn.getContentLength();
-                InputStream in = new BufferedInputStream(conn.getInputStream());
-                OutputStream out = new FileOutputStream(targetFile);
+                if (!hasValidCachedApk) {
+                    updateNotification("Gemini Translator Updater", "Downloading update...", 0, true);
+                    if (tempFile.exists()) tempFile.delete();
 
-                byte[] buf = new byte[8192];
-                int count;
-                long total = 0;
-                long lastNotifTime = 0;
-                while ((count = in.read(buf)) != -1) {
-                    total += count;
-                    out.write(buf, 0, count);
-                    long now = System.currentTimeMillis();
-                    if (totalLength > 0 && now - lastNotifTime > 500) {
-                        int progress = (int) ((total * 100) / totalLength);
-                        updateNotification("Gemini Translator Updater", "Downloading update (" + progress + "%)...", progress, true);
-                        lastNotifTime = now;
+                    URL url = new URL(downloadUrl);
+                    HttpURLConnection conn = null;
+                    int redirects = 0;
+                    int status = 0;
+
+                    while (redirects < 10) {
+                        conn = (HttpURLConnection) url.openConnection();
+                        conn.setInstanceFollowRedirects(false);
+                        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) GeminiTranslator/8.6");
+                        conn.setRequestProperty("Accept", "application/octet-stream, application/vnd.android.package-archive, */*");
+                        conn.setConnectTimeout(20000);
+                        conn.setReadTimeout(35000);
+                        conn.connect();
+
+                        status = conn.getResponseCode();
+                        if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM ||
+                            status == 307 || status == 308 || status == 302 || status == 301) {
+                            String newUrl = conn.getHeaderField("Location");
+                            conn.disconnect();
+                            if (newUrl == null || newUrl.isEmpty()) {
+                                throw new java.io.IOException("Update server redirected without Location header");
+                            }
+                            url = new URL(newUrl);
+                            redirects++;
+                        } else if (status >= 200 && status < 300) {
+                            break;
+                        } else {
+                            conn.disconnect();
+                            throw new java.io.IOException("Update download returned HTTP " + status);
+                        }
                     }
-                }
 
-                out.flush();
-                out.close();
-                in.close();
-                conn.disconnect();
+                    int totalLength = conn.getContentLength();
+                    InputStream in = new BufferedInputStream(conn.getInputStream());
+                    OutputStream out = new FileOutputStream(tempFile);
 
-                if (targetFile.length() < 1000000) {
-                    throw new java.io.IOException("Downloaded update APK file is incomplete (" + targetFile.length() + " bytes).");
+                    byte[] buf = new byte[8192];
+                    int count;
+                    long total = 0;
+                    long lastNotifTime = 0;
+                    while ((count = in.read(buf)) != -1) {
+                        total += count;
+                        out.write(buf, 0, count);
+                        long now = System.currentTimeMillis();
+                        if (totalLength > 0 && now - lastNotifTime > 500) {
+                            int progress = (int) ((total * 100) / totalLength);
+                            updateNotification("Gemini Translator Updater", "Downloading update (" + progress + "%)...", progress, true);
+                            lastNotifTime = now;
+                        }
+                    }
+
+                    out.flush();
+                    out.close();
+                    in.close();
+                    conn.disconnect();
+
+                    if (tempFile.length() < 2000000) {
+                        tempFile.delete();
+                        throw new java.io.IOException("Downloaded update APK file is incomplete (" + tempFile.length() + " bytes).");
+                    }
+
+                    // Validate downloaded APK package integrity
+                    PackageInfo info = pm.getPackageArchiveInfo(tempFile.getAbsolutePath(), 0);
+                    if (info == null || info.packageName == null) {
+                        tempFile.delete();
+                        throw new java.io.IOException("Downloaded update APK file failed integrity check.");
+                    }
+
+                    if (targetFile.exists()) targetFile.delete();
+                    if (!tempFile.renameTo(targetFile)) {
+                        try (InputStream fis = new FileInputStream(tempFile); OutputStream fos = new FileOutputStream(targetFile)) {
+                            byte[] cBuf = new byte[8192];
+                            int r;
+                            while ((r = fis.read(cBuf)) != -1) fos.write(cBuf, 0, r);
+                        }
+                        tempFile.delete();
+                    }
                 }
 
                 updateNotification("Gemini Translator Updater", "Download complete. Starting installation...", 100, false);
-
-                // Prompt for unknown sources permission if needed on Android 8+
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    if (!context.getPackageManager().canRequestPackageInstalls()) {
-                        Intent manageIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.getPackageName()));
-                        manageIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        context.startActivity(manageIntent);
-                        updateNotification("Gemini Translator Updater", "Please enable 'Install unknown apps', then tap Update again.", 0, false);
-                        call.reject("Please enable 'Install unknown apps' permission for Gemini Translator, then tap Update again.");
-                        return;
-                    }
-                }
 
                 // Trigger Android Package Installer with explicit URI permissions
                 Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", targetFile);
@@ -1811,6 +1850,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 installIntent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
                 installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 installIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                installIntent.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true);
                 installIntent.setClipData(android.content.ClipData.newRawUri("GeminiTranslatorUpdate", apkUri));
 
                 // Explicitly grant permissions to resolved activities and all common OEM package installers
@@ -1836,7 +1876,11 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     } catch (Exception ignored) {}
                 }
 
-                context.startActivity(installIntent);
+                if (getActivity() != null) {
+                    getActivity().startActivity(installIntent);
+                } else {
+                    context.startActivity(installIntent);
+                }
 
                 JSObject ret = new JSObject();
                 ret.put("success", true);

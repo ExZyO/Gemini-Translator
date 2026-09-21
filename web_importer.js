@@ -619,7 +619,7 @@
                           (normItemTitle && existingByNormTitle.get(normItemTitle));
 
             const isPlaceholder = match && (match.isPlaceholder === true || 
-                                           (match.text && (match.text.includes('could not be retrieved from remote source') || match.text.includes('Network error'))));
+                                           (match.text && (match.text.includes('could not be retrieved from remote source') || match.text.includes('Network error') || match.text.includes('Chapter download failed') || match.text.includes('All proxies exhausted'))));
 
             if (match && !isPlaceholder && (match.text || match.content) && (match.text || match.content).length > 20) {
                 completedIndices.add(i);
@@ -1744,9 +1744,10 @@
                 const txt = cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '');
                 return { title: item.title, text: txt };
             },
-            12,
+            4,
             progressCb,
-            { title, author, summary, cover, chapterList: chapterLinks }
+            { title, author, summary, cover, chapterList: chapterLinks },
+            { delayMs: 150 }
         );
 
         if (activeCrawlController?.tocOnly) {
@@ -4074,81 +4075,45 @@
             throw new Error(`[${plugin.name}] Could not extract novel details or chapter list from ${url}`);
         }
 
-        if (options.tocOnly) {
+        const chapterLinks = details.chapters.map((c, i) => ({
+            title: c.title || `Chapter ${i + 1}`,
+            url: c.url,
+            arc: c.arc || c.volume || '',
+            volume: c.volume || c.arc || ''
+        }));
+
+        if (options.tocOnly || activeCrawlController?.tocOnly) {
             return {
                 title: details.title || 'Novel',
                 author: details.author || 'Author',
                 cover: details.cover || '',
                 summary: details.summary || '',
-                totalChapterCount: details.chapters.length,
-                chapters: details.chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, url: c.url })),
+                totalChapterCount: chapterLinks.length,
+                chapterList: chapterLinks,
+                chapters: [],
+                isEpub: false,
                 sourceUrl: url
             };
         }
 
-        const items = details.chapters;
-        const initialChapters = options.initialChapters || (options.resumeSession ? (options.resumeSession.downloadedChapters || options.resumeSession.chapters || options.resumeSession.rawChapters) : []) || [];
-        const completedUrls = new Set(initialChapters.map(c => c.url).filter(Boolean));
-        const completedTitles = new Set(initialChapters.map(c => (c.title || '').trim().toLowerCase()).filter(Boolean));
+        progressCb?.(`Found ${chapterLinks.length} chapters via ${plugin.name}! Fetching...`, 20);
 
-        const chapters = [...initialChapters];
-        const pendingQueue = [];
-        for (let i = 0; i < items.length; i++) {
-            const it = items[i];
-            const hasUrl = it.url && completedUrls.has(it.url);
-            const hasTitle = it.title && completedTitles.has(it.title.trim().toLowerCase());
-            if (!hasUrl && !hasTitle) {
-                pendingQueue.push({ item: it, originalIdx: i });
-            }
-        }
-
-        if (initialChapters.length > 0 && pendingQueue.length === 0) {
-            progressCb?.(`[${plugin.name}] All ${items.length} chapters are already up to date!`, 100);
-            return {
-                title: details.title || 'Novel',
-                author: details.author || 'Author',
-                cover: details.cover || '',
-                summary: details.summary || '',
-                totalChapterCount: chapters.length,
-                chapters,
-                sourceUrl: url
-            };
-        }
-
-        const concurrency = options.concurrency || 6;
-        for (let i = 0; i < pendingQueue.length; i += concurrency) {
-            if (activeCrawlController?.isCancelled) break;
-            while (activeCrawlController?.isPaused) {
-                await new Promise(r => setTimeout(r, 500));
-                if (activeCrawlController?.isCancelled) break;
-            }
-
-            const batch = pendingQueue.slice(i, i + concurrency);
-            const batchResults = await Promise.all(batch.map(async ({ item, originalIdx }, batchIdx) => {
-                const currentChNum = chapters.length + batchIdx + 1;
-                try {
-                    const ch = await plugin.getChapter(item.url, { title: item.title, arc: item.arc, volume: item.volume });
-                    const pct = Math.round(((i + batchIdx + 1) / pendingQueue.length) * 100);
-                    progressCb?.(`[${plugin.name}] Downloaded chapter ${currentChNum}/${items.length} (${pct}%)`, pct);
-                    return {
-                        title: ch.title || item.title || `Chapter ${originalIdx + 1}`,
-                        url: item.url,
-                        text: cleanChapterHtmlWithImages(ch.content || ''),
-                        arc: ch.arc || item.arc,
-                        volume: ch.volume || item.volume || item.arc
-                    };
-                } catch (err) {
-                    console.warn(`[${plugin.name}] Failed chapter ${originalIdx + 1}:`, err);
-                    return {
-                        title: item.title || `Chapter ${originalIdx + 1}`,
-                        url: item.url,
-                        text: `[Chapter download failed: ${err.message}]`
-                    };
-                }
-            }));
-
-            chapters.push(...batchResults);
-        }
+        const { chapters, totalWords } = await crawlChapterPool(
+            chapterLinks,
+            async (item, idx) => {
+                const ch = await plugin.getChapter(item.url, { title: item.title, arc: item.arc, volume: item.volume, index: idx });
+                return {
+                    title: ch.title || item.title,
+                    text: cleanChapterHtmlWithImages(ch.content || ch.text || ''),
+                    arc: ch.arc || item.arc,
+                    volume: ch.volume || item.volume
+                };
+            },
+            options.concurrency || 4,
+            progressCb,
+            { title: details.title, author: details.author, summary: details.summary, cover: details.cover, chapterList: chapterLinks },
+            { delayMs: options.delayMs !== undefined ? options.delayMs : 250 }
+        );
 
         return {
             title: details.title || 'Novel',
@@ -4157,6 +4122,8 @@
             summary: details.summary || '',
             totalChapterCount: chapters.length,
             chapters,
+            chapterList: chapterLinks,
+            isEpub: false,
             sourceUrl: url
         };
     }
@@ -4206,26 +4173,29 @@
             try {
                 window.telemetryLog?.('CRAWLER', `Initiating crawl for URL: ${url} (engine: ${type || 'auto'})`, { url, type, options });
                 let result;
-                const registeredPlugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
-                if (registeredPlugin && registeredPlugin.id !== 'universal') {
-                    console.log(`⚡ [LNCrawl Engine] Routing to active source plugin: ${registeredPlugin.name} (${registeredPlugin.id})`);
-                    result = await crawlWithPlugin(registeredPlugin, url, progressCb, options);
-                }
+                if (type === 'royalroad') result = await crawlRoyalRoad(url, progressCb, options);
+                else if (type === 'novelfire') result = await crawlNovelFire(url, progressCb, options);
                 else if (type === 'novelbuddy') result = await crawlNovelBuddy(url, progressCb, options);
                 else if (type === 'lnori') result = await crawlLnori(url, progressCb, options);
                 else if (type === 'wuxiabox') result = await crawlWuxiaBox(url, progressCb, options);
                 else if (type === 'wtrlab') result = await crawlWtrLab(url, progressCb, options);
                 else if (type === 'fucknovelpia') result = await crawlFuckNovelPia(url, progressCb, options);
                 else if (type === 'novelbin') result = await crawlNovelBin(url, progressCb, options);
-                else if (type === 'novelfire') result = await crawlNovelFire(url, progressCb, options);
                 else if (type === 'witchcult') result = await crawlWitchCult(url, progressCb, options);
                 else if (type === 'ao3') result = await crawlAO3(url, progressCb, options);
-                else if (type === 'royalroad') result = await crawlRoyalRoad(url, progressCb, options);
                 else if (type === 'syosetu') result = await crawlSyosetu(url, progressCb, options);
                 else if (type === 'novelfull') result = await crawlNovelFull(url, progressCb, options);
                 else if (type === 'lofter') result = await crawlLofter(url, progressCb, options);
                 else if (type === 'pixiv') result = await crawlPixiv(url, progressCb, options);
-                else result = await crawlUniversal(url, progressCb, options);
+                else {
+                    const registeredPlugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
+                    if (registeredPlugin && registeredPlugin.id !== 'universal') {
+                        console.log(`⚡ [LNCrawl Engine] Routing to active source plugin: ${registeredPlugin.name} (${registeredPlugin.id})`);
+                        result = await crawlWithPlugin(registeredPlugin, url, progressCb, options);
+                    } else {
+                        result = await crawlUniversal(url, progressCb, options);
+                    }
+                }
 
                 if (result) {
                     result.sourceUrl = result.sourceUrl || url;

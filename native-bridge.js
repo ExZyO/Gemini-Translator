@@ -171,8 +171,23 @@
             if (bridge && bridge.installApk) {
                 return await bridge.installApk({ url });
             } else {
-                // Browser fallback: trigger direct download
-                window.open(url, '_blank');
+                // Browser fallback: trigger direct APK file download without opening blank webpage
+                try {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'GeminiTranslator.apk';
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        try { document.body.removeChild(a); } catch(e) {}
+                    }, 1000);
+                    return { success: true, message: 'Downloading APK via browser' };
+                } catch (e) {
+                    window.open(url, '_blank');
+                    return { success: true };
+                }
             }
         },
 

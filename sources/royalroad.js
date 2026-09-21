@@ -73,6 +73,7 @@
         cover,
         summary,
         status: 'Ongoing',
+        sourceUrl: url,
         chapters
       };
     }
@@ -85,22 +86,15 @@
       const doc = new DOMParser().parseFromString(html, 'text/html');
 
       const title = this.decodeHtml(doc.querySelector('h1, .fic-header h1')?.textContent?.trim() || options.title || 'Chapter');
-      const contentEl = doc.querySelector('.chapter-inner.chapter-content, .chapter-content');
-      let content = '';
-
-      if (contentEl) {
-        const paras = contentEl.querySelectorAll('p');
-        const clean = [];
-        paras.forEach(p => {
-          const t = p.textContent.trim();
-          if (t) clean.push(this.decodeHtml(t));
-        });
-        content = clean.join('\n\n');
-      }
+      const contentEl = doc.querySelector('.chapter-inner.chapter-content, .chapter-inner, .chapter-content') || doc.body;
+      const cleanHtml = (window.WebNovelImporter && window.WebNovelImporter.cleanChapterHtmlWithImages)
+        ? window.WebNovelImporter.cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '')
+        : (contentEl.textContent || '');
 
       return {
         title,
-        content: content.trim(),
+        content: cleanHtml,
+        text: cleanHtml,
         originalTitle: title
       };
     }
