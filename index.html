@@ -732,29 +732,29 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="utils.js"></script>
   <script src="db_engine.js"></script>
   <script src="splitter.js"></script>
-  <script src="merger.js?v=8.17.16"></script>
-  <script src="epub_studio_ui.js?v=8.17.16"></script>
-  <script src="epub_editor.js?v=8.17.16"></script>
-  <script src="sources/base_plugin.js?v=8.17.16"></script>
-  <script src="sources/lnreader_adapter.js?v=8.17.16"></script>
-  <script src="sources/syosetu.js?v=8.17.16"></script>
-  <script src="sources/rezero_manifest.js?v=8.17.16"></script>
-  <script src="sources/witchcult.js?v=8.17.16"></script>
-  <script src="sources/royalroad.js?v=8.17.16"></script>
-  <script src="sources/novelfire.js?v=8.17.16"></script>
-  <script src="sources/universal.js?v=8.17.16"></script>
-  <script src="sources/registry.js?v=8.17.16"></script>
-  <script src="web_importer.js?v=8.17.16"></script>
-  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.16"></script>
-  <script src="telemetry_logger.js?v=8.17.16"></script>
-  <script src="reader_engine.js?v=8.17.16"></script>
-  <script src="qa_engine.js?v=8.17.16"></script>
-  <script src="vendor/diff_match_patch.js?v=8.17.16"></script>
-  <script src="tm_diff_engine.js?v=8.17.16"></script>
-  <script src="epub_engine.js?v=8.17.16"></script>
-  <script src="glossary_presets.js?v=8.17.16"></script>
-  <script src="gdrive_sync.js?v=8.17.16"></script>
-  <script src="swiftaudio_engine.js?v=8.17.16"></script>
+  <script src="merger.js?v=8.17.17"></script>
+  <script src="epub_studio_ui.js?v=8.17.17"></script>
+  <script src="epub_editor.js?v=8.17.17"></script>
+  <script src="sources/base_plugin.js?v=8.17.17"></script>
+  <script src="sources/lnreader_adapter.js?v=8.17.17"></script>
+  <script src="sources/syosetu.js?v=8.17.17"></script>
+  <script src="sources/rezero_manifest.js?v=8.17.17"></script>
+  <script src="sources/witchcult.js?v=8.17.17"></script>
+  <script src="sources/royalroad.js?v=8.17.17"></script>
+  <script src="sources/novelfire.js?v=8.17.17"></script>
+  <script src="sources/universal.js?v=8.17.17"></script>
+  <script src="sources/registry.js?v=8.17.17"></script>
+  <script src="web_importer.js?v=8.17.17"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.17"></script>
+  <script src="telemetry_logger.js?v=8.17.17"></script>
+  <script src="reader_engine.js?v=8.17.17"></script>
+  <script src="qa_engine.js?v=8.17.17"></script>
+  <script src="vendor/diff_match_patch.js?v=8.17.17"></script>
+  <script src="tm_diff_engine.js?v=8.17.17"></script>
+  <script src="epub_engine.js?v=8.17.17"></script>
+  <script src="glossary_presets.js?v=8.17.17"></script>
+  <script src="gdrive_sync.js?v=8.17.17"></script>
+  <script src="swiftaudio_engine.js?v=8.17.17"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -863,7 +863,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.16';
+    let VERSION = '8.17.17';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -5715,8 +5715,12 @@ const formatModelName = (id, displayName) => {
       // ── NOVEL SEARCH HANDLER ──
       const handleSearchNovels = async (queryOrUrl, sourceOverride = 'all') => {
         const target = (queryOrUrl || webImportUrl || '').trim();
-        if (!target || target === 'https://novelbuddy.me' || target === 'https://www.royalroad.com' || target === 'https://novelfire.net' || target === 'https://lnori.com/' || target === 'https://witchculttranslation.com/table-of-content/') {
+        if (!target || target === 'https://novelbuddy.me' || target === 'https://www.royalroad.com' || target === 'https://novelfire.net' || target === 'https://lnori.com/' || target === 'https://lnori.com' || target === 'https://witchculttranslation.com/table-of-content/') {
           return toast('Please enter a novel title or keyword to search (e.g. Horror Game Developer, Shadow Slave, Re:Zero)', 'warning');
+        }
+
+        if (sourceOverride === 'Lnori' || novelSearchFilter === 'Lnori') {
+          toast('Note: Lnori is a static reader without a search API. Searching all other active sources for "' + target + '"… (Paste an lnori.com/series/... link to fetch directly)', 'info');
         }
 
         // If user pasted a direct novel chapter or book URL, initiate crawl directly
@@ -6203,7 +6207,7 @@ const formatModelName = (id, displayName) => {
       const [pluginCatalog, setPluginCatalog] = useState([]);
       const [isCatalogLoading, setIsCatalogLoading] = useState(false);
       const [pluginSearchQuery, setPluginSearchQuery] = useState('');
-      const [pluginSelectedTab, setPluginSelectedTab] = useState('catalog');
+      const [pluginSelectedTab, setPluginSelectedTab] = useState('installed');
       const [customPluginUrl, setCustomPluginUrl] = useState('');
       const [pluginCatalogTick, setPluginCatalogTick] = useState(0);
       const [pluginNovelSearchQuery, setPluginNovelSearchQuery] = useState('');
@@ -6234,7 +6238,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8256);
+      const [appVersionCode, setAppVersionCode] = useState(8257);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [installingPluginId, setInstallingPluginId] = useState(null);
@@ -12524,7 +12528,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
             // ═══ TAB 2: WEB IMPORTER ═══
             activeTab === 'web_importer' && (() => {
-              const isLnoriUrl = /lnori\.(?:org|com)/i.test(webImportUrl);
+              const isLnoriUrl = /lnori\.(?:org|com)\/(?:series|book)\//i.test(webImportUrl);
               const isWitchCultUrl = /witchculttranslation\.com|rezero/i.test(webImportUrl);
               const isSwiftAudioDetected = isSwiftAudioMode || /swiftaudiobooks\.com|ipaudio7\.com/i.test(webImportUrl);
               const isSpecificSwiftAudioBook = /^https?:\/\/(?:www\.)?(?:swiftaudiobooks\.com|ipaudio7\.com)\/[a-z0-9-]+/i.test((webImportUrl || '').trim()) &&
@@ -12714,14 +12718,16 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                   ['👑 Re:Zero (WCT)', 'Lnori', 'SwiftAudio', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'NovelBin', 'AO3', 'Pixiv', 'Syosetu'].map(s => {
                     const isRezeroChip = s === '👑 Re:Zero (WCT)';
                     const isSwiftChip = s === 'SwiftAudio';
+                    const isLnoriChip = s === 'Lnori';
                     const isRezeroActive = isRezeroChip && isWitchCultUrl;
                     const isSwiftActive = isSwiftChip && isSwiftAudioDetected;
+                    const isLnoriActive = isLnoriChip && novelSearchFilter === 'Lnori';
                     return h('span', {
                       key: s,
-                      className: `src-chip ${(isSwiftActive || isRezeroActive) ? 'accent' : ''}`,
+                      className: `src-chip ${(isSwiftActive || isRezeroActive || isLnoriActive) ? 'accent' : ''}`,
                       style: isRezeroActive
                         ? { borderColor: 'rgba(168, 85, 247, 0.6)', color: '#c084fc', background: 'rgba(168, 85, 247, 0.15)', fontWeight: 700, cursor: 'pointer' }
-                        : (isSwiftActive ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : { cursor: 'pointer' }),
+                        : (isSwiftActive ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : (isLnoriActive ? { borderColor: 'rgba(99, 102, 241, 0.6)', color: 'var(--iris)', background: 'rgba(99, 102, 241, 0.15)', fontWeight: 700, cursor: 'pointer' } : { cursor: 'pointer' })),
                       onClick: () => {
                         if (isRezeroChip) {
                           setIsSwiftAudioMode(false);
@@ -12733,11 +12739,13 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                             setWebImportUrl('');
                           }
                           toast('SwiftAudiobooks selected! Type any book title or paste link.', 'info');
+                        } else if (isLnoriChip) {
+                          setIsSwiftAudioMode(false);
+                          setNovelSearchFilter('Lnori');
+                          toast('📖 Lnori light novels work via direct series or book links (e.g. lnori.com/series/... or lnori.com/book/...). Paste any link to import!', 'info');
                         } else {
                           setIsSwiftAudioMode(false);
-                          if (s === 'Lnori' && !webImportUrl) {
-                            setWebImportUrl('https://lnori.com/');
-                          } else if (['NovelBuddy', 'RoyalRoad', 'NovelFire'].includes(s)) {
+                          if (['NovelBuddy', 'RoyalRoad', 'NovelFire'].includes(s)) {
                             setNovelSearchFilter(s);
                             if (webImportUrl && !/^https?:\/\//i.test(webImportUrl.trim())) {
                               handleSearchNovels(webImportUrl, s);
@@ -12749,7 +12757,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                           }
                         }
                       }
-                    }, isSwiftChip ? '🎧 SwiftAudio' : (s === 'NovelBuddy' ? '✨ NovelBuddy' : s));
+                    }, isSwiftChip ? '🎧 SwiftAudio' : (s === 'NovelBuddy' ? '✨ NovelBuddy' : (s === 'Lnori' ? '📖 Lnori' : s)));
                   })),
                 h('input', {
                   className: 'url-input',
@@ -17691,54 +17699,71 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             overflow: 'hidden'
           }
         },
-          // Top Full-Screen Navigation Bar
+          // Top Full-Screen Navigation Bar (Pinned with Safe Area Insets)
           h('div', {
             style: {
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 16px',
+              flexDirection: 'column',
+              padding: 'max(14px, env(safe-area-inset-top, 14px)) 16px 10px',
               borderBottom: '1px solid var(--hairline)',
-              background: 'rgba(15, 23, 42, 0.85)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
+              background: 'rgba(15, 23, 42, 0.95)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
               gap: 12,
               flexShrink: 0
             }
           },
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 } },
-              h('button', {
-                type: 'button',
-                className: 'icon-btn',
-                style: { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--hairline)', color: 'var(--paper)', fontSize: 16, cursor: 'pointer' },
-                onClick: () => setSourcePluginsModalOpen(false),
-                title: 'Back to Import'
-              }, '←'),
-              h('div', { style: { minWidth: 0, flex: 1 } },
-                h('div', { style: { fontWeight: 800, fontSize: 16, color: 'var(--paper)', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 8 } },
-                  h('span', null, 'Extensions & Sources'),
-                  h('span', { className: 'badge', style: { background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', fontSize: 10, padding: '2px 8px', borderRadius: 12 } },
-                    `${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length} Installed`
+            // Row 1: Back button, Title, Sideload & Done buttons
+            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 } },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 } },
+                h('button', {
+                  type: 'button',
+                  className: 'icon-btn',
+                  style: { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--hairline)', color: 'var(--paper)', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
+                  onClick: () => setSourcePluginsModalOpen(false),
+                  title: 'Back to Import'
+                }, '←'),
+                h('div', { style: { minWidth: 0, flex: 1 } },
+                  h('div', { style: { fontWeight: 800, fontSize: 16, color: 'var(--paper)', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 8 } },
+                    h('span', null, 'Extensions & Sources'),
+                    h('span', { className: 'badge', style: { background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', fontSize: 10, padding: '2px 8px', borderRadius: 12 } },
+                      `${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length} Installed`
+                    )
+                  ),
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                    'Mihon & LNReader compatible source extensions and built-in scrapers'
                   )
-                ),
-                h('div', { style: { fontSize: 11, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-                  'Mihon & LNReader compatible source extensions and built-in scrapers'
                 )
+              ),
+              h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 } },
+                h('button', {
+                  type: 'button',
+                  className: `mini-btn ${pluginSelectedTab === 'custom' ? '' : 'ghost'}`,
+                  style: { fontSize: 11, padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap', borderColor: 'var(--hairline)' },
+                  onClick: () => setPluginSelectedTab(pluginSelectedTab === 'custom' ? 'installed' : 'custom')
+                }, pluginSelectedTab === 'custom' ? '✕ Close Sideload' : '🔗 Sideload'),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { fontSize: 11, padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap' },
+                  onClick: () => setSourcePluginsModalOpen(false)
+                }, 'Done')
               )
             ),
-            h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-              h('button', {
-                type: 'button',
-                className: `mini-btn ${pluginSelectedTab === 'custom' ? '' : 'ghost'}`,
-                style: { fontSize: 11, padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap', borderColor: 'var(--hairline)' },
-                onClick: () => setPluginSelectedTab(pluginSelectedTab === 'custom' ? 'installed' : 'custom')
-              }, pluginSelectedTab === 'custom' ? '✕ Close Sideload' : '🔗 Sideload'),
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: { fontSize: 11, padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap' },
-                onClick: () => setSourcePluginsModalOpen(false)
-              }, 'Done')
+            // Row 2: Pinned Segmented Tabs: Installed & Browse Catalog (Always visible at the top!)
+            h('div', { className: 'seg-wide', style: { margin: '2px 0 0', width: '100%', maxWidth: 900, alignSelf: 'center' } },
+              h('span', {
+                className: (pluginSelectedTab === 'installed' || !pluginSelectedTab) ? 'on' : '',
+                onClick: () => setPluginSelectedTab('installed')
+              }, `✅ Installed (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`),
+              h('span', {
+                className: pluginSelectedTab === 'catalog' ? 'on' : '',
+                onClick: () => setPluginSelectedTab('catalog')
+              }, `🌐 Browse Catalog (${pluginCatalog.length || '278+'})`),
+              pluginSelectedTab === 'custom' && h('span', {
+                className: 'on',
+                onClick: () => setPluginSelectedTab('custom')
+              }, '🔗 Sideload Custom')
             )
           ),
 
@@ -17758,22 +17783,6 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
               boxSizing: 'border-box'
             }
           },
-            // Segmented tabs: Installed & Browse Catalog
-            h('div', { className: 'seg-wide', style: { marginBottom: 2 } },
-              h('span', {
-                className: (pluginSelectedTab === 'installed' || !pluginSelectedTab) ? 'on' : '',
-                onClick: () => setPluginSelectedTab('installed')
-              }, `✅ Installed (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`),
-              h('span', {
-                className: pluginSelectedTab === 'catalog' ? 'on' : '',
-                onClick: () => setPluginSelectedTab('catalog')
-              }, `🌐 Browse Catalog (${pluginCatalog.length || '278+'})`),
-              pluginSelectedTab === 'custom' && h('span', {
-                className: 'on',
-                onClick: () => setPluginSelectedTab('custom')
-              }, '🔗 Sideload Custom')
-            ),
-
             // ── TAB 1: INSTALLED EXTENSIONS ──
             (pluginSelectedTab === 'installed' || !pluginSelectedTab) && (() => {
               const reg = window.sourceRegistry || window.SourceRegistry;
@@ -17904,7 +17913,15 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                 const q = (pluginSearchQuery || '').trim().toLowerCase();
                 const targetLang = (pluginSelectedLangFilter || 'all').toLowerCase();
                 const list = (pluginCatalog || []).filter(p => {
-                  if (targetLang !== 'all' && (p.lang || 'en').toLowerCase() !== targetLang) return false;
+                  if (targetLang !== 'all') {
+                    const pLang = (p.lang || '').toLowerCase();
+                    if (targetLang === 'en' && !pLang.includes('english') && pLang !== 'en') return false;
+                    if (targetLang === 'ja' && !pLang.includes('日本語') && !pLang.includes('japanese') && pLang !== 'ja') return false;
+                    if (targetLang === 'zh' && !pLang.includes('中文') && !pLang.includes('chinese') && pLang !== 'zh') return false;
+                    if (targetLang === 'es' && !pLang.includes('español') && !pLang.includes('spanish') && pLang !== 'es') return false;
+                    if (targetLang === 'ru' && !pLang.includes('русский') && !pLang.includes('russian') && pLang !== 'ru') return false;
+                    if (targetLang === 'ko' && !pLang.includes('한국어') && !pLang.includes('korean') && pLang !== 'ko') return false;
+                  }
                   if (!q) return true;
                   return (p.name && p.name.toLowerCase().includes(q)) ||
                          (p.id && p.id.toLowerCase().includes(q)) ||
@@ -17921,6 +17938,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                     const reg = window.sourceRegistry || window.SourceRegistry;
                     const isInstalled = reg && typeof reg.isInstalled === 'function' ? reg.isInstalled(p.id) : false;
                     const isInstalling = installingPluginId === p.id;
+                    const iconSrc = p.iconUrl || p.icon;
                     return h('div', {
                       key: p.id,
                       style: {
@@ -17936,8 +17954,8 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                       }
                     },
                       h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 } },
-                        p.icon
-                          ? h('img', { src: p.icon, style: { width: 36, height: 36, borderRadius: 8, objectFit: 'contain', flexShrink: 0, background: 'rgba(0,0,0,0.2)' }, onError: e => { e.target.style.display = 'none'; } })
+                        iconSrc
+                          ? h('img', { src: iconSrc, style: { width: 36, height: 36, borderRadius: 8, objectFit: 'contain', flexShrink: 0, background: 'rgba(0,0,0,0.2)' }, onError: e => { e.target.style.display = 'none'; } })
                           : h('div', { style: { width: 36, height: 36, borderRadius: 8, background: 'rgba(99, 102, 241, 0.15)', color: 'var(--iris)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 } }, (p.name || 'P').slice(0, 1).toUpperCase()),
                         h('div', { style: { flex: 1, minWidth: 0 } },
                           h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
