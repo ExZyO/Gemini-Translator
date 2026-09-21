@@ -23,6 +23,27 @@ public class MainActivity extends BridgeActivity {
             }
         } catch (Exception ignored) {}
 
+        // Add crash shield: prevent Android from killing app if WebView render process exits
+        try {
+            if (bridge != null) {
+                bridge.addWebViewListener(new com.getcapacitor.WebViewListener() {
+                    @Override
+                    public boolean onRenderProcessGone(android.webkit.WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                        android.util.Log.e("GeminiTranslator", "WebView render process exited. Recovering gracefully.");
+                        try {
+                            if (view != null) {
+                                android.view.ViewGroup parent = (android.view.ViewGroup) view.getParent();
+                                if (parent != null) parent.removeView(view);
+                                view.destroy();
+                            }
+                        } catch (Exception ignored) {}
+                        MainActivity.this.recreate();
+                        return true;
+                    }
+                });
+            }
+        } catch (Exception ignored) {}
+
         // Request runtime notification permission on Android 13+ (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
