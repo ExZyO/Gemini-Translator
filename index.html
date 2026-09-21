@@ -732,29 +732,29 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="utils.js"></script>
   <script src="db_engine.js"></script>
   <script src="splitter.js"></script>
-  <script src="merger.js?v=8.17.21"></script>
-  <script src="epub_studio_ui.js?v=8.17.21"></script>
-  <script src="epub_editor.js?v=8.17.21"></script>
-  <script src="sources/base_plugin.js?v=8.17.21"></script>
-  <script src="sources/lnreader_adapter.js?v=8.17.21"></script>
-  <script src="sources/syosetu.js?v=8.17.21"></script>
-  <script src="sources/rezero_manifest.js?v=8.17.21"></script>
-  <script src="sources/witchcult.js?v=8.17.21"></script>
-  <script src="sources/royalroad.js?v=8.17.21"></script>
-  <script src="sources/novelfire.js?v=8.17.21"></script>
-  <script src="sources/universal.js?v=8.17.21"></script>
-  <script src="sources/registry.js?v=8.17.21"></script>
-  <script src="web_importer.js?v=8.17.21"></script>
-  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.21"></script>
-  <script src="telemetry_logger.js?v=8.17.21"></script>
-  <script src="reader_engine.js?v=8.17.21"></script>
-  <script src="qa_engine.js?v=8.17.21"></script>
-  <script src="vendor/diff_match_patch.js?v=8.17.21"></script>
-  <script src="tm_diff_engine.js?v=8.17.21"></script>
-  <script src="epub_engine.js?v=8.17.21"></script>
-  <script src="glossary_presets.js?v=8.17.21"></script>
-  <script src="gdrive_sync.js?v=8.17.21"></script>
-  <script src="swiftaudio_engine.js?v=8.17.21"></script>
+  <script src="merger.js?v=8.17.22"></script>
+  <script src="epub_studio_ui.js?v=8.17.22"></script>
+  <script src="epub_editor.js?v=8.17.22"></script>
+  <script src="sources/base_plugin.js?v=8.17.22"></script>
+  <script src="sources/lnreader_adapter.js?v=8.17.22"></script>
+  <script src="sources/syosetu.js?v=8.17.22"></script>
+  <script src="sources/rezero_manifest.js?v=8.17.22"></script>
+  <script src="sources/witchcult.js?v=8.17.22"></script>
+  <script src="sources/royalroad.js?v=8.17.22"></script>
+  <script src="sources/novelfire.js?v=8.17.22"></script>
+  <script src="sources/universal.js?v=8.17.22"></script>
+  <script src="sources/registry.js?v=8.17.22"></script>
+  <script src="web_importer.js?v=8.17.22"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.22"></script>
+  <script src="telemetry_logger.js?v=8.17.22"></script>
+  <script src="reader_engine.js?v=8.17.22"></script>
+  <script src="qa_engine.js?v=8.17.22"></script>
+  <script src="vendor/diff_match_patch.js?v=8.17.22"></script>
+  <script src="tm_diff_engine.js?v=8.17.22"></script>
+  <script src="epub_engine.js?v=8.17.22"></script>
+  <script src="glossary_presets.js?v=8.17.22"></script>
+  <script src="gdrive_sync.js?v=8.17.22"></script>
+  <script src="swiftaudio_engine.js?v=8.17.22"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -863,7 +863,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.21';
+    let VERSION = '8.17.22';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -5181,19 +5181,61 @@ const formatModelName = (id, displayName) => {
       const [lastUsageStats, setLastUsageStats] = useState(null);
       const [activeBookMenuNovel, setActiveBookMenuNovel] = useState(null);
 
-      const parseAssembledTextToChapters = (text, fallbackTitle = 'Chapter 1') => {
+      const partitionTextByChapters = (fullText, baseChapters) => {
+        if (!fullText || !baseChapters || baseChapters.length <= 1) return null;
+        const positions = [];
+        for (let i = 0; i < baseChapters.length; i++) {
+          const ch = baseChapters[i];
+          const t = (ch.title || ch.originalTitle || '').trim();
+          if (!t) return null;
+          const regex = new RegExp(`(?:^|\\n)\\s*(?:#{1,6}\\s*)?(?:\\*\\*)?${t.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}(?:\\*\\*)?\\s*(?:\\n|$)`, 'i');
+          const match = fullText.match(regex);
+          if (!match || typeof match.index !== 'number') {
+            const idx = fullText.indexOf(t);
+            if (idx === -1) return null;
+            positions.push({ idx, title: t, origCh: ch });
+          } else {
+            positions.push({ idx: match.index, title: t, origCh: ch });
+          }
+        }
+        for (let i = 0; i < positions.length - 1; i++) {
+          if (positions[i].idx >= positions[i + 1].idx) return null;
+        }
+        const result = [];
+        for (let i = 0; i < positions.length; i++) {
+          const start = positions[i].idx;
+          const end = (i + 1 < positions.length) ? positions[i + 1].idx : fullText.length;
+          let chText = fullText.substring(start, end).trim();
+          const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+          const cleanContent = (typeof stripFn === 'function') ? stripFn(chText, positions[i].title, positions[i].origCh?.originalTitle) : chText;
+          result.push({
+            ...positions[i].origCh,
+            title: positions[i].title,
+            content: cleanContent,
+            text: cleanContent
+          });
+        }
+        return result;
+      };
+
+      const parseAssembledTextToChapters = (text, fallbackTitle = 'Chapter 1', knownTitles = []) => {
         if (!text || !text.trim()) return [];
         const lines = text.split(/\r?\n/);
-        // Matches markdown headings (# Title), bold headings (**Chapter 1**), standard chapter patterns (Chapter 1, Ch. 2, Volume 1, Prologue, etc.), and CJK patterns (第1章, 第一回)
-        const headingRegex = /^(?:#{1,6}\s+(.+)$|\*\*(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc|第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]).+\*\*|(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc)\b\s*[\dIVXLCDM\s:.-].*|第[0-9零一二三四五六七八九十百千万]+[章回卷节篇].*)/i;
+        const cleanKnown = (knownTitles || []).map(t => String(t || '').replace(/^#{1,6}\s+/, '').replace(/^\*\*|\*\*$/g, '').trim().toLowerCase()).filter(Boolean);
+        const knownSet = new Set(cleanKnown);
+
+        // Matches markdown headings (# Title), bold headings (**Chapter 1**), standard chapter patterns (Chapter 1, Ch. 2, Volume 1, Prologue, etc.), CJK patterns (第1章, 第一回), and numbered patterns (1. Title, 1 - Title, 1: Title)
+        const headingRegex = /^(?:#{1,6}\s+(.+)$|\*\*(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc|第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]).+\*\*|(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc)\b\s*[\dIVXLCDM\s:.-].*|第[0-9零一二三四五六七八九十百千万]+[章回卷节篇].*|^(?:Chapter\s*)?\d+[\s:.-]+[A-Za-z\u4e00-\u9fa5].*)/i;
         const parts = [];
         let cur = null;
         for (const line of lines) {
           const trimmed = line.trim();
+          const titleCandidate = trimmed.replace(/^#{1,6}\s+/, '').replace(/^\*\*|\*\*$/g, '').trim();
+          const isKnown = titleCandidate && knownSet.has(titleCandidate.toLowerCase());
           const match = trimmed.match(headingRegex);
-          if (match && trimmed.length <= 120) {
+          if ((match || isKnown) && trimmed.length <= 150) {
             if (cur) parts.push({ title: cur.title, content: cur.content.trim() });
-            const titleClean = trimmed.replace(/^#{1,6}\s+/, '').replace(/^\*\*|\*\*$/g, '').trim();
+            const titleClean = titleCandidate || (match && match[1]) || trimmed;
             cur = { title: titleClean || fallbackTitle, content: '' };
           } else if (cur) {
             cur.content += line + '\n';
@@ -5207,16 +5249,17 @@ const formatModelName = (id, displayName) => {
 
       const handleAssembledTextChange = (newText) => {
         setAssembledText(newText);
+        const knownTitles = (translatedChapters || []).map(c => c?.title || c?.originalTitle).filter(Boolean);
         if (!translatedChapters || translatedChapters.length <= 1) {
           const defaultTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Chapter 1';
-          const parsed = parseAssembledTextToChapters(newText, defaultTitle);
+          const parsed = parseAssembledTextToChapters(newText, defaultTitle, knownTitles);
           if (parsed.length > 0) {
             setTranslatedChapters(parsed);
           } else {
             setTranslatedChapters([{ title: defaultTitle, content: newText }]);
           }
         } else {
-          const parsed = parseAssembledTextToChapters(newText, translatedChapters[0]?.title || 'Chapter 1');
+          const parsed = parseAssembledTextToChapters(newText, translatedChapters[0]?.title || 'Chapter 1', knownTitles);
           if (parsed.length === translatedChapters.length) {
             // Keep original chapter metadata (index, stats, raw) but update titles and content with user's edits
             setTranslatedChapters(prev => prev.map((ch, i) => ({
@@ -5227,8 +5270,13 @@ const formatModelName = (id, displayName) => {
             })));
           } else if (parsed.length > 1) {
             setTranslatedChapters(parsed);
+          } else if (parsed.length === 1 && translatedChapters.length > 1) {
+            const partitioned = partitionTextByChapters(newText, translatedChapters);
+            if (partitioned && partitioned.length === translatedChapters.length) {
+              setTranslatedChapters(partitioned);
+            }
           }
-          // If parsed.length <= 1, do NOT overwrite chapter 0 with all chapters; keep translatedChapters intact
+          // If parsed.length <= 1 and cannot partition, do NOT overwrite chapter 0 with all chapters; keep translatedChapters intact
         }
       };
 
@@ -6045,6 +6093,13 @@ const formatModelName = (id, displayName) => {
       const inputSaveTimerRef = useRef(null);
       const handleInputChange = (val) => {
         setInputText(val);
+        if (chapters.length > 0) {
+          if (!val.trim()) {
+            setChapters([]);
+          } else if (chapters.length === 1) {
+            setChapters([{ ...chapters[0], text: val, content: val }]);
+          }
+        }
         if (inputSaveTimerRef.current) clearTimeout(inputSaveTimerRef.current);
         inputSaveTimerRef.current = setTimeout(() => {
           try {
@@ -11119,13 +11174,28 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
           if (paragraphs && paragraphs.length > 0) {
             for (let i = 0; i < paragraphs.length; i++) {
               const p = paragraphs[i];
-              const textNodes = p.getElementsByTagName('w:t');
+              const isHeading = Boolean(p.querySelector && p.querySelector('pStyle[val*="Heading"], pStyle[val*="Title"], pStyle[val*="heading"], pStyle[val*="title"], w\\:pStyle[w\\:val*="Heading"], w\\:pStyle[w\\:val*="Title"]'));
+              const textNodes = p.querySelectorAll ? p.querySelectorAll('w\\:t, t, w\\:br, br, w\\:tab, tab') : p.getElementsByTagName('w:t');
               let pText = '';
-              for (let j = 0; j < textNodes.length; j++) {
-                pText += textNodes[j].textContent || '';
+              if (textNodes && textNodes.length > 0) {
+                for (let j = 0; j < textNodes.length; j++) {
+                  const node = textNodes[j];
+                  const tag = (node.tagName || '').toLowerCase();
+                  if (tag.endsWith('br')) pText += '\n';
+                  else if (tag.endsWith('tab')) pText += ' ';
+                  else pText += node.textContent || '';
+                }
+              } else {
+                const ts = p.getElementsByTagName('w:t');
+                for (let j = 0; j < ts.length; j++) pText += ts[j].textContent || '';
               }
-              if (pText.trim()) {
-                lines.push(pText.trim());
+              const trimmed = pText.trim();
+              if (trimmed) {
+                if (isHeading && !trimmed.startsWith('#')) {
+                  lines.push(`# ${trimmed}`);
+                } else {
+                  lines.push(trimmed);
+                }
               }
             }
           }
@@ -11161,8 +11231,8 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             const fallbackTitle = f.name.replace(/\.docx$/i, '');
             const parsedChs = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(docxText, fallbackTitle) : [];
             const chs = (parsedChs.length > 0)
-              ? parsedChs.map(c => ({ title: c.title, text: c.content || c.text || '' }))
-              : [{ title: fallbackTitle, text: docxText }];
+              ? parsedChs.map(c => ({ title: c.title, text: c.content || c.text || '', content: c.content || c.text || '' }))
+              : [{ title: fallbackTitle, text: docxText, content: docxText }];
             data = { chapters: chs, title: fallbackTitle };
             setInputText(docxText);
           } else if (fname.endsWith('.json') || f.type === 'application/json') {
@@ -11170,10 +11240,11 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             return importFullBackup({ target: { files: [f] } });
           } else if (f.type === 'text/plain' || fname.endsWith('.txt')) {
             const rawText = await readFileAsText(f);
-            data = { chapters: [{ title: f.name.replace(/\.txt$/i, ''), text: rawText }] };
+            data = { chapters: [{ title: f.name.replace(/\.txt$/i, ''), text: rawText, content: rawText }] };
             setInputText(rawText);
           } else if (f.type === 'application/pdf' || fname.endsWith('.pdf')) {
-            data = { chapters: [{ title: f.name.replace(/\.pdf$/i, ''), text: await readPdf(f) }] };
+            const pdfText = await readPdf(f);
+            data = { chapters: [{ title: f.name.replace(/\.pdf$/i, ''), text: pdfText, content: pdfText }] };
           } else if (f.type === 'application/epub+zip' || fname.endsWith('.epub') || fname.endsWith('.zip')) {
             data = await readEpub(f);
           } else {
@@ -11181,7 +11252,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             try {
               const rawText = await readFileAsText(f);
               if (rawText && rawText.trim()) {
-                data = { chapters: [{ title: f.name || 'Imported Document', text: rawText }] };
+                data = { chapters: [{ title: f.name || 'Imported Document', text: rawText, content: rawText }] };
                 setInputText(rawText);
               } else {
                 throw new Error('Unsupported file type. Please use .txt, .pdf, .epub, .docx, or .json backup.');
@@ -11208,7 +11279,8 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
           const cleaned = data.chapters.map(c => ({
             ...c,
-            text: isEpub ? c.text : cleanText(c.text) // Don't strip lines on raw EPUB DOM text
+            text: isEpub ? (c.text || c.content || '') : cleanText(c.text || c.content || ''),
+            content: isEpub ? (c.content || c.text || '') : cleanText(c.content || c.text || '')
           }));
           setChapters(cleaned);
           window.telemetryLog?.('FILE_IMPORT', `Ingested file "${f.name}" (${(f.size / 1024).toFixed(1)} KB, isEpub=${isEpub}) -> ${cleaned.length} chapters loaded.`, {
@@ -11247,6 +11319,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
           const t = await navigator.clipboard.readText();
           if (t && t.trim()) {
             setInputText(t);
+            setChapters([]);
             localStorage.setItem('inputText', t);
             toast('Pasted from clipboard.');
           } else {
@@ -11278,11 +11351,11 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         }
         if (cur) parts.push(cur);
         if (parts.length > 1) {
-          setChapters(parts.map(p => ({ title: p.title, content: p.content.trim() })));
+          setChapters(parts.map(p => ({ title: p.title, content: p.content.trim(), text: p.content.trim() })));
           toast(`Split into ${parts.length} chapters.`, 'success');
         } else {
           toast('No chapter headings detected — using whole text as one chapter.', 'info');
-          setChapters([{ title: 'Chapter 1', content: text }]);
+          setChapters([{ title: 'Chapter 1', content: text, text: text }]);
         }
       };
 
@@ -11321,11 +11394,13 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
       const getExportChapters = () => {
         const curText = assembledText && assembledText.trim();
+        const knownTitles = (translatedChapters || []).map(c => c?.title || c?.originalTitle).filter(Boolean);
+
         // Priority 1: Multi-chapter translation
         if (translatedChapters && translatedChapters.length > 1) {
           if (curText) {
             const fallbackTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Chapter 1';
-            const parsed = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(curText, fallbackTitle) : [];
+            const parsed = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(curText, fallbackTitle, knownTitles) : [];
             if (parsed.length === translatedChapters.length) {
               return parsed.map((p, i) => ({
                 ...translatedChapters[i],
@@ -11334,7 +11409,17 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                 text: p.content || p.text || ''
               }));
             } else if (parsed.length > 1) {
-              return parsed;
+              return parsed.map((p, i) => ({
+                ...(translatedChapters[i] || {}),
+                title: p.title || `Chapter ${i + 1}`,
+                content: p.content || p.text || '',
+                text: p.content || p.text || ''
+              }));
+            } else if (parsed.length === 1 && translatedChapters.length > 1) {
+              const partitioned = partitionTextByChapters(curText, translatedChapters);
+              if (partitioned && partitioned.length === translatedChapters.length) {
+                return partitioned;
+              }
             }
           }
           const valid = translatedChapters.filter(ch => ch && (ch.content || ch.text) && String(ch.content || ch.text).trim() && !String(ch.content || ch.text).startsWith('[Error:'));
@@ -11344,11 +11429,11 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         // Priority 2: Single-chapter translation or edited text
         if (curText) {
           const fallbackTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Translated Document';
-          const parsed = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(curText, fallbackTitle) : [];
+          const parsed = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(curText, fallbackTitle, knownTitles) : [];
           if (parsed.length > 0) {
             return parsed;
           }
-          return [{ title: fallbackTitle, content: curText }];
+          return [{ title: fallbackTitle, content: curText, text: curText }];
         }
 
         // Priority 3: Fallback to translatedChapters
@@ -11359,14 +11444,18 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
         // Priority 4: Source / raw chapters fallback
         if (chapters && chapters.length > 0) {
-          return chapters.filter(Boolean).map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, content: c?.text || c?.content || '' }));
+          return chapters.filter(Boolean).map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, content: c?.text || c?.content || '', text: c?.text || c?.content || '' }));
         }
         return [];
       };
 
       const handleDownloadPDF = async () => {
         const chaptersToExport = getExportChapters();
-        if (!chaptersToExport.length) return setError('No translated content available yet to download.');
+        if (!chaptersToExport.length) {
+          setError('No translated content available yet to download.');
+          toast('No translated content available yet to download.', 'warning');
+          return;
+        }
         setDownloadingPdf(true); setError('');
         try {
           const { jsPDF } = window.jspdf;
@@ -11428,7 +11517,11 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
       const handleDownloadEPUB = async () => {
         const chaptersToExport = getExportChapters();
-        if (!chaptersToExport.length) return setError('No translated content available yet to download.');
+        if (!chaptersToExport.length) {
+          setError('No translated content available yet to download.');
+          toast('No translated content available yet to download.', 'warning');
+          return;
+        }
         setDownloadingEpub(true);
         setError('');
         try {
@@ -11500,7 +11593,11 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
       const handleDownloadDOCX = async () => {
         const chaptersToExport = getExportChapters();
-        if (!chaptersToExport.length) return setError('No content to download.');
+        if (!chaptersToExport.length) {
+          setError('No content to download.');
+          toast('No content to download.', 'warning');
+          return;
+        }
         setDownloadingDocx(true);
         setError('');
         try {
@@ -11989,6 +12086,10 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
       };
 
       const handleExportRow = async (kind) => {
+        if (isTranslating) {
+          toast('Translation is in progress. Please pause or wait for completion before exporting.', 'warning');
+          return;
+        }
         if (kind === 'epub') { setSheetOpen(false); await handleDownloadEPUB(); return; }
         if (kind === 'reader') {
           setSheetOpen(false);
@@ -12244,8 +12345,8 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                 h('div', { className: 'pane-head' },
                   h('span', { className: 'lbl' }, 'Translated'),
                   h('div', { className: 'pane-acts' },
-                    h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, 'Copy'),
-                    h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: () => {
+                    h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, 'Copy'),
+                    h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => {
                       const docKey = currentDocTitle || fileName || 'translated_doc';
                       setReaderNovelId(docKey);
                       setReaderNovelTitle(currentDocTitle || fileName || 'Document');
@@ -12257,14 +12358,14 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                         toast(`Resuming "${currentDocTitle || fileName || 'Document'}" at Chapter ${resumeIdx + 1}!`, 'success');
                       }
                     } }, 'Reader'),
-                    h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim() && chapters.length === 0, onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, '🩺 QA'),
-                    h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim() && (!translatedChapters || translatedChapters.length === 0), onClick: () => handleOpenDiffModal(0), title: 'Translation Revision Diffs & Rollbacks (§8.6)' }, '📜 Diffs'),
-                    h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600 } }, '⭐ Save to Space'),
+                    h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && chapters.length === 0), onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, '🩺 QA'),
+                    h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && (!translatedChapters || translatedChapters.length === 0)), onClick: () => handleOpenDiffModal(0), title: 'Translation Revision Diffs & Rollbacks (§8.6)' }, '📜 Diffs'),
+                    h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600 } }, '⭐ Save to Space'),
                     assembledText.trim() && h('span', { className: 'count' }, `${outputWordCount.toLocaleString()} words`)
                   )
                 ),
                 h('textarea', {
-                  className: 'pane-textarea out', ref: outputRef, value: assembledText,
+                  className: 'pane-textarea out', ref: outputRef, value: assembledText, disabled: isTranslating, readOnly: isTranslating,
                   onChange: e => handleAssembledTextChange(e.target.value),
                   placeholder: 'Translated text will appear here…',
                   style: { height: `${outputBoxHeight}px` }
@@ -12285,7 +12386,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                         )
                   ),
                   h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                    h('button', { type: 'button', className: 'mini-btn', onClick: () => setGlossaryEditorOpen(true), style: { fontSize: 11, padding: '3px 8px' } }, 'Editor'),
+                    h('button', { type: 'button', className: 'mini-btn', disabled, onClick: () => setGlossaryEditorOpen(true), style: { fontSize: 11, padding: '3px 8px' } }, 'Editor'),
                     h('button', {
                       type: 'button',
                       className: 'chip-act',
@@ -12297,17 +12398,17 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                 glossaryCardOpen && h(React.Fragment, null,
                   // Quick Preset Chips
                   h('div', { className: 'seg', style: { marginBottom: 8 } },
-                    h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('ri') }, 'RI Preset'),
-                    h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('lotm') }, 'LOTM Preset'),
-                    h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('cote') }, 'COTE Preset'),
-                    h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia Preset')
+                    h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('ri') }, 'RI Preset'),
+                    h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('lotm') }, 'LOTM Preset'),
+                    h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('cote') }, 'COTE Preset'),
+                    h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia Preset')
                   ),
 
                   // Quick Term Bar
                   h('div', {
                     className: 'mini-input',
-                    style: { cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-                    onClick: () => setGlossaryEditorOpen(true)
+                    style: { cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: disabled ? 0.6 : 1 },
+                    onClick: () => { if (!disabled) setGlossaryEditorOpen(true); }
                   },
                     h('span', null, `${glossaryTermCount} terms loaded · tap to open full table editor`),
                     h('span', { style: { fontSize: 11, color: 'var(--iris)' } }, 'Edit ➔')
@@ -12319,6 +12420,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                       type: 'button',
                       className: 'mini-btn',
                       style: { background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', border: '1px solid currentColor', fontWeight: 600 },
+                      disabled,
                       onClick: handleOpenAutoGlossary
                     }, '⚡ AI Auto-Extract'),
                     h('button', {
@@ -12326,11 +12428,11 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                       className: 'mini-btn',
                       style: { background: 'rgba(16, 185, 129, 0.2)', color: 'var(--pine)', border: '1px solid currentColor', fontWeight: 600 },
                       onClick: handleRunConsistencyCheck,
-                      disabled: isAuditingConsistency
+                      disabled: disabled || isAuditingConsistency
                     }, isAuditingConsistency ? 'Auditing…' : '🔍 Verify Names'),
-                    h('button', { type: 'button', className: 'mini-btn', onClick: () => setGlossaryEditorOpen(true) }, 'Open Full Editor'),
-                    h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => { setTerminology(''); localStorage.removeItem('terminology'); setActiveGlossaryId(null); localStorage.removeItem('activeGlossaryId'); toast('Glossary cleared.', 'info'); } }, 'Clear'),
-                    switchRow('Smart Glossary Filter', smartGlossary, (v) => { setSmartGlossary(v); localStorage.setItem('smartGlossary', v); })
+                    h('button', { type: 'button', className: 'mini-btn', disabled, onClick: () => setGlossaryEditorOpen(true) }, 'Open Full Editor'),
+                    h('button', { type: 'button', className: 'mini-btn ghost', disabled, onClick: () => { setTerminology(''); localStorage.removeItem('terminology'); setActiveGlossaryId(null); localStorage.removeItem('activeGlossaryId'); toast('Glossary cleared.', 'info'); } }, 'Clear'),
+                    switchRow('Smart Glossary Filter', smartGlossary, (v) => { if (!disabled) { setSmartGlossary(v); localStorage.setItem('smartGlossary', v); } })
                   ),
 
                   // Save Profile Row
@@ -12339,11 +12441,12 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                       type: 'button',
                       className: 'mini-btn',
                       style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                      disabled,
                       onClick: () => handleSaveGlossary(activeGlossaryId)
                     }, `💾 Save to "${activeGlossaryId}"`),
-                    h('input', { type: 'text', value: newGlossaryName, onChange: e => setNewGlossaryName(e.target.value), placeholder: activeGlossaryId ? 'Or save as new profile…' : 'Save current terms as profile name…', style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '8px 10px', fontSize: 12, color: 'var(--paper-dim)', outline: 'none', flex: 1, minWidth: 140 } }),
-                    h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => handleSaveGlossary(newGlossaryName) }, 'Save Profile'),
-                    activeGlossaryId && h('button', { type: 'button', className: 'mini-btn ghost', onClick: handleUnloadGlossary }, 'Unload')
+                    h('input', { type: 'text', value: newGlossaryName, disabled, onChange: e => setNewGlossaryName(e.target.value), placeholder: activeGlossaryId ? 'Or save as new profile…' : 'Save current terms as profile name…', style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '8px 10px', fontSize: 12, color: 'var(--paper-dim)', outline: 'none', flex: 1, minWidth: 140 } }),
+                    h('button', { type: 'button', className: 'mini-btn ghost', disabled, onClick: () => handleSaveGlossary(newGlossaryName) }, 'Save Profile'),
+                    activeGlossaryId && h('button', { type: 'button', className: 'mini-btn ghost', disabled, onClick: handleUnloadGlossary }, 'Unload')
                   ),
 
                   // Saved Profiles List
@@ -12356,28 +12459,27 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                         `${g.name}${activeGlossaryId === g.name ? ' (Active)' : ''}${defaultGlossaryName === g.name ? ' (Default)' : ''}`
                       ),
                       h('div', { className: 'pane-acts' },
-                        h('button', { type: 'button', className: `chip-act ${activeGlossaryId === g.name ? 'active' : ''}`, onClick: () => handleLoadGlossary(g) }, activeGlossaryId === g.name ? 'Loaded' : 'Load'),
-                        h('button', { type: 'button', className: 'chip-act', onClick: () => { localStorage.setItem('defaultGlossaryName', g.name); setDefaultGlossaryName(g.name); toast(`Set "${g.name}" as default.`); } }, 'Default'),
-                        h('button', { type: 'button', className: 'chip-act', onClick: () => handleDeleteGlossary(g.name) }, '✕')
+                        h('button', { type: 'button', className: `chip-act ${activeGlossaryId === g.name ? 'active' : ''}`, disabled, onClick: () => handleLoadGlossary(g) }, activeGlossaryId === g.name ? 'Loaded' : 'Load'),
+                        h('button', { type: 'button', className: 'chip-act', disabled, onClick: () => { localStorage.setItem('defaultGlossaryName', g.name); setDefaultGlossaryName(g.name); toast(`Set "${g.name}" as default.`); } }, 'Default'),
+                        h('button', { type: 'button', className: 'chip-act', disabled, onClick: () => handleDeleteGlossary(g.name) }, '✕')
                       )
                     )),
                     defaultGlossaryName && h('div', { style: { marginTop: 6 } },
-                      h('button', { type: 'button', className: 'mini-btn danger', style: { fontSize: 11, padding: '3px 8px' }, onClick: clearDefaultGloss }, 'Clear Default Profile')
+                      h('button', { type: 'button', className: 'mini-btn danger', disabled, style: { fontSize: 11, padding: '3px 8px' }, onClick: clearDefaultGloss }, 'Clear Default Profile')
                     )
                   ),
-
 
                   // Custom Instructions Box
                   h('div', { style: { marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--hairline)' } },
                     h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
                       h('span', { style: { fontSize: 12, fontWeight: 600 } }, 'Custom Translation Instructions'),
                       h('div', { className: 'seg' },
-                        h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('literary') }, 'Literary'),
-                        h('button', { type: 'button', className: 'seg-btn', onClick: () => applyGlossaryPreset('dialogue') }, 'Dialogue')
+                        h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('literary') }, 'Literary'),
+                        h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('dialogue') }, 'Dialogue')
                       )
                     ),
                     h('textarea', {
-                      className: 'mini-input', ref: instructionsRef, value: customInstructions,
+                      className: 'mini-input', ref: instructionsRef, value: customInstructions, disabled,
                       onChange: e => { setCustomInstructions(e.target.value); localStorage.setItem('customInstructions', e.target.value); },
                       placeholder: 'e.g. "Use formal tone", "Keep Chinese honorifics", "Pallez speaks like an old gentleman"',
                       style: { width: '100%', height: 60, resize: 'vertical' }
@@ -12766,11 +12868,11 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                   type: 'button',
                   className: 'chip-act',
                   style: { padding: '8px 12px', fontSize: 13, background: 'rgba(99, 102, 241, 0.15)', borderColor: 'var(--iris)', color: 'var(--iris)', fontWeight: 600 },
-                  disabled: !inputText.trim() && (!chapters || chapters.length === 0),
+                  disabled: isTranslating || (!inputText.trim() && (!chapters || chapters.length === 0)),
                   onClick: handleOpenCostEstimator,
                   title: 'Calculate exact tokens, model costs, and time projections before translating (§7.2 / §3.6)'
                 }, '💰 Estimate'),
-                h('button', { type: 'button', className: 'overflow', title: 'More actions', onClick: () => setSheetOpen(true) }, '⋯')
+                h('button', { type: 'button', className: 'overflow', title: 'More actions', disabled: isTranslating, onClick: () => setSheetOpen(true) }, '⋯')
               )
             ),
 
@@ -15911,7 +16013,11 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('pdf') }, h('span', { className: 'ic' }, '⇩'), 'PDF', h('span', { className: 'chev' }, '›')),
             h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('docx') }, h('span', { className: 'ic' }, '⇩'), 'DOCX', h('span', { className: 'chev' }, '›')),
             h('div', { className: 'sheet-lbl' }, 'Tools'),
-            h('button', { type: 'button', className: 'sheet-row', onClick: () => { setSheetOpen(false); handleAutoDetectSplit(); } }, h('span', { className: 'ic' }, '✂'), 'Split Chapters', h('span', { className: 'chev' }, '›')),
+            h('button', { type: 'button', className: 'sheet-row', onClick: () => {
+              if (isTranslating) { toast('Cannot split chapters while translation is in progress.', 'warning'); return; }
+              setSheetOpen(false);
+              handleAutoDetectSplit();
+            } }, h('span', { className: 'ic' }, '✂'), 'Split Chapters', h('span', { className: 'chev' }, '›')),
             h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'auto'); setBoxPreset('output', 'auto'); setSheetOpen(false); } }, h('span', { className: 'ic' }, '↕'), 'Fit Text Height', h('span', { className: 'chev' }, '›')),
             h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'S'); setBoxPreset('output', 'S'); setSheetOpen(false); } }, h('span', { className: 'ic' }, '↺'), 'Reset Box Heights', h('span', { className: 'chev' }, '›')),
             h('button', { type: 'button', className: 'sheet-row', onClick: () => { setSheetOpen(false); setGlossaryEditorOpen(true); } }, h('span', { className: 'ic' }, '📖'), 'Glossary Editor', h('span', { className: 'chev' }, '›'))
