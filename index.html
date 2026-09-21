@@ -732,29 +732,29 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="utils.js"></script>
   <script src="db_engine.js"></script>
   <script src="splitter.js"></script>
-  <script src="merger.js?v=8.17.18"></script>
-  <script src="epub_studio_ui.js?v=8.17.18"></script>
-  <script src="epub_editor.js?v=8.17.18"></script>
-  <script src="sources/base_plugin.js?v=8.17.18"></script>
-  <script src="sources/lnreader_adapter.js?v=8.17.18"></script>
-  <script src="sources/syosetu.js?v=8.17.18"></script>
-  <script src="sources/rezero_manifest.js?v=8.17.18"></script>
-  <script src="sources/witchcult.js?v=8.17.18"></script>
-  <script src="sources/royalroad.js?v=8.17.18"></script>
-  <script src="sources/novelfire.js?v=8.17.18"></script>
-  <script src="sources/universal.js?v=8.17.18"></script>
-  <script src="sources/registry.js?v=8.17.18"></script>
-  <script src="web_importer.js?v=8.17.18"></script>
-  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.18"></script>
-  <script src="telemetry_logger.js?v=8.17.18"></script>
-  <script src="reader_engine.js?v=8.17.18"></script>
-  <script src="qa_engine.js?v=8.17.18"></script>
-  <script src="vendor/diff_match_patch.js?v=8.17.18"></script>
-  <script src="tm_diff_engine.js?v=8.17.18"></script>
-  <script src="epub_engine.js?v=8.17.18"></script>
-  <script src="glossary_presets.js?v=8.17.18"></script>
-  <script src="gdrive_sync.js?v=8.17.18"></script>
-  <script src="swiftaudio_engine.js?v=8.17.18"></script>
+  <script src="merger.js?v=8.17.19"></script>
+  <script src="epub_studio_ui.js?v=8.17.19"></script>
+  <script src="epub_editor.js?v=8.17.19"></script>
+  <script src="sources/base_plugin.js?v=8.17.19"></script>
+  <script src="sources/lnreader_adapter.js?v=8.17.19"></script>
+  <script src="sources/syosetu.js?v=8.17.19"></script>
+  <script src="sources/rezero_manifest.js?v=8.17.19"></script>
+  <script src="sources/witchcult.js?v=8.17.19"></script>
+  <script src="sources/royalroad.js?v=8.17.19"></script>
+  <script src="sources/novelfire.js?v=8.17.19"></script>
+  <script src="sources/universal.js?v=8.17.19"></script>
+  <script src="sources/registry.js?v=8.17.19"></script>
+  <script src="web_importer.js?v=8.17.19"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.19"></script>
+  <script src="telemetry_logger.js?v=8.17.19"></script>
+  <script src="reader_engine.js?v=8.17.19"></script>
+  <script src="qa_engine.js?v=8.17.19"></script>
+  <script src="vendor/diff_match_patch.js?v=8.17.19"></script>
+  <script src="tm_diff_engine.js?v=8.17.19"></script>
+  <script src="epub_engine.js?v=8.17.19"></script>
+  <script src="glossary_presets.js?v=8.17.19"></script>
+  <script src="gdrive_sync.js?v=8.17.19"></script>
+  <script src="swiftaudio_engine.js?v=8.17.19"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -863,7 +863,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.18';
+    let VERSION = '8.17.19';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -5081,14 +5081,17 @@ const formatModelName = (id, displayName) => {
       const parseAssembledTextToChapters = (text, fallbackTitle = 'Chapter 1') => {
         if (!text || !text.trim()) return [];
         const lines = text.split(/\r?\n/);
-        const headingRegex = /^#{1,3}\s+(.+)$/;
+        // Matches markdown headings (# Title), bold headings (**Chapter 1**), standard chapter patterns (Chapter 1, Ch. 2, Volume 1, Prologue, etc.), and CJK patterns (第1章, 第一回)
+        const headingRegex = /^(?:#{1,6}\s+(.+)$|\*\*(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc|第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]).+\*\*|(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc)\b\s*[\dIVXLCDM\s:.-].*|第[0-9零一二三四五六七八九十百千万]+[章回卷节篇].*)/i;
         const parts = [];
         let cur = null;
         for (const line of lines) {
-          const match = line.match(headingRegex);
-          if (match) {
+          const trimmed = line.trim();
+          const match = trimmed.match(headingRegex);
+          if (match && trimmed.length <= 120) {
             if (cur) parts.push({ title: cur.title, content: cur.content.trim() });
-            cur = { title: match[1].trim(), content: '' };
+            const titleClean = trimmed.replace(/^#{1,6}\s+/, '').replace(/^\*\*|\*\*$/g, '').trim();
+            cur = { title: titleClean || fallbackTitle, content: '' };
           } else if (cur) {
             cur.content += line + '\n';
           } else {
@@ -5111,16 +5114,18 @@ const formatModelName = (id, displayName) => {
           }
         } else {
           const parsed = parseAssembledTextToChapters(newText, translatedChapters[0]?.title || 'Chapter 1');
-          if (parsed.length > 1) {
+          if (parsed.length === translatedChapters.length) {
+            // Keep original chapter metadata (index, stats, raw) but update titles and content with user's edits
+            setTranslatedChapters(prev => prev.map((ch, i) => ({
+              ...ch,
+              title: parsed[i].title || ch.title,
+              content: parsed[i].content || parsed[i].text || '',
+              text: parsed[i].content || parsed[i].text || ''
+            })));
+          } else if (parsed.length > 1) {
             setTranslatedChapters(parsed);
-          } else {
-            setTranslatedChapters(prev => {
-              if (!prev || prev.length === 0) return [{ title: 'Chapter 1', content: newText }];
-              const next = [...prev];
-              next[0] = { ...next[0], content: newText };
-              return next;
-            });
           }
+          // If parsed.length <= 1, do NOT overwrite chapter 0 with all chapters; keep translatedChapters intact
         }
       };
 
@@ -6234,7 +6239,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8258);
+      const [appVersionCode, setAppVersionCode] = useState(8259);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [installingPluginId, setInstallingPluginId] = useState(null);
@@ -7807,8 +7812,46 @@ const formatModelName = (id, displayName) => {
       const setDefaultGloss = () => { if (!activeGlossaryId) return setError('Load a profile first.'); localStorage.setItem('defaultGlossaryName', activeGlossaryId); setDefaultGlossaryName(activeGlossaryId); toast(`"${activeGlossaryId}" set as default!`) };
       const clearDefaultGloss = () => { confirmAction('Clear default profile?', () => { localStorage.removeItem('defaultGlossaryName'); setDefaultGlossaryName(null); toast('Default cleared.', 'info') }) };
       const exportGlossaries = async () => { try { const blob = new Blob([JSON.stringify(savedGlossaries, null, 2)], { type: 'application/json' }); await saveUniversalBlob(blob, 'glossaries_backup.json', 'application/json'); toast('Glossaries exported!', 'success'); } catch (e) { toast('Export error: ' + e.message, 'error'); } };
-      const importGlossaries = async e => { const f = e.target.files[0]; if (!f) return; try { const txt = await f.text(); const data = JSON.parse(txt); if (!Array.isArray(data)) throw new Error('Invalid format'); const merged = [...savedGlossaries]; data.forEach(g => { if (g.name && g.content && !merged.find(x => x.name === g.name)) merged.push(g) }); setSavedGlossaries(merged); localStorage.setItem('savedGlossaries', JSON.stringify(merged)); toast(`Imported ${data.length} glossaries!`) } catch (err) { setError('Invalid glossary file: ' + err.message) } e.target.value = '' };
-      const handleGlossaryFile = async e => { const f = e.target.files[0]; if (!f) return; try { const txt = await f.text(); setTerminology(txt); localStorage.setItem('terminology', txt); setNewGlossaryName(f.name.replace(/\.[^.]+$/, '')); toast(`Glossary loaded from ${f.name}`) } catch (err) { setError('Failed to read file: ' + err.message) } e.target.value = '' };
+      const importGlossaries = async e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        try {
+          const txt = await f.text();
+          const data = JSON.parse(txt);
+          if (!Array.isArray(data) || data.length === 0) throw new Error('Glossary file is empty or invalid format.');
+          const merged = [...savedGlossaries];
+          let added = 0;
+          data.forEach(g => {
+            if (g.name && g.content && !merged.find(x => x.name === g.name)) {
+              merged.push(g);
+              added++;
+            }
+          });
+          setSavedGlossaries(merged);
+          localStorage.setItem('savedGlossaries', JSON.stringify(merged));
+          toast(`Imported ${added} new glossaries (${data.length} total)!`, 'success');
+        } catch (err) {
+          setError('Invalid glossary file: ' + err.message);
+          toast('Invalid glossary file: ' + err.message, 'error');
+        }
+        e.target.value = '';
+      };
+      const handleGlossaryFile = async e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        try {
+          const txt = await f.text();
+          if (!txt || !txt.trim()) throw new Error('Selected glossary file is empty.');
+          setTerminology(txt);
+          localStorage.setItem('terminology', txt);
+          setNewGlossaryName(f.name.replace(/\.[^.]+$/, ''));
+          toast(`Glossary loaded from ${f.name}`, 'success');
+        } catch (err) {
+          setError('Failed to read file: ' + err.message);
+          toast('Failed to read file: ' + err.message, 'error');
+        }
+        e.target.value = '';
+      };
 
       const applyGlossaryPreset = (type) => {
         const presets = window.GLOSSARY_PRESETS || {};
@@ -7833,15 +7876,21 @@ const formatModelName = (id, displayName) => {
       };
 
       const formatGlossaryContent = () => {
-        if (!terminology.trim()) return setError('Glossary is empty.');
+        if (!terminology.trim()) {
+          toast('Glossary is empty.', 'warning');
+          return setError('Glossary is empty.');
+        }
         const formatted = formatGlossaryString(terminology);
         setTerminology(formatted);
         localStorage.setItem('terminology', formatted);
-        toast('Glossary formatted cleanly!');
+        toast('Glossary formatted cleanly!', 'success');
       };
 
       const exportGlossaryTxt = async () => {
-        if (!terminology.trim()) return setError('Glossary is empty.');
+        if (!terminology.trim()) {
+          toast('Glossary is empty. Add terms before exporting.', 'warning');
+          return setError('Glossary is empty.');
+        }
         const blob = new Blob([terminology], { type: 'text/plain;charset=utf-8' });
         const exportFileName = (activeGlossaryId ? activeGlossaryId.replace(/\s+/g, '_') : 'glossary_export') + '.txt';
         try {
@@ -10936,17 +10985,68 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         return { chapters, isEpub: true, originalZip: zip, cover: extractedCover, title: bookTitle, author: bookAuthor };
       };
 
+      const readDocx = async f => {
+        if (!window.JSZip) throw new Error('JSZip is required to read .docx files.');
+        const zip = await window.JSZip.loadAsync(f);
+        const docFile = zip.file('word/document.xml');
+        if (!docFile) throw new Error('Invalid Word (.docx) document: word/document.xml not found.');
+        const xmlText = await docFile.async('text');
+
+        let lines = [];
+        try {
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+          const paragraphs = xmlDoc.getElementsByTagName('w:p');
+          if (paragraphs && paragraphs.length > 0) {
+            for (let i = 0; i < paragraphs.length; i++) {
+              const p = paragraphs[i];
+              const textNodes = p.getElementsByTagName('w:t');
+              let pText = '';
+              for (let j = 0; j < textNodes.length; j++) {
+                pText += textNodes[j].textContent || '';
+              }
+              if (pText.trim()) {
+                lines.push(pText.trim());
+              }
+            }
+          }
+        } catch (domErr) {
+          console.warn('DOMParser failed on docx, using regex fallback:', domErr);
+        }
+
+        if (lines.length === 0) {
+          const pMatches = xmlText.match(/<w:p[\s>].*?<\/w:p>/g) || [];
+          lines = pMatches.map(p => {
+            const tMatches = p.match(/<w:t[^>]*>(.*?)<\/w:t>/g) || [];
+            return tMatches.map(m => m.replace(/<[^>]+>/g, '')).join('');
+          }).filter(l => l.trim());
+        }
+
+        const fullText = lines.join('\n\n');
+        if (!fullText.trim()) throw new Error('Word document contains no readable text.');
+        return fullText;
+      };
+
       const processFile = async f => {
         setUploadingFile(true); setError(''); setInputText(''); setAssembledText(''); setTranslatedChapters([]); setChapters([]);
         const hashId = generateJobId(f.name + f.size, true);
         setCurrentFileHash(hashId);
         try {
           const fname = (f.name || '').toLowerCase();
-          if (fname.endsWith('.docx') || fname.endsWith('.doc')) {
-            throw new Error('Word (.docx) files must be converted to .epub or .txt before importing.');
-          }
           let data;
-          if (fname.endsWith('.json') || f.type === 'application/json') {
+          if (fname.endsWith('.docx') || fname.endsWith('.doc')) {
+            if (fname.endsWith('.doc') && !fname.endsWith('.docx')) {
+              throw new Error('Legacy binary .doc files are not supported. Please save as modern .docx or .txt before importing.');
+            }
+            const docxText = await readDocx(f);
+            const fallbackTitle = f.name.replace(/\.docx$/i, '');
+            const parsedChs = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(docxText, fallbackTitle) : [];
+            const chs = (parsedChs.length > 0)
+              ? parsedChs.map(c => ({ title: c.title, text: c.content || c.text || '' }))
+              : [{ title: fallbackTitle, text: docxText }];
+            data = { chapters: chs, title: fallbackTitle };
+            setInputText(docxText);
+          } else if (fname.endsWith('.json') || f.type === 'application/json') {
             setUploadingFile(false);
             return importFullBackup({ target: { files: [f] } });
           } else if (f.type === 'text/plain' || fname.endsWith('.txt')) {
@@ -10965,10 +11065,10 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                 data = { chapters: [{ title: f.name || 'Imported Document', text: rawText }] };
                 setInputText(rawText);
               } else {
-                throw new Error('Unsupported file type. Please use .txt, .pdf, .epub, or .json backup.');
+                throw new Error('Unsupported file type. Please use .txt, .pdf, .epub, .docx, or .json backup.');
               }
             } catch (err) {
-              throw new Error('Unsupported file type. Please use .txt, .pdf, .epub, or .json backup.');
+              throw new Error('Unsupported file type. Please use .txt, .pdf, .epub, .docx, or .json backup.');
             }
           }
 
@@ -11026,15 +11126,24 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
       const handlePasteFromClipboard = async () => {
         try {
           const t = await navigator.clipboard.readText();
-          if (t && t.trim()) { setInputText(t); localStorage.setItem('inputText', t); toast('Pasted from clipboard.'); }
+          if (t && t.trim()) {
+            setInputText(t);
+            localStorage.setItem('inputText', t);
+            toast('Pasted from clipboard.');
+          } else {
+            toast('Clipboard is empty.', 'info');
+          }
         } catch (e) { toast('Clipboard access denied by browser.', 'error'); }
       };
 
       const handleAutoDetectSplit = () => {
         const text = (inputText || '').trim();
-        if (!text) return;
+        if (!text) {
+          toast('Please enter or paste text with chapter headings first.', 'warning');
+          return;
+        }
         const lines = text.split(/\r?\n/);
-        const heading = /^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|Chapter\s*\d+|CHAPTER\s*\d+)/;
+        const heading = /^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc)\b|CHAPTER\s*\d+)/i;
         const parts = [];
         let cur = null;
         for (const line of lines) {
@@ -11093,19 +11202,43 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
       const getExportChapters = () => {
         const curText = assembledText && assembledText.trim();
+        // Priority 1: Multi-chapter translation
+        if (translatedChapters && translatedChapters.length > 1) {
+          if (curText) {
+            const fallbackTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Chapter 1';
+            const parsed = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(curText, fallbackTitle) : [];
+            if (parsed.length === translatedChapters.length) {
+              return parsed.map((p, i) => ({
+                ...translatedChapters[i],
+                title: p.title || translatedChapters[i].title,
+                content: p.content || p.text || '',
+                text: p.content || p.text || ''
+              }));
+            } else if (parsed.length > 1) {
+              return parsed;
+            }
+          }
+          const valid = translatedChapters.filter(ch => ch && (ch.content || ch.text) && String(ch.content || ch.text).trim() && !String(ch.content || ch.text).startsWith('[Error:'));
+          if (valid.length > 0) return valid;
+        }
+
+        // Priority 2: Single-chapter translation or edited text
         if (curText) {
           const fallbackTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Translated Document';
-          const parsed = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(assembledText, fallbackTitle) : [];
+          const parsed = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(curText, fallbackTitle) : [];
           if (parsed.length > 0) {
             return parsed;
           }
           return [{ title: fallbackTitle, content: curText }];
         }
+
+        // Priority 3: Fallback to translatedChapters
         if (translatedChapters && translatedChapters.length > 0) {
           const valid = translatedChapters.filter(ch => ch && (ch.content || ch.text) && String(ch.content || ch.text).trim() && !String(ch.content || ch.text).startsWith('[Error:'));
           if (valid.length > 0) return valid;
         }
-        // Fallback: allow exporting source/raw chapters as EPUB even if translation is incomplete or unstarted
+
+        // Priority 4: Source / raw chapters fallback
         if (chapters && chapters.length > 0) {
           return chapters.filter(Boolean).map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, content: c?.text || c?.content || '' }));
         }

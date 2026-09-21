@@ -1,9 +1,9 @@
 {
-  "version": "8.17.18",
-  "versionCode": 8258,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.18/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.18/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.18",
+  "version": "8.17.19",
+  "versionCode": 8259,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.19/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.19/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.19",
   "releaseDate": "2026-09-21",
-  "releaseNotes": "v8.17.18: Added native Lnori library search integration across single books and multi-volume series."
+  "releaseNotes": "v8.17.19: Step 1 of system audit. Tab 1: Native Word (.docx) ingestion via in-browser JSZip parser, Chapter Output/Export multi-chapter sync fixes, and transparent toast feedback for empty actions."
 }
