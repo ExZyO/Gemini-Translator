@@ -516,31 +516,61 @@
 
   const swapPronouns = (text) => {
     if (!text || typeof text !== 'string') return text;
-    return text
+    // Words that follow an object 'her' (prepositions, conjunctions, punctuation, pronouns, verbs)
+    const nonPossessiveFollowers = /^(?:and|or|but|so|yet|that|which|who|whom|with|for|to|in|on|at|from|by|as|if|because|when|while|though|then|than|after|before|into|through|over|under|out|up|down|off|away|back|again|too|also|either|neither|now|here|there|not|is|was|are|were|has|had|have|did|does|do)\b/i;
+
+    // Step 1: Protect reflexives & absolute possessive
+    let s = text
       .replace(/\bhimself\b/g, '___TEMP_HERSELF___')
       .replace(/\bHimself\b/g, '___TEMP_HERSELF_CAP___')
       .replace(/\bherself\b/g, 'himself')
       .replace(/\bHerself\b/g, 'Himself')
-      .replace(/___TEMP_HERSELF___/g, 'herself')
-      .replace(/___TEMP_HERSELF_CAP___/g, 'Herself')
+      .replace(/\bhers\b/g, '___TEMP_HIS_ABS___')
+      .replace(/\bHers\b/g, '___TEMP_HIS_ABS_CAP___');
+
+    // Step 2: Subject pronouns
+    s = s
       .replace(/\bhe\b/g, '___TEMP_SHE___')
       .replace(/\bHe\b/g, '___TEMP_SHE_CAP___')
       .replace(/\bshe\b/g, 'he')
-      .replace(/\bShe\b/g, 'He')
+      .replace(/\bShe\b/g, 'He');
+
+    // Step 3: 'his' -> 'her' (possessive)
+    s = s
+      .replace(/\bhis\b/g, '___TEMP_HER_POSS___')
+      .replace(/\bHis\b/g, '___TEMP_HER_POSS_CAP___');
+
+    // Step 4: 'him' -> 'her' (object)
+    s = s
+      .replace(/\bhim\b/g, '___TEMP_HER_OBJ___')
+      .replace(/\bHim\b/g, '___TEMP_HER_OBJ_CAP___');
+
+    // Step 5: Distinguish 'her' as possessive ("her sword" -> "his sword") vs object ("looked at her" -> "looked at him")
+    s = s.replace(/\b(her|Her)\b(\s+)?([a-zA-Z]+)?/g, (match, herWord, space, nextWord) => {
+      const isCap = herWord === 'Her';
+      if (!nextWord || nonPossessiveFollowers.test(nextWord)) {
+        // Object pronoun: "looked at her" -> "looked at him"
+        return (isCap ? 'Him' : 'him') + (space || '') + (nextWord || '');
+      } else {
+        // Possessive adjective: "her sword" -> "his sword"
+        return (isCap ? 'His' : 'his') + (space || '') + (nextWord || '');
+      }
+    });
+
+    // Step 6: Restore temporary tokens
+    s = s
+      .replace(/___TEMP_HERSELF___/g, 'herself')
+      .replace(/___TEMP_HERSELF_CAP___/g, 'Herself')
+      .replace(/___TEMP_HIS_ABS___/g, 'his')
+      .replace(/___TEMP_HIS_ABS_CAP___/g, 'His')
       .replace(/___TEMP_SHE___/g, 'she')
       .replace(/___TEMP_SHE_CAP___/g, 'She')
-      .replace(/\bhis\b/g, '___TEMP_HER_POSS___')
-      .replace(/\bHis\b/g, '___TEMP_HER_POSS_CAP___')
-      .replace(/\bhers\b/g, 'his')
-      .replace(/\bHers\b/g, 'His')
-      .replace(/\bhim\b/g, '___TEMP_HER_OBJ___')
-      .replace(/\bHim\b/g, '___TEMP_HER_OBJ_CAP___')
-      .replace(/\bher\b/g, 'him')
-      .replace(/\bHer\b/g, 'Him')
       .replace(/___TEMP_HER_POSS___/g, 'her')
       .replace(/___TEMP_HER_POSS_CAP___/g, 'Her')
       .replace(/___TEMP_HER_OBJ___/g, 'her')
       .replace(/___TEMP_HER_OBJ_CAP___/g, 'Her');
+
+    return s;
   };
   window.swapPronouns = swapPronouns;
 
@@ -660,6 +690,15 @@
       return 0;
     });
 
+    const [scrubberIdx, setScrubberIdx] = useState(activeIdx);
+    const [isScrubbing, setIsScrubbing] = useState(false);
+
+    useEffect(() => {
+      if (!isScrubbing) {
+        setScrubberIdx(activeIdx);
+      }
+    }, [activeIdx, isScrubbing]);
+
     useEffect(() => {
       if (typeof currentIdx === 'number' && currentIdx >= 0 && currentIdx !== activeIdx) {
         setActiveIdx(currentIdx);
@@ -717,6 +756,15 @@
     const [hudVisible, setHudVisible] = useState(false);
     const [showToc, setShowToc] = useState(false);
     const [tocSearch, setTocSearch] = useState('');
+    const activeTocItemRef = useRef(null);
+    useEffect(() => {
+      if (showToc && activeTocItemRef.current) {
+        const timer = setTimeout(() => {
+          activeTocItemRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 120);
+        return () => clearTimeout(timer);
+      }
+    }, [showToc, activeIdx]);
     const [showSettings, setShowSettings] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -812,14 +860,37 @@
         }
         return;
       }
+      if (currentChapter._isPronounSwapped && currentChapter._originalText) {
+        // Revert cleanly to original text
+        currentChapter.text = currentChapter._originalText;
+        currentChapter.content = currentChapter._originalText;
+        currentChapter._isPronounSwapped = false;
+        if (Array.isArray(chapters) && chapters[activeIdx]) {
+          chapters[activeIdx].text = currentChapter._originalText;
+          chapters[activeIdx].content = currentChapter._originalText;
+          chapters[activeIdx]._isPronounSwapped = false;
+        }
+        setRenderTick(t => t + 1);
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Restored original pronouns for this chapter.', 'info');
+        }
+        return;
+      }
+
+      if (!currentChapter._originalText) {
+        currentChapter._originalText = raw;
+      }
       const swapped = swapPronouns(raw);
       currentChapter.text = swapped;
       currentChapter.content = swapped;
+      currentChapter._isPronounSwapped = true;
 
       // Also persist to parent chapters array if available
       if (Array.isArray(chapters) && chapters[activeIdx]) {
+        if (!chapters[activeIdx]._originalText) chapters[activeIdx]._originalText = raw;
         chapters[activeIdx].text = swapped;
         chapters[activeIdx].content = swapped;
+        chapters[activeIdx]._isPronounSwapped = true;
       }
 
       setRenderTick(t => t + 1);
@@ -2181,18 +2252,65 @@
 
       // ── BOTTOM HUD ──
       h('div', { className: `reader-v2-hud-bottom ${hudVisible ? '' : 'reader-v2-hud-hidden'}` },
-        // Progress Scrubber Slider
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-          h('span', { style: { fontSize: 11, color: 'var(--r-muted)', minWidth: 38, textAlign: 'right' } }, `${activeIdx + 1}`),
-          h('input', {
-            type: 'range',
-            min: 0,
-            max: safeChapters.length - 1,
-            value: activeIdx,
-            style: { flex: 1, accentColor: 'var(--r-accent)' },
-            onChange: (e) => changeChapter(parseInt(e.target.value, 10))
-          }),
-          h('span', { style: { fontSize: 11, color: 'var(--r-muted)', minWidth: 38 } }, `${safeChapters.length}`)
+        // Progress Scrubber Slider with Live Chapter Tooltip
+        h('div', { style: { position: 'relative', width: '100%', marginBottom: 4 } },
+          isScrubbing && h('div', {
+            style: {
+              position: 'absolute',
+              bottom: '100%',
+              left: `${Math.min(90, Math.max(10, ((scrubberIdx + 1) / Math.max(1, safeChapters.length)) * 100))}%`,
+              transform: 'translateX(-50%)',
+              marginBottom: 10,
+              background: 'var(--r-card, #1e293b)',
+              color: 'var(--r-text, #fff)',
+              border: '1px solid var(--r-border, rgba(255,255,255,0.15))',
+              borderRadius: 8,
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 600,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              zIndex: 100
+            }
+          },
+            `Ch. ${scrubberIdx + 1}: ${(safeChapters[scrubberIdx]?.title || `Chapter ${scrubberIdx + 1}`).slice(0, 32)}`
+          ),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+            h('span', { style: { fontSize: 11, color: 'var(--r-muted)', minWidth: 38, textAlign: 'right' } }, `${(isScrubbing ? scrubberIdx : activeIdx) + 1}`),
+            h('input', {
+              type: 'range',
+              min: 0,
+              max: Math.max(0, safeChapters.length - 1),
+              value: isScrubbing ? scrubberIdx : activeIdx,
+              style: { flex: 1, accentColor: 'var(--r-accent)', cursor: 'pointer' },
+              onPointerDown: () => setIsScrubbing(true),
+              onTouchStart: () => setIsScrubbing(true),
+              onInput: (e) => {
+                setIsScrubbing(true);
+                setScrubberIdx(parseInt(e.target.value, 10));
+              },
+              onChange: (e) => {
+                const target = parseInt(e.target.value, 10);
+                setScrubberIdx(target);
+                setIsScrubbing(false);
+                changeChapter(target);
+              },
+              onPointerUp: () => {
+                if (isScrubbing) {
+                  setIsScrubbing(false);
+                  changeChapter(scrubberIdx);
+                }
+              },
+              onTouchEnd: () => {
+                if (isScrubbing) {
+                  setIsScrubbing(false);
+                  changeChapter(scrubberIdx);
+                }
+              }
+            }),
+            h('span', { style: { fontSize: 11, color: 'var(--r-muted)', minWidth: 38 } }, `${safeChapters.length}`)
+          )
         ),
 
         // Clean Navigation Toolbar
@@ -2453,7 +2571,7 @@
               );
               if (matchingChapters.length === 0) return null;
 
-              const isCollapsed = Boolean(collapsedArcs[group.arc]) && !tocSearch;
+              const isCollapsed = Boolean(collapsedArcs[group.arc]) && !tocSearch && !group.chapters.some(c => c.idx === activeIdx);
 
               return h('div', { key: gIdx, style: { marginBottom: 10 } },
                 // Arc Header Accordion Toggle
@@ -2482,6 +2600,7 @@
                     const isActive = c.idx === activeIdx;
                     return h('div', {
                       key: c.idx,
+                      ref: isActive ? activeTocItemRef : null,
                       style: {
                         padding: '9px 12px',
                         borderRadius: 6,
@@ -2602,6 +2721,23 @@
                 style: contentWidth === wKey ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
                 onClick: () => setContentWidth(wKey)
               }, label))
+            )
+          ),
+
+          // Line Height / Spacing Controls
+          h('div', { style: { marginBottom: 16 } },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
+              h('span', { style: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-muted)' } }, 'Line Spacing'),
+              h('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--r-accent)' } }, `${lineHeight.toFixed(1)}x`)
+            ),
+            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 } },
+              [1.4, 1.6, 1.8, 2.0, 2.2].map(lh => h('button', {
+                key: lh,
+                type: 'button',
+                className: `mini-btn ${Math.abs(lineHeight - lh) < 0.05 ? '' : 'ghost'}`,
+                style: Math.abs(lineHeight - lh) < 0.05 ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
+                onClick: () => setLineHeight(lh)
+              }, `${lh}`))
             )
           ),
 

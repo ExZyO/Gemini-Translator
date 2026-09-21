@@ -1,9 +1,9 @@
 {
-  "version": "8.17.24",
-  "versionCode": 8264,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.24/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.24/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.24",
+  "version": "8.17.25",
+  "versionCode": 8265,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.25/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.25/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.25",
   "releaseDate": "2026-09-21",
-  "releaseNotes": "v8.17.24: Tab 3 audit fixes: responsive cover aspect ratio, Moon+ Reader TOC navigation fix, lightweight image tokens in editor, and packaging progress modal."
+  "releaseNotes": "v8.17.25: Tab 4 & Reader audit fixes: reading progress continuity, smooth chapter scrubber with live tooltip, TOC drawer auto-centering, line-height controls, grammar-aware pronoun swapper, Volume Splitter library bridge, and shelf UX."
 }

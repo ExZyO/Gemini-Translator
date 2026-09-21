@@ -731,29 +731,29 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="utils.js"></script>
   <script src="db_engine.js"></script>
   <script src="splitter.js"></script>
-  <script src="merger.js?v=8.17.24"></script>
-  <script src="epub_studio_ui.js?v=8.17.24"></script>
-  <script src="epub_editor.js?v=8.17.24"></script>
-  <script src="sources/base_plugin.js?v=8.17.24"></script>
-  <script src="sources/lnreader_adapter.js?v=8.17.24"></script>
-  <script src="sources/syosetu.js?v=8.17.24"></script>
-  <script src="sources/rezero_manifest.js?v=8.17.24"></script>
-  <script src="sources/witchcult.js?v=8.17.24"></script>
-  <script src="sources/royalroad.js?v=8.17.24"></script>
-  <script src="sources/novelfire.js?v=8.17.24"></script>
-  <script src="sources/universal.js?v=8.17.24"></script>
-  <script src="sources/registry.js?v=8.17.24"></script>
-  <script src="web_importer.js?v=8.17.24"></script>
-  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.24"></script>
-  <script src="telemetry_logger.js?v=8.17.24"></script>
-  <script src="reader_engine.js?v=8.17.24"></script>
-  <script src="qa_engine.js?v=8.17.24"></script>
-  <script src="vendor/diff_match_patch.js?v=8.17.24"></script>
-  <script src="tm_diff_engine.js?v=8.17.24"></script>
-  <script src="epub_engine.js?v=8.17.24"></script>
-  <script src="glossary_presets.js?v=8.17.24"></script>
-  <script src="gdrive_sync.js?v=8.17.24"></script>
-  <script src="swiftaudio_engine.js?v=8.17.24"></script>
+  <script src="merger.js?v=8.17.25"></script>
+  <script src="epub_studio_ui.js?v=8.17.25"></script>
+  <script src="epub_editor.js?v=8.17.25"></script>
+  <script src="sources/base_plugin.js?v=8.17.25"></script>
+  <script src="sources/lnreader_adapter.js?v=8.17.25"></script>
+  <script src="sources/syosetu.js?v=8.17.25"></script>
+  <script src="sources/rezero_manifest.js?v=8.17.25"></script>
+  <script src="sources/witchcult.js?v=8.17.25"></script>
+  <script src="sources/royalroad.js?v=8.17.25"></script>
+  <script src="sources/novelfire.js?v=8.17.25"></script>
+  <script src="sources/universal.js?v=8.17.25"></script>
+  <script src="sources/registry.js?v=8.17.25"></script>
+  <script src="web_importer.js?v=8.17.25"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.25"></script>
+  <script src="telemetry_logger.js?v=8.17.25"></script>
+  <script src="reader_engine.js?v=8.17.25"></script>
+  <script src="qa_engine.js?v=8.17.25"></script>
+  <script src="vendor/diff_match_patch.js?v=8.17.25"></script>
+  <script src="tm_diff_engine.js?v=8.17.25"></script>
+  <script src="epub_engine.js?v=8.17.25"></script>
+  <script src="glossary_presets.js?v=8.17.25"></script>
+  <script src="gdrive_sync.js?v=8.17.25"></script>
+  <script src="swiftaudio_engine.js?v=8.17.25"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -862,7 +862,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.24';
+    let VERSION = '8.17.25';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -7162,7 +7162,23 @@ const formatModelName = (id, displayName) => {
         setActiveTab('studio');
         setStudioSubTab('split');
         localStorage.setItem('activeTab', 'studio');
-        toast(`Switched to EPUB Studio with "${full.title || 'Novel'}" (${chs.length} chapters)!`, 'info');
+        toast(`Packaging "${full.title || 'Novel'}" into Volume Splitter…`, 'info');
+        try {
+          const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(full.title, chs) : (full.title || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+          const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(full.author) : (full.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+          const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, full.targetLang || 'en');
+          const safeName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(novelTitle) : novelTitle.replace(/[^a-zA-Z0-9_-]/g, '_')) || 'Novel';
+          const file = new File([blob], `${safeName}.epub`, { type: 'application/epub+zip' });
+          setTimeout(() => {
+            if (typeof window.processSplitFile === 'function') {
+              window.processSplitFile(file);
+              toast(`Loaded "${novelTitle}" (${chs.length} chapters) into Volume Splitter!`, 'success');
+            }
+          }, 250);
+        } catch (splitErr) {
+          console.warn('Auto-split mounting warning:', splitErr);
+          toast(`Switched to EPUB Studio with "${full.title || 'Novel'}"!`, 'info');
+        }
       };
 
       // Update Handlers
@@ -11794,9 +11810,29 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         });
       }, [savedAudiobooks, libQ]);
 
-      const savedSpaceCount = useMemo(() => (filteredBooks || []).filter(b => b && b.inSavedSpace).length, [filteredBooks]);
-      const transCount = useMemo(() => (filteredBooks || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)'))).length, [filteredBooks]);
-      const incCount = useMemo(() => (filteredBooks || []).filter(b => b && b.isIncomplete).length + (savedTranslationSession ? 1 : 0), [filteredBooks, savedTranslationSession]);
+      const totalSavedSpace = useMemo(() => (webImportHistory || []).filter(b => b && b.inSavedSpace).length, [webImportHistory]);
+      const totalTrans = useMemo(() => (webImportHistory || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)'))).length, [webImportHistory]);
+      const totalInc = useMemo(() => (webImportHistory || []).filter(b => b && b.isIncomplete).length + (savedTranslationSession ? 1 : 0), [webImportHistory, savedTranslationSession]);
+
+      const savedSpaceCount = useMemo(() => {
+        const m = (filteredBooks || []).filter(b => b && b.inSavedSpace).length;
+        return libQ ? `${m}/${totalSavedSpace}` : m;
+      }, [filteredBooks, totalSavedSpace, libQ]);
+
+      const transCount = useMemo(() => {
+        const m = (filteredBooks || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)'))).length;
+        return libQ ? `${m}/${totalTrans}` : m;
+      }, [filteredBooks, totalTrans, libQ]);
+
+      const incCount = useMemo(() => {
+        const m = (filteredBooks || []).filter(b => b && b.isIncomplete).length + (savedTranslationSession ? 1 : 0);
+        return libQ ? `${m}/${totalInc}` : m;
+      }, [filteredBooks, totalInc, savedTranslationSession, libQ]);
+
+      const allCountLabel = useMemo(() => {
+        const total = (webImportHistory || []).length;
+        return libQ ? `${filteredBooks.length}/${total}` : total;
+      }, [filteredBooks.length, webImportHistory, libQ]);
       const displayedBooks = useMemo(() => {
         if (libTab === 'saved') return (filteredBooks || []).filter(b => b && b.inSavedSpace);
         if (libTab === 'translated') return (filteredBooks || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)')));
@@ -14151,7 +14187,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                   className: `seg-btn ${libTab === 'all' ? 'active' : ''}`,
                   style: libTab === 'all' ? { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700 } : {},
                   onClick: () => setLibTab('all')
-                }, `📚 All (${filteredBooks.length})`),
+                }, `📚 All (${allCountLabel})`),
                 h('button', {
                   type: 'button',
                   className: `seg-btn ${libTab === 'audio' ? 'active' : ''}`,
@@ -14475,8 +14511,28 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
               })(),
               !libCollapsed.books && (displayedBooks.length === 0
                 ? h('div', { className: 'card', style: { textAlign: 'center', padding: '44px 16px' } },
-                    h('p', { style: { fontSize: 13, color: 'var(--slate)' } }, libQuery ? 'No saved books match your search.' : (libTab === 'saved' ? 'Your Saved Space is empty. Star any book to pin it here!' : 'Your library is empty.')),
-                    h('p', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 6 } }, libQuery ? 'Try a different search.' : 'Translated books and scraped novels will appear here automatically.')
+                    h('p', { style: { fontSize: 13, color: 'var(--slate)', fontWeight: 600 } },
+                      libQuery
+                        ? 'No saved books match your search.'
+                        : libTab === 'saved'
+                          ? 'Your Saved Space is empty. Star any book to pin it here!'
+                          : libTab === 'translated'
+                            ? 'No translated books in your library yet.'
+                            : libTab === 'incomplete'
+                              ? 'No incomplete crawls or paused downloads found.'
+                              : 'Your library is empty.'
+                    ),
+                    h('p', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 6 } },
+                      libQuery
+                        ? 'Try a different search term.'
+                        : libTab === 'saved'
+                          ? 'Tap "☆ Save to Space" on any book to quickly bookmark it here.'
+                          : libTab === 'translated'
+                            ? 'Translated books and exported novels will appear here automatically.'
+                            : libTab === 'incomplete'
+                              ? 'Paused downloads and unfinished crawls will appear here for easy resumption.'
+                              : 'Translated books and scraped novels will appear here automatically.'
+                    )
                   )
                 : h(React.Fragment, null,
                     displayedBooks.map((item, idx) => h('div', { key: item.id || idx, className: 'book-card' },
