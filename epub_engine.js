@@ -335,11 +335,21 @@
       const cleanFn = (typeof window !== 'undefined' && window.cleanNovelProse)
         ? window.cleanNovelProse
         : ((typeof cleanNovelProse === 'function') ? cleanNovelProse : (t => String(t || '')));
-      const exportChapters = (Array.isArray(chaptersList) ? chaptersList : []).map((ch, idx) => ({
-        ...ch,
-        title: String(ch?.title || '').trim() || ('Chapter ' + (idx + 1)),
-        content: cleanFn(String(ch?.text ?? ch?.content ?? '').replace(/\r\n?/g, '\n')).trim()
-      }));
+      const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent)
+        ? window.stripLeadingTitleFromContent
+        : ((typeof stripLeadingTitleFromContent === 'function') ? stripLeadingTitleFromContent : null);
+      const exportChapters = (Array.isArray(chaptersList) ? chaptersList : []).map((ch, idx) => {
+        const title = String(ch?.title || '').trim() || ('Chapter ' + (idx + 1));
+        let content = cleanFn(String(ch?.text ?? ch?.content ?? '').replace(/\r\n?/g, '\n')).trim();
+        if (stripFn) {
+          content = stripFn(content, title, ch?.originalTitle);
+        }
+        return {
+          ...ch,
+          title,
+          content
+        };
+      });
       if (!exportChapters.length) throw new Error('No chapters to package');
       const safeLang = String(bookLang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en';
 
@@ -447,6 +457,14 @@ p {
   font-size: 1em;
   font-weight: 400;
 }
+p.text-center {
+  text-align: center !important;
+  text-indent: 0 !important;
+}
+p.text-right {
+  text-align: right !important;
+  text-indent: 0 !important;
+}
 h1 + p, h2 + p, h3 + p,
 .illustration-wrap + p,
 p.divider + p,
@@ -481,6 +499,8 @@ p.divider {
 /* ── Dialogue & Emphasis ── */
 em, i { font-style: italic; }
 strong, b { font-weight: 700; }
+del, s, strike { text-decoration: line-through; }
+code { font-family: monospace; font-size: 0.9em; background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 3px; }
 
 /* ── Blockquote (poems, letters, status screens) ── */
 blockquote {
@@ -497,6 +517,46 @@ blockquote p {
   margin-bottom: 0.5em;
 }
 blockquote p:last-child { margin-bottom: 0; }
+
+/* ── Author Notes ── */
+.author-note, blockquote.author-note {
+  margin: 2em 1em;
+  padding: 1.1em 1.5em;
+  border-left: 4px solid #6366f1;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  font-size: 0.95em;
+  page-break-inside: avoid;
+}
+.author-note p, blockquote.author-note p {
+  text-indent: 0 !important;
+  margin-bottom: 0.6em !important;
+}
+.author-note p:last-child, blockquote.author-note p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* ── Tables & Stat Screens ── */
+.table-wrap {
+  margin: 1.8em 0;
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.95em;
+  page-break-inside: avoid;
+}
+th, td {
+  border: 1px solid #cbd5e1;
+  padding: 8px 12px;
+  text-align: left;
+}
+th {
+  background-color: #f1f5f9;
+  font-weight: 700;
+}
 
 /* ── Illustrations ── */
 .illustration-wrap {
@@ -516,8 +576,10 @@ blockquote p:last-child { margin-bottom: 0; }
 /* ── Horizontal Rule ── */
 hr {
   border: none;
-  border-top: 1px solid #e2e8f0;
-  margin: 2.5em 4em;
+  border-top: 1px solid #cbd5e1;
+  margin: 2.2em auto;
+  width: 35%;
+  text-align: center;
 }
 
 /* ── Dark Mode Compatibility ── */
@@ -532,7 +594,14 @@ hr {
     color: #94a3b8;
     background-color: #1e293b;
   }
-  hr { border-top-color: #334155; }
+  .author-note, blockquote.author-note {
+    border-left-color: #818cf8;
+    background-color: #1e293b;
+    color: #e2e8f0;
+  }
+  table, th, td { border-color: #334155; }
+  th { background-color: #1e293b; }
+  hr { border-top-color: #475569; }
 }
 `;
         oebps.file('style.css', cssContent, { compression: 'DEFLATE', compressionOptions: { level: 1 } });
@@ -918,6 +987,10 @@ hr {
             // Italic: *text* or _text_ (single, not inside words)
             s = s.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '<em>$1</em>');
             s = s.replace(/(?<!\w)_([^_]+)_(?!\w)/g, '<em>$1</em>');
+            // Strikethrough: ~~text~~
+            s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+            // Inline code: `text`
+            s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
             return s;
           };
 
@@ -928,6 +1001,29 @@ hr {
 
             // Suppress prompt template placeholder leaks anywhere in chapter
             if (/\[(?:number|\d+|name|title)\]/i.test(trimmed) || /^#*\s*chapter\s*\[/i.test(trimmed) || /---\s*page\s*end\s*---/i.test(trimmed)) {
+              continue;
+            }
+
+            // Centered elements [center]...[/center] or <center>...</center>
+            const centerMatch = trimmed.match(/^(?:\[center\]|<center>|<p\s+class="text-center">)([\s\S]*?)(?:\[\/center\]|<\/center>|<\/p>)?$/i);
+            if (centerMatch) {
+              const inner = centerMatch[1].trim();
+              if (!hasEncounteredParagraph) {
+                const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
+                if (typeof checkTitleEcho === 'function' && checkTitleEcho(inner, chTitle, ch.originalTitle)) {
+                  continue; // Suppress duplicate centered title subheading!
+                }
+              }
+              bodyHtml.push(`<p class="text-center">${smartFormat(inner)}</p>`);
+              hasEncounteredParagraph = true;
+              continue;
+            }
+
+            // Right-aligned elements [right]...[/right]
+            const rightMatch = trimmed.match(/^(?:\[right\]|<p\s+class="text-right">)([\s\S]*?)(?:\[\/right\]|<\/p>)?$/i);
+            if (rightMatch) {
+              bodyHtml.push(`<p class="text-right">${smartFormat(rightMatch[1].trim())}</p>`);
+              hasEncounteredParagraph = true;
               continue;
             }
 
@@ -1012,15 +1108,43 @@ hr {
               continue;
             }
 
-            // Scene break dividers: ***, ---, ===, ~~~, * * *, etc.
-            if (/^(?:\*\s*\*\s*\*|\*{3,}|\.{3,}|\u2026{2,}|\u2014{2,}|-{3,}|={3,}|~{3,}|#\s*#\s*#)$/.test(trimmed)) {
+            // Scene break dividers: ***, ---, ===, ~~~, * * *, ◆◆◆, ✦✦✦, etc.
+            if (/^(?:\*\s*\*\s*\*|\*{3,}|\.{3,}|\u2026{2,}|\u2014{2,}|-{3,}|={3,}|~{3,}|#\s*#\s*#|(?:◆\s*){2,}|(?:◇\s*){2,}|(?:✦\s*){2,}|(?:★\s*){2,}|(?:☆\s*){2,}|(?:•\s*){3,}|(?:·\s*){3,})$/.test(trimmed) || trimmed === '---' || trimmed === '***' || trimmed === '___') {
               bodyHtml.push('<hr/>');
               continue;
             }
 
-            // Horizontal rule markdown
-            if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
-              bodyHtml.push('<hr/>');
+            // Tables: markdown table rows | col | col |
+            if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+              hasEncounteredParagraph = true;
+              const tableLines = [trimmed];
+              while (li + 1 < rawLines.length && rawLines[li + 1].trim().startsWith('|') && rawLines[li + 1].trim().endsWith('|')) {
+                li++;
+                tableLines.push(rawLines[li].trim());
+              }
+              const rows = tableLines.filter(l => !/^[\|\s\-:]+$/.test(l));
+              if (rows.length > 0) {
+                let tHtml = '<div class="table-wrap"><table>';
+                rows.forEach((r, rIdx) => {
+                  const cells = r.slice(1, -1).split('|').map(c => c.trim());
+                  const tag = rIdx === 0 ? 'th' : 'td';
+                  tHtml += '<tr>' + cells.map(c => `<${tag}>${smartFormat(c)}</${tag}>`).join('') + '</tr>';
+                });
+                tHtml += '</table></div>';
+                bodyHtml.push(tHtml);
+                continue;
+              }
+            }
+
+            // Author Note Blockquote
+            if (trimmed.startsWith('> **Author\'s Note:**') || trimmed.startsWith('> Author\'s Note:')) {
+              hasEncounteredParagraph = true;
+              const bqLines = [trimmed.replace(/^>\s*/, '')];
+              while (li + 1 < rawLines.length && rawLines[li + 1].trim().startsWith('>')) {
+                li++;
+                bqLines.push(rawLines[li].trim().replace(/^>\s*/, ''));
+              }
+              bodyHtml.push('<blockquote class="author-note">' + bqLines.map(l => `<p>${smartFormat(l)}</p>`).join('\n') + '</blockquote>');
               continue;
             }
 

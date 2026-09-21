@@ -159,8 +159,12 @@
         if (typeof window !== 'undefined' && window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {
             try {
                 html = window.DOMPurify.sanitize(html, {
-                    ALLOWED_TAGS: ['p', 'br', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'b', 'i', 'em', 'strong', 'a', 'blockquote', 'hr', 'div', 'span', 'ruby', 'rt', 'rp'],
-                    ALLOWED_ATTR: ['src', 'href', 'alt', 'title', 'class', 'data-src', 'data-original', 'data-url', 'data-orig-file', 'data-large-file', 'srcset', 'data-lazy-src', 'data-actualsrc']
+                    ALLOWED_TAGS: [
+                        'p', 'br', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'b', 'i', 'em', 'strong',
+                        'a', 'blockquote', 'hr', 'div', 'span', 'ruby', 'rt', 'rp',
+                        'table', 'thead', 'tbody', 'tr', 'th', 'td', 'caption', 'code', 'pre', 's', 'del', 'strike', 'sub', 'sup'
+                    ],
+                    ALLOWED_ATTR: ['src', 'href', 'alt', 'title', 'class', 'style', 'data-src', 'data-original', 'data-url', 'data-orig-file', 'data-large-file', 'srcset', 'data-lazy-src', 'data-actualsrc']
                 });
             } catch (_) {}
         }
@@ -175,6 +179,12 @@
             .replace(/<p[^>]*>\s*<img[^>]*the-artifice\.com[^>]*>\s*<\/p>/gi, '')
             .replace(/<img[^>]*the-artifice\.com[^>]*>/gi, '')
             .replace(/!\[.*?\]\(https?:\/\/[^\s)]*the-artifice\.com[^\s)]*\)/gi, '');
+
+        // 0. Filter out visually hidden elements and anti-scraper traps (matching browser rendering)
+        processed = processed
+            .replace(/<[^>]*(?:display:\s*none|opacity:\s*0|font-size:\s*0|visibility:\s*hidden)[^>]*>[\s\S]*?<\/[a-z0-9]+>/gi, '')
+            .replace(/<p[^>]*>[\s\S]*?(?:This story has been stolen from Royal Road|This novel is published on Royal Road|unlawfully lifted without the author's consent|Report any appearances on Amazon|Support the author by reading on Royal Road|If you encounter this story on Amazon)[\s\S]*?<\/p>/gi, '')
+            .replace(/<div[^>]*>[\s\S]*?(?:This story has been stolen from Royal Road|This novel is published on Royal Road|unlawfully lifted without the author's consent|Report any appearances on Amazon|Support the author by reading on Royal Road)[\s\S]*?<\/div>/gi, '');
 
         // 1. Convert linked image wrappers <a href="..."><img .../></a> or <a href="...">[Download Image]</a>
         processed = processed.replace(/<a\s+([^>]+)>([\s\S]*?)<\/a>/gi, (match, attrs, inner) => {
@@ -192,7 +202,6 @@
                     imgUrl = getBestImageUrl(inner, baseUrl);
                 }
                 if (!imgUrl && targetUrl) {
-                    // Aggressively clean spaces, host spaces (e.g. 'https://img. lnori. com/ 13125-06. jpg') and typos
                     imgUrl = targetUrl.trim()
                         .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
                         .replace(/\s+/g, '')
@@ -221,17 +230,70 @@
             return '';
         });
 
-        // 3. Strip residual "[Download Image]", "Download Image", "[View Image]", "[Illustration]" anchor text artifacts (excluding markdown images ![...])
+        // 3. Strip residual image anchor text artifacts
         processed = processed
             .replace(/(?<!\!)[\[\(]\s*(?:Download|View|Click to view|High-Res|Full Size|Original)?\s*(?:Image|Illustration|Artwork|Resolution|Photo|Picture)\s*[\]\)]/gi, '')
             .replace(/\b(?:Download|View|Click to view)\s+(?:High-Res\s+|Full Size\s+|Original\s+)?(?:Image|Illustration|Artwork|Photo|Picture)\b/gi, '')
             .replace(/\b(?:High-Res|Full Size)\s+(?:Image|Illustration|Artwork|Photo|Picture)\b/gi, '')
             .replace(/!\(https?:\/\/[^\s)]*the-artifice\.com[^\s)]*\)/gi, '');
 
+        // 4. Preserve Scene Break Dividers (<hr> and decorative symbol dividers)
+        processed = processed
+            .replace(/<hr\b[^>]*>/gi, '\n\n---\n\n')
+            .replace(/<p\b[^>]*>\s*(?:(?:\*\s*){3,}|\*{3,}|(?:-\s*){3,}|-{3,}|(?:=\s*){3,}|={3,}|(?:~\s*){3,}|~{3,}|(?:◆\s*){2,}|(?:◇\s*){2,}|(?:✦\s*){2,}|(?:★\s*){2,}|(?:☆\s*){2,}|(?:•\s*){3,}|(?:·\s*){3,}|#\s*#\s*#)\s*<\/p>/gi, '\n\n---\n\n');
+
+        // 5. Preserve Alignment (Center & Right)
+        processed = processed
+            .replace(/<(?:p|div)\b[^>]*class="[^"]*(?:text-center|align-center|aligncenter|has-text-align-center|center)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, '\n\n[center]$1[/center]\n\n')
+            .replace(/<(?:p|div)\b[^>]*style="[^"]*text-align:\s*center[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, '\n\n[center]$1[/center]\n\n')
+            .replace(/<center\b[^>]*>([\s\S]*?)<\/center>/gi, '\n\n[center]$1[/center]\n\n')
+            .replace(/<(?:p|div)\b[^>]*class="[^"]*(?:text-right|align-right|has-text-align-right)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, '\n\n[right]$1[/right]\n\n')
+            .replace(/<(?:p|div)\b[^>]*style="[^"]*text-align:\s*right[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, '\n\n[right]$1[/right]\n\n');
+
+        // 6. Preserve Blockquotes & Author Notes
+        processed = processed.replace(/<blockquote\b[^>]*>([\s\S]*?)<\/blockquote>/gi, (match, inner) => {
+            const lines = inner
+                .replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, '\n$1\n')
+                .replace(/<br\s*[\/]?>/gi, '\n')
+                .split('\n')
+                .map(l => l.trim())
+                .filter(Boolean);
+            if (lines.length === 0) return '';
+            return '\n\n' + lines.map(l => '> ' + l).join('\n') + '\n\n';
+        });
+
+        // 7. Preserve Tables (LitRPG stat screens, character sheets)
+        processed = processed.replace(/<table\b[^>]*>([\s\S]*?)<\/table>/gi, (match, inner) => {
+            const rows = [...inner.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+            if (rows.length === 0) return '';
+            const mdRows = [];
+            rows.forEach((r, rIdx) => {
+                const cells = [...r[1].matchAll(/<(?:th|td)\b[^>]*>([\s\S]*?)<\/(?:th|td)>/gi)].map(c => c[1].replace(/<[^>]+>/g, '').trim());
+                if (cells.length > 0) {
+                    mdRows.push('| ' + cells.join(' | ') + ' |');
+                    if (rIdx === 0) {
+                        mdRows.push('| ' + cells.map(() => '---').join(' | ') + ' |');
+                    }
+                }
+            });
+            return mdRows.length > 0 ? '\n\n' + mdRows.join('\n') + '\n\n' : match;
+        });
+
+        // 8. Preserve Inline Formatting (bold, italic, strikethrough, code, ruby)
+        processed = processed
+            .replace(/<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**')
+            .replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*')
+            .replace(/<(?:s|del|strike)\b[^>]*>([\s\S]*?)<\/(?:s|del|strike)>/gi, '~~$1~~')
+            .replace(/<code\b[^>]*>([\s\S]*?)<\/code>/gi, '`$1`')
+            .replace(/<ruby\b[^>]*>([\s\S]*?)<rt\b[^>]*>([\s\S]*?)<\/rt><\/ruby>/gi, '$1($2)');
+
+        // 9. Preserve Headings
+        processed = processed.replace(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi, '\n\n### $1\n\n');
+
+        // 10. Convert Paragraphs & Line Breaks, then strip residual wrapper tags
         let decoded = processed
             .replace(/<br\s*[\/]?>/gi, '\n')
             .replace(/<\/p>/gi, '\n\n')
-            .replace(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi, '\n\n### $1\n\n')
             .replace(/<[^>]+>/g, '');
 
         if (typeof window !== 'undefined' && window.he && typeof window.he.decode === 'function') {
@@ -783,18 +845,22 @@
 
                 if (ctrl.isPaused || ctrl.isCancelled) break;
 
-                if (chData && chData.text && chData.text.length > 30) {
-                    consecutiveFailures = 0; // Reset circuit breaker
-                    const words = chData.text.split(/\s+/).filter(Boolean).length;
-                    const imgCount = (chData.text.match(/!\[Illustration\]/g) || []).length;
+                    let chapterText = chData.text || chData.content || '';
+                    const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+                    const chTitle = chData.title || item.title || `Chapter ${currentIndex + 1}`;
+                    if (typeof stripFn === 'function' && chTitle) {
+                        chapterText = stripFn(chapterText, chTitle, chData.originalTitle);
+                    }
+                    const words = chapterText.split(/\s+/).filter(Boolean).length;
+                    const imgCount = (chapterText.match(/!\[Illustration\]/g) || []).length;
                     totalImagesCount += imgCount;
                     totalWordsEstimate += words;
                     const newChapterObj = {
                         idx: currentIndex,
                         url: item.url || '',
-                        title: chData.title || item.title || `Chapter ${currentIndex + 1}`,
-                        text: chData.text,
-                        content: chData.text,
+                        title: chTitle,
+                        text: chapterText,
+                        content: chapterText,
                         words,
                         arc: chData.arc || item.arc || '',
                         volume: chData.volume || item.volume || ''
@@ -1796,7 +1862,42 @@
                 const chHtml = await fetchHtml(item.url);
                 const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
                 const contentEl = chDoc.querySelector('.chapter-inner, .chapter-content') || chDoc.body;
-                const txt = cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '');
+
+                // 1. Remove anti-scraper traps & hidden elements from content DOM
+                if (contentEl) {
+                    contentEl.querySelectorAll('[style*="display: none"], [style*="display:none"], [style*="opacity: 0"], [style*="opacity:0"], [style*="font-size: 0"], .hidden, .d-none').forEach(el => el.remove());
+                }
+
+                // 2. Extract Author's Notes (Top and Bottom portlets)
+                const authorNotes = Array.from(chDoc.querySelectorAll('.author-note-portlet'));
+                let topNoteHtml = '';
+                let bottomNoteHtml = '';
+                if (authorNotes.length > 0 && contentEl) {
+                    authorNotes.forEach(an => {
+                        const noteBody = an.querySelector('.author-note, .portlet-body');
+                        if (!noteBody) return;
+                        const isBefore = (contentEl.compareDocumentPosition(an) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
+                        const noteCleaned = cleanChapterHtmlWithImages(noteBody.innerHTML || noteBody.textContent || '', item.url);
+                        if (noteCleaned) {
+                            const formattedNote = '\n\n> **Author\'s Note:**\n> ' + noteCleaned.split('\n').join('\n> ') + '\n\n';
+                            if (isBefore) {
+                                topNoteHtml += formattedNote;
+                            } else {
+                                bottomNoteHtml += formattedNote;
+                            }
+                        }
+                    });
+                }
+
+                let txt = cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '', item.url);
+                if (topNoteHtml) txt = topNoteHtml.trim() + '\n\n' + txt;
+                if (bottomNoteHtml) txt = txt + '\n\n' + bottomNoteHtml.trim();
+
+                const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+                if (typeof stripFn === 'function' && item.title) {
+                    txt = stripFn(txt, item.title);
+                }
+
                 return { title: item.title, text: txt };
             },
             2,

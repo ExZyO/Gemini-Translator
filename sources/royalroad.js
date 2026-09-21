@@ -85,11 +85,48 @@
       const html = await fetchHtml(chapterUrl);
       const doc = new DOMParser().parseFromString(html, 'text/html');
 
-      const title = this.decodeHtml(doc.querySelector('h1, .fic-header h1')?.textContent?.trim() || options.title || 'Chapter');
+      const title = options.title || this.decodeHtml(doc.querySelector('.portlet-title h1, h1.font-white, .chapter-inner h1, h1:not(.fic-header h1)')?.textContent?.trim() || 'Chapter');
       const contentEl = doc.querySelector('.chapter-inner.chapter-content, .chapter-inner, .chapter-content') || doc.body;
-      const cleanHtml = (window.WebNovelImporter && window.WebNovelImporter.cleanChapterHtmlWithImages)
-        ? window.WebNovelImporter.cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '')
+
+      // 1. Remove anti-scraper traps & hidden elements from content DOM
+      if (contentEl) {
+        contentEl.querySelectorAll('[style*="display: none"], [style*="display:none"], [style*="opacity: 0"], [style*="opacity:0"], [style*="font-size: 0"], .hidden, .d-none').forEach(el => el.remove());
+      }
+
+      // 2. Extract Author's Notes (Top and Bottom portlets)
+      const authorNotes = Array.from(doc.querySelectorAll('.author-note-portlet'));
+      let topNoteHtml = '';
+      let bottomNoteHtml = '';
+      if (authorNotes.length > 0 && contentEl) {
+        authorNotes.forEach(an => {
+          const noteBody = an.querySelector('.author-note, .portlet-body');
+          if (!noteBody) return;
+          const isBefore = (contentEl.compareDocumentPosition(an) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
+          const noteCleaned = (window.WebNovelImporter && window.WebNovelImporter.cleanChapterHtmlWithImages)
+            ? window.WebNovelImporter.cleanChapterHtmlWithImages(noteBody.innerHTML || noteBody.textContent || '', chapterUrl)
+            : (noteBody.textContent || '');
+          if (noteCleaned) {
+            const formattedNote = '\n\n> **Author\'s Note:**\n> ' + noteCleaned.split('\n').join('\n> ') + '\n\n';
+            if (isBefore) {
+              topNoteHtml += formattedNote;
+            } else {
+              bottomNoteHtml += formattedNote;
+            }
+          }
+        });
+      }
+
+      let cleanHtml = (window.WebNovelImporter && window.WebNovelImporter.cleanChapterHtmlWithImages)
+        ? window.WebNovelImporter.cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '', chapterUrl)
         : (contentEl.textContent || '');
+
+      if (topNoteHtml) cleanHtml = topNoteHtml.trim() + '\n\n' + cleanHtml;
+      if (bottomNoteHtml) cleanHtml = cleanHtml + '\n\n' + bottomNoteHtml.trim();
+
+      const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+      if (typeof stripFn === 'function' && title) {
+        cleanHtml = stripFn(cleanHtml, title);
+      }
 
       return {
         title,

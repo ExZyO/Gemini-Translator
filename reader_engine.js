@@ -936,7 +936,8 @@
       const lines = mainText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       const elems = [];
       let elIdx = 0;
-      for (const rawLine of lines) {
+      for (let li = 0; li < lines.length; li++) {
+        const rawLine = lines[li];
         // 1. Standalone markdown image: ![alt](url)
         const mdImg = rawLine.match(/^!\[(.*?)\]\(([^\)]+)\)\s*$/i);
         if (mdImg) {
@@ -965,6 +966,63 @@
           }
           continue;
         }
+
+        // 4. Centered text: [center]...[/center] or <center>...</center>
+        const centerM = rawLine.match(/^(?:\[center\]|<center>|<p\s+class="text-center">)([\s\S]*?)(?:\[\/center\]|<\/center>|<\/p>)?$/i);
+        if (centerM) {
+          elems.push({ type: 'center', content: centerM[1].trim(), id: `p_${elIdx++}` });
+          continue;
+        }
+
+        // 5. Right-aligned text: [right]...[/right]
+        const rightM = rawLine.match(/^(?:\[right\]|<p\s+class="text-right">)([\s\S]*?)(?:\[\/right\]|<\/p>)?$/i);
+        if (rightM) {
+          elems.push({ type: 'right', content: rightM[1].trim(), id: `p_${elIdx++}` });
+          continue;
+        }
+
+        // 6. Scene break divider: ---, ***, ___, ◆◆◆, ✦✦✦, etc.
+        if (/^(?:\*\s*\*\s*\*|\*{3,}|\.{3,}|\u2026{2,}|\u2014{2,}|-{3,}|={3,}|~{3,}|#\s*#\s*#|(?:◆\s*){2,}|(?:◇\s*){2,}|(?:✦\s*){2,}|(?:★\s*){2,}|(?:☆\s*){2,}|(?:•\s*){3,}|(?:·\s*){3,})$/.test(rawLine) || rawLine === '---' || rawLine === '***' || rawLine === '___') {
+          elems.push({ type: 'divider', id: `p_${elIdx++}` });
+          continue;
+        }
+
+        // 7. Markdown tables: | col | col |
+        if (rawLine.startsWith('|') && rawLine.endsWith('|')) {
+          const tableLines = [rawLine];
+          while (li + 1 < lines.length && lines[li + 1].startsWith('|') && lines[li + 1].endsWith('|')) {
+            li++;
+            tableLines.push(lines[li]);
+          }
+          const rows = tableLines.filter(l => !/^[\|\s\-:]+$/.test(l));
+          if (rows.length > 0) {
+            elems.push({ type: 'table', rows, id: `p_${elIdx++}` });
+            continue;
+          }
+        }
+
+        // 8. Author's Note blockquote: > **Author's Note:** or > Author's Note:
+        if (rawLine.startsWith('> **Author\'s Note:**') || rawLine.startsWith('> Author\'s Note:')) {
+          const noteLines = [rawLine.replace(/^>\s*/, '')];
+          while (li + 1 < lines.length && lines[li + 1].startsWith('>')) {
+            li++;
+            noteLines.push(lines[li].replace(/^>\s*/, ''));
+          }
+          elems.push({ type: 'author-note', content: noteLines.join('\n'), id: `p_${elIdx++}` });
+          continue;
+        }
+
+        // 9. Standard blockquote: > text
+        if (rawLine.startsWith('>')) {
+          const bqLines = [rawLine.replace(/^>\s*/, '')];
+          while (li + 1 < lines.length && lines[li + 1].startsWith('>') && !lines[li + 1].startsWith('> **Author\'s Note:')) {
+            li++;
+            bqLines.push(lines[li].replace(/^>\s*/, ''));
+          }
+          elems.push({ type: 'blockquote', content: bqLines.join('\n'), id: `p_${elIdx++}` });
+          continue;
+        }
+
         elems.push({ type: 'text', content: rawLine, id: `p_${elIdx++}` });
       }
 
@@ -1086,7 +1144,7 @@
       const query = searchQuery.trim().toLowerCase();
       const matches = [];
       chapterElements.forEach((el, pIdx) => {
-        if (el.type !== 'text' || !el.content) return;
+        if (!['text', 'center', 'right', 'blockquote', 'author-note'].includes(el.type) || !el.content) return;
         const lower = el.content.toLowerCase();
         let idx = 0;
         while ((idx = lower.indexOf(query, idx)) !== -1) {
@@ -1423,7 +1481,7 @@
       }
 
       chapterElements.forEach((el, pIdx) => {
-        if (el.type !== 'text' || !el.content) return;
+        if (!['text', 'center', 'right', 'blockquote', 'author-note'].includes(el.type) || !el.content) return;
         const raw = el.content.trim();
         if (!raw) return;
 
@@ -1824,6 +1882,117 @@
         );
       }
 
+      if (el.type === 'divider') {
+        return h('div', {
+          key: el.id,
+          id: el.id,
+          className: 'reader-v2-scene-divider',
+          style: {
+            margin: isPaginated ? '20px auto' : '28px auto',
+            textAlign: 'center',
+            color: 'var(--r-muted, #94a3b8)',
+            breakInside: 'avoid',
+            pageBreakInside: 'avoid',
+            letterSpacing: '0.6em',
+            fontSize: '1.2em',
+            opacity: 0.7
+          }
+        }, '···');
+      }
+
+      if (el.type === 'table') {
+        return h('div', {
+          key: el.id,
+          id: el.id,
+          className: 'reader-v2-table-wrap',
+          style: {
+            margin: isPaginated ? '16px 0' : '24px 0',
+            overflowX: 'auto',
+            breakInside: 'avoid',
+            pageBreakInside: 'avoid'
+          }
+        },
+          h('table', {
+            style: {
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '0.92em'
+            }
+          },
+            h('tbody', null,
+              (el.rows || []).map((rowStr, rIdx) => {
+                const cells = rowStr.slice(1, -1).split('|').map(c => c.trim());
+                const isHeader = rIdx === 0;
+                return h('tr', { key: `r_${rIdx}` },
+                  cells.map((cellTxt, cIdx) => h(isHeader ? 'th' : 'td', {
+                    key: `c_${cIdx}`,
+                    style: {
+                      border: '1px solid var(--r-border, #cbd5e1)',
+                      padding: '8px 12px',
+                      fontWeight: isHeader ? 700 : 400,
+                      background: isHeader ? 'var(--r-bg-subtle, rgba(255,255,255,0.05))' : 'transparent',
+                      textAlign: 'left'
+                    }
+                  }, cellTxt))
+                );
+              })
+            )
+          )
+        );
+      }
+
+      if (el.type === 'author-note') {
+        const noteParagraphs = (el.content || '').split('\n').filter(Boolean);
+        return h('aside', {
+          key: el.id,
+          id: el.id,
+          className: 'reader-v2-author-note',
+          style: {
+            margin: isPaginated ? '20px 0' : '28px 0',
+            padding: '14px 18px',
+            borderLeft: '4px solid var(--r-accent, #6366f1)',
+            backgroundColor: 'var(--r-bg-subtle, rgba(99, 102, 241, 0.08))',
+            borderRadius: 6,
+            fontSize: '0.94em',
+            fontStyle: 'normal',
+            breakInside: 'avoid',
+            pageBreakInside: 'avoid'
+          }
+        },
+          noteParagraphs.map((np, npIdx) => h('p', {
+            key: `np_${npIdx}`,
+            style: { margin: npIdx === noteParagraphs.length - 1 ? 0 : '0 0 8px 0', textIndent: 0 }
+          }, np))
+        );
+      }
+
+      if (el.type === 'blockquote') {
+        const bqParagraphs = (el.content || '').split('\n').filter(Boolean);
+        return h('blockquote', {
+          key: el.id,
+          id: el.id,
+          className: 'reader-v2-blockquote',
+          style: {
+            margin: isPaginated ? '16px 0' : '20px 0',
+            padding: '10px 16px',
+            borderLeft: '3px solid var(--r-border, #cbd5e1)',
+            opacity: 0.9,
+            fontStyle: 'italic',
+            breakInside: 'avoid',
+            pageBreakInside: 'avoid'
+          }
+        },
+          bqParagraphs.map((bp, bpIdx) => h('p', {
+            key: `bp_${bpIdx}`,
+            style: { margin: bpIdx === bqParagraphs.length - 1 ? 0 : '0 0 6px 0', textIndent: 0 }
+          }, bp))
+        );
+      }
+
+      const alignStyle = el.type === 'center'
+        ? { textAlign: 'center', textIndent: 0 }
+        : (el.type === 'right' ? { textAlign: 'right', textIndent: 0 } : {});
+
       const rawText = el.content || '';
       const fnRegex = /\[([¹²³⁴⁵⁶⁷⁸⁹⁰]+|\d+)\]/g;
       const segments = [];
@@ -1865,7 +2034,7 @@
       const pSentences = ttsActive ? (sentencesRef.current || []).filter(s => s.pIdx === pIdx) : [];
 
       if (ttsActive && pSentences.length > 0) {
-        return h('p', { key: el.id, id: el.id },
+        return h('p', { key: el.id, id: el.id, style: alignStyle },
           pSentences.map((s) => {
             const isSpeaking = s.sentIdx === activeSentenceIdx;
             return h('span', {
@@ -1886,7 +2055,7 @@
         );
       }
 
-      return h('p', { key: el.id, id: el.id },
+      return h('p', { key: el.id, id: el.id, style: alignStyle },
         segments.map((seg, sIdx) => {
           if (seg.type === 'footnote') {
             return h('sup', {

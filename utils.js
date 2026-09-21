@@ -182,15 +182,69 @@ window.saveUniversalBlob = saveUniversalBlob;
 window.escapeXml = escapeXml;
 
 
-// ── Title Deduplication & Heading Similarity Utilities ──
+// ── Semantic Title Decomposition & Heading Deduplication Utilities ──
+
+function parseChapterTitleComponents(str) {
+    if (!str) return { number: null, name: '', rawName: '', raw: '' };
+    let s = String(str).trim();
+    if (typeof decodeHtmlEntities === 'function') s = decodeHtmlEntities(s);
+
+    // Strip markdown headings, centering tags, and markdown emphasis
+    s = s.replace(/^#{1,6}\s+/, '')
+         .replace(/^(?:\[center\]|<center>|<p[^>]*class="[^"]*text-center[^"]*"[^>]*>)\s*/i, '')
+         .replace(/\s*(?:\[\/center\]|<\/center>|<\/p>)$/i, '')
+         .replace(/^(\*{1,2}|_{1,2})(.*?)\1$/, '$2')
+         .trim();
+
+    // Strip volume / book / arc prefix if present (e.g. "Volume 1 Chapter 29", "Vol. 1 -", "Book 2")
+    s = s.replace(/^(?:volume|vol\.?|book|v\.?)\s*\d+[\s:–—-]*(?:chapter|ch\.?|ep\.?|episode|part|section|act)?\s*\d*[\s:–—-]*/i, '');
+
+    let number = null;
+    let name = s;
+
+    // 1. Chapter/Episode/Part prefix: "Chapter 29: Title", "Ch. 29 - Title", "Episode 29 Title"
+    const prefixMatch = s.match(/^(?:chapter|ch\.?|ep\.?|episode|part|section|act)\s*(\d+|[ivxlcdm]+)[\s:–—.-]*(.*)$/i);
+    if (prefixMatch) {
+        number = prefixMatch[1];
+        name = prefixMatch[2];
+    } else {
+        // 2. CJK chapter markers: "第29章 Title", "第29节 Title", "第29话 Title"
+        const cjkMatch = s.match(/^第\s*([0-9零一二三四五六七八九十百千万]+)\s*[章回卷节篇话話][\s:–—.-]*(.*)$/i);
+        if (cjkMatch) {
+            number = cjkMatch[1];
+            name = cjkMatch[2];
+        } else {
+            // 3. Numeric prefix: "29. Title", "29 - Title", "29: Title", "29 Title", "#29 Title", "# 29: Title"
+            const numMatch = s.match(/^#?\s*(\d+)[\s:–—.-]+(.*)$/i);
+            if (numMatch) {
+                number = numMatch[1];
+                name = numMatch[2];
+            } else {
+                // 4. Standalone chapter number/label: "Chapter 29", "Chapter 001", "29.", "#29", "29"
+                const pureNumMatch = s.match(/^(?:(?:chapter|ch\.?|ep\.?|episode|part)\s*)?(\d+)\.?$/i);
+                if (pureNumMatch) {
+                    number = pureNumMatch[1];
+                    name = '';
+                }
+            }
+        }
+    }
+
+    const normName = name.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().toLowerCase();
+    const numVal = number !== null ? parseInt(number, 10) : null;
+
+    return {
+        number: isNaN(numVal) ? (number ? String(number).toLowerCase() : null) : numVal,
+        name: normName,
+        rawName: name.trim(),
+        raw: s
+    };
+}
+
 function normalizeTextForComparison(str) {
     if (!str) return '';
-    return str
-        .replace(/^第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]\s*/i, '')
-        .replace(/^(?:chapter|ch\.?)\s*\d+[\s:.-]*/i, '')
-        .replace(/[^\p{L}\p{N}]+/gu, ' ')
-        .trim()
-        .toLowerCase();
+    const parsed = parseChapterTitleComponents(str);
+    return parsed.name;
 }
 
 function getWordStems(str) {
@@ -238,61 +292,77 @@ function isTitleEcho(line, title, originalTitle) {
     if (!cleanLine) return false;
 
     // Check special notes that must NEVER be stripped
-    if (/^(?:author'?s?\s*note|translator'?s?\s*note|editor'?s?\s*note|t\/n|a\/n|synopsis|summary|foreword|preface|prologue|epilogue|afterword|interlude|warning|content\s*warning)\b/i.test(cleanLine.replace(/^#{1,6}\s*/, '').trim())) {
+    if (/^(?:author'?s?\s*note|translator'?s?\s*note|editor'?s?\s*note|t\/n|a\/n|synopsis|summary|foreword|preface|prologue|epilogue|afterword|interlude|warning|content\s*warning)\b/i.test(cleanLine.replace(/^#{1,6}\s*/, '').replace(/^(?:\[center\]|<center>|<p[^>]*>)\s*/i, '').trim())) {
         return false;
     }
 
     const headingMatch = cleanLine.match(/^(#{1,6})\s+(.+)$/);
     const isMarkdownHeading = Boolean(headingMatch);
-    const innerText = isMarkdownHeading
-        ? headingMatch[2].replace(/^(\*{1,2}|_{1,2})(.+?)\1$/, '$2').trim()
-        : cleanLine.replace(/^(\*{1,2}|_{1,2})(.+?)\1$/, '$2').trim();
 
-    // If it is NOT a markdown heading, it must be short (< 90 chars) and not a full prose sentence ending in period
+    // If it is NOT a markdown heading, protect full prose sentences that end in period
     if (!isMarkdownHeading) {
-        if (cleanLine.length > 90) return false;
+        if (cleanLine.length > 140) return false;
         if (/[.!?]$/.test(cleanLine) && !/[.!?]$/.test(title || '')) {
-            const cNorm = normalizeTextForComparison(innerText);
+            const cNorm = normalizeTextForComparison(cleanLine);
             const tNorm = normalizeTextForComparison(title);
-            if (cNorm !== tNorm) return false;
+            if (!cNorm || cNorm !== tNorm) return false;
         }
     }
 
     // 0. Template placeholder leak check e.g. "Chapter [number]: [Name]", "[number]: [Name]", "---Page End ---"
-    if (/\[(?:number|\d+|name|title)\]/i.test(innerText) || /---\s*page\s*end\s*---/i.test(innerText)) {
+    if (/\[(?:number|\d+|name|title)\]/i.test(cleanLine) || /---\s*page\s*end\s*---/i.test(cleanLine)) {
         return true;
     }
 
-    // 1. Direct match with original title (e.g. Chinese source)
+    // 1. Semantic decomposition of line and chapter title
+    const candParsed = parseChapterTitleComponents(cleanLine);
+    const titleParsed = parseChapterTitleComponents(title);
+
+    // 1a. Standalone chapter number/label matching chapter title number (e.g. "Chapter 001" or "29." vs "1. Good Morning Brother")
+    if (!candParsed.name && candParsed.number !== null) {
+        if (titleParsed.number !== null && candParsed.number === titleParsed.number) {
+            return true;
+        }
+        // Standalone chapter label line without title text
+        if (/^(?:(?:chapter|ch\.?|ep\.?|episode|part)\s*)?\d+\.?$/i.test(candParsed.raw)) {
+            return true;
+        }
+    }
+
+    // 1b. Exact normalized name match (e.g. "The Hunters and the Hunted" vs "29. The Hunters and the Hunted")
+    if (candParsed.name && titleParsed.name && candParsed.name === titleParsed.name) {
+        return true;
+    }
+
+    // 1c. Substring containment match for substantial names (>= 4 characters)
+    if (candParsed.name && titleParsed.name && candParsed.name.length >= 4) {
+        if (titleParsed.name.includes(candParsed.name) || candParsed.name.includes(titleParsed.name)) {
+            return true;
+        }
+    }
+
+    // 1d. Stem similarity match
+    if (candParsed.name && titleParsed.name && isSimilarToTitle(candParsed.name, titleParsed.name)) {
+        return true;
+    }
+
+    // 2. Direct match with original title (e.g. Japanese / Chinese source)
     if (originalTitle && originalTitle.trim()) {
-        const oNorm = normalizeTextForComparison(originalTitle);
-        const iNorm = normalizeTextForComparison(innerText);
-        if (oNorm && (oNorm === iNorm || (isMarkdownHeading && (iNorm.includes(oNorm) || oNorm.includes(iNorm))))) {
-            return true;
+        const origParsed = parseChapterTitleComponents(originalTitle);
+        if (candParsed.name && origParsed.name) {
+            if (candParsed.name === origParsed.name || candParsed.name.includes(origParsed.name) || origParsed.name.includes(candParsed.name)) {
+                return true;
+            }
         }
     }
 
-    // 2. Direct match with translated title
-    if (title && title.trim()) {
-        const tNorm = normalizeTextForComparison(title);
-        const iNorm = normalizeTextForComparison(innerText);
-        if (tNorm && (tNorm === iNorm || (isMarkdownHeading && (iNorm.includes(tNorm) || tNorm.includes(iNorm))))) {
-            return true;
-        }
-        // 3. High word/stem similarity
-        if (isMarkdownHeading && isSimilarToTitle(innerText, title)) {
-            return true;
-        }
-    }
-
-    // 4. Pure chapter heading line e.g. "### Chapter 1", "Chapter 1", "第1章", "Chapter [number]"
-    if (/^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|chapter\s*(?:\d+|\[(?:number|\d+)\])(?:\s*[:\-–—]\s*(?:\[(?:name|title)\]|.+))?|ch\.?\s*\d+|\[(?:chapter|number|name|title)\])/i.test(innerText)) {
+    // 3. Standalone chapter heading patterns (e.g. "### Chapter 1", "Chapter 1: ...", "第1章")
+    if (/^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇话話]|chapter\s*(?:\d+|\[(?:number|\d+)\])(?:\s*[:\-–—]\s*(?:\[(?:name|title)\]|.+))?|ch\.?\s*\d+|\[(?:chapter|number|name|title)\])/i.test(candParsed.raw)) {
         return true;
     }
 
-    // 5. If it's a markdown heading at the very start of the text and shorter than 120 chars
-    // and not a recognized special section:
-    if (isMarkdownHeading && innerText.length < 120) {
+    // 4. If it's an explicit markdown heading at the start of the chapter (< 120 chars)
+    if (isMarkdownHeading && candParsed.raw.length < 120) {
         return true;
     }
 
@@ -414,6 +484,7 @@ window.decodeHtmlEntities = decodeHtmlEntities;
 window.cleanNovelProse = cleanNovelProse;
 window.sanitizeChapterTitle = sanitizeChapterTitle;
 
+window.parseChapterTitleComponents = parseChapterTitleComponents;
 window.normalizeTextForComparison = normalizeTextForComparison;
 window.isSimilarToTitle = isSimilarToTitle;
 window.isTitleEcho = isTitleEcho;
