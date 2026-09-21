@@ -3874,6 +3874,156 @@
         return results;
     }
 
+    async function searchLnori(query) {
+        if (!query || !query.trim()) return [];
+        const cleanQ = query.trim().toLowerCase();
+
+        // Check 5-minute in-memory cache of Lnori catalog to avoid redundant network overhead
+        let catalog = null;
+        if (typeof window !== 'undefined' && window.__lnoriLibraryCache && (Date.now() - window.__lnoriLibraryCache.timestamp < 300000)) {
+            catalog = window.__lnoriLibraryCache.data;
+        }
+
+        if (!catalog || catalog.length === 0) {
+            try {
+                const url = 'https://lnori.com/library';
+                let html = null;
+                // Lnori supports direct CORS (Access-Control-Allow-Origin: *), try direct fetch first for instant response
+                try {
+                    const directRes = await fetch(url);
+                    if (directRes.ok) {
+                        html = await directRes.text();
+                    }
+                } catch (_) {
+                    html = null;
+                }
+
+                if (!html) {
+                    html = await fetchHtml(url, { headers: { 'Referer': 'https://lnori.com/' } });
+                }
+                if (!html) return [];
+
+                catalog = [];
+                let doc = null;
+                if (typeof DOMParser !== 'undefined') {
+                    try {
+                        doc = new DOMParser().parseFromString(html, 'text/html');
+                    } catch (_) {
+                        doc = null;
+                    }
+                }
+
+                if (doc) {
+                    const cards = Array.from(doc.querySelectorAll('article.card'));
+                    for (const card of cards) {
+                        const title = (card.getAttribute('data-t') || card.querySelector('.card-title, h3, h2')?.textContent || '').trim();
+                        const author = (card.getAttribute('data-a') || card.querySelector('.card-author, .author')?.textContent || 'Lnori Author').trim();
+                        const rawTags = (card.getAttribute('data-tags') || '').toLowerCase();
+                        const tags = rawTags.split(',').map(t => t.trim()).filter(Boolean);
+                        const volCount = card.getAttribute('data-v');
+                        const year = card.getAttribute('data-d');
+
+                        let cover = card.querySelector('.card-cover img, img')?.getAttribute('src') || '';
+                        if (cover && cover.startsWith('/')) cover = 'https://lnori.com' + cover;
+
+                        let href = card.querySelector('a.stretched-link, a[href*="/series/"], a[href*="/book/"], a')?.getAttribute('href') || '';
+                        if (href && !href.startsWith('http')) {
+                            href = 'https://lnori.com' + (href.startsWith('/') ? '' : '/') + href;
+                        }
+
+                        if (title && href) {
+                            catalog.push({
+                                source: 'Lnori',
+                                title,
+                                url: href,
+                                cover,
+                                author,
+                                chapters: volCount ? `${volCount} volumes` : (href.includes('/series/') ? 'Series' : 'Novel'),
+                                rating: year ? `★ ${year}` : '★ Lnori',
+                                tags: tags.slice(0, 5),
+                                summary: tags.length ? `Genres: ${tags.join(', ')}` : 'Available on Lnori Light Novels',
+                                status: 'Completed'
+                            });
+                        }
+                    }
+                }
+
+                // Fallback regex parsing if DOMParser is unavailable or returned 0 cards
+                if (catalog.length === 0) {
+                    const cardRegex = /<article[^>]*class=["'][^"']*\bcard\b[^"']*["']([^>]*)>([\s\S]*?)<\/article>/gi;
+                    let match;
+                    while ((match = cardRegex.exec(html)) !== null) {
+                        const attrs = match[1];
+                        const body = match[2];
+                        const titleM = attrs.match(/data-t=["']([^"']+)["']/i) || body.match(/class=["'][^"']*card-title[^"']*["'][^>]*>([^<]+)<\//i);
+                        const authorM = attrs.match(/data-a=["']([^"']+)["']/i) || body.match(/class=["'][^"']*card-author[^"']*["'][^>]*>([^<]+)<\//i);
+                        const tagsM = attrs.match(/data-tags=["']([^"']+)["']/i);
+                        const volM = attrs.match(/data-v=["']([^"']+)["']/i);
+                        const yearM = attrs.match(/data-d=["']([^"']+)["']/i);
+                        const coverM = body.match(/<img[^>]+src=["']([^"']+)["']/i);
+                        const linkM = body.match(/<a[^>]+href=["']([^"']+)["']/i);
+
+                        if (titleM && linkM) {
+                            const title = stripSearchHtml(titleM[1]).trim();
+                            let href = linkM[1].trim();
+                            if (!href.startsWith('http')) href = 'https://lnori.com' + (href.startsWith('/') ? '' : '/') + href;
+                            let cover = coverM ? coverM[1].trim() : '';
+                            if (cover && cover.startsWith('/')) cover = 'https://lnori.com' + cover;
+                            const author = authorM ? stripSearchHtml(authorM[1]).trim() : 'Lnori Author';
+                            const tags = tagsM ? tagsM[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+                            const volCount = volM ? volM[1] : '';
+                            const year = yearM ? yearM[1] : '';
+
+                            catalog.push({
+                                source: 'Lnori',
+                                title,
+                                url: href,
+                                cover,
+                                author,
+                                chapters: volCount ? `${volCount} volumes` : (href.includes('/series/') ? 'Series' : 'Novel'),
+                                rating: year ? `★ ${year}` : '★ Lnori',
+                                tags: tags.slice(0, 5),
+                                summary: tags.length ? `Genres: ${tags.join(', ')}` : 'Available on Lnori Light Novels',
+                                status: 'Completed'
+                            });
+                        }
+                    }
+                }
+
+                if (catalog.length > 0 && typeof window !== 'undefined') {
+                    window.__lnoriLibraryCache = {
+                        data: catalog,
+                        timestamp: Date.now()
+                    };
+                }
+            } catch (err) {
+                console.warn('[searchLnori] Error fetching Lnori library:', err);
+                return [];
+            }
+        }
+
+        if (!catalog || catalog.length === 0) return [];
+
+        // Smart substring & token filtering
+        const tokens = cleanQ.split(/[\s:_\-]+/).filter(Boolean);
+        return catalog.filter(n => {
+            const t = (n.title || '').toLowerCase();
+            const a = (n.author || '').toLowerCase();
+            const tags = n.tags || [];
+
+            // Direct substring match
+            if (t.includes(cleanQ) || a.includes(cleanQ) || tags.some(tag => tag.includes(cleanQ))) return true;
+
+            // Multi-token match: all tokens present
+            if (tokens.length > 1) {
+                const allTokensMatch = tokens.every(tok => t.includes(tok) || a.includes(tok) || tags.some(tag => tag.includes(tok)));
+                if (allTokensMatch) return true;
+            }
+
+            return false;
+        });
+    }
+
     async function searchNovels(query, source = 'all') {
         if (!query || !query.trim()) return [];
         const cleanQ = query.trim();
@@ -3888,6 +4038,9 @@
         }
         if (src === 'all' || src === 'novelfire') {
             runners.push(searchNovelFire(cleanQ).catch(() => []));
+        }
+        if (src === 'all' || src === 'lnori') {
+            runners.push(searchLnori(cleanQ).catch(() => []));
         }
 
         const settled = await Promise.allSettled(runners);
@@ -4018,6 +4171,7 @@
         getBestImageUrl,
         cleanChapterHtmlWithImages,
         searchNovels,
+        searchLnori,
         pause: () => {
             if (activeCrawlController) {
                 activeCrawlController.isPaused = true;

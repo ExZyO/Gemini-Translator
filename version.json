@@ -1,9 +1,9 @@
 {
-  "version": "8.17.17",
-  "versionCode": 8257,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.17/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.17/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.17",
+  "version": "8.17.18",
+  "versionCode": 8258,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.18/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.18/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.18",
   "releaseDate": "2026-09-21",
-  "releaseNotes": "v8.17.17: Pinned Extensions & Sources tabs to top bar with mobile safe-area insets, fixed catalog language filter & icons, and corrected Lnori chip behavior in Import."
+  "releaseNotes": "v8.17.18: Added native Lnori library search integration across single books and multi-volume series."
 }
