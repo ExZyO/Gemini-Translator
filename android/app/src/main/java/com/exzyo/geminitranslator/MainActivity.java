@@ -16,6 +16,13 @@ public class MainActivity extends BridgeActivity {
         // Enable Chrome remote debugging and verbose adb console output
         android.webkit.WebView.setWebContentsDebuggingEnabled(true);
 
+        // Enable hardware accelerated rendering for smooth 60/120Hz scrolling
+        try {
+            if (bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
+            }
+        } catch (Exception ignored) {}
+
         // Request runtime notification permission on Android 13+ (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {

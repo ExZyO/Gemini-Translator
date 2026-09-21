@@ -241,10 +241,14 @@
   background-color: #000000 !important;
 }
 [data-theme="amoled"] .tl-head, body.theme-amoled .tl-head {
-  background: rgba(0, 0, 0, 0.92) !important;
+  background: #000000 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
-[data-theme="amoled"] .tl-bar, body.theme-amoled .tl-bar {
-  background: rgba(0, 0, 0, 0.92) !important;
+[data-theme="amoled"] .bottomnav, body.theme-amoled .bottomnav {
+  background: #000000 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* Studio / IDE Section Banners */
@@ -348,7 +352,11 @@
 }
 
 html { color-scheme: dark; }
-html, body { background: var(--void); }
+html, body {
+  background: var(--void);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
+}
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Manrope', system-ui, sans-serif;
   color: var(--paper);
@@ -356,9 +364,9 @@ body {
 }
 
 /* ── Layout shells ── */
-.tl-app { min-height: 100vh; background: var(--void); color: var(--paper); overflow-x: hidden; padding-bottom: 96px; }
+.tl-app { min-height: 100vh; background: var(--void); color: var(--paper); overflow-x: hidden; padding-bottom: 96px; -webkit-overflow-scrolling: touch; }
 .tl-wrap { max-width: 720px; margin: 0 auto; padding: 0 16px; }
-.tl-head { position: sticky; top: 0; z-index: 40; background: rgba(9, 10, 15, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--hairline); }
+.tl-head { position: sticky; top: 0; z-index: 40; background: var(--void); border-bottom: 1px solid var(--hairline); }
 .tl-head-inner { max-width: 720px; margin: 0 auto; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .tl-title { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
 .tl-subtitle { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 12px; color: var(--slate); margin-top: 2px; }
@@ -377,17 +385,15 @@ body {
 .card {
   border: 1px solid var(--hairline);
   border-radius: 14px;
-  background: rgba(18, 20, 29, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--ember);
   padding: 20px 22px;
   margin-bottom: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.2s ease;
+  contain: content;
 }
 .card:hover {
   border-color: rgba(99, 112, 255, 0.22);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .card:last-child {
   margin-bottom: 0;
@@ -577,7 +583,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 .bottomnav {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
   display: flex; border-top: 1px solid var(--hairline);
-  background: rgba(9, 10, 15, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  background: var(--void);
   padding: 10px 8px max(18px, env(safe-area-inset-bottom, 18px));
   padding-bottom: max(18px, env(safe-area-inset-bottom, 18px));
 }
@@ -599,7 +605,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 
 /* ── Toast / confirm ── */
 .toast-wrap { position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); z-index: 11000; display: flex; flex-direction: column; gap: 8px; width: min(92vw, 380px); align-items: center; pointer-events: none; }
-.toast { padding: 12px 20px; border-radius: 10px; border: 1px solid var(--hairline); background: rgba(17, 19, 26, 0.96); backdrop-filter: blur(20px); color: var(--paper); font-size: 14px; font-weight: 600; text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,.7); pointer-events: auto; }
+.toast { padding: 12px 20px; border-radius: 10px; border: 1px solid var(--hairline); background: #11131A; color: var(--paper); font-size: 14px; font-weight: 600; text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,.7); pointer-events: auto; }
 .toast.error { border-color: rgba(255, 69, 58, 0.4); color: #FF6B6B; }
 .toast.info { border-color: rgba(99, 112, 255, 0.4); color: #B9C0FF; }
 .toast.success { border-color: rgba(52, 199, 89, 0.4); color: #6BE594; }
@@ -731,29 +737,29 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="utils.js"></script>
   <script src="db_engine.js"></script>
   <script src="splitter.js"></script>
-  <script src="merger.js?v=8.17.27"></script>
-  <script src="epub_studio_ui.js?v=8.17.27"></script>
-  <script src="epub_editor.js?v=8.17.27"></script>
-  <script src="sources/base_plugin.js?v=8.17.27"></script>
-  <script src="sources/lnreader_adapter.js?v=8.17.27"></script>
-  <script src="sources/syosetu.js?v=8.17.27"></script>
-  <script src="sources/rezero_manifest.js?v=8.17.27"></script>
-  <script src="sources/witchcult.js?v=8.17.27"></script>
-  <script src="sources/royalroad.js?v=8.17.27"></script>
-  <script src="sources/novelfire.js?v=8.17.27"></script>
-  <script src="sources/universal.js?v=8.17.27"></script>
-  <script src="sources/registry.js?v=8.17.27"></script>
-  <script src="web_importer.js?v=8.17.27"></script>
-  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.27"></script>
-  <script src="telemetry_logger.js?v=8.17.27"></script>
-  <script src="reader_engine.js?v=8.17.27"></script>
-  <script src="qa_engine.js?v=8.17.27"></script>
-  <script src="vendor/diff_match_patch.js?v=8.17.27"></script>
-  <script src="tm_diff_engine.js?v=8.17.27"></script>
-  <script src="epub_engine.js?v=8.17.27"></script>
-  <script src="glossary_presets.js?v=8.17.27"></script>
-  <script src="gdrive_sync.js?v=8.17.27"></script>
-  <script src="swiftaudio_engine.js?v=8.17.27"></script>
+  <script src="merger.js?v=8.17.28"></script>
+  <script src="epub_studio_ui.js?v=8.17.28"></script>
+  <script src="epub_editor.js?v=8.17.28"></script>
+  <script src="sources/base_plugin.js?v=8.17.28"></script>
+  <script src="sources/lnreader_adapter.js?v=8.17.28"></script>
+  <script src="sources/syosetu.js?v=8.17.28"></script>
+  <script src="sources/rezero_manifest.js?v=8.17.28"></script>
+  <script src="sources/witchcult.js?v=8.17.28"></script>
+  <script src="sources/royalroad.js?v=8.17.28"></script>
+  <script src="sources/novelfire.js?v=8.17.28"></script>
+  <script src="sources/universal.js?v=8.17.28"></script>
+  <script src="sources/registry.js?v=8.17.28"></script>
+  <script src="web_importer.js?v=8.17.28"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.28"></script>
+  <script src="telemetry_logger.js?v=8.17.28"></script>
+  <script src="reader_engine.js?v=8.17.28"></script>
+  <script src="qa_engine.js?v=8.17.28"></script>
+  <script src="vendor/diff_match_patch.js?v=8.17.28"></script>
+  <script src="tm_diff_engine.js?v=8.17.28"></script>
+  <script src="epub_engine.js?v=8.17.28"></script>
+  <script src="glossary_presets.js?v=8.17.28"></script>
+  <script src="gdrive_sync.js?v=8.17.28"></script>
+  <script src="swiftaudio_engine.js?v=8.17.28"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -862,7 +868,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.27';
+    let VERSION = '8.17.28';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6440,7 +6446,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8260);
+      const [appVersionCode, setAppVersionCode] = useState(8268);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [installingPluginId, setInstallingPluginId] = useState(null);

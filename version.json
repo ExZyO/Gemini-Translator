@@ -1,9 +1,9 @@
 {
-  "version": "8.17.27",
-  "versionCode": 8267,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.27/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.27/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.27",
+  "version": "8.17.28",
+  "versionCode": 8268,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.28/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.28/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.28",
   "releaseDate": "2026-09-21",
-  "releaseNotes": "v8.17.27: In-app updating fixes (official GitHub releases redirect, stale APK cache invalidation, browser download fallback) and removed obsolete Pronoun Swapper from reader toolbar."
+  "releaseNotes": "v8.17.28: High-performance hardware acceleration, eliminated scroll lag and black flashes by replacing heavy backdrop blur filters with crisp solid surfaces, and enhanced WebView rendering."
 }
