@@ -510,8 +510,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   transition: all .15s ease; line-height: 1;
 }
 .ch-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--paper); }
-.ch-btn:disabled { opacity: .25; cursor: not-allowed; }
-.ch-btn.danger { color: rgba(255, 69, 58, 0.85); margin-left: 2px; }
+.ch-btn.danger { color: rgba(255, 69, 58, 0.85); margin-left: 6px; border-left: 1px solid var(--hairline); padding-left: 8px; }
 .ch-btn.danger:hover:not(:disabled) { background: rgba(255, 69, 58, 0.15); color: var(--rose); }
 
 /* ── Translate workspace ── */
@@ -732,29 +731,29 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="utils.js"></script>
   <script src="db_engine.js"></script>
   <script src="splitter.js"></script>
-  <script src="merger.js?v=8.17.22"></script>
-  <script src="epub_studio_ui.js?v=8.17.22"></script>
-  <script src="epub_editor.js?v=8.17.22"></script>
-  <script src="sources/base_plugin.js?v=8.17.22"></script>
-  <script src="sources/lnreader_adapter.js?v=8.17.22"></script>
-  <script src="sources/syosetu.js?v=8.17.22"></script>
-  <script src="sources/rezero_manifest.js?v=8.17.22"></script>
-  <script src="sources/witchcult.js?v=8.17.22"></script>
-  <script src="sources/royalroad.js?v=8.17.22"></script>
-  <script src="sources/novelfire.js?v=8.17.22"></script>
-  <script src="sources/universal.js?v=8.17.22"></script>
-  <script src="sources/registry.js?v=8.17.22"></script>
-  <script src="web_importer.js?v=8.17.22"></script>
-  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.22"></script>
-  <script src="telemetry_logger.js?v=8.17.22"></script>
-  <script src="reader_engine.js?v=8.17.22"></script>
-  <script src="qa_engine.js?v=8.17.22"></script>
-  <script src="vendor/diff_match_patch.js?v=8.17.22"></script>
-  <script src="tm_diff_engine.js?v=8.17.22"></script>
-  <script src="epub_engine.js?v=8.17.22"></script>
-  <script src="glossary_presets.js?v=8.17.22"></script>
-  <script src="gdrive_sync.js?v=8.17.22"></script>
-  <script src="swiftaudio_engine.js?v=8.17.22"></script>
+  <script src="merger.js?v=8.17.23"></script>
+  <script src="epub_studio_ui.js?v=8.17.23"></script>
+  <script src="epub_editor.js?v=8.17.23"></script>
+  <script src="sources/base_plugin.js?v=8.17.23"></script>
+  <script src="sources/lnreader_adapter.js?v=8.17.23"></script>
+  <script src="sources/syosetu.js?v=8.17.23"></script>
+  <script src="sources/rezero_manifest.js?v=8.17.23"></script>
+  <script src="sources/witchcult.js?v=8.17.23"></script>
+  <script src="sources/royalroad.js?v=8.17.23"></script>
+  <script src="sources/novelfire.js?v=8.17.23"></script>
+  <script src="sources/universal.js?v=8.17.23"></script>
+  <script src="sources/registry.js?v=8.17.23"></script>
+  <script src="web_importer.js?v=8.17.23"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.23"></script>
+  <script src="telemetry_logger.js?v=8.17.23"></script>
+  <script src="reader_engine.js?v=8.17.23"></script>
+  <script src="qa_engine.js?v=8.17.23"></script>
+  <script src="vendor/diff_match_patch.js?v=8.17.23"></script>
+  <script src="tm_diff_engine.js?v=8.17.23"></script>
+  <script src="epub_engine.js?v=8.17.23"></script>
+  <script src="glossary_presets.js?v=8.17.23"></script>
+  <script src="gdrive_sync.js?v=8.17.23"></script>
+  <script src="swiftaudio_engine.js?v=8.17.23"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -863,7 +862,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.22';
+    let VERSION = '8.17.23';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -11883,30 +11882,33 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         const chTitle = targetChapter?.title ? `"${targetChapter.title}"` : `Chapter ${idx + 1}`;
         confirmAction(`Remove ${chTitle} from the chapter list?`, () => {
           setWebImportData(prev => {
-            if (!prev || !prev.chapters) return prev;
-            const chapters = prev.chapters.filter((_, i) => i !== idx);
+            const base = prev || activeCrawlSession;
+            if (!base || !base.chapters) return prev;
+            const chapters = base.chapters.filter((_, i) => i !== idx);
             syncCrawlSessionChapters(chapters);
-            return { ...prev, chapters };
+            return { ...base, chapters };
           });
         });
       };
 
       const moveImportChapter = (idx, dir) => {
         setWebImportData(prev => {
-          if (!prev || !prev.chapters) return prev;
-          const chapters = [...prev.chapters];
+          const base = prev || activeCrawlSession;
+          if (!base || !base.chapters) return prev;
+          const chapters = [...base.chapters];
           const j = idx + dir;
           if (j < 0 || j >= chapters.length) return prev;
           [chapters[idx], chapters[j]] = [chapters[j], chapters[idx]];
           syncCrawlSessionChapters(chapters);
-          return { ...prev, chapters };
+          return { ...base, chapters };
         });
       };
 
       const moveImportChapterToEdge = (idx, edge) => {
         setWebImportData(prev => {
-          if (!prev || !prev.chapters || prev.chapters.length <= 1) return prev;
-          const chapters = [...prev.chapters];
+          const base = prev || activeCrawlSession;
+          if (!base || !base.chapters || base.chapters.length <= 1) return prev;
+          const chapters = [...base.chapters];
           const [target] = chapters.splice(idx, 1);
           if (edge === 'top') {
             chapters.unshift(target);
@@ -11914,14 +11916,15 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             chapters.push(target);
           }
           syncCrawlSessionChapters(chapters);
-          return { ...prev, chapters };
+          return { ...base, chapters };
         });
         toast(edge === 'top' ? 'Moved chapter to start.' : 'Moved chapter to end.', 'info');
       };
 
       const autoSortImportChapters = () => {
         setWebImportData(prev => {
-          if (!prev || !prev.chapters || prev.chapters.length <= 1) return prev;
+          const base = prev || activeCrawlSession;
+          if (!base || !base.chapters || base.chapters.length <= 1) return prev;
 
           const parseChapterWeight = (title, idx) => {
             const raw = (title || '').trim().toLowerCase();
@@ -11954,7 +11957,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             return idx;
           };
 
-          const chaptersWithWeights = prev.chapters.map((c, originalIdx) => ({
+          const chaptersWithWeights = base.chapters.map((c, originalIdx) => ({
             chapter: c,
             weight: parseChapterWeight(c.title || '', originalIdx),
             originalIdx
@@ -11967,23 +11970,25 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
           const sorted = chaptersWithWeights.map(x => x.chapter);
           syncCrawlSessionChapters(sorted);
-          return { ...prev, chapters: sorted };
+          return { ...base, chapters: sorted };
         });
         toast('✨ Chapters auto-sorted chronologically!', 'success');
       };
 
       const reverseImportChapters = () => {
         setWebImportData(prev => {
-          if (!prev || !prev.chapters || prev.chapters.length <= 1) return prev;
-          const chapters = [...prev.chapters].reverse();
+          const base = prev || activeCrawlSession;
+          if (!base || !base.chapters || base.chapters.length <= 1) return prev;
+          const chapters = [...base.chapters].reverse();
           syncCrawlSessionChapters(chapters);
-          return { ...prev, chapters };
+          return { ...base, chapters };
         });
         toast('Chapters order reversed (1 ↔ N).', 'info');
       };
 
       const aiReorderImportChapters = async () => {
-        if (!webImportData || !webImportData.chapters || webImportData.chapters.length <= 1) {
+        const currentData = webImportData || activeCrawlSession;
+        if (!currentData || !currentData.chapters || currentData.chapters.length <= 1) {
           toast('No chapters to reorder.', 'info');
           return;
         }
@@ -11998,9 +12003,9 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         toast('🤖 AI analyzing chapter reading order...', 'info');
 
         try {
-          const titleItems = webImportData.chapters.map((c, i) => `${i}: "${(c.title || `Chapter ${i + 1}`).replace(/"/g, "'")}"`);
+          const titleItems = currentData.chapters.map((c, i) => `${i}: "${(c.title || `Chapter ${i + 1}`).replace(/"/g, "'")}"`);
           const systemPrompt = "You are an expert novel editor and reading order analyzer. The user will provide a list of chapter titles with their 0-based indices from an imported web novel. Some chapters may be out of chronological reading order (such as a latest release teaser or side story placed at the top, or prologue out of place).\\n\\nOutput a valid JSON array of the original integer indices arranged in their proper, chronological reading order (from first chapter to last chapter).\\nInclude every single index from 0 to N-1 exactly once. Output ONLY the raw JSON array (e.g. [1, 2, 3, 0]), with NO extra commentary or markdown backticks.";
-          const userPrompt = `Reorder these ${webImportData.chapters.length} chapter titles into proper chronological reading order:\\n${titleItems.join('\\n')}`;
+          const userPrompt = `Reorder these ${currentData.chapters.length} chapter titles into proper chronological reading order:\\n${titleItems.join('\\n')}`;
 
           let jsonStr = '';
           if (provider === 'deepseek') {
@@ -12058,18 +12063,21 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             throw new Error('Could not parse index array from AI response.');
           }
 
-          if (orderArray.length !== webImportData.chapters.length) {
-            throw new Error(`AI returned ${orderArray.length} items (expected ${webImportData.chapters.length}). Using Auto-Sort.`);
+          if (orderArray.length !== currentData.chapters.length) {
+            throw new Error(`AI returned ${orderArray.length} items (expected ${currentData.chapters.length}). Using Auto-Sort.`);
           }
 
           const indexSet = new Set(orderArray);
-          if (indexSet.size !== webImportData.chapters.length) {
+          if (indexSet.size !== currentData.chapters.length) {
             throw new Error('AI returned duplicate indices. Using Auto-Sort.');
           }
 
           setWebImportData(prev => {
-            const reordered = orderArray.map(idx => prev.chapters[idx]);
-            return { ...prev, chapters: reordered };
+            const base = prev || activeCrawlSession;
+            if (!base || !base.chapters) return prev;
+            const reordered = orderArray.map(idx => base.chapters[idx]);
+            syncCrawlSessionChapters(reordered);
+            return { ...base, chapters: reordered };
           });
 
           toast('✨ AI successfully reorganized chapters in reading order!', 'success');
@@ -13072,12 +13080,18 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                     const isRezeroActive = isRezeroChip && isWitchCultUrl;
                     const isSwiftActive = isSwiftChip && isSwiftAudioDetected;
                     const isLnoriActive = isLnoriChip && novelSearchFilter === 'Lnori';
+                    const isFilterActive = (novelSearchFilter || '').toLowerCase() === s.toLowerCase();
+                    const isChipActive = isRezeroActive || isSwiftActive || isLnoriActive || isFilterActive;
                     return h('span', {
                       key: s,
-                      className: `src-chip ${(isSwiftActive || isRezeroActive || isLnoriActive) ? 'accent' : ''}`,
+                      className: `src-chip ${isChipActive ? 'accent' : ''}`,
                       style: isRezeroActive
                         ? { borderColor: 'rgba(168, 85, 247, 0.6)', color: '#c084fc', background: 'rgba(168, 85, 247, 0.15)', fontWeight: 700, cursor: 'pointer' }
-                        : (isSwiftActive ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' } : (isLnoriActive ? { borderColor: 'rgba(99, 102, 241, 0.6)', color: 'var(--iris)', background: 'rgba(99, 102, 241, 0.15)', fontWeight: 700, cursor: 'pointer' } : { cursor: 'pointer' })),
+                        : (isSwiftActive
+                            ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' }
+                            : (isLnoriActive || isFilterActive
+                                ? { borderColor: 'rgba(99, 102, 241, 0.6)', color: 'var(--iris)', background: 'rgba(99, 102, 241, 0.15)', fontWeight: 700, cursor: 'pointer' }
+                                : { cursor: 'pointer' })),
                       onClick: () => {
                         if (isRezeroChip) {
                           setIsSwiftAudioMode(false);
@@ -13106,8 +13120,19 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                             } else if (!webImportUrl) {
                               toast(`${s} selected! Type a title or keyword to search.`, 'info');
                             }
+                          } else if (s === 'NovelBin') {
+                            setNovelSearchFilter(s);
+                            if (webImportUrl && !/^https?:\/\//i.test(webImportUrl.trim())) {
+                              handleSearchNovels(webImportUrl, s);
+                            } else {
+                              toast('NovelBin selected! Paste any novel-bin.com or novelbin.me URL, or type title to search.', 'info');
+                            }
                           } else if (s === 'AO3') {
                             toast('AO3 works via direct work links (e.g. archiveofourown.org/works/...). Paste any link to import!', 'info');
+                          } else if (s === 'Pixiv') {
+                            toast('Pixiv selected! Paste any pixiv.net/novel/series or novel/show link to import.', 'info');
+                          } else if (s === 'Syosetu') {
+                            toast('Syosetu selected! Paste any ncode.syosetu.com or kakuyomu.jp novel link to import.', 'info');
                           }
                         }
                       }
@@ -13914,7 +13939,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                       }, '✕ Clear')
                     )
                   ),
-                  (!activeNovelView || !isSearchResultsCollapsed) && h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 10 } },
+                  (!activeNovelView || !isSearchResultsCollapsed) && h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 10 } },
                     novelSearchResults
                       .filter(item => novelSearchFilter === 'all' || (item.source || '').toLowerCase() === novelSearchFilter.toLowerCase())
                       .map((item, idx) => h('div', {
@@ -14012,7 +14037,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                       onClick: () => setSwiftAudioResults([])
                     }, '✕ Clear')
                   ),
-                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 } },
+                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 10 } },
                     swiftAudioResults.map((item, idx) => h('div', {
                       key: idx,
                       className: 'card',

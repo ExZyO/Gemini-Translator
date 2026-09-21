@@ -363,12 +363,25 @@
     }
 
     async function fetchHtml(url, options = {}) {
+        const externalSignal = options.signal || (typeof activeCrawlController !== 'undefined' && activeCrawlController?.abortController?.signal);
+        if (externalSignal?.aborted) {
+            const abortErr = new Error('Fetch aborted by user');
+            abortErr.name = 'AbortError';
+            throw abortErr;
+        }
+
         const timeoutMs = options.timeout || 25000;
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         const startTime = Date.now();
         const context = options.context || options.why || 'General Crawl';
         let lastDetectedBlock = null;
+
+        let onExternalAbort = null;
+        if (externalSignal) {
+            onExternalAbort = () => controller.abort();
+            externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+        }
 
         window.sendTelemetry?.('FETCH_REQ', `[${context}] Fetching: ${url}`, {
             url,
@@ -379,6 +392,11 @@
         // 1. Android Native Bridge (Zero CORS / Full Chromium Engine)
         if (window.NativeBridge && window.NativeBridge.fetchNative) {
             try {
+                if (controller.signal.aborted) {
+                    const abortErr = new Error('Fetch aborted by user');
+                    abortErr.name = 'AbortError';
+                    throw abortErr;
+                }
                 const res = await Promise.race([
                     window.NativeBridge.fetchNative(url, options),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Native fetch timed out')), timeoutMs))
@@ -388,6 +406,7 @@
                     const blockCheck = detectBlockOrChallenge(text);
                     if (!blockCheck.blocked) {
                         clearTimeout(timer);
+                        if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
                         const latency = Date.now() - startTime;
                         window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched via Android Native Bridge in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
                             url,
@@ -402,6 +421,13 @@
                     }
                 }
             } catch (e) {
+                if (controller.signal.aborted || e.name === 'AbortError') {
+                    clearTimeout(timer);
+                    if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
+                    const abortErr = new Error('Fetch aborted by user');
+                    abortErr.name = 'AbortError';
+                    throw abortErr;
+                }
                 console.warn('NativeBridge fetch error, fallback to proxy:', e);
                 window.sendTelemetry?.('FETCH_WARN', `[${context}] NativeBridge failed, falling back to local proxy: ${e.message}`, { url, context, error: e.message });
             }
@@ -412,6 +438,11 @@
         const now = Date.now();
         if (localProxyState !== false || (now - lastLocalProxyCheck > 30000)) {
             try {
+                if (controller.signal.aborted) {
+                    const abortErr = new Error('Fetch aborted by user');
+                    abortErr.name = 'AbortError';
+                    throw abortErr;
+                }
                 lastLocalProxyCheck = now;
                 const localCtrl = new AbortController();
                 const localTimer = setTimeout(() => localCtrl.abort(), 6500);
@@ -428,6 +459,7 @@
                     if (!blockCheck.blocked) {
                         localProxyState = true;
                         clearTimeout(timer);
+                        if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
                         const latency = Date.now() - startTime;
                         window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched via Local Direct Proxy (port 9090) in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
                             url,
@@ -444,6 +476,13 @@
                     }
                 }
             } catch (localErr) {
+                if (controller.signal.aborted || localErr.name === 'AbortError') {
+                    clearTimeout(timer);
+                    if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
+                    const abortErr = new Error('Fetch aborted by user');
+                    abortErr.name = 'AbortError';
+                    throw abortErr;
+                }
                 if (localProxyState === null) {
                     localProxyState = false;
                 }
@@ -452,12 +491,14 @@
 
         // 3. Tiered Public Proxy Failover Pool (Fast sub-second proxies prioritized)
         const proxyPool = [
+            { name: 'corsproxy.io', getUrl: (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
             { name: 'corsproxy.org', getUrl: (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}` },
             { name: 'allorigins.win', getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
             { name: 'codetabs.com', getUrl: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
         ];
 
         for (let i = 0; i < proxyPool.length; i++) {
+            if (controller.signal.aborted) break;
             const proxy = proxyPool[i];
             let proxyTimer = null;
             let onParentAbort = null;
@@ -490,6 +531,7 @@
                         continue;
                     }
                     clearTimeout(timer);
+                    if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
                     const latency = Date.now() - startTime;
                     window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched via ${proxy.name} in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
                         url,
@@ -501,6 +543,13 @@
                     return text;
                 }
             } catch (proxyErr) {
+                if (controller.signal.aborted || proxyErr.name === 'AbortError') {
+                    clearTimeout(timer);
+                    if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
+                    const abortErr = new Error('Fetch aborted by user');
+                    abortErr.name = 'AbortError';
+                    throw abortErr;
+                }
                 // Strict timeout switches immediately
             } finally {
                 if (proxyTimer) clearTimeout(proxyTimer);
@@ -509,6 +558,12 @@
         }
 
         clearTimeout(timer);
+        if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
+        if (controller.signal.aborted) {
+            const abortErr = new Error('Fetch aborted by user');
+            abortErr.name = 'AbortError';
+            throw abortErr;
+        }
         let errMsg = `Failed to fetch ${url}. All proxies exhausted or rate-limited.`;
         let isCloudflare = false;
         let challengeType = null;
@@ -1744,10 +1799,10 @@
                 const txt = cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '');
                 return { title: item.title, text: txt };
             },
-            4,
+            2,
             progressCb,
             { title, author, summary, cover, chapterList: chapterLinks },
-            { delayMs: 150 }
+            { delayMs: 300 }
         );
 
         if (activeCrawlController?.tocOnly) {

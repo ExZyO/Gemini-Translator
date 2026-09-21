@@ -1,9 +1,9 @@
 {
-  "version": "8.17.22",
-  "versionCode": 8262,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.22/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.22/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.22",
+  "version": "8.17.23",
+  "versionCode": 8263,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.23/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.23/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.23",
   "releaseDate": "2026-09-21",
-  "releaseNotes": "v8.17.22: Tab 1 audit fixes: prevent chapter collapse during manual edits, anti-spam control locking, enhanced Word docx chapter heading parsing, and instant error feedback."
+  "releaseNotes": "v8.17.23: Tab 2 audit fixes: chapter mutation session synchronization, crawler AbortSignal cancellation, expanded proxy failover pool, and mobile search layout."
 }
