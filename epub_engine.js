@@ -851,16 +851,14 @@ hr {
 <style type="text/css">
   @page { margin: 0; padding: 0; }
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000000; }
-  body { text-align: center; }
-  div.cover-wrapper { width: 100%; height: 100%; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
-  svg { width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
+  body { text-align: center; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
+  div.cover-wrapper { width: 100vw; height: 100vh; max-width: 100%; max-height: 100%; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
+  img.cover-img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; margin: auto; display: block; }
 </style>
 </head>
 <body>
   <div class="cover-wrapper">
-    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="100%" height="100%" viewBox="0 0 1200 1600" preserveAspectRatio="xMidYMid meet">
-      <image width="1200" height="1600" xlink:href="${coverCached.localHref}" href="${coverCached.localHref}"/>
-    </svg>
+    <img class="cover-img" src="${coverCached.localHref}" alt="Cover" />
   </div>
 </body>
 </html>`;
@@ -890,7 +888,7 @@ hr {
 
           manifestItems.push(`<item id="${chId}" href="${chFilename}" media-type="application/xhtml+xml"/>`);
           spineItems.push(`<itemref idref="${chId}"/>`);
-          tocEntries.push({ id: chId, filename: chFilename, title: chTitle, idx, volume: ch.volume || ch.arc, arc: ch.arc || ch.volume, level: ch.level || 1 });
+          tocEntries.push({ id: chId, filename: chFilename, title: chTitle, idx, volume: ch.volume || ch.arc, arc: ch.arc || ch.volume, level: ch.level || 1, hasContent: Boolean((ch.content || ch.text || '').trim().length > 60) });
 
           const rawLines = ch.content.split(/\r?\n/);
           const bodyHtml = [];
@@ -1088,6 +1086,17 @@ ${bodyHtml.join('\n ')}
                 items: []
               };
               volumeGroups.push(curVolGroup);
+              // If this parent chapter has substantive prose (not just an empty volume header),
+              // include it as a readable child entry so folder-based TOC readers like Moon+ Reader
+              // don't trap the chapter content behind an expand/collapse folder toggle.
+              if (entry.hasContent) {
+                curVolGroup.items.push({
+                  id: entry.id,
+                  filename: entry.filename,
+                  cleanTitle: cleanT,
+                  fullTitle: entry.title
+                });
+              }
             } else {
               curVolGroup.items.push({
                 id: entry.id,

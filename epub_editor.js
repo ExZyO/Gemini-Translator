@@ -103,9 +103,44 @@
         return Array.from(set);
     }
 
+    function wrapSvgTitle(title, maxCharsPerLine = 20, maxLines = 4) {
+        const words = (title || 'Web Novel').split(/\s+/);
+        const lines = [];
+        let cur = '';
+        for (const w of words) {
+            if (!cur) {
+                cur = w;
+            } else if ((cur + ' ' + w).length <= maxCharsPerLine) {
+                cur += ' ' + w;
+            } else {
+                lines.push(cur);
+                cur = w;
+                if (lines.length >= maxLines - 1) break;
+            }
+        }
+        if (cur) lines.push(cur);
+        if (lines.length === 1 && lines[0].length > maxCharsPerLine) {
+            const raw = lines[0];
+            lines.length = 0;
+            for (let i = 0; i < raw.length && lines.length < maxLines; i += maxCharsPerLine) {
+                lines.push(raw.slice(i, i + maxCharsPerLine));
+            }
+        }
+        return lines;
+    }
+
     function generateSvgCover(title, author) {
         const safeTitle = escapeXml(title || 'Web Novel');
         const safeAuthor = escapeXml(author || 'Author');
+        const titleLines = wrapSvgTitle(title, 20, 4);
+        const fontSize = titleLines.length > 2 ? 36 : (titleLines.length > 1 ? 42 : 48);
+        const lineHeight = fontSize + 12;
+        const startY = 560 - Math.round(((titleLines.length - 1) * lineHeight) / 2);
+
+        const tspanLines = titleLines.map((line, i) =>
+            `<tspan x="400" y="${startY + (i * lineHeight)}">${escapeXml(line)}</tspan>`
+        ).join('');
+
         return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" width="100%" height="100%">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -121,17 +156,17 @@
   <rect width="800" height="1200" fill="url(#bgGrad)" />
   <rect x="40" y="40" width="720" height="1120" fill="none" stroke="url(#goldGrad)" stroke-width="2" opacity="0.4" rx="8" />
   <rect x="52" y="52" width="696" height="1096" fill="none" stroke="#e0e7ff" stroke-width="1" opacity="0.15" rx="6" />
-  <circle cx="400" cy="320" r="140" fill="none" stroke="url(#goldGrad)" stroke-width="1" opacity="0.25" />
-  <text x="400" y="335" font-family="sans-serif" font-size="64" font-weight="900" fill="#a5b4fc" text-anchor="middle" letter-spacing="4">✦</text>
-  <text x="400" y="560" font-family="'Cinzel', 'Noto Serif', serif, sans-serif" font-size="46" font-weight="bold" fill="#ffffff" text-anchor="middle">
-    ${safeTitle.length > 25 ? safeTitle.slice(0, 24) + '…' : safeTitle}
+  <circle cx="400" cy="300" r="130" fill="none" stroke="url(#goldGrad)" stroke-width="1" opacity="0.25" />
+  <text x="400" y="315" font-family="sans-serif" font-size="64" font-weight="900" fill="#a5b4fc" text-anchor="middle" letter-spacing="4">✦</text>
+  <text font-family="'Cinzel', 'Noto Serif', serif, sans-serif" font-size="${fontSize}" font-weight="bold" fill="#ffffff" text-anchor="middle">
+    ${tspanLines}
   </text>
-  <line x1="260" y1="620" x2="540" y2="620" stroke="url(#goldGrad)" stroke-width="2" opacity="0.6" />
-  <text x="400" y="680" font-family="sans-serif" font-size="24" font-weight="500" fill="#c7d2fe" text-anchor="middle" letter-spacing="2">
+  <line x1="260" y1="${startY + (titleLines.length * lineHeight) + 20}" x2="540" y2="${startY + (titleLines.length * lineHeight) + 20}" stroke="url(#goldGrad)" stroke-width="2" opacity="0.6" />
+  <text x="400" y="${startY + (titleLines.length * lineHeight) + 70}" font-family="sans-serif" font-size="24" font-weight="500" fill="#c7d2fe" text-anchor="middle" letter-spacing="2">
     ${safeAuthor}
   </text>
-  <text x="400" y="1080" font-family="sans-serif" font-size="14" font-weight="600" fill="#94a3b8" text-anchor="middle" letter-spacing="6">
-    GEMINI TRANSLATOR · STUDIO EDITION
+  <text x="400" y="1080" font-family="sans-serif" font-size="14" font-weight="600" fill="#94a3b8" text-anchor="middle" letter-spacing="4">
+    SPECIAL EDITION
   </text>
 </svg>`;
     }
@@ -1266,10 +1301,11 @@
         }
 
         imgs.forEach((imgUrl, i) => {
+            const resolvedSrc = (state.imageRepository.get(imgUrl)?.dataUrl) || imgUrl;
             const card = document.createElement('div');
             card.className = 'flex items-center gap-1.5 p-1 rounded bg-black/40 border border-slate-700/60 shrink-0';
             card.innerHTML = `
-                <img src="${imgUrl}" style="width:36px; height:36px; object-fit:cover; border-radius:4px;" />
+                <img src="${resolvedSrc}" style="width:36px; height:36px; object-fit:cover; border-radius:4px;" />
                 <div class="flex flex-col gap-1">
                     <button type="button" class="chip-act" style="padding:1px 4px; font-size:9px; color:#fbbf24;" title="Set as Book Cover">👑 Cover</button>
                     <button type="button" class="chip-act danger" style="padding:1px 4px; font-size:9px;" title="Remove image from chapter">✕ Delete</button>
@@ -1278,7 +1314,7 @@
 
             // Cover button
             card.querySelectorAll('button')[0].onclick = () => {
-                state.coverUrl = imgUrl;
+                state.coverUrl = resolvedSrc;
                 updateCoverPreview();
                 if (typeof window.toast === 'function') window.toast('Set image as book cover!', 'success');
             };
@@ -1638,6 +1674,12 @@
             return;
         }
 
+        const emptyChapters = state.chapters.filter(c => !c.content || !c.content.trim());
+        if (emptyChapters.length > 0) {
+            const proceed = confirm(`Warning: ${emptyChapters.length} chapter(s) have no content.\n\nDo you want to continue exporting?`);
+            if (!proceed) return;
+        }
+
         if (typeof window.generateEpubFromChapters !== 'function') {
             if (typeof window.toast === 'function') window.toast('EPUB packaging engine is not available.', 'error');
             return;
@@ -1652,6 +1694,10 @@
         if (btnExport) {
             btnExport.disabled = true;
             btnExport.textContent = '⏳ Packaging…';
+        }
+
+        if (typeof window.setEpubPackagingModal === 'function') {
+            window.setEpubPackagingModal({ title: state.title, status: `Packaging ${state.chapters.length} chapters…`, pct: 5 });
         }
 
         try {
@@ -1674,8 +1720,11 @@
                 state.title,
                 state.author,
                 state.lang,
-                (status, pct) => {
+                (status, pct, elapsed) => {
                     if (btnExport) btnExport.textContent = `⏳ ${pct}%`;
+                    if (typeof window.setEpubPackagingModal === 'function') {
+                        window.setEpubPackagingModal({ title: state.title, status: status || `Packaging ${state.chapters.length} chapters…`, pct, elapsed });
+                    }
                 },
                 opts
             );
@@ -1700,6 +1749,9 @@
             console.error('EPUB packaging error:', err);
             if (typeof window.toast === 'function') window.toast('Failed to package EPUB: ' + err.message, 'error');
         } finally {
+            if (typeof window.setEpubPackagingModal === 'function') {
+                window.setEpubPackagingModal(null);
+            }
             if (btnExport) {
                 btnExport.disabled = false;
                 btnExport.textContent = '📥 Download EPUB';
@@ -1933,7 +1985,8 @@
                         htmlParts.push(`<h3 style="font-weight:700; color:var(--paper); margin:16px 0 8px;">${escapeXml(trimmed.replace(/^#+\s+/, ''))}</h3>`);
                     } else if (/!\[(.*?)\]\((.*?)\)/.test(trimmed)) {
                         const m = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
-                        htmlParts.push(`<div style="text-align:center; margin:18px 0;"><img src="${m[2]}" alt="${escapeXml(m[1])}" style="max-width:100%; max-height:400px; border-radius:8px; margin:0 auto; display:inline-block;" /><p style="font-size:11px; color:var(--slate); margin-top:4px;">${escapeXml(m[1])}</p></div>`);
+                        const imgSrc = (state.imageRepository.get(m[2])?.dataUrl) || m[2];
+                        htmlParts.push(`<div style="text-align:center; margin:18px 0;"><img src="${imgSrc}" alt="${escapeXml(m[1])}" style="max-width:100%; max-height:400px; border-radius:8px; margin:0 auto; display:inline-block;" /><p style="font-size:11px; color:var(--slate); margin-top:4px;">${escapeXml(m[1])}</p></div>`);
                     } else {
                         htmlParts.push(`<p style="margin-bottom:14px; text-indent:1.5em;">${escapeXml(trimmed)}</p>`);
                     }
@@ -1957,14 +2010,14 @@
                 const reader = new FileReader();
                 reader.onload = () => {
                     const dataUrl = reader.result;
-                    const imgName = file.name || `image_${Date.now()}.jpg`;
+                    const imgName = file.name ? file.name.replace(/\s+/g, '_') : `illustration_${Date.now()}.jpg`;
                     state.imageRepository.set(imgName, { dataUrl, mime: file.type, name: imgName });
 
                     const textarea = document.getElementById('edit-ch-modal-textarea');
                     if (textarea) {
                         const start = textarea.selectionStart || textarea.value.length;
                         const end = textarea.selectionEnd || textarea.value.length;
-                        const mdImg = `\n\n![Illustration](${dataUrl})\n\n`;
+                        const mdImg = `\n\n![Illustration](${imgName})\n\n`;
                         textarea.value = textarea.value.substring(0, start) + mdImg + textarea.value.substring(end);
                         textarea.selectionStart = textarea.selectionEnd = start + mdImg.length;
                         textarea.focus();
