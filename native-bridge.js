@@ -166,7 +166,7 @@
     window.BackgroundKeepAlive = new BackgroundKeepAliveEngine();
 
     window.NativeBridge = {
-        installApk: async (url = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk") => {
+        installApk: async (url = "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk") => {
             const bridge = getBridge();
             if (bridge && bridge.installApk) {
                 return await bridge.installApk({ url });
@@ -191,12 +191,11 @@
             }
         },
 
-                checkForUpdate: async (currentVersion) => {
+        checkForUpdate: async (currentVersion) => {
             try {
                 const parseVer = (v) => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
-                const apkDownloadUrl = "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
-                const releasePage = "https://github.com/ExZyO/Gemini-Translator/releases/tag/latest";
                 let releaseNotes = '';
+                let discoveredApkUrl = null;
 
                 // Concurrent Multi-Source Version Query (Bypasses CDN edge caching by checking all sources in parallel)
                 const candidateVersions = [];
@@ -210,6 +209,12 @@
                         if (d?.body) releaseNotes = d.body;
                         const m = (d.name || '').match(/v?(\d+\.\d+\.\d+)/i) || (d.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
                         if (m) candidateVersions.push(m[1]);
+                        if (Array.isArray(d.assets)) {
+                            const apkAsset = d.assets.find(a => a.name && a.name.toLowerCase().endsWith('.apk'));
+                            if (apkAsset && apkAsset.browser_download_url) {
+                                discoveredApkUrl = apkAsset.browser_download_url;
+                            }
+                        }
                     }
                 }).catch(() => {});
 
@@ -218,6 +223,7 @@
                         if (r.ok) {
                             const d = await r.json();
                             if (d && d.version) candidateVersions.push(d.version);
+                            if (d && (d.apkUrl || d.downloadUrl)) discoveredApkUrl = d.apkUrl || d.downloadUrl;
                         }
                     }).catch(() => {});
 
@@ -234,6 +240,7 @@
                         if (r.ok) {
                             const d = await r.json();
                             if (d && d.version) candidateVersions.push(d.version);
+                            if (d && (d.apkUrl || d.downloadUrl) && !discoveredApkUrl) discoveredApkUrl = d.apkUrl || d.downloadUrl;
                         }
                     }).catch(() => {});
 
@@ -259,13 +266,17 @@
                 else if (rMajor === cMajor && rMinor > cMinor) isNewer = true;
                 else if (rMajor === cMajor && rMinor === cMinor && rPatch > cPatch) isNewer = true;
 
+                const latestTag = 'v' + [rMajor, rMinor, rPatch].join('.');
+                const targetApkUrl = discoveredApkUrl || `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`;
+                const targetReleasePage = `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`;
+
                 return {
                     isNewer,
-                    latestVersion: 'v' + [rMajor, rMinor, rPatch].join('.'),
+                    latestVersion: latestTag,
                     currentVersion: 'v' + [cMajor, cMinor, cPatch].join('.'),
-                    releaseNotes: releaseNotes || `Gemini Translator v${rMajor}.${rMinor}.${rPatch} is available!`,
-                    apkUrl: apkDownloadUrl,
-                    releasePage
+                    releaseNotes: releaseNotes || `Gemini Translator ${latestTag} is available!`,
+                    apkUrl: targetApkUrl,
+                    releasePage: targetReleasePage
                 };
             } catch (e) {
                 console.warn('Update check failed:', e);

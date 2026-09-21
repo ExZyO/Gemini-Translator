@@ -1715,7 +1715,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
     @PluginMethod
     public void installApk(PluginCall call) {
-        String downloadUrl = call.getString("url", "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk");
+        String downloadUrl = call.getString("url", "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk");
         Context context = getContext();
 
         new Thread(() -> {
@@ -1745,13 +1745,16 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 File targetFile = new File(downloadDir, "GeminiTranslator_update.apk");
                 File tempFile = new File(downloadDir, "GeminiTranslator_update.tmp");
 
-                // 2. Check if a valid APK was already downloaded recently (< 30 min old)
+                // 2. Check if a valid APK was already downloaded recently (< 30 min old) AND is newer than installed app
                 PackageManager pm = context.getPackageManager();
                 boolean hasValidCachedApk = false;
                 if (targetFile.exists() && targetFile.length() > 2000000 && (System.currentTimeMillis() - targetFile.lastModified() < 30 * 60 * 1000)) {
                     try {
                         PackageInfo existingInfo = pm.getPackageArchiveInfo(targetFile.getAbsolutePath(), 0);
-                        if (existingInfo != null && existingInfo.packageName != null) {
+                        PackageInfo currentAppInfo = pm.getPackageInfo(context.getPackageName(), 0);
+                        long currentVerCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? currentAppInfo.getLongVersionCode() : currentAppInfo.versionCode;
+                        long cachedVerCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? existingInfo.getLongVersionCode() : existingInfo.versionCode;
+                        if (existingInfo != null && existingInfo.packageName != null && cachedVerCode > currentVerCode) {
                             hasValidCachedApk = true;
                         }
                     } catch (Exception ignored) {}
@@ -1783,7 +1786,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             if (newUrl == null || newUrl.isEmpty()) {
                                 throw new java.io.IOException("Update server redirected without Location header");
                             }
-                            url = new URL(newUrl);
+                            url = new URL(url, newUrl);
                             redirects++;
                         } else if (status >= 200 && status < 300) {
                             break;

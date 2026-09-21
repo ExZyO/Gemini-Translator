@@ -2001,14 +2001,6 @@
         h('button', {
           type: 'button',
           className: 'reader-more-item',
-          onClick: () => { setShowMoreMenu(false); handleSwapPronounsCurrentChapter(); }
-        },
-          h('span', null, '⚥'),
-          h('span', null, 'Swap Pronouns (He ↔ She)')
-        ),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
           onClick: () => { setShowMoreMenu(false); setAutoScroll(s => !s); }
         },
           h('span', null, '⚡'),

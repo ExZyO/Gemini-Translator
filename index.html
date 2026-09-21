@@ -731,29 +731,29 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="utils.js"></script>
   <script src="db_engine.js"></script>
   <script src="splitter.js"></script>
-  <script src="merger.js?v=8.17.26"></script>
-  <script src="epub_studio_ui.js?v=8.17.26"></script>
-  <script src="epub_editor.js?v=8.17.26"></script>
-  <script src="sources/base_plugin.js?v=8.17.26"></script>
-  <script src="sources/lnreader_adapter.js?v=8.17.26"></script>
-  <script src="sources/syosetu.js?v=8.17.26"></script>
-  <script src="sources/rezero_manifest.js?v=8.17.26"></script>
-  <script src="sources/witchcult.js?v=8.17.26"></script>
-  <script src="sources/royalroad.js?v=8.17.26"></script>
-  <script src="sources/novelfire.js?v=8.17.26"></script>
-  <script src="sources/universal.js?v=8.17.26"></script>
-  <script src="sources/registry.js?v=8.17.26"></script>
-  <script src="web_importer.js?v=8.17.26"></script>
-  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.26"></script>
-  <script src="telemetry_logger.js?v=8.17.26"></script>
-  <script src="reader_engine.js?v=8.17.26"></script>
-  <script src="qa_engine.js?v=8.17.26"></script>
-  <script src="vendor/diff_match_patch.js?v=8.17.26"></script>
-  <script src="tm_diff_engine.js?v=8.17.26"></script>
-  <script src="epub_engine.js?v=8.17.26"></script>
-  <script src="glossary_presets.js?v=8.17.26"></script>
-  <script src="gdrive_sync.js?v=8.17.26"></script>
-  <script src="swiftaudio_engine.js?v=8.17.26"></script>
+  <script src="merger.js?v=8.17.27"></script>
+  <script src="epub_studio_ui.js?v=8.17.27"></script>
+  <script src="epub_editor.js?v=8.17.27"></script>
+  <script src="sources/base_plugin.js?v=8.17.27"></script>
+  <script src="sources/lnreader_adapter.js?v=8.17.27"></script>
+  <script src="sources/syosetu.js?v=8.17.27"></script>
+  <script src="sources/rezero_manifest.js?v=8.17.27"></script>
+  <script src="sources/witchcult.js?v=8.17.27"></script>
+  <script src="sources/royalroad.js?v=8.17.27"></script>
+  <script src="sources/novelfire.js?v=8.17.27"></script>
+  <script src="sources/universal.js?v=8.17.27"></script>
+  <script src="sources/registry.js?v=8.17.27"></script>
+  <script src="web_importer.js?v=8.17.27"></script>
+  <script type="module" src="vendor/foliate/foliate_bridge.js?v=8.17.27"></script>
+  <script src="telemetry_logger.js?v=8.17.27"></script>
+  <script src="reader_engine.js?v=8.17.27"></script>
+  <script src="qa_engine.js?v=8.17.27"></script>
+  <script src="vendor/diff_match_patch.js?v=8.17.27"></script>
+  <script src="tm_diff_engine.js?v=8.17.27"></script>
+  <script src="epub_engine.js?v=8.17.27"></script>
+  <script src="glossary_presets.js?v=8.17.27"></script>
+  <script src="gdrive_sync.js?v=8.17.27"></script>
+  <script src="swiftaudio_engine.js?v=8.17.27"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -862,7 +862,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.26';
+    let VERSION = '8.17.27';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -7473,17 +7473,23 @@ const formatModelName = (id, displayName) => {
           if (!update || !update.latestVersion) {
             // Web fallback: query GitHub releases and version manifest concurrently
             const candidates = [];
+            let discoveredApk = null;
             const q1 = fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now()).then(async r => {
               if (r.ok) {
                 const d = await r.json();
                 const m = (d.name || '').match(/v?(\d+\.\d+\.\d+)/i) || (d.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
                 if (m) candidates.push(m[1]);
+                if (Array.isArray(d.assets)) {
+                  const a = d.assets.find(x => x.name && x.name.toLowerCase().endsWith('.apk'));
+                  if (a?.browser_download_url) discoveredApk = a.browser_download_url;
+                }
               }
             }).catch(() => {});
             const q2 = fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/version.json?t=' + Date.now()).then(async r => {
               if (r.ok) {
                 const d = await r.json();
                 if (d?.version) candidates.push(d.version);
+                if (d?.apkUrl || d?.downloadUrl) discoveredApk = d.apkUrl || d.downloadUrl;
               }
             }).catch(() => {});
             await Promise.allSettled([q1, q2]);
@@ -7505,7 +7511,7 @@ const formatModelName = (id, displayName) => {
                 isNewer,
                 latestVersion: latestTag,
                 currentVersion: 'v' + [cMaj, cMin, cPat].join('.'),
-                apkUrl: `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`,
+                apkUrl: discoveredApk || `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`,
                 releasePage: `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`
               };
             }
@@ -7528,21 +7534,23 @@ const formatModelName = (id, displayName) => {
 
       const handlePerformUpdate = async () => {
         setIsUpdating(true);
-        toast(' Starting update download...', 'info');
+        toast('⬇️ Starting update download...', 'info');
         try {
-          const apkUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
+          const apkUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
           const installResult = await window.NativeBridge?.installApk(apkUrl);
           if (installResult && installResult.success === false) {
             throw new Error(installResult.message || 'The package installer could not be launched.');
           }
-          toast(' Download complete. Opening package installer...', 'success');
+          toast('🎉 Download complete. Opening package installer...', 'success');
         } catch (err) {
           console.error('Update error:', err);
           const updateError = err?.message || String(err);
           if (/unknown apps|allow from this source/i.test(updateError)) {
             toast('Permission required: Please enable "Allow from this source" in Settings, then tap Update again.', 'warning', 7000);
           } else {
-            toast('Failed to install update: ' + updateError, 'error', 5000);
+            toast('Failed to install update: ' + updateError + '. Opening browser download...', 'error', 5000);
+            const fallbackUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
+            window.open(fallbackUrl, '_blank');
           }
         } finally {
           setIsUpdating(false);
@@ -12291,7 +12299,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                   className: 'mini-btn ghost',
                   title: 'Download APK directly using your device browser',
                   onClick: () => {
-                    const apkUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/download/latest/GeminiTranslator.apk";
+                    const apkUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
                     window.AppLogger?.log('info', 'Updater', 'Opening browser download: ' + apkUrl);
                     window.open(apkUrl, '_blank');
                   }
