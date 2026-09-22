@@ -157,6 +157,16 @@
         box-shadow: 0 0 0 2px #ea580c;
       }
 
+      .reader-v2-author-note, .reader-v2-blockquote {
+        text-align: left !important;
+        text-align-last: left !important;
+        hyphens: auto;
+      }
+      .reader-v2-author-note p, .reader-v2-blockquote p {
+        text-align: left !important;
+        text-align-last: left !important;
+      }
+
       .reader-v2-hud-top {
         position: absolute;
         top: 0;
@@ -936,6 +946,11 @@
       const lines = mainText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       const elems = [];
       let elIdx = 0;
+      let hasEncounteredParagraph = false;
+      const chTitle = currentChapter?.title || '';
+      const origTitle = currentChapter?.originalTitle || '';
+      const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
+
       for (let li = 0; li < lines.length; li++) {
         const rawLine = lines[li];
         // 1. Standalone markdown image: ![alt](url)
@@ -964,6 +979,7 @@
               elems.push({ type: 'text', content: pTrim, id: `p_${elIdx++}` });
             }
           }
+          hasEncounteredParagraph = true;
           continue;
         }
 
@@ -972,7 +988,13 @@
                      || rawLine.match(/^([\s\S]*?)\[\/center\]$/i);
         if (centerM) {
           const inner = (centerM[1] || '').replace(/\[\/?center\]/gi, '').trim();
+          if (!hasEncounteredParagraph && typeof checkTitleEcho === 'function') {
+            if (checkTitleEcho(inner, chTitle, origTitle)) {
+              continue; // Suppress duplicate centered title subheading!
+            }
+          }
           elems.push({ type: 'center', content: inner, id: `p_${elIdx++}` });
+          hasEncounteredParagraph = true;
           continue;
         }
 
@@ -982,6 +1004,7 @@
         if (rightM) {
           const inner = (rightM[1] || '').replace(/\[\/?right\]/gi, '').trim();
           elems.push({ type: 'right', content: inner, id: `p_${elIdx++}` });
+          hasEncounteredParagraph = true;
           continue;
         }
 
@@ -1001,6 +1024,7 @@
           const rows = tableLines.filter(l => !/^[\|\s\-:]+$/.test(l));
           if (rows.length > 0) {
             elems.push({ type: 'table', rows, id: `p_${elIdx++}` });
+            hasEncounteredParagraph = true;
             continue;
           }
         }
@@ -1013,6 +1037,7 @@
             noteLines.push(lines[li].replace(/^>\s*/, ''));
           }
           elems.push({ type: 'author-note', content: noteLines.join('\n'), id: `p_${elIdx++}` });
+          hasEncounteredParagraph = true;
           continue;
         }
 
@@ -1024,10 +1049,19 @@
             bqLines.push(lines[li].replace(/^>\s*/, ''));
           }
           elems.push({ type: 'blockquote', content: bqLines.join('\n'), id: `p_${elIdx++}` });
+          hasEncounteredParagraph = true;
           continue;
         }
 
+        // Standalone paragraph line: check for title echo before first narrative paragraph!
+        if (!hasEncounteredParagraph && typeof checkTitleEcho === 'function') {
+          if (checkTitleEcho(rawLine, chTitle, origTitle)) {
+            continue; // Suppress duplicate plain-text title paragraph!
+          }
+        }
+
         elems.push({ type: 'text', content: rawLine, id: `p_${elIdx++}` });
+        hasEncounteredParagraph = true;
       }
 
       return [map, elems];
@@ -1586,8 +1620,14 @@
         return;
       }
 
+      // Strip markdown tags/asterisks and clean for natural speech
+      const plainSpeechText = rawText
+        .replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '')
+        .replace(/(\*{1,3}|_{1,3}|~~|`)/g, '')
+        .replace(/^(&gt;|>)\s*/g, '');
+
       // Apply Moon+ Reader TTS Character & Pronunciation Filters
-      const sentence = applyTtsCharFilters(rawText);
+      const sentence = applyTtsCharFilters(plainSpeechText);
 
       setActiveSentenceIdx(idx);
 
@@ -1858,6 +1898,46 @@
       }
     }, [novelId, activeIdx]);
 
+    const parseInlineMarkdown = (text, keyPrefix = 'md') => {
+      if (!text || typeof text !== 'string') return text;
+      let s = text.replace(/^(\*{1,2}|_{1,2})(&gt;|>)\s*/, '$1')
+                  .replace(/^(&gt;|>)\s*(\*{1,2}|_{1,2})/, '$1');
+      const inlineRegex = /(`[^`]+`|\*\*\*[^\n]+?\*\*\*|___[^\n]+?___|\*\*[^\n]+?\*\*|__[^\n]+?__|(?<!\w)\*[^*\n]+?\*(?!\w)|(?<!\w)_[^_\n]+?_(?!\w)|~~[^~]+~~)/g;
+      const parts = s.split(inlineRegex);
+      if (parts.length === 1) return parts[0];
+      return parts.map((part, i) => {
+        const k = `${keyPrefix}_${i}`;
+        if (!part) return null;
+        if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
+          return h('code', { key: k, style: { fontFamily: 'monospace', fontSize: '0.9em', background: 'rgba(128,128,128,0.15)', padding: '2px 4px', borderRadius: 3 } }, part.slice(1, -1));
+        }
+        if (part.startsWith('***') && part.endsWith('***') && part.length > 6) {
+          return h('strong', { key: k }, h('em', null, part.slice(3, -3)));
+        }
+        if (part.startsWith('___') && part.endsWith('___') && part.length > 6) {
+          return h('strong', { key: k }, h('em', null, part.slice(3, -3)));
+        }
+        if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+          const inner = part.slice(2, -2);
+          return h('strong', { key: k }, parseInlineMarkdown(inner, `${k}_b`));
+        }
+        if (part.startsWith('__') && part.endsWith('__') && part.length > 4) {
+          const inner = part.slice(2, -2);
+          return h('strong', { key: k }, parseInlineMarkdown(inner, `${k}_b`));
+        }
+        if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+          return h('em', { key: k }, part.slice(1, -1));
+        }
+        if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
+          return h('em', { key: k }, part.slice(1, -1));
+        }
+        if (part.startsWith('~~') && part.endsWith('~~') && part.length > 4) {
+          return h('del', { key: k }, part.slice(2, -2));
+        }
+        return part;
+      }).filter(Boolean);
+    };
+
     const renderParagraphNode = (el, pIdx, isPaginated, mCounterObj) => {
       if (el.type === 'image') {
         return h('div', {
@@ -1937,7 +2017,7 @@
                       background: isHeader ? 'var(--r-bg-subtle, rgba(255,255,255,0.05))' : 'transparent',
                       textAlign: 'left'
                     }
-                  }, cellTxt))
+                  }, parseInlineMarkdown(cellTxt, `c_${rIdx}_${cIdx}`)))
                 );
               })
             )
@@ -1960,13 +2040,14 @@
             fontSize: '0.94em',
             fontStyle: 'normal',
             breakInside: 'avoid',
-            pageBreakInside: 'avoid'
+            pageBreakInside: 'avoid',
+            textAlign: 'left'
           }
         },
           noteParagraphs.map((np, npIdx) => h('p', {
             key: `np_${npIdx}`,
             style: { margin: npIdx === noteParagraphs.length - 1 ? 0 : '0 0 8px 0', textIndent: 0, textAlign: 'left' }
-          }, np))
+          }, parseInlineMarkdown(np, `np_${npIdx}`)))
         );
       }
 
@@ -1983,13 +2064,14 @@
             opacity: 0.9,
             fontStyle: 'italic',
             breakInside: 'avoid',
-            pageBreakInside: 'avoid'
+            pageBreakInside: 'avoid',
+            textAlign: 'left'
           }
         },
           bqParagraphs.map((bp, bpIdx) => h('p', {
             key: `bp_${bpIdx}`,
             style: { margin: bpIdx === bqParagraphs.length - 1 ? 0 : '0 0 6px 0', textIndent: 0, textAlign: 'left' }
-          }, bp))
+          }, parseInlineMarkdown(bp, `bp_${bpIdx}`)))
         );
       }
 
@@ -2025,7 +2107,9 @@
       }
 
       const renderTextWithSearch = (txt, segIdx) => {
-        if (!showSearch || !searchQuery.trim()) return txt;
+        if (!showSearch || !searchQuery.trim()) {
+          return parseInlineMarkdown(txt, `s_${segIdx}`);
+        }
         const query = searchQuery.trim();
         const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const sRegex = new RegExp(`(${escaped})`, 'gi');
@@ -2040,7 +2124,7 @@
               className: `reader-v2-search-match ${isCurrentActive ? 'active' : ''}`
             }, part);
           }
-          return part;
+          return parseInlineMarkdown(part, `sm_${segIdx}_${i}`);
         });
       };
 
