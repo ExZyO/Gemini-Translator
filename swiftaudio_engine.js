@@ -200,11 +200,10 @@
     };
 
     // ══════════════════════════════════════════════════════════════════
-    // 2. AUDIO PLAYER CONTROLLER (WRAPPING OPEN-SOURCE PLYR)
+    // 2. AUDIO PLAYER CONTROLLER (DIRECT NATIVE AUDIO ENGINE)
     // ══════════════════════════════════════════════════════════════════
     class SwiftAudioPlayerController {
         constructor() {
-            this.plyrInstance = null;
             this.audioEl = null;
             this.currentBook = null;
             this.currentTrackIndex = 0;
@@ -266,32 +265,32 @@
                 setTimeout(() => this._initAudioElement(), 50);
                 return;
             }
-            let host = document.getElementById('swift-plyr-host');
-            if (!host) {
-                host = document.createElement('div');
-                host.id = 'swift-plyr-host';
-                host.style.cssText = 'position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; overflow: hidden;';
-                document.body.appendChild(host);
+
+            // Clean up any legacy or duplicate audio hosts
+            const oldHost = document.getElementById('swift-plyr-host');
+            if (oldHost) {
+                try {
+                    const audios = oldHost.querySelectorAll('audio');
+                    audios.forEach(a => {
+                        try { a.pause(); a.removeAttribute('src'); a.load(); } catch(e) {}
+                    });
+                    oldHost.remove();
+                } catch(e) {}
             }
-            let el = document.getElementById('swift-plyr-audio');
+
+            let el = document.getElementById('swift-audio-element');
             if (!el) {
                 el = document.createElement('audio');
-                el.id = 'swift-plyr-audio';
+                el.id = 'swift-audio-element';
                 el.setAttribute('playsinline', 'true');
                 el.setAttribute('preload', 'auto');
                 el.setAttribute('referrerpolicy', 'no-referrer');
-                el.style.cssText = 'position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none;';
-                host.appendChild(el);
+                el.style.cssText = 'position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1;';
+                document.body.appendChild(el);
             } else {
                 el.setAttribute('referrerpolicy', 'no-referrer');
             }
             this.audioEl = el;
-
-            if (window.Plyr) {
-                this._mountPlyr();
-            } else {
-                window.addEventListener('load', () => this._mountPlyr(), { once: true });
-            }
 
             this.audioEl.addEventListener('error', () => {
                 const err = this.audioEl ? this.audioEl.error : null;
@@ -313,6 +312,11 @@
 
             this.audioEl.addEventListener('play', () => {
                 this.isPlaying = true;
+                try {
+                    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+                        window.speechSynthesis.cancel();
+                    }
+                } catch(e) {}
                 this._updateMediaSession();
                 this._acquireWakeLock();
                 this._notify();
@@ -358,33 +362,6 @@
             });
         }
 
-        _mountPlyr() {
-            if (this.plyrInstance || !window.Plyr || !this.audioEl) return;
-            try {
-                // Official Plyr initialization with EXACT 5-second jump controls!
-                this.plyrInstance = new window.Plyr(this.audioEl, {
-                    controls: [
-                        'rewind',       // -5s
-                        'play',         // Play / Pause
-                        'fast-forward', // +5s
-                        'progress',     // Scrubber
-                        'current-time',
-                        'duration',
-                        'mute',
-                        'volume',
-                        'settings'      // Speed
-                    ],
-                    seekTime: 5,        // EXACT 5 SECONDS
-                    speed: { selected: 1, options: [0.75, 1, 1.25, 1.5, 1.75, 2] },
-                    keyboard: { focused: true, global: false },
-                    tooltips: { controls: true, seek: true }
-                });
-                console.log('✅ Open-source Plyr audio player mounted with seekTime: 5s');
-            } catch (e) {
-                console.warn('Plyr initialization warning:', e);
-            }
-        }
-
         loadBook(book, startTrackIndex = 0, autoPlay = true, seekTime = 0) {
             if (!book || !book.tracks || book.tracks.length === 0) return;
             this.currentBook = book;
@@ -402,19 +379,11 @@
 
         _playSource(src, autoPlay = true, seekTime = 0) {
             if (!this.audioEl) return;
-            this.audioEl.src = src;
+            try {
+                this.audioEl.pause();
+            } catch(e) {}
 
-            if (this.plyrInstance) {
-                try {
-                    this.plyrInstance.source = {
-                        type: 'audio',
-                        title: this.currentBook?.title || 'Audiobook',
-                        sources: [{ src: src, type: 'audio/mp3' }]
-                    };
-                } catch (e) {
-                    console.debug('[SwiftAudio] Plyr source set warning:', e);
-                }
-            }
+            this.audioEl.src = src;
 
             if (seekTime > 0) {
                 try { this.audioEl.currentTime = seekTime; } catch(e) {}
@@ -431,7 +400,6 @@
 
         play() {
             if (!this.audioEl) return;
-            // 1. Direct native play FIRST (synchronous user gesture)
             try {
                 const p = this.audioEl.play();
                 if (p !== undefined && p.catch) {
@@ -443,14 +411,7 @@
                     });
                 }
             } catch (err) {
-                console.debug('[SwiftAudio] Synchronous play exception:', err);
-            }
-
-            // 2. Keep Plyr in sync if mounted
-            if (this.plyrInstance) {
-                try {
-                    this.plyrInstance.play();
-                } catch (e) {}
+                console.debug('[SwiftAudio] Direct play exception:', err);
             }
         }
 
@@ -458,16 +419,14 @@
             if (this.audioEl) {
                 try { this.audioEl.pause(); } catch(e) {}
             }
-            if (this.plyrInstance) {
-                try { this.plyrInstance.pause(); } catch(e) {}
-            }
         }
 
         togglePlay() {
-            if (this.audioEl && !this.audioEl.paused) {
-                this.pause();
-            } else {
+            if (!this.audioEl) return;
+            if (this.audioEl.paused) {
                 this.play();
+            } else {
+                this.pause();
             }
         }
 
@@ -479,9 +438,6 @@
                     this.audioEl.removeAttribute('src');
                     this.audioEl.load();
                 } catch(e) {}
-            }
-            if (this.plyrInstance) {
-                try { this.plyrInstance.stop(); } catch(e) {}
             }
             this.clearSleepTimer();
             this.currentBook = null;
@@ -514,9 +470,6 @@
                 }
                 this.audioEl.currentTime = target;
                 this.currentTime = target;
-                if (this.plyrInstance) {
-                    try { this.plyrInstance.currentTime = target; } catch(e) {}
-                }
                 this._notify();
                 this._updateMediaSession();
             } catch (e) {
@@ -538,9 +491,6 @@
                 const target = Math.max(0, Math.min(seconds, this.duration || Infinity));
                 this.audioEl.currentTime = target;
                 this.currentTime = target;
-                if (this.plyrInstance) {
-                    try { this.plyrInstance.currentTime = target; } catch(e) {}
-                }
                 this._notify();
                 this._updateMediaSession();
             }
@@ -550,7 +500,6 @@
             if (this.audioEl && rate > 0) {
                 this.audioEl.playbackRate = rate;
                 this.playbackRate = rate;
-                if (this.plyrInstance) this.plyrInstance.speed = rate;
                 this._notify();
             }
         }
