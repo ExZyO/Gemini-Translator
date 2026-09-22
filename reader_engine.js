@@ -603,6 +603,7 @@
   const saveReadingProgress = (key, chapterIdx, scrollTop, pct) => {
     if (!key) return;
     try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('incognitoMode') === 'true') return;
       const map = getReadingProgressMap();
       map[String(key)] = {
         chapterIdx: typeof chapterIdx === 'number' ? chapterIdx : 0,
