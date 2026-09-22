@@ -468,7 +468,7 @@
         </div>
 
         <!-- ═══ MODAL 2: BOOK-WIDE ILLUSTRATION GALLERY (FULLSCREEN) ═══ -->
-        <div id="edit-gallery-modal" class="hidden fixed inset-0 z-50 flex flex-col w-full h-full bg-[#08090d]/95 backdrop-blur-md overflow-hidden">
+        <div id="edit-gallery-modal" class="hidden fixed inset-0 z-[9999]" style="position:fixed; inset:0; z-index:9999; background:#0c0e17 !important; display:none; flex-direction:column; width:100%; height:100%; overflow:hidden;">
             <!-- Header Bar -->
             <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-800 bg-[#0d0f17] shrink-0">
                 <div class="flex items-center gap-3">
@@ -483,13 +483,13 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" id="btn-edit-gallery-upload-new" class="tl-btn text-xs" style="padding:6px 14px;">➕ Upload Image</button>
-                    <button type="button" onclick="document.getElementById('edit-gallery-modal').classList.add('hidden')"
+                    <button type="button" onclick="if(window.closeGalleryModal) window.closeGalleryModal(); else document.getElementById('edit-gallery-modal').style.display='none';"
                             class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors">✕</button>
                 </div>
             </div>
 
             <!-- Filter Tabs & Controls -->
-            <div class="flex items-center justify-between px-4 sm:px-6 py-2.5 bg-slate-900/70 border-b border-slate-800/80 shrink-0 flex-wrap gap-2">
+            <div class="flex items-center justify-between px-4 sm:px-6 py-2.5 bg-[#0e111a] border-b border-slate-800 shrink-0 flex-wrap gap-2">
                 <div class="flex items-center gap-1.5" id="gallery-filter-tabs">
                     <button type="button" class="gallery-tab active px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white" data-filter="all">All Images</button>
                     <button type="button" class="gallery-tab px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800" data-filter="covers">Covers</button>
@@ -507,30 +507,30 @@
             <!-- Footer Bar -->
             <div class="px-4 sm:px-6 py-3 flex items-center justify-between border-t border-slate-800 bg-[#0d0f17] shrink-0">
                 <span class="text-xs text-slate-400 font-mono">100% original illustrations & covers preserved</span>
-                <button type="button" onclick="document.getElementById('edit-gallery-modal').classList.add('hidden')" class="tl-btn accent" style="padding:7px 20px;">Done</button>
+                <button type="button" onclick="if(window.closeGalleryModal) window.closeGalleryModal(); else document.getElementById('edit-gallery-modal').style.display='none';" class="tl-btn accent" style="padding:7px 20px;">Done</button>
             </div>
         </div>
 
         <!-- ═══ MODAL 2B: FULLSCREEN IMAGE LIGHTBOX ═══ -->
-        <div id="edit-gallery-lightbox" class="hidden fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/95 backdrop-blur-lg p-3 sm:p-6"
-             onclick="if(event.target===this) this.classList.add('hidden');">
+        <div id="edit-gallery-lightbox" class="hidden fixed inset-0 z-[10000]"
+             style="position:fixed; inset:0; z-index:10000; background:#000000 !important; display:none; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; padding:12px;">
             <!-- Top bar -->
-            <div class="w-full flex items-center justify-between py-2.5 px-3 text-white max-w-5xl shrink-0">
-                <span id="lightbox-img-name" class="font-mono text-xs sm:text-sm truncate text-slate-300 max-w-xs sm:max-w-md">image.jpg</span>
+            <div class="w-full flex items-center justify-between py-2.5 px-3 text-white max-w-5xl shrink-0" style="background:transparent;">
+                <span id="lightbox-img-name" class="font-mono text-xs sm:text-sm truncate text-slate-200 max-w-xs sm:max-w-md">image.jpg</span>
                 <div class="flex items-center gap-2">
-                    <button type="button" id="lightbox-set-cover-btn" class="tl-btn accent text-xs" style="padding:6px 12px;">👑 Set as Cover</button>
+                    <button type="button" id="lightbox-set-cover-btn" class="tl-btn accent text-xs" style="padding:6px 12px;">👑 Set as Book Cover</button>
                     <button type="button" id="lightbox-download-btn" class="tl-btn text-xs" style="padding:6px 12px;">📥 Download</button>
-                    <button type="button" onclick="document.getElementById('edit-gallery-lightbox').classList.add('hidden')"
+                    <button type="button" onclick="if(window.closeGalleryLightbox) window.closeGalleryLightbox(); else document.getElementById('edit-gallery-lightbox').style.display='none';"
                             class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-slate-400 hover:text-white bg-white/10 hover:bg-white/20 transition-colors">✕</button>
                 </div>
             </div>
             <!-- Main image container -->
-            <div class="flex-1 flex items-center justify-center w-full max-w-5xl overflow-hidden p-2">
-                <img id="lightbox-img" src="" alt="Fullscreen Illustration" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-transform duration-200" />
+            <div class="flex-1 flex items-center justify-center w-full max-w-5xl overflow-hidden p-2" onclick="if(event.target===this && window.closeGalleryLightbox) window.closeGalleryLightbox();">
+                <img id="lightbox-img" src="" alt="Fullscreen Illustration" class="max-w-full max-h-full object-contain rounded shadow-2xl transition-transform duration-200" />
             </div>
             <!-- Bottom caption -->
             <div class="py-2 text-center text-xs text-slate-400 font-mono shrink-0" id="lightbox-img-meta">
-                Tap anywhere outside or ✕ to close
+                Tap outside or ✕ to close
             </div>
         </div>
 
@@ -861,7 +861,13 @@
             if (!containerFile) throw new Error('Invalid EPUB: META-INF/container.xml missing');
             const containerXml = await containerFile.async('text');
             const parser = new DOMParser();
-            const containerDoc = parser.parseFromString(containerXml, 'application/xml');
+            let containerDoc;
+            try {
+                containerDoc = parser.parseFromString(containerXml, 'text/xml');
+                if (containerDoc.querySelector('parsererror')) containerDoc = parser.parseFromString(containerXml, 'text/html');
+            } catch (e) {
+                containerDoc = parser.parseFromString(containerXml, 'text/html');
+            }
             const rootfileEls = getXmlElements(containerDoc, 'rootfile');
             const opfPath = (rootfileEls[0]?.getAttribute('full-path') || 'OEBPS/content.opf').trim();
 
@@ -870,7 +876,13 @@
             const actualOpfPath = opfFile.name;
             const opfDir = actualOpfPath.includes('/') ? actualOpfPath.substring(0, actualOpfPath.lastIndexOf('/') + 1) : '';
             const opfXml = await opfFile.async('text');
-            const opfDoc = parser.parseFromString(opfXml, 'application/xml');
+            let opfDoc;
+            try {
+                opfDoc = parser.parseFromString(opfXml, 'text/xml');
+                if (opfDoc.querySelector('parsererror')) opfDoc = parser.parseFromString(opfXml, 'text/html');
+            } catch (e) {
+                opfDoc = parser.parseFromString(opfXml, 'text/html');
+            }
 
             // Store original container references for 100% style/asset preservation
             state.originalZip = zip;
@@ -909,8 +921,14 @@
                 const mediaType = (item.getAttribute('media-type') || '').trim().toLowerCase();
                 const properties = (item.getAttribute('properties') || '').trim();
                 const entry = { id, href, mediaType, properties };
-                if (id) manifestMap.set(id, entry);
-                if (href) manifestMap.set(href, entry);
+                if (id) {
+                    manifestMap.set(id, entry);
+                    manifestMap.set(id.toLowerCase(), entry);
+                }
+                if (href) {
+                    manifestMap.set(href, entry);
+                    manifestMap.set(href.toLowerCase(), entry);
+                }
 
                 if (properties.includes('cover-image') || id === metaCoverId || (id && id.toLowerCase() === 'cover-image')) {
                     coverHref = href;
@@ -946,7 +964,7 @@
                 if (ncxZipFile) {
                     try {
                         const ncxXml = await ncxZipFile.async('text');
-                        const ncxDoc = parser.parseFromString(ncxXml, 'application/xml');
+                        const ncxDoc = parser.parseFromString(ncxXml, 'text/xml') || parser.parseFromString(ncxXml, 'text/html');
                         const walkNavPoints = (parentEl, currentLevel) => {
                             const navPoints = Array.from(parentEl.children).filter(c => c.tagName.toLowerCase().endsWith('navpoint'));
                             navPoints.forEach(np => {
@@ -957,8 +975,14 @@
                                     const label = textEl.textContent.trim();
                                     const fname = src.split('/').pop();
                                     const entry = { title: label, level: currentLevel };
-                                    if (src) tocMap.set(src, entry);
-                                    if (fname) tocMap.set(fname, entry);
+                                    if (src) {
+                                        tocMap.set(src, entry);
+                                        tocMap.set(src.toLowerCase(), entry);
+                                    }
+                                    if (fname) {
+                                        tocMap.set(fname, entry);
+                                        tocMap.set(fname.toLowerCase(), entry);
+                                    }
                                 }
                                 walkNavPoints(np, currentLevel + 1);
                             });
@@ -991,8 +1015,14 @@
                                             const label = a.textContent.trim();
                                             const fname = src.split('/').pop();
                                             const entry = { title: label, level };
-                                            if (src) tocMap.set(src, entry);
-                                            if (fname) tocMap.set(fname, entry);
+                                            if (src) {
+                                                tocMap.set(src, entry);
+                                                tocMap.set(src.toLowerCase(), entry);
+                                            }
+                                            if (fname) {
+                                                tocMap.set(fname, entry);
+                                                tocMap.set(fname.toLowerCase(), entry);
+                                            }
                                         }
                                         const subOl = Array.from(li.children).find(c => c.tagName.toLowerCase() === 'ol' || c.tagName.toLowerCase() === 'ul');
                                         if (subOl) walkList(subOl, level + 1);
@@ -1028,99 +1058,201 @@
             let chIdx = 0;
 
             for (const itemRef of spineItems) {
-                const idref = (itemRef.getAttribute(isManifestFallback ? 'id' : 'idref') || '').trim();
-                const item = manifestMap.get(idref) || (isManifestFallback ? { id: idref, href: itemRef.getAttribute('href') } : null);
-                if (!item || !item.href) continue;
+                try {
+                    const idref = (itemRef.getAttribute(isManifestFallback ? 'id' : 'idref') || '').trim();
+                    const item = manifestMap.get(idref) || manifestMap.get(idref.toLowerCase()) || (isManifestFallback ? { id: idref, href: itemRef.getAttribute('href') } : null);
+                    if (!item || !item.href) continue;
 
-                const chFile = findZipEntry(zip, item.href, opfDir);
-                if (!chFile) {
-                    console.warn('Could not locate chapter file in zip:', item.href, 'opfDir:', opfDir);
-                    continue;
-                }
-
-                chIdx++;
-                const xhtml = await chFile.async('text');
-                const chDoc = parser.parseFromString(xhtml, 'text/html');
-
-                // Check if this is dedicated cover page
-                const isCoverPage = (item.id || '').toLowerCase() === 'cover_page' || item.href.toLowerCase().includes('cover');
-                const imgs = Array.from(chDoc.querySelectorAll('img, image'));
-                if (isCoverPage && imgs.length === 1 && (chDoc.body ? chDoc.body.textContent.trim().length < 50 : true)) {
-                    if (!state.coverUrl) {
-                        const src = imgs[0].getAttribute('src') || imgs[0].getAttribute('xlink:href') || '';
-                        const fname = src.split('/').pop();
-                        const found = state.imageRepository.get(fname) || state.imageRepository.get(src);
-                        if (found) state.coverUrl = found.dataUrl;
+                    const chFile = findZipEntry(zip, item.href, opfDir);
+                    if (!chFile) {
+                        console.warn('Could not locate chapter file in zip:', item.href, 'opfDir:', opfDir);
+                        continue;
                     }
-                    continue; // Skip cover page from chapters list
-                }
 
-                // Chapter title
-                const fname = item.href.split('/').pop();
-                const tocEntry = tocMap.get(item.href) || tocMap.get(fname);
-                let rawTitle = tocEntry?.title || '';
-                if (!rawTitle) {
-                    const h1 = chDoc.querySelector('h1, h2, h3, .title, .chapter-title');
-                    rawTitle = h1 ? h1.textContent.trim() : (chDoc.title ? chDoc.title.trim() : `Chapter ${chIdx}`);
-                }
-                const chTitle = cleanTitle(rawTitle, chIdx);
-                const chLevel = tocEntry ? (tocEntry.level > 1 ? 2 : 1) : 1;
+                    chIdx++;
+                    const xhtml = await chFile.async('text');
+                    const chDoc = parser.parseFromString(xhtml, 'text/html');
 
-                // Extract prose and format into clean markdown
-                imgs.forEach(img => {
-                    const src = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
-                    const imgFname = src.split('/').pop();
-                    const alt = img.getAttribute('alt') || 'Illustration';
-                    const mdNode = chDoc.createTextNode(`\n\n![${alt}](${imgFname})\n\n`);
-                    img.parentNode?.replaceChild(mdNode, img);
-                });
-
-                // Extract paragraphs & scene breaks
-                const blocks = chDoc.body ? Array.from(chDoc.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, blockquote, hr, div')) : [];
-                let prose = '';
-                if (blocks.length > 0) {
-                    const lines = [];
-                    blocks.forEach(b => {
-                        const tag = b.tagName.toLowerCase();
-                        if (tag === 'hr') {
-                            lines.push('---');
-                        } else if (tag.startsWith('h')) {
-                            const lvl = tag.replace('h', '');
-                            const hText = b.textContent.trim();
-                            const isTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
-                            const isEcho = isTitleEcho ? isTitleEcho(hText, chTitle, rawTitle) : ((hText || '').toLowerCase().replace(/[^a-z0-9]/g, '') === (chTitle || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
-                            if (hText && !isEcho) {
-                                lines.push(`${'#'.repeat(parseInt(lvl, 10))} ${hText}`);
-                            }
-                        } else if (tag === 'blockquote') {
-                            lines.push(`> ${b.textContent.trim()}`);
-                        } else if (tag === 'p') {
-                            const pText = b.textContent.trim();
-                            if (pText) lines.push(pText);
+                    // Check if this is dedicated cover page
+                    const isCoverPage = (item.id || '').toLowerCase() === 'cover_page' || item.href.toLowerCase().includes('cover');
+                    const imgs = Array.from(chDoc.querySelectorAll('img, image'));
+                    if (isCoverPage && imgs.length === 1 && (chDoc.body ? chDoc.body.textContent.trim().length < 50 : true)) {
+                        if (!state.coverUrl) {
+                            const src = imgs[0].getAttribute('src') || imgs[0].getAttribute('xlink:href') || '';
+                            const fname = src.split('/').pop();
+                            const found = state.imageRepository.get(fname) || state.imageRepository.get(src);
+                            if (found) state.coverUrl = found.dataUrl;
                         }
-                    });
-                    prose = lines.join('\n\n');
-                }
-                if (!prose.trim()) {
-                    prose = (chDoc.body?.textContent || chDoc.documentElement?.textContent || '').replace(/\r?\n\s*\r?\n/g, '\n\n').trim();
-                }
+                        continue; // Skip cover page from chapters list
+                    }
 
-                const chImages = extractImagesFromContent(prose);
-                state.chapters.push({
-                    id: 'ch_' + chIdx,
-                    title: chTitle,
-                    originalTitle: rawTitle || chTitle,
-                    level: chLevel,
-                    content: prose,
-                    words: countWords(prose),
-                    images: chImages,
-                    originalHead: chDoc.head ? chDoc.head.innerHTML : '',
-                    bodyAttrs: Array.from(chDoc.body?.attributes || []).map(a => `${a.name}="${escapeXml(a.value)}"`).join(' '),
-                    originalXhtml: xhtml,
-                    fullPath: chFile.name,
-                    href: item.href,
-                    isNew: false
+                    // Chapter title
+                    const fname = item.href.split('/').pop();
+                    const tocEntry = tocMap.get(item.href) || tocMap.get(fname) || tocMap.get(item.href.toLowerCase()) || tocMap.get(fname.toLowerCase());
+                    let rawTitle = tocEntry?.title || '';
+                    if (!rawTitle) {
+                        const h1 = chDoc.querySelector('h1, h2, h3, .title, .chapter-title');
+                        rawTitle = h1 ? h1.textContent.trim() : (chDoc.title ? chDoc.title.trim() : `Chapter ${chIdx}`);
+                    }
+                    const chTitle = cleanTitle(rawTitle, chIdx);
+                    const chLevel = tocEntry ? (tocEntry.level > 1 ? 2 : 1) : 1;
+
+                    // Extract prose and format into clean markdown
+                    imgs.forEach(img => {
+                        const src = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
+                        const imgFname = src.split('/').pop();
+                        const alt = img.getAttribute('alt') || 'Illustration';
+                        const mdNode = chDoc.createTextNode(`\n\n![${alt}](${imgFname})\n\n`);
+                        img.parentNode?.replaceChild(mdNode, img);
+                    });
+
+                    // Extract paragraphs & scene breaks
+                    const blocks = chDoc.body ? Array.from(chDoc.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, blockquote, hr, div')) : [];
+                    let prose = '';
+                    if (blocks.length > 0) {
+                        const lines = [];
+                        blocks.forEach(b => {
+                            const tag = b.tagName.toLowerCase();
+                            if (tag === 'hr') {
+                                lines.push('---');
+                            } else if (tag.match(/^h[1-6]$/)) {
+                                const lvl = parseInt(tag.charAt(1), 10);
+                                const hText = b.textContent.trim();
+                                const isTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
+                                const isEcho = isTitleEcho ? isTitleEcho(hText, chTitle, rawTitle) : ((hText || '').toLowerCase().replace(/[^a-z0-9]/g, '') === (chTitle || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+                                if (hText && !isEcho) {
+                                    lines.push(`${'#'.repeat(lvl)} ${hText}`);
+                                }
+                            } else if (tag === 'blockquote') {
+                                lines.push(`> ${b.textContent.trim()}`);
+                            } else if (tag === 'p') {
+                                const pText = b.textContent.trim();
+                                if (pText) lines.push(pText);
+                            } else if (tag === 'div' && !b.querySelector('p, div, h1, h2, h3, h4, h5, h6, blockquote')) {
+                                const divText = b.textContent.trim();
+                                if (divText) lines.push(divText);
+                            }
+                        });
+                        prose = lines.join('\n\n');
+                    }
+                    if (!prose.trim()) {
+                        prose = (chDoc.body?.textContent || chDoc.documentElement?.textContent || '').replace(/\r?\n\s*\r?\n/g, '\n\n').trim();
+                    }
+
+                    const chImages = extractImagesFromContent(prose);
+                    state.chapters.push({
+                        id: 'ch_' + chIdx,
+                        title: chTitle,
+                        originalTitle: rawTitle || chTitle,
+                        level: chLevel,
+                        content: prose,
+                        words: countWords(prose),
+                        images: chImages,
+                        originalHead: chDoc.head ? chDoc.head.innerHTML : '',
+                        bodyAttrs: Array.from(chDoc.body?.attributes || []).map(a => `${a.name}="${escapeXml(a.value)}"`).join(' '),
+                        originalXhtml: xhtml,
+                        fullPath: chFile.name,
+                        href: item.href,
+                        isNew: false
+                    });
+                } catch (chErr) {
+                    console.warn('Error parsing chapter item:', chErr);
+                }
+            }
+
+            // 6. Direct Zip File Fallback: If 0 chapters found via spine/manifest, scan zip directly!
+            if (state.chapters.length === 0) {
+                console.warn('Spine/manifest returned 0 chapters. Falling back to direct zip file scan...');
+                const allZipKeys = Object.keys(zip.files || {});
+                const htmlFiles = allZipKeys.filter(k => {
+                    if (zip.files[k].dir) return false;
+                    const lower = k.toLowerCase();
+                    if (!lower.endsWith('.xhtml') && !lower.endsWith('.html') && !lower.endsWith('.htm')) return false;
+                    if (/(?:^|\/)(?:toc|nav|cover|titlepage)(?:[-_.]|\/|$)/i.test(lower)) return false;
+                    return true;
                 });
+
+                htmlFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+                for (const k of htmlFiles) {
+                    try {
+                        const chFile = zip.files[k];
+                        if (!chFile) continue;
+                        chIdx++;
+                        const xhtml = await chFile.async('text');
+                        const chDoc = parser.parseFromString(xhtml, 'text/html');
+
+                        const fname = k.split('/').pop();
+                        const tocEntry = tocMap.get(k) || tocMap.get(fname) || tocMap.get(k.toLowerCase()) || tocMap.get(fname.toLowerCase());
+                        let rawTitle = tocEntry?.title || '';
+                        if (!rawTitle) {
+                            const h1 = chDoc.querySelector('h1, h2, h3, .title, .chapter-title');
+                            rawTitle = h1 ? h1.textContent.trim() : (chDoc.title ? chDoc.title.trim() : `Chapter ${chIdx}`);
+                        }
+                        const chTitle = cleanTitle(rawTitle, chIdx);
+                        const chLevel = tocEntry ? (tocEntry.level > 1 ? 2 : 1) : 1;
+
+                        const imgs = Array.from(chDoc.querySelectorAll('img, image'));
+                        imgs.forEach(img => {
+                            const src = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
+                            const imgFname = src.split('/').pop();
+                            const alt = img.getAttribute('alt') || 'Illustration';
+                            const mdNode = chDoc.createTextNode(`\n\n![${alt}](${imgFname})\n\n`);
+                            img.parentNode?.replaceChild(mdNode, img);
+                        });
+
+                        const blocks = chDoc.body ? Array.from(chDoc.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, blockquote, hr, div')) : [];
+                        let prose = '';
+                        if (blocks.length > 0) {
+                            const lines = [];
+                            blocks.forEach(b => {
+                                const tag = b.tagName.toLowerCase();
+                                if (tag === 'hr') {
+                                    lines.push('---');
+                                } else if (tag.match(/^h[1-6]$/)) {
+                                    const lvl = parseInt(tag.charAt(1), 10);
+                                    const hText = b.textContent.trim();
+                                    const isTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
+                                    const isEcho = isTitleEcho ? isTitleEcho(hText, chTitle, rawTitle) : ((hText || '').toLowerCase().replace(/[^a-z0-9]/g, '') === (chTitle || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+                                    if (hText && !isEcho) {
+                                        lines.push(`${'#'.repeat(lvl)} ${hText}`);
+                                    }
+                                } else if (tag === 'blockquote') {
+                                    lines.push(`> ${b.textContent.trim()}`);
+                                } else if (tag === 'p') {
+                                    const pText = b.textContent.trim();
+                                    if (pText) lines.push(pText);
+                                } else if (tag === 'div' && !b.querySelector('p, div, h1, h2, h3, h4, h5, h6, blockquote')) {
+                                    const divText = b.textContent.trim();
+                                    if (divText) lines.push(divText);
+                                }
+                            });
+                            prose = lines.join('\n\n');
+                        }
+                        if (!prose.trim()) {
+                            prose = (chDoc.body?.textContent || chDoc.documentElement?.textContent || '').replace(/\r?\n\s*\r?\n/g, '\n\n').trim();
+                        }
+
+                        const chImages = extractImagesFromContent(prose);
+                        state.chapters.push({
+                            id: 'ch_' + chIdx,
+                            title: chTitle,
+                            originalTitle: rawTitle || chTitle,
+                            level: chLevel,
+                            content: prose,
+                            words: countWords(prose),
+                            images: chImages,
+                            originalHead: chDoc.head ? chDoc.head.innerHTML : '',
+                            bodyAttrs: Array.from(chDoc.body?.attributes || []).map(a => `${a.name}="${escapeXml(a.value)}"`).join(' '),
+                            originalXhtml: xhtml,
+                            fullPath: k,
+                            href: fname,
+                            isNew: false
+                        });
+                    } catch (zipChErr) {
+                        console.warn('Error reading fallback zip file:', k, zipChErr);
+                    }
+                }
             }
 
             updateProgress('Finished parsing book!', 100);
@@ -1138,14 +1270,17 @@
     }
 
     // ── Load Book from Library Object (GeminiNovelDB record) ──
-    function loadBookFromRecord(record) {
+    async function loadBookFromRecord(record) {
         if (!record) return;
         state.novelId = record.id || '';
 
         // If the record has a pre-built EPUB blob, parse it to preserve original fonts, styles, and illustrations
         if (record.epubBlob) {
-            parseEpubFile(record.epubBlob);
-            return;
+            await parseEpubFile(record.epubBlob);
+            if (state.chapters && state.chapters.length > 0) {
+                return;
+            }
+            console.warn('EPUB blob in record yielded 0 chapters, falling back to stored chapters array');
         }
 
         state.title = (record.title || 'Novel').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim();
@@ -1952,6 +2087,76 @@
     // ── Illustration Gallery Modal Logic ──
     let activeGalleryFilter = 'all';
 
+    async function downloadImageItem(item, fallbackName = 'illustration.jpg') {
+        try {
+            let blob;
+            let mime = item.mime || 'image/jpeg';
+            let fName = item.name || fallbackName;
+            if (!/\.(jpe?g|png|webp|gif|svg)$/i.test(fName)) {
+                const ext = mime.includes('png') ? '.png' : mime.includes('webp') ? '.webp' : mime.includes('gif') ? '.gif' : '.jpg';
+                fName += ext;
+            }
+
+            if (item.url && item.url.startsWith('data:')) {
+                const parts = item.url.split(',');
+                const byteString = atob(parts[1]);
+                mime = parts[0].split(':')[1].split(';')[0];
+                const ab = new ArrayBuffer(byteString.length);
+                const ia = new Uint8Array(ab);
+                for (let i = 0; i < byteString.length; i++) {
+                    ia[i] = byteString.charCodeAt(i);
+                }
+                blob = new Blob([ab], { type: mime });
+            } else if (item.url && item.url.startsWith('blob:')) {
+                const resp = await fetch(item.url);
+                blob = await resp.blob();
+            } else if (item.url) {
+                const resp = await fetch(item.url);
+                blob = await resp.blob();
+            } else {
+                throw new Error('Image source URL is missing');
+            }
+
+            if (typeof window.saveUniversalBlob === 'function') {
+                await window.saveUniversalBlob(blob, fName, mime);
+            } else {
+                const a = document.createElement('a');
+                const blobUrl = URL.createObjectURL(blob);
+                a.href = blobUrl;
+                a.download = fName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(blobUrl);
+                }, 1000);
+            }
+            if (typeof window.toast === 'function') window.toast(`Downloaded ${fName}`, 'success');
+        } catch (err) {
+            console.error('Download image error:', err);
+            if (typeof window.toast === 'function') window.toast(`Failed to download image: ${err.message}`, 'error');
+        }
+    }
+
+    function closeGalleryLightbox() {
+        const lightbox = document.getElementById('edit-gallery-lightbox');
+        if (lightbox) {
+            lightbox.style.display = 'none';
+            lightbox.classList.add('hidden');
+        }
+        const img = document.getElementById('lightbox-img');
+        if (img) img.src = '';
+    }
+
+    function closeGalleryModal() {
+        const modal = document.getElementById('edit-gallery-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+        closeGalleryLightbox();
+    }
+
     function openGalleryModal() {
         const modal = document.getElementById('edit-gallery-modal');
         const grid = document.getElementById('edit-gallery-grid');
@@ -2050,7 +2255,7 @@
                     <div class="p-2.5 flex flex-col gap-1.5 border-t border-slate-800/80 bg-[#0f111a]">
                         <span class="text-[11px] font-mono truncate text-slate-200 font-medium" title="${escapeXml(item.name)}">${escapeXml(item.name)}</span>
                         <div class="flex items-center gap-1 pt-1 flex-wrap">
-                            <button type="button" class="chip-act shrink-0 text-[10px] set-cover-btn" style="color:#fbbf24;" title="Set as Book Cover">👑 Cover</button>
+                            <button type="button" class="chip-act shrink-0 text-[10px] set-cover-btn" style="color:#fbbf24;" title="Set as Book Cover">👑 Set as Cover</button>
                             <button type="button" class="chip-act shrink-0 text-[10px] view-btn" title="View Fullscreen">👁️ View</button>
                             <button type="button" class="chip-act shrink-0 text-[10px] dl-btn" title="Download image file">📥 Save</button>
                             <button type="button" class="chip-act danger shrink-0 text-[10px] del-btn" title="Remove from book">✕</button>
@@ -2058,7 +2263,7 @@
                     </div>
                 `;
 
-                // Tap image to open fullscreen lightbox
+                // Tap image or view button to open fullscreen lightbox
                 card.querySelector('img').parentElement.onclick = () => openGalleryLightbox(item);
                 card.querySelector('.view-btn').onclick = () => openGalleryLightbox(item);
 
@@ -2066,17 +2271,12 @@
                 card.querySelector('.set-cover-btn').onclick = () => {
                     state.coverUrl = item.url;
                     updateCoverPreview();
-                    openGalleryModal();
-                    if (typeof window.toast === 'function') window.toast('Updated book cover!', 'success');
+                    renderGalleryGrid();
+                    if (typeof window.toast === 'function') window.toast('👑 Updated book cover!', 'success');
                 };
 
                 // Download image
-                card.querySelector('.dl-btn').onclick = () => {
-                    const a = document.createElement('a');
-                    a.href = item.url;
-                    a.download = item.name || `illustration_${idx + 1}.jpg`;
-                    a.click();
-                };
+                card.querySelector('.dl-btn').onclick = () => downloadImageItem(item, item.name || `illustration_${idx + 1}.jpg`);
 
                 // Delete image
                 card.querySelector('.del-btn').onclick = () => {
@@ -2102,6 +2302,7 @@
         };
 
         renderGalleryGrid();
+        modal.style.display = 'flex';
         modal.classList.remove('hidden');
     }
 
@@ -2110,31 +2311,28 @@
         const lightbox = document.getElementById('edit-gallery-lightbox');
         const img = document.getElementById('lightbox-img');
         const nameEl = document.getElementById('lightbox-img-name');
+        const metaEl = document.getElementById('lightbox-img-meta');
         const setCoverBtn = document.getElementById('lightbox-set-cover-btn');
         const dlBtn = document.getElementById('lightbox-download-btn');
         if (!lightbox || !img) return;
 
         img.src = item.url;
         if (nameEl) nameEl.textContent = item.name || 'Illustration';
+        if (metaEl) metaEl.textContent = `${item.name || 'Illustration'} · Tap outside or ✕ to close`;
 
         if (setCoverBtn) {
             setCoverBtn.onclick = () => {
                 state.coverUrl = item.url;
                 updateCoverPreview();
-                openGalleryModal();
-                if (typeof window.toast === 'function') window.toast('Updated book cover!', 'success');
+                if (typeof window.toast === 'function') window.toast('👑 Set as book cover!', 'success');
             };
         }
 
         if (dlBtn) {
-            dlBtn.onclick = () => {
-                const a = document.createElement('a');
-                a.href = item.url;
-                a.download = item.name || 'illustration.jpg';
-                a.click();
-            };
+            dlBtn.onclick = () => downloadImageItem(item, item.name || 'illustration.jpg');
         }
 
+        lightbox.style.display = 'flex';
         lightbox.classList.remove('hidden');
     }
 
@@ -3095,16 +3293,15 @@ ${bodyHtml}
     if (typeof window !== 'undefined') {
         window.editHtml = editHtml;
         window.initEpubEditor = initEpubEditor;
+        window.openGalleryModal = openGalleryModal;
+        window.closeGalleryModal = closeGalleryModal;
+        window.closeGalleryLightbox = closeGalleryLightbox;
         window.loadEpubForEditing = function(bookOrFile) {
             if (!bookOrFile) return;
             if (bookOrFile instanceof Blob || bookOrFile instanceof File) {
                 parseEpubFile(bookOrFile);
             } else if (typeof bookOrFile === 'object') {
-                if (bookOrFile.epubBlob) {
-                    parseEpubFile(bookOrFile.epubBlob);
-                } else {
-                    loadBookFromRecord(bookOrFile);
-                }
+                loadBookFromRecord(bookOrFile);
             }
         };
     }

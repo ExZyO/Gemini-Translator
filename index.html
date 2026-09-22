@@ -8332,13 +8332,23 @@ const formatModelName = (id, displayName) => {
 
           // 6. Other Studio Modals (Gallery Lightbox, Gallery, Find & Replace, Auto-Number, Library)
           const galLightbox = document.getElementById('edit-gallery-lightbox');
-          if (galLightbox && !galLightbox.classList.contains('hidden')) {
-            galLightbox.classList.add('hidden');
+          if (galLightbox && (galLightbox.style.display === 'flex' || !galLightbox.classList.contains('hidden'))) {
+            if (typeof window.closeGalleryLightbox === 'function') {
+              window.closeGalleryLightbox();
+            } else {
+              galLightbox.style.display = 'none';
+              galLightbox.classList.add('hidden');
+            }
             return true;
           }
           const galModal = document.getElementById('edit-gallery-modal');
-          if (galModal && !galModal.classList.contains('hidden')) {
-            galModal.classList.add('hidden');
+          if (galModal && (galModal.style.display === 'flex' || !galModal.classList.contains('hidden'))) {
+            if (typeof window.closeGalleryModal === 'function') {
+              window.closeGalleryModal();
+            } else {
+              galModal.style.display = 'none';
+              galModal.classList.add('hidden');
+            }
             return true;
           }
           const frModal = document.getElementById('edit-find-replace-modal');
