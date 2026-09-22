@@ -179,8 +179,13 @@
         lang: 'en',
         description: '',
         coverUrl: '',
-        chapters: [], // [{ id, title, level, content, words, images: [] }]
-        imageRepository: new Map(), // key (filename/dataUrl) -> { dataUrl, mime, name }
+        chapters: [], // [{ id, href, fullPath, title, originalTitle, level, content, originalXhtml, originalHead, bodyAttrs, isModified, words, images: [] }]
+        imageRepository: new Map(), // key (filename/dataUrl) -> { dataUrl, mime, name, isNew: boolean }
+        originalZip: null,
+        originalOpfPath: '',
+        originalOpfDir: '',
+        originalFileName: '',
+        collapsedVolumes: new Set(), // Set of volume chapter ids that are collapsed
         activeChapterIdx: -1,
         searchQuery: '',
         isDirty: false
@@ -361,10 +366,16 @@
                      style="border-bottom:1px solid var(--hairline); background:rgba(255,255,255,0.02);">
                     <div class="flex items-center gap-2 flex-wrap">
                         <button type="button" id="btn-edit-modal-insert-img" class="tl-btn" style="padding:5px 10px; font-size:11.5px;">
-                            🖼️ Insert Image into Chapter
+                            🖼️ Insert Image
                         </button>
-                        <button type="button" id="btn-edit-modal-preview-toggle" class="tl-btn" style="padding:5px 10px; font-size:11.5px;">
+                        <button type="button" id="btn-edit-modal-preview-toggle" class="tl-btn accent" style="padding:5px 10px; font-size:11.5px; font-weight:700;">
                             👁️ Preview HTML
+                        </button>
+                        <button type="button" id="btn-edit-modal-undo" class="tl-btn" style="padding:5px 8px; font-size:11.5px;" title="Undo">
+                            ↶ Undo
+                        </button>
+                        <button type="button" id="btn-edit-modal-redo" class="tl-btn" style="padding:5px 8px; font-size:11.5px;" title="Redo">
+                            ↷ Redo
                         </button>
                         <button type="button" id="btn-edit-modal-clean-spacing" class="tl-btn" style="padding:5px 10px; font-size:11.5px;" title="Clean consecutive blank lines & trailing spaces">
                             🧹 Clean Spacing
@@ -382,8 +393,16 @@
                               placeholder="Type or paste chapter prose here… Markdown headings (# Title) and images (![Alt](url)) are supported."
                               style="width:100%; height:100%; min-height:360px; border:none; background:transparent; color:var(--paper); font-family:serif,Georgia,Cambria; font-size:15px; line-height:1.75; padding:18px 22px; resize:none; outline:none; overflow-y:auto;"
                               class="custom-scrollbar"></textarea>
-                    <div id="edit-ch-modal-preview" class="hidden flex-1 p-6 overflow-y-auto custom-scrollbar font-serif text-sm leading-relaxed"
-                         style="color:var(--paper-dim); background:rgba(0,0,0,0.15);"></div>
+                    <div id="edit-ch-modal-preview" class="hidden flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar font-serif text-sm leading-relaxed"
+                         style="color:var(--paper-dim); background:rgba(0,0,0,0.15); position:relative;">
+                        <div id="preview-sticky-header" style="position:sticky; top:-16px; z-index:10; background:var(--ember-2); padding:10px 14px; border-bottom:1px solid var(--hairline); display:flex; align-items:center; justify-content:space-between; margin:-16px -16px 16px -16px; border-radius:8px 8px 0 0;">
+                            <button type="button" id="btn-preview-back-to-edit" class="tl-btn accent" style="padding:7px 16px; font-weight:700; font-size:13px;">
+                                ← Back to Editor
+                            </button>
+                            <span style="font-size:12px; color:var(--slate); font-weight:600;">Chapter Preview</span>
+                        </div>
+                        <div id="preview-html-content"></div>
+                    </div>
                 </div>
 
                 <!-- In-Chapter Illustration Gallery Tray -->
@@ -552,6 +571,76 @@
                 </div>
             </div>
         </div>
+
+        <!-- ═══ MODAL 6: MOVE & HIERARCHY SHEET (MOBILE-FIRST) ═══ -->
+        <div id="edit-move-chapter-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(6px);"
+             onclick="if(event.target===this) document.getElementById('edit-move-chapter-modal').classList.add('hidden');">
+            <div class="rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                 style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh;">
+                <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">↕</span>
+                        <div>
+                            <h3 id="edit-move-modal-title" class="font-bold text-sm" style="color:var(--paper);">Organize & Move Chapter</h3>
+                            <p id="edit-move-modal-subtitle" class="text-xs truncate" style="color:var(--slate); max-width:280px;">Chapter</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="document.getElementById('edit-move-chapter-modal').classList.add('hidden')"
+                            class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                </div>
+                <div class="p-4 space-y-3.5">
+                    <div>
+                        <div style="font-size:11px; font-weight:700; color:var(--slate); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">Order in Book</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" id="btn-move-sheet-up" class="tl-btn" style="padding:10px 8px; justify-content:center; font-weight:600;">↑ Move Up</button>
+                            <button type="button" id="btn-move-sheet-down" class="tl-btn" style="padding:10px 8px; justify-content:center; font-weight:600;">↓ Move Down</button>
+                            <button type="button" id="btn-move-sheet-top" class="tl-btn" style="padding:10px 8px; justify-content:center; font-weight:600;">⤒ Move to Top</button>
+                            <button type="button" id="btn-move-sheet-bottom" class="tl-btn" style="padding:10px 8px; justify-content:center; font-weight:600;">⤓ Move to Bottom</button>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px; font-weight:700; color:var(--slate); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">TOC Hierarchy</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" id="btn-move-sheet-level1" class="tl-btn" style="padding:10px 8px; justify-content:center; font-weight:600;">← Main Chapter</button>
+                            <button type="button" id="btn-move-sheet-level2" class="tl-btn" style="padding:10px 8px; justify-content:center; font-weight:600;">↳ Sub-Chapter</button>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px; font-weight:700; color:var(--slate); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">In-Place Chapter Insertion</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" id="btn-move-sheet-insert-above" class="tl-btn accent" style="padding:10px 8px; justify-content:center; font-weight:600;">➕ Insert Above</button>
+                            <button type="button" id="btn-move-sheet-insert-below" class="tl-btn accent" style="padding:10px 8px; justify-content:center; font-weight:600;">➕ Insert Below</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-3 flex justify-end" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                    <button type="button" onclick="document.getElementById('edit-move-chapter-modal').classList.add('hidden')" class="tl-btn w-full justify-center" style="padding:10px; font-weight:700;">Done</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ MODAL 7: RENAME CHAPTER MODAL (MOBILE-FIRST) ═══ -->
+        <div id="edit-rename-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(6px);"
+             onclick="if(event.target===this) document.getElementById('edit-rename-modal').classList.add('hidden');">
+            <div class="rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+                 style="background:var(--ember); border:1px solid var(--hairline);">
+                <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
+                    <h3 class="font-bold text-sm" style="color:var(--paper);">Rename Chapter</h3>
+                    <button type="button" onclick="document.getElementById('edit-rename-modal').classList.add('hidden')"
+                            class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                </div>
+                <div class="p-4">
+                    <label class="cap" style="display:block; margin-bottom:6px;">Chapter Title</label>
+                    <input type="text" id="edit-rename-input" class="tl-field" style="width:100%; font-size:14px; padding:10px 12px; margin-bottom:14px;">
+                    <div class="flex gap-2 justify-end">
+                        <button type="button" onclick="document.getElementById('edit-rename-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
+                        <button type="button" id="btn-edit-rename-save" class="tl-btn accent" style="padding:8px 16px; font-weight:700;">Save Title</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     `;
 
@@ -597,6 +686,12 @@
             if (!opfFile) throw new Error(`Cannot find package document: ${opfPath}`);
             const opfXml = await opfFile.async('text');
             const opfDoc = parser.parseFromString(opfXml, 'application/xml');
+
+            // Store original container references for 100% style/asset preservation
+            state.originalZip = zip;
+            state.originalOpfPath = opfPath;
+            state.originalOpfDir = opfDir;
+            state.originalFileName = file.name || 'novel.epub';
 
             // 2. Metadata
             updateProgress('Extracting metadata & assets…', 35);
@@ -684,6 +779,44 @@
                         if (navMapEl) walkNavPoints(navMapEl, 1);
                     } catch(e) {}
                 }
+            } else {
+                // Support EPUB 3 nav.xhtml navigation document
+                const navItem = manifestItems.find(i => {
+                    const props = i.getAttribute('properties') || '';
+                    const href = (i.getAttribute('href') || '').toLowerCase();
+                    return props.includes('nav') || href.includes('nav.xhtml') || href.includes('toc.xhtml');
+                });
+                if (navItem) {
+                    const navPath = opfDir + navItem.getAttribute('href');
+                    const navZipFile = zip.file(navPath) || zip.file(navItem.getAttribute('href'));
+                    if (navZipFile) {
+                        try {
+                            const navXhtml = await navZipFile.async('text');
+                            const navDoc = parser.parseFromString(navXhtml, 'text/html');
+                            const tocNav = navDoc.querySelector('nav[epub\\:type="toc"], nav[*|type="toc"], nav#toc, nav');
+                            if (tocNav) {
+                                const walkList = (parentOl, level) => {
+                                    const lis = Array.from(parentOl.children).filter(c => c.tagName.toLowerCase() === 'li');
+                                    lis.forEach(li => {
+                                        const a = Array.from(li.children).find(c => c.tagName.toLowerCase() === 'a');
+                                        if (a) {
+                                            const src = (a.getAttribute('href') || '').split('#')[0].trim();
+                                            const label = a.textContent.trim();
+                                            const fname = src.split('/').pop();
+                                            const entry = { title: label, level };
+                                            if (src) tocMap.set(src, entry);
+                                            if (fname) tocMap.set(fname, entry);
+                                        }
+                                        const subOl = Array.from(li.children).find(c => c.tagName.toLowerCase() === 'ol' || c.tagName.toLowerCase() === 'ul');
+                                        if (subOl) walkList(subOl, level + 1);
+                                    });
+                                };
+                                const rootOl = tocNav.querySelector('ol, ul');
+                                if (rootOl) walkList(rootOl, 1);
+                            }
+                        } catch(e) {}
+                    }
+                }
             }
 
             // 5. Spine Chapters Extraction
@@ -729,13 +862,12 @@
 
                 // Extract prose and format into clean markdown
                 // Convert <img src="..."> to ![Illustration](img_key)
+                // Use relative filename to avoid base64 memory bloat and keyboard typing lag
                 imgs.forEach(img => {
                     const src = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
                     const imgFname = src.split('/').pop();
-                    const repoItem = state.imageRepository.get(imgFname) || state.imageRepository.get(src);
-                    const finalSrc = repoItem ? repoItem.dataUrl : src;
                     const alt = img.getAttribute('alt') || 'Illustration';
-                    const mdNode = chDoc.createTextNode(`\n\n![${alt}](${finalSrc})\n\n`);
+                    const mdNode = chDoc.createTextNode(`\n\n![${alt}](${imgFname})\n\n`);
                     img.parentNode?.replaceChild(mdNode, img);
                 });
 
@@ -775,7 +907,13 @@
                     level: chLevel,
                     content: prose,
                     words: countWords(prose),
-                    images: chImages
+                    images: chImages,
+                    originalHead: chDoc.head ? chDoc.head.innerHTML : '',
+                    bodyAttrs: Array.from(chDoc.body?.attributes || []).map(a => `${a.name}="${escapeXml(a.value)}"`).join(' '),
+                    originalXhtml: xhtml,
+                    fullPath: fullChPath,
+                    href: item.href,
+                    isNew: false
                 });
             }
 
@@ -986,7 +1124,196 @@
         }
     }
 
-    // ── Render Interactive Chapters List ──
+    // ── Chapter Insertion, Move & Rename Helpers ──
+    let activeMoveIdx = -1;
+    let activeRenameIdx = -1;
+
+    function insertChapterAt(targetIdx, position = 'below') {
+        const insertIdx = position === 'above' ? Math.max(0, targetIdx) : targetIdx + 1;
+        const refLevel = (targetIdx >= 0 && targetIdx < state.chapters.length) ? state.chapters[targetIdx].level : 1;
+        const newIdx = state.chapters.length + 1;
+
+        const newCh = {
+            id: 'ch_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            title: `Chapter ${newIdx}`,
+            originalTitle: `Chapter ${newIdx}`,
+            level: refLevel,
+            content: '',
+            words: 0,
+            images: [],
+            isNew: true
+        };
+
+        state.chapters.splice(insertIdx, 0, newCh);
+        renderChapterList();
+        updateStats();
+        openChapterModal(insertIdx);
+        if (typeof window.toast === 'function') {
+            window.toast(`Inserted new chapter at #${insertIdx + 1}!`, 'success');
+        }
+    }
+
+    function openMoveChapterSheet(idx) {
+        if (idx < 0 || idx >= state.chapters.length) return;
+        activeMoveIdx = idx;
+        const modal = document.getElementById('edit-move-chapter-modal');
+        updateMoveSheet();
+        modal?.classList.remove('hidden');
+    }
+
+    function updateMoveSheet() {
+        if (activeMoveIdx < 0 || activeMoveIdx >= state.chapters.length) return;
+        const ch = state.chapters[activeMoveIdx];
+        const [blockStart, blockEnd] = getChapterBlockRange(activeMoveIdx);
+        const hasChildren = ch.level === 1 && (activeMoveIdx + 1 < state.chapters.length && state.chapters[activeMoveIdx + 1].level === 2);
+
+        const titleEl = document.getElementById('edit-move-modal-title');
+        const subEl = document.getElementById('edit-move-modal-subtitle');
+        if (titleEl) titleEl.textContent = `Organize "${ch.title}"`;
+        if (subEl) subEl.textContent = `Position #${activeMoveIdx + 1} of ${state.chapters.length} (${ch.level === 2 ? 'Sub-Chapter' : (hasChildren ? 'Volume with sub-chapters' : 'Main Chapter')})`;
+
+        const upBtn = document.getElementById('btn-move-sheet-up');
+        const downBtn = document.getElementById('btn-move-sheet-down');
+        const topBtn = document.getElementById('btn-move-sheet-top');
+        const btmBtn = document.getElementById('btn-move-sheet-bottom');
+
+        if (upBtn) upBtn.disabled = activeMoveIdx === 0;
+        if (downBtn) downBtn.disabled = blockEnd >= state.chapters.length - 1;
+        if (topBtn) topBtn.disabled = activeMoveIdx === 0;
+        if (btmBtn) btmBtn.disabled = blockEnd >= state.chapters.length - 1;
+
+        const lvl1Btn = document.getElementById('btn-move-sheet-level1');
+        const lvl2Btn = document.getElementById('btn-move-sheet-level2');
+        if (lvl1Btn) {
+            lvl1Btn.style.borderColor = ch.level === 1 ? '#6366f1' : 'var(--hairline)';
+            lvl1Btn.style.color = ch.level === 1 ? '#a5b4fc' : 'var(--paper)';
+        }
+        if (lvl2Btn) {
+            lvl2Btn.style.borderColor = ch.level === 2 ? '#6366f1' : 'var(--hairline)';
+            lvl2Btn.style.color = ch.level === 2 ? '#a5b4fc' : 'var(--paper)';
+        }
+    }
+
+    function openRenameChapterModal(idx) {
+        if (idx < 0 || idx >= state.chapters.length) return;
+        activeRenameIdx = idx;
+        const modal = document.getElementById('edit-rename-modal');
+        const input = document.getElementById('edit-rename-input');
+        const ch = state.chapters[idx];
+
+        if (input) {
+            input.value = ch.title;
+        }
+        modal?.classList.remove('hidden');
+        setTimeout(() => input?.focus(), 60);
+    }
+
+    // ── Preview Navigation & Edge-Swipe Integration ──
+    function exitEpubEditorPreview() {
+        const textarea = document.getElementById('edit-ch-modal-textarea');
+        const preview = document.getElementById('edit-ch-modal-preview');
+        const btn = document.getElementById('btn-edit-modal-preview-toggle');
+        if (preview) preview.classList.add('hidden');
+        if (textarea) textarea.classList.remove('hidden');
+        if (btn) btn.textContent = '👁️ Preview HTML';
+        isPreviewMode = false;
+        window.isEpubEditorPreviewActive = false;
+    }
+    if (typeof window !== 'undefined') {
+        window.exitEpubEditorPreview = exitEpubEditorPreview;
+        window.isEpubEditorPreviewActive = false;
+    }
+
+    // ── Undo / Redo History for Chapter Prose ──
+    let modalUndoStack = [];
+    let modalRedoStack = [];
+    let lastRecordedText = '';
+    let undoDebounceTimer = null;
+
+    function resetUndoRedo(initialText) {
+        modalUndoStack = [];
+        modalRedoStack = [];
+        lastRecordedText = initialText || '';
+        updateUndoRedoButtons();
+    }
+
+    function recordUndoState(text) {
+        if (text === lastRecordedText) return;
+        modalUndoStack.push(lastRecordedText);
+        if (modalUndoStack.length > 60) modalUndoStack.shift();
+        modalRedoStack = [];
+        lastRecordedText = text;
+        updateUndoRedoButtons();
+    }
+
+    function updateUndoRedoButtons() {
+        const undoBtn = document.getElementById('btn-edit-modal-undo');
+        const redoBtn = document.getElementById('btn-edit-modal-redo');
+        if (undoBtn) {
+            undoBtn.disabled = modalUndoStack.length === 0;
+            undoBtn.style.opacity = modalUndoStack.length === 0 ? '0.4' : '1';
+        }
+        if (redoBtn) {
+            redoBtn.disabled = modalRedoStack.length === 0;
+            redoBtn.style.opacity = modalRedoStack.length === 0 ? '0.4' : '1';
+        }
+    }
+
+    function performUndo() {
+        if (modalUndoStack.length === 0) return;
+        const textarea = document.getElementById('edit-ch-modal-textarea');
+        if (!textarea) return;
+        modalRedoStack.push(textarea.value);
+        const prev = modalUndoStack.pop();
+        textarea.value = prev;
+        lastRecordedText = prev;
+        updateUndoRedoButtons();
+        updateModalWordCount();
+    }
+
+    function performRedo() {
+        if (modalRedoStack.length === 0) return;
+        const textarea = document.getElementById('edit-ch-modal-textarea');
+        if (!textarea) return;
+        modalUndoStack.push(textarea.value);
+        const next = modalRedoStack.pop();
+        textarea.value = next;
+        lastRecordedText = next;
+        updateUndoRedoButtons();
+        updateModalWordCount();
+    }
+
+    // Convert markdown prose back to clean XHTML body for in-place EPUB export
+    function markdownToChapterHtml(md, title) {
+        if (!md) return '';
+        const paras = md.split(/\n\s*\n/);
+        const bodyParts = [];
+        if (title) {
+            bodyParts.push(`<h2 class="chapter-title">${escapeXml(title)}</h2>`);
+        }
+        paras.forEach(p => {
+            let trimmed = p.trim();
+            if (!trimmed) return;
+            if (trimmed === '---' || trimmed === '***') {
+                bodyParts.push('<hr />');
+            } else if (/^#{1,6}\s+/.test(trimmed)) {
+                const lvl = trimmed.match(/^(#{1,6})/)[1].length;
+                const text = trimmed.replace(/^#+\s+/, '');
+                bodyParts.push(`<h${lvl}>${escapeXml(text)}</h${lvl}>`);
+            } else if (/^>\s+/.test(trimmed)) {
+                bodyParts.push(`<blockquote><p>${escapeXml(trimmed.replace(/^>\s+/, ''))}</p></blockquote>`);
+            } else if (/!\[(.*?)\]\((.*?)\)/.test(trimmed)) {
+                const m = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
+                const token = m[2];
+                bodyParts.push(`<div class="illustration-wrap" style="text-align:center; margin:1.5em 0;"><img src="${escapeXml(token)}" alt="${escapeXml(m[1])}" style="max-width:100%; height:auto;" /></div>`);
+            } else {
+                bodyParts.push(`<p>${escapeXml(trimmed)}</p>`);
+            }
+        });
+        return bodyParts.join('\n');
+    }
+
+    // ── Render Interactive Chapters List (Mobile-First 2-Line Cards) ──
     function renderChapterList() {
         const list = document.getElementById('edit-chapter-list');
         if (!list) return;
@@ -1000,139 +1327,102 @@
         }
 
         const frag = document.createDocumentFragment();
+        let currentVolumeId = null;
+        let isCurrentVolumeCollapsed = false;
 
         state.chapters.forEach((ch, idx) => {
+            const isSub = ch.level === 2;
+            const [blockStart, blockEnd] = getChapterBlockRange(idx);
+            const hasChildren = !isSub && (idx + 1 < state.chapters.length && state.chapters[idx + 1].level === 2);
+
+            if (!isSub) {
+                currentVolumeId = ch.id;
+                isCurrentVolumeCollapsed = state.collapsedVolumes.has(ch.id);
+            }
+
+            // If sub-chapter and its parent volume is collapsed, do not show it unless searching/filtering
+            if (isSub && isCurrentVolumeCollapsed && !filterVal) {
+                return;
+            }
+
             if (filterVal && !ch.title.toLowerCase().includes(filterVal)) {
                 return;
             }
 
-            const isSub = ch.level === 2;
-            const hasChildren = !isSub && (idx + 1 < state.chapters.length && state.chapters[idx + 1].level === 2);
-            const [blockStart, blockEnd] = getChapterBlockRange(idx);
-
-            const row = document.createElement('div');
-            row.className = `chap-row flex items-center justify-between gap-2 p-2.5 rounded-lg border transition-all ${
-                isSub ? 'ml-6 bg-slate-900/40 border-indigo-950/60' : 'bg-slate-900/80 border-slate-800'
+            const card = document.createElement('div');
+            card.className = `chap-card flex flex-col gap-2 p-3 rounded-xl border transition-all ${
+                isSub ? 'ml-4 sm:ml-6' : ''
             }`;
-            row.style.background = isSub ? 'rgba(99,102,241,0.03)' : (hasChildren ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.03)');
-            row.style.borderColor = isSub ? 'rgba(99,102,241,0.25)' : (hasChildren ? 'rgba(99,102,241,0.5)' : 'var(--hairline)');
+            card.style.background = isSub
+                ? 'rgba(99,102,241,0.03)'
+                : (hasChildren ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.03)');
+            card.style.borderColor = isSub
+                ? 'rgba(99,102,241,0.2)'
+                : (hasChildren ? 'rgba(99,102,241,0.45)' : 'var(--hairline)');
             if (hasChildren) {
-                row.style.borderLeft = '4px solid #6366f1';
+                card.style.borderLeft = '4px solid #6366f1';
             }
 
-            // Left side: hierarchy marker, reorder buttons, inline title input
-            const left = document.createElement('div');
-            left.className = 'flex items-center gap-2 flex-1 min-w-0';
+            // ── LINE 1: Title, Hierarchy, Badges ──
+            const line1 = document.createElement('div');
+            line1.className = 'flex items-center justify-between gap-2 min-w-0';
 
-            // Hierarchy indent/outdent toggle
-            const levelBtn = document.createElement('button');
-            levelBtn.type = 'button';
-            levelBtn.className = 'chip-act shrink-0';
-            levelBtn.style.padding = '3px 7px';
-            levelBtn.style.fontSize = '10px';
-            levelBtn.style.fontWeight = '700';
-            if (isSub) {
-                levelBtn.textContent = '← Main';
-                levelBtn.title = 'Promote to Level 1 Main Chapter';
-                levelBtn.style.color = '#a5b4fc';
-                levelBtn.style.borderColor = '#6366f1';
-            } else {
-                levelBtn.textContent = '→ Sub';
-                levelBtn.title = 'Nest as Level 2 Sub-Chapter under previous chapter';
-                levelBtn.style.color = 'var(--slate)';
+            const line1Left = document.createElement('div');
+            line1Left.className = 'flex items-center gap-2 min-w-0 flex-1';
+
+            // If volume header, add collapse toggle chevron
+            if (hasChildren) {
+                const collBtn = document.createElement('button');
+                collBtn.type = 'button';
+                collBtn.className = 'chip-act shrink-0';
+                collBtn.style.padding = '3px 7px';
+                collBtn.style.fontSize = '11px';
+                collBtn.style.fontWeight = '700';
+                collBtn.style.color = '#a5b4fc';
+                const subCount = blockEnd - blockStart;
+                const isCollapsed = state.collapsedVolumes.has(ch.id);
+                collBtn.textContent = isCollapsed ? `▶ (${subCount})` : '▼';
+                collBtn.title = isCollapsed ? `Expand ${subCount} sub-chapters` : 'Collapse sub-chapters';
+                collBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (state.collapsedVolumes.has(ch.id)) {
+                        state.collapsedVolumes.delete(ch.id);
+                    } else {
+                        state.collapsedVolumes.add(ch.id);
+                    }
+                    renderChapterList();
+                };
+                line1Left.appendChild(collBtn);
             }
-            levelBtn.onclick = () => {
-                ch.level = isSub ? 1 : 2;
-                if (state.chapters.length > 0) state.chapters[0].level = 1;
-                renderChapterList();
-            };
-            left.appendChild(levelBtn);
 
-            // Reorder buttons (⤒ / ↑ / ↓ / ⤓)
-            const reorderGroup = document.createElement('div');
-            reorderGroup.className = 'flex items-center gap-0.5 shrink-0';
-
-            const topBtn = document.createElement('button');
-            topBtn.type = 'button';
-            topBtn.className = 'chip-act';
-            topBtn.style.padding = '2px 4px';
-            topBtn.style.fontSize = '9px';
-            topBtn.textContent = '⤒';
-            topBtn.disabled = idx === 0;
-            topBtn.title = hasChildren ? 'Move entire volume to top' : 'Move chapter to top';
-            topBtn.onclick = () => moveChapterBlock(blockStart, blockEnd, 'top');
-
-            const upBtn = document.createElement('button');
-            upBtn.type = 'button';
-            upBtn.className = 'chip-act';
-            upBtn.style.padding = '2px 5px';
-            upBtn.style.fontSize = '9px';
-            upBtn.textContent = '↑';
-            upBtn.disabled = idx === 0;
-            upBtn.title = hasChildren ? 'Move entire volume up' : 'Move chapter up';
-            upBtn.onclick = () => moveChapterBlock(blockStart, blockEnd, -1);
-
-            const downBtn = document.createElement('button');
-            downBtn.type = 'button';
-            downBtn.className = 'chip-act';
-            downBtn.style.padding = '2px 5px';
-            downBtn.style.fontSize = '9px';
-            downBtn.textContent = '↓';
-            downBtn.disabled = blockEnd >= state.chapters.length - 1;
-            downBtn.title = hasChildren ? 'Move entire volume down' : 'Move chapter down';
-            downBtn.onclick = () => moveChapterBlock(blockStart, blockEnd, 1);
-
-            const bottomBtn = document.createElement('button');
-            bottomBtn.type = 'button';
-            bottomBtn.className = 'chip-act';
-            bottomBtn.style.padding = '2px 4px';
-            bottomBtn.style.fontSize = '9px';
-            bottomBtn.textContent = '⤓';
-            bottomBtn.disabled = blockEnd >= state.chapters.length - 1;
-            bottomBtn.title = hasChildren ? 'Move entire volume to bottom' : 'Move chapter to bottom';
-            bottomBtn.onclick = () => moveChapterBlock(blockStart, blockEnd, 'bottom');
-
-            reorderGroup.appendChild(topBtn);
-            reorderGroup.appendChild(upBtn);
-            reorderGroup.appendChild(downBtn);
-            reorderGroup.appendChild(bottomBtn);
-            left.appendChild(reorderGroup);
-
-            // Index badge
+            // Index / Hierarchy Badge
             const numBadge = document.createElement('span');
-            numBadge.className = 'text-[11px] font-mono font-bold shrink-0';
+            numBadge.className = 'text-xs font-mono font-bold shrink-0';
             numBadge.style.color = isSub ? '#818cf8' : (hasChildren ? '#a5b4fc' : 'var(--paper-dim)');
             numBadge.textContent = isSub ? `↳ #${idx + 1}` : (hasChildren ? `📁 #${idx + 1}` : `#${idx + 1}`);
-            left.appendChild(numBadge);
+            line1Left.appendChild(numBadge);
 
-            // Inline Title Input
-            const titleInput = document.createElement('input');
-            titleInput.type = 'text';
-            titleInput.value = ch.title;
-            titleInput.className = 'tl-field';
-            titleInput.style.padding = '4px 8px';
-            titleInput.style.fontSize = '12.5px';
-            titleInput.style.fontWeight = isSub ? '500' : '600';
-            titleInput.style.margin = '0';
-            titleInput.style.flex = '1';
-            titleInput.onchange = (e) => {
-                ch.title = e.target.value.trim() || `Chapter ${idx + 1}`;
-            };
-            left.appendChild(titleInput);
-            row.appendChild(left);
+            // Clickable Title (Opens Rename Modal)
+            const titleSpan = document.createElement('div');
+            titleSpan.className = 'font-semibold text-sm truncate flex-1 cursor-pointer select-none';
+            titleSpan.style.color = 'var(--paper)';
+            titleSpan.title = 'Tap to rename chapter';
+            titleSpan.textContent = ch.title;
+            titleSpan.onclick = () => openRenameChapterModal(idx);
+            line1Left.appendChild(titleSpan);
 
-            // Right side: Badges (words, images) and Actions (Edit, Delete)
-            const right = document.createElement('div');
-            right.className = 'flex items-center gap-2 shrink-0';
+            line1.appendChild(line1Left);
 
-            // Word count badge
+            // Right side of Line 1: Word Count & Image Badges
+            const line1Right = document.createElement('div');
+            line1Right.className = 'flex items-center gap-2 shrink-0';
+
             const wordBadge = document.createElement('span');
-            wordBadge.className = 'text-[10.5px] font-mono';
+            wordBadge.className = 'text-[11px] font-mono';
             wordBadge.style.color = 'var(--slate)';
             wordBadge.textContent = `${(ch.words || 0).toLocaleString()}w`;
-            right.appendChild(wordBadge);
+            line1Right.appendChild(wordBadge);
 
-            // Illustration badge
             const imgCount = (ch.images || []).length;
             if (imgCount > 0) {
                 const imgBadge = document.createElement('span');
@@ -1142,28 +1432,74 @@
                 imgBadge.style.color = '#38bdf8';
                 imgBadge.style.borderColor = 'rgba(56,189,248,0.3)';
                 imgBadge.textContent = `🖼️ ${imgCount}`;
-                right.appendChild(imgBadge);
+                line1Right.appendChild(imgBadge);
             }
+
+            line1.appendChild(line1Right);
+            card.appendChild(line1);
+
+            // ── LINE 2: Actions Bar (Thumb-friendly buttons) ──
+            const line2 = document.createElement('div');
+            line2.className = 'flex items-center justify-between gap-2 pt-1.5 border-t border-white/5';
+
+            const line2Left = document.createElement('div');
+            line2Left.className = 'flex items-center gap-2 flex-wrap';
 
             // Edit Prose Button
             const editBtn = document.createElement('button');
             editBtn.type = 'button';
             editBtn.className = 'tl-btn accent';
-            editBtn.style.padding = '4px 10px';
-            editBtn.style.fontSize = '11.5px';
-            editBtn.textContent = '✏️ Edit';
-            editBtn.title = 'Open chapter prose & image editor';
+            editBtn.style.padding = '6px 14px';
+            editBtn.style.fontSize = '12px';
+            editBtn.style.fontWeight = '700';
+            editBtn.textContent = '✏️ Edit Prose';
             editBtn.onclick = () => openChapterModal(idx);
-            right.appendChild(editBtn);
+            line2Left.appendChild(editBtn);
 
-            // Delete Chapter Button
+            // Move & Level Sheet Trigger
+            const moveBtn = document.createElement('button');
+            moveBtn.type = 'button';
+            moveBtn.className = 'tl-btn';
+            moveBtn.style.padding = '6px 12px';
+            moveBtn.style.fontSize = '12px';
+            moveBtn.textContent = '↕ Move & Level';
+            moveBtn.title = 'Change chapter order, hierarchy, or insert chapters';
+            moveBtn.onclick = () => openMoveChapterSheet(idx);
+            line2Left.appendChild(moveBtn);
+
+            line2.appendChild(line2Left);
+
+            // Line 2 Right: Quick Actions (Rename, Insert Below, Delete)
+            const line2Right = document.createElement('div');
+            line2Right.className = 'flex items-center gap-1.5 shrink-0';
+
+            const renBtn = document.createElement('button');
+            renBtn.type = 'button';
+            renBtn.className = 'chip-act';
+            renBtn.style.padding = '5px 8px';
+            renBtn.style.fontSize = '11px';
+            renBtn.textContent = '🏷️ Rename';
+            renBtn.title = 'Rename chapter title';
+            renBtn.onclick = () => openRenameChapterModal(idx);
+            line2Right.appendChild(renBtn);
+
+            const insBtn = document.createElement('button');
+            insBtn.type = 'button';
+            insBtn.className = 'chip-act';
+            insBtn.style.padding = '5px 8px';
+            insBtn.style.fontSize = '11px';
+            insBtn.textContent = '➕ Below';
+            insBtn.title = 'Insert a new chapter directly below this one';
+            insBtn.onclick = () => insertChapterAt(idx, 'below');
+            line2Right.appendChild(insBtn);
+
             const delBtn = document.createElement('button');
             delBtn.type = 'button';
-            delBtn.className = 'tl-btn danger';
-            delBtn.style.padding = '4px 8px';
-            delBtn.style.fontSize = '11.5px';
+            delBtn.className = 'chip-act danger';
+            delBtn.style.padding = '5px 8px';
+            delBtn.style.fontSize = '11px';
             delBtn.textContent = '✕';
-            delBtn.title = 'Remove chapter';
+            delBtn.title = 'Delete this chapter';
             delBtn.onclick = () => {
                 if (confirm(`Delete "${ch.title}"?`)) {
                     state.chapters.splice(idx, 1);
@@ -1171,10 +1507,12 @@
                     updateStats();
                 }
             };
-            right.appendChild(delBtn);
+            line2Right.appendChild(delBtn);
 
-            row.appendChild(right);
-            frag.appendChild(row);
+            line2.appendChild(line2Right);
+            card.appendChild(line2);
+
+            frag.appendChild(card);
         });
 
         list.appendChild(frag);
@@ -1202,6 +1540,7 @@
         const confirmModal = document.getElementById('edit-unsaved-confirm-modal');
         const chapterModal = document.getElementById('edit-chapter-modal');
         if (!isChapterModalDirty()) {
+            exitEpubEditorPreview();
             chapterModal?.classList.add('hidden');
             return;
         }
@@ -1209,12 +1548,13 @@
         if (confirmModal) {
             confirmModal.classList.remove('hidden');
         } else {
-            // Fallback to native confirm if element not found
             if (confirm('You have unsaved changes in this chapter.\n\nClick OK to Save & Close.\nClick Cancel to Discard.')) {
                 saveCurrentModalChapter();
+                exitEpubEditorPreview();
                 chapterModal?.classList.add('hidden');
                 if (typeof window.toast === 'function') window.toast('Chapter saved!', 'success');
             } else {
+                exitEpubEditorPreview();
                 chapterModal?.classList.add('hidden');
                 if (typeof window.toast === 'function') window.toast('Unsaved changes discarded.', 'info');
             }
@@ -1225,7 +1565,7 @@
     function openChapterModal(idx) {
         if (idx < 0 || idx >= state.chapters.length) return;
         modalActiveIdx = idx;
-        isPreviewMode = false;
+        exitEpubEditorPreview();
 
         const ch = state.chapters[idx];
         initialChapterSnapshot = {
@@ -1255,6 +1595,7 @@
         if (prevBtn) prevBtn.disabled = idx === 0;
         if (nextBtn) nextBtn.disabled = idx >= state.chapters.length - 1;
 
+        resetUndoRedo(ch.content || '');
         updateModalWordCount();
         renderInChapterImages(ch);
         modal?.classList.remove('hidden');
@@ -1680,15 +2021,11 @@
             if (!proceed) return;
         }
 
-        if (typeof window.generateEpubFromChapters !== 'function') {
-            if (typeof window.toast === 'function') window.toast('EPUB packaging engine is not available.', 'error');
-            return;
-        }
-
         // Sync metadata
         state.title = document.getElementById('edit-book-title')?.value.trim() || state.title || 'Novel';
         state.author = document.getElementById('edit-book-author')?.value.trim() || state.author || 'Author';
         state.lang = document.getElementById('edit-book-lang')?.value.trim() || 'en';
+        state.description = document.getElementById('edit-book-desc')?.value.trim() || state.description || '';
 
         const btnExport = document.getElementById('btn-edit-export-epub');
         if (btnExport) {
@@ -1701,38 +2038,187 @@
         }
 
         try {
-            const chaptersForPackaging = state.chapters.map((c, i) => ({
-                id: c.id || `ch_${i + 1}`,
-                title: c.title,
-                content: c.content,
-                level: c.level || 1,
-                words: c.words || countWords(c.content)
-            }));
-
-            const opts = {
-                coverUrl: state.coverUrl,
-                cover: state.coverUrl,
-                hierarchicalToc: true
-            };
-
-            const blob = await window.generateEpubFromChapters(
-                chaptersForPackaging,
-                state.title,
-                state.author,
-                state.lang,
-                (status, pct, elapsed) => {
-                    if (btnExport) btnExport.textContent = `⏳ ${pct}%`;
-                    if (typeof window.setEpubPackagingModal === 'function') {
-                        window.setEpubPackagingModal({ title: state.title, status: status || `Packaging ${state.chapters.length} chapters…`, pct, elapsed });
-                    }
-                },
-                opts
-            );
-
+            let blob = null;
             const fileName = `${state.title} - ${state.chapters.length} Chapters.epub`.replace(/[\\/:*?"<>|]/g, '_');
 
+            // ── STRATEGY 1: In-Place Preservation of Original Container ──
+            if (state.originalZip && state.originalOpfPath) {
+                const zip = state.originalZip;
+                const opfPath = state.originalOpfPath;
+                const opfDir = state.originalOpfDir;
+                const parser = new DOMParser();
+
+                // 1. Update OPF metadata and spine
+                const opfFile = zip.file(opfPath);
+                if (opfFile) {
+                    const opfXml = await opfFile.async('text');
+                    const opfDoc = parser.parseFromString(opfXml, 'application/xml');
+
+                    const titleEl = opfDoc.querySelector('metadata > title, metadata > dc\\:title') || opfDoc.getElementsByTagName('dc:title')[0];
+                    if (titleEl) titleEl.textContent = state.title;
+
+                    const authorEl = opfDoc.querySelector('metadata > creator, metadata > dc\\:creator') || opfDoc.getElementsByTagName('dc:creator')[0];
+                    if (authorEl) authorEl.textContent = state.author;
+
+                    const langEl = opfDoc.querySelector('metadata > language, metadata > dc\\:language') || opfDoc.getElementsByTagName('dc:language')[0];
+                    if (langEl) langEl.textContent = state.lang;
+
+                    const descEl = opfDoc.querySelector('metadata > description, metadata > dc\\:description') || opfDoc.getElementsByTagName('dc:description')[0];
+                    if (descEl) descEl.textContent = state.description;
+
+                    const manifestEl = opfDoc.querySelector('manifest');
+                    const spineEl = opfDoc.querySelector('spine');
+
+                    if (spineEl) {
+                        while (spineEl.firstChild) {
+                            spineEl.removeChild(spineEl.firstChild);
+                        }
+
+                        for (let i = 0; i < state.chapters.length; i++) {
+                            const ch = state.chapters[i];
+                            let chId = ch.id;
+                            let chHref = ch.href;
+                            let chFullPath = ch.fullPath;
+
+                            if (ch.isNew || !chFullPath || !zip.file(chFullPath)) {
+                                chId = `ch_new_${i + 1}_${Date.now()}`;
+                                const relFile = `Text/ch_${i + 1}.xhtml`;
+                                chHref = relFile;
+                                chFullPath = opfDir + relFile;
+                                ch.fullPath = chFullPath;
+                                ch.href = chHref;
+
+                                if (manifestEl) {
+                                    const itemEl = opfDoc.createElement('item');
+                                    itemEl.setAttribute('id', chId);
+                                    itemEl.setAttribute('href', chHref);
+                                    itemEl.setAttribute('media-type', 'application/xhtml+xml');
+                                    manifestEl.appendChild(itemEl);
+                                }
+                            }
+
+                            const itemRef = opfDoc.createElement('itemref');
+                            itemRef.setAttribute('idref', chId);
+                            spineEl.appendChild(itemRef);
+
+                            // Re-inject prose preserving original head styling and body attributes
+                            const headContent = ch.originalHead || `<title>${escapeXml(ch.title)}</title>`;
+                            const bodyAttrs = ch.bodyAttrs ? ` ${ch.bodyAttrs}` : '';
+                            const bodyHtml = markdownToChapterHtml(ch.content, ch.title);
+
+                            const newXhtml = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+${headContent}
+</head>
+<body${bodyAttrs}>
+${bodyHtml}
+</body>
+</html>`;
+                            zip.file(chFullPath, newXhtml);
+                        }
+                    }
+
+                    const serializer = new XMLSerializer();
+                    zip.file(opfPath, serializer.serializeToString(opfDoc));
+                }
+
+                // 2. Update Table of Contents in NCX (if present)
+                const ncxFile = zip.file(opfDir + 'toc.ncx') || zip.file('toc.ncx');
+                if (ncxFile) {
+                    try {
+                        const ncxXml = await ncxFile.async('text');
+                        const ncxDoc = parser.parseFromString(ncxXml, 'application/xml');
+                        const navMapEl = ncxDoc.querySelector('navMap');
+                        if (navMapEl) {
+                            while (navMapEl.firstChild) navMapEl.removeChild(navMapEl.firstChild);
+
+                            let playOrder = 1;
+                            let currentParentNavPoint = null;
+
+                            state.chapters.forEach((ch, idx) => {
+                                const np = ncxDoc.createElement('navPoint');
+                                np.setAttribute('id', `navPoint-${playOrder}`);
+                                np.setAttribute('playOrder', String(playOrder));
+
+                                const nl = ncxDoc.createElement('navLabel');
+                                const txt = ncxDoc.createElement('text');
+                                txt.textContent = ch.title;
+                                nl.appendChild(txt);
+                                np.appendChild(nl);
+
+                                const cnt = ncxDoc.createElement('content');
+                                cnt.setAttribute('src', ch.href || (ch.fullPath ? ch.fullPath.replace(opfDir, '') : `ch_${idx + 1}.xhtml`));
+                                np.appendChild(cnt);
+
+                                if (ch.level === 2 && currentParentNavPoint) {
+                                    currentParentNavPoint.appendChild(np);
+                                } else {
+                                    navMapEl.appendChild(np);
+                                    currentParentNavPoint = np;
+                                }
+                                playOrder++;
+                            });
+
+                            const serializer = new XMLSerializer();
+                            zip.file(ncxFile.name, serializer.serializeToString(ncxDoc));
+                        }
+                    } catch (ncxErr) {
+                        console.warn('NCX update error:', ncxErr);
+                    }
+                }
+
+                // 3. Generate Blob from originalZip
+                blob = await zip.generateAsync({
+                    type: 'blob',
+                    mimeType: 'application/epub+zip',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                }, (meta) => {
+                    if (btnExport) btnExport.textContent = `⏳ ${Math.round(meta.percent)}%`;
+                    if (typeof window.setEpubPackagingModal === 'function') {
+                        window.setEpubPackagingModal({ title: state.title, status: `Packaging EPUB…`, pct: Math.round(meta.percent) });
+                    }
+                });
+            } else {
+                // ── STRATEGY 2: Fallback to Packaging Engine (for Library/imported records) ──
+                if (typeof window.generateEpubFromChapters !== 'function') {
+                    throw new Error('EPUB packaging engine is not available.');
+                }
+
+                const chaptersForPackaging = state.chapters.map((c, i) => ({
+                    id: c.id || `ch_${i + 1}`,
+                    title: c.title,
+                    content: c.content,
+                    level: c.level || 1,
+                    words: c.words || countWords(c.content)
+                }));
+
+                const opts = {
+                    coverUrl: state.coverUrl,
+                    cover: state.coverUrl,
+                    hierarchicalToc: true
+                };
+
+                blob = await window.generateEpubFromChapters(
+                    chaptersForPackaging,
+                    state.title,
+                    state.author,
+                    state.lang,
+                    (status, pct, elapsed) => {
+                        if (btnExport) btnExport.textContent = `⏳ ${pct}%`;
+                        if (typeof window.setEpubPackagingModal === 'function') {
+                            window.setEpubPackagingModal({ title: state.title, status: status || `Packaging ${state.chapters.length} chapters…`, pct, elapsed });
+                        }
+                    },
+                    opts
+                );
+            }
+
+            const novelFolderOpts = (typeof window.getNovelFolderOptions === 'function') ? window.getNovelFolderOptions(state) : null;
             if (typeof window.saveUniversalBlob === 'function') {
-                await window.saveUniversalBlob(blob, fileName, 'application/epub+zip', false);
+                await window.saveUniversalBlob(blob, fileName, 'application/epub+zip', false, novelFolderOpts);
             } else {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -1890,22 +2376,9 @@
         document.getElementById('btn-edit-gallery')?.addEventListener('click', openGalleryModal);
         document.getElementById('btn-edit-gallery-upload-new')?.addEventListener('click', () => chImgInput?.click());
 
-        // Add Chapter
+        // Add Chapter (at the end)
         document.getElementById('btn-edit-add-chapter')?.addEventListener('click', () => {
-            const newIdx = state.chapters.length + 1;
-            const newCh = {
-                id: 'ch_' + newIdx,
-                title: `Chapter ${newIdx}`,
-                originalTitle: `Chapter ${newIdx}`,
-                level: 1,
-                content: '',
-                words: 0,
-                images: []
-            };
-            state.chapters.push(newCh);
-            renderChapterList();
-            updateStats();
-            openChapterModal(state.chapters.length - 1);
+            insertChapterAt(state.chapters.length - 1, 'below');
         });
 
         // Save & Export
@@ -1918,6 +2391,11 @@
                 state.title = '';
                 state.chapters = [];
                 state.coverUrl = '';
+                state.originalZip = null;
+                state.originalOpfPath = '';
+                state.originalOpfDir = '';
+                state.originalFileName = '';
+                state.collapsedVolumes.clear();
                 document.getElementById('edit-workspace')?.classList.add('hidden');
                 document.getElementById('edit-upload-section')?.classList.remove('hidden');
             }
@@ -1931,6 +2409,7 @@
         // Modal: Save Chapter
         document.getElementById('btn-edit-modal-save')?.addEventListener('click', () => {
             saveCurrentModalChapter();
+            exitEpubEditorPreview();
             document.getElementById('edit-chapter-modal')?.classList.add('hidden');
             if (typeof window.toast === 'function') window.toast('Chapter saved!', 'success');
         });
@@ -1954,25 +2433,33 @@
                 s = s.replace(/[ \t]+$/gm, '');
                 s = s.replace(/\n{3,}/g, '\n\n');
                 textarea.value = s.trim();
+                recordUndoState(textarea.value);
                 updateModalWordCount();
                 if (typeof window.toast === 'function') window.toast('Cleaned paragraph spacing!', 'info');
             }
         });
 
-        // Modal: Preview Toggle
+        // Modal: Undo & Redo
+        document.getElementById('btn-edit-modal-undo')?.addEventListener('click', performUndo);
+        document.getElementById('btn-edit-modal-redo')?.addEventListener('click', performRedo);
+
+        // Modal: Preview Toggle & Back Button
+        document.getElementById('btn-preview-back-to-edit')?.addEventListener('click', exitEpubEditorPreview);
         document.getElementById('btn-edit-modal-preview-toggle')?.addEventListener('click', () => {
             const textarea = document.getElementById('edit-ch-modal-textarea');
             const preview = document.getElementById('edit-ch-modal-preview');
+            const previewContent = document.getElementById('preview-html-content') || preview;
             const btn = document.getElementById('btn-edit-modal-preview-toggle');
             if (!textarea || !preview) return;
 
             isPreviewMode = !isPreviewMode;
+            window.isEpubEditorPreviewActive = isPreviewMode;
+
             if (isPreviewMode) {
                 textarea.classList.add('hidden');
                 preview.classList.remove('hidden');
-                if (btn) btn.textContent = '✏️ Edit Markdown';
+                if (btn) btn.textContent = '✏️ Edit Prose';
 
-                // Render preview
                 const raw = textarea.value || '';
                 const paras = raw.split(/\n\s*\n/);
                 const htmlParts = [];
@@ -1982,25 +2469,36 @@
                     if (trimmed === '---' || trimmed === '***') {
                         htmlParts.push('<hr style="border:none; border-top:1px solid var(--hairline); margin:24px 0;" />');
                     } else if (/^#{1,6}\s+/.test(trimmed)) {
-                        htmlParts.push(`<h3 style="font-weight:700; color:var(--paper); margin:16px 0 8px;">${escapeXml(trimmed.replace(/^#+\s+/, ''))}</h3>`);
+                        htmlParts.push(`<h3 style="font-weight:700; color:var(--paper); margin:20px 0 10px; font-size:1.15em;">${escapeXml(trimmed.replace(/^#+\s+/, ''))}</h3>`);
                     } else if (/!\[(.*?)\]\((.*?)\)/.test(trimmed)) {
                         const m = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
-                        const imgSrc = (state.imageRepository.get(m[2])?.dataUrl) || m[2];
-                        htmlParts.push(`<div style="text-align:center; margin:18px 0;"><img src="${imgSrc}" alt="${escapeXml(m[1])}" style="max-width:100%; max-height:400px; border-radius:8px; margin:0 auto; display:inline-block;" /><p style="font-size:11px; color:var(--slate); margin-top:4px;">${escapeXml(m[1])}</p></div>`);
+                        const token = m[2];
+                        const imgSrc = (state.imageRepository.get(token)?.dataUrl) || token;
+                        htmlParts.push(`<div style="text-align:center; margin:20px 0;"><img src="${imgSrc}" alt="${escapeXml(m[1])}" style="max-width:100%; max-height:420px; border-radius:8px; margin:0 auto; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.4);" /><p style="font-size:11px; color:var(--slate); margin-top:6px;">${escapeXml(m[1])}</p></div>`);
                     } else {
-                        htmlParts.push(`<p style="margin-bottom:14px; text-indent:1.5em;">${escapeXml(trimmed)}</p>`);
+                        htmlParts.push(`<p style="margin-bottom:16px; text-indent:1.5em; line-height:1.8;">${escapeXml(trimmed)}</p>`);
                     }
                 });
-                preview.innerHTML = htmlParts.join('\n');
+                if (htmlParts.length === 0) {
+                    htmlParts.push('<p class="italic text-center py-8 text-xs" style="color:var(--slate);">Chapter is empty.</p>');
+                }
+                if (previewContent) {
+                    previewContent.innerHTML = htmlParts.join('\n');
+                }
             } else {
-                preview.classList.add('hidden');
-                textarea.classList.remove('hidden');
-                if (btn) btn.textContent = '👁️ Preview HTML';
+                exitEpubEditorPreview();
             }
         });
 
-        // Modal: Word count on textarea typing
-        document.getElementById('edit-ch-modal-textarea')?.addEventListener('input', updateModalWordCount);
+        // Modal: Word count & Undo recording on typing
+        document.getElementById('edit-ch-modal-textarea')?.addEventListener('input', () => {
+            updateModalWordCount();
+            clearTimeout(undoDebounceTimer);
+            undoDebounceTimer = setTimeout(() => {
+                const val = document.getElementById('edit-ch-modal-textarea')?.value || '';
+                recordUndoState(val);
+            }, 350);
+        });
 
         // Modal: Insert Image file picker
         document.getElementById('btn-edit-modal-insert-img')?.addEventListener('click', () => chImgInput?.click());
@@ -2028,6 +2526,7 @@
                             ch.images = extractImagesFromContent(ch.content);
                             renderInChapterImages(ch);
                         }
+                        recordUndoState(textarea.value);
                         updateModalWordCount();
                         if (typeof window.toast === 'function') window.toast('Inserted image into chapter!', 'success');
                     }
@@ -2036,14 +2535,93 @@
             }
         });
 
+        // Rename Modal Handlers
+        document.getElementById('btn-edit-rename-save')?.addEventListener('click', () => {
+            if (activeRenameIdx >= 0 && activeRenameIdx < state.chapters.length) {
+                const input = document.getElementById('edit-rename-input');
+                const val = input?.value.trim();
+                if (val) {
+                    state.chapters[activeRenameIdx].title = val;
+                    renderChapterList();
+                }
+            }
+            document.getElementById('edit-rename-modal')?.classList.add('hidden');
+        });
+        document.getElementById('edit-rename-input')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('btn-edit-rename-save')?.click();
+            }
+        });
+
+        // Move & Hierarchy Sheet Handlers
+        document.getElementById('btn-move-sheet-up')?.addEventListener('click', () => {
+            if (activeMoveIdx < 0 || activeMoveIdx >= state.chapters.length) return;
+            const targetId = state.chapters[activeMoveIdx].id;
+            const [bStart, bEnd] = getChapterBlockRange(activeMoveIdx);
+            moveChapterBlock(bStart, bEnd, -1);
+            activeMoveIdx = state.chapters.findIndex(c => c.id === targetId);
+            updateMoveSheet();
+        });
+        document.getElementById('btn-move-sheet-down')?.addEventListener('click', () => {
+            if (activeMoveIdx < 0 || activeMoveIdx >= state.chapters.length) return;
+            const targetId = state.chapters[activeMoveIdx].id;
+            const [bStart, bEnd] = getChapterBlockRange(activeMoveIdx);
+            moveChapterBlock(bStart, bEnd, 1);
+            activeMoveIdx = state.chapters.findIndex(c => c.id === targetId);
+            updateMoveSheet();
+        });
+        document.getElementById('btn-move-sheet-top')?.addEventListener('click', () => {
+            if (activeMoveIdx < 0 || activeMoveIdx >= state.chapters.length) return;
+            const targetId = state.chapters[activeMoveIdx].id;
+            const [bStart, bEnd] = getChapterBlockRange(activeMoveIdx);
+            moveChapterBlock(bStart, bEnd, 'top');
+            activeMoveIdx = state.chapters.findIndex(c => c.id === targetId);
+            updateMoveSheet();
+        });
+        document.getElementById('btn-move-sheet-bottom')?.addEventListener('click', () => {
+            if (activeMoveIdx < 0 || activeMoveIdx >= state.chapters.length) return;
+            const targetId = state.chapters[activeMoveIdx].id;
+            const [bStart, bEnd] = getChapterBlockRange(activeMoveIdx);
+            moveChapterBlock(bStart, bEnd, 'bottom');
+            activeMoveIdx = state.chapters.findIndex(c => c.id === targetId);
+            updateMoveSheet();
+        });
+        document.getElementById('btn-move-sheet-level1')?.addEventListener('click', () => {
+            if (activeMoveIdx >= 0 && activeMoveIdx < state.chapters.length) {
+                state.chapters[activeMoveIdx].level = 1;
+                renderChapterList();
+                updateMoveSheet();
+            }
+        });
+        document.getElementById('btn-move-sheet-level2')?.addEventListener('click', () => {
+            if (activeMoveIdx > 0 && activeMoveIdx < state.chapters.length) {
+                state.chapters[activeMoveIdx].level = 2;
+                renderChapterList();
+                updateMoveSheet();
+            }
+        });
+        document.getElementById('btn-move-sheet-insert-above')?.addEventListener('click', () => {
+            const curIdx = activeMoveIdx;
+            document.getElementById('edit-move-chapter-modal')?.classList.add('hidden');
+            insertChapterAt(curIdx, 'above');
+        });
+        document.getElementById('btn-move-sheet-insert-below')?.addEventListener('click', () => {
+            const curIdx = activeMoveIdx;
+            document.getElementById('edit-move-chapter-modal')?.classList.add('hidden');
+            insertChapterAt(curIdx, 'below');
+        });
+
         // Unsaved Confirmation Modal handlers
         document.getElementById('btn-unsaved-save-close')?.addEventListener('click', () => {
             saveCurrentModalChapter();
+            exitEpubEditorPreview();
             document.getElementById('edit-unsaved-confirm-modal')?.classList.add('hidden');
             document.getElementById('edit-chapter-modal')?.classList.add('hidden');
             if (typeof window.toast === 'function') window.toast('Chapter saved!', 'success');
         });
         document.getElementById('btn-unsaved-discard')?.addEventListener('click', () => {
+            exitEpubEditorPreview();
             document.getElementById('edit-unsaved-confirm-modal')?.classList.add('hidden');
             document.getElementById('edit-chapter-modal')?.classList.add('hidden');
             if (typeof window.toast === 'function') window.toast('Unsaved changes discarded.', 'info');

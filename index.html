@@ -4010,6 +4010,9 @@ const formatModelName = (id, displayName) => {
           return {};
         }
       };
+      if (typeof window !== 'undefined') {
+        window.getNovelFolderOptions = getNovelFolderOptions;
+      }
 
       const getCustomTitle = (novelOrUrl) => {
         if (!novelOrUrl) return '';
@@ -8266,6 +8269,137 @@ const formatModelName = (id, displayName) => {
           }, 40);
         }
       }, [activeTab, studioSubTab]);
+
+      // ── Centralized Android Hardware & Edge-Swipe Back Button Handler ──
+      useEffect(() => {
+        let lastBackPress = 0;
+        let removeListener = null;
+
+        const handleAppBack = () => {
+          // 1. Chapter Preview Mode in Edit Ebook
+          if (window.isEpubEditorPreviewActive && typeof window.exitEpubEditorPreview === 'function') {
+            window.exitEpubEditorPreview();
+            return true;
+          }
+
+          // 2. Unsaved confirmation dialog in Edit Ebook
+          const unsaved = document.getElementById('edit-unsaved-confirm-modal');
+          if (unsaved && !unsaved.classList.contains('hidden')) {
+            unsaved.classList.add('hidden');
+            return true;
+          }
+
+          // 3. Move & Hierarchy Sheet in Edit Ebook
+          const moveModal = document.getElementById('edit-move-chapter-modal');
+          if (moveModal && !moveModal.classList.contains('hidden')) {
+            moveModal.classList.add('hidden');
+            return true;
+          }
+
+          // 4. Rename Chapter Modal in Edit Ebook
+          const renModal = document.getElementById('edit-rename-modal');
+          if (renModal && !renModal.classList.contains('hidden')) {
+            renModal.classList.add('hidden');
+            return true;
+          }
+
+          // 5. Chapter Edit Prose Modal in Edit Ebook
+          const chModal = document.getElementById('edit-chapter-modal');
+          if (chModal && !chModal.classList.contains('hidden')) {
+            if (typeof window.requestCloseChapterModal === 'function') {
+              window.requestCloseChapterModal();
+            } else {
+              chModal.classList.add('hidden');
+            }
+            return true;
+          }
+
+          // 6. Other Studio Modals (Gallery, Find & Replace, Auto-Number, Library)
+          const galModal = document.getElementById('edit-gallery-modal');
+          if (galModal && !galModal.classList.contains('hidden')) {
+            galModal.classList.add('hidden');
+            return true;
+          }
+          const frModal = document.getElementById('edit-find-replace-modal');
+          if (frModal && !frModal.classList.contains('hidden')) {
+            frModal.classList.add('hidden');
+            return true;
+          }
+          const anModal = document.getElementById('edit-autonumber-modal');
+          if (anModal && !anModal.classList.contains('hidden')) {
+            anModal.classList.add('hidden');
+            return true;
+          }
+          const libModal = document.getElementById('edit-library-modal');
+          if (libModal && !libModal.classList.contains('hidden')) {
+            libModal.classList.add('hidden');
+            return true;
+          }
+
+          // 7. React App Modals & Overlays
+          if (ongoingEpubModal && ongoingEpubModal.isOpen) {
+            if (!ongoingEpubModal.isFetching) setOngoingEpubModal(null);
+            return true;
+          }
+          if (readerOpen) {
+            setReaderOpen(false);
+            return true;
+          }
+          if (activeNovelView) {
+            setActiveNovelView(null);
+            return true;
+          }
+          if (audioDownloadModal) {
+            setAudioDownloadModal(null);
+            return true;
+          }
+          if (costEstimatorModalOpen) {
+            setCostEstimatorModalOpen(false);
+            return true;
+          }
+          if (epubPackagingModal) {
+            setEpubPackagingModal(null);
+            return true;
+          }
+          if (typeof renameModalNovel !== 'undefined' && renameModalNovel) {
+            setRenameModalNovel(null);
+            return true;
+          }
+
+          // 8. Secondary Tab -> Return to Library or Translate
+          if (activeTab === 'studio' || activeTab === 'web_importer' || activeTab === 'settings') {
+            setActiveTab('history');
+            localStorage.setItem('activeTab', 'history');
+            return true;
+          }
+
+          // 9. Root Level -> Double-tap within 2s to exit app
+          const now = Date.now();
+          if (now - lastBackPress < 2000) {
+            if (window.Capacitor?.Plugins?.App?.exitApp) {
+              window.Capacitor.Plugins.App.exitApp();
+            }
+          } else {
+            lastBackPress = now;
+            toast('Press back again to exit', 'info');
+          }
+          return true;
+        };
+
+        if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.App) {
+          window.Capacitor.Plugins.App.addListener('backButton', () => {
+            handleAppBack();
+          }).then(h => {
+            removeListener = h;
+          }).catch(() => {});
+        }
+
+        return () => {
+          if (removeListener && typeof removeListener.remove === 'function') {
+            removeListener.remove();
+          }
+        };
+      }, [ongoingEpubModal, readerOpen, activeNovelView, audioDownloadModal, costEstimatorModalOpen, epubPackagingModal, typeof renameModalNovel !== 'undefined' ? renameModalNovel : null, activeTab]);
 
       useEffect(() => { document.documentElement.classList.add('dark'); localStorage.setItem('darkMode', 'true'); }, []);
       useEffect(() => { localStorage.setItem('enableStreaming', String(enableStreaming)) }, [enableStreaming]);
