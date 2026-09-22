@@ -4215,6 +4215,7 @@ const formatModelName = (id, displayName) => {
           wordCount: totalWords,
           timestamp: new Date().toISOString(),
           isEpub: !!novelData.isEpub,
+          epubBlob: novelData.epubBlob || existingMeta?.epubBlob || undefined,
           sourceUrl: detectedSourceUrl,
           chapterList: novelData.chapterList || [],
           rawChapters: cleanChapters,
@@ -5239,6 +5240,7 @@ const formatModelName = (id, displayName) => {
           const existingCount = epub.chapters.length;
           const detectedSource = epub.sourceUrl || '';
 
+          const fOpts = getNovelFolderOptions({ id: epub.uuid, title: cleanTitle, sourceUrl: detectedSource });
           setOngoingEpubModal({
             isOpen: true,
             file,
@@ -5255,6 +5257,7 @@ const formatModelName = (id, displayName) => {
             isSearchingSources: true,
             showSourceSwitcher: false,
             customUrlMode: false,
+            folderOptions: fOpts,
             onlineToc: null,
             totalOnlineCount: 0,
             isScanningToc: false,
@@ -5285,10 +5288,11 @@ const formatModelName = (id, displayName) => {
           const cleanTitle = (full.title || 'Novel').replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
           const existingCount = chs.length;
           const detectedSource = full.sourceUrl || full.url || '';
+          const fOpts = getNovelFolderOptions(full || novelItem);
 
           setOngoingEpubModal({
             isOpen: true,
-            file: null,
+            file: full.epubBlob || null,
             title: cleanTitle,
             searchQuery: cleanTitle,
             author: full.author || 'Author',
@@ -5302,6 +5306,7 @@ const formatModelName = (id, displayName) => {
             isSearchingSources: true,
             showSourceSwitcher: false,
             customUrlMode: false,
+            folderOptions: fOpts,
             onlineToc: null,
             totalOnlineCount: 0,
             isScanningToc: false,
@@ -5453,12 +5458,13 @@ const formatModelName = (id, displayName) => {
             );
           }
 
-          // 4. Trigger download / save
+          // 4. Trigger download / save directly to designated folder
           const isInc = totalOnlineCount ? mergedChapters.length < totalOnlineCount : false;
           const fileName = getEpubFileName(title, mergedChapters.length, isInc);
-          await saveUniversalBlob(epubBlob, fileName, 'application/epub+zip', false, null);
+          const folderOpts = ongoingEpubModal.folderOptions || getNovelFolderOptions({ id: uuid, title, sourceUrl });
+          await saveUniversalBlob(epubBlob, fileName, 'application/epub+zip', false, folderOpts);
 
-          // 5. Save updated novel into library
+          // 5. Save updated novel into library with epubBlob cached for preserved re-downloads
           await saveNovelToHistory({
             title,
             author,
@@ -5468,7 +5474,11 @@ const formatModelName = (id, displayName) => {
             chapters: mergedChapters,
             totalChapterCount: Math.max(mergedChapters.length, totalOnlineCount || mergedChapters.length),
             isIncomplete: isInc,
-            isEpub: true
+            isEpub: true,
+            epubBlob,
+            folderOptions: folderOpts,
+            folderPath: folderOpts?.folderPath || '',
+            folderTreeUri: folderOpts?.treeUri || ''
           });
 
           toast(`Updated "${title}"! Appended ${newFetchedChapters.length} new chapters. Book ID and styling preserved for Moon+ Reader Pro!`, 'success');
@@ -11590,11 +11600,15 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                   title = 'Summary';
                 }
 
-                const key = chapterKey(txt);
-                if (txt.trim() && key && !seenChapterKeys.has(key)) {
-                  seenChapterKeys.add(key);
-                  chapters.push({ title, text: txt, doc, zipPath: cp });
+                if (!txt || !txt.trim()) {
+                  const hasImg = doc.querySelector('img, image, svg');
+                  if (hasImg) {
+                    txt = '[Illustration]';
+                  } else {
+                    txt = doc.body?.textContent?.trim() || '[Chapter Content]';
+                  }
                 }
+                chapters.push({ title, text: txt, doc, zipPath: cp });
               } catch (e) { }
             }
           }
@@ -13971,6 +13985,13 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                         const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeNovelView.title, chs) : (activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
+                          if (activeNovelView && activeNovelView.epubBlob) {
+                            const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
+                            const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+                            await saveUniversalBlob(activeNovelView.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
+                            toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
+                            return;
+                          }
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
                           const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: activeNovelView?.cover || '' }) : { coverUrl: activeNovelView?.cover || '' };
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
@@ -14254,11 +14275,18 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                       style: { borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600 },
                       onClick: async () => {
                         try {
-                          const chs = activeNovelView.chapters || [];
+                          const full = (typeof loadFullNovel === 'function' ? await loadFullNovel(activeNovelView) : null) || activeNovelView;
+                          const chs = full.chapters || activeNovelView.chapters || [];
                           if (!chs.length) return toast('No chapters available to download.', 'warning');
                           const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeNovelView.title, chs) : (activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                           const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                           const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
+                          if (full && full.epubBlob) {
+                            const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+                            await saveUniversalBlob(full.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView || full));
+                            toast(`EPUB downloaded successfully! (${chs.length} chapters)`, 'success');
+                            return;
+                          }
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
                           const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: activeNovelView?.cover || '' }) : { coverUrl: activeNovelView?.cover || '' };
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
@@ -15607,6 +15635,12 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                               const bookAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(item.author) : (item.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                               const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
                               try {
+                                if (full.epubBlob) {
+                                  const epubFileName = getEpubFileName(bookTitle, chs.length, isInc);
+                                  await saveUniversalBlob(full.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(item || full));
+                                  toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
+                                  return;
+                                }
                                 const cleanBT = String(bookTitle).replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
                                 const matchingOriginal = (webImportHistory || []).find(n => {
                                   const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
@@ -17692,6 +17726,97 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                   }
                 })
               )
+            ),
+
+            // 1c. Designated Save Location Card
+            h('div', {
+              style: {
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid var(--hairline)',
+                borderRadius: 16,
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 14
+              }
+            },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 } },
+                h('div', {
+                  style: {
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.06)',
+                    color: (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? '#10b981' : 'var(--paper)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 18,
+                    flexShrink: 0
+                  }
+                }, '📁'),
+                h('div', { style: { minWidth: 0 } },
+                  h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)' } }, 'Save Location:'),
+                  h('div', { style: { fontSize: 12, color: (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? '#10b981' : 'var(--slate)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 } },
+                    ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.displayPath || (ongoingEpubModal.folderOptions?.treeUri ? 'Designated Device Folder' : 'Default Downloads Folder')
+                  ),
+                  h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2 } },
+                    'Designated folder on device for Moon+ Reader continuity'
+                  )
+                )
+              ),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: {
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid var(--hairline)',
+                  color: 'var(--paper)',
+                  padding: '10px 16px',
+                  borderRadius: 12,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  minHeight: 44
+                },
+                onClick: async () => {
+                  if (window.NativeBridge && window.NativeBridge.chooseFolder) {
+                    try {
+                      const res = await window.NativeBridge.chooseFolder();
+                      if (res && res.treeUri) {
+                        const fOpts = { treeUri: res.treeUri, folderPath: res.displayPath || res.treeUri };
+                        setOngoingEpubModal(prev => prev ? { ...prev, folderOptions: fOpts } : null);
+                        await updateNovelFolderRecord({ id: ongoingEpubModal.uuid, title: ongoingEpubModal.title }, res.treeUri, res.displayPath || res.treeUri);
+                        toast(`Location set to "${res.displayPath || 'chosen folder'}"!`, 'success');
+                      }
+                    } catch (e) {
+                      toast('Folder selection error: ' + e.message, 'error');
+                    }
+                  } else if (typeof window.showDirectoryPicker === 'function') {
+                    try {
+                      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                      if (handle) {
+                        const fOpts = { dirHandle: handle, folderPath: handle.name };
+                        setOngoingEpubModal(prev => prev ? { ...prev, folderOptions: fOpts } : null);
+                        toast(`Location set to "${handle.name}"!`, 'success');
+                      }
+                    } catch (e) {
+                      if (e.name !== 'AbortError') toast('Folder selection error: ' + e.message, 'error');
+                    }
+                  } else {
+                    const cur = ongoingEpubModal.folderOptions?.folderPath || '';
+                    const p = window.prompt('Enter designated device folder path for EPUB:', cur);
+                    if (p && p.trim()) {
+                      const fOpts = { subDir: p.trim(), folderPath: p.trim() };
+                      setOngoingEpubModal(prev => prev ? { ...prev, folderOptions: fOpts } : null);
+                      await updateNovelFolderRecord({ id: ongoingEpubModal.uuid, title: ongoingEpubModal.title }, '', p.trim());
+                      toast(`Location set to "${p.trim()}"!`, 'success');
+                    }
+                  }
+                }
+              }, (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? '📁 Change Location' : '📁 Select Location')
             ),
 
             // 2. Online Source Management & Switching Card

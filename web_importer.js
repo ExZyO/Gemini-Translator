@@ -4077,76 +4077,305 @@
     async function searchNovelBin(query) {
         if (!query || !query.trim()) return [];
         const cleanQ = query.trim();
-        const url = `https://novel-bin.com/search?keyword=${encodeURIComponent(cleanQ)}`;
-        const html = await fetchHtml(url, { headers: { 'Referer': 'https://novel-bin.com/' } });
-        if (!html) return [];
+        const domains = ['https://novelbin.me', 'https://novelbin.com', 'https://novel-bin.com'];
+        for (const dom of domains) {
+            try {
+                const url = `${dom}/search?keyword=${encodeURIComponent(cleanQ)}`;
+                const html = await fetchHtml(url, { headers: { 'Referer': dom + '/' } });
+                if (!html) continue;
 
-        const results = [];
-        // Pattern 1: Tailwind / Almanac card layout (novel-bin.com)
-        const cards = [...html.matchAll(/<a\s+href="([^"]+)"\s+class="[^"]*nl2-book-card[^"]*"\s+title="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
-        for (const m of cards) {
-            const href = m[1];
-            const title = stripSearchHtml(m[2]);
-            const inner = m[3];
-            const coverMatch = inner.match(/<img[^>]+src="([^"]+)"/i);
-            let cover = coverMatch ? coverMatch[1] : '';
-            if (cover && !cover.startsWith('http')) cover = `https://novel-bin.com${cover}`;
-            if (cover.includes('default.jpg')) cover = '';
+                const results = [];
+                // Pattern 1: Almanac card layout
+                const cards = [...html.matchAll(/<a\s+href="([^"]+)"\s+class="[^"]*nl2-book-card[^"]*"\s+title="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+                for (const m of cards) {
+                    const href = m[1];
+                    const title = stripSearchHtml(m[2]);
+                    const inner = m[3];
+                    const coverMatch = inner.match(/<img[^>]+src="([^"]+)"/i);
+                    let cover = coverMatch ? coverMatch[1] : '';
+                    if (cover && !cover.startsWith('http')) cover = `${dom}${cover}`;
+                    if (cover.includes('default.jpg')) cover = '';
 
-            const authorMatch = inner.match(/almanac-row-author">[\s\S]*?(?:<\/span>)?([^<]+)<\/span>/i);
-            const author = authorMatch ? stripSearchHtml(authorMatch[1]).trim() : '';
+                    const authorMatch = inner.match(/almanac-row-author">[\s\S]*?(?:<\/span>)?([^<]+)<\/span>/i);
+                    const author = authorMatch ? stripSearchHtml(authorMatch[1]).trim() : '';
 
-            const chMatch = inner.match(/almanac-row-chapters">[\s\S]*?(?:<\/span>)?([^<]+)<\/span>/i);
-            const chapters = chMatch ? stripSearchHtml(chMatch[1]).trim() : '';
+                    const chMatch = inner.match(/almanac-row-chapters">[\s\S]*?(?:<\/span>)?([^<]+)<\/span>/i);
+                    const chapters = chMatch ? stripSearchHtml(chMatch[1]).trim() : '';
 
-            const fullUrl = href.startsWith('http') ? href : `https://novel-bin.com${href}`;
+                    const fullUrl = href.startsWith('http') ? href : `${dom}${href}`;
 
-            results.push({
-                source: 'NovelBin',
-                title,
-                url: fullUrl,
-                cover,
-                author: author || 'NovelBin Author',
-                chapters: (chapters && chapters !== '—') ? chapters : '',
-                rating: '',
-                tags: ['NovelBin'],
-                summary: '',
-                status: 'Ongoing'
-            });
+                    results.push({
+                        source: 'NovelBin',
+                        title,
+                        url: fullUrl,
+                        cover,
+                        author: author || 'NovelBin Author',
+                        chapters: (chapters && chapters !== '—') ? chapters : '',
+                        rating: '',
+                        tags: ['NovelBin'],
+                        summary: '',
+                        status: 'Ongoing'
+                    });
+                }
+
+                // Pattern 2: Classic NovelBin layout
+                if (results.length === 0) {
+                    const classicMatches = [...html.matchAll(/<div class="row">([\s\S]*?)<\/div>\s*<\/div>/gi)];
+                    for (const cm of classicMatches) {
+                        const block = cm[1];
+                        const linkM = block.match(/<h3 class="novel-title">\s*<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+                        if (!linkM) continue;
+                        const fullUrl = linkM[1].startsWith('http') ? linkM[1] : `${dom}${linkM[1]}`;
+                        const title = stripSearchHtml(linkM[2]);
+                        const coverM = block.match(/<img[^>]+src="([^"]+)"/i);
+                        let cover = coverM ? coverM[1] : '';
+                        if (cover && !cover.startsWith('http')) cover = `${dom}${cover}`;
+
+                        const authorM = block.match(/<span class="author">([\s\S]*?)<\/span>/i);
+                        const author = authorM ? stripSearchHtml(authorM[1]) : '';
+
+                        results.push({
+                            source: 'NovelBin',
+                            title,
+                            url: fullUrl,
+                            cover,
+                            author: author || 'NovelBin Author',
+                            chapters: '',
+                            rating: '',
+                            tags: ['NovelBin'],
+                            summary: '',
+                            status: 'Ongoing'
+                        });
+                    }
+                }
+
+                if (results.length > 0) return results;
+            } catch (_) {}
         }
+        return [];
+    }
 
-        // Pattern 2: Classic NovelBin layout (row col-novel list-novel)
-        if (results.length === 0) {
-            const classicMatches = [...html.matchAll(/<div class="row">([\s\S]*?)<\/div>\s*<\/div>/gi)];
-            for (const cm of classicMatches) {
-                const block = cm[1];
-                const linkM = block.match(/<h3 class="novel-title">\s*<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+    async function searchNovelFull(query) {
+        if (!query || !query.trim()) return [];
+        const cleanQ = query.trim();
+        const domains = ['https://novelfull.com', 'https://novelfull.net'];
+        for (const dom of domains) {
+            try {
+                const url = `${dom}/search?keyword=${encodeURIComponent(cleanQ)}`;
+                const html = await fetchHtml(url, { headers: { 'Referer': dom + '/' } });
+                if (!html) continue;
+
+                const results = [];
+                const itemMatches = [...html.matchAll(/<div class="row">([\s\S]*?)<\/div>\s*<\/div>/gi)];
+                for (const m of itemMatches) {
+                    const block = m[1];
+                    const linkM = block.match(/<h3 class="novel-title">\s*<a\s+href="([^"]+)"\s+title="([^"]+)"/i) ||
+                                  block.match(/<h3 class="novel-title">\s*<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+                    if (!linkM) continue;
+
+                    const rawHref = linkM[1];
+                    const rawTitle = linkM[2];
+                    const fullUrl = rawHref.startsWith('http') ? rawHref : `${dom}${rawHref}`;
+                    const title = stripSearchHtml(rawTitle);
+
+                    const coverM = block.match(/<img[^>]+src="([^"]+)"/i);
+                    let cover = coverM ? coverM[1] : '';
+                    if (cover && !cover.startsWith('http')) cover = `${dom}${cover}`;
+
+                    const authorM = block.match(/<span class="author">([\s\S]*?)<\/span>/i);
+                    const author = authorM ? stripSearchHtml(authorM[1]).trim() : 'NovelFull Author';
+
+                    const chM = block.match(/class="chapter-title"[^>]*>([\s\S]*?)<\/a>/i) || block.match(/latest-chapter">([\s\S]*?)<\/span>/i);
+                    const chapters = chM ? stripSearchHtml(chM[1]).trim() : '';
+
+                    results.push({
+                        source: 'NovelFull',
+                        title,
+                        url: fullUrl,
+                        cover,
+                        author,
+                        chapters,
+                        rating: '',
+                        tags: ['NovelFull'],
+                        summary: '',
+                        status: 'Ongoing'
+                    });
+                }
+                if (results.length > 0) return results;
+            } catch (_) {}
+        }
+        return [];
+    }
+
+    async function searchNovelPub(query) {
+        if (!query || !query.trim()) return [];
+        const cleanQ = query.trim();
+        const url = `https://www.novelpub.com/search?keyword=${encodeURIComponent(cleanQ)}`;
+        try {
+            const html = await fetchHtml(url, { headers: { 'Referer': 'https://www.novelpub.com/' } });
+            if (!html) return [];
+
+            const results = [];
+            const itemMatches = [...html.matchAll(/<li class="novel-item">([\s\S]*?)<\/li>/gi)];
+            for (const m of itemMatches) {
+                const block = m[1];
+                const linkM = block.match(/<h4 class="novel-title">\s*<a\s+href="([^"]+)"\s+title="([^"]+)"/i) ||
+                              block.match(/<a\s+href="([^"]+)"\s+title="([^"]+)"/i);
                 if (!linkM) continue;
-                const fullUrl = linkM[1].startsWith('http') ? linkM[1] : `https://novel-bin.com${linkM[1]}`;
-                const title = stripSearchHtml(linkM[2]);
-                const coverM = block.match(/<img[^>]+src="([^"]+)"/i);
-                let cover = coverM ? coverM[1] : '';
-                if (cover && !cover.startsWith('http')) cover = `https://novel-bin.com${cover}`;
 
-                const authorM = block.match(/<span class="author">([\s\S]*?)<\/span>/i);
-                const author = authorM ? stripSearchHtml(authorM[1]) : '';
+                const fullUrl = linkM[1].startsWith('http') ? linkM[1] : `https://www.novelpub.com${linkM[1]}`;
+                const title = stripSearchHtml(linkM[2]);
+
+                const coverM = block.match(/<img[^>]+(?:data-src|src)="([^"]+)"/i);
+                let cover = coverM ? coverM[1] : '';
+                if (cover && !cover.startsWith('http')) cover = `https://www.novelpub.com${cover}`;
+
+                const chM = block.match(/<span class="chapters">([\s\S]*?)<\/span>/i);
+                const chapters = chM ? stripSearchHtml(chM[1]).trim() : '';
 
                 results.push({
-                    source: 'NovelBin',
+                    source: 'NovelPub',
                     title,
                     url: fullUrl,
                     cover,
-                    author: author || 'NovelBin Author',
-                    chapters: '',
+                    author: 'NovelPub Author',
+                    chapters,
                     rating: '',
-                    tags: ['NovelBin'],
+                    tags: ['NovelPub'],
                     summary: '',
                     status: 'Ongoing'
                 });
             }
+            return results;
+        } catch (_) {
+            return [];
         }
+    }
 
-        return results;
+    async function searchFreeWebNovel(query) {
+        if (!query || !query.trim()) return [];
+        const cleanQ = query.trim();
+        const url = `https://freewebnovel.com/search?keyword=${encodeURIComponent(cleanQ)}`;
+        try {
+            const html = await fetchHtml(url, { headers: { 'Referer': 'https://freewebnovel.com/' } });
+            if (!html) return [];
+
+            const results = [];
+            const itemMatches = [...html.matchAll(/<div class="li-row">([\s\S]*?)<\/div>\s*<\/div>/gi)];
+            for (const m of itemMatches) {
+                const block = m[1];
+                const linkM = block.match(/<h3 class="tit">\s*<a\s+href="([^"]+)"\s+title="([^"]+)"/i);
+                if (!linkM) continue;
+
+                const fullUrl = linkM[1].startsWith('http') ? linkM[1] : `https://freewebnovel.com${linkM[1]}`;
+                const title = stripSearchHtml(linkM[2]);
+
+                const coverM = block.match(/<img[^>]+src="([^"]+)"/i);
+                let cover = coverM ? coverM[1] : '';
+                if (cover && !cover.startsWith('http')) cover = `https://freewebnovel.com${cover}`;
+
+                results.push({
+                    source: 'FreeWebNovel',
+                    title,
+                    url: fullUrl,
+                    cover,
+                    author: 'FreeWebNovel Author',
+                    chapters: '',
+                    rating: '',
+                    tags: ['FreeWebNovel'],
+                    summary: '',
+                    status: 'Ongoing'
+                });
+            }
+            return results;
+        } catch (_) {
+            return [];
+        }
+    }
+
+    async function searchBoxNovel(query) {
+        if (!query || !query.trim()) return [];
+        const cleanQ = query.trim();
+        const url = `https://boxnovel.com/?s=${encodeURIComponent(cleanQ)}&post_type=wp-manga`;
+        try {
+            const html = await fetchHtml(url, { headers: { 'Referer': 'https://boxnovel.com/' } });
+            if (!html) return [];
+
+            const results = [];
+            const itemMatches = [...html.matchAll(/<div class="row c-tabs-item__content">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/gi)];
+            for (const m of itemMatches) {
+                const block = m[1];
+                const linkM = block.match(/<h3 class="h4">\s*<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
+                              block.match(/<div class="post-title">\s*<h4[^>]*>\s*<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+                if (!linkM) continue;
+
+                const fullUrl = linkM[1].trim();
+                const title = stripSearchHtml(linkM[2]).trim();
+
+                const coverM = block.match(/<img[^>]+(?:data-src|src)="([^"]+)"/i);
+                let cover = coverM ? coverM[1] : '';
+
+                const chM = block.match(/class="font-meta chapter">[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i);
+                const chapters = chM ? stripSearchHtml(chM[1]).trim() : '';
+
+                results.push({
+                    source: 'BoxNovel',
+                    title,
+                    url: fullUrl,
+                    cover,
+                    author: 'BoxNovel Author',
+                    chapters,
+                    rating: '',
+                    tags: ['BoxNovel'],
+                    summary: '',
+                    status: 'Ongoing'
+                });
+            }
+            return results;
+        } catch (_) {
+            return [];
+        }
+    }
+
+    async function searchReadNovelFull(query) {
+        if (!query || !query.trim()) return [];
+        const cleanQ = query.trim();
+        const url = `https://readnovelfull.com/search?keyword=${encodeURIComponent(cleanQ)}`;
+        try {
+            const html = await fetchHtml(url, { headers: { 'Referer': 'https://readnovelfull.com/' } });
+            if (!html) return [];
+
+            const results = [];
+            const itemMatches = [...html.matchAll(/<div class="row">([\s\S]*?)<\/div>\s*<\/div>/gi)];
+            for (const m of itemMatches) {
+                const block = m[1];
+                const linkM = block.match(/<h3 class="novel-title">\s*<a\s+href="([^"]+)"\s+title="([^"]+)"/i);
+                if (!linkM) continue;
+
+                const fullUrl = linkM[1].startsWith('http') ? linkM[1] : `https://readnovelfull.com${linkM[1]}`;
+                const title = stripSearchHtml(linkM[2]);
+
+                const coverM = block.match(/<img[^>]+src="([^"]+)"/i);
+                let cover = coverM ? coverM[1] : '';
+                if (cover && !cover.startsWith('http')) cover = `https://readnovelfull.com${cover}`;
+
+                results.push({
+                    source: 'ReadNovelFull',
+                    title,
+                    url: fullUrl,
+                    cover,
+                    author: 'ReadNovelFull Author',
+                    chapters: '',
+                    rating: '',
+                    tags: ['ReadNovelFull'],
+                    summary: '',
+                    status: 'Ongoing'
+                });
+            }
+            return results;
+        } catch (_) {
+            return [];
+        }
     }
 
     async function searchLnori(query) {
@@ -4311,11 +4540,26 @@
         if (src === 'all' || src === 'royalroad') {
             runners.push(searchRoyalRoad(cleanQ).catch(() => []));
         }
-        if (src === 'all' || src === 'novelfire') {
-            runners.push(searchNovelFire(cleanQ).catch(() => []));
+        if (src === 'all' || src === 'novelfull') {
+            runners.push(searchNovelFull(cleanQ).catch(() => []));
         }
         if (src === 'all' || src === 'novelbin') {
             runners.push(searchNovelBin(cleanQ).catch(() => []));
+        }
+        if (src === 'all' || src === 'novelpub') {
+            runners.push(searchNovelPub(cleanQ).catch(() => []));
+        }
+        if (src === 'all' || src === 'freewebnovel') {
+            runners.push(searchFreeWebNovel(cleanQ).catch(() => []));
+        }
+        if (src === 'all' || src === 'boxnovel') {
+            runners.push(searchBoxNovel(cleanQ).catch(() => []));
+        }
+        if (src === 'all' || src === 'readnovelfull') {
+            runners.push(searchReadNovelFull(cleanQ).catch(() => []));
+        }
+        if (src === 'all' || src === 'novelfire') {
+            runners.push(searchNovelFire(cleanQ).catch(() => []));
         }
         if (src === 'all' || src === 'lnori') {
             runners.push(searchLnori(cleanQ).catch(() => []));

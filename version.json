@@ -1,9 +1,9 @@
 {
-  "version": "8.17.41",
-  "versionCode": 8281,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.41/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.41/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.41",
+  "version": "8.17.42",
+  "versionCode": 8282,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.42/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.42/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.42",
   "releaseDate": "2026-09-22",
-  "releaseNotes": "v8.17.41: Added true in-place EPUB continuation preserving 100% of original photos, custom CSS styling, drop-caps, fonts, and Moon+ Reader bookmarks, and upgraded online source switching with immediate multi-source search and direct custom URL entry."
+  "releaseNotes": "v8.17.42: Preserved 100% of EPUB formatting, photos, and short/image chapters (including Chapter 4) across folder re-locations and re-downloads; added save location picker to the continuation modal; expanded continuation search to all supported online providers."
 }
