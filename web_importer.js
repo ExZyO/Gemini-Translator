@@ -244,11 +244,26 @@
 
         // 5. Preserve Alignment (Center & Right)
         processed = processed
-            .replace(/<(?:p|div)\b[^>]*class="[^"]*(?:text-center|align-center|aligncenter|has-text-align-center|center)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, '\n\n[center]$1[/center]\n\n')
-            .replace(/<(?:p|div)\b[^>]*style="[^"]*text-align:\s*center[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, '\n\n[center]$1[/center]\n\n')
-            .replace(/<center\b[^>]*>([\s\S]*?)<\/center>/gi, '\n\n[center]$1[/center]\n\n')
-            .replace(/<(?:p|div)\b[^>]*class="[^"]*(?:text-right|align-right|has-text-align-right)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, '\n\n[right]$1[/right]\n\n')
-            .replace(/<(?:p|div)\b[^>]*style="[^"]*text-align:\s*right[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, '\n\n[right]$1[/right]\n\n');
+            .replace(/<(?:p|div)\b[^>]*class="[^"]*(?:text-center|align-center|aligncenter|has-text-align-center|center)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, (m, inner) => {
+                const parts = inner.split(/<br\s*[\/]?>/gi);
+                return '\n\n' + parts.map(p => `[center]${p.trim()}[/center]`).join('\n') + '\n\n';
+            })
+            .replace(/<(?:p|div)\b[^>]*style="[^"]*text-align:\s*center[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, (m, inner) => {
+                const parts = inner.split(/<br\s*[\/]?>/gi);
+                return '\n\n' + parts.map(p => `[center]${p.trim()}[/center]`).join('\n') + '\n\n';
+            })
+            .replace(/<center\b[^>]*>([\s\S]*?)<\/center>/gi, (m, inner) => {
+                const parts = inner.split(/<br\s*[\/]?>/gi);
+                return '\n\n' + parts.map(p => `[center]${p.trim()}[/center]`).join('\n') + '\n\n';
+            })
+            .replace(/<(?:p|div)\b[^>]*class="[^"]*(?:text-right|align-right|has-text-align-right)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, (m, inner) => {
+                const parts = inner.split(/<br\s*[\/]?>/gi);
+                return '\n\n' + parts.map(p => `[right]${p.trim()}[/right]`).join('\n') + '\n\n';
+            })
+            .replace(/<(?:p|div)\b[^>]*style="[^"]*text-align:\s*right[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, (m, inner) => {
+                const parts = inner.split(/<br\s*[\/]?>/gi);
+                return '\n\n' + parts.map(p => `[right]${p.trim()}[/right]`).join('\n') + '\n\n';
+            });
 
         // 6. Preserve Blockquotes & Author Notes
         processed = processed.replace(/<blockquote\b[^>]*>([\s\S]*?)<\/blockquote>/gi, (match, inner) => {
@@ -281,8 +296,20 @@
 
         // 8. Preserve Inline Formatting (bold, italic, strikethrough, code, ruby)
         processed = processed
-            .replace(/<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**')
-            .replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*')
+            .replace(/<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, (m, inner) => {
+                const parts = inner.split(/<br\s*[\/]?>/gi);
+                return parts.map(p => {
+                    const cleanP = p.trim();
+                    return cleanP ? `**${cleanP}**` : '';
+                }).join('<br>');
+            })
+            .replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, (m, inner) => {
+                const parts = inner.split(/<br\s*[\/]?>/gi);
+                return parts.map(p => {
+                    const cleanP = p.trim();
+                    return cleanP ? `*${cleanP}*` : '';
+                }).join('<br>');
+            })
             .replace(/<(?:s|del|strike)\b[^>]*>([\s\S]*?)<\/(?:s|del|strike)>/gi, '~~$1~~')
             .replace(/<code\b[^>]*>([\s\S]*?)<\/code>/gi, '`$1`')
             .replace(/<ruby\b[^>]*>([\s\S]*?)<rt\b[^>]*>([\s\S]*?)<\/rt><\/ruby>/gi, '$1($2)');
@@ -553,10 +580,8 @@
 
         // 3. Tiered Public Proxy Failover Pool (Fast sub-second proxies prioritized)
         const proxyPool = [
-            { name: 'corsproxy.io', getUrl: (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
-            { name: 'corsproxy.org', getUrl: (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}` },
-            { name: 'allorigins.win', getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
-            { name: 'codetabs.com', getUrl: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
+            { name: 'cors.eu.org', getUrl: (u) => `https://cors.eu.org/${u}` },
+            { name: 'allorigins.win', getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` }
         ];
 
         for (let i = 0; i < proxyPool.length; i++) {
@@ -566,7 +591,7 @@
             let onParentAbort = null;
             try {
                 const proxyCtrl = new AbortController();
-                proxyTimer = setTimeout(() => proxyCtrl.abort(), 4500);
+                proxyTimer = setTimeout(() => proxyCtrl.abort(), 7000);
 
                 onParentAbort = () => {
                     clearTimeout(proxyTimer);

@@ -5914,6 +5914,10 @@ const formatModelName = (id, displayName) => {
           return handleStartFetch(false, null, false, target);
         }
 
+        if (sourceOverride === 'all') {
+          setNovelSearchFilter('all');
+        }
+
         setIsSearchingNovels(true);
         setIsSearchResultsCollapsed(false);
         setWebImportStatus('Searching novel sources and installed plugins…');
@@ -5965,6 +5969,20 @@ const formatModelName = (id, displayName) => {
             } catch (pErr) {
               console.warn('[handleSearchNovels] Plugin search failed:', pErr);
             }
+          }
+
+          // If a specific source was requested but yielded 0 results, fall back to searching all sources
+          if ((!results || results.length === 0) && sourceOverride !== 'all' && sourceOverride !== 'plugins_only') {
+            try {
+              if (window.WebNovelImporter?.searchNovels) {
+                const fallbackResults = await window.WebNovelImporter.searchNovels(q || target, 'all');
+                if (Array.isArray(fallbackResults) && fallbackResults.length > 0) {
+                  results = fallbackResults;
+                  setNovelSearchFilter('all');
+                  toast(`No results on ${sourceOverride}, but found ${results.length} across other sources!`, 'info');
+                }
+              }
+            } catch (_) {}
           }
 
           setNovelSearchResults(results || []);

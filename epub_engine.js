@@ -968,6 +968,12 @@ hr {
           // Smart typographic formatter
           const smartFormat = (raw) => {
             let s = escapeXml(raw);
+            s = s.replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '');
+            s = s.replace(/\*{4,}/g, '**');
+            if (s.startsWith('**') && !s.slice(2).includes('**')) s = s.slice(2);
+            if (s.endsWith('**') && !s.slice(0, -2).includes('**')) s = s.slice(0, -2);
+            if (s.startsWith('*') && !s.slice(1).includes('*')) s = s.slice(1);
+            if (s.endsWith('*') && !s.slice(0, -1).includes('*')) s = s.slice(0, -1);
             if (useSmartQuotes) {
               // Smart quotes: "..." -> curly double quotes
               s = s.replace(/&quot;([^&]*?)&quot;/g, '\u201c$1\u201d');
@@ -1005,9 +1011,10 @@ hr {
             }
 
             // Centered elements [center]...[/center] or <center>...</center>
-            const centerMatch = trimmed.match(/^(?:\[center\]|<center>|<p\s+class="text-center">)([\s\S]*?)(?:\[\/center\]|<\/center>|<\/p>)?$/i);
+            const centerMatch = trimmed.match(/^(?:\[center\]|<center>|<p\s+class="text-center">)([\s\S]*?)(?:\[\/center\]|<\/center>|<\/p>)?$/i)
+                             || trimmed.match(/^([\s\S]*?)\[\/center\]$/i);
             if (centerMatch) {
-              const inner = centerMatch[1].trim();
+              const inner = (centerMatch[1] || '').replace(/\[\/?center\]/gi, '').trim();
               if (!hasEncounteredParagraph) {
                 const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
                 if (typeof checkTitleEcho === 'function' && checkTitleEcho(inner, chTitle, ch.originalTitle)) {
@@ -1020,11 +1027,21 @@ hr {
             }
 
             // Right-aligned elements [right]...[/right]
-            const rightMatch = trimmed.match(/^(?:\[right\]|<p\s+class="text-right">)([\s\S]*?)(?:\[\/right\]|<\/p>)?$/i);
+            const rightMatch = trimmed.match(/^(?:\[right\]|<p\s+class="text-right">)([\s\S]*?)(?:\[\/right\]|<\/p>)?$/i)
+                            || trimmed.match(/^([\s\S]*?)\[\/right\]$/i);
             if (rightMatch) {
-              bodyHtml.push(`<p class="text-right">${smartFormat(rightMatch[1].trim())}</p>`);
+              const inner = (rightMatch[1] || '').replace(/\[\/?right\]/gi, '').trim();
+              bodyHtml.push(`<p class="text-right">${smartFormat(inner)}</p>`);
               hasEncounteredParagraph = true;
               continue;
+            }
+
+            // Before first narrative paragraph, check if line is a duplicate title echo!
+            if (!hasEncounteredParagraph) {
+              const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
+              if (typeof checkTitleEcho === 'function' && checkTitleEcho(trimmed, chTitle, ch.originalTitle)) {
+                continue; // Suppress duplicate title line before narrative begins!
+              }
             }
 
             // Markdown headings: render them and remove duplicate title echoes from scraped pages.

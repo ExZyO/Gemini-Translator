@@ -968,16 +968,20 @@
         }
 
         // 4. Centered text: [center]...[/center] or <center>...</center>
-        const centerM = rawLine.match(/^(?:\[center\]|<center>|<p\s+class="text-center">)([\s\S]*?)(?:\[\/center\]|<\/center>|<\/p>)?$/i);
+        const centerM = rawLine.match(/^(?:\[center\]|<center>|<p\s+class="text-center">)([\s\S]*?)(?:\[\/center\]|<\/center>|<\/p>)?$/i)
+                     || rawLine.match(/^([\s\S]*?)\[\/center\]$/i);
         if (centerM) {
-          elems.push({ type: 'center', content: centerM[1].trim(), id: `p_${elIdx++}` });
+          const inner = (centerM[1] || '').replace(/\[\/?center\]/gi, '').trim();
+          elems.push({ type: 'center', content: inner, id: `p_${elIdx++}` });
           continue;
         }
 
         // 5. Right-aligned text: [right]...[/right]
-        const rightM = rawLine.match(/^(?:\[right\]|<p\s+class="text-right">)([\s\S]*?)(?:\[\/right\]|<\/p>)?$/i);
+        const rightM = rawLine.match(/^(?:\[right\]|<p\s+class="text-right">)([\s\S]*?)(?:\[\/right\]|<\/p>)?$/i)
+                    || rawLine.match(/^([\s\S]*?)\[\/right\]$/i);
         if (rightM) {
-          elems.push({ type: 'right', content: rightM[1].trim(), id: `p_${elIdx++}` });
+          const inner = (rightM[1] || '').replace(/\[\/?right\]/gi, '').trim();
+          elems.push({ type: 'right', content: inner, id: `p_${elIdx++}` });
           continue;
         }
 
@@ -1993,7 +1997,14 @@
         ? { textAlign: 'center', textIndent: 0 }
         : (el.type === 'right' ? { textAlign: 'right', textIndent: 0 } : {});
 
-      const rawText = el.content || '';
+      let rawText = (el.content || '')
+        .replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '')
+        .replace(/\*{4,}/g, '**');
+      if (rawText.startsWith('**') && !rawText.slice(2).includes('**')) rawText = rawText.slice(2);
+      if (rawText.endsWith('**') && !rawText.slice(0, -2).includes('**')) rawText = rawText.slice(0, -2);
+      if (rawText.startsWith('*') && !rawText.slice(1).includes('*')) rawText = rawText.slice(1);
+      if (rawText.endsWith('*') && !rawText.slice(0, -1).includes('*')) rawText = rawText.slice(0, -1);
+      rawText = rawText.trim();
       const fnRegex = /\[([¹²³⁴⁵⁶⁷⁸⁹⁰]+|\d+)\]/g;
       const segments = [];
       let lastIdx = 0;

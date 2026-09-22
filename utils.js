@@ -189,12 +189,14 @@ function parseChapterTitleComponents(str) {
     let s = String(str).trim();
     if (typeof decodeHtmlEntities === 'function') s = decodeHtmlEntities(s);
 
-    // Strip markdown headings, centering tags, and markdown emphasis
-    s = s.replace(/^#{1,6}\s+/, '')
-         .replace(/^(?:\[center\]|<center>|<p[^>]*class="[^"]*text-center[^"]*"[^>]*>)\s*/i, '')
-         .replace(/\s*(?:\[\/center\]|<\/center>|<\/p>)$/i, '')
-         .replace(/^(\*{1,2}|_{1,2})(.*?)\1$/, '$2')
-         .trim();
+    // Strip BBCode tags (opening and closing: [center], [/center], [b], [/b], etc.)
+    s = s.replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '');
+    // Strip HTML tags: <center>, </center>, <p...>, </p>, <b>, </b>, etc.
+    s = s.replace(/<\/?[a-z0-9]+[^>]*>/gi, '');
+    // Strip leading markdown headings: ###
+    s = s.replace(/^#{1,6}\s+/, '');
+    // Strip leading and trailing markdown formatting: **, *, __, _, ~~, `, etc.
+    s = s.replace(/^[*_~`]+|[*_~`]+$/g, '').trim();
 
     // Strip volume / book / arc prefix if present (e.g. "Volume 1 Chapter 29", "Vol. 1 -", "Book 2")
     s = s.replace(/^(?:volume|vol\.?|book|v\.?)\s*\d+[\s:–—-]*(?:chapter|ch\.?|ep\.?|episode|part|section|act)?\s*\d*[\s:–—-]*/i, '');
@@ -443,6 +445,11 @@ function cleanNovelProse(text) {
     t = t.replace(/^\s*---\s*Page\s*End\s*---\s*$/gim, '');
     // Strip residual WordPress / Tumblr / social widget lines
     t = t.replace(/^\s*(?:Advertisements?|Sponsored|Share on (?:Facebook|Twitter|Reddit)|Follow us on .+|Join our Discord.+|Support (?:us|me) on .+|Donate .+|Patreon .+|Buy me a coffee.+)\s*$/gim, '');
+    // Strip residual BBCode alignment and formatting tags that should not appear as raw text in prose
+    t = t.replace(/\[\/?(?:b|i|u|s|color|size|font|align)[^\]]*\]/gi, '');
+    t = t.replace(/(?<!\[center\][\s\S]*?)\[\/center\]/gi, '');
+    t = t.replace(/(?<!\[right\][\s\S]*?)\[\/right\]/gi, '');
+    t = t.replace(/\*{4,}/g, '**');
     // Strip orphaned HTML tags (preserve markdown ![]() and html img if needed)
     t = t.replace(/<\/?(?:div|span|br|a|script|style|iframe|button|input|form|nav|header|footer|aside|section|figure|figcaption)[^>]*>/gi, '');
     // Normalize double+ blank lines into single blank line
