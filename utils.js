@@ -448,8 +448,9 @@ function cleanNovelProse(text) {
     // Strip residual BBCode alignment and formatting tags that should not appear as raw text in prose
     t = t.replace(/\[\/?(?:b|i|u|s|color|size|font|align)[^\]]*\]/gi, '');
     t = t.replace(/(?<!\[center\][\s\S]*?)\[\/center\]/gi, '');
-    t = t.replace(/(?<!\[right\][\s\S]*?)\[\/right\]/gi, '');
     t = t.replace(/\*{4,}/g, '**');
+    t = t.replace(/\*\*&gt;\s*/g, '**').replace(/\*\*>\s*/g, '**');
+    t = t.replace(/__&gt;\s*/g, '__').replace(/__>\s*/g, '__');
     // Strip orphaned HTML tags (preserve markdown ![]() and html img if needed)
     t = t.replace(/<\/?(?:div|span|br|a|script|style|iframe|button|input|form|nav|header|footer|aside|section|figure|figcaption)[^>]*>/gi, '');
     // Normalize double+ blank lines into single blank line

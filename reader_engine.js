@@ -1965,7 +1965,7 @@
         },
           noteParagraphs.map((np, npIdx) => h('p', {
             key: `np_${npIdx}`,
-            style: { margin: npIdx === noteParagraphs.length - 1 ? 0 : '0 0 8px 0', textIndent: 0 }
+            style: { margin: npIdx === noteParagraphs.length - 1 ? 0 : '0 0 8px 0', textIndent: 0, textAlign: 'left' }
           }, np))
         );
       }
@@ -1988,7 +1988,7 @@
         },
           bqParagraphs.map((bp, bpIdx) => h('p', {
             key: `bp_${bpIdx}`,
-            style: { margin: bpIdx === bqParagraphs.length - 1 ? 0 : '0 0 6px 0', textIndent: 0 }
+            style: { margin: bpIdx === bqParagraphs.length - 1 ? 0 : '0 0 6px 0', textIndent: 0, textAlign: 'left' }
           }, bp))
         );
       }
@@ -2000,6 +2000,8 @@
       let rawText = (el.content || '')
         .replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '')
         .replace(/\*{4,}/g, '**');
+      rawText = rawText.replace(/^(\*{1,2}|_{1,2})(&gt;|>)\s*/, '$1');
+      rawText = rawText.replace(/^(&gt;|>)\s*(\*{1,2}|_{1,2})/, '$1');
       if (rawText.startsWith('**') && !rawText.slice(2).includes('**')) rawText = rawText.slice(2);
       if (rawText.endsWith('**') && !rawText.slice(0, -2).includes('**')) rawText = rawText.slice(0, -2);
       if (rawText.startsWith('*') && !rawText.slice(1).includes('*')) rawText = rawText.slice(1);

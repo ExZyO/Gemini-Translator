@@ -299,14 +299,14 @@
             .replace(/<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, (m, inner) => {
                 const parts = inner.split(/<br\s*[\/]?>/gi);
                 return parts.map(p => {
-                    const cleanP = p.trim();
+                    const cleanP = p.replace(/^(&gt;|>)\s*/, '').trim();
                     return cleanP ? `**${cleanP}**` : '';
                 }).join('<br>');
             })
             .replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, (m, inner) => {
                 const parts = inner.split(/<br\s*[\/]?>/gi);
                 return parts.map(p => {
-                    const cleanP = p.trim();
+                    const cleanP = p.replace(/^(&gt;|>)\s*/, '').trim();
                     return cleanP ? `*${cleanP}*` : '';
                 }).join('<br>');
             })

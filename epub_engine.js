@@ -454,6 +454,9 @@ p {
   line-height: 1.85 !important;
   text-indent: 0 !important;
   ${useJustify ? 'text-align: justify;' : 'text-align: left;'}
+  -webkit-hyphens: auto;
+  -moz-hyphens: auto;
+  hyphens: auto;
   font-size: 1em;
   font-weight: 400;
 }
@@ -511,12 +514,16 @@ blockquote {
   color: #475569;
   background-color: #f8fafc;
   page-break-inside: avoid;
+  text-align: left !important;
+  text-align-last: left !important;
 }
 blockquote p {
-  text-indent: 0;
-  margin-bottom: 0.5em;
+  text-indent: 0 !important;
+  margin-bottom: 0.5em !important;
+  text-align: left !important;
+  text-align-last: left !important;
 }
-blockquote p:last-child { margin-bottom: 0; }
+blockquote p:last-child { margin-bottom: 0 !important; }
 
 /* ── Author Notes ── */
 .author-note, blockquote.author-note {
@@ -527,10 +534,14 @@ blockquote p:last-child { margin-bottom: 0; }
   border-radius: 6px;
   font-size: 0.95em;
   page-break-inside: avoid;
+  text-align: left !important;
+  text-align-last: left !important;
 }
 .author-note p, blockquote.author-note p {
   text-indent: 0 !important;
   margin-bottom: 0.6em !important;
+  text-align: left !important;
+  text-align-last: left !important;
 }
 .author-note p:last-child, blockquote.author-note p:last-child {
   margin-bottom: 0 !important;
@@ -974,6 +985,11 @@ hr {
             if (s.endsWith('**') && !s.slice(0, -2).includes('**')) s = s.slice(0, -2);
             if (s.startsWith('*') && !s.slice(1).includes('*')) s = s.slice(1);
             if (s.endsWith('*') && !s.slice(0, -1).includes('*')) s = s.slice(0, -1);
+
+            // Clean stray ASCII prompt markers inside or preceding bold/italic: **&gt; -> ** or &gt;** -> **
+            s = s.replace(/^(\*{1,2}|_{1,2})&gt;\s*/, '$1');
+            s = s.replace(/^&gt;\s*(\*{1,2}|_{1,2})/, '$1');
+
             if (useSmartQuotes) {
               // Smart quotes: "..." -> curly double quotes
               s = s.replace(/&quot;([^&]*?)&quot;/g, '\u201c$1\u201d');
@@ -987,15 +1003,22 @@ hr {
             s = s.replace(/---?/g, '\u2014');
             // Normalize triple dots to proper ellipsis
             s = s.replace(/\.{3,}/g, '\u2026');
-            // Bold: **text** or __text__
-            s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-            s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
-            // Italic: *text* or _text_ (single, not inside words)
-            s = s.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '<em>$1</em>');
-            s = s.replace(/(?<!\w)_([^_]+)_(?!\w)/g, '<em>$1</em>');
-            // Strikethrough: ~~text~~
+
+            // 1. Triple bold-italic: ***text*** or ___text___
+            s = s.replace(/\*\*\*([^\n]+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+            s = s.replace(/___([^\n]+?)___/g, '<strong><em>$1</em></strong>');
+
+            // 2. Bold: **text** or __text__ (supports nested italics)
+            s = s.replace(/\*\*([^\n]+?)\*\*/g, '<strong>$1</strong>');
+            s = s.replace(/__([^\n]+?)__/g, '<strong>$1</strong>');
+
+            // 3. Italic: *text* or _text_ (single, not inside words)
+            s = s.replace(/(?<!\w)\*([^*\n]+?)\*(?!\w)/g, '<em>$1</em>');
+            s = s.replace(/(?<!\w)_([^_\n]+?)_(?!\w)/g, '<em>$1</em>');
+
+            // 4. Strikethrough: ~~text~~
             s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-            // Inline code: `text`
+            // 5. Inline code: `text`
             s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
             return s;
           };
