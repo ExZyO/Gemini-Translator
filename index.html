@@ -865,7 +865,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.39';
+    let VERSION = '8.17.40';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -5471,9 +5471,11 @@ const formatModelName = (id, displayName) => {
                     title: n.title,
                     author: n.author,
                     summary: n.summary,
+                    cover: n.cover || '',
                     tags: n.tags,
                     chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
                     totalChapterCount: n.totalChapterCount || (n.chapterList ? n.chapterList.length : (n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0))),
+                    volumeCount: n.volumeCount || 0,
                     isIncomplete: !!n.isIncomplete,
                     isTranslated: !!n.isTranslated || (n.title || '').includes('(Translated)'),
                     inSavedSpace: !!n.inSavedSpace,
@@ -5481,7 +5483,9 @@ const formatModelName = (id, displayName) => {
                     timestamp: n.timestamp,
                     isEpub: n.isEpub,
                     sourceUrl: n.sourceUrl,
-                    chapterList: n.chapterList || []
+                    chapterList: n.chapterList || [],
+                    folderTreeUri: n.folderTreeUri || '',
+                    folderPath: n.folderPath || ''
                   };
                   if (!seenIds.has(item.id)) {
                     seenIds.add(item.id);
@@ -5498,10 +5502,18 @@ const formatModelName = (id, displayName) => {
                 const localList = JSON.parse(metaStr);
                 if (Array.isArray(localList)) {
                   localList.forEach(item => {
-                    if (item && item.id && !seenIds.has(item.id) && !seenTitles.has(item.title)) {
-                      seenIds.add(item.id);
-                      if (item.title) seenTitles.add(item.title);
-                      combined.push({ ...item, inSavedSpace: !!item.inSavedSpace });
+                    if (item && item.id) {
+                      const existing = combined.find(c => c.id === item.id || (item.title && c.title && c.title.trim().toLowerCase() === item.title.trim().toLowerCase()));
+                      if (existing) {
+                        if (!existing.cover && item.cover) existing.cover = item.cover;
+                        if (!existing.folderPath && item.folderPath) existing.folderPath = item.folderPath;
+                        if (!existing.folderTreeUri && item.folderTreeUri) existing.folderTreeUri = item.folderTreeUri;
+                        if (item.inSavedSpace) existing.inSavedSpace = true;
+                      } else if (!seenIds.has(item.id) && !seenTitles.has(item.title)) {
+                        seenIds.add(item.id);
+                        if (item.title) seenTitles.add(item.title);
+                        combined.push({ ...item, inSavedSpace: !!item.inSavedSpace });
+                      }
                     }
                   });
                 }
@@ -5517,6 +5529,39 @@ const formatModelName = (id, displayName) => {
           }
         })();
       }, []);
+
+      // Lazy cover art hydration from IndexedDB for any novels missing covers
+      useEffect(() => {
+        if (!window.GeminiNovelDB) return;
+        const missingCovers = (webImportHistory || []).filter(b => b && !b.cover && b.id);
+        if (missingCovers.length === 0) return;
+
+        let isMounted = true;
+        (async () => {
+          try {
+            const updates = [];
+            for (const b of missingCovers) {
+              const full = await window.GeminiNovelDB.getNovel(b.id);
+              if (full && full.cover) {
+                updates.push({ id: b.id, cover: full.cover });
+              }
+            }
+            if (updates.length > 0 && isMounted) {
+              setWebImportHistory(prev => {
+                const map = new Map(updates.map(u => [u.id, u.cover]));
+                const next = (prev || []).map(item => map.has(item.id) ? { ...item, cover: map.get(item.id) } : item);
+                try {
+                  localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(next));
+                } catch(e) {}
+                return next;
+              });
+            }
+          } catch(e) {
+            console.warn('Cover hydration warning:', e);
+          }
+        })();
+        return () => { isMounted = false; };
+      }, [webImportHistory?.length]);
 
       const [studioSubTab, setStudioSubTab] = useState(() => localStorage.getItem('studioSubTab') || 'split');
       const [error, _setError] = useState('');
@@ -6799,7 +6844,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8279);
+      const [appVersionCode, setAppVersionCode] = useState(8280);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [installingPluginId, setInstallingPluginId] = useState(null);
@@ -9779,12 +9824,17 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             title: n.title || 'Untitled Novel',
             author: n.author || 'Author',
             summary: (n.summary || '').substring(0, 300),
+            cover: n.cover || '',
             tags: n.tags || [],
             chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
+            totalChapterCount: n.totalChapterCount || (n.chapterList ? n.chapterList.length : (n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0))),
+            volumeCount: n.volumeCount || 0,
             wordCount: n.wordCount || 0,
             timestamp: n.timestamp || new Date().toISOString(),
             isEpub: !!n.isEpub,
-            sourceUrl: n.sourceUrl || ''
+            sourceUrl: n.sourceUrl || '',
+            folderTreeUri: n.folderTreeUri || '',
+            folderPath: n.folderPath || ''
           }));
           setWebImportHistory(synthesizedMeta);
           try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(synthesizedMeta)); } catch (e) {}
@@ -14479,15 +14529,42 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                           border: '1px solid var(--hairline)'
                         }
                       },
-                        item.cover ? h('img', {
-                          src: item.cover,
-                          alt: item.title,
-                          referrerPolicy: 'no-referrer',
-                          onError: (e) => { e.target.style.display = 'none'; },
-                          style: { width: 68, height: 96, borderRadius: 6, objectFit: 'cover', flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }
-                        }) : h('div', {
-                          style: { width: 68, height: 96, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
-                        }, '📖'),
+                        h('div', {
+                          style: {
+                            width: 68,
+                            height: 96,
+                            borderRadius: 6,
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                            position: 'relative',
+                            background: 'var(--panel)',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }
+                        },
+                          item.cover ? h('img', {
+                            src: item.cover,
+                            alt: item.title,
+                            referrerPolicy: 'no-referrer',
+                            onError: (e) => {
+                              e.target.style.display = 'none';
+                              if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                            },
+                            style: { width: '100%', height: '100%', objectFit: 'cover' }
+                          }) : null,
+                          h('div', {
+                            style: {
+                              display: item.cover ? 'none' : 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '100%',
+                              height: '100%',
+                              fontSize: 24
+                            }
+                          }, '📖')
+                        ),
 
                         h('div', { style: { flex: 1, minWidth: 0 } },
                           h('div', { style: { display: 'flex', gap: 5, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' } },
@@ -14575,15 +14652,41 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                         border: '1px solid var(--hairline)'
                       }
                     },
-                      item.cover ? h('img', {
-                        src: item.cover,
-                        alt: 'Cover',
-                        referrerPolicy: 'no-referrer',
-                        onError: (e) => { e.target.style.display = 'none'; },
-                        style: { width: 64, height: 92, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
-                      }) : h('div', {
-                        style: { width: 64, height: 92, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
-                      }, '🎧'),
+                      h('div', {
+                        style: {
+                          width: 64,
+                          height: 92,
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          flexShrink: 0,
+                          position: 'relative',
+                          background: 'var(--panel)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }
+                      },
+                        item.cover ? h('img', {
+                          src: item.cover,
+                          alt: 'Cover',
+                          referrerPolicy: 'no-referrer',
+                          onError: (e) => {
+                            e.target.style.display = 'none';
+                            if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                          },
+                          style: { width: '100%', height: '100%', objectFit: 'cover' }
+                        }) : null,
+                        h('div', {
+                          style: {
+                            display: item.cover ? 'none' : 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '100%',
+                            height: '100%',
+                            fontSize: 24
+                          }
+                        }, '🎧')
+                      ),
 
                       h('div', { style: { flex: 1, minWidth: 0 } },
                         h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
@@ -14805,15 +14908,41 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                           }
                         },
                           h('div', { style: { display: 'flex', gap: 12, alignItems: 'flex-start' } },
-                            b.cover ? h('img', {
-                              src: b.cover,
-                              alt: 'Cover',
-                              referrerPolicy: 'no-referrer',
-                              onError: (e) => { e.target.style.display = 'none'; },
-                              style: { width: 62, height: 88, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
-                            }) : h('div', {
-                              style: { width: 62, height: 88, borderRadius: 6, background: 'var(--ember-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }
-                            }, '🎧'),
+                            h('div', {
+                              style: {
+                                width: 62,
+                                height: 88,
+                                borderRadius: 6,
+                                overflow: 'hidden',
+                                flexShrink: 0,
+                                position: 'relative',
+                                background: 'var(--ember-2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }
+                            },
+                              b.cover ? h('img', {
+                                src: b.cover,
+                                alt: 'Cover',
+                                referrerPolicy: 'no-referrer',
+                                onError: (e) => {
+                                  e.target.style.display = 'none';
+                                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                                },
+                                style: { width: '100%', height: '100%', objectFit: 'cover' }
+                              }) : null,
+                              h('div', {
+                                style: {
+                                  display: b.cover ? 'none' : 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '100%',
+                                  height: '100%',
+                                  fontSize: 24
+                                }
+                              }, '🎧')
+                            ),
 
                             h('div', { style: { flex: 1, minWidth: 0 } },
                               h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 } },
@@ -14923,15 +15052,41 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                         style: { display: 'flex', flexDirection: 'column', gap: 8, opacity: 0.95 }
                       },
                         h('div', { style: { display: 'flex', gap: 12, alignItems: 'flex-start' } },
-                          item.cover ? h('img', {
-                            src: item.cover,
-                            alt: 'Cover',
-                            referrerPolicy: 'no-referrer',
-                            onError: (e) => { e.target.style.display = 'none'; },
-                            style: { width: 52, height: 72, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
-                          }) : h('div', {
-                            style: { width: 52, height: 72, borderRadius: 6, background: 'var(--ember-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }
-                          }, '📖'),
+                          h('div', {
+                            style: {
+                              width: 52,
+                              height: 72,
+                              borderRadius: 6,
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                              position: 'relative',
+                              background: 'var(--ember-2)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }
+                          },
+                            item.cover ? h('img', {
+                              src: item.cover,
+                              alt: 'Cover',
+                              referrerPolicy: 'no-referrer',
+                              onError: (e) => {
+                                e.target.style.display = 'none';
+                                if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                              },
+                              style: { width: '100%', height: '100%', objectFit: 'cover' }
+                            }) : null,
+                            h('div', {
+                              style: {
+                                display: item.cover ? 'none' : 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '100%',
+                                height: '100%',
+                                fontSize: 22
+                              }
+                            }, '📖')
+                          ),
                           h('div', { style: { flex: 1, minWidth: 0 } },
                             h('div', { style: { fontSize: 14.5, fontWeight: 700, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.title || 'Untitled Book'),
                             h('div', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 3 } },
@@ -15116,34 +15271,67 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                       },
                         // Top section with Cover and Info
                         h('div', { style: { display: 'flex', gap: 14, alignItems: 'flex-start' } },
-                          item.cover ? h('img', {
-                            src: item.cover,
-                            alt: 'Cover',
-                            referrerPolicy: 'no-referrer',
-                            onError: (e) => { e.target.style.display = 'none'; },
+                          h('div', {
                             style: {
                               width: 68,
                               height: 94,
                               borderRadius: 10,
-                              objectFit: 'cover',
+                              overflow: 'hidden',
                               flexShrink: 0,
-                              boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
-                              border: '1px solid rgba(255,255,255,0.08)'
-                            }
-                          }) : h('div', {
-                            style: {
-                              width: 68,
-                              height: 94,
-                              borderRadius: 10,
-                              background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15))',
+                              position: 'relative',
+                              background: 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(168,85,247,0.18))',
                               border: '1px solid rgba(255,255,255,0.08)',
+                              boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 26,
-                              flexShrink: 0
+                              justifyContent: 'center'
                             }
-                          }, '📖'),
+                          },
+                            item.cover ? h('img', {
+                              src: item.cover,
+                              alt: item.title || 'Cover',
+                              referrerPolicy: 'no-referrer',
+                              onError: (e) => {
+                                e.target.style.display = 'none';
+                                if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                              },
+                              style: {
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }
+                            }) : null,
+                            h('div', {
+                              style: {
+                                display: item.cover ? 'none' : 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '100%',
+                                height: '100%',
+                                padding: '4px 2px',
+                                textAlign: 'center',
+                                userSelect: 'none'
+                              }
+                            },
+                              h('span', { style: { fontSize: 24, lineHeight: 1 } }, '📖'),
+                              h('span', {
+                                style: {
+                                  fontSize: 9.5,
+                                  fontWeight: 700,
+                                  color: 'var(--paper)',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: 0.5,
+                                  marginTop: 4,
+                                  maxWidth: 60,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  opacity: 0.85
+                                }
+                              }, (item.title || 'Novel').replace(/^[^\w\d\u4e00-\u9fa5\u3040-\u30ff]+/i, '').slice(0, 7))
+                            )
+                          ),
 
                           h('div', { style: { flex: 1, minWidth: 0 } },
                             h('div', { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 } },

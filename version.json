@@ -1,9 +1,9 @@
 {
-  "version": "8.17.39",
-  "versionCode": 8279,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.39/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.39/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.39",
+  "version": "8.17.40",
+  "versionCode": 8280,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.40/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.40/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.40",
   "releaseDate": "2026-09-22",
-  "releaseNotes": "v8.17.39: Apple-inspired UI redesign for Library (Tab 4) and Import (Tab 2). Full-screen immersive Ongoing EPUB Continuation view with automated multi-source and extension searching by title, zero URL typing required, and silent Book ID preservation for Moon+ Reader Pro."
+  "releaseNotes": "v8.17.40: Fixed chapter range filtering in web novel continuation so downloading starts strictly at the requested chapter, and restored library book cover art display with automatic database hydration and resilient fallbacks."
 }

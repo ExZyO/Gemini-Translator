@@ -748,11 +748,20 @@
             }
         }
 
+        const chapterRange = ctrl.chapterRange || poolOptions.chapterRange || null;
+        const hasRange = !!(chapterRange && typeof chapterRange.start === 'number' && chapterRange.start > 0);
+        const rangeStart = hasRange ? Math.max(0, chapterRange.start - 1) : 0;
+        const rangeEnd = (hasRange && typeof chapterRange.end === 'number' && chapterRange.end > 0)
+            ? Math.min(chapterList.length - 1, chapterRange.end - 1)
+            : (chapterList.length - 1);
+        const targetChapterCount = Math.max(1, rangeEnd - rangeStart + 1);
+
         const chapters = [];
         const completedIndices = new Set();
 
-        for (let i = 0; i < chapterList.length; i++) {
+        for (let i = rangeStart; i <= rangeEnd; i++) {
             const item = chapterList[i];
+            if (!item) continue;
             const cleanItemUrl = item.url ? item.url.replace(/\/$/, '') : '';
             const normItemTitle = normalizeTitleForMatching(item.title);
             const exactItemTitle = (item.title || '').trim().toLowerCase();
@@ -781,7 +790,7 @@
         // Build resilient work queue of all pending chapter indices so NO chapter is ever skipped
         const pendingQueue = [];
         const chapterRetryCounts = new Map();
-        for (let i = 0; i < chapterList.length; i++) {
+        for (let i = rangeStart; i <= rangeEnd; i++) {
             if (!completedIndices.has(i)) {
                 pendingQueue.push(i);
             }
@@ -804,7 +813,7 @@
         let isBackingOff = false;
         let consecutiveFailures = 0;
 
-        window.sendTelemetry?.('CRAWL', `Starting ingestion pool (${concurrency} workers, ${interRequestDelay}ms delay) for ${chapterList.length} chapters: ${meta?.title || 'Novel'}`);
+        window.sendTelemetry?.('CRAWL', `Starting ingestion pool (${concurrency} workers, ${interRequestDelay}ms delay) for ${hasRange ? `${targetChapterCount} chapters (Ch. ${rangeStart + 1}–${rangeEnd + 1})` : `${chapterList.length} chapters`}: ${meta?.title || 'Novel'}`);
 
         const worker = async () => {
             while (pendingQueue.length > 0) {
@@ -895,15 +904,15 @@
                     chapters.push(newChapterObj);
                     completedIndices.add(currentIndex);
 
-                    window.sendTelemetry?.('CHAPTER_OK', `Saved Ch ${currentIndex + 1}/${chapterList.length}: ${newChapterObj.title} (${words}w, ${completedIndices.size}/${chapterList.length} done)`);
+                    window.sendTelemetry?.('CHAPTER_OK', `Saved Ch ${currentIndex + 1}/${chapterList.length}: ${newChapterObj.title} (${words}w, ${completedIndices.size}/${targetChapterCount} done)`);
 
                     if (ctrl.onChapterDone && !ctrl.isPaused && !ctrl.isCancelled) {
                         try {
                             ctrl.onChapterDone(newChapterObj, chapters, {
                                 current: completedIndices.size,
                                 completedCount: completedIndices.size,
-                                total: chapterList.length,
-                                totalCount: chapterList.length,
+                                total: targetChapterCount,
+                                totalCount: targetChapterCount,
                                 totalWords: totalWordsEstimate,
                                 chapterList: chapterList,
                                 title: ctrl.novelMeta?.title || meta?.title || '',
@@ -954,7 +963,7 @@
                 }
 
                 completedCount = completedIndices.size;
-                const pct = Math.min(99, Math.round(15 + ((completedCount / chapterList.length) * 84)));
+                const pct = Math.min(99, Math.round(15 + ((completedCount / targetChapterCount) * 84)));
                 const elapsedSec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
                 const min = Math.floor(elapsedSec / 60);
                 const sec = elapsedSec % 60;
@@ -962,12 +971,15 @@
                 const speed = (completedCount / elapsedSec).toFixed(1);
 
                 if (!ctrl.isPaused && !ctrl.isCancelled) {
-                    progressCb?.(` Ingested: ${chapters.length}/${chapterList.length} ch (${pct}%) • ${timeStr} (${speed} ch/s) • ~${totalWordsEstimate.toLocaleString()} words`, pct);
+                    const progressLabel = hasRange
+                        ? ` Ingested: ${completedCount}/${targetChapterCount} new ch (Ch. ${rangeStart + 1}–${rangeEnd + 1}) (${pct}%) • ${timeStr} (${speed} ch/s) • ~${totalWordsEstimate.toLocaleString()} words`
+                        : ` Ingested: ${chapters.length}/${chapterList.length} ch (${pct}%) • ${timeStr} (${speed} ch/s) • ~${totalWordsEstimate.toLocaleString()} words`;
+                    progressCb?.(progressLabel, pct);
 
                     const now = Date.now();
-                    if (now - lastNotifTime > 2000 || completedCount === chapterList.length) {
+                    if (now - lastNotifTime > 2000 || completedCount === targetChapterCount) {
                         lastNotifTime = now;
-                        window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Ingesting novel: ${chapters.length}/${chapterList.length} ch (${pct}%) • ${timeStr}`, pct, true);
+                        window.NativeBridge?.showProgressNotification?.('Gemini Web Importer', `Ingesting novel: ${completedCount}/${targetChapterCount} ch (${pct}%) • ${timeStr}`, pct, true);
                     }
                 }
 
@@ -978,7 +990,7 @@
         };
 
         try {
-            const workers = Array.from({ length: Math.min(concurrency, chapterList.length) }, () => worker());
+            const workers = Array.from({ length: Math.min(concurrency, pendingQueue.length || 1) }, () => worker());
             await Promise.all(workers);
         } finally {
             try {
@@ -989,8 +1001,8 @@
                     window.sendTelemetry?.('CRAWL_DONE', `Novel ingestion completed: ${chapters.length} chapters downloaded and saved.`);
                 } else if (ctrl.isPaused) {
                     window.NativeBridge?.clearProgressNotification?.(false);
-                    window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', `Paused at ${chapters.length}/${chapterList.length} chapters. Saved to Library.`);
-                    window.sendTelemetry?.('CRAWL_PAUSED', `Novel ingestion paused at ${chapters.length}/${chapterList.length} chapters. Saved to Library.`);
+                    window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', `Paused at ${chapters.length}/${targetChapterCount} chapters. Saved to Library.`);
+                    window.sendTelemetry?.('CRAWL_PAUSED', `Novel ingestion paused at ${chapters.length}/${targetChapterCount} chapters. Saved to Library.`);
                 } else if (ctrl.isCancelled) {
                     window.NativeBridge?.clearProgressNotification?.(false);
                     window.sendTelemetry?.('CRAWL_CANCELLED', `Novel ingestion cancelled.`);
@@ -998,9 +1010,13 @@
             } catch(e) {}
         }
 
-        chapters.sort((a, b) => a.idx - b.idx);
+        let finalChapters = chapters;
+        if (hasRange) {
+            finalChapters = chapters.filter(c => c.idx >= rangeStart && c.idx <= rangeEnd);
+        }
+        finalChapters.sort((a, b) => a.idx - b.idx);
         return { 
-            chapters, 
+            chapters: finalChapters, 
             totalWords: totalWordsEstimate, 
             totalImages: totalImagesCount,
             isPaused: !!ctrl.isPaused,
