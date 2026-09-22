@@ -8330,7 +8330,12 @@ const formatModelName = (id, displayName) => {
             return true;
           }
 
-          // 6. Other Studio Modals (Gallery, Find & Replace, Auto-Number, Library)
+          // 6. Other Studio Modals (Gallery Lightbox, Gallery, Find & Replace, Auto-Number, Library)
+          const galLightbox = document.getElementById('edit-gallery-lightbox');
+          if (galLightbox && !galLightbox.classList.contains('hidden')) {
+            galLightbox.classList.add('hidden');
+            return true;
+          }
           const galModal = document.getElementById('edit-gallery-modal');
           if (galModal && !galModal.classList.contains('hidden')) {
             galModal.classList.add('hidden');

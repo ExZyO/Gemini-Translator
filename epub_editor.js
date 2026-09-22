@@ -43,8 +43,20 @@
         s = s.replace(/^.*[\\\/]/, '');
         s = s.replace(/\.(?:xhtml|html|xml)$/i, '');
         s = s.replace(/^b\d+_/i, '');
+        s = s.replace(/^#{1,6}\s+/, ''); // Strip leading markdown headings # Title -> Title
         if (s.includes('_')) s = s.replace(/_/g, ' ');
         s = s.replace(/\s+/g, ' ').trim();
+
+        // Strip web scraper watermarks and website signatures
+        s = s.replace(/\s*(?:\||–|—|-)\s*(?:NovelFull|Royal\s*Road|Wuxiaworld|LightNovelPub|BoxNovel|Scribble\s*Hub|FreeWebNovel|AllNovelFull|ReadNovelFull|NovelBuddy|Re:Library|Witch\s*Cult\s*Translations|Translation\s*Chicken)[^–—\-]*/gi, '');
+        s = s.replace(/\s*\[(?:NovelFull|Royal\s*Road|Wuxiaworld|LightNovelPub|BoxNovel|Scribble\s*Hub|FreeWebNovel|AllNovelFull|ReadNovelFull|NovelBuddy)\]/gi, '');
+        s = s.replace(/\s*\((?:NovelFull|Royal\s*Road|Wuxiaworld|LightNovelPub|BoxNovel|Scribble\s*Hub|FreeWebNovel|AllNovelFull|ReadNovelFull|NovelBuddy)\)/gi, '');
+        s = s.replace(/\s*\[(?:Sponsored|Early\s*Access|Patreon|Bonus|Unedited|Edited|Proofread|MTL|RAW)\]/gi, '');
+        s = s.replace(/\s*\((?:Sponsored|Early\s*Access|Patreon|Bonus|Unedited|Edited|Proofread|MTL|RAW|End\s*of\s*Chapter)\)/gi, '');
+        s = s.replace(/\s*(?:\[\d+\])?\s*[-—–]+\s*FOOTNOTES?\s*[-—–]+[\s\S]*/i, '');
+        s = s.replace(/\s*\[\s*(?:TL|TN|Note|Translator'?s?\s*Note)[:\s][^\]]*\]\s*$/i, '');
+        s = s.replace(/\s*\[[0-9¹²³⁴⁵⁶⁷⁸⁹]+\]\s*$/g, '');
+        s = s.replace(/[¹²³⁴⁵⁶⁷⁸⁹]+$/g, '');
 
         if (/^\d+\.\d+$/.test(s)) return s;
         if (/^E\.?\s*(\d+)$/i.test(s)) return 'E.' + s.match(/^E\.?\s*(\d+)/i)[1];
@@ -74,6 +86,7 @@
         s = s.replace(/^Chapter\s*(\d+)\s*[\-:]\s*[\-:]\s*/i, 'Chapter $1 - ');
         s = s.replace(/^Chapter\s*(\d+)\s*-\s*:\s*/i, 'Chapter $1 - ');
         s = s.replace(/^Chapter\s*(\d+)\s*:\s*-\s*/i, 'Chapter $1 - ');
+        s = s.replace(/^Chapter\s*(\d+)\s*[-:]\s*(?:Chapter|\bCh\b\.?)\s*\1\s*[-:]\s*/i, 'Chapter $1 - ');
 
         if (/^\d+[\.\-:]\s+/.test(s)) {
             const num = s.match(/^(\d+)/)[1];
@@ -81,6 +94,7 @@
             s = 'Chapter ' + parseInt(num, 10) + ' - ' + rest;
         }
         s = s.trim().replace(/^Chapter\s*(\d+)\s*[\-:]\s*$/i, 'Chapter $1');
+        s = s.replace(/[\s\-–—:]+$/, '').trim();
         return s || ('Chapter ' + fallbackIndex);
     }
 
@@ -453,35 +467,70 @@
             </div>
         </div>
 
-        <!-- ═══ MODAL 2: BOOK-WIDE ILLUSTRATION GALLERY ═══ -->
-        <div id="edit-gallery-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
-             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
-             onclick="if(event.target===this) document.getElementById('edit-gallery-modal').classList.add('hidden');">
-            <div class="rounded-2xl shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden"
-                 style="background:var(--ember); border:1px solid var(--hairline);">
-                <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-lg">🖼️</span>
-                        <div>
-                            <h3 class="font-bold text-base" style="color:var(--paper);">Book Illustration Gallery</h3>
-                            <p class="text-xs" style="color:var(--slate);">Manage all illustrations, set book cover, or download images</p>
+        <!-- ═══ MODAL 2: BOOK-WIDE ILLUSTRATION GALLERY (FULLSCREEN) ═══ -->
+        <div id="edit-gallery-modal" class="hidden fixed inset-0 z-50 flex flex-col w-full h-full bg-[#08090d]/95 backdrop-blur-md overflow-hidden">
+            <!-- Header Bar -->
+            <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-800 bg-[#0d0f17] shrink-0">
+                <div class="flex items-center gap-3">
+                    <span class="text-xl">🖼️</span>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-sm sm:text-base text-white">Book Illustration & Cover Gallery</h3>
+                            <span id="edit-gallery-total" class="text-xs px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono">0 images</span>
                         </div>
+                        <p class="text-xs text-slate-400">View covers, chapter art, set book cover, or inspect full-size</p>
                     </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="btn-edit-gallery-upload-new" class="tl-btn text-xs" style="padding:6px 14px;">➕ Upload Image</button>
                     <button type="button" onclick="document.getElementById('edit-gallery-modal').classList.add('hidden')"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors">✕</button>
                 </div>
-                <!-- Gallery Grid -->
-                <div id="edit-gallery-grid" class="p-5 overflow-y-auto custom-scrollbar flex-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
-                     style="max-height:60vh;">
-                    <!-- Dynamically populated with image cards -->
+            </div>
+
+            <!-- Filter Tabs & Controls -->
+            <div class="flex items-center justify-between px-4 sm:px-6 py-2.5 bg-slate-900/70 border-b border-slate-800/80 shrink-0 flex-wrap gap-2">
+                <div class="flex items-center gap-1.5" id="gallery-filter-tabs">
+                    <button type="button" class="gallery-tab active px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white" data-filter="all">All Images</button>
+                    <button type="button" class="gallery-tab px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800" data-filter="covers">Covers</button>
+                    <button type="button" class="gallery-tab px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800" data-filter="chapters">Chapter Art</button>
                 </div>
-                <div class="p-4 flex items-center justify-between gap-3" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
-                    <span id="edit-gallery-total" class="text-xs font-mono" style="color:var(--slate);">0 images total</span>
-                    <div class="flex gap-2">
-                        <button type="button" id="btn-edit-gallery-upload-new" class="tl-btn">➕ Upload New Illustration</button>
-                        <button type="button" onclick="document.getElementById('edit-gallery-modal').classList.add('hidden')" class="tl-btn accent">Done</button>
-                    </div>
+                <span class="text-xs text-slate-500 hidden sm:inline">💡 Tap any image to view in fullscreen lightbox</span>
+            </div>
+
+            <!-- Fullscreen Gallery Grid (Portrait Aspect Ratio for Full Covers) -->
+            <div id="edit-gallery-grid" class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5"
+                 style="touch-action:pan-y; -webkit-overflow-scrolling:touch;">
+                <!-- Dynamically populated with portrait aspect-ratio image cards -->
+            </div>
+
+            <!-- Footer Bar -->
+            <div class="px-4 sm:px-6 py-3 flex items-center justify-between border-t border-slate-800 bg-[#0d0f17] shrink-0">
+                <span class="text-xs text-slate-400 font-mono">100% original illustrations & covers preserved</span>
+                <button type="button" onclick="document.getElementById('edit-gallery-modal').classList.add('hidden')" class="tl-btn accent" style="padding:7px 20px;">Done</button>
+            </div>
+        </div>
+
+        <!-- ═══ MODAL 2B: FULLSCREEN IMAGE LIGHTBOX ═══ -->
+        <div id="edit-gallery-lightbox" class="hidden fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/95 backdrop-blur-lg p-3 sm:p-6"
+             onclick="if(event.target===this) this.classList.add('hidden');">
+            <!-- Top bar -->
+            <div class="w-full flex items-center justify-between py-2.5 px-3 text-white max-w-5xl shrink-0">
+                <span id="lightbox-img-name" class="font-mono text-xs sm:text-sm truncate text-slate-300 max-w-xs sm:max-w-md">image.jpg</span>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="lightbox-set-cover-btn" class="tl-btn accent text-xs" style="padding:6px 12px;">👑 Set as Cover</button>
+                    <button type="button" id="lightbox-download-btn" class="tl-btn text-xs" style="padding:6px 12px;">📥 Download</button>
+                    <button type="button" onclick="document.getElementById('edit-gallery-lightbox').classList.add('hidden')"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-slate-400 hover:text-white bg-white/10 hover:bg-white/20 transition-colors">✕</button>
                 </div>
+            </div>
+            <!-- Main image container -->
+            <div class="flex-1 flex items-center justify-center w-full max-w-5xl overflow-hidden p-2">
+                <img id="lightbox-img" src="" alt="Fullscreen Illustration" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-transform duration-200" />
+            </div>
+            <!-- Bottom caption -->
+            <div class="py-2 text-center text-xs text-slate-400 font-mono shrink-0" id="lightbox-img-meta">
+                Tap anywhere outside or ✕ to close
             </div>
         </div>
 
@@ -504,13 +553,16 @@
                         <label class="cap" style="display:block; margin-bottom:4px;">Replace With</label>
                         <input type="text" id="edit-replace-input" placeholder="Replacement text…" class="tl-field" style="width:100%;">
                     </div>
-                    <div class="flex items-center justify-between pt-1">
-                        <div style="display:flex; align-items:center; gap:14px;">
+                    <div class="flex items-center justify-between pt-1 flex-wrap gap-2">
+                        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
                             <label class="tl-check">
                                 <input type="checkbox" id="edit-find-case-sensitive"> Match Case
                             </label>
                             <label class="tl-check">
                                 <input type="checkbox" id="edit-find-regex"> Regular Expression (.*)
+                            </label>
+                            <label class="tl-check">
+                                <input type="checkbox" id="edit-find-in-titles" checked> Also in Titles
                             </label>
                         </div>
                         <span id="edit-find-matches-count" class="text-xs font-mono" style="color:var(--iris);">0 occurrences</span>
@@ -538,15 +590,36 @@
                         <label class="cap" style="display:block; margin-bottom:4px;">Format Style</label>
                         <select id="edit-autonumber-style" class="tl-field" style="width:100%;">
                             <option value="prefix">Chapter {N} - {Original Title}</option>
+                            <option value="colon">Chapter {N}: {Original Title}</option>
                             <option value="simple">Chapter {N}</option>
-                            <option value="decimal">1.{N} (Light Novel Sub-Chapter)</option>
+                            <option value="numdot">{N}. {Original Title}</option>
+                            <option value="decimal">1.{N} (Sub-Chapter / Light Novel)</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="cap" style="display:block; margin-bottom:4px;">Start Number</label>
-                        <input type="number" id="edit-autonumber-start" value="1" min="0" class="tl-field" style="width:100%;">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="cap" style="display:block; margin-bottom:4px;">Start Number</label>
+                            <input type="number" id="edit-autonumber-start" value="1" min="0" class="tl-field" style="width:100%;">
+                        </div>
+                        <div>
+                            <label class="cap" style="display:block; margin-bottom:4px;">Padding</label>
+                            <select id="edit-autonumber-pad" class="tl-field" style="width:100%;">
+                                <option value="1">No Padding (1, 2, 3)</option>
+                                <option value="2">2 Digits (01, 02, 03)</option>
+                                <option value="3">3 Digits (001, 002, 003)</option>
+                            </select>
+                        </div>
                     </div>
-                    <p class="text-xs" style="color:var(--slate);">Existing titles will be cleanly formatted with sequential numbering.</p>
+                    <div class="space-y-2 pt-1">
+                        <label class="tl-check" style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" id="edit-autonumber-respect-sub" checked>
+                            <span class="text-xs text-slate-300">Respect Sub-Chapters (e.g. Level 2 chapters)</span>
+                        </label>
+                        <label class="tl-check" style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" id="edit-autonumber-skip-special" checked>
+                            <span class="text-xs text-slate-300">Skip Prologue, Epilogue, Side Stories & Notes</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="p-4 flex items-center justify-end gap-2" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
                     <button type="button" onclick="document.getElementById('edit-autonumber-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
@@ -650,6 +723,110 @@
     </div>
     `;
 
+    // ── Universal XML & Zip Resolution Helpers ──
+    function getXmlElements(doc, tagName) {
+        if (!doc) return [];
+        let list = [];
+        if (typeof doc.getElementsByTagNameNS === 'function') {
+            try { list = Array.from(doc.getElementsByTagNameNS('*', tagName)); } catch (e) {}
+        }
+        if (list.length === 0 && typeof doc.getElementsByTagName === 'function') {
+            try { list = Array.from(doc.getElementsByTagName(tagName)); } catch (e) {}
+        }
+        if (list.length === 0 && typeof doc.querySelectorAll === 'function') {
+            try { list = Array.from(doc.querySelectorAll(tagName)); } catch (e) {}
+        }
+        return list;
+    }
+
+    function getFirstXmlTag(doc, tagName) {
+        const els = getXmlElements(doc, tagName);
+        if (els.length > 0) return els[0];
+        if (typeof doc.getElementsByTagName === 'function') {
+            try {
+                const dc = doc.getElementsByTagName('dc:' + tagName);
+                if (dc.length > 0) return dc[0];
+            } catch (e) {}
+        }
+        try {
+            return doc.querySelector(tagName) || doc.querySelector('dc\\:' + tagName);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function findZipEntry(zip, rawPath, opfDir = '') {
+        if (!rawPath || !zip) return null;
+        const cleanRaw = String(rawPath).split('#')[0].split('?')[0].trim();
+        if (!cleanRaw) return null;
+
+        const normalizePath = (p) => {
+            const parts = p.replace(/\\/g, '/').split('/');
+            const stack = [];
+            for (const part of parts) {
+                if (part === '.' || part === '') continue;
+                if (part === '..') {
+                    if (stack.length > 0) stack.pop();
+                } else {
+                    stack.push(part);
+                }
+            }
+            return stack.join('/');
+        };
+
+        const candidates = new Set();
+        const addCandidates = (p) => {
+            if (!p) return;
+            candidates.add(p);
+            candidates.add(p.replace(/^\.\//, ''));
+            candidates.add(p.replace(/^\//, ''));
+            const norm = normalizePath(p);
+            candidates.add(norm);
+            try {
+                const dec = decodeURIComponent(p);
+                candidates.add(dec);
+                candidates.add(dec.replace(/^\.\//, ''));
+                candidates.add(dec.replace(/^\//, ''));
+                candidates.add(normalizePath(dec));
+            } catch (e) {}
+        };
+
+        addCandidates(cleanRaw);
+        if (opfDir) {
+            addCandidates(opfDir + cleanRaw);
+            addCandidates(normalizePath(opfDir + cleanRaw));
+            if (cleanRaw.startsWith('../')) {
+                addCandidates(cleanRaw.replace(/^\.\.\//, ''));
+            }
+        }
+
+        // 1. Direct candidate matches
+        for (const c of candidates) {
+            if (c && zip.file(c)) return zip.file(c);
+        }
+
+        // 2. Case-insensitive key matching across zip entries
+        const zipKeys = Object.keys(zip.files || {});
+        for (const c of candidates) {
+            if (!c) continue;
+            const lower = c.toLowerCase();
+            const foundKey = zipKeys.find(k => k.toLowerCase() === lower);
+            if (foundKey && zip.file(foundKey)) return zip.file(foundKey);
+        }
+
+        // 3. Basename/filename fallback (e.g. "ch01.xhtml")
+        const baseName = cleanRaw.split('/').pop().toLowerCase();
+        if (baseName) {
+            const foundKey = zipKeys.find(k => {
+                const kBase = k.split('/').pop().toLowerCase();
+                return kBase === baseName && !k.endsWith('/');
+            });
+            if (foundKey && zip.file(foundKey)) return zip.file(foundKey);
+        }
+
+        return null;
+    }
+
     // ── Parse EPUB Archive using JSZip ──
     async function parseEpubFile(file) {
         const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
@@ -679,34 +856,36 @@
             const zip = await JSZipClass.loadAsync(file);
             updateProgress('Reading container manifest…', 25);
 
-            // 1. Locate OPF
-            const containerFile = zip.file('META-INF/container.xml');
+            // 1. Locate container.xml and OPF file
+            const containerFile = findZipEntry(zip, 'META-INF/container.xml');
             if (!containerFile) throw new Error('Invalid EPUB: META-INF/container.xml missing');
             const containerXml = await containerFile.async('text');
             const parser = new DOMParser();
             const containerDoc = parser.parseFromString(containerXml, 'application/xml');
-            const opfPath = containerDoc.querySelector('rootfile')?.getAttribute('full-path') || 'OEBPS/content.opf';
-            const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+            const rootfileEls = getXmlElements(containerDoc, 'rootfile');
+            const opfPath = (rootfileEls[0]?.getAttribute('full-path') || 'OEBPS/content.opf').trim();
 
-            const opfFile = zip.file(opfPath);
+            const opfFile = findZipEntry(zip, opfPath);
             if (!opfFile) throw new Error(`Cannot find package document: ${opfPath}`);
+            const actualOpfPath = opfFile.name;
+            const opfDir = actualOpfPath.includes('/') ? actualOpfPath.substring(0, actualOpfPath.lastIndexOf('/') + 1) : '';
             const opfXml = await opfFile.async('text');
             const opfDoc = parser.parseFromString(opfXml, 'application/xml');
 
             // Store original container references for 100% style/asset preservation
             state.originalZip = zip;
-            state.originalOpfPath = opfPath;
+            state.originalOpfPath = actualOpfPath;
             state.originalOpfDir = opfDir;
             state.originalFileName = file.name || 'novel.epub';
 
             // 2. Metadata
             updateProgress('Extracting metadata & assets…', 35);
-            const titleEl = opfDoc.querySelector('metadata > title, metadata > dc\\:title') || opfDoc.getElementsByTagName('dc:title')[0];
-            const authorEl = opfDoc.querySelector('metadata > creator, metadata > dc\\:creator') || opfDoc.getElementsByTagName('dc:creator')[0];
-            const langEl = opfDoc.querySelector('metadata > language, metadata > dc\\:language') || opfDoc.getElementsByTagName('dc:language')[0];
-            const descEl = opfDoc.querySelector('metadata > description, metadata > dc\\:description') || opfDoc.getElementsByTagName('dc:description')[0];
+            const titleEl = getFirstXmlTag(opfDoc, 'title');
+            const authorEl = getFirstXmlTag(opfDoc, 'creator');
+            const langEl = getFirstXmlTag(opfDoc, 'language');
+            const descEl = getFirstXmlTag(opfDoc, 'description');
 
-            state.title = (titleEl ? titleEl.textContent : file.name.replace(/\.epub$/i, '')).trim();
+            state.title = (titleEl ? titleEl.textContent : (file.name ? file.name.replace(/\.epub$/i, '') : 'Untitled')).trim();
             state.author = (authorEl ? authorEl.textContent : 'Unknown Author').trim();
             state.lang = (langEl ? langEl.textContent : 'en').trim();
             state.description = (descEl ? descEl.textContent : '').trim();
@@ -716,42 +895,46 @@
             state.coverUrl = '';
 
             // 3. Manifest & Image repository
-            const manifestItems = Array.from(opfDoc.querySelectorAll('manifest > item'));
+            const manifestItems = getXmlElements(opfDoc, 'item');
             const manifestMap = new Map();
             let coverHref = '';
 
             // Check meta cover
             const metaCover = opfDoc.querySelector('metadata > meta[name="cover"]');
-            const metaCoverId = metaCover ? metaCover.getAttribute('content') : '';
+            const metaCoverId = (metaCover ? metaCover.getAttribute('content') : '').trim();
 
             for (const item of manifestItems) {
-                const id = item.getAttribute('id');
-                const href = item.getAttribute('href');
-                const mediaType = item.getAttribute('media-type') || '';
-                const properties = item.getAttribute('properties') || '';
-                manifestMap.set(id, { href, mediaType, properties });
+                const id = (item.getAttribute('id') || '').trim();
+                const href = (item.getAttribute('href') || '').trim();
+                const mediaType = (item.getAttribute('media-type') || '').trim().toLowerCase();
+                const properties = (item.getAttribute('properties') || '').trim();
+                const entry = { id, href, mediaType, properties };
+                if (id) manifestMap.set(id, entry);
+                if (href) manifestMap.set(href, entry);
 
                 if (properties.includes('cover-image') || id === metaCoverId || (id && id.toLowerCase() === 'cover-image')) {
                     coverHref = href;
                 }
 
                 if (mediaType.startsWith('image/')) {
-                    const fullImgPath = opfDir + href;
-                    const imgZipFile = zip.file(fullImgPath) || zip.file(href);
+                    const imgZipFile = findZipEntry(zip, href, opfDir);
                     if (imgZipFile) {
                         try {
                             const b64 = await imgZipFile.async('base64');
                             const dataUrl = `data:${mediaType};base64,${b64}`;
-                            state.imageRepository.set(href, { dataUrl, mime: mediaType, name: href.split('/').pop() });
-                            state.imageRepository.set(fullImgPath, { dataUrl, mime: mediaType, name: href.split('/').pop() });
-                            state.imageRepository.set(href.split('/').pop(), { dataUrl, mime: mediaType, name: href.split('/').pop() });
-                        } catch(e) {}
+                            const fName = href.split('/').pop();
+                            const repoObj = { dataUrl, mime: mediaType, name: fName };
+                            state.imageRepository.set(href, repoObj);
+                            state.imageRepository.set(imgZipFile.name, repoObj);
+                            state.imageRepository.set(fName, repoObj);
+                        } catch (e) {}
                     }
                 }
             }
 
-            if (coverHref && state.imageRepository.has(coverHref)) {
-                state.coverUrl = state.imageRepository.get(coverHref).dataUrl;
+            if (coverHref) {
+                const foundCover = state.imageRepository.get(coverHref) || state.imageRepository.get(coverHref.split('/').pop());
+                if (foundCover) state.coverUrl = foundCover.dataUrl;
             }
 
             // 4. TOC hierarchy from NCX or nav.xhtml
@@ -759,17 +942,16 @@
             const tocMap = new Map(); // href/filename -> { title, level }
             const ncxItem = manifestItems.find(i => (i.getAttribute('media-type') || '').includes('dtbncx'));
             if (ncxItem) {
-                const ncxPath = opfDir + ncxItem.getAttribute('href');
-                const ncxZipFile = zip.file(ncxPath) || zip.file(ncxItem.getAttribute('href'));
+                const ncxZipFile = findZipEntry(zip, ncxItem.getAttribute('href'), opfDir);
                 if (ncxZipFile) {
                     try {
                         const ncxXml = await ncxZipFile.async('text');
                         const ncxDoc = parser.parseFromString(ncxXml, 'application/xml');
                         const walkNavPoints = (parentEl, currentLevel) => {
-                            const navPoints = Array.from(parentEl.children).filter(c => c.tagName.toLowerCase() === 'navpoint');
+                            const navPoints = Array.from(parentEl.children).filter(c => c.tagName.toLowerCase().endsWith('navpoint'));
                             navPoints.forEach(np => {
-                                const contentEl = Array.from(np.children).find(c => c.tagName.toLowerCase() === 'content');
-                                const textEl = np.querySelector('navLabel > text');
+                                const contentEl = Array.from(np.children).find(c => c.tagName.toLowerCase().endsWith('content'));
+                                const textEl = np.querySelector('navLabel > text') || np.getElementsByTagName('text')[0];
                                 if (contentEl && textEl) {
                                     const src = (contentEl.getAttribute('src') || '').split('#')[0].trim();
                                     const label = textEl.textContent.trim();
@@ -781,20 +963,19 @@
                                 walkNavPoints(np, currentLevel + 1);
                             });
                         };
-                        const navMapEl = ncxDoc.querySelector('navMap');
+                        const navMapEl = getXmlElements(ncxDoc, 'navMap')[0];
                         if (navMapEl) walkNavPoints(navMapEl, 1);
-                    } catch(e) {}
+                    } catch (e) {}
                 }
             } else {
                 // Support EPUB 3 nav.xhtml navigation document
                 const navItem = manifestItems.find(i => {
-                    const props = i.getAttribute('properties') || '';
+                    const props = (i.getAttribute('properties') || '').toLowerCase();
                     const href = (i.getAttribute('href') || '').toLowerCase();
                     return props.includes('nav') || href.includes('nav.xhtml') || href.includes('toc.xhtml');
                 });
                 if (navItem) {
-                    const navPath = opfDir + navItem.getAttribute('href');
-                    const navZipFile = zip.file(navPath) || zip.file(navItem.getAttribute('href'));
+                    const navZipFile = findZipEntry(zip, navItem.getAttribute('href'), opfDir);
                     if (navZipFile) {
                         try {
                             const navXhtml = await navZipFile.async('text');
@@ -820,32 +1001,51 @@
                                 const rootOl = tocNav.querySelector('ol, ul');
                                 if (rootOl) walkList(rootOl, 1);
                             }
-                        } catch(e) {}
+                        } catch (e) {}
                     }
                 }
             }
 
-            // 5. Spine Chapters Extraction
+            // 5. Spine Chapters Extraction with Manifest Fallback
             updateProgress('Extracting chapter prose…', 65);
-            const spineItems = Array.from(opfDoc.querySelectorAll('spine > itemref'));
+            let spineItems = getXmlElements(opfDoc, 'itemref');
+            let isManifestFallback = false;
+
+            // Fallback to HTML/XHTML manifest items if spine is empty or malformed
+            if (spineItems.length === 0) {
+                spineItems = manifestItems.filter(i => {
+                    const mt = (i.getAttribute('media-type') || '').toLowerCase();
+                    const href = (i.getAttribute('href') || '').toLowerCase();
+                    const props = (i.getAttribute('properties') || '').toLowerCase();
+                    if (!mt.includes('xhtml') && !mt.includes('html')) return false;
+                    if (props.includes('nav') || props.includes('cover')) return false;
+                    if (/(?:^|\/)(?:toc|nav|cover)(?:[-_.]|\/|$)/i.test(href)) return false;
+                    return true;
+                });
+                isManifestFallback = true;
+            }
+
             let chIdx = 0;
 
             for (const itemRef of spineItems) {
-                const idref = itemRef.getAttribute('idref');
-                const item = manifestMap.get(idref);
-                if (!item) continue;
-                const fullChPath = opfDir + item.href;
-                const chFile = zip.file(fullChPath) || zip.file(item.href);
-                if (!chFile) continue;
+                const idref = (itemRef.getAttribute(isManifestFallback ? 'id' : 'idref') || '').trim();
+                const item = manifestMap.get(idref) || (isManifestFallback ? { id: idref, href: itemRef.getAttribute('href') } : null);
+                if (!item || !item.href) continue;
+
+                const chFile = findZipEntry(zip, item.href, opfDir);
+                if (!chFile) {
+                    console.warn('Could not locate chapter file in zip:', item.href, 'opfDir:', opfDir);
+                    continue;
+                }
 
                 chIdx++;
                 const xhtml = await chFile.async('text');
                 const chDoc = parser.parseFromString(xhtml, 'text/html');
 
                 // Check if this is dedicated cover page
-                const isCoverPage = item.id === 'cover_page' || item.href.toLowerCase().includes('cover');
+                const isCoverPage = (item.id || '').toLowerCase() === 'cover_page' || item.href.toLowerCase().includes('cover');
                 const imgs = Array.from(chDoc.querySelectorAll('img, image'));
-                if (isCoverPage && imgs.length === 1 && chDoc.body.textContent.trim().length < 50) {
+                if (isCoverPage && imgs.length === 1 && (chDoc.body ? chDoc.body.textContent.trim().length < 50 : true)) {
                     if (!state.coverUrl) {
                         const src = imgs[0].getAttribute('src') || imgs[0].getAttribute('xlink:href') || '';
                         const fname = src.split('/').pop();
@@ -867,8 +1067,6 @@
                 const chLevel = tocEntry ? (tocEntry.level > 1 ? 2 : 1) : 1;
 
                 // Extract prose and format into clean markdown
-                // Convert <img src="..."> to ![Illustration](img_key)
-                // Use relative filename to avoid base64 memory bloat and keyboard typing lag
                 imgs.forEach(img => {
                     const src = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
                     const imgFname = src.split('/').pop();
@@ -878,7 +1076,7 @@
                 });
 
                 // Extract paragraphs & scene breaks
-                const blocks = Array.from(chDoc.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, blockquote, hr, div'));
+                const blocks = chDoc.body ? Array.from(chDoc.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, blockquote, hr, div')) : [];
                 let prose = '';
                 if (blocks.length > 0) {
                     const lines = [];
@@ -904,7 +1102,7 @@
                     prose = lines.join('\n\n');
                 }
                 if (!prose.trim()) {
-                    prose = chDoc.body.textContent.replace(/\r?\n\s*\r?\n/g, '\n\n').trim();
+                    prose = (chDoc.body?.textContent || chDoc.documentElement?.textContent || '').replace(/\r?\n\s*\r?\n/g, '\n\n').trim();
                 }
 
                 const chImages = extractImagesFromContent(prose);
@@ -919,7 +1117,7 @@
                     originalHead: chDoc.head ? chDoc.head.innerHTML : '',
                     bodyAttrs: Array.from(chDoc.body?.attributes || []).map(a => `${a.name}="${escapeXml(a.value)}"`).join(' '),
                     originalXhtml: xhtml,
-                    fullPath: fullChPath,
+                    fullPath: chFile.name,
                     href: item.href,
                     isNew: false
                 });
@@ -942,14 +1140,26 @@
     // ── Load Book from Library Object (GeminiNovelDB record) ──
     function loadBookFromRecord(record) {
         if (!record) return;
+        state.novelId = record.id || '';
+
+        // If the record has a pre-built EPUB blob, parse it to preserve original fonts, styles, and illustrations
+        if (record.epubBlob) {
+            parseEpubFile(record.epubBlob);
+            return;
+        }
+
         state.title = (record.title || 'Novel').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim();
         state.author = (record.author || 'Gemini Translator').trim();
-        state.series = '';
+        state.series = record.series || '';
         state.lang = record.targetLang || 'en';
         state.description = record.summary || record.description || '';
         state.coverUrl = record.cover || '';
         state.imageRepository.clear();
         state.chapters = [];
+        state.originalZip = null;
+        state.originalOpfPath = '';
+        state.originalOpfDir = '';
+        state.originalFileName = (record.title || 'novel').replace(/[^a-zA-Z0-9_-]/g, '_') + '.epub';
 
         const srcChapters = record.translatedChapters && record.translatedChapters.length > 0
             ? record.translatedChapters
@@ -966,7 +1176,13 @@
                 level: c.level || 1,
                 content: rawContent,
                 words: c.words || countWords(rawContent),
-                images: chImages
+                images: chImages,
+                originalHead: '',
+                bodyAttrs: '',
+                originalXhtml: '',
+                fullPath: '',
+                href: `chapter_${idx + 1}.xhtml`,
+                isNew: true
             });
         });
 
@@ -1734,6 +1950,8 @@
     }
 
     // ── Illustration Gallery Modal Logic ──
+    let activeGalleryFilter = 'all';
+
     function openGalleryModal() {
         const modal = document.getElementById('edit-gallery-modal');
         const grid = document.getElementById('edit-gallery-grid');
@@ -1743,67 +1961,112 @@
         grid.innerHTML = '';
         const allImagesMap = new Map();
 
-        // 1. Gather images from book repository
-        state.imageRepository.forEach((entry, key) => {
-            allImagesMap.set(entry.dataUrl || key, {
-                url: entry.dataUrl || key,
-                name: entry.name || key,
-                mime: entry.mime || 'image/jpeg'
+        // 1. Current cover
+        if (state.coverUrl) {
+            allImagesMap.set(state.coverUrl, {
+                url: state.coverUrl,
+                name: 'Book Cover',
+                mime: 'image/jpeg',
+                type: 'cover'
             });
+        }
+
+        // 2. Gather images from book repository
+        state.imageRepository.forEach((entry, key) => {
+            const url = entry.dataUrl || key;
+            if (!allImagesMap.has(url)) {
+                const isCov = (entry.name || key).toLowerCase().includes('cover');
+                allImagesMap.set(url, {
+                    url,
+                    name: entry.name || key,
+                    mime: entry.mime || 'image/jpeg',
+                    type: isCov ? 'cover' : 'asset'
+                });
+            }
         });
 
-        // 2. Gather images embedded in chapter contents
+        // 3. Gather images embedded in chapter contents
         state.chapters.forEach((ch, chIdx) => {
             (ch.images || []).forEach(imgUrl => {
-                if (!allImagesMap.has(imgUrl)) {
-                    allImagesMap.set(imgUrl, {
-                        url: imgUrl,
+                const resolved = state.imageRepository.get(imgUrl)?.dataUrl || imgUrl;
+                if (!allImagesMap.has(resolved)) {
+                    allImagesMap.set(resolved, {
+                        url: resolved,
                         name: `Chapter ${chIdx + 1} Illustration`,
-                        mime: 'image/jpeg'
+                        mime: 'image/jpeg',
+                        type: 'chapter'
                     });
                 }
             });
         });
 
-        // 3. Current cover
-        if (state.coverUrl && !allImagesMap.has(state.coverUrl)) {
-            allImagesMap.set(state.coverUrl, {
-                url: state.coverUrl,
-                name: 'Book Cover',
-                mime: 'image/jpeg'
-            });
-        }
+        let allItems = Array.from(allImagesMap.values());
+        if (totalSpan) totalSpan.textContent = `${allItems.length} images`;
 
-        const items = Array.from(allImagesMap.values());
-        if (totalSpan) totalSpan.textContent = `${items.length} illustrations total`;
+        // Wire filter tabs
+        const tabBtns = document.querySelectorAll('.gallery-tab');
+        tabBtns.forEach(btn => {
+            btn.onclick = () => {
+                tabBtns.forEach(b => {
+                    b.classList.remove('active', 'bg-indigo-600', 'text-white');
+                    b.classList.add('text-slate-400');
+                });
+                btn.classList.add('active', 'bg-indigo-600', 'text-white');
+                btn.classList.remove('text-slate-400');
+                activeGalleryFilter = btn.dataset.filter || 'all';
+                renderGalleryGrid();
+            };
+        });
 
-        if (items.length === 0) {
-            grid.innerHTML = `<div class="col-span-4 text-center py-12 italic text-xs" style="color:var(--slate);">No illustrations in this book yet. Click "➕ Upload New Illustration" to add some!</div>`;
-        } else {
-            items.forEach((item, idx) => {
+        const renderGalleryGrid = () => {
+            grid.innerHTML = '';
+            let filtered = allItems;
+            if (activeGalleryFilter === 'covers') {
+                filtered = allItems.filter(i => i.type === 'cover' || (state.coverUrl && state.coverUrl === i.url) || i.name.toLowerCase().includes('cover'));
+            } else if (activeGalleryFilter === 'chapters') {
+                filtered = allItems.filter(i => i.type === 'chapter' || (!i.name.toLowerCase().includes('cover') && (!state.coverUrl || state.coverUrl !== i.url)));
+            }
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-16 italic text-sm text-slate-400">
+                    No images found in this filter. Tap "➕ Upload Image" to add illustrations to your book!
+                </div>`;
+                return;
+            }
+
+            filtered.forEach((item, idx) => {
                 const isCover = state.coverUrl && (state.coverUrl === item.url);
                 const card = document.createElement('div');
-                card.className = 'flex flex-col rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60 transition-all hover:border-indigo-500/50';
+                card.className = 'flex flex-col rounded-xl overflow-hidden border border-slate-800 bg-[#0c0e15] transition-all hover:border-indigo-500/60 shadow-lg group';
                 card.innerHTML = `
-                    <div style="height:140px; background:#08090C; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">
-                        <img src="${item.url}" style="width:100%; height:100%; object-fit:contain;" alt="${escapeXml(item.name)}" />
-                        ${isCover ? '<span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-black">👑 COVER</span>' : ''}
+                    <div class="relative flex items-center justify-center bg-[#050608] cursor-pointer overflow-hidden p-2"
+                         style="aspect-ratio: 2/3; min-height: 200px;" title="Tap to inspect full screen">
+                        <img src="${item.url}" class="w-full h-full object-contain rounded transition-transform duration-200 group-hover:scale-105" alt="${escapeXml(item.name)}" />
+                        ${isCover ? '<span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-black shadow">👑 CURRENT COVER</span>' : ''}
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span class="px-2.5 py-1 rounded bg-indigo-600/90 text-white text-xs font-semibold shadow">👁️ View Fullscreen</span>
+                        </div>
                     </div>
-                    <div class="p-2.5 flex flex-col gap-1.5" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
-                        <span class="text-[11px] font-mono truncate" style="color:var(--paper);">${escapeXml(item.name)}</span>
-                        <div class="flex items-center gap-1.5 pt-1">
-                            <button type="button" class="chip-act shrink-0 text-[10px] set-cover-btn" style="color:#fbbf24;">👑 Cover</button>
-                            <button type="button" class="chip-act shrink-0 text-[10px] dl-btn">📥 Download</button>
-                            <button type="button" class="chip-act danger shrink-0 text-[10px] del-btn">✕</button>
+                    <div class="p-2.5 flex flex-col gap-1.5 border-t border-slate-800/80 bg-[#0f111a]">
+                        <span class="text-[11px] font-mono truncate text-slate-200 font-medium" title="${escapeXml(item.name)}">${escapeXml(item.name)}</span>
+                        <div class="flex items-center gap-1 pt-1 flex-wrap">
+                            <button type="button" class="chip-act shrink-0 text-[10px] set-cover-btn" style="color:#fbbf24;" title="Set as Book Cover">👑 Cover</button>
+                            <button type="button" class="chip-act shrink-0 text-[10px] view-btn" title="View Fullscreen">👁️ View</button>
+                            <button type="button" class="chip-act shrink-0 text-[10px] dl-btn" title="Download image file">📥 Save</button>
+                            <button type="button" class="chip-act danger shrink-0 text-[10px] del-btn" title="Remove from book">✕</button>
                         </div>
                     </div>
                 `;
+
+                // Tap image to open fullscreen lightbox
+                card.querySelector('img').parentElement.onclick = () => openGalleryLightbox(item);
+                card.querySelector('.view-btn').onclick = () => openGalleryLightbox(item);
 
                 // Set as Cover
                 card.querySelector('.set-cover-btn').onclick = () => {
                     state.coverUrl = item.url;
                     updateCoverPreview();
-                    openGalleryModal(); // re-render to update badge
+                    openGalleryModal();
                     if (typeof window.toast === 'function') window.toast('Updated book cover!', 'success');
                 };
 
@@ -1817,11 +2080,10 @@
 
                 // Delete image
                 card.querySelector('.del-btn').onclick = () => {
-                    if (confirm(`Remove this illustration from book?`)) {
+                    if (confirm(`Remove "${item.name}" from book?`)) {
                         allImagesMap.delete(item.url);
                         state.imageRepository.delete(item.url);
                         if (state.coverUrl === item.url) state.coverUrl = '';
-                        // Remove from chapters
                         state.chapters.forEach(c => {
                             const escaped = item.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                             c.content = (c.content || '')
@@ -1837,9 +2099,43 @@
 
                 grid.appendChild(card);
             });
+        };
+
+        renderGalleryGrid();
+        modal.classList.remove('hidden');
+    }
+
+    // ── Fullscreen Lightbox Logic ──
+    function openGalleryLightbox(item) {
+        const lightbox = document.getElementById('edit-gallery-lightbox');
+        const img = document.getElementById('lightbox-img');
+        const nameEl = document.getElementById('lightbox-img-name');
+        const setCoverBtn = document.getElementById('lightbox-set-cover-btn');
+        const dlBtn = document.getElementById('lightbox-download-btn');
+        if (!lightbox || !img) return;
+
+        img.src = item.url;
+        if (nameEl) nameEl.textContent = item.name || 'Illustration';
+
+        if (setCoverBtn) {
+            setCoverBtn.onclick = () => {
+                state.coverUrl = item.url;
+                updateCoverPreview();
+                openGalleryModal();
+                if (typeof window.toast === 'function') window.toast('Updated book cover!', 'success');
+            };
         }
 
-        modal.classList.remove('hidden');
+        if (dlBtn) {
+            dlBtn.onclick = () => {
+                const a = document.createElement('a');
+                a.href = item.url;
+                a.download = item.name || 'illustration.jpg';
+                a.click();
+            };
+        }
+
+        lightbox.classList.remove('hidden');
     }
 
     // ── Global Find & Replace Logic ──
@@ -1862,6 +2158,7 @@
                 const query = findIn?.value || '';
                 const caseSens = document.getElementById('edit-find-case-sensitive')?.checked;
                 const isRegex = document.getElementById('edit-find-regex')?.checked;
+                const alsoInTitles = document.getElementById('edit-find-in-titles')?.checked;
 
                 if (!query) {
                     if (countSpan) {
@@ -1892,6 +2189,10 @@
                 state.chapters.forEach(c => {
                     const matches = (c.content || '').match(regex);
                     if (matches) total += matches.length;
+                    if (alsoInTitles && c.title) {
+                        const tMatches = c.title.match(regex);
+                        if (tMatches) total += tMatches.length;
+                    }
                 });
                 if (countSpan) {
                     countSpan.textContent = `${total.toLocaleString()} occurrence${total === 1 ? '' : 's'}`;
@@ -1905,6 +2206,8 @@
         if (caseSensEl) caseSensEl.onchange = updateCount;
         const regexEl = document.getElementById('edit-find-regex');
         if (regexEl) regexEl.onchange = updateCount;
+        const inTitlesEl = document.getElementById('edit-find-in-titles');
+        if (inTitlesEl) inTitlesEl.onchange = updateCount;
     }
 
     function doGlobalReplace() {
@@ -1914,6 +2217,7 @@
         const replacement = replaceIn?.value || '';
         const caseSens = document.getElementById('edit-find-case-sensitive')?.checked;
         const isRegex = document.getElementById('edit-find-regex')?.checked;
+        const alsoInTitles = document.getElementById('edit-find-in-titles')?.checked;
         const replaceBtn = document.getElementById('btn-edit-do-replace');
 
         if (!query) {
@@ -1950,15 +2254,31 @@
             const limit = Math.min(currentIdx + chunkSize, total);
             for (let i = currentIdx; i < limit; i++) {
                 const c = state.chapters[i];
-                if (c && c.content) {
+                if (!c) continue;
+                let chapterTouched = false;
+
+                // Replace in title if enabled
+                if (alsoInTitles && c.title) {
+                    const tMatches = c.title.match(regex);
+                    if (tMatches && tMatches.length > 0) {
+                        replacedCount += tMatches.length;
+                        c.title = c.title.replace(regex, replacement);
+                        chapterTouched = true;
+                    }
+                }
+
+                // Replace in content
+                if (c.content) {
                     const matches = c.content.match(regex);
                     if (matches && matches.length > 0) {
                         replacedCount += matches.length;
-                        affectedChapters++;
                         c.content = c.content.replace(regex, replacement);
                         c.words = countWords(c.content);
+                        chapterTouched = true;
                     }
                 }
+
+                if (chapterTouched) affectedChapters++;
             }
             currentIdx = limit;
 
@@ -1989,24 +2309,63 @@
     function doAutoNumber() {
         const style = document.getElementById('edit-autonumber-style')?.value || 'prefix';
         const start = parseInt(document.getElementById('edit-autonumber-start')?.value, 10) || 1;
+        const pad = parseInt(document.getElementById('edit-autonumber-pad')?.value, 10) || 1;
+        const respectSub = document.getElementById('edit-autonumber-respect-sub')?.checked ?? true;
+        const skipSpecial = document.getElementById('edit-autonumber-skip-special')?.checked ?? true;
 
-        state.chapters.forEach((ch, i) => {
-            const num = start + i;
-            if (style === 'simple') {
-                ch.title = `Chapter ${num}`;
-            } else if (style === 'decimal') {
-                ch.title = `1.${num}`;
-            } else {
-                // Strip existing leading chapter numbers
-                let clean = ch.title.replace(/^(?:Chapter|\bCh\b)?\s*\d+[\s:\.\-]+/i, '').trim();
-                ch.title = `Chapter ${num} - ${clean || 'Untitled'}`;
+        let mainCounter = start;
+        let subCounter = 1;
+        let numberedCount = 0;
+
+        const specialPattern = /^(?:prologue|epilogue|side\s*story|author'?s?\s*note|afterword|interlude|character|illustrations?)/i;
+
+        state.chapters.forEach((ch) => {
+            // Check if special chapter
+            if (skipSpecial && specialPattern.test(ch.title.trim())) {
+                return;
             }
+
+            if (respectSub && ch.level === 2) {
+                const subPad = String(subCounter).padStart(pad > 1 ? pad : 1, '0');
+                if (style === 'decimal') {
+                    ch.title = `1.${subCounter}`;
+                } else {
+                    let clean = ch.title.replace(/^(?:Chapter|\bCh\b)?\s*[\d\.]+[\s:\.\-]+/i, '').trim();
+                    ch.title = `${mainCounter - 1}.${subCounter} - ${clean || 'Untitled'}`;
+                }
+                subCounter++;
+                numberedCount++;
+                return;
+            }
+
+            // Level 1 chapter
+            subCounter = 1;
+            const numStr = String(mainCounter).padStart(pad, '0');
+
+            if (style === 'simple') {
+                ch.title = `Chapter ${numStr}`;
+            } else if (style === 'colon') {
+                let clean = ch.title.replace(/^(?:Chapter|\bCh\b)?\s*\d+[\s:\.\-]+/i, '').trim();
+                ch.title = `Chapter ${numStr}: ${clean || 'Untitled'}`;
+            } else if (style === 'numdot') {
+                let clean = ch.title.replace(/^(?:Chapter|\bCh\b)?\s*\d+[\s:\.\-]+/i, '').trim();
+                ch.title = `${numStr}. ${clean || 'Untitled'}`;
+            } else if (style === 'decimal') {
+                ch.title = `1.${numStr}`;
+            } else {
+                // prefix: Chapter {N} - {Title}
+                let clean = ch.title.replace(/^(?:Chapter|\bCh\b)?\s*\d+[\s:\.\-]+/i, '').trim();
+                ch.title = `Chapter ${numStr} - ${clean || 'Untitled'}`;
+            }
+
+            mainCounter++;
+            numberedCount++;
         });
 
         document.getElementById('edit-autonumber-modal')?.classList.add('hidden');
         renderChapterList();
         if (typeof window.toast === 'function') {
-            window.toast(`Auto-numbered ${state.chapters.length} chapters!`, 'success');
+            window.toast(`Auto-numbered ${numberedCount} chapters!`, 'success');
         }
     }
 
@@ -2024,8 +2383,16 @@
         state.lang = document.getElementById('edit-book-lang')?.value.trim() || 'en';
         state.description = document.getElementById('edit-book-desc')?.value.trim() || '';
 
-        const novelId = 'novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+        const novelId = state.novelId || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+        state.novelId = novelId;
         const totalWords = state.chapters.reduce((acc, c) => acc + (c.words || 0), 0);
+
+        const chsData = state.chapters.map(c => ({
+            title: c.title,
+            content: c.content,
+            level: c.level || 1,
+            words: c.words || countWords(c.content)
+        }));
 
         const record = {
             id: novelId,
@@ -2037,19 +2404,41 @@
             cover: state.coverUrl,
             timestamp: Date.now(),
             totalWords,
+            wordCount: totalWords,
             chapterCount: state.chapters.length,
+            totalChapterCount: state.chapters.length,
             isEdited: true,
             isTranslated: true,
-            translatedChapters: state.chapters.map(c => ({
-                title: c.title,
-                content: c.content,
-                level: c.level || 1,
-                words: c.words || countWords(c.content)
-            }))
+            chapters: chsData,
+            rawChapters: chsData,
+            translatedChapters: chsData
         };
 
         const success = await window.GeminiNovelDB.saveNovel(record);
         if (success) {
+            // Update localStorage meta list so the Library shelf immediately shows updated book
+            const metaRecord = {
+                id: novelId,
+                title: state.title,
+                author: state.author,
+                summary: state.description,
+                cover: state.coverUrl,
+                chapterCount: state.chapters.length,
+                totalChapterCount: state.chapters.length,
+                totalWords,
+                wordCount: totalWords,
+                timestamp: Date.now(),
+                isEdited: true,
+                isTranslated: true
+            };
+
+            try {
+                const rawMeta = localStorage.getItem('gemini_web_import_history_meta');
+                const metaList = rawMeta ? JSON.parse(rawMeta) : [];
+                const updatedMeta = [metaRecord, ...metaList.filter(n => n.id !== novelId && (!metaRecord.title || (n.title || '').trim().toLowerCase() !== metaRecord.title.trim().toLowerCase()))].slice(0, 50);
+                localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updatedMeta));
+            } catch (e) {}
+
             if (typeof window.toast === 'function') {
                 window.toast(`✓ Saved "${state.title}" to Library!`, 'success');
             }

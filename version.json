@@ -1,9 +1,9 @@
 {
-  "version": "8.17.44",
-  "versionCode": 8284,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.44/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.44/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.44",
+  "version": "8.17.45",
+  "versionCode": 8285,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.45/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.45/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.45",
   "releaseDate": "2026-09-22",
-  "releaseNotes": "v8.17.44: Fixed preview mode touch scrolling and button accessibility on mobile; resolved missing chapter bug when continuing novels from library; prevented double chapter titles on export."
+  "releaseNotes": "v8.17.45: Resolved 0 chapters in TOC bug when loading books from storage via universal XML parsing and zip path resolution; overhauled Image Gallery to fullscreen with high-res lightbox and uncropped covers; enhanced Save to Library, Sanitize Titles, Auto-Numbering, and Find & Replace."
 }
