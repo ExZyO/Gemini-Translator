@@ -361,8 +361,8 @@
                             class="w-8 h-8 rounded-lg flex items-center justify-center text-base font-bold" style="color:var(--slate);">✕</button>
                 </div>
 
-                <!-- Modal Sub-Toolbar -->
-                <div class="px-4 py-2 flex items-center justify-between gap-3 flex-wrap text-xs"
+                <!-- Modal Sub-Toolbar (Prose Editor Mode) -->
+                <div id="edit-ch-modal-subtoolbar" class="px-4 py-2 flex items-center justify-between gap-3 flex-wrap text-xs shrink-0"
                      style="border-bottom:1px solid var(--hairline); background:rgba(255,255,255,0.02);">
                     <div class="flex items-center gap-2 flex-wrap">
                         <button type="button" id="btn-edit-modal-insert-img" class="tl-btn" style="padding:5px 10px; font-size:11.5px;">
@@ -387,21 +387,27 @@
                     </div>
                 </div>
 
+                <!-- Modal Preview Top Bar (Dedicated, ALWAYS visible when previewing) -->
+                <div id="edit-ch-modal-preview-bar" class="hidden px-4 py-2.5 flex items-center justify-between gap-3 shrink-0"
+                     style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
+                    <button type="button" id="btn-preview-back-to-edit" class="tl-btn accent" style="padding:7px 18px; font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:6px;">
+                        ← Back to Editor
+                    </button>
+                    <div class="flex items-center gap-3 text-xs" style="color:var(--slate);">
+                        <span class="font-semibold">👁️ Chapter Preview</span>
+                        <span id="preview-modal-word-count" class="font-mono text-[11px]"></span>
+                    </div>
+                </div>
+
                 <!-- Modal Body (Textarea or Rendered Preview) -->
-                <div class="flex-1 overflow-hidden relative flex flex-col" style="min-height:360px;">
+                <div class="flex-1 overflow-hidden relative flex flex-col" style="min-height:0; height:100%; flex-shrink:1;">
                     <textarea id="edit-ch-modal-textarea"
                               placeholder="Type or paste chapter prose here… Markdown headings (# Title) and images (![Alt](url)) are supported."
-                              style="width:100%; height:100%; min-height:360px; border:none; background:transparent; color:var(--paper); font-family:serif,Georgia,Cambria; font-size:15px; line-height:1.75; padding:18px 22px; resize:none; outline:none; overflow-y:auto;"
+                              style="width:100%; height:100%; min-height:0; flex:1; border:none; background:transparent; color:var(--paper); font-family:serif,Georgia,Cambria; font-size:15px; line-height:1.75; padding:18px 22px; resize:none; outline:none; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y;"
                               class="custom-scrollbar"></textarea>
-                    <div id="edit-ch-modal-preview" class="hidden flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar font-serif text-sm leading-relaxed"
-                         style="color:var(--paper-dim); background:rgba(0,0,0,0.15); position:relative;">
-                        <div id="preview-sticky-header" style="position:sticky; top:-16px; z-index:10; background:var(--ember-2); padding:10px 14px; border-bottom:1px solid var(--hairline); display:flex; align-items:center; justify-content:space-between; margin:-16px -16px 16px -16px; border-radius:8px 8px 0 0;">
-                            <button type="button" id="btn-preview-back-to-edit" class="tl-btn accent" style="padding:7px 16px; font-weight:700; font-size:13px;">
-                                ← Back to Editor
-                            </button>
-                            <span style="font-size:12px; color:var(--slate); font-weight:600;">Chapter Preview</span>
-                        </div>
-                        <div id="preview-html-content"></div>
+                    <div id="edit-ch-modal-preview" class="hidden flex-1 overflow-y-auto custom-scrollbar font-serif text-sm leading-relaxed"
+                         style="color:var(--paper-dim); background:rgba(0,0,0,0.15); min-height:0; height:100%; -webkit-overflow-scrolling:touch; touch-action:pan-y; overscroll-behavior-y:contain; padding:18px 22px;">
+                        <div id="preview-html-content" style="max-width:100%; min-height:0;"></div>
                     </div>
                 </div>
 
@@ -415,7 +421,7 @@
                 </div>
 
                 <!-- Modal Footer -->
-                <div class="p-3 sm:p-4 flex items-center justify-between gap-3" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                <div class="p-3 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
                     <div class="flex gap-2">
                         <button type="button" id="btn-edit-modal-prev-ch" class="tl-btn" style="padding:6px 12px; font-size:12px;">← Previous Chapter</button>
                         <button type="button" id="btn-edit-modal-next-ch" class="tl-btn" style="padding:6px 12px; font-size:12px;">Next Chapter →</button>
@@ -883,7 +889,9 @@
                         } else if (tag.startsWith('h')) {
                             const lvl = tag.replace('h', '');
                             const hText = b.textContent.trim();
-                            if (hText && hText !== chTitle) {
+                            const isTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
+                            const isEcho = isTitleEcho ? isTitleEcho(hText, chTitle, rawTitle) : ((hText || '').toLowerCase().replace(/[^a-z0-9]/g, '') === (chTitle || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+                            if (hText && !isEcho) {
                                 lines.push(`${'#'.repeat(parseInt(lvl, 10))} ${hText}`);
                             }
                         } else if (tag === 'blockquote') {
@@ -1212,9 +1220,19 @@
     function exitEpubEditorPreview() {
         const textarea = document.getElementById('edit-ch-modal-textarea');
         const preview = document.getElementById('edit-ch-modal-preview');
+        const previewBar = document.getElementById('edit-ch-modal-preview-bar');
+        const subtoolbar = document.getElementById('edit-ch-modal-subtoolbar');
         const btn = document.getElementById('btn-edit-modal-preview-toggle');
-        if (preview) preview.classList.add('hidden');
-        if (textarea) textarea.classList.remove('hidden');
+        if (preview) {
+            preview.classList.add('hidden');
+            preview.style.display = 'none';
+        }
+        if (previewBar) previewBar.classList.add('hidden');
+        if (subtoolbar) subtoolbar.classList.remove('hidden');
+        if (textarea) {
+            textarea.classList.remove('hidden');
+            textarea.style.display = 'block';
+        }
         if (btn) btn.textContent = '👁️ Preview HTML';
         isPreviewMode = false;
         window.isEpubEditorPreviewActive = false;
@@ -1286,12 +1304,47 @@
     // Convert markdown prose back to clean XHTML body for in-place EPUB export
     function markdownToChapterHtml(md, title) {
         if (!md) return '';
-        const paras = md.split(/\n\s*\n/);
+        const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent)
+            ? window.stripLeadingTitleFromContent
+            : ((typeof stripLeadingTitleFromContent === 'function') ? stripLeadingTitleFromContent : null);
+
+        let cleanMd = md;
+        if (stripFn && title) {
+            cleanMd = stripFn(cleanMd, title);
+        }
+
+        const paras = cleanMd.split(/\n\s*\n/);
         const bodyParts = [];
-        if (title) {
+
+        // Check if first paragraph is already a heading or matches title even without stripFn
+        let skipFirstPara = false;
+        let hasHeadingInBody = false;
+        const cleanCompare = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        if (paras.length > 0) {
+            const first = paras[0].trim();
+            const headingMatch = first.match(/^#{1,6}\s+(.+)$/);
+            if (headingMatch) {
+                const headingText = headingMatch[1].trim();
+                if (title && (
+                    cleanCompare(headingText) === cleanCompare(title) ||
+                    cleanCompare(headingText).includes(cleanCompare(title)) ||
+                    cleanCompare(title).includes(cleanCompare(headingText)) ||
+                    /^chapter\s*\d+/i.test(headingText)
+                )) {
+                    hasHeadingInBody = true;
+                }
+            } else if (title && cleanCompare(first) === cleanCompare(title)) {
+                skipFirstPara = true;
+            }
+        }
+
+        if (title && !hasHeadingInBody) {
             bodyParts.push(`<h2 class="chapter-title">${escapeXml(title)}</h2>`);
         }
-        paras.forEach(p => {
+
+        paras.forEach((p, idx) => {
+            if (idx === 0 && skipFirstPara) return;
             let trimmed = p.trim();
             if (!trimmed) return;
             if (trimmed === '---' || trimmed === '***') {
@@ -1299,7 +1352,8 @@
             } else if (/^#{1,6}\s+/.test(trimmed)) {
                 const lvl = trimmed.match(/^(#{1,6})/)[1].length;
                 const text = trimmed.replace(/^#+\s+/, '');
-                bodyParts.push(`<h${lvl}>${escapeXml(text)}</h${lvl}>`);
+                const isChTitle = (idx === 0 && hasHeadingInBody);
+                bodyParts.push(`<h${lvl}${isChTitle ? ' class="chapter-title"' : ''}>${escapeXml(text)}</h${lvl}>`);
             } else if (/^>\s+/.test(trimmed)) {
                 bodyParts.push(`<blockquote><p>${escapeXml(trimmed.replace(/^>\s+/, ''))}</p></blockquote>`);
             } else if (/!\[(.*?)\]\((.*?)\)/.test(trimmed)) {
@@ -2448,6 +2502,8 @@ ${bodyHtml}
         document.getElementById('btn-edit-modal-preview-toggle')?.addEventListener('click', () => {
             const textarea = document.getElementById('edit-ch-modal-textarea');
             const preview = document.getElementById('edit-ch-modal-preview');
+            const previewBar = document.getElementById('edit-ch-modal-preview-bar');
+            const subtoolbar = document.getElementById('edit-ch-modal-subtoolbar');
             const previewContent = document.getElementById('preview-html-content') || preview;
             const btn = document.getElementById('btn-edit-modal-preview-toggle');
             if (!textarea || !preview) return;
@@ -2457,7 +2513,12 @@ ${bodyHtml}
 
             if (isPreviewMode) {
                 textarea.classList.add('hidden');
+                textarea.style.display = 'none';
+                if (subtoolbar) subtoolbar.classList.add('hidden');
+                if (previewBar) previewBar.classList.remove('hidden');
                 preview.classList.remove('hidden');
+                preview.style.display = 'block';
+                preview.scrollTop = 0;
                 if (btn) btn.textContent = '✏️ Edit Prose';
 
                 const raw = textarea.value || '';
@@ -2484,6 +2545,11 @@ ${bodyHtml}
                 }
                 if (previewContent) {
                     previewContent.innerHTML = htmlParts.join('\n');
+                }
+                const wordSpan = document.getElementById('preview-modal-word-count');
+                if (wordSpan) {
+                    const wc = countWords(raw);
+                    wordSpan.textContent = `${wc.toLocaleString()} words`;
                 }
             } else {
                 exitEpubEditorPreview();
@@ -2645,7 +2711,11 @@ ${bodyHtml}
             if (bookOrFile instanceof Blob || bookOrFile instanceof File) {
                 parseEpubFile(bookOrFile);
             } else if (typeof bookOrFile === 'object') {
-                loadBookFromRecord(bookOrFile);
+                if (bookOrFile.epubBlob) {
+                    parseEpubFile(bookOrFile.epubBlob);
+                } else {
+                    loadBookFromRecord(bookOrFile);
+                }
             }
         };
     }

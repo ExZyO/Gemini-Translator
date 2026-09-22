@@ -316,19 +316,22 @@ const mergeHtml = `<div id="epub-merge-tab" style="width:100%;">
 `;
 const modalHtml = `<!-- Chapter Preview Modal -->
     <div id="chapter-preview-modal"
-        class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
-        style="background: rgba(0,0,0,.65); backdrop-filter: blur(6px);"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+        style="background: rgba(0,0,0,.65); backdrop-filter: blur(6px); -webkit-overflow-scrolling: touch;"
         onclick="if(event.target===this)this.classList.add('hidden')">
-        <div class="rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden"
-            style="background: var(--ember); border: 1px solid var(--hairline);">
-            <div class="flex items-center justify-between p-4" style="border-bottom: 1px solid var(--hairline);">
-                <h3 id="preview-modal-title" class="font-bold truncate" style="color: var(--paper);">Chapter Preview
-                </h3>
+        <div class="rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+            style="background: var(--ember); border: 1px solid var(--hairline); min-height:0;">
+            <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom: 1px solid var(--hairline); background: var(--ember-2);">
+                <h3 id="preview-modal-title" class="font-bold truncate" style="color: var(--paper);">Chapter Preview</h3>
                 <button onclick="document.getElementById('chapter-preview-modal').classList.add('hidden')"
                     class="w-8 h-8 flex items-center justify-center text-lg font-bold" style="color: var(--slate);">✕</button>
             </div>
             <div id="preview-modal-body"
-                class="p-6 overflow-y-auto custom-scrollbar text-sm leading-relaxed font-serif" style="color: var(--paper-dim);">
+                class="p-6 overflow-y-auto custom-scrollbar text-sm leading-relaxed font-serif flex-1"
+                style="color: var(--paper-dim); min-height:0; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: contain;">
+            </div>
+            <div class="p-3 flex items-center justify-end shrink-0" style="border-top: 1px solid var(--hairline); background: var(--ember-2);">
+                <button type="button" onclick="document.getElementById('chapter-preview-modal').classList.add('hidden')" class="tl-btn accent" style="padding: 6px 14px; font-weight:700;">Close</button>
             </div>
         </div>
     </div>

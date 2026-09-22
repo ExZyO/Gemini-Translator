@@ -4817,7 +4817,7 @@ const formatModelName = (id, displayName) => {
         if (window.GeminiNovelDB && meta.id) {
           try {
             const full = await window.GeminiNovelDB.getNovel(meta.id);
-            if (full && (full.rawChapters?.length > 0 || full.chapters?.length > 0)) return full;
+            if (full && (full.rawChapters?.length > 0 || full.chapters?.length > 0 || full.translatedChapters?.length > 0 || full.epubBlob)) return full;
           } catch(e) {}
         }
         // 2. Try IndexedDB by matching title or id across all stored records
@@ -4825,11 +4825,11 @@ const formatModelName = (id, displayName) => {
           try {
             const all = await window.GeminiNovelDB.getAllNovels();
             const match = (all || []).find(n => n.id === meta.id || n.title === meta.title);
-            if (match && (match.rawChapters?.length > 0 || match.chapters?.length > 0)) return match;
+            if (match && (match.rawChapters?.length > 0 || match.chapters?.length > 0 || match.translatedChapters?.length > 0 || match.epubBlob)) return match;
           } catch(e) {}
         }
-        // 3. Fallback: check if meta already contains rawChapters or chapters
-        if (meta.rawChapters?.length > 0 || meta.chapters?.length > 0) return meta;
+        // 3. Fallback: check if meta already contains rawChapters or chapters or epubBlob
+        if (meta.rawChapters?.length > 0 || meta.chapters?.length > 0 || meta.translatedChapters?.length > 0 || meta.epubBlob) return meta;
         // 4. Fallback: check currently active webImportData
         if (webImportData && webImportData.title === meta.title && webImportData.chapters?.length > 0) {
           return { ...webImportData, rawChapters: webImportData.chapters };
@@ -4838,8 +4838,8 @@ const formatModelName = (id, displayName) => {
         try {
           const old = JSON.parse(localStorage.getItem('gemini_web_import_history') || '[]');
           const found = (old || []).find(n => n.id === (meta.id || '')) || (old || []).find(n => n.title === meta.title);
-          if (found && (found.chapters?.length || found.rawChapters?.length)) {
-            return { title: found.title, author: found.author, rawChapters: found.chapters || found.rawChapters, originalChapters: found.originalChapters || null };
+          if (found && (found.chapters?.length || found.rawChapters?.length || found.translatedChapters?.length)) {
+            return { title: found.title, author: found.author, rawChapters: found.chapters || found.rawChapters || found.translatedChapters, originalChapters: found.originalChapters || null };
           }
         } catch (e) {}
         return null;
@@ -5285,12 +5285,27 @@ const formatModelName = (id, displayName) => {
         try {
           const full = await loadFullNovel(novelItem);
           if (!full) return toast('Novel data not found in library.', 'error');
-          const chs = full.rawChapters || full.chapters || [];
+          let chs = full.translatedChapters || full.rawChapters || full.chapters || [];
+          let epubMeta = null;
+
+          // CRITICAL FIX: If full.epubBlob exists, parse the authoritative chapters directly from the EPUB container!
+          // This guarantees 100% parity with selecting the EPUB file from device storage and never misses Chapter 4.
+          if (full.epubBlob && typeof readEpub === 'function') {
+            try {
+              epubMeta = await readEpub(full.epubBlob);
+              if (epubMeta && epubMeta.chapters && epubMeta.chapters.length > 0) {
+                chs = epubMeta.chapters;
+              }
+            } catch (err) {
+              console.warn('Could not parse full.epubBlob with readEpub, falling back to stored chapters:', err);
+            }
+          }
+
           if (chs.length === 0) return toast('No chapters found in this novel.', 'warning');
 
-          const cleanTitle = (full.title || 'Novel').replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
+          const cleanTitle = (epubMeta?.title || full.title || 'Novel').replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
           const existingCount = chs.length;
-          const detectedSource = full.sourceUrl || full.url || '';
+          const detectedSource = epubMeta?.sourceUrl || full.sourceUrl || full.url || '';
           const fOpts = getNovelFolderOptions(full || novelItem);
 
           setOngoingEpubModal({
@@ -5298,9 +5313,9 @@ const formatModelName = (id, displayName) => {
             file: full.epubBlob || null,
             title: cleanTitle,
             searchQuery: cleanTitle,
-            author: full.author || 'Author',
-            cover: full.cover || '',
-            uuid: full.uuid || '',
+            author: epubMeta?.author || full.author || 'Author',
+            cover: epubMeta?.cover || full.cover || '',
+            uuid: epubMeta?.uuid || full.uuid || full.id || '',
             chapters: chs,
             existingCount,
             sourceUrl: detectedSource,
@@ -5412,7 +5427,8 @@ const formatModelName = (id, displayName) => {
           }
 
           // 2. Merge original chapters with newly fetched chapters for library tracking
-          const originalKeep = chapters.slice(0, Math.max(0, start - 1));
+          const keepCount = Math.min(chapters.length, Math.max(0, start - 1));
+          const originalKeep = chapters.slice(0, keepCount);
           const mergedChapters = [
             ...originalKeep.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })),
             ...newFetchedChapters.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content }))

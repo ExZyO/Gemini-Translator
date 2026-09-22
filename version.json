@@ -1,9 +1,9 @@
 {
-  "version": "8.17.43",
-  "versionCode": 8283,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.43/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.43/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.43",
+  "version": "8.17.44",
+  "versionCode": 8284,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.44/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.44/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.44",
   "releaseDate": "2026-09-22",
-  "releaseNotes": "v8.17.43: Added hardware back button & swipe navigation stack for Android; redesigned Studio Tab TOC with 2-line cards, collapsible volumes, Move & Rename sheets, and in-place chapter insertion; added Undo/Redo to prose editor; preserved 100% original styles, CSS, and illustrations on EPUB export."
+  "releaseNotes": "v8.17.44: Fixed preview mode touch scrolling and button accessibility on mobile; resolved missing chapter bug when continuing novels from library; prevented double chapter titles on export."
 }
