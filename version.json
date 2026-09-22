@@ -1,9 +1,9 @@
 {
-  "version": "8.17.37",
-  "versionCode": 8277,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.37/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.37/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.37",
+  "version": "8.17.38",
+  "versionCode": 8278,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.38/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.38/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.38",
   "releaseDate": "2026-09-22",
-  "releaseNotes": "v8.17.37: Fix duplicate audiobook playback echo by eliminating redundant audio instances and using a single dedicated HTML5 audio element."
+  "releaseNotes": "v8.17.38: Add Ongoing EPUB Continuation & Moon+ Reader Continuity Engine. Allows importing an existing EPUB, detecting existing chapters, and fetching new chapters from web sources while preserving Book ID (UUID) and internal chapter structure so bookmarks and highlights are 100% retained."
 }

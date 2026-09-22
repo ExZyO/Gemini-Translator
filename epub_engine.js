@@ -328,9 +328,7 @@
         return `urn:uuid:${p1}-${p2}-${p3}-${p4}-${p5}`;
       };
 
-      const uuid = options.uuid
-        ? (options.uuid.startsWith('urn:uuid:') ? options.uuid : ('urn:uuid:' + options.uuid))
-        : generateDeterministicUUID(options.novelId || options.sourceUrl || bookTitle);
+      const uuid = options.uuid || generateDeterministicUUID(options.novelId || options.sourceUrl || bookTitle);
       const startTime = Date.now();
       const cleanFn = (typeof window !== 'undefined' && window.cleanNovelProse)
         ? window.cleanNovelProse

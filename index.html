@@ -3927,6 +3927,10 @@ const formatModelName = (id, displayName) => {
         });
       }, []);
 
+      // --- Ongoing EPUB Continuation & Moon+ Reader Continuity State ---
+      const [ongoingEpubModal, setOngoingEpubModal] = useState(null);
+      const ongoingEpubInputRef = useRef(null);
+
       useEffect(() => {
         const attachAudio = () => {
           if (window.SwiftAudioEngine && window.SwiftAudioEngine.Player) {
@@ -5073,6 +5077,8 @@ const formatModelName = (id, displayName) => {
                 title: bookTitle,
                 author: epubData.author || 'Author',
                 cover: epubData.cover || '',
+                uuid: epubData.uuid || '',
+                sourceUrl: epubData.sourceUrl || '',
                 chapters: epubData.chapters.map(c => ({ title: c.title, text: c.text, content: c.text })),
                 totalChapterCount: epubData.chapters.length,
                 isIncomplete: false,
@@ -5134,6 +5140,230 @@ const formatModelName = (id, displayName) => {
           }
         } catch (e) {
           toast('Recovery scan failed: ' + e.message, 'error');
+        }
+      };
+
+      // ══════════════════════════════════════════════════════════════════════════
+      // ONGOING EPUB CONTINUATION & MOON+ READER CONTINUITY ENGINE
+      // ══════════════════════════════════════════════════════════════════════════
+      const handleSelectOngoingEpubFile = async (file) => {
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.epub')) {
+          return toast('Please select a valid .epub file.', 'warning');
+        }
+        try {
+          toast(`Inspecting "${file.name}"…`, 'info');
+          const epub = await readEpub(file);
+          if (!epub || !epub.chapters || epub.chapters.length === 0) {
+            return toast('No readable chapters found in this EPUB.', 'warning');
+          }
+          const cleanTitle = (epub.title || file.name.replace(/\.epub$/i, '')).replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
+          const existingCount = epub.chapters.length;
+          const detectedSource = epub.sourceUrl || '';
+
+          setOngoingEpubModal({
+            isOpen: true,
+            file,
+            title: cleanTitle,
+            author: epub.author || 'Author',
+            cover: epub.cover || '',
+            uuid: epub.uuid || '',
+            chapters: epub.chapters,
+            existingCount,
+            sourceUrl: detectedSource,
+            onlineToc: null,
+            totalOnlineCount: 0,
+            isScanningToc: false,
+            startChapter: existingCount + 1,
+            endChapter: existingCount + 1,
+            isFetching: false,
+            progress: { status: '', pct: 0, elapsed: '' }
+          });
+
+          if (detectedSource && /^https?:\/\//i.test(detectedSource)) {
+            handleScanContinuationToc(detectedSource, existingCount);
+          }
+        } catch (err) {
+          console.error('Failed to parse EPUB for continuation:', err);
+          toast('Failed to inspect EPUB: ' + err.message, 'error');
+        }
+      };
+
+      const handleOpenContinuationForNovel = async (novelItem) => {
+        try {
+          const full = await loadFullNovel(novelItem);
+          if (!full) return toast('Novel data not found in library.', 'error');
+          const chs = full.rawChapters || full.chapters || [];
+          if (chs.length === 0) return toast('No chapters found in this novel.', 'warning');
+
+          const cleanTitle = (full.title || 'Novel').replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
+          const existingCount = chs.length;
+          const detectedSource = full.sourceUrl || full.url || '';
+
+          setOngoingEpubModal({
+            isOpen: true,
+            file: null,
+            title: cleanTitle,
+            author: full.author || 'Author',
+            cover: full.cover || '',
+            uuid: full.uuid || '',
+            chapters: chs,
+            existingCount,
+            sourceUrl: detectedSource,
+            onlineToc: null,
+            totalOnlineCount: 0,
+            isScanningToc: false,
+            startChapter: existingCount + 1,
+            endChapter: existingCount + 1,
+            isFetching: false,
+            progress: { status: '', pct: 0, elapsed: '' }
+          });
+
+          if (detectedSource && /^https?:\/\//i.test(detectedSource)) {
+            handleScanContinuationToc(detectedSource, existingCount);
+          }
+        } catch (e) {
+          toast('Error opening continuation: ' + e.message, 'error');
+        }
+      };
+
+      const handleScanContinuationToc = async (url, existingCount) => {
+        const targetUrl = (url || ongoingEpubModal?.sourceUrl || '').trim();
+        if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
+          return toast('Please enter a valid web novel source URL.', 'warning');
+        }
+        setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: true, sourceUrl: targetUrl } : null);
+        try {
+          const remote = await window.WebNovelImporter.importUrl(targetUrl, () => {}, { tocOnly: true });
+          const totalOnline = (remote && typeof remote.totalChapterCount === 'number')
+            ? remote.totalChapterCount
+            : (remote?.chapterList ? remote.chapterList.length : (remote?.chapters ? remote.chapters.length : 0));
+
+          if (!totalOnline || totalOnline === 0) {
+            toast('Failed to retrieve online chapters from this URL.', 'warning');
+            setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: false } : null);
+            return;
+          }
+
+          setOngoingEpubModal(prev => {
+            if (!prev) return null;
+            const curExisting = prev.existingCount || existingCount || 0;
+            const start = curExisting + 1;
+            return {
+              ...prev,
+              isScanningToc: false,
+              onlineToc: remote.chapterList || [],
+              totalOnlineCount: totalOnline,
+              startChapter: Math.min(start, totalOnline),
+              endChapter: totalOnline
+            };
+          });
+          toast(`Discovered ${totalOnline} chapters online! (Ready to fetch from Ch. ${(existingCount || 0) + 1})`, 'success');
+        } catch (err) {
+          console.error('Scan TOC error:', err);
+          toast('Failed to scan online source: ' + err.message, 'error');
+          setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: false } : null);
+        }
+      };
+
+      const handleExecuteContinuation = async () => {
+        if (!ongoingEpubModal || !ongoingEpubModal.sourceUrl) {
+          return toast('Source URL is required to fetch new chapters.', 'warning');
+        }
+        const { title, author, cover, uuid, chapters, existingCount, sourceUrl, startChapter, endChapter, totalOnlineCount } = ongoingEpubModal;
+
+        const start = parseInt(startChapter, 10) || (existingCount + 1);
+        const end = parseInt(endChapter, 10) || start;
+
+        if (start > end) {
+          return toast('Start chapter cannot be greater than end chapter.', 'warning');
+        }
+
+        setOngoingEpubModal(prev => prev ? {
+          ...prev,
+          isFetching: true,
+          progress: { status: 'Connecting to online source…', pct: 5, elapsed: '0s' }
+        } : null);
+
+        try {
+          const startTime = Date.now();
+          const getElapsed = () => {
+            const sec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return (m > 0 ? `${m}m ` : '') + `${s}s`;
+          };
+
+          // 1. Fetch only the requested chapter range
+          const remoteResult = await window.WebNovelImporter.importUrl(sourceUrl, (msg, pct) => {
+            setOngoingEpubModal(prev => prev ? {
+              ...prev,
+              progress: { status: msg || 'Downloading new chapters…', pct: pct || 20, elapsed: getElapsed() }
+            } : null);
+          }, {
+            chapterRange: { start, end }
+          });
+
+          const newFetchedChapters = remoteResult?.chapters || [];
+          if (newFetchedChapters.length === 0) {
+            throw new Error('No new chapters could be retrieved from the source.');
+          }
+
+          // 2. Merge original chapters with newly fetched chapters
+          const originalKeep = chapters.slice(0, Math.max(0, start - 1));
+          const mergedChapters = [
+            ...originalKeep.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })),
+            ...newFetchedChapters.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content }))
+          ];
+
+          // 3. Package EPUB preserving exact uuid and cover
+          setOngoingEpubModal(prev => prev ? {
+            ...prev,
+            progress: { status: `Packaging ${mergedChapters.length} chapters into EPUB…`, pct: 85, elapsed: getElapsed() }
+          } : null);
+
+          const epubBlob = await generateEpubFromChapters(
+            mergedChapters,
+            title,
+            author,
+            'en',
+            (status, pct, elapsed) => {
+              setOngoingEpubModal(prev => prev ? {
+                ...prev,
+                progress: { status, pct: Math.round(85 + (pct * 0.14)), elapsed }
+              } : null);
+            },
+            {
+              uuid: uuid || undefined,
+              coverUrl: cover || undefined,
+              sourceUrl
+            }
+          );
+
+          // 4. Trigger download / save
+          const isInc = totalOnlineCount ? mergedChapters.length < totalOnlineCount : false;
+          const fileName = getEpubFileName(title, mergedChapters.length, isInc);
+          await saveUniversalBlob(epubBlob, fileName, 'application/epub+zip', false, null);
+
+          // 5. Save updated novel into library
+          await saveNovelToHistory({
+            title,
+            author,
+            cover,
+            uuid: uuid || '',
+            sourceUrl,
+            chapters: mergedChapters,
+            totalChapterCount: Math.max(mergedChapters.length, totalOnlineCount || mergedChapters.length),
+            isIncomplete: isInc,
+            isEpub: true
+          });
+
+          toast(`Updated "${title}"! Appended ${newFetchedChapters.length} new chapters. Book ID preserved for Moon+ Reader Pro!`, 'success');
+          setOngoingEpubModal(null);
+        } catch (err) {
+          console.error('Continuation error:', err);
+          toast('Continuation failed: ' + err.message, 'error');
+          setOngoingEpubModal(prev => prev ? { ...prev, isFetching: false } : null);
         }
       };
 
@@ -11125,6 +11355,8 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         const oc = await of2.async('text'); const opf = new DOMParser().parseFromString(oc, 'text/xml');
         const bookTitle = (opf.querySelector('title, dc\\:title')?.textContent || '').trim();
         const bookAuthor = (opf.querySelector('creator, dc\\:creator')?.textContent || '').trim();
+        const bookIdentifier = (opf.querySelector('identifier, dc\\:identifier')?.textContent || '').trim();
+        const bookSource = (opf.querySelector('source, dc\\:source')?.textContent || opf.querySelector('meta[name="source"]')?.getAttribute('content') || '').trim();
         const ncxI = opf.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
         const ncxH = ncxI ? od + ncxI.getAttribute('href') : null;
         const navI = Array.from(opf.querySelectorAll('manifest item')).find(i => (i.getAttribute('properties') || '').split(/\s+/).includes('nav'));
@@ -11314,7 +11546,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
           hasCover: Boolean(extractedCover),
           sizeBytes: f.size
         });
-        return { chapters, isEpub: true, originalZip: zip, cover: extractedCover, title: bookTitle, author: bookAuthor };
+        return { chapters, isEpub: true, originalZip: zip, cover: extractedCover, title: bookTitle, author: bookAuthor, uuid: bookIdentifier, sourceUrl: bookSource };
       };
 
       const readDocx = async f => {
@@ -13625,47 +13857,71 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                     }, '✕ Cancel')
                   )
                 ) : !isFetchingUrl ? (
-                  isSpecificSwiftAudioBook ? null : (
-                  isSwiftAudioDetected ? (
-                    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr', gap: 6, margin: '6px 0' } },
-                      h('button', {
-                        type: 'button',
-                        className: 'primary',
-                        style: { background: 'linear-gradient(90deg, #6366f1, #ec4899)', width: '100%' },
-                        disabled: !webImportUrl.trim() || isSwiftAudioSearching,
-                        onClick: () => handleSwiftAudioSearch(webImportUrl)
-                      }, isSwiftAudioSearching ? 'Searching…' : '🔍 Search Audiobooks')
-                    )
-                  ) : (
-                    h('div', { style: { display: 'grid', gridTemplateColumns: (!webImportUrl.trim() || !/^https?:\/\//i.test(webImportUrl.trim())) ? '1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
-                      (!webImportUrl.trim() || !/^https?:\/\//i.test(webImportUrl.trim())) ? (
-                        h('button', {
-                          type: 'button',
-                          className: 'primary',
-                          style: { background: 'linear-gradient(90deg, #6366f1, #3b82f6)', width: '100%', fontWeight: 700 },
-                          disabled: !webImportUrl.trim() || isSearchingNovels,
-                          onClick: () => handleSearchNovels(webImportUrl)
-                        }, isSearchingNovels ? 'Searching Supported Sources…' : '🔍 Search Web Novels')
-                      ) : (
-                        h(React.Fragment, null,
+                  h(React.Fragment, null,
+                    isSpecificSwiftAudioBook ? null : (
+                      isSwiftAudioDetected ? (
+                        h('div', { style: { display: 'grid', gridTemplateColumns: '1fr', gap: 6, margin: '6px 0' } },
                           h('button', {
                             type: 'button',
                             className: 'primary',
-                            style: { fontWeight: 700 },
-                            disabled: !webImportUrl.trim(),
-                            onClick: () => handleStartFetch(false)
-                          }, '⤓ Fetch Novel URL'),
-                          h('button', {
-                            type: 'button',
-                            className: 'primary ghost',
-                            style: { fontWeight: 600 },
-                            disabled: !webImportUrl.trim() || isSearchingNovels,
-                            onClick: () => handleSearchNovels(webImportUrl)
-                          }, isSearchingNovels ? 'Searching…' : '🔍 Search Title')
+                            style: { background: 'linear-gradient(90deg, #6366f1, #ec4899)', width: '100%' },
+                            disabled: !webImportUrl.trim() || isSwiftAudioSearching,
+                            onClick: () => handleSwiftAudioSearch(webImportUrl)
+                          }, isSwiftAudioSearching ? 'Searching…' : '🔍 Search Audiobooks')
+                        )
+                      ) : (
+                        h('div', { style: { display: 'grid', gridTemplateColumns: (!webImportUrl.trim() || !/^https?:\/\//i.test(webImportUrl.trim())) ? '1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
+                          (!webImportUrl.trim() || !/^https?:\/\//i.test(webImportUrl.trim())) ? (
+                            h('button', {
+                              type: 'button',
+                              className: 'primary',
+                              style: { background: 'linear-gradient(90deg, #6366f1, #3b82f6)', width: '100%', fontWeight: 700 },
+                              disabled: !webImportUrl.trim() || isSearchingNovels,
+                              onClick: () => handleSearchNovels(webImportUrl)
+                            }, isSearchingNovels ? 'Searching Supported Sources…' : '🔍 Search Web Novels')
+                          ) : (
+                            h(React.Fragment, null,
+                              h('button', {
+                                type: 'button',
+                                className: 'primary',
+                                style: { fontWeight: 700 },
+                                disabled: !webImportUrl.trim(),
+                                onClick: () => handleStartFetch(false)
+                              }, '⤓ Fetch Novel URL'),
+                              h('button', {
+                                type: 'button',
+                                className: 'primary ghost',
+                                style: { fontWeight: 600 },
+                                disabled: !webImportUrl.trim() || isSearchingNovels,
+                                onClick: () => handleSearchNovels(webImportUrl)
+                              }, isSearchingNovels ? 'Searching…' : '🔍 Search Title')
+                            )
+                          )
                         )
                       )
-                    )
-                  ))
+                    ),
+                    !isSpecificSwiftAudioBook && !isSwiftAudioDetected && h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: {
+                        background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.15), rgba(99, 102, 241, 0.15))',
+                        color: '#10b981',
+                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                        fontWeight: 700,
+                        padding: '8px 12px',
+                        margin: '4px 0 8px',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        fontSize: 12,
+                        cursor: 'pointer'
+                      },
+                      title: 'Upload an existing EPUB, detect its chapters, and fetch new chapters online while preserving Moon+ Reader Book ID and bookmarks',
+                      onClick: () => ongoingEpubInputRef.current?.click()
+                    }, '⚡ Continue Ongoing EPUB (Moon+ Reader Compatible)')
+                  )
                 ) : (
                   h('div', { style: { display: 'grid', gridTemplateColumns: (activeNovelView?.chapters?.length || 0) > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
                     h('button', {
@@ -14320,6 +14576,13 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                   title: 'Re-import previously downloaded EPUB files back into your library',
                   onClick: () => epubRestoreInputRef.current?.click()
                 }, '📥 Restore EPUBs'),
+                h('button', {
+                  type: 'button',
+                  className: 'chip-act',
+                  style: { background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid #10b981', fontWeight: 600, padding: '7px 12px', whiteSpace: 'nowrap' },
+                  title: 'Input an existing EPUB, detect its chapters, and fetch new chapters online while preserving Moon+ Reader Book ID and bookmarks',
+                  onClick: () => ongoingEpubInputRef.current?.click()
+                }, '⚡ Continue Ongoing EPUB'),
                 h('input', {
                   type: 'file',
                   ref: epubRestoreInputRef,
@@ -14327,6 +14590,17 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                   multiple: true,
                   style: { display: 'none' },
                   onChange: handleRestoreFromEpubFiles
+                }),
+                h('input', {
+                  type: 'file',
+                  ref: ongoingEpubInputRef,
+                  accept: '.epub',
+                  style: { display: 'none' },
+                  onChange: (e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleSelectOngoingEpubFile(f);
+                    e.target.value = '';
+                  }
                 })
               ),
               h('div', { className: 'seg', style: { marginTop: 10, marginBottom: 12, overflowX: 'auto', display: 'flex' } },
@@ -14747,7 +15021,25 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                           )
                         )
                       ),
-                      h('div', { className: 'm' }, `${item.chapterCount || 0}${item.totalChapterCount ? ` / ${item.totalChapterCount}` : ''} chapters${item.volumeCount ? ` · ${item.volumeCount} vols` : ''} · ${new Date(item.timestamp || Date.now()).toLocaleDateString()}`),
+                      (() => {
+                        const savedProg = window.getReadingProgress ? window.getReadingProgress(item.id || item.title) : null;
+                        const resumeCh = (savedProg && typeof savedProg.chapterIdx === 'number') ? (savedProg.chapterIdx + 1) : null;
+                        const pct = savedProg?.pct;
+                        return h('div', { className: 'm', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' } },
+                          h('span', null, `${item.chapterCount || 0}${item.totalChapterCount ? ` / ${item.totalChapterCount}` : ''} chapters${item.volumeCount ? ` · ${item.volumeCount} vols` : ''} · ${new Date(item.timestamp || Date.now()).toLocaleDateString()}`),
+                          resumeCh ? h('span', {
+                            style: {
+                              fontSize: 11,
+                              color: 'var(--iris)',
+                              fontWeight: 600,
+                              background: 'rgba(99, 102, 241, 0.12)',
+                              border: '1px solid rgba(99, 102, 241, 0.25)',
+                              padding: '2px 8px',
+                              borderRadius: 4
+                            }
+                          }, `📖 Ch. ${resumeCh}${pct ? ` (${pct}%)` : ''}`) : null
+                        );
+                      })(),
                       h('div', { className: 'book-acts' },
                         novelUpdateBadges[item.id] && (() => {
                           const badge = novelUpdateBadges[item.id];
@@ -16770,6 +17062,9 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                 menuRow('🔄', 'Check Online Updates', 'Check online web source for newly published chapters', () => {
                   handleCheckNovelUpdate(item);
                 }),
+                menuRow('⚡', 'Continue Fetching Online', 'Fetch new chapters from web and append to this EPUB with same Book ID', () => {
+                  handleOpenContinuationForNovel(item);
+                }),
                 menuRow('🧬', 'Auto-Build Glossary', 'Extract character cast and lore into a locked Smart Glossary', async () => {
                   const full = await loadFullNovel(item);
                   if (!full) { toast('Novel data not found in local store.', 'error'); return; }
@@ -16804,6 +17099,190 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             )
           );
         })(),
+
+        // ── ONGOING EPUB CONTINUATION & MOON+ READER CONTINUITY MODAL ──
+        ongoingEpubModal && ongoingEpubModal.isOpen && h('div', { className: 'modal-overlay', onClick: () => { if (!ongoingEpubModal.isFetching) setOngoingEpubModal(null); } },
+          h('div', { className: 'modal-box', style: { maxWidth: 540, maxHeight: '90vh' }, onClick: e => e.stopPropagation() },
+            h('div', { className: 'modal-hd' },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 20 } }, '⚡'),
+                h('div', null,
+                  h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Continue Ongoing EPUB'),
+                  h('div', { style: { fontSize: 11, color: '#10b981', fontWeight: 600 } }, '✓ Moon+ Reader Pro Continuity Engine')
+                )
+              ),
+              !ongoingEpubModal.isFetching && h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setOngoingEpubModal(null) }, '✕')
+            ),
+            h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
+              // 1. Existing EPUB Inspection Card
+              h('div', {
+                className: 'card',
+                style: {
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid var(--hairline)',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'flex-start',
+                  marginBottom: 0
+                }
+              },
+                ongoingEpubModal.cover ? h('img', {
+                  src: ongoingEpubModal.cover,
+                  alt: 'Cover',
+                  style: { width: 48, height: 68, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }
+                }) : h('div', {
+                  style: { width: 48, height: 68, borderRadius: 4, background: 'var(--ember-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }
+                }, '📖'),
+                h('div', { style: { flex: 1, minWidth: 0 } },
+                  h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ongoingEpubModal.title),
+                  h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } }, `by ${ongoingEpubModal.author || 'Unknown'} · ${ongoingEpubModal.existingCount || 0} chapters in EPUB`),
+                  h('div', {
+                    style: {
+                      marginTop: 6,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      fontSize: 10.5,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      fontFamily: "'IBM Plex Mono', monospace"
+                    }
+                  },
+                    h('span', null, '✓ Book ID Preserved:'),
+                    h('span', { style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ongoingEpubModal.uuid || 'Auto-Deterministic')
+                  )
+                )
+              ),
+
+              // 2. Online Source URL & TOC Verification
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+                h('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)' } }, 'Online Web Novel Source:'),
+                h('div', { style: { display: 'flex', gap: 6 } },
+                  h('input', {
+                    type: 'text',
+                    className: 'url-input',
+                    style: { flex: 1, fontSize: 12 },
+                    placeholder: 'Paste web novel URL (e.g. Royal Road, NovelFire, Lnori, Witch Cult, etc.)…',
+                    value: ongoingEpubModal.sourceUrl || '',
+                    disabled: ongoingEpubModal.isFetching || ongoingEpubModal.isScanningToc,
+                    onChange: (e) => setOngoingEpubModal(prev => prev ? { ...prev, sourceUrl: e.target.value } : null),
+                    onKeyDown: (e) => {
+                      if (e.key === 'Enter' && ongoingEpubModal.sourceUrl) {
+                        e.preventDefault();
+                        handleScanContinuationToc(ongoingEpubModal.sourceUrl, ongoingEpubModal.existingCount);
+                      }
+                    }
+                  }),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap', padding: '0 12px' },
+                    disabled: !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isFetching || ongoingEpubModal.isScanningToc,
+                    onClick: () => handleScanContinuationToc(ongoingEpubModal.sourceUrl, ongoingEpubModal.existingCount)
+                  }, ongoingEpubModal.isScanningToc ? 'Scanning…' : '🔍 Scan TOC')
+                ),
+                ongoingEpubModal.totalOnlineCount > 0 && h('div', {
+                  style: { fontSize: 11.5, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }
+                },
+                  h('span', null, `✓ Found ${ongoingEpubModal.totalOnlineCount} chapters online. (${Math.max(0, ongoingEpubModal.totalOnlineCount - ongoingEpubModal.existingCount)} new chapters available)`)
+                )
+              ),
+
+              // 3. Chapter Range Selector
+              h('div', {
+                style: {
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--hairline)',
+                  borderRadius: 8,
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10
+                }
+              },
+                h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)' } }, 'Select Chapter Range to Fetch & Append:'),
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                  h('div', { style: { flex: 1 } },
+                    h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, 'From Chapter:'),
+                    h('input', {
+                      type: 'number',
+                      className: 'mini-input',
+                      style: { marginTop: 4 },
+                      min: 1,
+                      max: ongoingEpubModal.totalOnlineCount || 9999,
+                      value: ongoingEpubModal.startChapter,
+                      disabled: ongoingEpubModal.isFetching,
+                      onChange: (e) => setOngoingEpubModal(prev => prev ? { ...prev, startChapter: parseInt(e.target.value, 10) || 1 } : null)
+                    })
+                  ),
+                  h('span', { style: { fontSize: 16, color: 'var(--slate)', marginTop: 18 } }, '→'),
+                  h('div', { style: { flex: 1 } },
+                    h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, 'To Chapter:'),
+                    h('input', {
+                      type: 'number',
+                      className: 'mini-input',
+                      style: { marginTop: 4 },
+                      min: ongoingEpubModal.startChapter || 1,
+                      max: ongoingEpubModal.totalOnlineCount || 9999,
+                      value: ongoingEpubModal.endChapter,
+                      disabled: ongoingEpubModal.isFetching,
+                      onChange: (e) => setOngoingEpubModal(prev => prev ? { ...prev, endChapter: parseInt(e.target.value, 10) || 1 } : null)
+                    })
+                  )
+                ),
+                h('div', { style: { fontSize: 11, color: 'var(--slate)', lineHeight: 1.45 } },
+                  `💡 Existing Chapters 1 to ${Math.max(0, (ongoingEpubModal.startChapter || 1) - 1)} in your EPUB will be kept completely untouched with identical filenames, preserving 100% of your Moon+ Reader bookmarks, highlights, and notes.`
+                )
+              ),
+
+              // 4. Progress indicator when fetching
+              ongoingEpubModal.isFetching && h('div', {
+                style: {
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  borderRadius: 8,
+                  padding: '12px 14px'
+                }
+              },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+                  h('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--paper)' } }, ongoingEpubModal.progress?.status || 'Fetching chapters…'),
+                  h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: 'var(--accent, #6366f1)', fontSize: 12 } }, `${ongoingEpubModal.progress?.pct || 0}%`)
+                ),
+                h('div', { style: { width: '100%', height: 5, borderRadius: 99, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden', margin: '4px 0' } },
+                  h('div', { style: { height: '100%', width: `${ongoingEpubModal.progress?.pct || 0}%`, background: 'linear-gradient(90deg, #6366f1, #10b981)', transition: 'width 0.25s' } })
+                ),
+                ongoingEpubModal.progress?.elapsed && h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textAlign: 'right', marginTop: 4, fontFamily: "'IBM Plex Mono', monospace" } },
+                  `⏱ ${ongoingEpubModal.progress.elapsed}`
+                )
+              )
+            ),
+            h('div', { className: 'modal-ft' },
+              !ongoingEpubModal.isFetching && h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                onClick: () => setOngoingEpubModal(null)
+              }, 'Cancel'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: {
+                  background: 'linear-gradient(90deg, #10b981, #059669)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  padding: '8px 16px',
+                  boxShadow: '0 2px 10px rgba(16, 185, 129, 0.35)',
+                  cursor: ongoingEpubModal.isFetching ? 'not-allowed' : 'pointer'
+                },
+                disabled: ongoingEpubModal.isFetching || !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isScanningToc,
+                onClick: handleExecuteContinuation
+              }, ongoingEpubModal.isFetching ? '⏳ Fetching & Merging…' : `▶ Fetch Ch. ${ongoingEpubModal.startChapter}–${ongoingEpubModal.endChapter} & Update EPUB`)
+            )
+          )
+        ),
 
         // ── NOVEL HEALTH & TRANSLATION QA REPORT MODAL (§5.9 + §7.1 + §7.5) ──
         qaModalOpen && h('div', { className: 'modal-overlay', onClick: () => setQaModalOpen(false) },

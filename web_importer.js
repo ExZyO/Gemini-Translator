@@ -704,6 +704,7 @@
             abortController,
             initialChapters: options.initialChapters || (options.resumeSession ? (options.resumeSession.downloadedChapters || options.resumeSession.chapters || options.resumeSession.rawChapters) : []) || [],
             chapterList: (isUpdate || refreshToc || tocOnly) ? (options.chapterList || []) : (options.chapterList || options.resumeSession?.chapterList || []),
+            chapterRange: options.chapterRange || null,
             onChapterDone: options.onChapterDone || null,
             novelMeta: options.novelMeta || {}
         };
