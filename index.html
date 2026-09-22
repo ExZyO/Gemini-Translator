@@ -865,7 +865,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.31';
+    let VERSION = '8.17.39';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -5146,6 +5146,81 @@ const formatModelName = (id, displayName) => {
       // ══════════════════════════════════════════════════════════════════════════
       // ONGOING EPUB CONTINUATION & MOON+ READER CONTINUITY ENGINE
       // ══════════════════════════════════════════════════════════════════════════
+      const handleSearchContinuationSources = async (query) => {
+        const cleanQuery = (query || '').trim();
+        if (!cleanQuery) return;
+        setOngoingEpubModal(prev => prev ? { ...prev, isSearchingSources: true, continuationSources: [] } : null);
+        try {
+          let results = [];
+          // 1. Built-in scrapers
+          if (window.WebNovelImporter?.searchNovels) {
+            try {
+              const scraperResults = await window.WebNovelImporter.searchNovels(cleanQuery, 'all');
+              if (Array.isArray(scraperResults)) results.push(...scraperResults);
+            } catch (e) {
+              console.warn('[handleSearchContinuationSources] Scraper search error:', e);
+            }
+          }
+          // 2. Installed source plugins (278+ extensions)
+          const reg = window.sourceRegistry || window.SourceRegistry;
+          if (reg && typeof reg.searchAll === 'function') {
+            try {
+              const pluginResults = await reg.searchAll(cleanQuery);
+              if (Array.isArray(pluginResults)) {
+                for (const p of pluginResults) {
+                  const pUrl = (p.url || p.path || '').replace(/\/$/, '');
+                  results.push({
+                    id: p.id || pUrl,
+                    title: p.title || p.name || cleanQuery,
+                    author: p.author || '',
+                    url: p.url || p.path,
+                    cover: p.cover || '',
+                    summary: p.summary || '',
+                    chapters: p.chapters || '',
+                    source: p.source || 'Extension Plugin'
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn('[handleSearchContinuationSources] Plugin search error:', e);
+            }
+          }
+          // Deduplicate by URL
+          const seenUrls = new Set();
+          const deduped = [];
+          for (const r of results) {
+            const u = (r.url || r.path || '').replace(/\/$/, '');
+            if (u && !seenUrls.has(u)) {
+              seenUrls.add(u);
+              deduped.push(r);
+            }
+          }
+
+          setOngoingEpubModal(prev => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              isSearchingSources: false,
+              continuationSources: deduped
+            };
+          });
+        } catch (err) {
+          console.error('[handleSearchContinuationSources] Error:', err);
+          setOngoingEpubModal(prev => prev ? { ...prev, isSearchingSources: false } : null);
+        }
+      };
+
+      const handleSelectContinuationSource = async (srcItem) => {
+        const targetUrl = srcItem?.url || srcItem?.path;
+        if (!targetUrl) return;
+        setOngoingEpubModal(prev => prev ? {
+          ...prev,
+          selectedSource: srcItem,
+          sourceUrl: targetUrl
+        } : null);
+        await handleScanContinuationToc(targetUrl, ongoingEpubModal?.existingCount);
+      };
+
       const handleSelectOngoingEpubFile = async (file) => {
         if (!file) return;
         if (!file.name.toLowerCase().endsWith('.epub')) {
@@ -5171,6 +5246,10 @@ const formatModelName = (id, displayName) => {
             chapters: epub.chapters,
             existingCount,
             sourceUrl: detectedSource,
+            selectedSource: null,
+            continuationSources: [],
+            isSearchingSources: true,
+            customUrlMode: false,
             onlineToc: null,
             totalOnlineCount: 0,
             isScanningToc: false,
@@ -5179,6 +5258,8 @@ const formatModelName = (id, displayName) => {
             isFetching: false,
             progress: { status: '', pct: 0, elapsed: '' }
           });
+
+          handleSearchContinuationSources(cleanTitle);
 
           if (detectedSource && /^https?:\/\//i.test(detectedSource)) {
             handleScanContinuationToc(detectedSource, existingCount);
@@ -5210,6 +5291,10 @@ const formatModelName = (id, displayName) => {
             chapters: chs,
             existingCount,
             sourceUrl: detectedSource,
+            selectedSource: null,
+            continuationSources: [],
+            isSearchingSources: true,
+            customUrlMode: false,
             onlineToc: null,
             totalOnlineCount: 0,
             isScanningToc: false,
@@ -5218,6 +5303,8 @@ const formatModelName = (id, displayName) => {
             isFetching: false,
             progress: { status: '', pct: 0, elapsed: '' }
           });
+
+          handleSearchContinuationSources(cleanTitle);
 
           if (detectedSource && /^https?:\/\//i.test(detectedSource)) {
             handleScanContinuationToc(detectedSource, existingCount);
@@ -6712,7 +6799,7 @@ const formatModelName = (id, displayName) => {
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8270);
+      const [appVersionCode, setAppVersionCode] = useState(8279);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [installingPluginId, setInstallingPluginId] = useState(null);
@@ -13478,12 +13565,30 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 4,
-                      padding: '4px 10px',
-                      borderRadius: 8
+                      padding: '6px 12px',
+                      borderRadius: 999
                     },
                     onClick: handleOpenSourcePluginsModal,
                     title: 'Manage built-in source plugins and browse 278 LNReader community plugins'
                   }, '🔌 Source Plugins (278+)'),
+                  h('button', {
+                    type: 'button',
+                    className: 'src-chip',
+                    style: {
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '6px 12px',
+                      borderRadius: 999
+                    },
+                    onClick: () => ongoingEpubInputRef.current?.click(),
+                    title: 'Upload an existing EPUB to auto-search sources and fetch new chapters'
+                  }, '⚡ Continue EPUB'),
                   ['👑 Re:Zero (WCT)', 'Lnori', 'SwiftAudio', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'NovelBin', 'AO3', 'Pixiv', 'Syosetu'].map(s => {
                     const isRezeroChip = s === '👑 Re:Zero (WCT)';
                     const isSwiftChip = s === 'SwiftAudio';
@@ -13899,28 +14004,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                           )
                         )
                       )
-                    ),
-                    !isSpecificSwiftAudioBook && !isSwiftAudioDetected && h('button', {
-                      type: 'button',
-                      className: 'mini-btn',
-                      style: {
-                        background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.15), rgba(99, 102, 241, 0.15))',
-                        color: '#10b981',
-                        border: '1px solid rgba(16, 185, 129, 0.4)',
-                        fontWeight: 700,
-                        padding: '8px 12px',
-                        margin: '4px 0 8px',
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 6,
-                        fontSize: 12,
-                        cursor: 'pointer'
-                      },
-                      title: 'Upload an existing EPUB, detect its chapters, and fetch new chapters online while preserving Moon+ Reader Book ID and bookmarks',
-                      onClick: () => ongoingEpubInputRef.current?.click()
-                    }, '⚡ Continue Ongoing EPUB (Moon+ Reader Compatible)')
+                    )
                   )
                 ) : (
                   h('div', { style: { display: 'grid', gridTemplateColumns: (activeNovelView?.chapters?.length || 0) > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
@@ -14567,22 +14651,61 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
             // ═══ TAB 4: LIBRARY ═══
             activeTab === 'history' && h(React.Fragment, null,
-              h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-                h('input', { type: 'text', className: 'url-input', style: { flex: 1 }, placeholder: 'Search library by title, date, language, chapters…', value: libQuery, onChange: e => setLibQuery(e.target.value) }),
-                h('button', {
-                  type: 'button',
-                  className: 'chip-act',
-                  style: { background: 'rgba(99, 102, 241, 0.15)', color: 'var(--iris)', border: '1px solid var(--iris)', fontWeight: 600, padding: '7px 12px', whiteSpace: 'nowrap' },
-                  title: 'Re-import previously downloaded EPUB files back into your library',
-                  onClick: () => epubRestoreInputRef.current?.click()
-                }, '📥 Restore EPUBs'),
-                h('button', {
-                  type: 'button',
-                  className: 'chip-act',
-                  style: { background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid #10b981', fontWeight: 600, padding: '7px 12px', whiteSpace: 'nowrap' },
-                  title: 'Input an existing EPUB, detect its chapters, and fetch new chapters online while preserving Moon+ Reader Book ID and bookmarks',
-                  onClick: () => ongoingEpubInputRef.current?.click()
-                }, '⚡ Continue Ongoing EPUB'),
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 } },
+                h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                  h('input', {
+                    type: 'text',
+                    className: 'url-input',
+                    style: { flex: 1, height: 44, borderRadius: 12, padding: '0 14px', fontSize: 13 },
+                    placeholder: 'Search library by title, author, chapters…',
+                    value: libQuery,
+                    onChange: e => setLibQuery(e.target.value)
+                  }),
+                  libQuery && h('button', {
+                    type: 'button',
+                    className: 'icon-btn',
+                    style: { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: 'var(--slate)', cursor: 'pointer' },
+                    onClick: () => setLibQuery('')
+                  }, '✕')
+                ),
+                h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    style: {
+                      background: 'rgba(99, 102, 241, 0.12)',
+                      color: 'var(--iris)',
+                      border: '1px solid rgba(99, 102, 241, 0.3)',
+                      fontWeight: 600,
+                      padding: '7px 14px',
+                      borderRadius: 999,
+                      fontSize: 12,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5
+                    },
+                    title: 'Re-import previously downloaded EPUB files back into your library',
+                    onClick: () => epubRestoreInputRef.current?.click()
+                  }, '📥 Restore EPUBs'),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    style: {
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      fontWeight: 600,
+                      padding: '7px 14px',
+                      borderRadius: 999,
+                      fontSize: 12,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5
+                    },
+                    title: 'Input an existing EPUB to auto-search sources and continue fetching',
+                    onClick: () => ongoingEpubInputRef.current?.click()
+                  }, '⚡ Continue Ongoing EPUB')
+                ),
                 h('input', {
                   type: 'file',
                   ref: epubRestoreInputRef,
@@ -14966,361 +15089,391 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                     )
                   )
                 : h(React.Fragment, null,
-                    displayedBooks.map((item, idx) => h('div', { key: item.id || idx, className: 'book-card' },
-                      h('div', { className: 't', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
-                        h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.title || 'Untitled Book'),
-                        h('div', { style: { display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 } },
-                          item.inSavedSpace && h('span', {
+                    displayedBooks.map((item, idx) => {
+                      const savedProg = window.getReadingProgress ? window.getReadingProgress(item.id || item.title) : null;
+                      const resumeCh = (savedProg && typeof savedProg.chapterIdx === 'number') ? (savedProg.chapterIdx + 1) : null;
+                      const pct = savedProg?.pct;
+                      const isTrans = !!item.isTranslated || (item.title || '').includes('(Translated)');
+                      const updateBadge = novelUpdateBadges[item.id];
+                      const isLnori = item.sourceUrl && /lnori\.(?:org|com)/i.test(item.sourceUrl);
+                      const isUpdating = !!downloadingUpdates[item.id];
+                      const unit = updateBadge?.isVolumeBased ? 'Vol' : 'Ch';
+
+                      return h('div', {
+                        key: item.id || idx,
+                        className: 'book-card',
+                        style: {
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 12,
+                          padding: '16px 18px',
+                          borderRadius: 16,
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid var(--hairline)',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        }
+                      },
+                        // Top section with Cover and Info
+                        h('div', { style: { display: 'flex', gap: 14, alignItems: 'flex-start' } },
+                          item.cover ? h('img', {
+                            src: item.cover,
+                            alt: 'Cover',
+                            referrerPolicy: 'no-referrer',
+                            onError: (e) => { e.target.style.display = 'none'; },
                             style: {
-                              fontSize: 10,
-                              padding: '2px 6px',
-                              borderRadius: 4,
-                              background: 'rgba(245, 158, 11, 0.15)',
-                              color: '#f59e0b',
-                              border: '1px solid rgba(245, 158, 11, 0.3)',
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap'
+                              width: 68,
+                              height: 94,
+                              borderRadius: 10,
+                              objectFit: 'cover',
+                              flexShrink: 0,
+                              boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+                              border: '1px solid rgba(255,255,255,0.08)'
                             }
-                          }, '⭐ Space'),
-                          novelUpdateBadges[item.id] && h('span', {
+                          }) : h('div', {
                             style: {
-                              fontSize: 10,
-                              padding: '2px 6px',
-                              borderRadius: 4,
-                              background: 'rgba(59, 130, 246, 0.25)',
-                              color: '#60a5fa',
-                              border: '1px solid rgba(59, 130, 246, 0.4)',
-                              fontWeight: 700,
-                              whiteSpace: 'nowrap'
+                              width: 68,
+                              height: 94,
+                              borderRadius: 10,
+                              background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15))',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 26,
+                              flexShrink: 0
                             }
-                          }, `+${novelUpdateBadges[item.id].newCount} ${novelUpdateBadges[item.id].isVolumeBased ? 'Vol' : ''} New`),
-                          item.isIncomplete ? h('span', {
-                            style: {
-                              fontSize: 10,
-                              padding: '2px 6px',
-                              borderRadius: 4,
-                              background: 'rgba(234, 179, 8, 0.15)',
-                              color: '#eab308',
-                              border: '1px solid rgba(234, 179, 8, 0.3)',
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap'
-                            }
-                          }, `⏸ Incomplete (${item.chapterCount}/${item.totalChapterCount || '?'} ch)`) : (
-                            (item.isTranslated || (item.title || '').includes('(Translated)')) && h('span', {
-                              style: {
-                                fontSize: 10,
-                                padding: '2px 6px',
-                                borderRadius: 4,
-                                background: 'rgba(34, 197, 94, 0.15)',
-                                color: '#22c55e',
-                                border: '1px solid rgba(34, 197, 94, 0.3)',
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap'
-                              }
-                            }, '✓ Translated')
+                          }, '📖'),
+
+                          h('div', { style: { flex: 1, minWidth: 0 } },
+                            h('div', { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 } },
+                              h('div', {
+                                style: {
+                                  fontSize: 15.5,
+                                  fontWeight: 700,
+                                  color: 'var(--paper)',
+                                  lineHeight: 1.35,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical'
+                                },
+                                title: item.title
+                              }, item.title || 'Untitled Book'),
+                              item.inSavedSpace && h('span', {
+                                style: {
+                                  fontSize: 11,
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  background: 'rgba(245, 158, 11, 0.15)',
+                                  color: '#f59e0b',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  fontWeight: 600,
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0
+                                }
+                              }, '⭐ Space')
+                            ),
+
+                            h('div', { style: { fontSize: 12.5, color: 'var(--slate)', marginTop: 4 } },
+                              `${item.author ? `by ${item.author} · ` : ''}${item.chapterCount || 0}${item.totalChapterCount ? ` / ${item.totalChapterCount}` : ''} chapters${item.volumeCount ? ` · ${item.volumeCount} vols` : ''}`
+                            ),
+
+                            // Badges row
+                            h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 } },
+                              resumeCh ? h('span', {
+                                style: {
+                                  fontSize: 11,
+                                  color: 'var(--iris)',
+                                  fontWeight: 600,
+                                  background: 'rgba(99, 102, 241, 0.12)',
+                                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                                  padding: '2px 8px',
+                                  borderRadius: 6
+                                }
+                              }, `📖 Ch. ${resumeCh}${pct ? ` (${pct}%)` : ''}`) : null,
+
+                              updateBadge && h('span', {
+                                style: {
+                                  fontSize: 11,
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  background: 'rgba(59, 130, 246, 0.25)',
+                                  color: '#60a5fa',
+                                  border: '1px solid rgba(59, 130, 246, 0.4)',
+                                  fontWeight: 700,
+                                  whiteSpace: 'nowrap'
+                                }
+                              }, `+${updateBadge.newCount} ${unit} New`),
+
+                              item.isIncomplete ? h('span', {
+                                style: {
+                                  fontSize: 11,
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  background: 'rgba(234, 179, 8, 0.15)',
+                                  color: '#eab308',
+                                  border: '1px solid rgba(234, 179, 8, 0.3)',
+                                  fontWeight: 600,
+                                  whiteSpace: 'nowrap'
+                                }
+                              }, `⏸ Incomplete (${item.chapterCount}/${item.totalChapterCount || '?'} ch)`) : (
+                                isTrans && h('span', {
+                                  style: {
+                                    fontSize: 11,
+                                    padding: '2px 8px',
+                                    borderRadius: 6,
+                                    background: 'rgba(34, 197, 94, 0.15)',
+                                    color: '#22c55e',
+                                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap'
+                                  }
+                                }, '✓ Translated')
+                              )
+                            )
                           )
-                        )
-                      ),
-                      (() => {
-                        const savedProg = window.getReadingProgress ? window.getReadingProgress(item.id || item.title) : null;
-                        const resumeCh = (savedProg && typeof savedProg.chapterIdx === 'number') ? (savedProg.chapterIdx + 1) : null;
-                        const pct = savedProg?.pct;
-                        return h('div', { className: 'm', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' } },
-                          h('span', null, `${item.chapterCount || 0}${item.totalChapterCount ? ` / ${item.totalChapterCount}` : ''} chapters${item.volumeCount ? ` · ${item.volumeCount} vols` : ''} · ${new Date(item.timestamp || Date.now()).toLocaleDateString()}`),
-                          resumeCh ? h('span', {
+                        ),
+
+                        // Bottom Action Row (Touch-Friendly Apple Pill Buttons)
+                        h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 } },
+                          // Update Action if available
+                          updateBadge && (() => {
+                            return h(React.Fragment, null,
+                              !isLnori && h('button', {
+                                type: 'button',
+                                className: 'mini-btn',
+                                disabled: isUpdating || checkingUpdates[item.id],
+                                style: {
+                                  background: isUpdating ? 'var(--hairline)' : 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                                  color: isUpdating ? 'var(--slate)' : '#fff',
+                                  fontWeight: 700,
+                                  height: 38,
+                                  padding: '0 14px',
+                                  borderRadius: 10,
+                                  boxShadow: isUpdating ? 'none' : '0 2px 8px rgba(124, 58, 237, 0.35)',
+                                  cursor: isUpdating ? 'not-allowed' : 'pointer'
+                                },
+                                onClick: (e) => {
+                                  e?.stopPropagation?.();
+                                  if (!isUpdating) handleUpdateTranslateAndMakeEpub(item);
+                                },
+                                title: 'Fetch new chapters, preserve existing translations, and stage in Translator'
+                              }, isUpdating ? '⏳ Fetching…' : `⚡ Stage New (+${updateBadge.newCount})`),
+                              h('button', {
+                                type: 'button',
+                                className: isLnori ? 'mini-btn' : 'mini-btn ghost',
+                                disabled: isUpdating || checkingUpdates[item.id],
+                                style: {
+                                  background: isUpdating ? 'var(--hairline)' : (isLnori ? 'linear-gradient(90deg, #6366f1, #10b981)' : undefined),
+                                  borderColor: isUpdating ? 'transparent' : (isLnori ? 'transparent' : 'rgba(34, 197, 94, 0.4)'),
+                                  color: isUpdating ? 'var(--slate)' : (isLnori ? '#fff' : '#22c55e'),
+                                  fontWeight: 700,
+                                  height: 38,
+                                  padding: '0 12px',
+                                  borderRadius: 10,
+                                  cursor: isUpdating ? 'not-allowed' : 'pointer'
+                                },
+                                onClick: (e) => {
+                                  e?.stopPropagation?.();
+                                  if (!isUpdating) handleDownloadNewChapters(item);
+                                }
+                              }, isUpdating
+                                ? '⏳ Fetching…'
+                                : (isLnori
+                                  ? `⚡ Download Clean EPUB (+${updateBadge.newCount} ${unit})`
+                                  : `📥 Download Raw (+${updateBadge.newCount})`))
+                            );
+                          })(),
+
+                          // Primary: Read button
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn',
                             style: {
-                              fontSize: 11,
-                              color: 'var(--iris)',
-                              fontWeight: 600,
-                              background: 'rgba(99, 102, 241, 0.12)',
-                              border: '1px solid rgba(99, 102, 241, 0.25)',
-                              padding: '2px 8px',
-                              borderRadius: 4
-                            }
-                          }, `📖 Ch. ${resumeCh}${pct ? ` (${pct}%)` : ''}`) : null
-                        );
-                      })(),
-                      h('div', { className: 'book-acts' },
-                        novelUpdateBadges[item.id] && (() => {
-                          const badge = novelUpdateBadges[item.id];
-                          const isLnori = item.sourceUrl && /lnori\.(?:org|com)/i.test(item.sourceUrl);
-                          const unit = badge.isVolumeBased ? 'Vol' : 'Ch';
-                          const isUpdating = !!downloadingUpdates[item.id];
-                          return h(React.Fragment, null,
-                            !isLnori && h('button', {
-                              type: 'button',
-                              className: 'mini-btn',
-                              disabled: isUpdating || checkingUpdates[item.id],
-                              style: {
-                                background: isUpdating ? 'var(--hairline)' : 'linear-gradient(135deg, #2563eb, #7c3aed)',
-                                color: isUpdating ? 'var(--slate)' : '#fff',
-                                fontWeight: 700,
-                                boxShadow: isUpdating ? 'none' : '0 2px 8px rgba(124, 58, 237, 0.35)',
-                                cursor: isUpdating ? 'not-allowed' : 'pointer'
-                              },
-                              onClick: (e) => {
-                                e?.stopPropagation?.();
-                                if (!isUpdating) handleUpdateTranslateAndMakeEpub(item);
-                              },
-                              title: 'Fetch new chapters, preserve existing translations, and stage in Translator'
-                            }, isUpdating ? '⏳ Fetching…' : `⚡ Stage New Chapters (+${badge.newCount})`),
-                            h('button', {
-                              type: 'button',
-                              className: isLnori ? 'mini-btn' : 'mini-btn ghost',
-                              disabled: isUpdating || checkingUpdates[item.id],
-                              style: {
-                                background: isUpdating ? 'var(--hairline)' : (isLnori ? 'linear-gradient(90deg, #6366f1, #10b981)' : undefined),
-                                borderColor: isUpdating ? 'transparent' : (isLnori ? 'transparent' : 'rgba(34, 197, 94, 0.4)'),
-                                color: isUpdating ? 'var(--slate)' : (isLnori ? '#fff' : '#22c55e'),
-                                fontWeight: 700,
-                                fontSize: 11,
-                                cursor: isUpdating ? 'not-allowed' : 'pointer'
-                              },
-                              onClick: (e) => {
-                                e?.stopPropagation?.();
-                                if (!isUpdating) handleDownloadNewChapters(item);
-                              },
-                              title: isLnori
-                                ? 'Fetch new volumes and download clean EPUB (no translation needed)'
-                                : 'Fetch new chapters and download updated raw EPUB (no translation, zero AI tokens)'
-                            }, isUpdating
-                              ? '⏳ Fetching Updates…'
-                              : (isLnori
-                                ? `⚡ Download Clean EPUB (+${badge.newCount} ${unit})`
-                                : `📥 Fetch & Download Raw EPUB (+${badge.newCount})`))
-                          );
-                        })(),
-                        item.isIncomplete && h('button', {
-                          type: 'button',
-                          className: 'mini-btn',
-                          style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
-                          onClick: async () => {
-                            const full = await loadFullNovel(item);
-                            if (!full) { toast('Novel data not found in local store.', 'error'); return; }
-                            resumeCrawlFromSession(full);
-                          }
-                        }, '▶ Continue Fetch'),
-                        (() => {
-                          const isTrans = !!item.isTranslated || (item.title || '').includes('(Translated)');
-                          const cleanCh = (c) => {
-                            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
-                            const raw = c?.text || c?.content || '';
-                            return (typeof stripFn === 'function' && c?.title) ? stripFn(raw, c.title, c.originalTitle) : raw;
-                          };
-                          return h(React.Fragment, null,
-                            h('button', {
-                              type: 'button',
-                              className: 'mini-btn',
-                              style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
-                              onClick: async () => {
-                                const full = await loadFullNovel(item);
-                                if (!full) { toast('Novel data not found in local store.', 'error'); return; }
-                                const chs = (full.translatedChapters && full.translatedChapters.length > 0)
-                                  ? full.translatedChapters
-                                  : (full.rawChapters || full.chapters || []);
-                                if (chs.length === 0) { toast('No chapters available to read.', 'warning'); return; }
-                                const cleanedChs = chs.map(c => ({ title: c.title, content: cleanCh(c) }));
-                                if (isTrans) {
-                                  setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
-                                  setTranslatedChapters(cleanedChs);
-                                  if (full.originalChapters && full.originalChapters.length > 0) {
-                                    const srcChs = full.originalChapters;
-                                    setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
-                                    setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c) })));
-                                  } else {
-                                    setInputText('');
-                                    setChapters([]);
-                                  }
+                              background: 'var(--accent, #6366f1)',
+                              color: '#fff',
+                              fontWeight: 700,
+                              height: 38,
+                              padding: '0 16px',
+                              borderRadius: 10,
+                              fontSize: 13,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6
+                            },
+                            onClick: async () => {
+                              const full = await loadFullNovel(item);
+                              if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+                              const chs = (full.translatedChapters && full.translatedChapters.length > 0)
+                                ? full.translatedChapters
+                                : (full.rawChapters || full.chapters || []);
+                              if (chs.length === 0) { toast('No chapters available to read.', 'warning'); return; }
+                              const cleanCh = (c) => {
+                                const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+                                const raw = c?.text || c?.content || '';
+                                return (typeof stripFn === 'function' && c?.title) ? stripFn(raw, c.title, c.originalTitle) : raw;
+                              };
+                              const cleanedChs = chs.map(c => ({ title: c.title, content: cleanCh(c) }));
+                              if (isTrans) {
+                                setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+                                setTranslatedChapters(cleanedChs);
+                                if (full.originalChapters && full.originalChapters.length > 0) {
+                                  const srcChs = full.originalChapters;
+                                  setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
+                                  setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c) })));
                                 } else {
-                                  setChapters(cleanedChs);
-                                  setInputText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
-                                  setAssembledText('');
-                                  setTranslatedChapters([]);
-                                }
-                                const novelKey = item.id || item.title;
-                                setReaderNovelId(novelKey);
-                                setReaderNovelTitle(item.title);
-                                const savedProg = window.getReadingProgress ? window.getReadingProgress(novelKey) : null;
-                                const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
-                                setReaderChapterIdx(resumeIdx);
-                                setReaderOpen(true);
-                                if (savedProg && resumeIdx > 0) {
-                                  toast(`Resuming "${item.title}" at Chapter ${resumeIdx + 1}!`, 'success');
-                                } else {
-                                  toast(`Reading "${item.title}" (${chs.length} ch)!`, 'success');
-                                }
-                              }
-                            }, '📖 Read'),
-                            h('button', {
-                              type: 'button',
-                              className: 'mini-btn',
-                              onClick: async () => {
-                                const full = await loadFullNovel(item);
-                                if (!full) { toast('Novel data not found in local store.', 'error'); return; }
-                                const isBookTranslated = full.isTranslated || (full.title || '').includes('(Translated)') || isTrans;
-                                
-                                if (isBookTranslated) {
-                                  if (full.originalChapters && full.originalChapters.length > 0) {
-                                    const srcChs = full.originalChapters;
-                                    setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
-                                    setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c) })));
-                                    const tgtChs = full.rawChapters || full.chapters || [];
-                                    setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
-                                    setTranslatedChapters(tgtChs.map(c => ({ title: c.title, content: cleanCh(c) })));
-                                    setActiveNovelRecord(full);
-                                    setCurrentDocCover(full.cover || item.cover || '');
-                                    setFileName(full.title || item.title || 'Novel');
-                                    setCurrentDocTitle(full.title || item.title || 'Novel');
-                                    checkAndApplyNovelGlossary(full);
-                                    setActiveTab('text');
-                                    toast(`Loaded original source chapters into Translator!`, 'success');
-                                    return;
-                                  }
-                                  const baseTitle = (full.title || item.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim();
-                                  if (baseTitle && window.GeminiNovelDB) {
-                                    try {
-                                      const allNovels = await window.GeminiNovelDB.getAllNovels();
-                                      const sourceNovel = (allNovels || []).find(n => 
-                                        !n.title?.includes('(Translated)') && 
-                                        (n.title === baseTitle || n.title?.trim().toLowerCase() === baseTitle.toLowerCase())
-                                      );
-                                      if (sourceNovel && (sourceNovel.rawChapters?.length > 0 || sourceNovel.chapters?.length > 0)) {
-                                        const srcChs = sourceNovel.rawChapters || sourceNovel.chapters;
-                                        setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
-                                        setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c) })));
-                                        const tgtChs = full.rawChapters || full.chapters || [];
-                                        setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
-                                        setTranslatedChapters(tgtChs.map(c => ({ title: c.title, content: cleanCh(c) })));
-                                        setActiveNovelRecord(sourceNovel);
-                                        setCurrentDocCover(sourceNovel.cover || full.cover || item.cover || '');
-                                        setFileName(sourceNovel.title || full.title || item.title || 'Novel');
-                                        setCurrentDocTitle(sourceNovel.title || full.title || item.title || 'Novel');
-                                        checkAndApplyNovelGlossary(sourceNovel || full);
-                                        setActiveTab('text');
-                                        toast(`Linked to source novel "${sourceNovel.title}"! Original loaded in input.`, 'success');
-                                        return;
-                                      }
-                                    } catch(e) {}
-                                  }
-                                  const tgtChs = full.rawChapters || full.chapters || [];
-                                  setAssembledText(tgtChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
-                                  setTranslatedChapters(tgtChs.map(c => ({ title: c.title, content: cleanCh(c) })));
                                   setInputText('');
                                   setChapters([]);
-                                  setActiveNovelRecord(full);
-                                  setCurrentDocCover(full.cover || item.cover || '');
-                                  setFileName(full.title || item.title || 'Novel');
-                                  setCurrentDocTitle(full.title || item.title || 'Novel');
-                                  checkAndApplyNovelGlossary(full);
-                                  setActiveTab('text');
-                                  toast(`This is an already-translated book. Loaded into reader. (Original source was not preserved in this copy)`, 'info');
-                                } else {
-                                  const chs = full.rawChapters || full.chapters || [];
-                                  setInputText(chs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
-                                  setChapters(chs.map(c => ({ title: c.title, content: cleanCh(c) })));
-                                  setAssembledText('');
-                                  setTranslatedChapters([]);
-                                  setActiveNovelRecord(full);
-                                  setCurrentDocCover(full.cover || item.cover || '');
-                                  setFileName(full.title || item.title || 'Novel');
-                                  setCurrentDocTitle(full.title || item.title || 'Novel');
-                                  checkAndApplyNovelGlossary(full);
-                                  setActiveTab('text');
-                                  toast(`Loaded "${full.title}" (${chs.length} chapters) into Translator!`, 'info');
                                 }
+                              } else {
+                                setChapters(cleanedChs);
+                                setInputText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+                                setAssembledText('');
+                                setTranslatedChapters([]);
                               }
-                            }, isTrans ? '🔄 Re-Translate' : '🌐 Translate')
-                          );
-                        })(),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: { borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600 },
-                          onClick: async () => {
-                            const full = await loadFullNovel(item);
-                            if (!full) { toast('Novel data not found in local store.', 'error'); return; }
-                            const chs = (full.translatedChapters && full.translatedChapters.length > 0)
-                              ? full.translatedChapters
-                              : (full.rawChapters || full.chapters || []);
-                            if (chs.length === 0) { toast('No chapters found in saved novel.', 'warning'); return; }
-                            const bookTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(item.title, chs) : (item.title || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-                            const bookAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(item.author) : (item.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-                            const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
-                            try {
-                              const cleanBT = String(bookTitle).replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-                              const matchingOriginal = (webImportHistory || []).find(n => {
-                                const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-                                return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
-                              });
-                              const resolvedCover = item.cover || full?.cover || matchingOriginal?.cover || (typeof currentDocCover !== 'undefined' ? currentDocCover : '') || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
-                              setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                              const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle, title: bookTitle, coverUrl: resolvedCover }) : { novelId: item.id, title: bookTitle, coverUrl: resolvedCover };
-                              const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
-                                setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
-                              }, opts);
-                              const epubFileName = getEpubFileName(bookTitle, chs.length, isInc);
-                              await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(item || full));
-                              toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
-                            } catch (e) {
-                              toast('EPUB export error: ' + e.message, 'error');
-                            } finally {
-                              setEpubPackagingModal(null);
+                              const novelKey = item.id || item.title;
+                              setReaderNovelId(novelKey);
+                              setReaderNovelTitle(item.title);
+                              const savedProg = window.getReadingProgress ? window.getReadingProgress(novelKey) : null;
+                              const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
+                              setReaderChapterIdx(resumeIdx);
+                              setReaderOpen(true);
+                              if (savedProg && resumeIdx > 0) {
+                                toast(`Resuming "${item.title}" at Chapter ${resumeIdx + 1}!`, 'success');
+                              } else {
+                                toast(`Reading "${item.title}" (${chs.length} ch)!`, 'success');
+                              }
                             }
-                          }
-                        }, (item.hasTranslatedChapters || item.isTranslated || (item.title || '').includes('(Translated)'))
-                          ? `📥 EPUB (Translated)`
-                          : (item.isIncomplete ? `📥 EPUB (${item.chapterCount || 'Partial'})` : '📥 EPUB')),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          disabled: !!checkingUpdates[item.id],
-                          style: {
-                            padding: '4px 9px',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            lineHeight: 1,
-                            borderColor: checkingUpdates[item.id] ? 'var(--accent, #6366f1)' : 'var(--hairline)',
-                            color: checkingUpdates[item.id] ? 'var(--accent, #6366f1)' : 'var(--paper)',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 4,
-                            cursor: checkingUpdates[item.id] ? 'wait' : 'pointer'
-                          },
-                          title: checkingUpdates[item.id] ? 'Checking web source for new chapters…' : 'Check for new online chapters',
-                          onClick: (e) => {
-                            e?.stopPropagation?.();
-                            handleCheckNovelUpdate(item);
-                          }
-                        },
-                          h('span', {
+                          }, '📖 Read'),
+
+                          // Secondary: ⚡ Continue Ongoing
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
                             style: {
-                              display: 'inline-block',
-                              animation: checkingUpdates[item.id] ? 'spin 0.85s linear infinite' : 'none',
+                              borderColor: 'rgba(16, 185, 129, 0.4)',
+                              color: '#10b981',
+                              background: 'rgba(16, 185, 129, 0.08)',
+                              fontWeight: 700,
+                              height: 38,
+                              padding: '0 14px',
+                              borderRadius: 10,
+                              fontSize: 12.5,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5
+                            },
+                            title: 'Search online sources and continue fetching new chapters for this book',
+                            onClick: () => handleOpenContinuationForNovel(item)
+                          }, '⚡ Continue'),
+
+                          // Download EPUB
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: {
+                              borderColor: 'var(--hairline)',
+                              color: 'var(--paper)',
+                              fontWeight: 600,
+                              height: 38,
+                              padding: '0 12px',
+                              borderRadius: 10,
                               fontSize: 12
+                            },
+                            onClick: async () => {
+                              const full = await loadFullNovel(item);
+                              if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+                              const chs = (full.translatedChapters && full.translatedChapters.length > 0)
+                                ? full.translatedChapters
+                                : (full.rawChapters || full.chapters || []);
+                              if (chs.length === 0) { toast('No chapters found in saved novel.', 'warning'); return; }
+                              const bookTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(item.title, chs) : (item.title || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+                              const bookAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(item.author) : (item.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+                              const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
+                              try {
+                                const cleanBT = String(bookTitle).replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                                const matchingOriginal = (webImportHistory || []).find(n => {
+                                  const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                                  return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
+                                });
+                                const resolvedCover = item.cover || full?.cover || matchingOriginal?.cover || (typeof currentDocCover !== 'undefined' ? currentDocCover : '') || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
+                                setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
+                                const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: item.id || item.sourceUrl || bookTitle, title: bookTitle, coverUrl: resolvedCover }) : { novelId: item.id, title: bookTitle, coverUrl: resolvedCover };
+                                const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, full.targetLang || 'en', (status, pct, elapsed) => {
+                                  setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
+                                }, opts);
+                                const epubFileName = getEpubFileName(bookTitle, chs.length, isInc);
+                                await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(item || full));
+                                toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
+                              } catch (e) {
+                                toast('EPUB export error: ' + e.message, 'error');
+                              } finally {
+                                setEpubPackagingModal(null);
+                              }
                             }
-                          }, '🔄'),
-                          checkingUpdates[item.id] ? h('span', { style: { fontSize: 10.5, fontWeight: 700 } }, 'Checking…') : null
-                        ),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: {
-                            padding: '4px 10px',
-                            fontSize: '15px',
-                            fontWeight: 700,
-                            lineHeight: 1,
-                            borderColor: 'var(--hairline)',
-                            color: 'var(--paper)'
+                          }, (item.hasTranslatedChapters || item.isTranslated || (item.title || '').includes('(Translated)')) ? '📥 EPUB (Trans)' : '📥 EPUB'),
+
+                          // Check updates button
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            disabled: !!checkingUpdates[item.id],
+                            style: {
+                              height: 38,
+                              width: 38,
+                              padding: 0,
+                              borderRadius: 10,
+                              borderColor: checkingUpdates[item.id] ? 'var(--accent, #6366f1)' : 'var(--hairline)',
+                              color: checkingUpdates[item.id] ? 'var(--accent, #6366f1)' : 'var(--paper)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: checkingUpdates[item.id] ? 'wait' : 'pointer',
+                              marginLeft: 'auto'
+                            },
+                            title: checkingUpdates[item.id] ? 'Checking web source for new chapters…' : 'Check for new online chapters',
+                            onClick: (e) => {
+                              e?.stopPropagation?.();
+                              handleCheckNovelUpdate(item);
+                            }
                           },
-                          title: 'More options for this novel',
-                          onClick: (e) => {
-                            e?.stopPropagation?.();
-                            setActiveBookMenuNovel(item);
-                          }
-                        }, '⋮')
-                      )
-                    ))
+                            h('span', {
+                              style: {
+                                display: 'inline-block',
+                                animation: checkingUpdates[item.id] ? 'spin 0.85s linear infinite' : 'none',
+                                fontSize: 13
+                              }
+                            }, '🔄')
+                          ),
+
+                          // More options button (⋮)
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: {
+                              height: 38,
+                              width: 38,
+                              padding: 0,
+                              borderRadius: 10,
+                              fontSize: 16,
+                              fontWeight: 700,
+                              borderColor: 'var(--hairline)',
+                              color: 'var(--paper)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            },
+                            title: 'More options for this novel',
+                            onClick: (e) => {
+                              e?.stopPropagation?.();
+                              setActiveBookMenuNovel(item);
+                            }
+                          }, '⋮')
+                        )
+                      );
+                    })
                   )),
               h('div', { className: 'card-title', style: { marginTop: 12, cursor: 'pointer' }, onClick: () => setLibCollapsed(s => ({ ...s, history: !s.history })) },
                 h('span', null, `${libCollapsed.history ? '▸' : '▾'} Translation History (${filteredHistory.length})`),
@@ -17100,182 +17253,412 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
           );
         })(),
 
-        // ── ONGOING EPUB CONTINUATION & MOON+ READER CONTINUITY MODAL ──
-        ongoingEpubModal && ongoingEpubModal.isOpen && h('div', { className: 'modal-overlay', onClick: () => { if (!ongoingEpubModal.isFetching) setOngoingEpubModal(null); } },
-          h('div', { className: 'modal-box', style: { maxWidth: 540, maxHeight: '90vh' }, onClick: e => e.stopPropagation() },
-            h('div', { className: 'modal-hd' },
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h('span', { style: { fontSize: 20 } }, '⚡'),
-                h('div', null,
-                  h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Continue Ongoing EPUB'),
-                  h('div', { style: { fontSize: 11, color: '#10b981', fontWeight: 600 } }, '✓ Moon+ Reader Pro Continuity Engine')
-                )
-              ),
-              !ongoingEpubModal.isFetching && h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: () => setOngoingEpubModal(null) }, '✕')
-            ),
-            h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
-              // 1. Existing EPUB Inspection Card
-              h('div', {
-                className: 'card',
-                style: {
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid var(--hairline)',
-                  padding: '12px 14px',
-                  display: 'flex',
-                  gap: 12,
-                  alignItems: 'flex-start',
-                  marginBottom: 0
-                }
+        // ── ONGOING EPUB CONTINUATION & MOON+ READER CONTINUITY FULL-SCREEN VIEW ──
+        ongoingEpubModal && ongoingEpubModal.isOpen && h('div', {
+          className: 'fullscreen-modal-overlay',
+          style: {
+            position: 'fixed',
+            inset: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 10050,
+            background: 'var(--void, #0a0a0c)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif'
+          }
+        },
+          // Apple-style Top Navigation Bar
+          h('div', {
+            style: {
+              height: 56,
+              minHeight: 56,
+              borderBottom: '1px solid var(--hairline)',
+              background: 'rgba(18, 18, 22, 0.85)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0 16px',
+              zIndex: 2
+            }
+          },
+            h('button', {
+              type: 'button',
+              style: {
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--accent, #6366f1)',
+                fontSize: 15,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+                padding: '8px 12px',
+                borderRadius: 8,
+                minHeight: 44
               },
-                ongoingEpubModal.cover ? h('img', {
-                  src: ongoingEpubModal.cover,
-                  alt: 'Cover',
-                  style: { width: 48, height: 68, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }
-                }) : h('div', {
-                  style: { width: 48, height: 68, borderRadius: 4, background: 'var(--ember-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }
-                }, '📖'),
-                h('div', { style: { flex: 1, minWidth: 0 } },
-                  h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ongoingEpubModal.title),
-                  h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } }, `by ${ongoingEpubModal.author || 'Unknown'} · ${ongoingEpubModal.existingCount || 0} chapters in EPUB`),
-                  h('div', {
+              disabled: ongoingEpubModal.isFetching,
+              onClick: () => setOngoingEpubModal(null)
+            }, '‹ Back'),
+            h('div', { style: { textAlign: 'center' } },
+              h('div', { style: { fontWeight: 700, fontSize: 16, color: 'var(--paper)' } }, 'Continue Ongoing Novel'),
+              h('div', { style: { fontSize: 11, color: '#10b981', fontWeight: 600 } }, '✓ Moon+ Reader Pro Continuity')
+            ),
+            !ongoingEpubModal.isFetching ? h('button', {
+              type: 'button',
+              className: 'icon-btn',
+              style: { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: 'var(--paper)', cursor: 'pointer', fontSize: 14 },
+              onClick: () => setOngoingEpubModal(null)
+            }, '✕') : h('div', { style: { width: 36 } })
+          ),
+
+          // Scrollable Content with Apple Spacing & Touch Targets
+          h('div', {
+            className: 'custom-scrollbar',
+            style: {
+              flex: 1,
+              overflowY: 'auto',
+              padding: '24px 16px 100px',
+              maxWidth: 680,
+              margin: '0 auto',
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 20
+            }
+          },
+            // 1. Novel Header Card (Apple Books presentation)
+            h('div', {
+              style: {
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid var(--hairline)',
+                borderRadius: 16,
+                padding: '16px 18px',
+                display: 'flex',
+                gap: 16,
+                alignItems: 'center'
+              }
+            },
+              ongoingEpubModal.cover ? h('img', {
+                src: ongoingEpubModal.cover,
+                alt: 'Cover',
+                style: {
+                  width: 64,
+                  height: 88,
+                  borderRadius: 10,
+                  objectFit: 'cover',
+                  flexShrink: 0,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }
+              }) : h('div', {
+                style: {
+                  width: 64,
+                  height: 88,
+                  borderRadius: 10,
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2))',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 28,
+                  flexShrink: 0
+                }
+              }, '📖'),
+              h('div', { style: { flex: 1, minWidth: 0 } },
+                h('div', { style: { fontWeight: 700, fontSize: 16, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 4 } }, ongoingEpubModal.title),
+                h('div', { style: { fontSize: 13, color: 'var(--slate)', marginBottom: 8 } }, `by ${ongoingEpubModal.author || 'Unknown'}`),
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+                  h('span', {
                     style: {
-                      marginTop: 6,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      fontSize: 10.5,
-                      padding: '2px 8px',
-                      borderRadius: 4,
+                      fontSize: 11.5,
+                      padding: '3px 9px',
+                      borderRadius: 999,
+                      background: 'rgba(99, 102, 241, 0.15)',
+                      color: 'var(--iris)',
+                      fontWeight: 600,
+                      border: '1px solid rgba(99, 102, 241, 0.3)'
+                    }
+                  }, `📚 ${ongoingEpubModal.existingCount || 0} chapters in EPUB`),
+                  h('span', {
+                    style: {
+                      fontSize: 11.5,
+                      padding: '3px 9px',
+                      borderRadius: 999,
                       background: 'rgba(16, 185, 129, 0.12)',
                       color: '#10b981',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
-                      fontFamily: "'IBM Plex Mono', monospace"
+                      fontWeight: 600,
+                      border: '1px solid rgba(16, 185, 129, 0.3)'
                     }
-                  },
-                    h('span', null, '✓ Book ID Preserved:'),
-                    h('span', { style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ongoingEpubModal.uuid || 'Auto-Deterministic')
-                  )
+                  }, '✓ Book ID preserved silently')
                 )
+              )
+            ),
+
+            // 2. Automated Multi-Source & Extension Search
+            h('div', {
+              style: {
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid var(--hairline)',
+                borderRadius: 16,
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12
+              }
+            },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--paper)' } }, 'Select Online Source:'),
+                h('button', {
+                  type: 'button',
+                  style: {
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--accent, #6366f1)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '4px 8px'
+                  },
+                  onClick: () => handleSearchContinuationSources(ongoingEpubModal.title)
+                }, ongoingEpubModal.isSearchingSources ? '🔄 Searching…' : '🔄 Refresh Sources')
+              ),
+              ongoingEpubModal.isSearchingSources && h('div', {
+                style: { padding: '16px', textAlign: 'center', color: 'var(--slate)', fontSize: 13 }
+              }, 'Searching built-in sources & 278+ extensions by title…'),
+
+              // Matched Sources List
+              !ongoingEpubModal.isSearchingSources && ongoingEpubModal.continuationSources?.length > 0 && h('div', {
+                style: { display: 'flex', flexDirection: 'column', gap: 8 }
+              },
+                ongoingEpubModal.continuationSources.slice(0, 6).map((srcItem, sIdx) => {
+                  const isSelected = ongoingEpubModal.sourceUrl === (srcItem.url || srcItem.path);
+                  return h('div', {
+                    key: srcItem.url || srcItem.id || sIdx,
+                    style: {
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '12px 14px',
+                      borderRadius: 12,
+                      background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                      border: isSelected ? '1.5px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      minHeight: 52
+                    },
+                    onClick: () => handleSelectContinuationSource(srcItem)
+                  },
+                    h('div', {
+                      style: {
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        background: isSelected ? 'var(--accent, #6366f1)' : 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: 12,
+                        flexShrink: 0
+                      }
+                    }, isSelected ? '✓' : (srcItem.source ? srcItem.source.slice(0, 2).toUpperCase() : '🌐')),
+                    h('div', { style: { flex: 1, minWidth: 0 } },
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                        h('span', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)' } }, srcItem.source || 'Source'),
+                        srcItem.chapters && h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, `(${srcItem.chapters} chs)`)
+                      ),
+                      h('div', { style: { fontSize: 11.5, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, srcItem.title || srcItem.url)
+                    ),
+                    isSelected && ongoingEpubModal.isScanningToc && h('span', { style: { fontSize: 11.5, color: 'var(--iris)', fontWeight: 600 } }, 'Scanning…')
+                  );
+                })
               ),
 
-              // 2. Online Source URL & TOC Verification
-              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
-                h('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)' } }, 'Online Web Novel Source:'),
-                h('div', { style: { display: 'flex', gap: 6 } },
+              !ongoingEpubModal.isSearchingSources && (!ongoingEpubModal.continuationSources || ongoingEpubModal.continuationSources.length === 0) && h('div', {
+                style: { padding: '12px 14px', borderRadius: 10, background: 'rgba(255, 255, 255, 0.02)', border: '1px dashed var(--hairline)', textAlign: 'center', color: 'var(--slate)', fontSize: 12.5 }
+              }, 'No exact match found in catalog. You can enter or paste a source URL below.'),
+
+              // Collapsible / manual URL input for custom sources
+              h('div', { style: { marginTop: 4 } },
+                !ongoingEpubModal.customUrlMode ? h('button', {
+                  type: 'button',
+                  style: {
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--slate)',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    padding: '4px 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4
+                  },
+                  onClick: () => setOngoingEpubModal(prev => prev ? { ...prev, customUrlMode: true } : null)
+                }, '⚙ Enter custom URL or re-scan…') : h('div', { style: { display: 'flex', gap: 8, marginTop: 6 } },
                   h('input', {
                     type: 'text',
                     className: 'url-input',
-                    style: { flex: 1, fontSize: 12 },
-                    placeholder: 'Paste web novel URL (e.g. Royal Road, NovelFire, Lnori, Witch Cult, etc.)…',
+                    style: { flex: 1, fontSize: 13, height: 42, borderRadius: 10 },
+                    placeholder: 'Paste web novel URL…',
                     value: ongoingEpubModal.sourceUrl || '',
                     disabled: ongoingEpubModal.isFetching || ongoingEpubModal.isScanningToc,
-                    onChange: (e) => setOngoingEpubModal(prev => prev ? { ...prev, sourceUrl: e.target.value } : null),
-                    onKeyDown: (e) => {
-                      if (e.key === 'Enter' && ongoingEpubModal.sourceUrl) {
-                        e.preventDefault();
-                        handleScanContinuationToc(ongoingEpubModal.sourceUrl, ongoingEpubModal.existingCount);
-                      }
-                    }
+                    onChange: (e) => setOngoingEpubModal(prev => prev ? { ...prev, sourceUrl: e.target.value } : null)
                   }),
                   h('button', {
                     type: 'button',
                     className: 'mini-btn',
-                    style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap', padding: '0 12px' },
+                    style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '0 16px', height: 42, borderRadius: 10 },
                     disabled: !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isFetching || ongoingEpubModal.isScanningToc,
                     onClick: () => handleScanContinuationToc(ongoingEpubModal.sourceUrl, ongoingEpubModal.existingCount)
-                  }, ongoingEpubModal.isScanningToc ? 'Scanning…' : '🔍 Scan TOC')
-                ),
-                ongoingEpubModal.totalOnlineCount > 0 && h('div', {
-                  style: { fontSize: 11.5, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }
-                },
-                  h('span', null, `✓ Found ${ongoingEpubModal.totalOnlineCount} chapters online. (${Math.max(0, ongoingEpubModal.totalOnlineCount - ongoingEpubModal.existingCount)} new chapters available)`)
+                  }, ongoingEpubModal.isScanningToc ? 'Scanning…' : '🔍 Scan')
                 )
               ),
 
-              // 3. Chapter Range Selector
-              h('div', {
+              // Scan confirmation
+              ongoingEpubModal.totalOnlineCount > 0 && h('div', {
                 style: {
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid var(--hairline)',
-                  borderRadius: 8,
-                  padding: '12px 14px',
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  color: '#10b981',
+                  fontWeight: 600,
+                  fontSize: 12.5,
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10
+                  alignItems: 'center',
+                  gap: 6
                 }
-              },
-                h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)' } }, 'Select Chapter Range to Fetch & Append:'),
-                h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                  h('div', { style: { flex: 1 } },
-                    h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, 'From Chapter:'),
-                    h('input', {
-                      type: 'number',
-                      className: 'mini-input',
-                      style: { marginTop: 4 },
-                      min: 1,
-                      max: ongoingEpubModal.totalOnlineCount || 9999,
-                      value: ongoingEpubModal.startChapter,
-                      disabled: ongoingEpubModal.isFetching,
-                      onChange: (e) => setOngoingEpubModal(prev => prev ? { ...prev, startChapter: parseInt(e.target.value, 10) || 1 } : null)
-                    })
-                  ),
-                  h('span', { style: { fontSize: 16, color: 'var(--slate)', marginTop: 18 } }, '→'),
-                  h('div', { style: { flex: 1 } },
-                    h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, 'To Chapter:'),
-                    h('input', {
-                      type: 'number',
-                      className: 'mini-input',
-                      style: { marginTop: 4 },
-                      min: ongoingEpubModal.startChapter || 1,
-                      max: ongoingEpubModal.totalOnlineCount || 9999,
-                      value: ongoingEpubModal.endChapter,
-                      disabled: ongoingEpubModal.isFetching,
-                      onChange: (e) => setOngoingEpubModal(prev => prev ? { ...prev, endChapter: parseInt(e.target.value, 10) || 1 } : null)
-                    })
-                  )
+              }, `✓ Found ${ongoingEpubModal.totalOnlineCount} chapters online (${Math.max(0, ongoingEpubModal.totalOnlineCount - ongoingEpubModal.existingCount)} new chapters ready to fetch)`)
+            ),
+
+            // 3. Chapter Range Selector (Apple Touch Form)
+            h('div', {
+              style: {
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid var(--hairline)',
+                borderRadius: 16,
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 14
+              }
+            },
+              h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--paper)' } }, 'Chapter Range to Fetch:'),
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
+                h('div', { style: { flex: 1 } },
+                  h('span', { style: { fontSize: 12, color: 'var(--slate)', fontWeight: 600, display: 'block', marginBottom: 6 } }, 'From Chapter:'),
+                  h('input', {
+                    type: 'number',
+                    className: 'mini-input',
+                    style: { width: '100%', height: 44, borderRadius: 10, fontSize: 14, fontWeight: 600, textAlign: 'center' },
+                    min: 1,
+                    max: ongoingEpubModal.totalOnlineCount || 9999,
+                    value: ongoingEpubModal.startChapter,
+                    disabled: ongoingEpubModal.isFetching,
+                    onChange: (e) => setOngoingEpubModal(prev => prev ? { ...prev, startChapter: parseInt(e.target.value, 10) || 1 } : null)
+                  })
                 ),
-                h('div', { style: { fontSize: 11, color: 'var(--slate)', lineHeight: 1.45 } },
-                  `💡 Existing Chapters 1 to ${Math.max(0, (ongoingEpubModal.startChapter || 1) - 1)} in your EPUB will be kept completely untouched with identical filenames, preserving 100% of your Moon+ Reader bookmarks, highlights, and notes.`
+                h('span', { style: { fontSize: 20, color: 'var(--slate)', marginTop: 22 } }, '→'),
+                h('div', { style: { flex: 1 } },
+                  h('span', { style: { fontSize: 12, color: 'var(--slate)', fontWeight: 600, display: 'block', marginBottom: 6 } }, 'To Chapter:'),
+                  h('input', {
+                    type: 'number',
+                    className: 'mini-input',
+                    style: { width: '100%', height: 44, borderRadius: 10, fontSize: 14, fontWeight: 600, textAlign: 'center' },
+                    min: ongoingEpubModal.startChapter || 1,
+                    max: ongoingEpubModal.totalOnlineCount || 9999,
+                    value: ongoingEpubModal.endChapter,
+                    disabled: ongoingEpubModal.isFetching,
+                    onChange: (e) => setOngoingEpubModal(prev => prev ? { ...prev, endChapter: parseInt(e.target.value, 10) || 1 } : null)
+                  })
                 )
               ),
-
-              // 4. Progress indicator when fetching
-              ongoingEpubModal.isFetching && h('div', {
-                style: {
-                  background: 'rgba(99, 102, 241, 0.08)',
-                  border: '1px solid rgba(99, 102, 241, 0.3)',
-                  borderRadius: 8,
-                  padding: '12px 14px'
-                }
-              },
-                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
-                  h('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--paper)' } }, ongoingEpubModal.progress?.status || 'Fetching chapters…'),
-                  h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: 'var(--accent, #6366f1)', fontSize: 12 } }, `${ongoingEpubModal.progress?.pct || 0}%`)
-                ),
-                h('div', { style: { width: '100%', height: 5, borderRadius: 99, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden', margin: '4px 0' } },
-                  h('div', { style: { height: '100%', width: `${ongoingEpubModal.progress?.pct || 0}%`, background: 'linear-gradient(90deg, #6366f1, #10b981)', transition: 'width 0.25s' } })
-                ),
-                ongoingEpubModal.progress?.elapsed && h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textAlign: 'right', marginTop: 4, fontFamily: "'IBM Plex Mono', monospace" } },
-                  `⏱ ${ongoingEpubModal.progress.elapsed}`
-                )
+              h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.5, background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: 8 } },
+                `💡 Chapters 1 to ${Math.max(0, (ongoingEpubModal.startChapter || 1) - 1)} in your EPUB will be kept completely untouched with identical internal filenames, preserving 100% of your Moon+ Reader bookmarks, highlights, and notes.`
               )
             ),
-            h('div', { className: 'modal-ft' },
+
+            // 4. Progress Card during fetch
+            ongoingEpubModal.isFetching && h('div', {
+              style: {
+                background: 'rgba(99, 102, 241, 0.08)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                borderRadius: 16,
+                padding: '16px 18px'
+              }
+            },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
+                h('span', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)' } }, ongoingEpubModal.progress?.status || 'Fetching chapters…'),
+                h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: 'var(--accent, #6366f1)', fontSize: 13 } }, `${ongoingEpubModal.progress?.pct || 0}%`)
+              ),
+              h('div', { style: { width: '100%', height: 6, borderRadius: 99, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden', margin: '6px 0' } },
+                h('div', { style: { height: '100%', width: `${ongoingEpubModal.progress?.pct || 0}%`, background: 'linear-gradient(90deg, #6366f1, #10b981)', transition: 'width 0.25s' } })
+              ),
+              ongoingEpubModal.progress?.elapsed && h('div', { style: { fontSize: 11, color: 'var(--slate)', textAlign: 'right', marginTop: 4, fontFamily: "'IBM Plex Mono', monospace" } },
+                `⏱ ${ongoingEpubModal.progress.elapsed}`
+              )
+            )
+          ),
+
+          // Docked Bottom Action Bar (Apple Style)
+          h('div', {
+            style: {
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 76,
+              background: 'rgba(18, 18, 22, 0.9)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              borderTop: '1px solid var(--hairline)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 16px',
+              zIndex: 3
+            }
+          },
+            h('div', { style: { maxWidth: 680, width: '100%', display: 'flex', gap: 12 } },
               !ongoingEpubModal.isFetching && h('button', {
                 type: 'button',
-                className: 'mini-btn ghost',
+                style: {
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid var(--hairline)',
+                  color: 'var(--paper)',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  height: 48,
+                  padding: '0 20px',
+                  borderRadius: 12,
+                  cursor: 'pointer'
+                },
                 onClick: () => setOngoingEpubModal(null)
               }, 'Cancel'),
               h('button', {
                 type: 'button',
-                className: 'mini-btn',
                 style: {
+                  flex: 1,
                   background: 'linear-gradient(90deg, #10b981, #059669)',
                   color: '#fff',
                   fontWeight: 700,
-                  padding: '8px 16px',
-                  boxShadow: '0 2px 10px rgba(16, 185, 129, 0.35)',
-                  cursor: ongoingEpubModal.isFetching ? 'not-allowed' : 'pointer'
+                  fontSize: 15,
+                  height: 48,
+                  borderRadius: 12,
+                  border: 'none',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                  cursor: (ongoingEpubModal.isFetching || !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isScanningToc) ? 'not-allowed' : 'pointer',
+                  opacity: (ongoingEpubModal.isFetching || !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isScanningToc) ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8
                 },
                 disabled: ongoingEpubModal.isFetching || !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isScanningToc,
                 onClick: handleExecuteContinuation
