@@ -1454,9 +1454,326 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
       }
     };
 
+    /**
+     * In-place EPUB Continuation Engine:
+     * Takes an existing EPUB (File, Blob, ArrayBuffer, or JSZip) and appends newly fetched chapters.
+     * Preserves 100% of the original EPUB's images, fonts, stylesheets, existing chapter files,
+     * and Moon+ Reader bookmarks/UUID.
+     */
+    const appendChaptersToExistingEpub = async (originalFileOrZip, newChapters, options = {}, onProgress = null) => {
+      const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
+      if (!JSZipClass) throw new Error('JSZip library is required for in-place EPUB updating.');
+
+      if (!Array.isArray(newChapters) || newChapters.length === 0) {
+        throw new Error('No new chapters provided to append.');
+      }
+
+      onProgress?.('Opening existing EPUB archive…', 10);
+
+      let zip;
+      if (originalFileOrZip && typeof originalFileOrZip.file === 'function') {
+        zip = originalFileOrZip;
+      } else {
+        const buf = originalFileOrZip instanceof ArrayBuffer
+          ? originalFileOrZip
+          : await originalFileOrZip.arrayBuffer();
+        zip = await JSZipClass.loadAsync(buf);
+      }
+
+      // 1. Locate container.xml and root OPF file
+      const containerFile = zip.file('META-INF/container.xml');
+      if (!containerFile) throw new Error('Invalid EPUB: META-INF/container.xml not found.');
+      const containerXml = await containerFile.async('text');
+      const containerDoc = new DOMParser().parseFromString(containerXml, 'text/xml');
+      const rootfile = containerDoc.querySelector('rootfile');
+      const opfPath = rootfile?.getAttribute('full-path');
+      if (!opfPath) throw new Error('Invalid EPUB: rootfile full-path not found in container.xml.');
+      const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+
+      const opfFile = zip.file(opfPath);
+      if (!opfFile) throw new Error(`Invalid EPUB: OPF file not found at "${opfPath}".`);
+      const opfXml = await opfFile.async('text');
+      const opfDoc = new DOMParser().parseFromString(opfXml, 'text/xml');
+
+      const manifestEl = opfDoc.querySelector('manifest');
+      const spineEl = opfDoc.querySelector('spine');
+      if (!manifestEl || !spineEl) throw new Error('Invalid EPUB: manifest or spine missing from OPF.');
+
+      const manifestItems = Array.from(manifestEl.querySelectorAll('item'));
+      const spineItems = Array.from(spineEl.querySelectorAll('itemref'));
+
+      onProgress?.(`Preserving ${spineItems.length} existing chapters, photos, and styles…`, 25);
+
+      // 2. Discover chapter directory, styling, and naming conventions from existing book
+      let sampleChapterHref = '';
+      for (const ref of spineItems) {
+        const idref = ref.getAttribute('idref');
+        const item = manifestEl.querySelector(`item[id="${idref}"]`);
+        if (item) {
+          const h = (item.getAttribute('href') || '').trim();
+          if (h && !h.includes('cover') && !h.includes('nav') && !h.includes('toc')) {
+            sampleChapterHref = h;
+            break;
+          }
+        }
+      }
+      if (!sampleChapterHref && spineItems.length > 0) {
+        const firstItem = manifestEl.querySelector(`item[id="${spineItems[0].getAttribute('idref')}"]`);
+        sampleChapterHref = firstItem?.getAttribute('href') || 'text/ch001.xhtml';
+      }
+
+      const chapterSubDir = sampleChapterHref.includes('/')
+        ? sampleChapterHref.substring(0, sampleChapterHref.lastIndexOf('/') + 1)
+        : '';
+
+      // Find stylesheet href from existing manifest
+      const cssItem = manifestItems.find(i => (i.getAttribute('media-type') || '').includes('css'));
+      let cssLinkHtml = '';
+      if (cssItem) {
+        const cssHref = cssItem.getAttribute('href') || '';
+        let relCss = cssHref;
+        if (chapterSubDir && !cssHref.startsWith(chapterSubDir)) {
+          relCss = '../' + cssHref;
+        }
+        cssLinkHtml = `<link rel="stylesheet" href="${relCss}" type="text/css"/>`;
+      }
+
+      // 3. Locate NCX (EPUB 2) and NAV (EPUB 3)
+      const ncxItem = manifestItems.find(i => (i.getAttribute('media-type') || '').includes('x-dtbncx+xml'));
+      let ncxDoc = null;
+      let ncxPath = null;
+      if (ncxItem) {
+        ncxPath = opfDir + ncxItem.getAttribute('href');
+        const ncxFile = zip.file(ncxPath);
+        if (ncxFile) {
+          try {
+            ncxDoc = new DOMParser().parseFromString(await ncxFile.async('text'), 'text/xml');
+          } catch(e) {}
+        }
+      }
+
+      const navItem = manifestItems.find(i => (i.getAttribute('properties') || '').split(/\s+/).includes('nav'));
+      let navDoc = null;
+      let navPath = null;
+      if (navItem) {
+        navPath = opfDir + navItem.getAttribute('href');
+        const navFile = zip.file(navPath);
+        if (navFile) {
+          try {
+            navDoc = new DOMParser().parseFromString(await navFile.async('text'), 'text/xml');
+          } catch(e) {}
+        }
+      }
+
+      // 4. Determine starting index for new chapters
+      let startChapterNum = options.startChapter;
+      if (typeof startChapterNum !== 'number' || startChapterNum <= 0) {
+        startChapterNum = spineItems.length + 1;
+      }
+
+      const imageDir = (chapterSubDir ? chapterSubDir : '') + 'images/';
+      let imageCounter = 1;
+
+      // Helper to download web image bytes
+      const fetchImageBytes = async (imgUrl) => {
+        try {
+          let targetUrl = imgUrl;
+          if (!targetUrl.startsWith('http')) return null;
+          let res = await fetch(targetUrl).catch(() => null);
+          if (!res || !res.ok) {
+            const proxy = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+            res = await fetch(proxy).catch(() => null);
+          }
+          if (res && res.ok) {
+            const buf = await res.arrayBuffer();
+            const ct = res.headers.get('content-type') || '';
+            const ext = ct.includes('png') ? 'png' : (ct.includes('webp') ? 'webp' : (ct.includes('gif') ? 'gif' : 'jpg'));
+            return { data: new Uint8Array(buf), ext, mime: ct || 'image/jpeg' };
+          }
+        } catch(e) {}
+        return null;
+      };
+
+      // 5. Append each new chapter into the zip
+      for (let idx = 0; idx < newChapters.length; idx++) {
+        const ch = newChapters[idx];
+        const chNum = startChapterNum + idx;
+        const progressPct = Math.min(85, Math.round(30 + ((idx / newChapters.length) * 55)));
+        onProgress?.(`Appending Ch. ${chNum}: ${ch.title || `Chapter ${chNum}`}…`, progressPct);
+
+        let bodyContent = ch.content || ch.text || '';
+
+        // Process any illustrations inside the chapter text
+        const mdImgMatches = Array.from(bodyContent.matchAll(/!\[Illustration\]\((https?:\/\/[^\s\)]+)\)/gi));
+        for (const m of mdImgMatches) {
+          const imgUrl = m[1];
+          const imgObj = await fetchImageBytes(imgUrl);
+          if (imgObj) {
+            const imgFileName = `img_cont_${chNum}_${imageCounter}.${imgObj.ext}`;
+            const imgPathInZip = opfDir + imageDir + imgFileName;
+            zip.file(imgPathInZip, imgObj.data);
+
+            const imgId = `img_cont_${chNum}_${imageCounter}`;
+            const relImgHref = (chapterSubDir ? 'images/' : imageDir) + imgFileName;
+
+            const imgItem = opfDoc.createElement('item');
+            imgItem.setAttribute('id', imgId);
+            imgItem.setAttribute('href', (chapterSubDir ? chapterSubDir : '') + 'images/' + imgFileName);
+            imgItem.setAttribute('media-type', imgObj.mime);
+            manifestEl.appendChild(imgItem);
+
+            imageCounter++;
+            bodyContent = bodyContent.replace(m[0], `<div class="illustration"><img src="${relImgHref}" alt="Illustration"/></div>`);
+          } else {
+            bodyContent = bodyContent.replace(m[0], '');
+          }
+        }
+
+        const htmlImgMatches = Array.from(bodyContent.matchAll(/<img\b[^>]*src=["'](https?:\/\/[^"']+)["'][^>]*>/gi));
+        for (const m of htmlImgMatches) {
+          const imgUrl = m[1];
+          const imgObj = await fetchImageBytes(imgUrl);
+          if (imgObj) {
+            const imgFileName = `img_cont_${chNum}_${imageCounter}.${imgObj.ext}`;
+            const imgPathInZip = opfDir + imageDir + imgFileName;
+            zip.file(imgPathInZip, imgObj.data);
+
+            const imgId = `img_cont_${chNum}_${imageCounter}`;
+            const relImgHref = (chapterSubDir ? 'images/' : imageDir) + imgFileName;
+
+            const imgItem = opfDoc.createElement('item');
+            imgItem.setAttribute('id', imgId);
+            imgItem.setAttribute('href', (chapterSubDir ? chapterSubDir : '') + 'images/' + imgFileName);
+            imgItem.setAttribute('media-type', imgObj.mime);
+            manifestEl.appendChild(imgItem);
+
+            imageCounter++;
+            bodyContent = bodyContent.replace(m[0], `<div class="illustration"><img src="${relImgHref}" alt="Illustration"/></div>`);
+          }
+        }
+
+        let formattedHtml = '';
+        if (bodyContent.includes('<p>') || bodyContent.includes('<div>')) {
+          formattedHtml = bodyContent;
+        } else {
+          formattedHtml = bodyContent
+            .split(/\r?\n\r?\n+/)
+            .map(p => p.trim())
+            .filter(Boolean)
+            .map(p => `<p>${escapeXml(p).replace(/\n/g, '<br/>')}</p>`)
+            .join('\n');
+        }
+
+        const chTitle = ch.title || `Chapter ${chNum}`;
+        const xhtml = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>${escapeXml(chTitle)}</title>
+  ${cssLinkHtml}
+  <style type="text/css">
+    body { font-family: sans-serif; line-height: 1.6; margin: 5%; }
+    h1.chapter-title { font-size: 1.5em; margin-bottom: 1.2em; text-align: center; }
+    p { margin-bottom: 1em; text-indent: 1.5em; }
+    div.illustration { text-align: center; margin: 1.5em 0; }
+    div.illustration img { max-width: 100%; height: auto; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <section epub:type="chapter" class="chapter">
+    <h1 class="chapter-title">${escapeXml(chTitle)}</h1>
+    <div class="chapter-body">
+      ${formattedHtml}
+    </div>
+  </section>
+</body>
+</html>`;
+
+        const chFileName = `chapter_${String(chNum).padStart(4, '0')}.xhtml`;
+        const chRelHref = chapterSubDir + chFileName;
+        const chFullPath = opfDir + chRelHref;
+
+        zip.file(chFullPath, xhtml);
+
+        // Add to OPF manifest
+        const chId = `chapter_${chNum}`;
+        const itemEl = opfDoc.createElement('item');
+        itemEl.setAttribute('id', chId);
+        itemEl.setAttribute('href', chRelHref);
+        itemEl.setAttribute('media-type', 'application/xhtml+xml');
+        manifestEl.appendChild(itemEl);
+
+        // Add to OPF spine
+        const itemrefEl = opfDoc.createElement('itemref');
+        itemrefEl.setAttribute('idref', chId);
+        spineEl.appendChild(itemrefEl);
+
+        // Add to EPUB 2 NCX
+        if (ncxDoc) {
+          const navMap = ncxDoc.querySelector('navMap');
+          if (navMap) {
+            const playOrder = (navMap.querySelectorAll('navPoint').length || 0) + 1;
+            const np = ncxDoc.createElement('navPoint');
+            np.setAttribute('id', `navPoint_${chNum}`);
+            np.setAttribute('playOrder', String(playOrder));
+            const nl = ncxDoc.createElement('navLabel');
+            const nt = ncxDoc.createElement('text');
+            nt.textContent = chTitle;
+            nl.appendChild(nt);
+            np.appendChild(nl);
+            const cEl = ncxDoc.createElement('content');
+            cEl.setAttribute('src', chRelHref);
+            np.appendChild(cEl);
+            navMap.appendChild(np);
+          }
+        }
+
+        // Add to EPUB 3 NAV
+        if (navDoc) {
+          const ol = navDoc.querySelector('nav[epub\\:type="toc"] ol, nav#toc ol, nav ol');
+          if (ol) {
+            const li = navDoc.createElement('li');
+            const a = navDoc.createElement('a');
+            a.setAttribute('href', chRelHref);
+            a.textContent = chTitle;
+            li.appendChild(a);
+            ol.appendChild(li);
+          }
+        }
+      }
+
+      // 6. Save modified navigation and OPF back into the zip
+      const serializer = new XMLSerializer();
+      zip.file(opfPath, serializer.serializeToString(opfDoc));
+
+      if (ncxDoc && ncxPath) {
+        zip.file(ncxPath, serializer.serializeToString(ncxDoc));
+      }
+      if (navDoc && navPath) {
+        zip.file(navPath, serializer.serializeToString(navDoc));
+      }
+
+      onProgress?.('Generating updated EPUB archive…', 90);
+
+      // 7. Generate final Blob
+      const updatedBlob = await zip.generateAsync({
+        type: 'blob',
+        mimeType: 'application/epub+zip',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
+      }, (meta) => {
+        onProgress?.(`Packaging: ${Math.round(meta.percent)}%`, Math.round(90 + (meta.percent * 0.09)));
+      });
+
+      onProgress?.('EPUB updated successfully!', 100);
+      return updatedBlob;
+    };
+
   window.updateOriginalEpubNavigation = updateOriginalEpubNavigation;
   window.generateEpubFromChapters = generateEpubFromChapters;
+  window.appendChaptersToExistingEpub = appendChaptersToExistingEpub;
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { updateOriginalEpubNavigation, generateEpubFromChapters };
+    module.exports = { updateOriginalEpubNavigation, generateEpubFromChapters, appendChaptersToExistingEpub };
   }
 })(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));
