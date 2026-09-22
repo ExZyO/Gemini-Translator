@@ -20,6 +20,7 @@ public class MainActivity extends BridgeActivity {
         try {
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.getWebView().setBackgroundColor(android.graphics.Color.parseColor("#090A0F"));
+                bridge.getWebView().getSettings().setMediaPlaybackRequiresUserGesture(false);
             }
         } catch (Exception ignored) {}
 

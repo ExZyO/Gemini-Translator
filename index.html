@@ -756,7 +756,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="epub_engine.js?v=8.17.31"></script>
   <script src="glossary_presets.js?v=8.17.31"></script>
   <script src="gdrive_sync.js?v=8.17.31"></script>
-  <script src="swiftaudio_engine.js?v=8.17.31"></script>
+  <script src="swiftaudio_engine.js?v=8.17.36"></script>
   <script>
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
     const h = React.createElement;
@@ -6008,6 +6008,19 @@ const formatModelName = (id, displayName) => {
           if (!window.SwiftAudioEngine || !window.SwiftAudioEngine.Scraper || !window.SwiftAudioEngine.Player) {
             return toast('Audio engine is initializing, please try again in a moment…', 'info');
           }
+
+          // If the book is already loaded in the player, resume or switch track
+          const player = window.SwiftAudioEngine.Player;
+          if (player.currentBook && player.currentBook.url === targetUrl) {
+            if (startTrack !== undefined && startTrack !== player.currentTrackIndex) {
+              player.playTrack(startTrack);
+            } else if (!player.isPlaying) {
+              player.play();
+            }
+            setIsFullPlayerOpen(true);
+            return;
+          }
+
           let fullBook = bookOrResult;
           if (!fullBook || !fullBook.tracks || fullBook.tracks.length === 0) {
             toast('Loading chapter audio streams…', 'info');
@@ -14449,7 +14462,16 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                                 fontWeight: 700,
                                 padding: '6px 12px'
                               },
-                              onClick: () => handleStartPlayAudiobook(b, b.lastPlayedTrackIndex || 0)
+                              onClick: () => {
+                                if (isCurrentlyPlaying) {
+                                  window.SwiftAudioEngine?.Player?.pause();
+                                } else if (audioPlayerState?.currentBook?.url === b.url) {
+                                  window.SwiftAudioEngine?.Player?.play();
+                                  setIsFullPlayerOpen(true);
+                                } else {
+                                  handleStartPlayAudiobook(b, b.lastPlayedTrackIndex || 0);
+                                }
+                              }
                             }, isCurrentlyPlaying ? '⏸ Now Playing' : (b.lastPlayedTrackIndex ? '▶ Resume Playing' : '▶ Start Listening')),
                             h('button', {
                               type: 'button',

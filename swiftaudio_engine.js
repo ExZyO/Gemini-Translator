@@ -20,12 +20,22 @@
     }
 
     async function fetchHtml(url) {
+        if (window.NativeBridge && window.NativeBridge.fetchUrl) {
+            try {
+                const res = await window.NativeBridge.fetchUrl(url);
+                if (res && res.data) return typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+                if (typeof res === 'string' && res.length > 100) return res;
+            } catch (e) {
+                console.warn('[SwiftAudio] Native fetchUrl error, falling back:', e);
+            }
+        }
         if (window.NativeBridge && window.NativeBridge.fetchNative) {
             try {
                 const res = await window.NativeBridge.fetchNative(url);
                 if (res && res.data) return typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+                if (typeof res === 'string' && res.length > 100) return res;
             } catch (e) {
-                console.warn('[SwiftAudio] Native fetch error, falling back:', e);
+                console.warn('[SwiftAudio] Native fetchNative error, falling back:', e);
             }
         }
 
@@ -40,9 +50,8 @@
 
         const proxies = [
             (u) => `http://127.0.0.1:9090/proxy?url=${encodeURIComponent(u)}`,
-            (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
-            (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-            (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+            (u) => `https://cors.eu.org/${u}`,
+            (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
         ];
 
         for (const pFn of proxies) {
@@ -261,7 +270,7 @@
             if (!host) {
                 host = document.createElement('div');
                 host.id = 'swift-plyr-host';
-                host.style.cssText = 'position: fixed; top: -9999px; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1; overflow: hidden;';
+                host.style.cssText = 'position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; overflow: hidden;';
                 document.body.appendChild(host);
             }
             let el = document.getElementById('swift-plyr-audio');
@@ -269,9 +278,9 @@
                 el = document.createElement('audio');
                 el.id = 'swift-plyr-audio';
                 el.setAttribute('playsinline', 'true');
-                el.setAttribute('preload', 'metadata');
+                el.setAttribute('preload', 'auto');
                 el.setAttribute('referrerpolicy', 'no-referrer');
-                el.style.display = 'none';
+                el.style.cssText = 'position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none;';
                 host.appendChild(el);
             } else {
                 el.setAttribute('referrerpolicy', 'no-referrer');
@@ -394,52 +403,72 @@
         _playSource(src, autoPlay = true, seekTime = 0) {
             if (!this.audioEl) return;
             this.audioEl.src = src;
-            if (seekTime > 0) {
-                this.audioEl.currentTime = seekTime;
-            }
-            if (autoPlay) {
-                const p = this.audioEl.play();
-                if (p !== undefined) {
-                    p.catch(e => console.debug('Audio autoplay deferred:', e.message));
+
+            if (this.plyrInstance) {
+                try {
+                    this.plyrInstance.source = {
+                        type: 'audio',
+                        title: this.currentBook?.title || 'Audiobook',
+                        sources: [{ src: src, type: 'audio/mp3' }]
+                    };
+                } catch (e) {
+                    console.debug('[SwiftAudio] Plyr source set warning:', e);
                 }
+            }
+
+            if (seekTime > 0) {
+                try { this.audioEl.currentTime = seekTime; } catch(e) {}
+                const onLoaded = () => {
+                    try { this.audioEl.currentTime = seekTime; } catch(e) {}
+                };
+                this.audioEl.addEventListener('loadedmetadata', onLoaded, { once: true });
+            }
+
+            if (autoPlay) {
+                this.play();
             }
         }
 
         play() {
+            if (!this.audioEl) return;
+            // 1. Direct native play FIRST (synchronous user gesture)
+            try {
+                const p = this.audioEl.play();
+                if (p !== undefined && p.catch) {
+                    p.catch(e => {
+                        console.debug('[SwiftAudio] Direct play error:', e.message);
+                        if (e.name === 'NotAllowedError' && window.toast) {
+                            window.toast('Tap Play to start audio', 'info');
+                        }
+                    });
+                }
+            } catch (err) {
+                console.debug('[SwiftAudio] Synchronous play exception:', err);
+            }
+
+            // 2. Keep Plyr in sync if mounted
             if (this.plyrInstance) {
                 try {
-                    const p = this.plyrInstance.play();
-                    if (p && p.catch) {
-                        p.catch(e => {
-                            console.debug('Plyr play error:', e);
-                            if (this.audioEl) this.audioEl.play().catch(err => console.debug('Fallback play error:', err));
-                        });
-                    }
-                    return;
-                } catch(e) {}
-            }
-            if (this.audioEl) {
-                this.audioEl.play().catch(e => {
-                    console.debug('Play error:', e);
-                    if (e.name === 'NotAllowedError' && window.toast) {
-                        window.toast('Tap Play to start audio', 'info');
-                    }
-                });
+                    this.plyrInstance.play();
+                } catch (e) {}
             }
         }
 
         pause() {
-            if (this.plyrInstance) {
-                try { this.plyrInstance.pause(); return; } catch(e) {}
-            }
             if (this.audioEl) {
-                this.audioEl.pause();
+                try { this.audioEl.pause(); } catch(e) {}
+            }
+            if (this.plyrInstance) {
+                try { this.plyrInstance.pause(); } catch(e) {}
             }
         }
 
         togglePlay() {
-            if (this.isPlaying) this.pause();
-            else this.play();
+            if (this.audioEl && !this.audioEl.paused) {
+                this.pause();
+            } else {
+                this.play();
+            }
         }
 
         close() {
