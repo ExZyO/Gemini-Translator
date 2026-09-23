@@ -1,9 +1,9 @@
 {
-  "version": "8.17.48",
-  "versionCode": 8288,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.48/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.48/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.48",
+  "version": "8.17.49",
+  "versionCode": 8289,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.49/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.49/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.49",
   "releaseDate": "2026-09-24",
-  "releaseNotes": "v8.17.48: Visual diff modal for Sanitize Titles; interactive tree preview assistant for Auto-Hierarchy; 1-tap reordering (Up/Down/Top/Bottom) and level toggle on chapter cards; inline title editing and canonical chapter header synchronization."
+  "releaseNotes": "v8.17.49: Dedicated Full Table of Contents Manager modal with editable chapter rows, batch paste, and sequential renumbering; sleek unified segmented reorder controls on chapter cards; 1-tap card title renaming."
 }

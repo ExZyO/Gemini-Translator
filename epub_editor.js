@@ -391,9 +391,12 @@
             <!-- Chapter TOC & Hierarchy Section -->
             <div class="stu-sec" style="border-bottom:none;">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap;">
-                    <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                         <span class="cap" style="font-size:12px; letter-spacing:.12em;">Table of Contents & Hierarchy</span>
                         <span id="edit-toc-badge" class="chip-act" style="background:rgba(99,102,241,.15); color:var(--iris); border-color:transparent;">0 Chapters</span>
+                        <button type="button" id="btn-edit-open-toc-manager" class="tl-btn accent" style="padding:4px 11px; font-size:11.5px; font-weight:700;" title="Open full Table of Contents editor to edit titles, levels, and order">
+                            📝 Edit TOC
+                        </button>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center;">
                         <input type="text" id="edit-toc-filter" placeholder="Filter chapters…" class="tl-field"
@@ -855,6 +858,49 @@
                         <button type="button" onclick="document.getElementById('edit-hierarchy-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
                         <button type="button" id="btn-hierarchy-apply-confirm" class="tl-btn accent font-bold" style="padding:8px 18px;">✓ Apply Hierarchy</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ MODAL 10: FULL TABLE OF CONTENTS MANAGER MODAL ═══ -->
+        <div id="edit-toc-manager-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
+             onclick="if(event.target===this) document.getElementById('edit-toc-manager-modal').classList.add('hidden');">
+            <div class="rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden"
+                 style="background:var(--ember); border:1px solid var(--hairline); height:88vh; height:88dvh; max-height:88dvh;">
+                <!-- Header -->
+                <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-xl">📑</span>
+                        <div>
+                            <h3 class="font-bold text-base" style="color:var(--paper);">Table of Contents Editor</h3>
+                            <p id="toc-manager-subtitle" class="text-xs" style="color:var(--slate);">Edit chapter titles, adjust hierarchy levels, and reorder chapters</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="document.getElementById('edit-toc-manager-modal').classList.add('hidden')"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                </div>
+
+                <!-- Subtoolbar / Filter & Quick Actions -->
+                <div class="px-4 py-2.5 flex items-center justify-between gap-2 shrink-0 flex-wrap"
+                     style="background:rgba(0,0,0,0.15); border-bottom:1px solid var(--hairline);">
+                    <input type="text" id="toc-manager-search" placeholder="Search chapters in TOC…" class="tl-field"
+                           style="width:200px; padding:5px 9px; font-size:12px; margin:0;">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button type="button" id="btn-toc-manager-paste-titles" class="tl-btn text-xs" style="padding:4px 9px;" title="Paste a list of titles from clipboard">📋 Paste Titles</button>
+                        <button type="button" id="btn-toc-manager-autonumber" class="tl-btn text-xs" style="padding:4px 9px;" title="Renumber chapters sequentially">🔢 Renumber</button>
+                    </div>
+                </div>
+
+                <!-- Scrollable TOC List -->
+                <div id="toc-manager-rows" class="p-3 sm:p-4 overflow-y-auto custom-scrollbar flex-1 space-y-2" style="min-height:0;">
+                    <!-- Dynamically populated rows with text inputs -->
+                </div>
+
+                <!-- Footer -->
+                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                    <button type="button" onclick="document.getElementById('edit-toc-manager-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
+                    <button type="button" id="btn-toc-manager-save-all" class="tl-btn accent font-bold" style="padding:8px 20px;">✓ Save TOC Changes</button>
                 </div>
             </div>
         </div>
@@ -1876,6 +1922,231 @@
         openHierarchyModal();
     }
 
+    // ── Table of Contents Full Manager ──
+    let tocManagerTempChapters = [];
+
+    function openTocManagerModal() {
+        if (!state.chapters || state.chapters.length === 0) {
+            if (typeof window.toast === 'function') window.toast('No chapters in the book to edit.', 'warning');
+            return;
+        }
+
+        tocManagerTempChapters = state.chapters.map(c => ({
+            id: c.id,
+            title: c.title || '',
+            level: c.level || 1,
+            words: c.words || 0
+        }));
+
+        const modal = document.getElementById('edit-toc-manager-modal');
+        const subtitle = document.getElementById('toc-manager-subtitle');
+        if (subtitle) subtitle.textContent = `Managing ${tocManagerTempChapters.length} chapters across the book`;
+        const searchInput = document.getElementById('toc-manager-search');
+        if (searchInput) searchInput.value = '';
+
+        renderTocManagerRows();
+        modal?.classList.remove('hidden');
+    }
+
+    function renderTocManagerRows(filterQuery = '') {
+        const container = document.getElementById('toc-manager-rows');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const q = (filterQuery || '').toLowerCase().trim();
+
+        if (tocManagerTempChapters.length === 0) {
+            container.innerHTML = '<p class="text-xs italic text-center py-6" style="color:var(--slate);">No chapters remaining in TOC.</p>';
+            return;
+        }
+
+        tocManagerTempChapters.forEach((ch, idx) => {
+            if (q && !ch.title.toLowerCase().includes(q)) {
+                return;
+            }
+
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 p-2 rounded-xl border transition-all';
+            row.style.background = ch.level === 2 ? 'rgba(99,102,241,0.05)' : 'var(--ember-2)';
+            row.style.borderColor = ch.level === 2 ? 'rgba(99,102,241,0.3)' : 'var(--hairline)';
+            if (ch.level === 2) {
+                row.style.marginLeft = '16px';
+            }
+
+            // Index badge
+            const num = document.createElement('span');
+            num.className = 'text-xs font-mono font-bold shrink-0 px-2 py-1 rounded bg-white/5';
+            num.style.color = ch.level === 2 ? '#818cf8' : 'var(--paper-dim)';
+            num.textContent = ch.level === 2 ? `↳ #${idx + 1}` : `#${idx + 1}`;
+            row.appendChild(num);
+
+            // Title input
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'tl-field';
+            input.value = ch.title;
+            input.placeholder = `Chapter ${idx + 1} Title`;
+            input.style.flex = '1';
+            input.style.fontSize = '13px';
+            input.style.fontWeight = '600';
+            input.style.padding = '6px 10px';
+            input.style.margin = '0';
+            input.oninput = (e) => {
+                ch.title = e.target.value;
+            };
+            row.appendChild(input);
+
+            // Level toggle button
+            const lvlBtn = document.createElement('button');
+            lvlBtn.type = 'button';
+            lvlBtn.className = 'chip-act shrink-0 text-xs';
+            lvlBtn.style.padding = '5px 8px';
+            lvlBtn.style.fontWeight = '600';
+            if (ch.level === 2) {
+                lvlBtn.textContent = '↳ Sub';
+                lvlBtn.style.color = '#818cf8';
+                lvlBtn.title = 'Switch to Main Section';
+            } else {
+                lvlBtn.textContent = '📁 Main';
+                lvlBtn.style.color = '#38bdf8';
+                lvlBtn.title = 'Switch to Sub-Chapter';
+            }
+            lvlBtn.onclick = () => {
+                ch.level = ch.level === 2 ? 1 : 2;
+                renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+            };
+            row.appendChild(lvlBtn);
+
+            // Reorder buttons (▲ / ▼)
+            const reorderBox = document.createElement('div');
+            reorderBox.className = 'inline-flex items-center rounded-lg border border-white/10 bg-white/5 overflow-hidden shrink-0';
+
+            const upBtn = document.createElement('button');
+            upBtn.type = 'button';
+            upBtn.className = 'px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-20';
+            upBtn.textContent = '▲';
+            upBtn.title = 'Move up';
+            upBtn.disabled = idx === 0;
+            upBtn.onclick = () => {
+                if (idx > 0) {
+                    const temp = tocManagerTempChapters[idx];
+                    tocManagerTempChapters[idx] = tocManagerTempChapters[idx - 1];
+                    tocManagerTempChapters[idx - 1] = temp;
+                    renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+                }
+            };
+            reorderBox.appendChild(upBtn);
+
+            const divSep = document.createElement('div');
+            divSep.className = 'w-px h-3.5 bg-white/10';
+            reorderBox.appendChild(divSep);
+
+            const downBtn = document.createElement('button');
+            downBtn.type = 'button';
+            downBtn.className = 'px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-20';
+            downBtn.textContent = '▼';
+            downBtn.title = 'Move down';
+            downBtn.disabled = idx >= tocManagerTempChapters.length - 1;
+            downBtn.onclick = () => {
+                if (idx < tocManagerTempChapters.length - 1) {
+                    const temp = tocManagerTempChapters[idx];
+                    tocManagerTempChapters[idx] = tocManagerTempChapters[idx + 1];
+                    tocManagerTempChapters[idx + 1] = temp;
+                    renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+                }
+            };
+            reorderBox.appendChild(downBtn);
+
+            row.appendChild(reorderBox);
+
+            // Delete button
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'chip-act shrink-0 text-xs text-rose-400 hover:text-rose-300';
+            delBtn.style.padding = '5px 7px';
+            delBtn.textContent = '✕';
+            delBtn.title = 'Remove chapter';
+            delBtn.onclick = () => {
+                if (confirm(`Remove "${ch.title || `Chapter ${idx + 1}`}" from Table of Contents?`)) {
+                    tocManagerTempChapters.splice(idx, 1);
+                    renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+                }
+            };
+            row.appendChild(delBtn);
+
+            container.appendChild(row);
+        });
+    }
+
+    function saveTocManagerChanges() {
+        if (!tocManagerTempChapters) return;
+
+        const idMap = new Map();
+        state.chapters.forEach(c => idMap.set(c.id, c));
+
+        const newChapters = [];
+        let renamedCount = 0;
+
+        tocManagerTempChapters.forEach((tempCh, newIdx) => {
+            const orig = idMap.get(tempCh.id);
+            if (orig) {
+                const trimmedTitle = (tempCh.title || '').trim() || `Chapter ${newIdx + 1}`;
+                if (orig.title !== trimmedTitle) {
+                    orig.title = trimmedTitle;
+                    renamedCount++;
+                    if (orig.content && /^#{1,6}\s+.+$/m.test(orig.content)) {
+                        orig.content = orig.content.replace(/^#{1,6}\s+.+$/m, `# ${trimmedTitle}`);
+                    }
+                }
+                orig.level = tempCh.level || 1;
+                newChapters.push(orig);
+            }
+        });
+
+        if (newChapters.length > 0) {
+            newChapters[0].level = 1;
+            state.chapters = newChapters;
+        }
+
+        document.getElementById('edit-toc-manager-modal')?.classList.add('hidden');
+        renderChapterList();
+        updateStats();
+
+        if (typeof window.toast === 'function') {
+            window.toast(`✓ Saved Table of Contents! (${renamedCount} titles updated)`, 'success');
+        }
+    }
+
+    function pasteBulkTitlesToToc() {
+        const text = prompt('Paste your list of chapter titles (one title per line):');
+        if (!text) return;
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) return;
+
+        let applied = 0;
+        lines.forEach((line, idx) => {
+            if (idx < tocManagerTempChapters.length) {
+                tocManagerTempChapters[idx].title = line;
+                applied++;
+            }
+        });
+        renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+        if (typeof window.toast === 'function') {
+            window.toast(`✓ Applied ${applied} titles! Click "✓ Save TOC Changes" to commit.`, 'info');
+        }
+    }
+
+    function renumberTocManager() {
+        tocManagerTempChapters.forEach((ch, idx) => {
+            const clean = ch.title.replace(/^(?:Chapter|\bCh\b\.?)\s*\d+[\s:–—-]*/i, '').trim();
+            ch.title = `Chapter ${idx + 1}${clean ? ' - ' + clean : ''}`;
+        });
+        renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+        if (typeof window.toast === 'function') {
+            window.toast('✓ Renumbered chapters! Click "✓ Save TOC Changes" to commit.', 'info');
+        }
+    }
+
     // ── Chapter Insertion, Move & Rename Helpers ──
     let activeMoveIdx = -1;
     let activeRenameIdx = -1;
@@ -1957,7 +2228,12 @@
             input.value = ch.title;
         }
         modal?.classList.remove('hidden');
-        setTimeout(() => input?.focus(), 60);
+        setTimeout(() => {
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        }, 60);
     }
 
     // ── Preview Navigation & Edge-Swipe Integration ──
@@ -2211,7 +2487,7 @@
             };
             line1Left.appendChild(numBadge);
 
-            // Inline Editable Title Container
+            // Chapter Title & Dedicated Rename Button
             const titleContainer = document.createElement('div');
             titleContainer.className = 'flex items-center gap-1.5 flex-1 min-w-0';
 
@@ -2219,75 +2495,27 @@
             titleSpan.className = 'font-semibold text-sm truncate cursor-pointer select-none hover:underline';
             titleSpan.style.color = 'var(--paper)';
             titleSpan.textContent = ch.title;
-            titleSpan.title = 'Click or tap ✏️ to edit TOC title directly';
+            titleSpan.title = 'Click to rename chapter';
+            titleSpan.onclick = (e) => {
+                e.stopPropagation();
+                openRenameChapterModal(idx);
+            };
 
-            const renamePencilBtn = document.createElement('button');
-            renamePencilBtn.type = 'button';
-            renamePencilBtn.className = 'chip-act shrink-0 text-slate-400 hover:text-white';
-            renamePencilBtn.style.padding = '2px 6px';
-            renamePencilBtn.style.fontSize = '11px';
-            renamePencilBtn.textContent = '✏️';
-            renamePencilBtn.title = 'Edit TOC title directly';
-
-            function enterInlineEdit(e) {
-                if (e) e.stopPropagation();
-                titleContainer.innerHTML = '';
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.className = 'tl-field';
-                input.value = ch.title;
-                input.style.fontSize = '13px';
-                input.style.padding = '4px 8px';
-                input.style.flex = '1';
-                input.style.minWidth = '140px';
-                input.style.margin = '0';
-
-                const saveBtn = document.createElement('button');
-                saveBtn.type = 'button';
-                saveBtn.className = 'tl-btn accent shrink-0';
-                saveBtn.style.padding = '4px 9px';
-                saveBtn.style.fontSize = '11.5px';
-                saveBtn.style.fontWeight = '700';
-                saveBtn.textContent = '✓ Save';
-
-                const cancelBtn = document.createElement('button');
-                cancelBtn.type = 'button';
-                cancelBtn.className = 'chip-act shrink-0';
-                cancelBtn.style.padding = '4px 7px';
-                cancelBtn.style.fontSize = '11px';
-                cancelBtn.textContent = '✕';
-
-                const doSave = () => {
-                    const val = input.value.trim();
-                    if (val && val !== ch.title) {
-                        ch.title = val;
-                        // Synchronize with leading heading in chapter content if present
-                        if (ch.content && /^#{1,6}\s+.+$/m.test(ch.content)) {
-                            ch.content = ch.content.replace(/^#{1,6}\s+.+$/m, `# ${val}`);
-                        }
-                        if (typeof window.toast === 'function') window.toast(`Renamed to "${val}"`, 'success');
-                    }
-                    renderChapterList();
-                };
-
-                saveBtn.onclick = doSave;
-                cancelBtn.onclick = () => renderChapterList();
-                input.onkeydown = (ev) => {
-                    if (ev.key === 'Enter') { ev.preventDefault(); doSave(); }
-                    if (ev.key === 'Escape') { ev.preventDefault(); renderChapterList(); }
-                };
-
-                titleContainer.appendChild(input);
-                titleContainer.appendChild(saveBtn);
-                titleContainer.appendChild(cancelBtn);
-                setTimeout(() => { input.focus(); input.select(); }, 50);
-            }
-
-            titleSpan.onclick = enterInlineEdit;
-            renamePencilBtn.onclick = enterInlineEdit;
+            const renameBtn = document.createElement('button');
+            renameBtn.type = 'button';
+            renameBtn.className = 'chip-act shrink-0 text-slate-400 hover:text-white flex items-center gap-1';
+            renameBtn.style.padding = '2px 7px';
+            renameBtn.style.fontSize = '11px';
+            renameBtn.style.fontWeight = '600';
+            renameBtn.innerHTML = '<span>✏️</span><span class="hidden sm:inline">Rename</span>';
+            renameBtn.title = 'Rename this chapter';
+            renameBtn.onclick = (e) => {
+                e.stopPropagation();
+                openRenameChapterModal(idx);
+            };
 
             titleContainer.appendChild(titleSpan);
-            titleContainer.appendChild(renamePencilBtn);
+            titleContainer.appendChild(renameBtn);
             line1Left.appendChild(titleContainer);
 
             line1.appendChild(line1Left);
@@ -2317,31 +2545,33 @@
             line1.appendChild(line1Right);
             card.appendChild(line1);
 
-            // ── LINE 2: Actions Bar (Direct 1-Tap Reorder & Quick Controls) ──
+            // ── LINE 2: Actions Bar (Sleek, Balanced & Visually Pleasing) ──
             const line2 = document.createElement('div');
-            line2.className = 'flex items-center justify-between gap-2 pt-1.5 border-t border-white/5 flex-wrap';
+            line2.className = 'flex items-center justify-between gap-2 pt-2 border-t border-white/5 flex-wrap';
 
             const line2Left = document.createElement('div');
-            line2Left.className = 'flex items-center gap-1.5 flex-wrap';
+            line2Left.className = 'flex items-center gap-2 flex-wrap';
 
             // Edit Prose Button
             const editBtn = document.createElement('button');
             editBtn.type = 'button';
             editBtn.className = 'tl-btn accent';
-            editBtn.style.padding = '5px 12px';
+            editBtn.style.padding = '5px 13px';
             editBtn.style.fontSize = '12px';
             editBtn.style.fontWeight = '700';
             editBtn.textContent = '✏️ Edit Prose';
+            editBtn.title = 'Open chapter prose editor';
             editBtn.onclick = () => openChapterModal(idx);
             line2Left.appendChild(editBtn);
 
-            // Direct 1-Tap Move Up
+            // Unified Segmented Reorder Control [ ▲ | ▼ | ⤒ Top | ⤓ Btm ]
+            const reorderGroup = document.createElement('div');
+            reorderGroup.className = 'inline-flex items-center rounded-lg border border-white/10 bg-white/5 overflow-hidden shrink-0';
+
+            // Move Up
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
-            upBtn.className = 'chip-act';
-            upBtn.style.padding = '5px 9px';
-            upBtn.style.fontSize = '12px';
-            upBtn.style.fontWeight = 'bold';
+            upBtn.className = 'px-2.5 py-1 text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-20 disabled:pointer-events-none';
             upBtn.textContent = '▲';
             upBtn.title = 'Move up 1 position';
             upBtn.disabled = idx === 0;
@@ -2350,15 +2580,16 @@
                 const [bStart, bEnd] = getChapterBlockRange(idx);
                 moveChapterBlock(bStart, bEnd, -1);
             };
-            line2Left.appendChild(upBtn);
+            reorderGroup.appendChild(upBtn);
 
-            // Direct 1-Tap Move Down
+            const div1 = document.createElement('div');
+            div1.className = 'w-px h-3.5 bg-white/10';
+            reorderGroup.appendChild(div1);
+
+            // Move Down
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
-            downBtn.className = 'chip-act';
-            downBtn.style.padding = '5px 9px';
-            downBtn.style.fontSize = '12px';
-            downBtn.style.fontWeight = 'bold';
+            downBtn.className = 'px-2.5 py-1 text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-20 disabled:pointer-events-none';
             downBtn.textContent = '▼';
             downBtn.title = 'Move down 1 position';
             downBtn.disabled = idx >= state.chapters.length - 1;
@@ -2367,14 +2598,16 @@
                 const [bStart, bEnd] = getChapterBlockRange(idx);
                 moveChapterBlock(bStart, bEnd, 1);
             };
-            line2Left.appendChild(downBtn);
+            reorderGroup.appendChild(downBtn);
 
-            // Direct 1-Tap Move to Top
+            const div2 = document.createElement('div');
+            div2.className = 'w-px h-3.5 bg-white/10';
+            reorderGroup.appendChild(div2);
+
+            // Move to Top
             const topBtn = document.createElement('button');
             topBtn.type = 'button';
-            topBtn.className = 'chip-act';
-            topBtn.style.padding = '5px 7px';
-            topBtn.style.fontSize = '11px';
+            topBtn.className = 'px-2 py-1 text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-20 disabled:pointer-events-none';
             topBtn.textContent = '⤒ Top';
             topBtn.title = 'Move to top of book';
             topBtn.disabled = idx === 0;
@@ -2383,14 +2616,16 @@
                 const [bStart, bEnd] = getChapterBlockRange(idx);
                 moveChapterBlock(bStart, bEnd, 'top');
             };
-            line2Left.appendChild(topBtn);
+            reorderGroup.appendChild(topBtn);
 
-            // Direct 1-Tap Move to Bottom
+            const div3 = document.createElement('div');
+            div3.className = 'w-px h-3.5 bg-white/10';
+            reorderGroup.appendChild(div3);
+
+            // Move to Bottom
             const btmBtn = document.createElement('button');
             btmBtn.type = 'button';
-            btmBtn.className = 'chip-act';
-            btmBtn.style.padding = '5px 7px';
-            btmBtn.style.fontSize = '11px';
+            btmBtn.className = 'px-2 py-1 text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-20 disabled:pointer-events-none';
             btmBtn.textContent = '⤓ Btm';
             btmBtn.title = 'Move to bottom of book';
             btmBtn.disabled = idx >= state.chapters.length - 1;
@@ -2399,12 +2634,14 @@
                 const [bStart, bEnd] = getChapterBlockRange(idx);
                 moveChapterBlock(bStart, bEnd, 'bottom');
             };
-            line2Left.appendChild(btmBtn);
+            reorderGroup.appendChild(btmBtn);
 
-            // Direct 1-Tap Hierarchy Level Toggle
+            line2Left.appendChild(reorderGroup);
+
+            // Hierarchy Level Toggle Pill
             const lvlToggleBtn = document.createElement('button');
             lvlToggleBtn.type = 'button';
-            lvlToggleBtn.className = 'chip-act';
+            lvlToggleBtn.className = 'chip-act shrink-0';
             lvlToggleBtn.style.padding = '5px 9px';
             lvlToggleBtn.style.fontSize = '11.5px';
             lvlToggleBtn.style.fontWeight = '600';
@@ -3595,6 +3832,15 @@ ${bodyHtml}
             if (typeof window.toast === 'function') {
                 window.toast(`✓ All chapters flattened to Main Chapters (Level 1)!`, 'info');
             }
+        });
+
+        // Table of Contents Full Manager Handlers
+        document.getElementById('btn-edit-open-toc-manager')?.addEventListener('click', openTocManagerModal);
+        document.getElementById('btn-toc-manager-save-all')?.addEventListener('click', saveTocManagerChanges);
+        document.getElementById('btn-toc-manager-paste-titles')?.addEventListener('click', pasteBulkTitlesToToc);
+        document.getElementById('btn-toc-manager-autonumber')?.addEventListener('click', renumberTocManager);
+        document.getElementById('toc-manager-search')?.addEventListener('input', (e) => {
+            renderTocManagerRows(e.target.value);
         });
 
         document.getElementById('btn-edit-find-replace')?.addEventListener('click', openFindReplaceModal);
