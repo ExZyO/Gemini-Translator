@@ -40,14 +40,20 @@
     function cleanTitle(raw, fallbackIndex) {
         if (!raw) return 'Chapter ' + fallbackIndex;
         let s = String(raw).trim();
+
+        // 1. Strip file path, extension, and system prefixes
         s = s.replace(/^.*[\\\/]/, '');
         s = s.replace(/\.(?:xhtml|html|xml)$/i, '');
         s = s.replace(/^b\d+_/i, '');
-        s = s.replace(/^#{1,6}\s+/, ''); // Strip leading markdown headings # Title -> Title
+
+        // 2. Strip leading & inline markdown hashes
+        s = s.replace(/^\s*#{1,6}\s*/, '');
+        s = s.replace(/\s+#{1,6}\s+/g, ' ');
+
         if (s.includes('_')) s = s.replace(/_/g, ' ');
         s = s.replace(/\s+/g, ' ').trim();
 
-        // Strip web scraper watermarks and website signatures
+        // 3. Strip web scraper watermarks and website signatures
         s = s.replace(/\s*(?:\||–|—|-)\s*(?:NovelFull|Royal\s*Road|Wuxiaworld|LightNovelPub|BoxNovel|Scribble\s*Hub|FreeWebNovel|AllNovelFull|ReadNovelFull|NovelBuddy|Re:Library|Witch\s*Cult\s*Translations|Translation\s*Chicken)[^–—\-]*/gi, '');
         s = s.replace(/\s*\[(?:NovelFull|Royal\s*Road|Wuxiaworld|LightNovelPub|BoxNovel|Scribble\s*Hub|FreeWebNovel|AllNovelFull|ReadNovelFull|NovelBuddy)\]/gi, '');
         s = s.replace(/\s*\((?:NovelFull|Royal\s*Road|Wuxiaworld|LightNovelPub|BoxNovel|Scribble\s*Hub|FreeWebNovel|AllNovelFull|ReadNovelFull|NovelBuddy)\)/gi, '');
@@ -58,7 +64,11 @@
         s = s.replace(/\s*\[[0-9¹²³⁴⁵⁶⁷⁸⁹]+\]\s*$/g, '');
         s = s.replace(/[¹²³⁴⁵⁶⁷⁸⁹]+$/g, '');
 
-        if (/^\d+\.\d+$/.test(s)) return s;
+        // 4. Exact short formats & illustrations
+        if (/^\d+(?:\.\d+)?$/.test(s)) {
+            if (s.includes('.')) return s;
+            return 'Chapter ' + parseInt(s, 10);
+        }
         if (/^E\.?\s*(\d+)$/i.test(s)) return 'E.' + s.match(/^E\.?\s*(\d+)/i)[1];
         if (/^Image\s*(\d+)(?:[-_]?(\d+))?$/i.test(s)) {
             return s.replace(/^Image\s*(\d+)(?:[-_]?(\d+))?/i, (m, p1, p2) => p2 ? `Illustration ${p1}-${p2}` : `Illustration ${p1}`);
@@ -70,32 +80,79 @@
         }
         if (/^section[-_]?\d+$/i.test(s) || /^page[-_]?\d+$/i.test(s)) return 'Chapter ' + fallbackIndex;
 
-        const isSpecialSection = /^(?:year\s*\d+|volume\s*\d+|vol\s*\d+|book\s*\d+|arc\s*\d+|prologue|epilogue|interlude|monologue|afterword|synopsis|illustration|illustrations|side\s*story|\bss\b|part\s*\d+|extra|character\s*intro|short\s*story)/i.test(s);
-        if (isSpecialSection) {
-            s = s.replace(/^(Year\s*\d+)[,\s]+(Volume\s*[\d\.]+)[,\s:\-]*(.*)$/i, (m, y, v, rest) => rest ? `${y}, ${v} - ${rest.trim()}` : `${y}, ${v}`);
-            s = s.replace(/^(Volume\s*[\d\.]+)[,\s:\-]+(?:Volume\s*[\d\.]+)?[,\s:\-]*(.*)$/i, (m, v, rest) => rest ? `${v} - ${rest.trim()}` : v);
-            s = s.replace(/^Illustration(?:s)?\s*#?(\d+)/i, 'Illustration $1');
-            s = s.replace(/^Part\s*(\d+)[\s:\.\-]+(.*)$/i, (m, p, rest) => rest ? `Part ${p} - ${rest}` : `Part ${p}`);
-            return s;
+        // 5. Check if there's a volume/book/arc/part prefix at start
+        let volPrefix = '';
+        const volMatch = s.match(/^(?:\[\s*)?(Volume|Vol\.?|Book|Arc|Part|Act|Season)\s*(\d+|[IVXLCDM]+)[\s,;:–—-]*/i);
+        if (volMatch && !/^(?:Volume|Vol\.?|Book|Arc|Part|Act|Season)\s*(?:\d+|[IVXLCDM]+)$/i.test(s.trim())) {
+            const fullVolStr = volMatch[0];
+            const kind = volMatch[1].replace(/\.$/, '');
+            const normKind = kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase();
+            volPrefix = `${normKind} ${volMatch[2]} - `;
+            s = s.slice(fullVolStr.length).trim();
         }
 
-        s = s.replace(/^(?:\d+[\s\.\-_]+)+(?:Chapter|\bCh\b)/i, 'Chapter');
-        s = s.replace(/^\d+[\s:\.\-]+(?:Chapter|\bCh\b)\s*(\d+)[\s:\.\-]+(?:\d+[\s:\.\-]+)?/i, 'Chapter $1 - ');
-        s = s.replace(/^(?:Chapter|\bCh\b)\s*(\d+)[\s:\.\-]+(?:\d+[\s:\.\-]+)?/i, 'Chapter $1 - ');
-        s = s.replace(/^(?:Chapter|\bCh\b)\s*(\d+)\s*[:\-]\s*(?:Chapter|\bCh\b)\s*\1\s*[:\-]\s*/i, 'Chapter $1 - ');
-        s = s.replace(/^Chapter\s*(\d+)\s*[\-:]\s*[\-:]\s*/i, 'Chapter $1 - ');
-        s = s.replace(/^Chapter\s*(\d+)\s*-\s*:\s*/i, 'Chapter $1 - ');
-        s = s.replace(/^Chapter\s*(\d+)\s*:\s*-\s*/i, 'Chapter $1 - ');
-        s = s.replace(/^Chapter\s*(\d+)\s*[-:]\s*(?:Chapter|\bCh\b\.?)\s*\1\s*[-:]\s*/i, 'Chapter $1 - ');
+        // 6. Handle pure special sections (Prologue, Epilogue, etc.)
+        const isSpecialSection = /^(?:prologue|epilogue|interlude|monologue|afterword|synopsis|illustration|illustrations|side\s*story|\bss\b|extra|character\s*intro|short\s*story)/i.test(s);
+        if (isSpecialSection) {
+            s = s.replace(/^Illustration(?:s)?\s*#?(\d+)/i, 'Illustration $1');
+            s = s.replace(/^(Prologue|Epilogue|Interlude|Monologue|Afterword|Synopsis)[\s:\.\-]+(?:\1\b[\s:\.\-]*)+/i, '$1 - ');
+            s = s.replace(/[\s\-–—:]+$/, '').trim();
+            return volPrefix ? (volPrefix + s) : s;
+        }
 
-        if (/^\d+[\.\-:]\s+/.test(s)) {
+        // 7. Deduplicate Chapter prefixes (supporting integers and decimals like 1.1)
+        let prev = '';
+        while (prev !== s) {
+            prev = s;
+            s = s.replace(/^(?:Chapter|\bCh\b\.?)\s*(\d+(?:\.\d+)?)(?:\s*[:\-–—]\s*|\.(?!\d)\s*|\s+)+(?:Chapter|\bCh\b\.?)\s*\1\b(?:\s*[:\-–—]\s*|\.(?!\d)\s*|\s+)*/i, 'Chapter $1 - ');
+            s = s.replace(/^(\d+(?:\.\d+)?)(?:\s*[:\-–—]\s*|\.(?!\d)\s*|\s+)+(?:Chapter|\bCh\b\.?)\s*\1\b(?:\s*[:\-–—]\s*|\.(?!\d)\s*|\s+)*/i, 'Chapter $1 - ');
+            s = s.replace(/^(?:Chapter|\bCh\b\.?)\s*(\d+(?:\.\d+)?)(?:\s*[:\-–—]\s*|\.(?!\d)\s*|\s+)+\1\b(?:\s*[:\-–—]\s*|\.(?!\d)\s*|\s+)*/i, 'Chapter $1 - ');
+            s = s.replace(/^\bCh\b\.?\s*(\d+(?:\.\d+)?)(?:\s*[:\-–—]\s*|\.(?!\d)\s*|\s+)+/i, 'Chapter $1 - ');
+            s = s.replace(/^(?:Chapter|\bCh\b\.?)\s*(\d+(?:\.\d+)?)\s+(?:Chapter|\bCh\b\.?)\s*\1\b(?:\s*[:\-–—]\s*|\.(?!\d)\s*|\s+)*/i, 'Chapter $1 - ');
+        }
+
+        // Standardize "Chapter X:" or "Chapter X -" or "Chapter X."
+        s = s.replace(/^Chapter\s*(\d+(?:\.\d+)?)(?:\s*[:\-–—]\s*|\.(?!\d)\s*|\s+)/i, 'Chapter $1 - ');
+
+        // Normalize leading bare number: e.g. "01. The Beginning" -> "Chapter 1 - The Beginning"
+        if (/^\d+\s*[\.\-:]\s+/.test(s)) {
             const num = s.match(/^(\d+)/)[1];
-            const rest = s.replace(/^\d+[\.\-:]\s+/, '');
+            const rest = s.replace(/^\d+\s*[\.\-:]\s+/, '');
             s = 'Chapter ' + parseInt(num, 10) + ' - ' + rest;
         }
-        s = s.trim().replace(/^Chapter\s*(\d+)\s*[\-:]\s*$/i, 'Chapter $1');
+
+        // Clean stuttered punctuation: " - - " or " : : " or " - : "
+        s = s.replace(/\s*[:\-–—]\s*[:\-–—]+\s*/g, ' - ');
+
+        // Standalone chapter with no title: "Chapter 1 -" or "Chapter 1"
+        s = s.replace(/^Chapter\s*(\d+(?:\.\d+)?)\s*[\-:]\s*$/i, 'Chapter $1');
         s = s.replace(/[\s\-–—:]+$/, '').trim();
-        return s || ('Chapter ' + fallbackIndex);
+
+        // 8. Deduplicate identical subtitle phrases:
+        // e.g. "Chapter 1 - Title - Title" -> "Chapter 1 - Title"
+        const subMatch = s.match(/^Chapter\s*(\d+(?:\.\d+)?)\s*-\s*(.+)$/i);
+        if (subMatch) {
+            const chPrefix = `Chapter ${subMatch[1]}`;
+            let sub = subMatch[2].trim();
+            const hypParts = sub.split(/\s*[-–—]\s*/);
+            if (hypParts.length === 2 && hypParts[0].trim().toLowerCase() === hypParts[1].trim().toLowerCase()) {
+                sub = hypParts[0].trim();
+            } else {
+                const words = sub.split(/\s+/);
+                if (words.length >= 2 && words.length % 2 === 0) {
+                    const mid = words.length / 2;
+                    const firstHalf = words.slice(0, mid).join(' ');
+                    const secondHalf = words.slice(mid).join(' ');
+                    if (firstHalf.toLowerCase() === secondHalf.toLowerCase()) {
+                        sub = firstHalf;
+                    }
+                }
+            }
+            s = `${chPrefix} - ${sub}`;
+        }
+
+        const finalResult = volPrefix ? (volPrefix + s) : s;
+        return finalResult || ('Chapter ' + fallbackIndex);
     }
 
     function countWords(str) {
@@ -356,10 +413,10 @@
         <div id="edit-chapter-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
              style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
              onclick="if(event.target===this) (window.requestCloseChapterModal ? window.requestCloseChapterModal() : this.classList.add('hidden'));">
-            <div class="rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden"
-                 style="background:var(--ember); border:1px solid var(--hairline);">
+            <div class="rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden"
+                 style="background:var(--ember); border:1px solid var(--hairline); height:90vh; height:90dvh; max-height:90dvh; display:flex; flex-direction:column;">
                 <!-- Modal Top Header -->
-                <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
+                <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
                     <div class="flex items-center gap-3 flex-1 min-w-0 pr-4">
                         <span id="edit-ch-modal-idx" class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
                               style="background:rgba(99,102,241,.2); color:var(--iris);">#1</span>
@@ -372,7 +429,7 @@
                         </select>
                     </div>
                     <button type="button" onclick="window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden')"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center text-base font-bold" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 rounded-lg flex items-center justify-center text-base font-bold shrink-0" style="color:var(--slate);">✕</button>
                 </div>
 
                 <!-- Modal Sub-Toolbar (Prose Editor Mode) -->
@@ -414,14 +471,22 @@
                 </div>
 
                 <!-- Modal Body (Textarea or Rendered Preview) -->
-                <div class="flex-1 overflow-hidden relative flex flex-col" style="min-height:0; height:100%; flex-shrink:1;">
+                <div class="flex-1 overflow-hidden relative flex flex-col" style="min-height:0; flex:1 1 0px; height:100%;">
                     <textarea id="edit-ch-modal-textarea"
                               placeholder="Type or paste chapter prose here… Markdown headings (# Title) and images (![Alt](url)) are supported."
-                              style="width:100%; height:100%; min-height:0; flex:1; border:none; background:transparent; color:var(--paper); font-family:serif,Georgia,Cambria; font-size:15px; line-height:1.75; padding:18px 22px; resize:none; outline:none; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y;"
+                              style="width:100%; height:100%; min-height:0; flex:1 1 0px; border:none; background:transparent; color:var(--paper); font-family:serif,Georgia,Cambria; font-size:15px; line-height:1.75; padding:18px 22px; resize:none; outline:none; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y;"
                               class="custom-scrollbar"></textarea>
                     <div id="edit-ch-modal-preview" class="hidden flex-1 overflow-y-auto custom-scrollbar font-serif text-sm leading-relaxed"
-                         style="color:var(--paper-dim); background:rgba(0,0,0,0.15); min-height:0; height:100%; -webkit-overflow-scrolling:touch; touch-action:pan-y; overscroll-behavior-y:contain; padding:18px 22px;">
+                         style="color:var(--paper-dim); background:rgba(0,0,0,0.15); min-height:0; height:100%; flex:1 1 0px; -webkit-overflow-scrolling:touch; touch-action:pan-y; overscroll-behavior-y:contain; padding:18px 22px 90px 22px; position:relative;">
                         <div id="preview-html-content" style="max-width:100%; min-height:0;"></div>
+                        <!-- Sticky floating return button inside preview container so user is never trapped -->
+                        <div style="position:sticky; bottom:16px; display:flex; justify-content:flex-end; pointer-events:none; margin-top:24px;">
+                            <button type="button" onclick="window.exitEpubEditorPreview ? window.exitEpubEditorPreview() : null"
+                                    class="tl-btn accent shadow-xl"
+                                    style="pointer-events:auto; font-weight:700; font-size:12px; padding:8px 18px; border-radius:9999px; box-shadow:0 8px 24px rgba(0,0,0,0.7); display:inline-flex; align-items:center; gap:6px;">
+                                ← Back to Editor
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1447,39 +1512,165 @@
             return;
         }
 
-        const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s,;:–—-]*(.*)$/i;
-        let volumeCount = 0;
-        let chapterCount = 0;
-        let inVolume = false;
+        const volStandaloneRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc|Part|Act|Season|Saga|Section|Episode|卷|部|篇)\s*(?:\d+|[IVXLCDM]+|[一二三四五六七八九十百]+)?[\s,;:–—-]*(.*)$/i;
+        const hasChapterWord = /(?:chapter|\bch\b\.?\s*\d+|\bep\b\.?\s*\d+)/i;
 
-        state.chapters.forEach((ch) => {
+        // 1. Check if book has standalone volume / arc / part headers
+        let standaloneVolIndices = [];
+        state.chapters.forEach((ch, idx) => {
             const t = (ch.title || '').trim();
-            const isVolHeader = volRegex.test(t) && !/chapter|ch\.\s*\d+/i.test(t);
-
-            if (isVolHeader) {
-                ch.level = 1;
-                volumeCount++;
-                inVolume = true;
-            } else if (inVolume) {
-                ch.level = 2;
-                chapterCount++;
-            } else {
-                ch.level = 1;
+            if (volStandaloneRegex.test(t) && !hasChapterWord.test(t)) {
+                standaloneVolIndices.push(idx);
             }
         });
 
-        if (state.chapters.length > 0) state.chapters[0].level = 1;
+        if (standaloneVolIndices.length > 0) {
+            let volumeCount = 0;
+            let chapterCount = 0;
+            let inVolume = false;
+
+            state.chapters.forEach((ch) => {
+                const t = (ch.title || '').trim();
+                const isVolHeader = volStandaloneRegex.test(t) && !hasChapterWord.test(t);
+
+                if (isVolHeader) {
+                    ch.level = 1;
+                    volumeCount++;
+                    inVolume = true;
+                } else if (inVolume) {
+                    ch.level = 2;
+                    chapterCount++;
+                } else {
+                    ch.level = 1;
+                }
+            });
+
+            if (state.chapters.length > 0) state.chapters[0].level = 1;
+            renderChapterList();
+            updateStats();
+
+            if (typeof window.toast === 'function') {
+                window.toast(`✓ Auto-organized ${volumeCount} volumes and ${chapterCount} sub-chapters!`, 'success');
+            }
+            return;
+        }
+
+        // 2. Check if chapters have decimal sub-chapters (e.g. Chapter 1.1, Chapter 1.2)
+        const decimalPattern = /(?:^|\s)(?:Chapter|\bCh\b\.?)?\s*(\d+)\.(\d+)\b/i;
+        let decimalCount = 0;
+        state.chapters.forEach(ch => {
+            if (decimalPattern.test(ch.title || '')) {
+                decimalCount++;
+            }
+        });
+
+        if (decimalCount > 0) {
+            let mainCount = 0;
+            let subCount = 0;
+            state.chapters.forEach(ch => {
+                if (decimalPattern.test(ch.title || '')) {
+                    ch.level = 2;
+                    subCount++;
+                } else {
+                    ch.level = 1;
+                    mainCount++;
+                }
+            });
+            if (state.chapters.length > 0) state.chapters[0].level = 1;
+            renderChapterList();
+            updateStats();
+
+            if (typeof window.toast === 'function') {
+                window.toast(`✓ Auto-organized ${subCount} sub-chapters under ${mainCount} main chapters!`, 'success');
+            }
+            return;
+        }
+
+        // 3. Check for embedded volume prefixes (e.g. "Volume 1 Chapter 1", "Vol 1 Ch 2", "Book 2 - Chapter 1")
+        const embeddedVolPattern = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc|Part|Act|Season)\s*(\d+|[IVXLCDM]+)[\s,;:–—-]*(?:Chapter|\bCh\b\.?)\s*(\d+(?:\.\d+)?)/i;
+        const volumeGroups = new Map();
+        state.chapters.forEach(ch => {
+            const m = (ch.title || '').trim().match(embeddedVolPattern);
+            if (m) {
+                const volKind = m[1].replace(/\.$/, '');
+                const normKind = volKind.charAt(0).toUpperCase() + volKind.slice(1).toLowerCase();
+                const volKey = `${normKind} ${m[2]}`;
+                if (!volumeGroups.has(volKey)) volumeGroups.set(volKey, []);
+                volumeGroups.get(volKey).push(ch);
+            }
+        });
+
+        if (volumeGroups.size >= 1) {
+            const doInsert = confirm(`Detected ${volumeGroups.size} volume group(s) in chapter titles.\n\nInsert Volume headers to organize chapters into collapsible sections?`);
+            if (doInsert) {
+                const newChapters = [];
+                let currentVolKey = null;
+                let insertedVols = 0;
+
+                state.chapters.forEach(ch => {
+                    const m = (ch.title || '').trim().match(embeddedVolPattern);
+                    if (m) {
+                        const volKind = m[1].replace(/\.$/, '');
+                        const normKind = volKind.charAt(0).toUpperCase() + volKind.slice(1).toLowerCase();
+                        const volKey = `${normKind} ${m[2]}`;
+
+                        if (volKey !== currentVolKey) {
+                            currentVolKey = volKey;
+                            insertedVols++;
+                            newChapters.push({
+                                id: 'ch_vol_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+                                title: volKey,
+                                level: 1,
+                                content: '',
+                                words: 0,
+                                isNew: true
+                            });
+                        }
+                        ch.level = 2;
+                        newChapters.push(ch);
+                    } else {
+                        ch.level = 1;
+                        newChapters.push(ch);
+                    }
+                });
+
+                state.chapters = newChapters;
+                renderChapterList();
+                updateStats();
+                if (typeof window.toast === 'function') {
+                    window.toast(`✓ Created ${insertedVols} volume headers and organized sub-chapters!`, 'success');
+                }
+                return;
+            } else {
+                let currentVolKey = null;
+                let orgCount = 0;
+                state.chapters.forEach(ch => {
+                    const m = (ch.title || '').trim().match(embeddedVolPattern);
+                    if (m) {
+                        const volKey = `${m[1]} ${m[2]}`;
+                        if (volKey !== currentVolKey) {
+                            currentVolKey = volKey;
+                            ch.level = 1;
+                        } else {
+                            ch.level = 2;
+                            orgCount++;
+                        }
+                    }
+                });
+                renderChapterList();
+                updateStats();
+                if (typeof window.toast === 'function') {
+                    window.toast(`✓ Organized ${orgCount} sub-chapters by volume!`, 'success');
+                }
+                return;
+            }
+        }
+
+        // 4. Fallback if no patterns matched
         renderChapterList();
         updateStats();
-
-        if (volumeCount > 0) {
-            if (typeof window.toast === 'function') {
-                window.toast(`Auto-organized ${volumeCount} volumes and ${chapterCount} sub-chapters!`, 'success');
-            }
-        } else {
-            if (typeof window.toast === 'function') {
-                window.toast('No volume headers detected. Use "→ Sub" to nest chapters manually.', 'info');
-            }
+        if (typeof window.toast === 'function') {
+            window.toast('No volume headers or sub-chapters detected. Use "→ Sub" to nest chapters manually.', 'info');
         }
     }
 
@@ -1573,13 +1764,24 @@
         const preview = document.getElementById('edit-ch-modal-preview');
         const previewBar = document.getElementById('edit-ch-modal-preview-bar');
         const subtoolbar = document.getElementById('edit-ch-modal-subtoolbar');
+        const imgTray = document.getElementById('edit-ch-modal-img-tray');
         const btn = document.getElementById('btn-edit-modal-preview-toggle');
         if (preview) {
             preview.classList.add('hidden');
             preview.style.display = 'none';
         }
-        if (previewBar) previewBar.classList.add('hidden');
-        if (subtoolbar) subtoolbar.classList.remove('hidden');
+        if (previewBar) {
+            previewBar.classList.add('hidden');
+            previewBar.style.display = 'none';
+        }
+        if (subtoolbar) {
+            subtoolbar.classList.remove('hidden');
+            subtoolbar.style.display = 'flex';
+        }
+        if (imgTray) {
+            imgTray.classList.remove('hidden');
+            imgTray.style.display = 'flex';
+        }
         if (textarea) {
             textarea.classList.remove('hidden');
             textarea.style.display = 'block';
@@ -1994,8 +2196,12 @@
         if (textarea) {
             textarea.value = ch.content || '';
             textarea.classList.remove('hidden');
+            textarea.style.display = 'block';
         }
-        if (preview) preview.classList.add('hidden');
+        if (preview) {
+            preview.classList.add('hidden');
+            preview.style.display = 'none';
+        }
 
         if (prevBtn) prevBtn.disabled = idx === 0;
         if (nextBtn) nextBtn.disabled = idx >= state.chapters.length - 1;
@@ -2993,6 +3199,10 @@ ${bodyHtml}
 
         // Quick Toolbar Actions
         document.getElementById('btn-edit-sanitize-titles')?.addEventListener('click', () => {
+            if (!state.chapters || state.chapters.length === 0) {
+                if (typeof window.toast === 'function') window.toast('No chapters to sanitize.', 'warning');
+                return;
+            }
             let count = 0;
             state.chapters.forEach((c, idx) => {
                 const cleaned = cleanTitle(c.title, idx + 1);
@@ -3002,7 +3212,11 @@ ${bodyHtml}
                 }
             });
             renderChapterList();
-            if (typeof window.toast === 'function') window.toast(`Sanitized ${count} chapter titles!`, 'success');
+            if (count > 0) {
+                if (typeof window.toast === 'function') window.toast(`✓ Sanitized ${count} chapter titles!`, 'success');
+            } else {
+                if (typeof window.toast === 'function') window.toast(`✓ All ${state.chapters.length} chapter titles are already clean!`, 'info');
+            }
         });
 
         document.getElementById('btn-edit-auto-number')?.addEventListener('click', () => {
@@ -3101,8 +3315,19 @@ ${bodyHtml}
             if (isPreviewMode) {
                 textarea.classList.add('hidden');
                 textarea.style.display = 'none';
-                if (subtoolbar) subtoolbar.classList.add('hidden');
-                if (previewBar) previewBar.classList.remove('hidden');
+                if (subtoolbar) {
+                    subtoolbar.classList.add('hidden');
+                    subtoolbar.style.display = 'none';
+                }
+                const imgTray = document.getElementById('edit-ch-modal-img-tray');
+                if (imgTray) {
+                    imgTray.classList.add('hidden');
+                    imgTray.style.display = 'none';
+                }
+                if (previewBar) {
+                    previewBar.classList.remove('hidden');
+                    previewBar.style.display = 'flex';
+                }
                 preview.classList.remove('hidden');
                 preview.style.display = 'block';
                 preview.scrollTop = 0;

@@ -8322,6 +8322,10 @@ const formatModelName = (id, displayName) => {
           // 5. Chapter Edit Prose Modal in Edit Ebook
           const chModal = document.getElementById('edit-chapter-modal');
           if (chModal && !chModal.classList.contains('hidden')) {
+            if (window.isEpubEditorPreviewActive && typeof window.exitEpubEditorPreview === 'function') {
+              window.exitEpubEditorPreview();
+              return true;
+            }
             if (typeof window.requestCloseChapterModal === 'function') {
               window.requestCloseChapterModal();
             } else {
