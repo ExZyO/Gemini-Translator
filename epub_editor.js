@@ -1011,6 +1011,28 @@
         return null;
     }
 
+    function getRelativeZipHref(fromPath, toPath) {
+        if (!fromPath || !toPath) return toPath || '';
+        const norm = (p) => p.replace(/\\/g, '/');
+        const fromParts = norm(fromPath).split('/');
+        fromParts.pop(); // remove filename
+        const toParts = norm(toPath).split('/');
+
+        let i = 0;
+        while (i < fromParts.length && i < toParts.length && fromParts[i] === toParts[i]) {
+            i++;
+        }
+        const upCount = fromParts.length - i;
+        const relParts = [];
+        for (let u = 0; u < upCount; u++) {
+            relParts.push('..');
+        }
+        for (let d = i; d < toParts.length; d++) {
+            relParts.push(toParts[d]);
+        }
+        return relParts.join('/');
+    }
+
     // ── Parse EPUB Archive using JSZip ──
     async function parseEpubFile(file) {
         const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
@@ -1623,6 +1645,9 @@
         if (state.chapters.length > 0) state.chapters[0].level = 1;
         renderChapterList();
         updateStats();
+        if (state.novelId || (state.chapters && state.chapters.length > 0)) {
+            saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save reorder error:', e));
+        }
     }
 
     // ── Visual Modals: Sanitize Titles & Auto-Hierarchy Assistants ──
@@ -1948,6 +1973,20 @@
         modal?.classList.remove('hidden');
     }
 
+    function harvestTocManagerInputs() {
+        const rows = document.querySelectorAll('#toc-manager-rows > div');
+        rows.forEach(r => {
+            const idxStr = r.dataset.idx;
+            const inp = r.querySelector('input.tl-field');
+            if (inp && idxStr !== undefined) {
+                const idx = parseInt(idxStr, 10);
+                if (!isNaN(idx) && tocManagerTempChapters && tocManagerTempChapters[idx]) {
+                    tocManagerTempChapters[idx].title = inp.value;
+                }
+            }
+        });
+    }
+
     function renderTocManagerRows(filterQuery = '') {
         const container = document.getElementById('toc-manager-rows');
         if (!container) return;
@@ -1966,6 +2005,7 @@
             }
 
             const row = document.createElement('div');
+            row.dataset.idx = idx;
             row.className = 'flex items-center gap-2 p-2 rounded-xl border transition-all';
             row.style.background = ch.level === 2 ? 'rgba(99,102,241,0.05)' : 'var(--ember-2)';
             row.style.borderColor = ch.level === 2 ? 'rgba(99,102,241,0.3)' : 'var(--hairline)';
@@ -1984,6 +2024,7 @@
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'tl-field';
+            input.dataset.idx = idx;
             input.value = ch.title;
             input.placeholder = `Chapter ${idx + 1} Title`;
             input.style.flex = '1';
@@ -1994,14 +2035,16 @@
             input.oninput = (e) => {
                 ch.title = e.target.value;
             };
+            input.onchange = (e) => {
+                ch.title = e.target.value;
+            };
             row.appendChild(input);
 
             // Level toggle button
             const lvlBtn = document.createElement('button');
             lvlBtn.type = 'button';
-            lvlBtn.className = 'chip-act shrink-0 text-xs';
-            lvlBtn.style.padding = '5px 8px';
-            lvlBtn.style.fontWeight = '600';
+            lvlBtn.className = 'chip-act shrink-0 text-xs font-semibold';
+            lvlBtn.style.padding = '5px 9px';
             if (ch.level === 2) {
                 lvlBtn.textContent = '↳ Sub';
                 lvlBtn.style.color = '#818cf8';
@@ -2012,6 +2055,7 @@
                 lvlBtn.title = 'Switch to Sub-Chapter';
             }
             lvlBtn.onclick = () => {
+                harvestTocManagerInputs();
                 ch.level = ch.level === 2 ? 1 : 2;
                 renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
             };
@@ -2023,11 +2067,12 @@
 
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
-            upBtn.className = 'px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-20';
+            upBtn.className = 'px-2.5 py-1 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-20';
             upBtn.textContent = '▲';
             upBtn.title = 'Move up';
             upBtn.disabled = idx === 0;
             upBtn.onclick = () => {
+                harvestTocManagerInputs();
                 if (idx > 0) {
                     const temp = tocManagerTempChapters[idx];
                     tocManagerTempChapters[idx] = tocManagerTempChapters[idx - 1];
@@ -2043,11 +2088,12 @@
 
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
-            downBtn.className = 'px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-20';
+            downBtn.className = 'px-2.5 py-1 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-20';
             downBtn.textContent = '▼';
             downBtn.title = 'Move down';
             downBtn.disabled = idx >= tocManagerTempChapters.length - 1;
             downBtn.onclick = () => {
+                harvestTocManagerInputs();
                 if (idx < tocManagerTempChapters.length - 1) {
                     const temp = tocManagerTempChapters[idx];
                     tocManagerTempChapters[idx] = tocManagerTempChapters[idx + 1];
@@ -2063,10 +2109,11 @@
             const delBtn = document.createElement('button');
             delBtn.type = 'button';
             delBtn.className = 'chip-act shrink-0 text-xs text-rose-400 hover:text-rose-300';
-            delBtn.style.padding = '5px 7px';
+            delBtn.style.padding = '5px 8px';
             delBtn.textContent = '✕';
             delBtn.title = 'Remove chapter';
             delBtn.onclick = () => {
+                harvestTocManagerInputs();
                 if (confirm(`Remove "${ch.title || `Chapter ${idx + 1}`}" from Table of Contents?`)) {
                     tocManagerTempChapters.splice(idx, 1);
                     renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
@@ -2081,6 +2128,8 @@
     function saveTocManagerChanges() {
         if (!tocManagerTempChapters) return;
 
+        harvestTocManagerInputs();
+
         const idMap = new Map();
         state.chapters.forEach(c => idMap.set(c.id, c));
 
@@ -2093,9 +2142,13 @@
                 const trimmedTitle = (tempCh.title || '').trim() || `Chapter ${newIdx + 1}`;
                 if (orig.title !== trimmedTitle) {
                     orig.title = trimmedTitle;
+                    orig.originalTitle = trimmedTitle;
                     renamedCount++;
                     if (orig.content && /^#{1,6}\s+.+$/m.test(orig.content)) {
                         orig.content = orig.content.replace(/^#{1,6}\s+.+$/m, `# ${trimmedTitle}`);
+                    }
+                    if (orig.originalHead) {
+                        orig.originalHead = orig.originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(trimmedTitle)}</title>`);
                     }
                 }
                 orig.level = tempCh.level || 1;
@@ -2112,12 +2165,18 @@
         renderChapterList();
         updateStats();
 
+        // Auto-save changes to DB / Library
+        if (state.novelId || (state.chapters && state.chapters.length > 0)) {
+            saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save TOC error:', e));
+        }
+
         if (typeof window.toast === 'function') {
             window.toast(`✓ Saved Table of Contents! (${renamedCount} titles updated)`, 'success');
         }
     }
 
     function pasteBulkTitlesToToc() {
+        harvestTocManagerInputs();
         const text = prompt('Paste your list of chapter titles (one title per line):');
         if (!text) return;
         const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -2137,6 +2196,7 @@
     }
 
     function renumberTocManager() {
+        harvestTocManagerInputs();
         tocManagerTempChapters.forEach((ch, idx) => {
             const clean = ch.title.replace(/^(?:Chapter|\bCh\b\.?)\s*\d+[\s:–—-]*/i, '').trim();
             ch.title = `Chapter ${idx + 1}${clean ? ' - ' + clean : ''}`;
@@ -2555,10 +2615,11 @@
             // Edit Prose Button
             const editBtn = document.createElement('button');
             editBtn.type = 'button';
-            editBtn.className = 'tl-btn accent';
-            editBtn.style.padding = '5px 13px';
+            editBtn.className = 'tl-btn accent flex items-center gap-1';
+            editBtn.style.padding = '5px 14px';
             editBtn.style.fontSize = '12px';
             editBtn.style.fontWeight = '700';
+            editBtn.style.height = '34px';
             editBtn.textContent = '✏️ Edit Prose';
             editBtn.title = 'Open chapter prose editor';
             editBtn.onclick = () => openChapterModal(idx);
@@ -2566,12 +2627,13 @@
 
             // Unified Segmented Reorder Control [ ▲ | ▼ | ⤒ Top | ⤓ Btm ]
             const reorderGroup = document.createElement('div');
-            reorderGroup.className = 'inline-flex items-center rounded-lg border border-white/10 bg-white/5 overflow-hidden shrink-0';
+            reorderGroup.className = 'inline-flex items-stretch rounded-xl border border-white/15 bg-slate-900/70 shadow-sm overflow-hidden shrink-0';
+            reorderGroup.style.height = '34px';
 
             // Move Up
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
-            upBtn.className = 'px-2.5 py-1 text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-20 disabled:pointer-events-none';
+            upBtn.className = 'px-3.5 py-1 text-sm font-black text-slate-200 hover:text-white hover:bg-indigo-500/25 active:bg-indigo-500/40 transition-all disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center';
             upBtn.textContent = '▲';
             upBtn.title = 'Move up 1 position';
             upBtn.disabled = idx === 0;
@@ -2583,13 +2645,13 @@
             reorderGroup.appendChild(upBtn);
 
             const div1 = document.createElement('div');
-            div1.className = 'w-px h-3.5 bg-white/10';
+            div1.className = 'w-px bg-white/15 self-stretch';
             reorderGroup.appendChild(div1);
 
             // Move Down
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
-            downBtn.className = 'px-2.5 py-1 text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-20 disabled:pointer-events-none';
+            downBtn.className = 'px-3.5 py-1 text-sm font-black text-slate-200 hover:text-white hover:bg-indigo-500/25 active:bg-indigo-500/40 transition-all disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center';
             downBtn.textContent = '▼';
             downBtn.title = 'Move down 1 position';
             downBtn.disabled = idx >= state.chapters.length - 1;
@@ -2601,14 +2663,14 @@
             reorderGroup.appendChild(downBtn);
 
             const div2 = document.createElement('div');
-            div2.className = 'w-px h-3.5 bg-white/10';
+            div2.className = 'w-px bg-white/15 self-stretch';
             reorderGroup.appendChild(div2);
 
             // Move to Top
             const topBtn = document.createElement('button');
             topBtn.type = 'button';
-            topBtn.className = 'px-2 py-1 text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-20 disabled:pointer-events-none';
-            topBtn.textContent = '⤒ Top';
+            topBtn.className = 'px-2.5 py-1 text-xs font-bold text-slate-300 hover:text-white hover:bg-indigo-500/25 active:bg-indigo-500/40 transition-all disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center gap-1';
+            topBtn.innerHTML = '<span style="font-size:13px; font-weight:800; line-height:1;">⤒</span><span>Top</span>';
             topBtn.title = 'Move to top of book';
             topBtn.disabled = idx === 0;
             topBtn.onclick = (e) => {
@@ -2619,14 +2681,14 @@
             reorderGroup.appendChild(topBtn);
 
             const div3 = document.createElement('div');
-            div3.className = 'w-px h-3.5 bg-white/10';
+            div3.className = 'w-px bg-white/15 self-stretch';
             reorderGroup.appendChild(div3);
 
             // Move to Bottom
             const btmBtn = document.createElement('button');
             btmBtn.type = 'button';
-            btmBtn.className = 'px-2 py-1 text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-20 disabled:pointer-events-none';
-            btmBtn.textContent = '⤓ Btm';
+            btmBtn.className = 'px-2.5 py-1 text-xs font-bold text-slate-300 hover:text-white hover:bg-indigo-500/25 active:bg-indigo-500/40 transition-all disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center gap-1';
+            btmBtn.innerHTML = '<span style="font-size:13px; font-weight:800; line-height:1;">⤓</span><span>Btm</span>';
             btmBtn.title = 'Move to bottom of book';
             btmBtn.disabled = idx >= state.chapters.length - 1;
             btmBtn.onclick = (e) => {
@@ -2641,8 +2703,9 @@
             // Hierarchy Level Toggle Pill
             const lvlToggleBtn = document.createElement('button');
             lvlToggleBtn.type = 'button';
-            lvlToggleBtn.className = 'chip-act shrink-0';
-            lvlToggleBtn.style.padding = '5px 9px';
+            lvlToggleBtn.className = 'chip-act shrink-0 inline-flex items-center';
+            lvlToggleBtn.style.padding = '5px 10px';
+            lvlToggleBtn.style.height = '34px';
             lvlToggleBtn.style.fontSize = '11.5px';
             lvlToggleBtn.style.fontWeight = '600';
             if (ch.level === 1) {
@@ -2804,12 +2867,18 @@
         const modalLevel = document.getElementById('edit-ch-modal-level');
         const textarea = document.getElementById('edit-ch-modal-textarea');
 
-        if (modalTitle) ch.title = modalTitle.value.trim() || `Chapter ${modalActiveIdx + 1}`;
+        if (modalTitle) {
+            ch.title = modalTitle.value.trim() || `Chapter ${modalActiveIdx + 1}`;
+            ch.originalTitle = ch.title;
+        }
         if (modalLevel) ch.level = parseInt(modalLevel.value, 10) || 1;
         if (textarea) ch.content = textarea.value;
 
         if (ch.content && /^#{1,6}\s+.+$/m.test(ch.content)) {
             ch.content = ch.content.replace(/^#{1,6}\s+.+$/m, `# ${ch.title}`);
+        }
+        if (ch.originalHead) {
+            ch.originalHead = ch.originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(ch.title)}</title>`);
         }
 
         ch.words = countWords(ch.content);
@@ -2817,6 +2886,10 @@
 
         renderChapterList();
         updateStats();
+
+        if (state.novelId || (state.chapters && state.chapters.length > 0)) {
+            saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save chapter error:', e));
+        }
     }
 
     function updateModalWordCount() {
@@ -3325,6 +3398,13 @@
                     let clean = ch.title.replace(/^(?:Chapter|\bCh\b)?\s*[\d\.]+[\s:\.\-]+/i, '').trim();
                     ch.title = `${mainCounter - 1}.${subCounter} - ${clean || 'Untitled'}`;
                 }
+                ch.originalTitle = ch.title;
+                if (ch.content && /^#{1,6}\s+.+$/m.test(ch.content)) {
+                    ch.content = ch.content.replace(/^#{1,6}\s+.+$/m, `# ${ch.title}`);
+                }
+                if (ch.originalHead) {
+                    ch.originalHead = ch.originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(ch.title)}</title>`);
+                }
                 subCounter++;
                 numberedCount++;
                 return;
@@ -3350,22 +3430,36 @@
                 ch.title = `Chapter ${numStr} - ${clean || 'Untitled'}`;
             }
 
+            ch.originalTitle = ch.title;
+            if (ch.content && /^#{1,6}\s+.+$/m.test(ch.content)) {
+                ch.content = ch.content.replace(/^#{1,6}\s+.+$/m, `# ${ch.title}`);
+            }
+            if (ch.originalHead) {
+                ch.originalHead = ch.originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(ch.title)}</title>`);
+            }
+
             mainCounter++;
             numberedCount++;
         });
 
         document.getElementById('edit-autonumber-modal')?.classList.add('hidden');
         renderChapterList();
+        updateStats();
+
+        if (state.novelId || (state.chapters && state.chapters.length > 0)) {
+            saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save autonumber error:', e));
+        }
+
         if (typeof window.toast === 'function') {
-            window.toast(`Auto-numbered ${numberedCount} chapters!`, 'success');
+            window.toast(`✓ Auto-numbered ${numberedCount} chapters!`, 'success');
         }
     }
 
     // ── Save to IndexedDB Library & Reader Sync ──
-    async function saveEditedBookToLibrary() {
+    async function saveNovelToDatabase(opts = {}) {
         if (!window.GeminiNovelDB) {
-            if (typeof window.toast === 'function') window.toast('Novel Database is not available.', 'error');
-            return;
+            if (!opts.silent && typeof window.toast === 'function') window.toast('Novel Database is not available.', 'error');
+            return false;
         }
 
         // Sync metadata inputs
@@ -3381,6 +3475,7 @@
 
         const chsData = state.chapters.map(c => ({
             title: c.title,
+            originalTitle: c.title,
             content: c.content,
             level: c.level || 1,
             words: c.words || countWords(c.content)
@@ -3429,18 +3524,27 @@
                 const metaList = rawMeta ? JSON.parse(rawMeta) : [];
                 const updatedMeta = [metaRecord, ...metaList.filter(n => n.id !== novelId && (!metaRecord.title || (n.title || '').trim().toLowerCase() !== metaRecord.title.trim().toLowerCase()))].slice(0, 50);
                 localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updatedMeta));
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('gemini_library_updated', { detail: { novelId, metaRecord } }));
+                }
             } catch (e) {}
 
-            if (typeof window.toast === 'function') {
+            if (!opts.silent && typeof window.toast === 'function') {
                 window.toast(`✓ Saved "${state.title}" to Library!`, 'success');
             }
             // Update library view if open
             if (typeof window.loadSavedNovels === 'function') {
                 window.loadSavedNovels();
             }
+            return true;
         } else {
-            if (typeof window.toast === 'function') window.toast('Failed to save novel to database.', 'error');
+            if (!opts.silent && typeof window.toast === 'function') window.toast('Failed to save novel to database.', 'error');
+            return false;
         }
+    }
+
+    async function saveEditedBookToLibrary() {
+        return await saveNovelToDatabase({ silent: false });
     }
 
     // ── Export Clean EPUB File ──
@@ -3537,7 +3641,12 @@
                             spineEl.appendChild(itemRef);
 
                             // Re-inject prose preserving original head styling and body attributes
-                            const headContent = ch.originalHead || `<title>${escapeXml(ch.title)}</title>`;
+                            let headContent = ch.originalHead || `<title>${escapeXml(ch.title)}</title>`;
+                            if (headContent.includes('<title>')) {
+                                headContent = headContent.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(ch.title)}</title>`);
+                            } else {
+                                headContent = `<title>${escapeXml(ch.title)}</title>\n` + headContent;
+                            }
                             const bodyAttrs = ch.bodyAttrs ? ` ${ch.bodyAttrs}` : '';
                             const bodyHtml = markdownToChapterHtml(ch.content, ch.title);
 
@@ -3559,8 +3668,16 @@ ${bodyHtml}
                     zip.file(opfPath, serializer.serializeToString(opfDoc));
                 }
 
-                // 2. Update Table of Contents in NCX (if present)
-                const ncxFile = zip.file(opfDir + 'toc.ncx') || zip.file('toc.ncx');
+                // 2. Update Table of Contents in NCX (EPUB 2) AND nav.xhtml (EPUB 3)
+                // 2a. Update NCX
+                let ncxFile = zip.file(opfDir + 'toc.ncx') || zip.file('toc.ncx');
+                if (!ncxFile) {
+                    const ncxManifest = opfDoc.querySelector('manifest > item[media-type*="dtbncx"], manifest > item[id="ncx"], manifest > item[id="toc"]');
+                    if (ncxManifest) {
+                        const href = ncxManifest.getAttribute('href');
+                        if (href) ncxFile = findZipEntry(zip, href, opfDir);
+                    }
+                }
                 if (ncxFile) {
                     try {
                         const ncxXml = await ncxFile.async('text');
@@ -3584,7 +3701,9 @@ ${bodyHtml}
                                 np.appendChild(nl);
 
                                 const cnt = ncxDoc.createElement('content');
-                                cnt.setAttribute('src', ch.href || (ch.fullPath ? ch.fullPath.replace(opfDir, '') : `ch_${idx + 1}.xhtml`));
+                                const chTarget = ch.href || (ch.fullPath ? ch.fullPath.replace(opfDir, '') : `ch_${idx + 1}.xhtml`);
+                                const relSrc = getRelativeZipHref(ncxFile.name, opfDir + chTarget);
+                                cnt.setAttribute('src', relSrc);
                                 np.appendChild(cnt);
 
                                 if (ch.level === 2 && currentParentNavPoint) {
@@ -3601,6 +3720,150 @@ ${bodyHtml}
                         }
                     } catch (ncxErr) {
                         console.warn('NCX update error:', ncxErr);
+                    }
+                }
+
+                // 2b. Update or Inject EPUB 3 Navigation Document (nav.xhtml)
+                let navItem = opfDoc.querySelector('manifest > item[properties~="nav"], manifest > item[properties*="nav"]');
+                let navFile = null;
+                if (navItem) {
+                    const navHref = navItem.getAttribute('href');
+                    if (navHref) navFile = findZipEntry(zip, navHref, opfDir);
+                }
+                if (!navFile) {
+                    navFile = zip.file(opfDir + 'nav.xhtml') || zip.file(opfDir + 'toc.xhtml') || zip.file('nav.xhtml') || zip.file('toc.xhtml');
+                }
+
+                const isEpub3 = (opfDoc.documentElement.getAttribute('version') || '').startsWith('3');
+
+                if (navFile) {
+                    try {
+                        const navXml = await navFile.async('text');
+                        const navDoc = parser.parseFromString(navXml, 'application/xhtml+xml') || parser.parseFromString(navXml, 'text/html');
+                        let tocNav = navDoc.querySelector('nav[epub\\:type="toc"], nav[*|type="toc"], nav#toc, nav');
+                        if (!tocNav) {
+                            tocNav = navDoc.createElement('nav');
+                            tocNav.setAttribute('xmlns:epub', 'http://www.idpf.org/2007/ops');
+                            tocNav.setAttribute('epub:type', 'toc');
+                            tocNav.setAttribute('id', 'toc');
+                            const h1 = navDoc.createElement('h1');
+                            h1.textContent = 'Table of Contents';
+                            tocNav.appendChild(h1);
+                            (navDoc.body || navDoc.documentElement).appendChild(tocNav);
+                        }
+
+                        // Remove old lists in tocNav
+                        const oldLists = tocNav.querySelectorAll('ol, ul');
+                        oldLists.forEach(ol => ol.remove());
+
+                        // Build updated hierarchical <ol>
+                        const rootOl = navDoc.createElement('ol');
+                        rootOl.style.listStyleType = 'none';
+                        let currentParentLi = null;
+                        let currentSubOl = null;
+
+                        state.chapters.forEach((ch, idx) => {
+                            const li = navDoc.createElement('li');
+                            const a = navDoc.createElement('a');
+                            const chTarget = ch.href || (ch.fullPath ? ch.fullPath.replace(opfDir, '') : `ch_${idx + 1}.xhtml`);
+                            const relHref = getRelativeZipHref(navFile.name, opfDir + chTarget);
+                            a.setAttribute('href', relHref);
+                            a.textContent = ch.title;
+                            li.appendChild(a);
+
+                            if (ch.level === 2 && currentParentLi) {
+                                if (!currentSubOl) {
+                                    currentSubOl = navDoc.createElement('ol');
+                                    currentSubOl.style.listStyleType = 'none';
+                                    currentParentLi.appendChild(currentSubOl);
+                                }
+                                currentSubOl.appendChild(li);
+                            } else {
+                                rootOl.appendChild(li);
+                                currentParentLi = li;
+                                currentSubOl = null;
+                            }
+                        });
+
+                        tocNav.appendChild(rootOl);
+                        const serializer = new XMLSerializer();
+                        zip.file(navFile.name, serializer.serializeToString(navDoc));
+                    } catch (navErr) {
+                        console.warn('EPUB 3 nav.xhtml update error:', navErr);
+                    }
+                } else if (isEpub3) {
+                    // EPUB 3 book missing nav document: generate clean nav.xhtml and register in manifest
+                    try {
+                        const navRelPath = 'nav.xhtml';
+                        const navFullPath = opfDir + navRelPath;
+
+                        let olContent = '';
+                        let currentParentOpen = false;
+                        let currentSubOpen = false;
+
+                        state.chapters.forEach((ch, idx) => {
+                            const chTarget = ch.href || (ch.fullPath ? ch.fullPath.replace(opfDir, '') : `ch_${idx + 1}.xhtml`);
+                            const relHref = getRelativeZipHref(navFullPath, opfDir + chTarget);
+
+                            if (ch.level === 2 && currentParentOpen) {
+                                if (!currentSubOpen) {
+                                    olContent += '<ol style="list-style-type:none;">';
+                                    currentSubOpen = true;
+                                }
+                                olContent += `<li><a href="${escapeXml(relHref)}">${escapeXml(ch.title)}</a></li>`;
+                            } else {
+                                if (currentSubOpen) {
+                                    olContent += '</ol></li>';
+                                    currentSubOpen = false;
+                                    currentParentOpen = false;
+                                } else if (currentParentOpen) {
+                                    olContent += '</li>';
+                                    currentParentOpen = false;
+                                }
+                                olContent += `<li><a href="${escapeXml(relHref)}">${escapeXml(ch.title)}</a>`;
+                                currentParentOpen = true;
+                            }
+                        });
+                        if (currentSubOpen) olContent += '</ol>';
+                        if (currentParentOpen) olContent += '</li>';
+
+                        const navXhtmlContent = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+  <title>Table of Contents</title>
+  <meta charset="utf-8" />
+  <style>
+    nav#toc ol { list-style-type: none; margin: 0; padding: 0 0 0 1.2em; }
+    nav#toc li { margin: 0.3em 0; }
+    nav#toc a { text-decoration: none; }
+  </style>
+</head>
+<body>
+  <nav epub:type="toc" id="toc">
+    <h1>Table of Contents</h1>
+    <ol style="list-style-type:none;">
+      ${olContent}
+    </ol>
+  </nav>
+</body>
+</html>`;
+                        zip.file(navFullPath, navXhtmlContent);
+
+                        const manifestEl = opfDoc.querySelector('manifest');
+                        if (manifestEl && !manifestEl.querySelector('item[properties*="nav"]')) {
+                            const navItemEl = opfDoc.createElement('item');
+                            navItemEl.setAttribute('id', 'nav');
+                            navItemEl.setAttribute('href', navRelPath);
+                            navItemEl.setAttribute('media-type', 'application/xhtml+xml');
+                            navItemEl.setAttribute('properties', 'nav');
+                            manifestEl.appendChild(navItemEl);
+
+                            const serializer = new XMLSerializer();
+                            zip.file(opfPath, serializer.serializeToString(opfDoc));
+                        }
+                    } catch (genNavErr) {
+                        console.warn('Error generating nav.xhtml:', genNavErr);
                     }
                 }
 
@@ -3625,6 +3888,7 @@ ${bodyHtml}
                 const chaptersForPackaging = state.chapters.map((c, i) => ({
                     id: c.id || `ch_${i + 1}`,
                     title: c.title,
+                    originalTitle: c.title,
                     content: c.content,
                     level: c.level || 1,
                     words: c.words || countWords(c.content)
@@ -3793,8 +4057,12 @@ ${bodyHtml}
             pendingSanitizeDiffs.forEach(d => {
                 if (state.chapters[d.idx]) {
                     state.chapters[d.idx].title = d.cleaned;
+                    state.chapters[d.idx].originalTitle = d.cleaned;
                     if (state.chapters[d.idx].content && /^#{1,6}\s+.+$/m.test(state.chapters[d.idx].content)) {
                         state.chapters[d.idx].content = state.chapters[d.idx].content.replace(/^#{1,6}\s+.+$/m, `# ${d.cleaned}`);
+                    }
+                    if (state.chapters[d.idx].originalHead) {
+                        state.chapters[d.idx].originalHead = state.chapters[d.idx].originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(d.cleaned)}</title>`);
                     }
                     appliedCount++;
                 }
@@ -3802,6 +4070,9 @@ ${bodyHtml}
             document.getElementById('edit-sanitize-preview-modal')?.classList.add('hidden');
             renderChapterList();
             updateStats();
+            if (state.novelId || (state.chapters && state.chapters.length > 0)) {
+                saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save sanitize error:', e));
+            }
             if (typeof window.toast === 'function') {
                 window.toast(`✓ Successfully sanitized ${appliedCount} chapter titles!`, 'success');
             }
@@ -3818,6 +4089,9 @@ ${bodyHtml}
             document.getElementById('edit-hierarchy-modal')?.classList.add('hidden');
             renderChapterList();
             updateStats();
+            if (state.novelId || (state.chapters && state.chapters.length > 0)) {
+                saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save hierarchy error:', e));
+            }
             if (typeof window.toast === 'function') {
                 const subCount = state.chapters.filter(c => c.level === 2).length;
                 window.toast(`✓ Hierarchy applied! (${subCount} nested sub-chapters)`, 'success');
@@ -3829,6 +4103,9 @@ ${bodyHtml}
             document.getElementById('edit-hierarchy-modal')?.classList.add('hidden');
             renderChapterList();
             updateStats();
+            if (state.novelId || (state.chapters && state.chapters.length > 0)) {
+                saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save flatten error:', e));
+            }
             if (typeof window.toast === 'function') {
                 window.toast(`✓ All chapters flattened to Main Chapters (Level 1)!`, 'info');
             }
@@ -4052,7 +4329,19 @@ ${bodyHtml}
                 const val = input?.value.trim();
                 if (val) {
                     state.chapters[activeRenameIdx].title = val;
+                    state.chapters[activeRenameIdx].originalTitle = val;
+                    if (state.chapters[activeRenameIdx].content && /^#{1,6}\s+.+$/m.test(state.chapters[activeRenameIdx].content)) {
+                        state.chapters[activeRenameIdx].content = state.chapters[activeRenameIdx].content.replace(/^#{1,6}\s+.+$/m, `# ${val}`);
+                    }
+                    if (state.chapters[activeRenameIdx].originalHead) {
+                        state.chapters[activeRenameIdx].originalHead = state.chapters[activeRenameIdx].originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(val)}</title>`);
+                    }
                     renderChapterList();
+                    updateStats();
+                    if (state.novelId || (state.chapters && state.chapters.length > 0)) {
+                        saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save rename error:', e));
+                    }
+                    if (typeof window.toast === 'function') window.toast(`✓ Renamed to "${val}"!`, 'success');
                 }
             }
             document.getElementById('edit-rename-modal')?.classList.add('hidden');
