@@ -785,6 +785,79 @@
                 </div>
             </div>
         </div>
+
+        <!-- ═══ MODAL 8: SANITIZE TITLES VISUAL PREVIEW MODAL ═══ -->
+        <div id="edit-sanitize-preview-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
+             onclick="if(event.target===this) document.getElementById('edit-sanitize-preview-modal').classList.add('hidden');">
+            <div class="rounded-2xl shadow-2xl w-full max-w-xl flex flex-col overflow-hidden"
+                 style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh;">
+                <!-- Header -->
+                <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-xl">🧹</span>
+                        <div>
+                            <h3 class="font-bold text-base" style="color:var(--paper);">Sanitize Chapter Titles</h3>
+                            <p id="sanitize-preview-subtitle" class="text-xs" style="color:var(--slate);">Review proposed title cleanups</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="document.getElementById('edit-sanitize-preview-modal').classList.add('hidden')"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                </div>
+
+                <!-- Diff Content List -->
+                <div id="sanitize-preview-list" class="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-2.5" style="max-height:55vh;">
+                    <!-- Populated dynamically with diffs -->
+                </div>
+
+                <!-- Footer -->
+                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                    <button type="button" onclick="document.getElementById('edit-sanitize-preview-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
+                    <button type="button" id="btn-sanitize-apply-confirm" class="tl-btn accent font-bold" style="padding:8px 18px;">✓ Apply Clean Titles</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ MODAL 9: AUTO-HIERARCHY VISUAL ASSISTANT MODAL ═══ -->
+        <div id="edit-hierarchy-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
+             onclick="if(event.target===this) document.getElementById('edit-hierarchy-modal').classList.add('hidden');">
+            <div class="rounded-2xl shadow-2xl w-full max-w-xl flex flex-col overflow-hidden"
+                 style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh;">
+                <!-- Header -->
+                <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-xl">🪄</span>
+                        <div>
+                            <h3 class="font-bold text-base" style="color:var(--paper);">Auto-Hierarchy Assistant</h3>
+                            <p id="hierarchy-modal-subtitle" class="text-xs" style="color:var(--slate);">Organize book into collapsible volumes and sub-chapters</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="document.getElementById('edit-hierarchy-modal').classList.add('hidden')"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                </div>
+
+                <!-- Detection Summary Banner -->
+                <div id="hierarchy-modal-banner" class="px-4 py-3 flex items-center justify-between text-xs"
+                     style="background:rgba(99,102,241,0.12); border-bottom:1px solid rgba(99,102,241,0.25); color:#c7d2fe;">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- Tree Preview -->
+                <div id="hierarchy-modal-tree" class="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-1.5 font-mono text-xs" style="max-height:50vh;">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- Footer -->
+                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-2 shrink-0 flex-wrap" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                    <button type="button" id="btn-hierarchy-flatten-all" class="tl-btn text-xs" style="color:var(--slate);" title="Reset all chapters to Level 1 flat main chapters">Flatten All (Level 1)</button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="document.getElementById('edit-hierarchy-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
+                        <button type="button" id="btn-hierarchy-apply-confirm" class="tl-btn accent font-bold" style="padding:8px 18px;">✓ Apply Hierarchy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     `;
 
@@ -1506,14 +1579,93 @@
         updateStats();
     }
 
-    function autoDetectHierarchy() {
+    // ── Visual Modals: Sanitize Titles & Auto-Hierarchy Assistants ──
+    let pendingSanitizeDiffs = [];
+    let pendingHierarchyProposedChapters = null;
+
+    function openSanitizePreviewModal() {
+        if (!state.chapters || state.chapters.length === 0) {
+            if (typeof window.toast === 'function') window.toast('No chapters in the book to sanitize.', 'warning');
+            return;
+        }
+
+        pendingSanitizeDiffs = [];
+        state.chapters.forEach((c, idx) => {
+            const cleaned = cleanTitle(c.title, idx + 1);
+            if (cleaned !== c.title) {
+                pendingSanitizeDiffs.push({ idx, original: c.title, cleaned });
+            }
+        });
+
+        const modal = document.getElementById('edit-sanitize-preview-modal');
+        const subtitle = document.getElementById('sanitize-preview-subtitle');
+        const list = document.getElementById('sanitize-preview-list');
+        const confirmBtn = document.getElementById('btn-sanitize-apply-confirm');
+        if (!modal || !list) return;
+
+        if (pendingSanitizeDiffs.length === 0) {
+            if (subtitle) subtitle.textContent = `All ${state.chapters.length} chapter titles are already clean`;
+            list.innerHTML = `
+                <div class="p-6 text-center rounded-xl flex flex-col items-center justify-center gap-2" style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25);">
+                    <span class="text-3xl">✨</span>
+                    <div class="font-bold text-sm" style="color:#34d399;">All Chapter Titles Are Clean!</div>
+                    <p class="text-xs max-w-sm" style="color:var(--slate);">Every title in this book is properly formatted. No scraped watermarks, website names, broken prefixes, or unformatted titles detected.</p>
+                </div>
+            `;
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.style.opacity = '0.5';
+                confirmBtn.style.pointerEvents = 'none';
+                confirmBtn.textContent = 'Nothing to Sanitize';
+            }
+        } else {
+            if (subtitle) subtitle.textContent = `Found ${pendingSanitizeDiffs.length} title(s) to clean out of ${state.chapters.length} chapters`;
+            list.innerHTML = '';
+            pendingSanitizeDiffs.forEach(d => {
+                const card = document.createElement('div');
+                card.className = 'p-3 rounded-xl border flex flex-col gap-1.5';
+                card.style.background = 'var(--ember-2)';
+                card.style.borderColor = 'var(--hairline)';
+                card.innerHTML = `
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-bold font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400">#${d.idx + 1}</span>
+                        <span class="text-[11px]" style="color:var(--slate);">Title cleanup</span>
+                    </div>
+                    <div class="text-xs line-through text-red-400/80 break-words font-mono">${escapeXml(d.original)}</div>
+                    <div class="text-xs font-semibold text-emerald-400 break-words font-mono flex items-center gap-1.5">
+                        <span class="text-emerald-500 font-bold">➔</span> ${escapeXml(d.cleaned)}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.style.opacity = '1';
+                confirmBtn.style.pointerEvents = 'auto';
+                confirmBtn.textContent = `✓ Apply ${pendingSanitizeDiffs.length} Clean Title(s)`;
+            }
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    function openHierarchyModal() {
         if (!state.chapters || state.chapters.length === 0) {
             if (typeof window.toast === 'function') window.toast('No chapters in the book.', 'warning');
             return;
         }
 
+        const modal = document.getElementById('edit-hierarchy-modal');
+        const banner = document.getElementById('hierarchy-modal-banner');
+        const tree = document.getElementById('hierarchy-modal-tree');
+        const subtitle = document.getElementById('hierarchy-modal-subtitle');
+        const confirmBtn = document.getElementById('btn-hierarchy-apply-confirm');
+        if (!modal || !tree) return;
+
         const volStandaloneRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc|Part|Act|Season|Saga|Section|Episode|卷|部|篇)\s*(?:\d+|[IVXLCDM]+|[一二三四五六七八九十百]+)?[\s,;:–—-]*(.*)$/i;
         const hasChapterWord = /(?:chapter|\bch\b\.?\s*\d+|\bep\b\.?\s*\d+)/i;
+        const decimalPattern = /(?:^|\s)(?:Chapter|\bCh\b\.?)?\s*(\d+)\.(\d+)\b/i;
+        const embeddedVolPattern = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc|Part|Act|Season)\s*(\d+|[IVXLCDM]+)[\s,;:–—-]*(?:Chapter|\bCh\b\.?)\s*(\d+(?:\.\d+)?)/i;
 
         // 1. Check if book has standalone volume / arc / part headers
         let standaloneVolIndices = [];
@@ -1524,12 +1676,39 @@
             }
         });
 
+        // 2. Check if chapters have decimal sub-chapters
+        let decimalCount = 0;
+        state.chapters.forEach(ch => {
+            if (decimalPattern.test(ch.title || '')) {
+                decimalCount++;
+            }
+        });
+
+        // 3. Check for embedded volume prefixes
+        const volumeGroups = new Map();
+        state.chapters.forEach(ch => {
+            const m = (ch.title || '').trim().match(embeddedVolPattern);
+            if (m) {
+                const volKind = m[1].replace(/\.$/, '');
+                const normKind = volKind.charAt(0).toUpperCase() + volKind.slice(1).toLowerCase();
+                const volKey = `${normKind} ${m[2]}`;
+                if (!volumeGroups.has(volKey)) volumeGroups.set(volKey, []);
+                volumeGroups.get(volKey).push(ch);
+            }
+        });
+
+        let detectedMode = 'none';
+        let proposedChapters = [];
+        let bannerHtml = '';
+
         if (standaloneVolIndices.length > 0) {
+            detectedMode = 'standalone';
             let volumeCount = 0;
             let chapterCount = 0;
             let inVolume = false;
 
-            state.chapters.forEach((ch) => {
+            proposedChapters = state.chapters.map(origCh => {
+                const ch = { ...origCh };
                 const t = (ch.title || '').trim();
                 const isVolHeader = volStandaloneRegex.test(t) && !hasChapterWord.test(t);
 
@@ -1543,31 +1722,68 @@
                 } else {
                     ch.level = 1;
                 }
+                return ch;
+            });
+            if (proposedChapters.length > 0) proposedChapters[0].level = 1;
+
+            bannerHtml = `
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-emerald-400">✨ Pattern Detected:</span>
+                    <span>Found <strong>${volumeCount}</strong> standalone volume headers and <strong>${chapterCount}</strong> sub-chapters</span>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300">Collapsible Sections</span>
+            `;
+            if (subtitle) subtitle.textContent = `Auto-grouping into ${volumeCount} volumes`;
+        } else if (volumeGroups.size >= 1) {
+            detectedMode = 'embedded';
+            let currentVolKey = null;
+            let insertedVols = 0;
+            let subCount = 0;
+
+            state.chapters.forEach(origCh => {
+                const ch = { ...origCh };
+                const m = (ch.title || '').trim().match(embeddedVolPattern);
+                if (m) {
+                    const volKind = m[1].replace(/\.$/, '');
+                    const normKind = volKind.charAt(0).toUpperCase() + volKind.slice(1).toLowerCase();
+                    const volKey = `${normKind} ${m[2]}`;
+
+                    if (volKey !== currentVolKey) {
+                        currentVolKey = volKey;
+                        insertedVols++;
+                        proposedChapters.push({
+                            id: 'ch_vol_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+                            title: volKey,
+                            level: 1,
+                            content: '',
+                            words: 0,
+                            isNew: true
+                        });
+                    }
+                    ch.level = 2;
+                    subCount++;
+                    proposedChapters.push(ch);
+                } else {
+                    ch.level = 1;
+                    proposedChapters.push(ch);
+                }
             });
 
-            if (state.chapters.length > 0) state.chapters[0].level = 1;
-            renderChapterList();
-            updateStats();
-
-            if (typeof window.toast === 'function') {
-                window.toast(`✓ Auto-organized ${volumeCount} volumes and ${chapterCount} sub-chapters!`, 'success');
-            }
-            return;
-        }
-
-        // 2. Check if chapters have decimal sub-chapters (e.g. Chapter 1.1, Chapter 1.2)
-        const decimalPattern = /(?:^|\s)(?:Chapter|\bCh\b\.?)?\s*(\d+)\.(\d+)\b/i;
-        let decimalCount = 0;
-        state.chapters.forEach(ch => {
-            if (decimalPattern.test(ch.title || '')) {
-                decimalCount++;
-            }
-        });
-
-        if (decimalCount > 0) {
+            bannerHtml = `
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-indigo-400">✨ Pattern Detected:</span>
+                    <span>Found <strong>${volumeGroups.size}</strong> volume prefixes (${subCount} chapters)</span>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-500/20 text-indigo-300">Creates Volume Dividers</span>
+            `;
+            if (subtitle) subtitle.textContent = `Adding ${insertedVols} volume headers to organize TOC`;
+        } else if (decimalCount > 0) {
+            detectedMode = 'decimal';
             let mainCount = 0;
             let subCount = 0;
-            state.chapters.forEach(ch => {
+
+            proposedChapters = state.chapters.map(origCh => {
+                const ch = { ...origCh };
                 if (decimalPattern.test(ch.title || '')) {
                     ch.level = 2;
                     subCount++;
@@ -1575,103 +1791,89 @@
                     ch.level = 1;
                     mainCount++;
                 }
+                return ch;
             });
-            if (state.chapters.length > 0) state.chapters[0].level = 1;
-            renderChapterList();
-            updateStats();
+            if (proposedChapters.length > 0) proposedChapters[0].level = 1;
 
-            if (typeof window.toast === 'function') {
-                window.toast(`✓ Auto-organized ${subCount} sub-chapters under ${mainCount} main chapters!`, 'success');
-            }
-            return;
+            bannerHtml = `
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-amber-400">✨ Pattern Detected:</span>
+                    <span>Found <strong>${decimalCount}</strong> decimal sub-chapters (e.g. 1.1, 1.2)</span>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/20 text-amber-300">Nested Sub-Chapters</span>
+            `;
+            if (subtitle) subtitle.textContent = `Nest ${subCount} sub-chapters under ${mainCount} main chapters`;
+        } else {
+            detectedMode = 'none';
+            proposedChapters = state.chapters.map(ch => ({ ...ch }));
+            const currentSubs = proposedChapters.filter(c => c.level === 2).length;
+            bannerHtml = `
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-blue-400">ℹ️ Current Hierarchy:</span>
+                    <span>No volume patterns detected. Showing current layout (${currentSubs} sub-chapters).</span>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-500/20 text-blue-300">Manual / Flat</span>
+            `;
+            if (subtitle) subtitle.textContent = `Use "↳ Make Sub" on individual chapters or "Flatten All" below`;
         }
 
-        // 3. Check for embedded volume prefixes (e.g. "Volume 1 Chapter 1", "Vol 1 Ch 2", "Book 2 - Chapter 1")
-        const embeddedVolPattern = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc|Part|Act|Season)\s*(\d+|[IVXLCDM]+)[\s,;:–—-]*(?:Chapter|\bCh\b\.?)\s*(\d+(?:\.\d+)?)/i;
-        const volumeGroups = new Map();
-        state.chapters.forEach(ch => {
-            const m = (ch.title || '').trim().match(embeddedVolPattern);
-            if (m) {
-                const volKind = m[1].replace(/\.$/, '');
-                const normKind = volKind.charAt(0).toUpperCase() + volKind.slice(1).toLowerCase();
-                const volKey = `${normKind} ${m[2]}`;
-                if (!volumeGroups.has(volKey)) volumeGroups.set(volKey, []);
-                volumeGroups.get(volKey).push(ch);
+        pendingHierarchyProposedChapters = proposedChapters;
+        if (banner) banner.innerHTML = bannerHtml;
+
+        // Render visual tree preview
+        tree.innerHTML = '';
+        const maxPreview = 120;
+        const chaptersToDisplay = proposedChapters.slice(0, maxPreview);
+
+        chaptersToDisplay.forEach((ch) => {
+            const item = document.createElement('div');
+            item.className = 'py-1 px-2 rounded flex items-center gap-2 transition-colors';
+            if (ch.level === 2) {
+                item.style.paddingLeft = '24px';
+                item.style.background = 'rgba(99,102,241,0.06)';
+                item.innerHTML = `
+                    <span class="text-indigo-400 font-bold">↳</span>
+                    <span class="text-[11px] font-semibold text-indigo-300 truncate flex-1">${escapeXml(ch.title || 'Untitled')}</span>
+                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Sub</span>
+                `;
+            } else {
+                item.style.background = ch.isNew ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)';
+                item.style.fontWeight = '700';
+                item.innerHTML = `
+                    <span class="text-sky-400">📁</span>
+                    <span class="text-xs text-slate-100 truncate flex-1">${escapeXml(ch.title || 'Untitled')}</span>
+                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">${ch.isNew ? 'New Volume Header' : 'Main'}</span>
+                `;
             }
+            tree.appendChild(item);
         });
 
-        if (volumeGroups.size >= 1) {
-            const doInsert = confirm(`Detected ${volumeGroups.size} volume group(s) in chapter titles.\n\nInsert Volume headers to organize chapters into collapsible sections?`);
-            if (doInsert) {
-                const newChapters = [];
-                let currentVolKey = null;
-                let insertedVols = 0;
+        if (proposedChapters.length > maxPreview) {
+            const moreItem = document.createElement('div');
+            moreItem.className = 'text-center py-2 text-xs italic text-slate-400 border-t border-white/5 mt-2';
+            moreItem.textContent = `... and ${proposedChapters.length - maxPreview} more chapters formatted identically`;
+            tree.appendChild(moreItem);
+        }
 
-                state.chapters.forEach(ch => {
-                    const m = (ch.title || '').trim().match(embeddedVolPattern);
-                    if (m) {
-                        const volKind = m[1].replace(/\.$/, '');
-                        const normKind = volKind.charAt(0).toUpperCase() + volKind.slice(1).toLowerCase();
-                        const volKey = `${normKind} ${m[2]}`;
-
-                        if (volKey !== currentVolKey) {
-                            currentVolKey = volKey;
-                            insertedVols++;
-                            newChapters.push({
-                                id: 'ch_vol_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-                                title: volKey,
-                                level: 1,
-                                content: '',
-                                words: 0,
-                                isNew: true
-                            });
-                        }
-                        ch.level = 2;
-                        newChapters.push(ch);
-                    } else {
-                        ch.level = 1;
-                        newChapters.push(ch);
-                    }
-                });
-
-                state.chapters = newChapters;
-                renderChapterList();
-                updateStats();
-                if (typeof window.toast === 'function') {
-                    window.toast(`✓ Created ${insertedVols} volume headers and organized sub-chapters!`, 'success');
-                }
-                return;
+        if (confirmBtn) {
+            if (detectedMode === 'none') {
+                confirmBtn.disabled = true;
+                confirmBtn.style.opacity = '0.5';
+                confirmBtn.style.pointerEvents = 'none';
+                confirmBtn.textContent = 'No Auto Changes';
             } else {
-                let currentVolKey = null;
-                let orgCount = 0;
-                state.chapters.forEach(ch => {
-                    const m = (ch.title || '').trim().match(embeddedVolPattern);
-                    if (m) {
-                        const volKey = `${m[1]} ${m[2]}`;
-                        if (volKey !== currentVolKey) {
-                            currentVolKey = volKey;
-                            ch.level = 1;
-                        } else {
-                            ch.level = 2;
-                            orgCount++;
-                        }
-                    }
-                });
-                renderChapterList();
-                updateStats();
-                if (typeof window.toast === 'function') {
-                    window.toast(`✓ Organized ${orgCount} sub-chapters by volume!`, 'success');
-                }
-                return;
+                confirmBtn.disabled = false;
+                confirmBtn.style.opacity = '1';
+                confirmBtn.style.pointerEvents = 'auto';
+                confirmBtn.textContent = '✓ Apply Hierarchy';
             }
         }
 
-        // 4. Fallback if no patterns matched
-        renderChapterList();
-        updateStats();
-        if (typeof window.toast === 'function') {
-            window.toast('No volume headers or sub-chapters detected. Use "→ Sub" to nest chapters manually.', 'info');
-        }
+        modal.classList.remove('hidden');
+    }
+
+    function autoDetectHierarchy() {
+        openHierarchyModal();
     }
 
     // ── Chapter Insertion, Move & Rename Helpers ──
@@ -1869,44 +2071,24 @@
         const paras = cleanMd.split(/\n\s*\n/);
         const bodyParts = [];
 
-        // Check if first paragraph is already a heading or matches title even without stripFn
-        let skipFirstPara = false;
-        let hasHeadingInBody = false;
-        const cleanCompare = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-
-        if (paras.length > 0) {
-            const first = paras[0].trim();
-            const headingMatch = first.match(/^#{1,6}\s+(.+)$/);
-            if (headingMatch) {
-                const headingText = headingMatch[1].trim();
-                if (title && (
-                    cleanCompare(headingText) === cleanCompare(title) ||
-                    cleanCompare(headingText).includes(cleanCompare(title)) ||
-                    cleanCompare(title).includes(cleanCompare(headingText)) ||
-                    /^chapter\s*\d+/i.test(headingText)
-                )) {
-                    hasHeadingInBody = true;
-                }
-            } else if (title && cleanCompare(first) === cleanCompare(title)) {
-                skipFirstPara = true;
-            }
-        }
-
-        if (title && !hasHeadingInBody) {
+        // Always render the canonical TOC chapter title as the heading
+        if (title) {
             bodyParts.push(`<h2 class="chapter-title">${escapeXml(title)}</h2>`);
         }
 
         paras.forEach((p, idx) => {
-            if (idx === 0 && skipFirstPara) return;
             let trimmed = p.trim();
             if (!trimmed) return;
+            // If the first paragraph is a leading markdown heading (# Title), skip it since title is already rendered
+            if (idx === 0 && /^#{1,6}\s+/.test(trimmed)) {
+                return;
+            }
             if (trimmed === '---' || trimmed === '***') {
                 bodyParts.push('<hr />');
             } else if (/^#{1,6}\s+/.test(trimmed)) {
                 const lvl = trimmed.match(/^(#{1,6})/)[1].length;
                 const text = trimmed.replace(/^#+\s+/, '');
-                const isChTitle = (idx === 0 && hasHeadingInBody);
-                bodyParts.push(`<h${lvl}${isChTitle ? ' class="chapter-title"' : ''}>${escapeXml(text)}</h${lvl}>`);
+                bodyParts.push(`<h${lvl}>${escapeXml(text)}</h${lvl}>`);
             } else if (/^>\s+/.test(trimmed)) {
                 bodyParts.push(`<blockquote><p>${escapeXml(trimmed.replace(/^>\s+/, ''))}</p></blockquote>`);
             } else if (/!\[(.*?)\]\((.*?)\)/.test(trimmed)) {
@@ -2002,21 +2184,111 @@
                 line1Left.appendChild(collBtn);
             }
 
-            // Index / Hierarchy Badge
+            // Index / Hierarchy Badge (Clickable to jump to position)
             const numBadge = document.createElement('span');
-            numBadge.className = 'text-xs font-mono font-bold shrink-0';
+            numBadge.className = 'text-xs font-mono font-bold shrink-0 cursor-pointer select-none px-1.5 py-0.5 rounded';
             numBadge.style.color = isSub ? '#818cf8' : (hasChildren ? '#a5b4fc' : 'var(--paper-dim)');
+            numBadge.style.background = 'rgba(255,255,255,0.06)';
             numBadge.textContent = isSub ? `↳ #${idx + 1}` : (hasChildren ? `📁 #${idx + 1}` : `#${idx + 1}`);
+            numBadge.title = 'Click to jump to a specific position number';
+            numBadge.onclick = (e) => {
+                e.stopPropagation();
+                const targetPos = prompt(`Move chapter #${idx + 1} to position (1 - ${state.chapters.length}):`, `${idx + 1}`);
+                if (targetPos) {
+                    const parsed = parseInt(targetPos, 10);
+                    if (!isNaN(parsed) && parsed >= 1 && parsed <= state.chapters.length && parsed !== idx + 1) {
+                        const targetIdx = parsed - 1;
+                        const [bStart, bEnd] = getChapterBlockRange(idx);
+                        const blockLen = bEnd - bStart + 1;
+                        const block = state.chapters.splice(bStart, blockLen);
+                        state.chapters.splice(targetIdx, 0, ...block);
+                        if (state.chapters.length > 0) state.chapters[0].level = 1;
+                        renderChapterList();
+                        updateStats();
+                        if (typeof window.toast === 'function') window.toast(`Moved to position #${parsed}!`, 'success');
+                    }
+                }
+            };
             line1Left.appendChild(numBadge);
 
-            // Clickable Title (Opens Rename Modal)
-            const titleSpan = document.createElement('div');
-            titleSpan.className = 'font-semibold text-sm truncate flex-1 cursor-pointer select-none';
+            // Inline Editable Title Container
+            const titleContainer = document.createElement('div');
+            titleContainer.className = 'flex items-center gap-1.5 flex-1 min-w-0';
+
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'font-semibold text-sm truncate cursor-pointer select-none hover:underline';
             titleSpan.style.color = 'var(--paper)';
-            titleSpan.title = 'Tap to rename chapter';
             titleSpan.textContent = ch.title;
-            titleSpan.onclick = () => openRenameChapterModal(idx);
-            line1Left.appendChild(titleSpan);
+            titleSpan.title = 'Click or tap ✏️ to edit TOC title directly';
+
+            const renamePencilBtn = document.createElement('button');
+            renamePencilBtn.type = 'button';
+            renamePencilBtn.className = 'chip-act shrink-0 text-slate-400 hover:text-white';
+            renamePencilBtn.style.padding = '2px 6px';
+            renamePencilBtn.style.fontSize = '11px';
+            renamePencilBtn.textContent = '✏️';
+            renamePencilBtn.title = 'Edit TOC title directly';
+
+            function enterInlineEdit(e) {
+                if (e) e.stopPropagation();
+                titleContainer.innerHTML = '';
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'tl-field';
+                input.value = ch.title;
+                input.style.fontSize = '13px';
+                input.style.padding = '4px 8px';
+                input.style.flex = '1';
+                input.style.minWidth = '140px';
+                input.style.margin = '0';
+
+                const saveBtn = document.createElement('button');
+                saveBtn.type = 'button';
+                saveBtn.className = 'tl-btn accent shrink-0';
+                saveBtn.style.padding = '4px 9px';
+                saveBtn.style.fontSize = '11.5px';
+                saveBtn.style.fontWeight = '700';
+                saveBtn.textContent = '✓ Save';
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.type = 'button';
+                cancelBtn.className = 'chip-act shrink-0';
+                cancelBtn.style.padding = '4px 7px';
+                cancelBtn.style.fontSize = '11px';
+                cancelBtn.textContent = '✕';
+
+                const doSave = () => {
+                    const val = input.value.trim();
+                    if (val && val !== ch.title) {
+                        ch.title = val;
+                        // Synchronize with leading heading in chapter content if present
+                        if (ch.content && /^#{1,6}\s+.+$/m.test(ch.content)) {
+                            ch.content = ch.content.replace(/^#{1,6}\s+.+$/m, `# ${val}`);
+                        }
+                        if (typeof window.toast === 'function') window.toast(`Renamed to "${val}"`, 'success');
+                    }
+                    renderChapterList();
+                };
+
+                saveBtn.onclick = doSave;
+                cancelBtn.onclick = () => renderChapterList();
+                input.onkeydown = (ev) => {
+                    if (ev.key === 'Enter') { ev.preventDefault(); doSave(); }
+                    if (ev.key === 'Escape') { ev.preventDefault(); renderChapterList(); }
+                };
+
+                titleContainer.appendChild(input);
+                titleContainer.appendChild(saveBtn);
+                titleContainer.appendChild(cancelBtn);
+                setTimeout(() => { input.focus(); input.select(); }, 50);
+            }
+
+            titleSpan.onclick = enterInlineEdit;
+            renamePencilBtn.onclick = enterInlineEdit;
+
+            titleContainer.appendChild(titleSpan);
+            titleContainer.appendChild(renamePencilBtn);
+            line1Left.appendChild(titleContainer);
 
             line1.appendChild(line1Left);
 
@@ -2045,50 +2317,125 @@
             line1.appendChild(line1Right);
             card.appendChild(line1);
 
-            // ── LINE 2: Actions Bar (Thumb-friendly buttons) ──
+            // ── LINE 2: Actions Bar (Direct 1-Tap Reorder & Quick Controls) ──
             const line2 = document.createElement('div');
-            line2.className = 'flex items-center justify-between gap-2 pt-1.5 border-t border-white/5';
+            line2.className = 'flex items-center justify-between gap-2 pt-1.5 border-t border-white/5 flex-wrap';
 
             const line2Left = document.createElement('div');
-            line2Left.className = 'flex items-center gap-2 flex-wrap';
+            line2Left.className = 'flex items-center gap-1.5 flex-wrap';
 
             // Edit Prose Button
             const editBtn = document.createElement('button');
             editBtn.type = 'button';
             editBtn.className = 'tl-btn accent';
-            editBtn.style.padding = '6px 14px';
+            editBtn.style.padding = '5px 12px';
             editBtn.style.fontSize = '12px';
             editBtn.style.fontWeight = '700';
             editBtn.textContent = '✏️ Edit Prose';
             editBtn.onclick = () => openChapterModal(idx);
             line2Left.appendChild(editBtn);
 
-            // Move & Level Sheet Trigger
-            const moveBtn = document.createElement('button');
-            moveBtn.type = 'button';
-            moveBtn.className = 'tl-btn';
-            moveBtn.style.padding = '6px 12px';
-            moveBtn.style.fontSize = '12px';
-            moveBtn.textContent = '↕ Move & Level';
-            moveBtn.title = 'Change chapter order, hierarchy, or insert chapters';
-            moveBtn.onclick = () => openMoveChapterSheet(idx);
-            line2Left.appendChild(moveBtn);
+            // Direct 1-Tap Move Up
+            const upBtn = document.createElement('button');
+            upBtn.type = 'button';
+            upBtn.className = 'chip-act';
+            upBtn.style.padding = '5px 9px';
+            upBtn.style.fontSize = '12px';
+            upBtn.style.fontWeight = 'bold';
+            upBtn.textContent = '▲';
+            upBtn.title = 'Move up 1 position';
+            upBtn.disabled = idx === 0;
+            upBtn.onclick = (e) => {
+                e.stopPropagation();
+                const [bStart, bEnd] = getChapterBlockRange(idx);
+                moveChapterBlock(bStart, bEnd, -1);
+            };
+            line2Left.appendChild(upBtn);
+
+            // Direct 1-Tap Move Down
+            const downBtn = document.createElement('button');
+            downBtn.type = 'button';
+            downBtn.className = 'chip-act';
+            downBtn.style.padding = '5px 9px';
+            downBtn.style.fontSize = '12px';
+            downBtn.style.fontWeight = 'bold';
+            downBtn.textContent = '▼';
+            downBtn.title = 'Move down 1 position';
+            downBtn.disabled = idx >= state.chapters.length - 1;
+            downBtn.onclick = (e) => {
+                e.stopPropagation();
+                const [bStart, bEnd] = getChapterBlockRange(idx);
+                moveChapterBlock(bStart, bEnd, 1);
+            };
+            line2Left.appendChild(downBtn);
+
+            // Direct 1-Tap Move to Top
+            const topBtn = document.createElement('button');
+            topBtn.type = 'button';
+            topBtn.className = 'chip-act';
+            topBtn.style.padding = '5px 7px';
+            topBtn.style.fontSize = '11px';
+            topBtn.textContent = '⤒ Top';
+            topBtn.title = 'Move to top of book';
+            topBtn.disabled = idx === 0;
+            topBtn.onclick = (e) => {
+                e.stopPropagation();
+                const [bStart, bEnd] = getChapterBlockRange(idx);
+                moveChapterBlock(bStart, bEnd, 'top');
+            };
+            line2Left.appendChild(topBtn);
+
+            // Direct 1-Tap Move to Bottom
+            const btmBtn = document.createElement('button');
+            btmBtn.type = 'button';
+            btmBtn.className = 'chip-act';
+            btmBtn.style.padding = '5px 7px';
+            btmBtn.style.fontSize = '11px';
+            btmBtn.textContent = '⤓ Btm';
+            btmBtn.title = 'Move to bottom of book';
+            btmBtn.disabled = idx >= state.chapters.length - 1;
+            btmBtn.onclick = (e) => {
+                e.stopPropagation();
+                const [bStart, bEnd] = getChapterBlockRange(idx);
+                moveChapterBlock(bStart, bEnd, 'bottom');
+            };
+            line2Left.appendChild(btmBtn);
+
+            // Direct 1-Tap Hierarchy Level Toggle
+            const lvlToggleBtn = document.createElement('button');
+            lvlToggleBtn.type = 'button';
+            lvlToggleBtn.className = 'chip-act';
+            lvlToggleBtn.style.padding = '5px 9px';
+            lvlToggleBtn.style.fontSize = '11.5px';
+            lvlToggleBtn.style.fontWeight = '600';
+            if (ch.level === 1) {
+                lvlToggleBtn.textContent = '↳ Make Sub';
+                lvlToggleBtn.title = 'Nest as sub-chapter (Level 2)';
+                lvlToggleBtn.style.color = '#818cf8';
+                lvlToggleBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    ch.level = 2;
+                    renderChapterList();
+                    updateStats();
+                };
+            } else {
+                lvlToggleBtn.textContent = '📁 Make Main';
+                lvlToggleBtn.title = 'Promote to main section (Level 1)';
+                lvlToggleBtn.style.color = '#38bdf8';
+                lvlToggleBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    ch.level = 1;
+                    renderChapterList();
+                    updateStats();
+                };
+            }
+            line2Left.appendChild(lvlToggleBtn);
 
             line2.appendChild(line2Left);
 
-            // Line 2 Right: Quick Actions (Rename, Insert Below, Delete)
+            // Line 2 Right: Quick Actions (Insert Below, Delete)
             const line2Right = document.createElement('div');
             line2Right.className = 'flex items-center gap-1.5 shrink-0';
-
-            const renBtn = document.createElement('button');
-            renBtn.type = 'button';
-            renBtn.className = 'chip-act';
-            renBtn.style.padding = '5px 8px';
-            renBtn.style.fontSize = '11px';
-            renBtn.textContent = '🏷️ Rename';
-            renBtn.title = 'Rename chapter title';
-            renBtn.onclick = () => openRenameChapterModal(idx);
-            line2Right.appendChild(renBtn);
 
             const insBtn = document.createElement('button');
             insBtn.type = 'button';
@@ -2223,6 +2570,10 @@
         if (modalTitle) ch.title = modalTitle.value.trim() || `Chapter ${modalActiveIdx + 1}`;
         if (modalLevel) ch.level = parseInt(modalLevel.value, 10) || 1;
         if (textarea) ch.content = textarea.value;
+
+        if (ch.content && /^#{1,6}\s+.+$/m.test(ch.content)) {
+            ch.content = ch.content.replace(/^#{1,6}\s+.+$/m, `# ${ch.title}`);
+        }
 
         ch.words = countWords(ch.content);
         ch.images = extractImagesFromContent(ch.content);
@@ -3197,25 +3548,25 @@ ${bodyHtml}
             updateCoverPreview();
         });
 
-        // Quick Toolbar Actions
-        document.getElementById('btn-edit-sanitize-titles')?.addEventListener('click', () => {
-            if (!state.chapters || state.chapters.length === 0) {
-                if (typeof window.toast === 'function') window.toast('No chapters to sanitize.', 'warning');
-                return;
-            }
-            let count = 0;
-            state.chapters.forEach((c, idx) => {
-                const cleaned = cleanTitle(c.title, idx + 1);
-                if (cleaned !== c.title) {
-                    c.title = cleaned;
-                    count++;
+        // Quick Toolbar Actions: Sanitize Titles & Auto-Hierarchy
+        document.getElementById('btn-edit-sanitize-titles')?.addEventListener('click', openSanitizePreviewModal);
+        document.getElementById('btn-sanitize-apply-confirm')?.addEventListener('click', () => {
+            if (!pendingSanitizeDiffs || pendingSanitizeDiffs.length === 0) return;
+            let appliedCount = 0;
+            pendingSanitizeDiffs.forEach(d => {
+                if (state.chapters[d.idx]) {
+                    state.chapters[d.idx].title = d.cleaned;
+                    if (state.chapters[d.idx].content && /^#{1,6}\s+.+$/m.test(state.chapters[d.idx].content)) {
+                        state.chapters[d.idx].content = state.chapters[d.idx].content.replace(/^#{1,6}\s+.+$/m, `# ${d.cleaned}`);
+                    }
+                    appliedCount++;
                 }
             });
+            document.getElementById('edit-sanitize-preview-modal')?.classList.add('hidden');
             renderChapterList();
-            if (count > 0) {
-                if (typeof window.toast === 'function') window.toast(`✓ Sanitized ${count} chapter titles!`, 'success');
-            } else {
-                if (typeof window.toast === 'function') window.toast(`✓ All ${state.chapters.length} chapter titles are already clean!`, 'info');
+            updateStats();
+            if (typeof window.toast === 'function') {
+                window.toast(`✓ Successfully sanitized ${appliedCount} chapter titles!`, 'success');
             }
         });
 
@@ -3223,7 +3574,28 @@ ${bodyHtml}
             document.getElementById('edit-autonumber-modal')?.classList.remove('hidden');
         });
         document.getElementById('btn-edit-do-autonumber')?.addEventListener('click', doAutoNumber);
-        document.getElementById('btn-edit-auto-hierarchy')?.addEventListener('click', autoDetectHierarchy);
+        document.getElementById('btn-edit-auto-hierarchy')?.addEventListener('click', openHierarchyModal);
+        document.getElementById('btn-hierarchy-apply-confirm')?.addEventListener('click', () => {
+            if (!pendingHierarchyProposedChapters || pendingHierarchyProposedChapters.length === 0) return;
+            state.chapters = pendingHierarchyProposedChapters;
+            document.getElementById('edit-hierarchy-modal')?.classList.add('hidden');
+            renderChapterList();
+            updateStats();
+            if (typeof window.toast === 'function') {
+                const subCount = state.chapters.filter(c => c.level === 2).length;
+                window.toast(`✓ Hierarchy applied! (${subCount} nested sub-chapters)`, 'success');
+            }
+        });
+        document.getElementById('btn-hierarchy-flatten-all')?.addEventListener('click', () => {
+            if (!state.chapters || state.chapters.length === 0) return;
+            state.chapters.forEach(c => { c.level = 1; });
+            document.getElementById('edit-hierarchy-modal')?.classList.add('hidden');
+            renderChapterList();
+            updateStats();
+            if (typeof window.toast === 'function') {
+                window.toast(`✓ All chapters flattened to Main Chapters (Level 1)!`, 'info');
+            }
+        });
 
         document.getElementById('btn-edit-find-replace')?.addEventListener('click', openFindReplaceModal);
         document.getElementById('btn-edit-do-replace')?.addEventListener('click', doGlobalReplace);
@@ -3334,11 +3706,25 @@ ${bodyHtml}
                 if (btn) btn.textContent = '✏️ Edit Prose';
 
                 const raw = textarea.value || '';
-                const paras = raw.split(/\n\s*\n/);
+                const currTitle = (document.getElementById('edit-ch-modal-title')?.value || state.chapters[modalActiveIdx]?.title || '').trim();
+                const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent)
+                    ? window.stripLeadingTitleFromContent
+                    : ((typeof stripLeadingTitleFromContent === 'function') ? stripLeadingTitleFromContent : null);
+                let cleanRaw = raw;
+                if (stripFn && currTitle) {
+                    cleanRaw = stripFn(cleanRaw, currTitle);
+                }
+                const paras = cleanRaw.split(/\n\s*\n/);
                 const htmlParts = [];
-                paras.forEach(p => {
+                if (currTitle) {
+                    htmlParts.push(`<h2 class="chapter-title" style="font-weight:800; font-size:1.45em; color:var(--paper); margin:0 0 20px; padding-bottom:12px; border-bottom:1px solid var(--hairline); letter-spacing:-0.01em;">${escapeXml(currTitle)}</h2>`);
+                }
+                paras.forEach((p, idx) => {
                     let trimmed = p.trim();
                     if (!trimmed) return;
+                    if (idx === 0 && /^#{1,6}\s+/.test(trimmed)) {
+                        return; // Skip duplicate first-line markdown heading
+                    }
                     if (trimmed === '---' || trimmed === '***') {
                         htmlParts.push('<hr style="border:none; border-top:1px solid var(--hairline); margin:24px 0;" />');
                     } else if (/^#{1,6}\s+/.test(trimmed)) {
@@ -3352,8 +3738,8 @@ ${bodyHtml}
                         htmlParts.push(`<p style="margin-bottom:16px; text-indent:1.5em; line-height:1.8;">${escapeXml(trimmed)}</p>`);
                     }
                 });
-                if (htmlParts.length === 0) {
-                    htmlParts.push('<p class="italic text-center py-8 text-xs" style="color:var(--slate);">Chapter is empty.</p>');
+                if (htmlParts.length === 0 || (htmlParts.length === 1 && currTitle)) {
+                    htmlParts.push('<p class="italic text-center py-8 text-xs" style="color:var(--slate);">Chapter prose is empty.</p>');
                 }
                 if (previewContent) {
                     previewContent.innerHTML = htmlParts.join('\n');
