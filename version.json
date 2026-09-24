@@ -1,9 +1,9 @@
 {
-  "version": "8.17.62",
-  "versionCode": 8302,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.62/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.62/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.62",
+  "version": "8.17.63",
+  "versionCode": 8303,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.63/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.63/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.63",
   "releaseDate": "2026-09-24",
-  "releaseNotes": "v8.17.62: Modularization Step 7. Extracted Tab 3 (EPUB Studio / Ebook Editor, Splitter & Merger) into dedicated module app_tab_studio.js. Verified error-free rendering and auto-initialization across all sub-tabs."
+  "releaseNotes": "v8.17.63: Modularization Step 8 (Final Step). Extracted ExportToolsSheet, ConfirmDialog, DownloadSuccessModal, and EpubPackagingProgressDock into app_modals.js. All major application tabs and overlays are now fully modularized."
 }

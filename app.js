@@ -12639,25 +12639,16 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         ),
 
         // ── EXPORT / TOOLS SHEET ──
-        sheetOpen && h('div', { className: 'sheet-backdrop', onClick: () => setSheetOpen(false) },
-          h('div', { className: 'sheet', onClick: (e) => e.stopPropagation() },
-            h('div', { className: 'sheet-handle' }),
-            h('div', { className: 'sheet-lbl' }, 'Export'),
-            h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('epub') }, h('span', { className: 'ic' }, '⇩'), 'EPUB', h('span', { className: 'chev' }, '›')),
-            h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('reader') }, h('span', { className: 'ic' }, '◈'), 'Open in Reader', h('span', { className: 'chev' }, '›')),
-            h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('pdf') }, h('span', { className: 'ic' }, '⇩'), 'PDF', h('span', { className: 'chev' }, '›')),
-            h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('docx') }, h('span', { className: 'ic' }, '⇩'), 'DOCX', h('span', { className: 'chev' }, '›')),
-            h('div', { className: 'sheet-lbl' }, 'Tools'),
-            h('button', { type: 'button', className: 'sheet-row', onClick: () => {
-              if (isTranslating) { toast('Cannot split chapters while translation is in progress.', 'warning'); return; }
-              setSheetOpen(false);
-              handleAutoDetectSplit();
-            } }, h('span', { className: 'ic' }, '✂'), 'Split Chapters', h('span', { className: 'chev' }, '›')),
-            h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'auto'); setBoxPreset('output', 'auto'); setSheetOpen(false); } }, h('span', { className: 'ic' }, '↕'), 'Fit Text Height', h('span', { className: 'chev' }, '›')),
-            h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'S'); setBoxPreset('output', 'S'); setSheetOpen(false); } }, h('span', { className: 'ic' }, '↺'), 'Reset Box Heights', h('span', { className: 'chev' }, '›')),
-            h('button', { type: 'button', className: 'sheet-row', onClick: () => { setSheetOpen(false); setGlossaryEditorOpen(true); } }, h('span', { className: 'ic' }, '📖'), 'Glossary Editor', h('span', { className: 'chev' }, '›'))
-          )
-        ),
+        h(ExportToolsSheet, {
+          sheetOpen,
+          setSheetOpen,
+          handleExportRow,
+          isTranslating,
+          handleAutoDetectSplit,
+          setBoxPreset,
+          setGlossaryEditorOpen,
+          toast
+        }),
 
         // ── GLOSSARY FULL-SCREEN EDITOR ──
         
@@ -12730,141 +12721,25 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         ),
 
         // ── CONFIRM DIALOG ──
-        showModal && h('div', { className: 'confirm-backdrop', onClick: () => { setShowModal(false); setModalCallback(null); } },
-          h('div', { className: 'confirm-box', onClick: (e) => e.stopPropagation() },
-            h('p', null, modalMessage),
-            h('div', { className: 'confirm-actions' },
-              h('button', { type: 'button', className: 'mini-btn', onClick: () => { if (modalCallback) modalCallback(); } }, 'Confirm'),
-              h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => { setShowModal(false); setModalCallback(null); } }, 'Cancel')
-            )
-          )
-        ),
+        h(ConfirmDialog, {
+          showModal,
+          setShowModal,
+          modalMessage,
+          modalCallback,
+          setModalCallback
+        }),
 
         // ── EPUB PACKAGING PROGRESS DOCK (Main Screen, Non-Modal, Dismissible) ──
-        epubPackagingModal && h('div', {
-          style: {
-            position: 'fixed',
-            bottom: '76px',
-            left: '12px',
-            right: '12px',
-            maxWidth: '440px',
-            margin: '0 auto',
-            zIndex: 85,
-            pointerEvents: 'auto',
-            background: 'rgba(15, 23, 42, 0.95)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            border: '1px solid rgba(99, 102, 241, 0.4)',
-            borderRadius: '16px',
-            boxShadow: '0 16px 36px -6px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08)',
-            padding: '14px 16px'
-          }
-        },
-          h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 } },
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 } },
-              h('div', {
-                style: {
-                  width: 32,
-                  height: 32,
-                  minWidth: 32,
-                  borderRadius: 8,
-                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 16,
-                  boxShadow: '0 3px 8px rgba(99, 102, 241, 0.4)'
-                }
-              }, '📦'),
-              h('div', { style: { minWidth: 0, flex: 1 } },
-                h('div', { style: { fontWeight: 700, fontSize: 13.5, color: '#f8fafc', lineHeight: 1.2 } }, 'Packaging EPUB…'),
-                h('div', { style: { fontSize: 11, color: '#94a3b8', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, epubPackagingModal.title || 'Novel Archive')
-              )
-            ),
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-              h('span', {
-                style: {
-                  fontWeight: 800,
-                  fontSize: 14,
-                  color: '#818cf8',
-                  fontFamily: "'IBM Plex Mono', monospace"
-                }
-              }, `${Math.min(100, Math.max(0, epubPackagingModal.pct || 0))}%`),
-              h('button', {
-                type: 'button',
-                style: {
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: 'none',
-                  color: '#94a3b8',
-                  borderRadius: '50%',
-                  width: 24,
-                  height: 24,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  padding: 0
-                },
-                onClick: () => setEpubPackagingModal(null),
-                title: 'Dismiss loading card'
-              }, '✕')
-            )
-          ),
-
-          // Animated Visual Progress Bar
-          h('div', {
-            style: {
-              width: '100%',
-              height: 6,
-              borderRadius: 999,
-              background: 'rgba(255, 255, 255, 0.1)',
-              overflow: 'hidden',
-              margin: '8px 0 10px',
-              position: 'relative'
-            }
-          },
-            h('div', {
-              style: {
-                height: '100%',
-                width: `${Math.min(100, Math.max(0, epubPackagingModal.pct || 0))}%`,
-                background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #10b981 100%)',
-                borderRadius: 999,
-                transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
-              }
-            })
-          ),
-
-          // Status message and elapsed time
-          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5, color: '#94a3b8' } },
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, paddingRight: 8 } },
-              h('span', { style: { width: 6, height: 6, minWidth: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 6px #10b981' } }),
-              h('span', { style: { fontWeight: 500, color: '#cbd5e1', fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, epubPackagingModal.status || 'Compiling...')
-            ),
-            epubPackagingModal.elapsed && h('div', {
-              style: {
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: 10.5,
-                background: 'rgba(255, 255, 255, 0.07)',
-                padding: '2px 6px',
-                borderRadius: 4,
-                whiteSpace: 'nowrap',
-                color: '#cbd5e1'
-              }
-            }, `⏱ ${epubPackagingModal.elapsed}`)
-          )
-        ),
+        h(EpubPackagingProgressDock, {
+          epubPackagingModal,
+          setEpubPackagingModal
+        }),
 
         // ── DOWNLOAD SUCCESS MODAL ──
-        downloadSuccessModal && h('div', { className: 'confirm-backdrop', style: { zIndex: 126 }, onClick: () => setDownloadSuccessModal(null) },
-          h('div', { className: 'confirm-box', onClick: (e) => e.stopPropagation() },
-            h('p', null, 'File Saved Successfully!'),
-            h('p', { style: { fontSize: 12, color: 'var(--slate)', textAlign: 'center', wordBreak: 'break-all', marginBottom: 14, fontWeight: 500 } }, downloadSuccessModal.fileName),
-            h('div', { className: 'confirm-actions' },
-              h('button', { type: 'button', className: 'mini-btn', onClick: () => setDownloadSuccessModal(null) }, 'OK')
-            )
-          )
-        ),
+        h(DownloadSuccessModal, {
+          downloadSuccessModal,
+          setDownloadSuccessModal
+        }),
 
         // ── READER ──
         h(MoonReaderModal, {
