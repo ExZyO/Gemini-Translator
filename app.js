@@ -80,7 +80,7 @@
       streamGemini, translateDeepSeek, streamDeepSeek, stripContextLeak,
       translateDeepL, translateLibre, translateOpenAI, translateClaude,
       streamWithRotation, translateWithRotation, translateChunk,
-      BackupEngine, ExportEngine, DocumentParser
+      BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine
     } = window;
 
     // Helper adapters delegating to DocumentParser & ExportEngine
@@ -134,7 +134,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.67';
+    let VERSION = '8.17.68';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -885,32 +885,7 @@
         }
       }, []);
 
-      const getNovelFolderOptions = (novel) => {
-        if (!novel) return {};
-        try {
-          const mappingStore = JSON.parse(localStorage.getItem('gemini_novel_folder_mappings') || '{}');
-          const titleKey = (novel.title || '').trim().toLowerCase();
-          const idKey = novel.id || '';
-          const urlKey = novel.sourceUrl || novel.url || '';
-          const mapped = (idKey && mappingStore[idKey]) || (titleKey && mappingStore[titleKey]) || (urlKey && mappingStore[urlKey]);
-
-          const metaList = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
-          const meta = metaList.find(m => (novel.id && m.id === novel.id) || (m.title && novel.title && m.title.trim().toLowerCase() === novel.title.trim().toLowerCase()));
-          const treeUri = novel.folderTreeUri || mapped?.treeUri || mapped?.folderTreeUri || meta?.folderTreeUri || '';
-          const folderPath = novel.folderPath || mapped?.folderPath || mapped?.subDir || meta?.folderPath || '';
-          return {
-            treeUri,
-            folderTreeUri: treeUri,
-            subDir: folderPath,
-            folderPath
-          };
-        } catch (e) {
-          return {};
-        }
-      };
-      if (typeof window !== 'undefined') {
-        window.getNovelFolderOptions = getNovelFolderOptions;
-      }
+      const getNovelFolderOptions = (novel) => window.MoonReaderEngine ? window.MoonReaderEngine.getNovelFolderOptions(novel) : {};
 
       const getCustomTitle = (novelOrUrl) => {
         if (!novelOrUrl) return '';
@@ -2053,51 +2028,9 @@
         if (!cleanQuery) return;
         setOngoingEpubModal(prev => prev ? { ...prev, isSearchingSources: true, continuationSources: [] } : null);
         try {
-          let results = [];
-          // 1. Built-in scrapers
-          if (window.WebNovelImporter?.searchNovels) {
-            try {
-              const scraperResults = await window.WebNovelImporter.searchNovels(cleanQuery, 'all');
-              if (Array.isArray(scraperResults)) results.push(...scraperResults);
-            } catch (e) {
-              console.warn('[handleSearchContinuationSources] Scraper search error:', e);
-            }
-          }
-          // 2. Installed source plugins (278+ extensions)
-          const reg = window.sourceRegistry || window.SourceRegistry;
-          if (reg && typeof reg.searchAll === 'function') {
-            try {
-              const pluginResults = await reg.searchAll(cleanQuery);
-              if (Array.isArray(pluginResults)) {
-                for (const p of pluginResults) {
-                  const pUrl = (p.url || p.path || '').replace(/\/$/, '');
-                  results.push({
-                    id: p.id || pUrl,
-                    title: p.title || p.name || cleanQuery,
-                    author: p.author || '',
-                    url: p.url || p.path,
-                    cover: p.cover || '',
-                    summary: p.summary || '',
-                    chapters: p.chapters || '',
-                    source: p.source || 'Extension Plugin'
-                  });
-                }
-              }
-            } catch (e) {
-              console.warn('[handleSearchContinuationSources] Plugin search error:', e);
-            }
-          }
-          // Deduplicate by URL
-          const seenUrls = new Set();
-          const deduped = [];
-          for (const r of results) {
-            const u = (r.url || r.path || '').replace(/\/$/, '');
-            if (u && !seenUrls.has(u)) {
-              seenUrls.add(u);
-              deduped.push(r);
-            }
-          }
-
+          const deduped = window.MoonReaderEngine
+            ? await window.MoonReaderEngine.searchContinuationSources(cleanQuery)
+            : [];
           setOngoingEpubModal(prev => {
             if (!prev) return null;
             return {
@@ -2249,12 +2182,9 @@
         }
         setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: true, sourceUrl: targetUrl } : null);
         try {
-          const remote = await window.WebNovelImporter.importUrl(targetUrl, () => {}, { tocOnly: true });
-          const totalOnline = (remote && typeof remote.totalChapterCount === 'number')
-            ? remote.totalChapterCount
-            : (remote?.chapterList ? remote.chapterList.length : (remote?.chapters ? remote.chapters.length : 0));
-
-          if (!totalOnline || totalOnline === 0) {
+          if (!window.MoonReaderEngine) throw new Error('MoonReaderEngine is not loaded.');
+          const { totalOnlineCount, chapterList } = await window.MoonReaderEngine.scanContinuationToc(targetUrl);
+          if (!totalOnlineCount || totalOnlineCount === 0) {
             toast('Failed to retrieve online chapters from this URL.', 'warning');
             setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: false } : null);
             return;
@@ -2267,13 +2197,13 @@
             return {
               ...prev,
               isScanningToc: false,
-              onlineToc: remote.chapterList || [],
-              totalOnlineCount: totalOnline,
-              startChapter: Math.min(start, totalOnline),
-              endChapter: totalOnline
+              onlineToc: chapterList || [],
+              totalOnlineCount,
+              startChapter: Math.min(start, totalOnlineCount),
+              endChapter: totalOnlineCount
             };
           });
-          toast(`Discovered ${totalOnline} chapters online! (Ready to fetch from Ch. ${(existingCount || 0) + 1})`, 'success');
+          toast(`Discovered ${totalOnlineCount} chapters online! (Ready to fetch from Ch. ${(existingCount || 0) + 1})`, 'success');
         } catch (err) {
           console.error('Scan TOC error:', err);
           toast('Failed to scan online source: ' + err.message, 'error');
@@ -2285,15 +2215,6 @@
         if (!ongoingEpubModal || !ongoingEpubModal.sourceUrl) {
           return toast('Source URL is required to fetch new chapters.', 'warning');
         }
-        const { title, author, cover, uuid, chapters, existingCount, sourceUrl, startChapter, endChapter, totalOnlineCount, file, originalZip } = ongoingEpubModal;
-
-        const start = parseInt(startChapter, 10) || (existingCount + 1);
-        const end = parseInt(endChapter, 10) || start;
-
-        if (start > end) {
-          return toast('Start chapter cannot be greater than end chapter.', 'warning');
-        }
-
         setOngoingEpubModal(prev => prev ? {
           ...prev,
           isFetching: true,
@@ -2301,87 +2222,20 @@
         } : null);
 
         try {
-          const startTime = Date.now();
-          const getElapsed = () => {
-            const sec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
-            const m = Math.floor(sec / 60);
-            const s = sec % 60;
-            return (m > 0 ? `${m}m ` : '') + `${s}s`;
-          };
-
-          // 1. Fetch only the requested chapter range
-          const remoteResult = await window.WebNovelImporter.importUrl(sourceUrl, (msg, pct) => {
-            setOngoingEpubModal(prev => prev ? {
-              ...prev,
-              progress: { status: msg || 'Downloading new chapters…', pct: pct || 20, elapsed: getElapsed() }
-            } : null);
-          }, {
-            chapterRange: { start, end }
+          if (!window.MoonReaderEngine) throw new Error('MoonReaderEngine is not loaded.');
+          const result = await window.MoonReaderEngine.executeContinuation(ongoingEpubModal, {
+            onProgress: (status, pct, elapsed) => {
+              setOngoingEpubModal(prev => prev ? {
+                ...prev,
+                progress: { status, pct, elapsed }
+              } : null);
+            }
           });
 
-          const newFetchedChapters = remoteResult?.chapters || [];
-          if (newFetchedChapters.length === 0) {
-            throw new Error('No new chapters could be retrieved from the source.');
-          }
+          const { epubBlob, mergedChapters, isInc, folderOpts, totalChapterCount, newFetchedCount } = result;
+          const { title, author, cover, uuid, sourceUrl } = ongoingEpubModal;
 
-          // 2. Merge original chapters with newly fetched chapters for library tracking
-          const keepCount = Math.min(chapters.length, Math.max(0, start - 1));
-          const originalKeep = chapters.slice(0, keepCount);
-          const mergedChapters = [
-            ...originalKeep.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })),
-            ...newFetchedChapters.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content }))
-          ];
-
-          // 3. Package EPUB: Use in-place continuation if original file/zip exists to preserve 100% of images and styling
-          setOngoingEpubModal(prev => prev ? {
-            ...prev,
-            progress: { status: `Packaging chapters into EPUB…`, pct: 85, elapsed: getElapsed() }
-          } : null);
-
-          let epubBlob = null;
-          const originalSource = file || originalZip;
-
-          if (originalSource && window.appendChaptersToExistingEpub) {
-            // True in-place continuation: keeps 100% of original photos, fonts, CSS styling, and chapters!
-            epubBlob = await window.appendChaptersToExistingEpub(
-              originalSource,
-              newFetchedChapters,
-              { startChapter: start },
-              (status, pct) => {
-                setOngoingEpubModal(prev => prev ? {
-                  ...prev,
-                  progress: { status, pct: Math.round(85 + (pct * 0.14)), elapsed: getElapsed() }
-                } : null);
-              }
-            );
-          } else {
-            // Fallback if original binary EPUB file was not provided
-            epubBlob = await generateEpubFromChapters(
-              mergedChapters,
-              title,
-              author,
-              'en',
-              (status, pct, elapsed) => {
-                setOngoingEpubModal(prev => prev ? {
-                  ...prev,
-                  progress: { status, pct: Math.round(85 + (pct * 0.14)), elapsed }
-                } : null);
-              },
-              {
-                uuid: uuid || undefined,
-                coverUrl: cover || undefined,
-                sourceUrl
-              }
-            );
-          }
-
-          // 4. Trigger download / save directly to designated folder
-          const isInc = totalOnlineCount ? mergedChapters.length < totalOnlineCount : false;
-          const fileName = getEpubFileName(title, mergedChapters.length, isInc);
-          const folderOpts = ongoingEpubModal.folderOptions || getNovelFolderOptions({ id: uuid, title, sourceUrl });
-          await saveUniversalBlob(epubBlob, fileName, 'application/epub+zip', false, folderOpts);
-
-          // 5. Save updated novel into library with epubBlob cached for preserved re-downloads
+          // Save updated novel into library with epubBlob cached for preserved re-downloads
           await saveNovelToHistory({
             title,
             author,
@@ -2389,7 +2243,7 @@
             uuid: uuid || '',
             sourceUrl,
             chapters: mergedChapters,
-            totalChapterCount: Math.max(mergedChapters.length, totalOnlineCount || mergedChapters.length),
+            totalChapterCount,
             isIncomplete: isInc,
             isEpub: true,
             epubBlob,
@@ -2398,7 +2252,7 @@
             folderTreeUri: folderOpts?.treeUri || ''
           });
 
-          toast(`Updated "${title}"! Appended ${newFetchedChapters.length} new chapters. Book ID and styling preserved for Moon+ Reader Pro!`, 'success');
+          toast(`Updated "${title}"! Appended ${newFetchedCount} new chapters. Book ID and styling preserved for Moon+ Reader Pro!`, 'success');
           setOngoingEpubModal(null);
         } catch (err) {
           console.error('Continuation error:', err);
@@ -2977,125 +2831,77 @@
       }, []);
 
       const updateNovelFolderRecord = async (novel, treeUri, displayPath) => {
-        const novelId = typeof novel === 'object' ? (novel.id || '') : (novel || '');
-        const novelTitle = typeof novel === 'object' ? (novel.title || '') : (novel || '');
-        const novelUrl = typeof novel === 'object' ? (novel.sourceUrl || novel.url || '') : '';
-        const normTitle = (novelTitle || '').trim().toLowerCase();
-
-        // 1. Dedicated persistent folder mapping dictionary
-        try {
-          const mappingStore = JSON.parse(localStorage.getItem('gemini_novel_folder_mappings') || '{}');
-          const entry = { treeUri, folderTreeUri: treeUri, folderPath: displayPath, subDir: displayPath };
-          if (novelId) mappingStore[novelId] = entry;
-          if (normTitle) mappingStore[normTitle] = entry;
-          if (novelUrl) mappingStore[novelUrl] = entry;
-          localStorage.setItem('gemini_novel_folder_mappings', JSON.stringify(mappingStore));
-        } catch (e) {}
-
-        // 2. Metadata list in localStorage
-        try {
-          const metaList = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
-          let matched = false;
-          const updatedMeta = metaList.map(m => {
-            const mId = m.id || '';
-            const mTitle = (m.title || '').trim().toLowerCase();
-            if ((novelId && mId === novelId) || (normTitle && mTitle === normTitle)) {
-              matched = true;
-              return { ...m, folderTreeUri: treeUri, folderPath: displayPath };
-            }
-            return m;
-          });
-          if (!matched && typeof novel === 'object' && novel) {
-            updatedMeta.unshift({ ...novel, folderTreeUri: treeUri, folderPath: displayPath });
-          }
-          localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updatedMeta));
-        } catch (e) {}
-
-        // 3. Update IndexedDB full record
-        if (window.GeminiNovelDB) {
-          try {
-            const all = await window.GeminiNovelDB.getAllNovels();
-            const full = (all || []).find(n => (novelId && n.id === novelId) || (normTitle && (n.title || '').trim().toLowerCase() === normTitle));
-            if (full) {
-              await window.GeminiNovelDB.saveNovel({ ...full, folderTreeUri: treeUri, folderPath: displayPath });
-            } else if (typeof novel === 'object' && novel && (novel.chapters || novel.rawChapters)) {
-              await window.GeminiNovelDB.saveNovel({ ...novel, folderTreeUri: treeUri, folderPath: displayPath });
-            }
-          } catch(e) {}
-        }
-
-        // 4. Update webImportHistory state
-        setWebImportHistory(prev => {
-          const list = prev || [];
-          const exists = list.some(item => (novelId && item.id === novelId) || (normTitle && (item.title || '').trim().toLowerCase() === normTitle));
-          if (exists) {
-            return list.map(item => {
-              if ((novelId && item.id === novelId) || (normTitle && (item.title || '').trim().toLowerCase() === normTitle)) {
-                return { ...item, folderTreeUri: treeUri, folderPath: displayPath };
+        if (!window.MoonReaderEngine) return;
+        await window.MoonReaderEngine.updateNovelFolderRecord(novel, treeUri, displayPath, {
+          onUpdateHistory: ({ novelId, normTitle, novel: n }) => {
+            setWebImportHistory(prev => {
+              const list = prev || [];
+              const exists = list.some(item => (novelId && item.id === novelId) || (normTitle && (item.title || '').trim().toLowerCase() === normTitle));
+              if (exists) {
+                return list.map(item => {
+                  if ((novelId && item.id === novelId) || (normTitle && (item.title || '').trim().toLowerCase() === normTitle)) {
+                    return { ...item, folderTreeUri: treeUri, folderPath: displayPath };
+                  }
+                  return item;
+                });
               }
-              return item;
+              if (typeof n === 'object' && n) {
+                return [{ ...n, folderTreeUri: treeUri, folderPath: displayPath }, ...list];
+              }
+              return list;
             });
-          }
-          if (typeof novel === 'object' && novel) {
-            return [{ ...novel, folderTreeUri: treeUri, folderPath: displayPath }, ...list];
-          }
-          return list;
-        });
-
-        // 5. Update activeCrawlSession state and localStorage if currently active
-        setActiveCrawlSession(prev => {
-          if (!prev) return prev;
-          const matchId = novelId && prev.id === novelId;
-          const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
-          if (matchId || matchTitle || !novelId) {
-            const updated = { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
-            try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(updated)); } catch(e) {}
-            return updated;
-          }
-          return prev;
-        });
-
-        // 6. Update webImportData state
-        setWebImportData(prev => {
-          if (!prev) return prev;
-          const matchId = novelId && prev.id === novelId;
-          const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
-          if (matchId || matchTitle || !novelId) {
-            return { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
-          }
-          return prev;
-        });
-
-        // 7. Update activeNovelRecord state if present
-        if (typeof setActiveNovelRecord === 'function') {
-          setActiveNovelRecord(prev => {
-            if (!prev) return prev;
-            const matchId = novelId && prev.id === novelId;
-            const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
-            if (matchId || matchTitle || !novelId) {
-              return { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
+          },
+          onUpdateActiveCrawlSession: ({ novelId, normTitle }) => {
+            setActiveCrawlSession(prev => {
+              if (!prev) return prev;
+              const matchId = novelId && prev.id === novelId;
+              const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
+              if (matchId || matchTitle || !novelId) {
+                const updated = { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
+                try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(updated)); } catch(e) {}
+                return updated;
+              }
+              return prev;
+            });
+          },
+          onUpdateWebImportData: ({ novelId, normTitle }) => {
+            setWebImportData(prev => {
+              if (!prev) return prev;
+              const matchId = novelId && prev.id === novelId;
+              const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
+              if (matchId || matchTitle || !novelId) {
+                return { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
+              }
+              return prev;
+            });
+          },
+          onUpdateActiveNovelRecord: ({ novelId, normTitle }) => {
+            if (typeof setActiveNovelRecord === 'function') {
+              setActiveNovelRecord(prev => {
+                if (!prev) return prev;
+                const matchId = novelId && prev.id === novelId;
+                const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
+                if (matchId || matchTitle || !novelId) {
+                  return { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
+                }
+                return prev;
+              });
             }
-            return prev;
-          });
-        }
+          }
+        });
       };
 
       const handleSetNovelFolder = async (novel) => {
         if (!novel) return;
         try {
-          if (window.NativeBridge && window.NativeBridge.chooseFolder) {
-            const res = await window.NativeBridge.chooseFolder();
-            if (res && res.treeUri) {
-              await updateNovelFolderRecord(novel, res.treeUri, res.displayPath);
-              toast(`📁 Bound "${novel.title}" to ${res.displayPath}! Future EPUBs will overwrite here.`, 'success');
+          if (!window.MoonReaderEngine) return;
+          const res = await window.MoonReaderEngine.chooseNovelFolder(novel, {
+            onUpdateHistory: ({ novelId, normTitle }) => {
+              setWebImportHistory(prev => (prev || []).map(item => (item.id === novelId || (item.title || '').trim().toLowerCase() === normTitle) ? { ...item, folderTreeUri: res.treeUri, folderPath: res.displayPath } : item));
             }
-          } else {
-            const cur = novel.folderPath || ('Books/' + (typeof sanitizeFilename === 'function' ? sanitizeFilename(novel.title) : novel.title));
-            const p = window.prompt('Enter folder path for "' + novel.title + '" (e.g. Books/' + (typeof sanitizeFilename === 'function' ? sanitizeFilename(novel.title) : novel.title) + '):', cur);
-            if (p !== null && p.trim()) {
-              await updateNovelFolderRecord(novel, '', p.trim());
-              toast(`📁 Saved folder path for "${novel.title}"!`, 'success');
-            }
+          });
+          if (res) {
+            toast(`📁 Saved folder path for "${novel.title}" (${res.displayPath})! Future EPUBs will overwrite here.`, 'success');
           }
         } catch (e) {
           if (e.message && !e.message.toLowerCase().includes('cancel')) {
@@ -3104,46 +2910,10 @@
         }
       };
 
-      const generateOpdsFeedXml = (novels) => {
-        const escapeXmlStr = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        const now = new Date().toISOString();
-        let entries = '';
-        (novels || []).forEach(n => {
-          const cleanTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(n.title) : (n.title || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-          const cleanAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(n.author) : (n.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-          const epubFileName = getEpubFileName(cleanTitle, n.chapterCount || (n.chapters || []).length, false);
-          const uuid = 'urn:uuid:' + (n.id || cleanTitle.toLowerCase().replace(/\s+/g, '-'));
-          const updated = n.timestamp ? new Date(n.timestamp).toISOString() : now;
-          entries += `
-  <entry>
-    <title>${escapeXmlStr(cleanTitle)}</title>
-    <id>${escapeXmlStr(uuid)}</id>
-    <updated>${updated}</updated>
-    <author><name>${escapeXmlStr(cleanAuthor)}</name></author>
-    <summary>${escapeXmlStr(n.summary || `${n.chapterCount || (n.chapters || []).length} chapters`)}</summary>
-    <link rel="http://opds-spec.org/acquisition" href="/download/${encodeURIComponent(epubFileName)}" type="application/epub+zip" title="Download EPUB"/>
-    ${n.cover ? `<link rel="http://opds-spec.org/image" href="${escapeXmlStr(n.cover)}" type="image/jpeg"/>` : ''}
-  </entry>`;
-        });
-        return `<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog">
-  <id>urn:uuid:gemini-translator-library</id>
-  <title>Gemini Translator Library</title>
-  <updated>${now}</updated>
-  <author><name>Gemini Translator</name></author>
-  <link rel="self" href="/opds" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
-  <link rel="start" href="/opds" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
-  ${entries}
-</feed>`;
-      };
-
       const syncOpdsCatalogToNative = useCallback((novelsList) => {
-        try {
-          if (window.NativeBridge && window.NativeBridge.updateOpdsCatalog) {
-            const xml = generateOpdsFeedXml(novelsList || webImportHistory);
-            window.NativeBridge.updateOpdsCatalog(xml);
-          }
-        } catch(e) {}
+        if (window.MoonReaderEngine) {
+          window.MoonReaderEngine.syncOpdsCatalogToNative(novelsList || webImportHistory);
+        }
       }, [webImportHistory]);
 
       useEffect(() => {
@@ -3154,21 +2924,15 @@
 
       const toggleOpdsServer = async () => {
         try {
-          if (opdsRunning) {
-            await window.NativeBridge?.stopOpdsServer?.();
-            setOpdsRunning(false);
-            toast('Moon+ Reader OPDS Feed stopped.', 'info');
+          if (!window.MoonReaderEngine) return;
+          const res = await window.MoonReaderEngine.toggleOpdsServer(opdsRunning, webImportHistory);
+          setOpdsRunning(res.running);
+          if (res.running) {
+            if (res.localUrl) setOpdsUrl(res.localUrl);
+            if (res.wifiUrl) setOpdsWifiUrl(res.wifiUrl);
+            toast('Moon+ Reader OPDS Feed online! 📡 (' + (res.localUrl || 'port 8080') + ')', 'success');
           } else {
-            syncOpdsCatalogToNative(webImportHistory);
-            const res = await window.NativeBridge?.startOpdsServer?.(8080);
-            if (res && res.running) {
-              setOpdsRunning(true);
-              if (res.localUrl) setOpdsUrl(res.localUrl);
-              if (res.wifiUrl) setOpdsWifiUrl(res.wifiUrl);
-              toast('Moon+ Reader OPDS Feed online! 📡 (' + (res.localUrl || 'port 8080') + ')', 'success');
-            } else {
-              toast('Could not start OPDS server on device.', 'warning');
-            }
+            toast('Moon+ Reader OPDS Feed stopped.', 'info');
           }
         } catch (e) {
           toast('OPDS Error: ' + e.message, 'error');
