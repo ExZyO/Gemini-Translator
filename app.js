@@ -9771,7 +9771,6 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
               setCurrentDocCover,
               currentDocTitle,
               fileName,
-              handleCoverFileSelect,
               handleLnoriDirectEpubDownload,
               setReaderChapterIdx,
               setReaderNovelId,

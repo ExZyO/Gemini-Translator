@@ -110,7 +110,6 @@
       setCurrentDocCover = function() {},
       currentDocTitle = '',
       fileName = '',
-      handleCoverFileSelect = function() {},
       handleLnoriDirectEpubDownload = function() {},
       setReaderChapterIdx = function() {},
       setReaderNovelId = function() {},

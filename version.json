@@ -1,9 +1,9 @@
 {
-  "version": "8.17.65",
-  "versionCode": 8305,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.65/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.65/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.65",
+  "version": "8.17.66",
+  "versionCode": 8306,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.66/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.66/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.66",
   "releaseDate": "2026-09-24",
-  "releaseNotes": "v8.17.65: Phase 2 Modularization (Batch 2). Extracted multi-engine AI translation caller suite and streaming pipeline into translation_engine.js. Enriched glossary_engine.js with pure parsing and formatting transformers. app.js reduced to 10,482 lines."
+  "releaseNotes": "v8.17.66: Hotfix. Removed stray handleCoverFileSelect shorthand prop from TabTranslate call in app.js, fixing the runtime tab crash error."
 }
