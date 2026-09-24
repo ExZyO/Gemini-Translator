@@ -1,9 +1,9 @@
 {
-  "version": "8.17.57",
-  "versionCode": 8297,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.57/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.57/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.57",
+  "version": "8.17.58",
+  "versionCode": 8298,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.58/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.58/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.58",
   "releaseDate": "2026-09-24",
-  "releaseNotes": "v8.17.57: Modularization Step 2. Extracted Library Novel 3-Dot Action Sheet, Full-Screen Ongoing Novel Continuation, SwiftAudio Player suite (mini, full, and batch downloader), and Extensions & Sources Hub into app_modals.js. app.js line count reduced by 1,844 lines."
+  "releaseNotes": "v8.17.58: Modularization Step 3. Extracted Tab 5 (Settings) into dedicated module app_tab_settings.js, reducing app.js footprint by another 1,257 lines. Tested clean component rendering across all settings categories."
 }
