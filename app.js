@@ -12378,23 +12378,11 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
             }),
 
             // ═══ TAB 3: EPUB STUDIO ═══
-            activeTab === 'studio' && h(React.Fragment, null,
-              h('div', { className: 'seg-wide' },
-                h('span', { className: studioSubTab === 'edit' ? 'on' : '', onClick: () => { setStudioSubTab('edit'); localStorage.setItem('studioSubTab', 'edit'); window.switchStudioSubTab && window.switchStudioSubTab('edit'); } }, '✏️ Edit Ebook'),
-                h('span', { className: studioSubTab === 'split' ? 'on' : '', onClick: () => { setStudioSubTab('split'); localStorage.setItem('studioSubTab', 'split'); window.switchStudioSubTab && window.switchStudioSubTab('split'); } }, 'Split into Volumes'),
-                h('span', { className: studioSubTab === 'merge' ? 'on' : '', onClick: () => { setStudioSubTab('merge'); localStorage.setItem('studioSubTab', 'merge'); window.switchStudioSubTab && window.switchStudioSubTab('merge'); } }, 'Merge into One Book')
-              ),
-              h('div', {
-                className: 'studio-host',
-                dangerouslySetInnerHTML: {
-                  __html: studioSubTab === 'edit'
-                    ? (window.editHtml || (typeof editHtml !== 'undefined' ? editHtml : ''))
-                    : (studioSubTab === 'split'
-                        ? (window.splitHtml || (typeof splitHtml !== 'undefined' ? splitHtml : ''))
-                        : (window.mergeHtml || (typeof mergeHtml !== 'undefined' ? mergeHtml : '')))
-                }
-              })
-            ),
+            activeTab === 'studio' && h(TabStudio, {
+              studioSubTab,
+              setStudioSubTab,
+              activeTab
+            }),
 
             // ═══ TAB 4: LIBRARY ═══
             activeTab === 'history' && h(TabLibrary, {
