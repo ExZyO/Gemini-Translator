@@ -1,8 +1,11 @@
-const CACHE_NAME = 'gemini-translator-v8.17.39';
+const CACHE_NAME = 'gemini-translator-v8.17.55';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './styles.css',
+    './app.css',
+    './app.js',
+    './epub_editor.js',
     './worker.js',
     './icons.js',
     './manifest.json',
