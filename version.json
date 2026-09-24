@@ -1,9 +1,9 @@
 {
-  "version": "8.17.50",
-  "versionCode": 8290,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.50/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.50/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.50",
+  "version": "8.17.51",
+  "versionCode": 8291,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.51/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.51/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.51",
   "releaseDate": "2026-09-24",
-  "releaseNotes": "v8.17.50: Enlarged and polished chapter card reordering controls with 34px touch targets; complete Table of Contents reality sync supporting EPUB 3 nav.xhtml and EPUB 2 NCX, DOM input harvesting, and automatic database persistence."
+  "releaseNotes": "v8.17.51: Fixed EPUB download packaging in Ebook Studio by resolving variable scoping, added automatic saving of active chapter and TOC modals before packaging, in-place cover updates, and uncompressed STORE compression for EPUB container compliance."
 }

@@ -3560,6 +3560,20 @@
             if (!proceed) return;
         }
 
+        // Auto-save active chapter modal if currently open
+        if (!document.getElementById('edit-chapter-modal')?.classList.contains('hidden')) {
+            try {
+                saveCurrentModalChapter();
+            } catch (e) {}
+        }
+
+        // Auto-save TOC manager modal changes if currently open
+        if (!document.getElementById('edit-toc-manager-modal')?.classList.contains('hidden')) {
+            try {
+                saveTocManagerChanges();
+            } catch (e) {}
+        }
+
         // Sync metadata
         state.title = document.getElementById('edit-book-title')?.value.trim() || state.title || 'Novel';
         state.author = document.getElementById('edit-book-author')?.value.trim() || state.author || 'Author';
@@ -3586,71 +3600,81 @@
                 const opfPath = state.originalOpfPath;
                 const opfDir = state.originalOpfDir;
                 const parser = new DOMParser();
+                const serializer = new XMLSerializer();
+                let opfDoc = null;
 
                 // 1. Update OPF metadata and spine
                 const opfFile = zip.file(opfPath);
                 if (opfFile) {
                     const opfXml = await opfFile.async('text');
-                    const opfDoc = parser.parseFromString(opfXml, 'application/xml');
-
-                    const titleEl = opfDoc.querySelector('metadata > title, metadata > dc\\:title') || opfDoc.getElementsByTagName('dc:title')[0];
-                    if (titleEl) titleEl.textContent = state.title;
-
-                    const authorEl = opfDoc.querySelector('metadata > creator, metadata > dc\\:creator') || opfDoc.getElementsByTagName('dc:creator')[0];
-                    if (authorEl) authorEl.textContent = state.author;
-
-                    const langEl = opfDoc.querySelector('metadata > language, metadata > dc\\:language') || opfDoc.getElementsByTagName('dc:language')[0];
-                    if (langEl) langEl.textContent = state.lang;
-
-                    const descEl = opfDoc.querySelector('metadata > description, metadata > dc\\:description') || opfDoc.getElementsByTagName('dc:description')[0];
-                    if (descEl) descEl.textContent = state.description;
-
-                    const manifestEl = opfDoc.querySelector('manifest');
-                    const spineEl = opfDoc.querySelector('spine');
-
-                    if (spineEl) {
-                        while (spineEl.firstChild) {
-                            spineEl.removeChild(spineEl.firstChild);
+                    try {
+                        opfDoc = parser.parseFromString(opfXml, 'application/xml');
+                        if (opfDoc.querySelector('parsererror')) {
+                            opfDoc = parser.parseFromString(opfXml, 'text/html');
                         }
+                    } catch (e) {
+                        opfDoc = parser.parseFromString(opfXml, 'text/html');
+                    }
 
-                        for (let i = 0; i < state.chapters.length; i++) {
-                            const ch = state.chapters[i];
-                            let chId = ch.id;
-                            let chHref = ch.href;
-                            let chFullPath = ch.fullPath;
+                    if (opfDoc) {
+                        const titleEl = opfDoc.querySelector('metadata > title, metadata > dc\\:title') || opfDoc.getElementsByTagName('dc:title')[0];
+                        if (titleEl) titleEl.textContent = state.title;
 
-                            if (ch.isNew || !chFullPath || !zip.file(chFullPath)) {
-                                chId = `ch_new_${i + 1}_${Date.now()}`;
-                                const relFile = `Text/ch_${i + 1}.xhtml`;
-                                chHref = relFile;
-                                chFullPath = opfDir + relFile;
-                                ch.fullPath = chFullPath;
-                                ch.href = chHref;
+                        const authorEl = opfDoc.querySelector('metadata > creator, metadata > dc\\:creator') || opfDoc.getElementsByTagName('dc:creator')[0];
+                        if (authorEl) authorEl.textContent = state.author;
 
-                                if (manifestEl) {
-                                    const itemEl = opfDoc.createElement('item');
-                                    itemEl.setAttribute('id', chId);
-                                    itemEl.setAttribute('href', chHref);
-                                    itemEl.setAttribute('media-type', 'application/xhtml+xml');
-                                    manifestEl.appendChild(itemEl);
+                        const langEl = opfDoc.querySelector('metadata > language, metadata > dc\\:language') || opfDoc.getElementsByTagName('dc:language')[0];
+                        if (langEl) langEl.textContent = state.lang;
+
+                        const descEl = opfDoc.querySelector('metadata > description, metadata > dc\\:description') || opfDoc.getElementsByTagName('dc:description')[0];
+                        if (descEl) descEl.textContent = state.description;
+
+                        const manifestEl = opfDoc.querySelector('manifest');
+                        const spineEl = opfDoc.querySelector('spine');
+
+                        if (spineEl) {
+                            while (spineEl.firstChild) {
+                                spineEl.removeChild(spineEl.firstChild);
+                            }
+
+                            for (let i = 0; i < state.chapters.length; i++) {
+                                const ch = state.chapters[i];
+                                let chId = ch.id;
+                                let chHref = ch.href;
+                                let chFullPath = ch.fullPath;
+
+                                if (ch.isNew || !chFullPath || !zip.file(chFullPath)) {
+                                    chId = `ch_new_${i + 1}_${Date.now()}`;
+                                    const relFile = `Text/ch_${i + 1}.xhtml`;
+                                    chHref = relFile;
+                                    chFullPath = opfDir + relFile;
+                                    ch.fullPath = chFullPath;
+                                    ch.href = chHref;
+
+                                    if (manifestEl) {
+                                        const itemEl = opfDoc.createElement('item');
+                                        itemEl.setAttribute('id', chId);
+                                        itemEl.setAttribute('href', chHref);
+                                        itemEl.setAttribute('media-type', 'application/xhtml+xml');
+                                        manifestEl.appendChild(itemEl);
+                                    }
                                 }
-                            }
 
-                            const itemRef = opfDoc.createElement('itemref');
-                            itemRef.setAttribute('idref', chId);
-                            spineEl.appendChild(itemRef);
+                                const itemRef = opfDoc.createElement('itemref');
+                                itemRef.setAttribute('idref', chId);
+                                spineEl.appendChild(itemRef);
 
-                            // Re-inject prose preserving original head styling and body attributes
-                            let headContent = ch.originalHead || `<title>${escapeXml(ch.title)}</title>`;
-                            if (headContent.includes('<title>')) {
-                                headContent = headContent.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(ch.title)}</title>`);
-                            } else {
-                                headContent = `<title>${escapeXml(ch.title)}</title>\n` + headContent;
-                            }
-                            const bodyAttrs = ch.bodyAttrs ? ` ${ch.bodyAttrs}` : '';
-                            const bodyHtml = markdownToChapterHtml(ch.content, ch.title);
+                                // Re-inject prose preserving original head styling and body attributes
+                                let headContent = ch.originalHead || `<title>${escapeXml(ch.title)}</title>`;
+                                if (headContent.includes('<title>')) {
+                                    headContent = headContent.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(ch.title)}</title>`);
+                                } else {
+                                    headContent = `<title>${escapeXml(ch.title)}</title>\n` + headContent;
+                                }
+                                const bodyAttrs = ch.bodyAttrs ? ` ${ch.bodyAttrs}` : '';
+                                const bodyHtml = markdownToChapterHtml(ch.content, ch.title);
 
-                            const newXhtml = `<?xml version="1.0" encoding="utf-8"?>
+                                const newXhtml = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
@@ -3660,18 +3684,57 @@ ${headContent}
 ${bodyHtml}
 </body>
 </html>`;
-                            zip.file(chFullPath, newXhtml);
+                                zip.file(chFullPath, newXhtml);
+                            }
                         }
-                    }
 
-                    const serializer = new XMLSerializer();
-                    zip.file(opfPath, serializer.serializeToString(opfDoc));
+                        // Update cover in zip if modified via Cover Studio or uploaded
+                        if (state.coverUrl && state.coverUrl.startsWith('data:image/')) {
+                            try {
+                                const match = state.coverUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/);
+                                if (match) {
+                                    const mime = match[1];
+                                    const base64Data = match[2];
+                                    const ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : 'jpg');
+                                    let coverItem = opfDoc.querySelector('manifest > item[properties*="cover-image"]') ||
+                                                   opfDoc.querySelector('manifest > item[id="cover-image"]') ||
+                                                   opfDoc.querySelector('manifest > item[id="cover"]') ||
+                                                   opfDoc.querySelector('manifest > item[id="cover-img"]');
+                                    if (coverItem) {
+                                        const coverHref = coverItem.getAttribute('href');
+                                        if (coverHref) {
+                                            const existingCoverFile = findZipEntry(zip, coverHref, opfDir);
+                                            if (existingCoverFile) {
+                                                zip.file(existingCoverFile.name, base64Data, { base64: true });
+                                            }
+                                        }
+                                    } else {
+                                        const newCoverRel = `Images/cover.${ext}`;
+                                        const newCoverPath = opfDir + newCoverRel;
+                                        zip.file(newCoverPath, base64Data, { base64: true });
+                                        if (manifestEl) {
+                                            const itemEl = opfDoc.createElement('item');
+                                            itemEl.setAttribute('id', 'cover-image');
+                                            itemEl.setAttribute('href', newCoverRel);
+                                            itemEl.setAttribute('media-type', mime);
+                                            itemEl.setAttribute('properties', 'cover-image');
+                                            manifestEl.appendChild(itemEl);
+                                        }
+                                    }
+                                }
+                            } catch (covErr) {
+                                console.warn('Cover update in zip warning:', covErr);
+                            }
+                        }
+
+                        zip.file(opfPath, serializer.serializeToString(opfDoc));
+                    }
                 }
 
                 // 2. Update Table of Contents in NCX (EPUB 2) AND nav.xhtml (EPUB 3)
                 // 2a. Update NCX
                 let ncxFile = zip.file(opfDir + 'toc.ncx') || zip.file('toc.ncx');
-                if (!ncxFile) {
+                if (!ncxFile && opfDoc) {
                     const ncxManifest = opfDoc.querySelector('manifest > item[media-type*="dtbncx"], manifest > item[id="ncx"], manifest > item[id="toc"]');
                     if (ncxManifest) {
                         const href = ncxManifest.getAttribute('href');
@@ -3681,8 +3744,17 @@ ${bodyHtml}
                 if (ncxFile) {
                     try {
                         const ncxXml = await ncxFile.async('text');
-                        const ncxDoc = parser.parseFromString(ncxXml, 'application/xml');
-                        const navMapEl = ncxDoc.querySelector('navMap');
+                        let ncxDoc;
+                        try {
+                            ncxDoc = parser.parseFromString(ncxXml, 'application/xml');
+                            if (ncxDoc.querySelector('parsererror')) {
+                                ncxDoc = parser.parseFromString(ncxXml, 'text/html');
+                            }
+                        } catch (e) {
+                            ncxDoc = parser.parseFromString(ncxXml, 'text/html');
+                        }
+
+                        const navMapEl = ncxDoc?.querySelector('navMap');
                         if (navMapEl) {
                             while (navMapEl.firstChild) navMapEl.removeChild(navMapEl.firstChild);
 
@@ -3715,7 +3787,6 @@ ${bodyHtml}
                                 playOrder++;
                             });
 
-                            const serializer = new XMLSerializer();
                             zip.file(ncxFile.name, serializer.serializeToString(ncxDoc));
                         }
                     } catch (ncxErr) {
@@ -3724,7 +3795,7 @@ ${bodyHtml}
                 }
 
                 // 2b. Update or Inject EPUB 3 Navigation Document (nav.xhtml)
-                let navItem = opfDoc.querySelector('manifest > item[properties~="nav"], manifest > item[properties*="nav"]');
+                let navItem = opfDoc ? opfDoc.querySelector('manifest > item[properties~="nav"], manifest > item[properties*="nav"]') : null;
                 let navFile = null;
                 if (navItem) {
                     const navHref = navItem.getAttribute('href');
@@ -3734,12 +3805,21 @@ ${bodyHtml}
                     navFile = zip.file(opfDir + 'nav.xhtml') || zip.file(opfDir + 'toc.xhtml') || zip.file('nav.xhtml') || zip.file('toc.xhtml');
                 }
 
-                const isEpub3 = (opfDoc.documentElement.getAttribute('version') || '').startsWith('3');
+                const isEpub3 = Boolean(opfDoc?.documentElement?.getAttribute('version')?.startsWith('3'));
 
                 if (navFile) {
                     try {
                         const navXml = await navFile.async('text');
-                        const navDoc = parser.parseFromString(navXml, 'application/xhtml+xml') || parser.parseFromString(navXml, 'text/html');
+                        let navDoc;
+                        try {
+                            navDoc = parser.parseFromString(navXml, 'application/xhtml+xml');
+                            if (navDoc.querySelector('parsererror')) {
+                                navDoc = parser.parseFromString(navXml, 'text/html');
+                            }
+                        } catch (e) {
+                            navDoc = parser.parseFromString(navXml, 'text/html');
+                        }
+
                         let tocNav = navDoc.querySelector('nav[epub\\:type="toc"], nav[*|type="toc"], nav#toc, nav');
                         if (!tocNav) {
                             tocNav = navDoc.createElement('nav');
@@ -3786,12 +3866,11 @@ ${bodyHtml}
                         });
 
                         tocNav.appendChild(rootOl);
-                        const serializer = new XMLSerializer();
                         zip.file(navFile.name, serializer.serializeToString(navDoc));
                     } catch (navErr) {
                         console.warn('EPUB 3 nav.xhtml update error:', navErr);
                     }
-                } else if (isEpub3) {
+                } else if (isEpub3 && opfDoc) {
                     // EPUB 3 book missing nav document: generate clean nav.xhtml and register in manifest
                     try {
                         const navRelPath = 'nav.xhtml';
@@ -3859,12 +3938,16 @@ ${bodyHtml}
                             navItemEl.setAttribute('properties', 'nav');
                             manifestEl.appendChild(navItemEl);
 
-                            const serializer = new XMLSerializer();
                             zip.file(opfPath, serializer.serializeToString(opfDoc));
                         }
                     } catch (genNavErr) {
                         console.warn('Error generating nav.xhtml:', genNavErr);
                     }
+                }
+
+                // Ensure mimetype entry has STORE compression for strict EPUB compliance
+                if (zip.file('mimetype')) {
+                    zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
                 }
 
                 // 3. Generate Blob from originalZip
