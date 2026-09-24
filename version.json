@@ -1,9 +1,9 @@
 {
-  "version": "8.17.59",
-  "versionCode": 8299,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.59/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.59/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.59",
+  "version": "8.17.60",
+  "versionCode": 8300,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.60/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.60/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.60",
   "releaseDate": "2026-09-24",
-  "releaseNotes": "v8.17.59: Modularization Step 4. Extracted Tab 4 (Library, Shelves, Audiobooks, and History) into dedicated module app_tab_library.js, reducing app.js footprint by another 856 lines. Verified error-free rendering across all shelf views."
+  "releaseNotes": "v8.17.60: Modularization Step 5. Extracted Tab 2 (Web Novel Importer & Crawlers) into dedicated module app_tab_importer.js, reducing app.js footprint by another 1,313 lines. Verified error-free rendering across all 10 crawler, error, and search states."
 }
