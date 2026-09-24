@@ -439,23 +439,41 @@
                 </div>
 
                 <!-- Modal Sub-Toolbar (Prose Editor Mode) -->
-                <div id="edit-ch-modal-subtoolbar" class="px-4 py-2 flex items-center justify-between gap-3 flex-wrap text-xs shrink-0"
+                <div id="edit-ch-modal-subtoolbar" class="px-3 py-2 flex items-center justify-between gap-2 flex-wrap text-xs shrink-0"
                      style="border-bottom:1px solid var(--hairline); background:rgba(255,255,255,0.02);">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <button type="button" id="btn-edit-modal-insert-img" class="tl-btn" style="padding:5px 10px; font-size:11.5px;">
-                            🖼️ Insert Image
-                        </button>
-                        <button type="button" id="btn-edit-modal-preview-toggle" class="tl-btn accent" style="padding:5px 10px; font-size:11.5px; font-weight:700;">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <!-- Group 1: Typography Formatting -->
+                        <div class="flex items-center gap-1 bg-black/30 p-1 rounded-lg border border-slate-700/50">
+                            <button type="button" id="fmt-btn-bold" class="chip-act" style="padding:4px 8px; font-weight:800; font-size:12px;" title="Bold (Ctrl+B)"><b>B</b></button>
+                            <button type="button" id="fmt-btn-italic" class="chip-act" style="padding:4px 8px; font-style:italic; font-size:12px;" title="Italic (Ctrl+I)"><i>I</i></button>
+                            <button type="button" id="fmt-btn-underline" class="chip-act" style="padding:4px 8px; text-decoration:underline; font-size:12px;" title="Underline (Ctrl+U)"><u>U</u></button>
+                            <button type="button" id="fmt-btn-strike" class="chip-act" style="padding:4px 8px; text-decoration:line-through; font-size:12px;" title="Strikethrough"><s>S</s></button>
+                        </div>
+
+                        <!-- Group 2: Headings & Blocks -->
+                        <div class="flex items-center gap-1 bg-black/30 p-1 rounded-lg border border-slate-700/50">
+                            <button type="button" id="fmt-btn-h2" class="chip-act" style="padding:4px 7px; font-weight:700; font-size:11.5px;" title="Scene Subheading (H2)">H2</button>
+                            <button type="button" id="fmt-btn-h3" class="chip-act" style="padding:4px 7px; font-weight:700; font-size:11.5px;" title="Minor Heading (H3)">H3</button>
+                            <button type="button" id="fmt-btn-quote" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Quote / Monologue / Thought">❝ Quote</button>
+                            <button type="button" id="fmt-btn-center" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Center Text (Letters, Poems, Statuses)">↔ Center</button>
+                        </div>
+
+                        <!-- Group 3: Spacing & Breaks -->
+                        <div class="flex items-center gap-1 bg-black/30 p-1 rounded-lg border border-slate-700/50">
+                            <button type="button" id="fmt-btn-divider" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Scene Divider (✦ ✦ ✦)">❖ Break</button>
+                            <button type="button" id="fmt-btn-spacer" class="chip-act" style="padding:4px 8px; font-size:11.5px; color:#38bdf8;" title="Extra Paragraph Spacing (Guaranteed Blank Line)">↕ Spacer</button>
+                            <button type="button" id="btn-edit-modal-clean-spacing" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Clean extra blank lines & trailing spaces">🧹 Clean</button>
+                        </div>
+
+                        <!-- Group 4: Illustration Picker & History -->
+                        <div class="flex items-center gap-1 bg-black/30 p-1 rounded-lg border border-slate-700/50">
+                            <button type="button" id="btn-edit-modal-insert-img" class="chip-act accent" style="padding:4px 9px; font-size:11.5px; font-weight:600;" title="Insert Book Illustration or Upload New Image">🖼️ Illustration</button>
+                            <button type="button" id="btn-edit-modal-undo" class="chip-act" style="padding:4px 7px; font-size:11.5px;" title="Undo (Ctrl+Z)">↶</button>
+                            <button type="button" id="btn-edit-modal-redo" class="chip-act" style="padding:4px 7px; font-size:11.5px;" title="Redo (Ctrl+Y)">↷</button>
+                        </div>
+
+                        <button type="button" id="btn-edit-modal-preview-toggle" class="tl-btn accent" style="padding:5px 11px; font-size:11.5px; font-weight:700;">
                             👁️ Preview HTML
-                        </button>
-                        <button type="button" id="btn-edit-modal-undo" class="tl-btn" style="padding:5px 8px; font-size:11.5px;" title="Undo">
-                            ↶ Undo
-                        </button>
-                        <button type="button" id="btn-edit-modal-redo" class="tl-btn" style="padding:5px 8px; font-size:11.5px;" title="Redo">
-                            ↷ Redo
-                        </button>
-                        <button type="button" id="btn-edit-modal-clean-spacing" class="tl-btn" style="padding:5px 10px; font-size:11.5px;" title="Clean consecutive blank lines & trailing spaces">
-                            🧹 Clean Spacing
                         </button>
                     </div>
                     <div class="flex items-center gap-3 font-mono text-[11px]" style="color:var(--slate);">
@@ -534,6 +552,39 @@
                     <button type="button" id="btn-unsaved-save-close" class="tl-btn accent w-full justify-center" style="padding:10px; font-weight:600;">✓ Save & Close</button>
                     <button type="button" id="btn-unsaved-discard" class="tl-btn danger w-full justify-center" style="padding:10px; color:#f87171; border-color:rgba(239,68,68,0.4);">🗑️ Discard Changes</button>
                     <button type="button" id="btn-unsaved-cancel" class="tl-btn w-full justify-center" style="padding:8px; font-size:12px;">Keep Editing</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ MODAL 1.8: NOVEL ILLUSTRATION PICKER MODAL (INSERT INTO CHAPTER) ═══ -->
+        <div id="edit-novel-image-picker-modal" class="hidden fixed inset-0 z-[65] flex items-center justify-center p-3 sm:p-5"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
+             onclick="if(event.target===this) document.getElementById('edit-novel-image-picker-modal').classList.add('hidden');">
+            <div class="rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden"
+                 style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh; max-height:85dvh;">
+                <!-- Header -->
+                <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">🖼️</span>
+                        <div>
+                            <h4 class="text-sm sm:text-base font-bold" style="color:var(--paper);">Insert Book Illustration</h4>
+                            <p class="text-xs" style="color:var(--slate);">Select an illustration already inside this novel or upload a new one</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="document.getElementById('edit-novel-image-picker-modal').classList.add('hidden')"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center text-base font-bold shrink-0" style="color:var(--slate);">✕</button>
+                </div>
+                <!-- Body: Grid of existing images -->
+                <div class="p-4 overflow-y-auto custom-scrollbar flex-1" style="min-height:220px; max-height:60vh;">
+                    <div class="mb-3 flex items-center justify-between">
+                        <span id="novel-image-picker-count" class="text-xs font-semibold" style="color:var(--slate);">0 images available</span>
+                        <button type="button" id="btn-picker-upload-new" class="tl-btn accent" style="padding:5px 12px; font-size:11.5px;">
+                            ➕ Upload from Device…
+                        </button>
+                    </div>
+                    <div id="novel-image-picker-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <!-- Populated dynamically with image cards -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -2415,6 +2466,145 @@
         updateModalWordCount();
     }
 
+    // ── Typography, Spacing & Prose Block Rendering ──
+    function formatInlineTypography(text) {
+        if (!text) return '';
+        let out = String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+
+        // Whitelisted tags that the author or buttons insert
+        out = out.replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/gi, '<u>$1</u>');
+        out = out.replace(/&lt;del&gt;([\s\S]*?)&lt;\/del&gt;/gi, '<del>$1</del>');
+        out = out.replace(/&lt;s&gt;([\s\S]*?)&lt;\/s&gt;/gi, '<s>$1</s>');
+        out = out.replace(/&lt;em&gt;([\s\S]*?)&lt;\/em&gt;/gi, '<em>$1</em>');
+        out = out.replace(/&lt;strong&gt;([\s\S]*?)&lt;\/strong&gt;/gi, '<strong>$1</strong>');
+        out = out.replace(/&amp;nbsp;/gi, '&#160;');
+        out = out.replace(/&amp;#160;/gi, '&#160;');
+
+        // Markdown inline bold (**text**)
+        out = out.replace(/\*\*([^\*\s][^\*]*?[^\*\s]|[^\*\s])\*\*/g, '<strong>$1</strong>');
+
+        // Markdown inline strikethrough (~~text~~)
+        out = out.replace(/~~([^~\s][^~]*?[^~\s]|[^~\s])~~/g, '<del>$1</del>');
+
+        // Markdown inline italic (*text*) - single asterisk not preceded/followed by another
+        out = out.replace(/(^|[^\*])\*([^\*\s][^\*]*?[^\*\s]|[^\*\s])\*(?!\*)/g, '$1<em>$2</em>');
+
+        // Markdown inline code (`code`)
+        out = out.replace(/`([^`\n]+)`/g, '<code style="font-family:monospace; background:rgba(128,128,128,0.15); padding:1px 4px; border-radius:3px;">$1</code>');
+
+        return out;
+    }
+
+    function isProseSpacer(trimmed) {
+        if (!trimmed) return false;
+        return (
+            trimmed === '&nbsp;' ||
+            trimmed === '&#160;' ||
+            trimmed === '[spacer]' ||
+            trimmed === '<br>' ||
+            trimmed === '<br/>' ||
+            trimmed === '<br />' ||
+            /^<p\b[^>]*class=["'].*?para-spacer.*?["'][^>]*>.*?<\/p>$/i.test(trimmed) ||
+            trimmed === '&lt;p class="para-spacer"&gt;&amp;nbsp;&lt;/p&gt;' ||
+            trimmed === '&lt;p class="para-spacer"&gt;&#160;&lt;/p&gt;'
+        );
+    }
+
+    function isProseDivider(trimmed) {
+        return (
+            trimmed === '---' ||
+            trimmed === '***' ||
+            trimmed === '* * *' ||
+            trimmed === '- - -' ||
+            trimmed === '———' ||
+            trimmed === '–––' ||
+            trimmed === '✦ ✦ ✦' ||
+            trimmed === '❖ ❖ ❖'
+        );
+    }
+
+    function isProseCenter(trimmed) {
+        return /^<center>([\s\S]*?)<\/center>$/i.test(trimmed) || /^&lt;center&gt;([\s\S]*?)&lt;\/center&gt;$/i.test(trimmed);
+    }
+
+    function extractProseCenter(trimmed) {
+        const m1 = trimmed.match(/^<center>([\s\S]*?)<\/center>$/i);
+        if (m1) return m1[1];
+        const m2 = trimmed.match(/^&lt;center&gt;([\s\S]*?)&lt;\/center&gt;$/i);
+        if (m2) return m2[1];
+        return trimmed;
+    }
+
+    function renderProseParagraphHtml(trimmed, isPreview = false) {
+        if (!trimmed) return '';
+
+        // 1. Spacers (Guaranteed non-collapsible vertical paragraph spacing)
+        if (isProseSpacer(trimmed)) {
+            if (isPreview) {
+                return `<div class="para-spacer" style="margin:20px 0; height:24px; border-left:3px dashed rgba(56,189,248,0.45); padding-left:10px; display:flex; align-items:center; background:rgba(56,189,248,0.04); border-radius:4px;"><span style="font-size:10px; color:#38bdf8; font-weight:600; font-family:monospace; user-select:none;">↕ Extra Paragraph Spacing</span></div>`;
+            }
+            return `<p class="para-spacer" style="margin:1.8em 0; min-height:1.5em; line-height:1.8em; text-indent:0;">&#160;</p>`;
+        }
+
+        // 2. Scene dividers / Breaks
+        if (isProseDivider(trimmed)) {
+            if (isPreview) {
+                return `<div class="scene-break" style="text-align:center; margin:24px 0; letter-spacing:0.4em; color:var(--paper); opacity:0.85; font-size:1.1em;">✦ ✦ ✦</div>`;
+            }
+            return `<div class="scene-break" style="text-align:center; margin:2em 0; letter-spacing:0.4em; opacity:0.85;">✦ ✦ ✦</div>`;
+        }
+
+        // 3. Center block (letters, notices, poems, system status)
+        if (isProseCenter(trimmed)) {
+            const cText = extractProseCenter(trimmed);
+            if (isPreview) {
+                return `<div class="prose-center" style="text-align:center; margin:18px 0; text-indent:0; font-style:italic; color:var(--paper);">${formatInlineTypography(cText)}</div>`;
+            }
+            return `<div class="prose-center" style="text-align:center; margin:1.2em 0; text-indent:0;">${formatInlineTypography(cText)}</div>`;
+        }
+
+        // 4. Markdown headings (## or ###)
+        if (/^#{1,6}\s+/.test(trimmed)) {
+            const lvl = trimmed.match(/^(#{1,6})/)[1].length;
+            const text = trimmed.replace(/^#+\s+/, '');
+            if (isPreview) {
+                return `<h${lvl} style="font-weight:700; color:var(--paper); margin:20px 0 10px; font-size:${lvl === 2 ? '1.25em' : '1.1em'};">${formatInlineTypography(text)}</h${lvl}>`;
+            }
+            return `<h${lvl} style="margin:1.4em 0 0.6em; font-weight:bold;">${formatInlineTypography(text)}</h${lvl}>`;
+        }
+
+        // 5. Blockquotes (> quote)
+        if (/^>\s+/.test(trimmed)) {
+            const qText = trimmed.replace(/^>\s+/, '');
+            if (isPreview) {
+                return `<blockquote style="margin:16px 0; padding:8px 16px; border-left:3px solid #6366f1; background:rgba(99,102,241,0.06); border-radius:0 8px 8px 0; font-style:italic;"><p style="margin:0; text-indent:0;">${formatInlineTypography(qText)}</p></blockquote>`;
+            }
+            return `<blockquote style="margin:1.2em 1.5em; padding-left:1em; border-left:3px solid #888; font-style:italic;"><p style="text-indent:0;">${formatInlineTypography(qText)}</p></blockquote>`;
+        }
+
+        // 6. Illustrations (![alt](token))
+        if (/!\[(.*?)\]\((.*?)\)/.test(trimmed)) {
+            const m = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
+            const altText = m[1] || 'Illustration';
+            const token = m[2];
+            if (isPreview) {
+                const imgSrc = (state.imageRepository && state.imageRepository.get(token)?.dataUrl) || token;
+                return `<div style="text-align:center; margin:20px 0;"><img src="${imgSrc}" alt="${escapeXml(altText)}" style="max-width:100%; max-height:440px; border-radius:8px; margin:0 auto; display:inline-block; box-shadow:0 4px 16px rgba(0,0,0,0.5);" /><p style="font-size:11px; color:var(--slate); margin-top:6px;">${escapeXml(altText)}</p></div>`;
+            }
+            return `<div class="illustration-wrap" style="text-align:center; margin:1.5em 0;"><img src="${escapeXml(token)}" alt="${escapeXml(altText)}" style="max-width:100%; height:auto;" /></div>`;
+        }
+
+        // 7. Standard prose paragraph
+        if (isPreview) {
+            return `<p style="margin-bottom:16px; text-indent:1.5em; line-height:1.8;">${formatInlineTypography(trimmed)}</p>`;
+        }
+        return `<p style="margin-bottom:0.8em; text-indent:1.5em; line-height:1.75;">${formatInlineTypography(trimmed)}</p>`;
+    }
+
     // Convert markdown prose back to clean XHTML body for in-place EPUB export
     function markdownToChapterHtml(md, title) {
         if (!md) return '';
@@ -2427,7 +2617,11 @@
             cleanMd = stripFn(cleanMd, title);
         }
 
-        const paras = cleanMd.split(/\n\s*\n/);
+        // Normalize newlines and convert 3+ consecutive newlines into guaranteed paragraph spacers
+        let normalized = cleanMd.replace(/\r\n/g, '\n');
+        normalized = normalized.replace(/\n{3,}/g, '\n\n<p class="para-spacer">&nbsp;</p>\n\n');
+
+        const paras = normalized.split(/\n\s*\n/);
         const bodyParts = [];
 
         // Always render the canonical TOC chapter title as the heading
@@ -2446,21 +2640,7 @@
                     : (hText.toLowerCase() === (title || '').toLowerCase());
                 if (isEcho) return;
             }
-            if (trimmed === '---' || trimmed === '***') {
-                bodyParts.push('<hr />');
-            } else if (/^#{1,6}\s+/.test(trimmed)) {
-                const lvl = trimmed.match(/^(#{1,6})/)[1].length;
-                const text = trimmed.replace(/^#+\s+/, '');
-                bodyParts.push(`<h${lvl}>${escapeXml(text)}</h${lvl}>`);
-            } else if (/^>\s+/.test(trimmed)) {
-                bodyParts.push(`<blockquote><p>${escapeXml(trimmed.replace(/^>\s+/, ''))}</p></blockquote>`);
-            } else if (/!\[(.*?)\]\((.*?)\)/.test(trimmed)) {
-                const m = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
-                const token = m[2];
-                bodyParts.push(`<div class="illustration-wrap" style="text-align:center; margin:1.5em 0;"><img src="${escapeXml(token)}" alt="${escapeXml(m[1])}" style="max-width:100%; height:auto;" /></div>`);
-            } else {
-                bodyParts.push(`<p>${escapeXml(trimmed)}</p>`);
-            }
+            bodyParts.push(renderProseParagraphHtml(trimmed, false));
         });
         return bodyParts.join('\n');
     }
@@ -3042,6 +3222,268 @@ ${bodyHtml}
 
             container.appendChild(card);
         });
+    }
+
+    // ── Chapter Prose Formatting Helper ──
+    function applyTextareaFormat(formatType) {
+        const textarea = document.getElementById('edit-ch-modal-textarea');
+        if (!textarea) return;
+
+        const start = textarea.selectionStart ?? 0;
+        const end = textarea.selectionEnd ?? 0;
+        const val = textarea.value || '';
+        const before = val.substring(0, start);
+        const sel = val.substring(start, end);
+        const after = val.substring(end);
+
+        let replacement = '';
+        let selStartOffset = 0;
+        let selEndOffset = 0;
+
+        switch (formatType) {
+            case 'bold':
+                if (sel) {
+                    if (sel.startsWith('**') && sel.endsWith('**') && sel.length >= 4) {
+                        replacement = sel.slice(2, -2);
+                        selStartOffset = 0;
+                        selEndOffset = replacement.length;
+                    } else {
+                        replacement = `**${sel}**`;
+                        selStartOffset = 0;
+                        selEndOffset = replacement.length;
+                    }
+                } else {
+                    replacement = '**bold text**';
+                    selStartOffset = 2;
+                    selEndOffset = replacement.length - 2;
+                }
+                break;
+
+            case 'italic':
+                if (sel) {
+                    if (sel.startsWith('*') && sel.endsWith('*') && sel.length >= 2 && !sel.startsWith('**')) {
+                        replacement = sel.slice(1, -1);
+                        selStartOffset = 0;
+                        selEndOffset = replacement.length;
+                    } else {
+                        replacement = `*${sel}*`;
+                        selStartOffset = 0;
+                        selEndOffset = replacement.length;
+                    }
+                } else {
+                    replacement = '*italic text*';
+                    selStartOffset = 1;
+                    selEndOffset = replacement.length - 1;
+                }
+                break;
+
+            case 'underline':
+                if (sel) {
+                    if (sel.startsWith('<u>') && sel.endsWith('</u>') && sel.length >= 7) {
+                        replacement = sel.slice(3, -4);
+                        selStartOffset = 0;
+                        selEndOffset = replacement.length;
+                    } else {
+                        replacement = `<u>${sel}</u>`;
+                        selStartOffset = 0;
+                        selEndOffset = replacement.length;
+                    }
+                } else {
+                    replacement = '<u>underlined text</u>';
+                    selStartOffset = 3;
+                    selEndOffset = replacement.length - 4;
+                }
+                break;
+
+            case 'strike':
+                if (sel) {
+                    if (sel.startsWith('~~') && sel.endsWith('~~') && sel.length >= 4) {
+                        replacement = sel.slice(2, -2);
+                        selStartOffset = 0;
+                        selEndOffset = replacement.length;
+                    } else {
+                        replacement = `~~${sel}~~`;
+                        selStartOffset = 0;
+                        selEndOffset = replacement.length;
+                    }
+                } else {
+                    replacement = '~~strikethrough text~~';
+                    selStartOffset = 2;
+                    selEndOffset = replacement.length - 2;
+                }
+                break;
+
+            case 'h2': {
+                const lead = before.endsWith('\n\n') ? '' : (before.endsWith('\n') ? '\n' : (before ? '\n\n' : ''));
+                const trail = after.startsWith('\n\n') ? '' : (after.startsWith('\n') ? '\n' : (after ? '\n\n' : ''));
+                const text = sel ? sel.replace(/^#+\s*/, '') : 'Scene Heading';
+                replacement = `${lead}## ${text}${trail}`;
+                selStartOffset = lead.length + 3;
+                selEndOffset = replacement.length - trail.length;
+                break;
+            }
+
+            case 'h3': {
+                const lead = before.endsWith('\n\n') ? '' : (before.endsWith('\n') ? '\n' : (before ? '\n\n' : ''));
+                const trail = after.startsWith('\n\n') ? '' : (after.startsWith('\n') ? '\n' : (after ? '\n\n' : ''));
+                const text = sel ? sel.replace(/^#+\s*/, '') : 'Minor Subheading';
+                replacement = `${lead}### ${text}${trail}`;
+                selStartOffset = lead.length + 4;
+                selEndOffset = replacement.length - trail.length;
+                break;
+            }
+
+            case 'quote': {
+                const lead = before.endsWith('\n\n') ? '' : (before.endsWith('\n') ? '\n' : (before ? '\n\n' : ''));
+                const trail = after.startsWith('\n\n') ? '' : (after.startsWith('\n') ? '\n' : (after ? '\n\n' : ''));
+                if (sel) {
+                    const lines = sel.split('\n');
+                    const allQuoted = lines.every(l => l.trim().startsWith('>'));
+                    const quotedText = allQuoted ? lines.map(l => l.replace(/^>\s?/, '')).join('\n') : lines.map(l => `> ${l}`).join('\n');
+                    replacement = `${lead}${quotedText}${trail}`;
+                    selStartOffset = lead.length;
+                    selEndOffset = replacement.length - trail.length;
+                } else {
+                    replacement = `${lead}> Memorable quote or inner thought${trail}`;
+                    selStartOffset = lead.length + 2;
+                    selEndOffset = replacement.length - trail.length;
+                }
+                break;
+            }
+
+            case 'center': {
+                const lead = before.endsWith('\n\n') ? '' : (before.endsWith('\n') ? '\n' : (before ? '\n\n' : ''));
+                const trail = after.startsWith('\n\n') ? '' : (after.startsWith('\n') ? '\n' : (after ? '\n\n' : ''));
+                if (sel) {
+                    if (sel.startsWith('<center>') && sel.endsWith('</center>') && sel.length >= 17) {
+                        replacement = sel.slice(8, -9);
+                        selStartOffset = 0;
+                        selEndOffset = replacement.length;
+                    } else {
+                        replacement = `<center>${sel}</center>`;
+                        selStartOffset = 0;
+                        selEndOffset = replacement.length;
+                    }
+                } else {
+                    replacement = `${lead}<center>Centered Text</center>${trail}`;
+                    selStartOffset = lead.length + 8;
+                    selEndOffset = replacement.length - trail.length - 9;
+                }
+                break;
+            }
+
+            case 'divider': {
+                const lead = before.endsWith('\n\n') ? '' : (before.endsWith('\n') ? '\n' : (before ? '\n\n' : ''));
+                const trail = after.startsWith('\n\n') ? '' : (after.startsWith('\n') ? '\n' : (after ? '\n\n' : ''));
+                replacement = `${lead}* * *${trail}`;
+                selStartOffset = replacement.length;
+                selEndOffset = replacement.length;
+                break;
+            }
+
+            case 'spacer': {
+                const lead = before.endsWith('\n\n') ? '' : (before.endsWith('\n') ? '\n' : (before ? '\n\n' : ''));
+                const trail = after.startsWith('\n\n') ? '' : (after.startsWith('\n') ? '\n' : (after ? '\n\n' : ''));
+                replacement = `${lead}<p class="para-spacer">&nbsp;</p>${trail}`;
+                selStartOffset = replacement.length;
+                selEndOffset = replacement.length;
+                break;
+            }
+
+            default:
+                return;
+        }
+
+        textarea.value = before + replacement + after;
+        textarea.selectionStart = start + selStartOffset;
+        textarea.selectionEnd = start + selEndOffset;
+        textarea.focus();
+
+        const ch = state.chapters[modalActiveIdx];
+        if (ch) {
+            ch.content = textarea.value;
+            ch.words = countWords(ch.content);
+        }
+        recordUndoState(textarea.value);
+        updateModalWordCount();
+    }
+
+    // ── Insert Image & Novel Image Picker Logic ──
+    function insertImageIntoTextarea(imgName) {
+        const textarea = document.getElementById('edit-ch-modal-textarea');
+        if (!textarea) return;
+
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        const mdImg = `\n\n![Illustration](${imgName})\n\n`;
+
+        textarea.value = textarea.value.substring(0, start) + mdImg + textarea.value.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start + mdImg.length;
+        textarea.focus();
+
+        const ch = state.chapters[modalActiveIdx];
+        if (ch) {
+            ch.content = textarea.value;
+            ch.words = countWords(ch.content);
+            ch.images = extractImagesFromContent(ch.content);
+            renderInChapterImages(ch);
+        }
+        recordUndoState(textarea.value);
+        updateModalWordCount();
+        if (typeof window.toast === 'function') window.toast(`Inserted "${imgName}" into chapter!`, 'success');
+    }
+
+    function openNovelImagePicker() {
+        const modal = document.getElementById('edit-novel-image-picker-modal');
+        const grid = document.getElementById('novel-image-picker-grid');
+        const countSpan = document.getElementById('novel-image-picker-count');
+        if (!modal || !grid) return;
+
+        grid.innerHTML = '';
+        const images = [];
+        if (state.imageRepository && state.imageRepository.size > 0) {
+            state.imageRepository.forEach((imgData, name) => {
+                images.push({ name, ...imgData });
+            });
+        }
+
+        if (countSpan) {
+            countSpan.textContent = `${images.length} illustration${images.length === 1 ? '' : 's'} available in book`;
+        }
+
+        if (images.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full py-8 text-center" style="color:var(--slate);">
+                    <p class="text-sm font-semibold mb-1">No illustrations stored in this novel yet</p>
+                    <p class="text-xs mb-3">You can upload illustrations from your device directly into this chapter.</p>
+                    <button type="button" class="tl-btn accent" onclick="document.getElementById('edit-ch-modal-img-input')?.click();" style="padding:6px 14px; font-size:12px;">
+                        ➕ Upload New Illustration
+                    </button>
+                </div>
+            `;
+        } else {
+            images.forEach(img => {
+                const card = document.createElement('div');
+                card.className = 'group relative rounded-xl overflow-hidden border border-slate-700/60 bg-black/40 hover:border-indigo-500 transition-all cursor-pointer flex flex-col';
+                card.title = `Click to insert "${img.name}" into chapter`;
+                card.innerHTML = `
+                    <div class="w-full aspect-[3/4] bg-black/60 flex items-center justify-center overflow-hidden">
+                        <img src="${img.dataUrl || img.name}" alt="${escapeXml(img.name)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" loading="lazy" />
+                    </div>
+                    <div class="p-2 bg-slate-900/90 text-left">
+                        <p class="text-xs font-semibold truncate" style="color:var(--paper);">${escapeXml(img.name)}</p>
+                        <span class="text-[10px] text-indigo-400 group-hover:underline">Tap to insert ↵</span>
+                    </div>
+                `;
+                card.onclick = () => {
+                    insertImageIntoTextarea(img.name);
+                    modal.classList.add('hidden');
+                };
+                grid.appendChild(card);
+            });
+        }
+
+        modal.classList.remove('hidden');
     }
 
     // ── Illustration Gallery Modal Logic ──
@@ -4429,15 +4871,33 @@ ${bodyHtml}
             if (modalActiveIdx < state.chapters.length - 1) openChapterModal(modalActiveIdx + 1);
         });
 
-        // Modal: Clean Spacing
+        // Modal: Typography & Formatting Toolbar Buttons
+        document.getElementById('fmt-btn-bold')?.addEventListener('click', () => applyTextareaFormat('bold'));
+        document.getElementById('fmt-btn-italic')?.addEventListener('click', () => applyTextareaFormat('italic'));
+        document.getElementById('fmt-btn-underline')?.addEventListener('click', () => applyTextareaFormat('underline'));
+        document.getElementById('fmt-btn-strike')?.addEventListener('click', () => applyTextareaFormat('strike'));
+        document.getElementById('fmt-btn-h2')?.addEventListener('click', () => applyTextareaFormat('h2'));
+        document.getElementById('fmt-btn-h3')?.addEventListener('click', () => applyTextareaFormat('h3'));
+        document.getElementById('fmt-btn-quote')?.addEventListener('click', () => applyTextareaFormat('quote'));
+        document.getElementById('fmt-btn-center')?.addEventListener('click', () => applyTextareaFormat('center'));
+        document.getElementById('fmt-btn-divider')?.addEventListener('click', () => applyTextareaFormat('divider'));
+        document.getElementById('fmt-btn-spacer')?.addEventListener('click', () => applyTextareaFormat('spacer'));
+
+        // Modal: Clean Spacing (Preserves intentional double spacing and spacers)
         document.getElementById('btn-edit-modal-clean-spacing')?.addEventListener('click', () => {
             const textarea = document.getElementById('edit-ch-modal-textarea');
             if (textarea) {
                 let s = textarea.value;
                 s = s.replace(/\r\n/g, '\n');
                 s = s.replace(/[ \t]+$/gm, '');
-                s = s.replace(/\n{3,}/g, '\n\n');
+                // Allow up to 2 empty blank lines (\n\n\n) for dramatic scene transitions, collapsing 4+ down to 3
+                s = s.replace(/\n{4,}/g, '\n\n\n');
                 textarea.value = s.trim();
+                const ch = state.chapters[modalActiveIdx];
+                if (ch) {
+                    ch.content = textarea.value;
+                    ch.words = countWords(ch.content);
+                }
                 recordUndoState(textarea.value);
                 updateModalWordCount();
                 if (typeof window.toast === 'function') window.toast('Cleaned paragraph spacing!', 'info');
@@ -4447,6 +4907,25 @@ ${bodyHtml}
         // Modal: Undo & Redo
         document.getElementById('btn-edit-modal-undo')?.addEventListener('click', performUndo);
         document.getElementById('btn-edit-modal-redo')?.addEventListener('click', performRedo);
+
+        // Modal: Novel Illustration Picker & Upload
+        document.getElementById('btn-edit-modal-insert-img')?.addEventListener('click', openNovelImagePicker);
+        document.getElementById('btn-picker-upload-new')?.addEventListener('click', () => chImgInput?.click());
+
+        chImgInput?.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const dataUrl = reader.result;
+                    const imgName = file.name ? file.name.replace(/\s+/g, '_') : `illustration_${Date.now()}.jpg`;
+                    state.imageRepository.set(imgName, { dataUrl, mime: file.type, name: imgName });
+                    insertImageIntoTextarea(imgName);
+                    document.getElementById('edit-novel-image-picker-modal')?.classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
 
         // Modal: Preview Toggle & Back Button
         document.getElementById('btn-preview-back-to-edit')?.addEventListener('click', exitEpubEditorPreview);
@@ -4492,7 +4971,12 @@ ${bodyHtml}
                 if (stripFn && currTitle) {
                     cleanRaw = stripFn(cleanRaw, currTitle);
                 }
-                const paras = cleanRaw.split(/\n\s*\n/);
+
+                // Normalize newlines and convert 3+ consecutive newlines into guaranteed paragraph spacers
+                let normalized = cleanRaw.replace(/\r\n/g, '\n');
+                normalized = normalized.replace(/\n{3,}/g, '\n\n<p class="para-spacer">&nbsp;</p>\n\n');
+
+                const paras = normalized.split(/\n\s*\n/);
                 const htmlParts = [];
                 if (currTitle) {
                     htmlParts.push(`<h2 class="chapter-title" style="font-weight:800; font-size:1.45em; color:var(--paper); margin:0 0 20px; padding-bottom:12px; border-bottom:1px solid var(--hairline); letter-spacing:-0.01em;">${escapeXml(currTitle)}</h2>`);
@@ -4507,18 +4991,7 @@ ${bodyHtml}
                             : (hText.toLowerCase() === (currTitle || '').toLowerCase());
                         if (isEcho) return;
                     }
-                    if (trimmed === '---' || trimmed === '***') {
-                        htmlParts.push('<hr style="border:none; border-top:1px solid var(--hairline); margin:24px 0;" />');
-                    } else if (/^#{1,6}\s+/.test(trimmed)) {
-                        htmlParts.push(`<h3 style="font-weight:700; color:var(--paper); margin:20px 0 10px; font-size:1.15em;">${escapeXml(trimmed.replace(/^#+\s+/, ''))}</h3>`);
-                    } else if (/!\[(.*?)\]\((.*?)\)/.test(trimmed)) {
-                        const m = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
-                        const token = m[2];
-                        const imgSrc = (state.imageRepository.get(token)?.dataUrl) || token;
-                        htmlParts.push(`<div style="text-align:center; margin:20px 0;"><img src="${imgSrc}" alt="${escapeXml(m[1])}" style="max-width:100%; max-height:420px; border-radius:8px; margin:0 auto; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.4);" /><p style="font-size:11px; color:var(--slate); margin-top:6px;">${escapeXml(m[1])}</p></div>`);
-                    } else {
-                        htmlParts.push(`<p style="margin-bottom:16px; text-indent:1.5em; line-height:1.8;">${escapeXml(trimmed)}</p>`);
-                    }
+                    htmlParts.push(renderProseParagraphHtml(trimmed, true));
                 });
                 if (htmlParts.length === 0 || (htmlParts.length === 1 && currTitle)) {
                     htmlParts.push('<p class="italic text-center py-8 text-xs" style="color:var(--slate);">Chapter prose is empty.</p>');
@@ -4568,53 +5041,41 @@ ${bodyHtml}
             }
         });
 
-        // Keyboard shortcuts for Chapter Modal (Ctrl+S / Cmd+S to save, Escape to close)
+        // Keyboard shortcuts for Chapter Modal
         document.getElementById('edit-chapter-modal')?.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+            const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+            if (isCmdOrCtrl && e.key.toLowerCase() === 's') {
                 e.preventDefault();
                 e.stopPropagation();
                 document.getElementById('btn-edit-modal-save')?.click();
+            } else if (isCmdOrCtrl && e.key.toLowerCase() === 'b') {
+                e.preventDefault();
+                e.stopPropagation();
+                applyTextareaFormat('bold');
+            } else if (isCmdOrCtrl && e.key.toLowerCase() === 'i') {
+                e.preventDefault();
+                e.stopPropagation();
+                applyTextareaFormat('italic');
+            } else if (isCmdOrCtrl && e.key.toLowerCase() === 'u') {
+                e.preventDefault();
+                e.stopPropagation();
+                applyTextareaFormat('underline');
+            } else if (isCmdOrCtrl && !e.shiftKey && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                e.stopPropagation();
+                performUndo();
+            } else if ((isCmdOrCtrl && e.key.toLowerCase() === 'y') || (isCmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 'z')) {
+                e.preventDefault();
+                e.stopPropagation();
+                performRedo();
             } else if (e.key === 'Escape') {
-                if (!document.getElementById('edit-unsaved-confirm-modal')?.classList.contains('hidden')) {
+                if (!document.getElementById('edit-novel-image-picker-modal')?.classList.contains('hidden')) {
+                    document.getElementById('edit-novel-image-picker-modal')?.classList.add('hidden');
+                } else if (!document.getElementById('edit-unsaved-confirm-modal')?.classList.contains('hidden')) {
                     document.getElementById('btn-unsaved-cancel')?.click();
                 } else {
                     requestCloseChapterModal();
                 }
-            }
-        });
-
-        // Modal: Insert Image file picker
-        document.getElementById('btn-edit-modal-insert-img')?.addEventListener('click', () => chImgInput?.click());
-        chImgInput?.addEventListener('change', (e) => {
-            if (e.target.files && e.target.files[0]) {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const dataUrl = reader.result;
-                    const imgName = file.name ? file.name.replace(/\s+/g, '_') : `illustration_${Date.now()}.jpg`;
-                    state.imageRepository.set(imgName, { dataUrl, mime: file.type, name: imgName });
-
-                    const textarea = document.getElementById('edit-ch-modal-textarea');
-                    if (textarea) {
-                        const start = textarea.selectionStart || textarea.value.length;
-                        const end = textarea.selectionEnd || textarea.value.length;
-                        const mdImg = `\n\n![Illustration](${imgName})\n\n`;
-                        textarea.value = textarea.value.substring(0, start) + mdImg + textarea.value.substring(end);
-                        textarea.selectionStart = textarea.selectionEnd = start + mdImg.length;
-                        textarea.focus();
-
-                        const ch = state.chapters[modalActiveIdx];
-                        if (ch) {
-                            ch.content = textarea.value;
-                            ch.images = extractImagesFromContent(ch.content);
-                            renderInChapterImages(ch);
-                        }
-                        recordUndoState(textarea.value);
-                        updateModalWordCount();
-                        if (typeof window.toast === 'function') window.toast('Inserted image into chapter!', 'success');
-                    }
-                };
-                reader.readAsDataURL(file);
             }
         });
 
