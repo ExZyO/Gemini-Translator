@@ -1,9 +1,9 @@
 {
-  "version": "8.17.51",
-  "versionCode": 8291,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.51/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.51/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.51",
+  "version": "8.17.52",
+  "versionCode": 8292,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.52/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.52/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.52",
   "releaseDate": "2026-09-24",
-  "releaseNotes": "v8.17.51: Fixed EPUB download packaging in Ebook Studio by resolving variable scoping, added automatic saving of active chapter and TOC modals before packaging, in-place cover updates, and uncompressed STORE compression for EPUB container compliance."
+  "releaseNotes": "v8.17.52: Resolved cascading folder bug when indenting sub-chapters. Normal chapters no longer turn into folders; added 1-tap Flatten All to Normal button on TOC header, 1-tap Flatten Subs on parent cards, and clear Make Normal / Nest Under actions."
 }

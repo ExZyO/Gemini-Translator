@@ -397,6 +397,9 @@
                         <button type="button" id="btn-edit-open-toc-manager" class="tl-btn accent" style="padding:4px 11px; font-size:11.5px; font-weight:700;" title="Open full Table of Contents editor to edit titles, levels, and order">
                             📝 Edit TOC
                         </button>
+                        <button type="button" id="btn-edit-flatten-all" class="tl-btn" style="padding:4px 11px; font-size:11.5px; font-weight:600; color:var(--paper-dim);" title="Reset all chapters to standard normal flat chapters in 1 tap">
+                            📑 Flatten All
+                        </button>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center;">
                         <input type="text" id="edit-toc-filter" placeholder="Filter chapters…" class="tl-field"
@@ -749,8 +752,8 @@
                     <div>
                         <div style="font-size:11px; font-weight:700; color:var(--slate); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">TOC Hierarchy</div>
                         <div class="grid grid-cols-2 gap-2">
-                            <button type="button" id="btn-move-sheet-level1" class="tl-btn" style="padding:10px 8px; justify-content:center; font-weight:600;">← Main Chapter</button>
-                            <button type="button" id="btn-move-sheet-level2" class="tl-btn" style="padding:10px 8px; justify-content:center; font-weight:600;">↳ Sub-Chapter</button>
+                            <button type="button" id="btn-move-sheet-level1" class="tl-btn" style="padding:10px 8px; justify-content:center; font-weight:600;">↰ Normal Chapter</button>
+                            <button type="button" id="btn-move-sheet-level2" class="tl-btn" style="padding:10px 8px; justify-content:center; font-weight:600;">↳ Nested Sub-Chapter</button>
                         </div>
                     </div>
                     <div>
@@ -889,6 +892,7 @@
                     <div class="flex items-center gap-1.5 flex-wrap">
                         <button type="button" id="btn-toc-manager-paste-titles" class="tl-btn text-xs" style="padding:4px 9px;" title="Paste a list of titles from clipboard">📋 Paste Titles</button>
                         <button type="button" id="btn-toc-manager-autonumber" class="tl-btn text-xs" style="padding:4px 9px;" title="Renumber chapters sequentially">🔢 Renumber</button>
+                        <button type="button" id="btn-toc-manager-flatten-all" class="tl-btn text-xs" style="padding:4px 9px; color:var(--paper-dim);" title="Reset all chapters in TOC to normal flat chapters">📑 Flatten All</button>
                     </div>
                 </div>
 
@@ -1885,7 +1889,7 @@
                 </div>
                 <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-500/20 text-blue-300">Manual / Flat</span>
             `;
-            if (subtitle) subtitle.textContent = `Use "↳ Make Sub" on individual chapters or "Flatten All" below`;
+            if (subtitle) subtitle.textContent = `Use "Nest Under" on individual chapters or "Flatten All" below`;
         }
 
         pendingHierarchyProposedChapters = proposedChapters;
@@ -2046,15 +2050,24 @@
             lvlBtn.className = 'chip-act shrink-0 text-xs font-semibold';
             lvlBtn.style.padding = '5px 9px';
             if (ch.level === 2) {
-                lvlBtn.textContent = '↳ Sub';
-                lvlBtn.style.color = '#818cf8';
-                lvlBtn.title = 'Switch to Main Section';
+                lvlBtn.textContent = '↰ Normal';
+                lvlBtn.style.color = '#34d399';
+                lvlBtn.style.borderColor = 'rgba(52,211,153,0.3)';
+                lvlBtn.title = 'Switch to Normal Chapter (Level 1)';
             } else {
-                lvlBtn.textContent = '📁 Main';
-                lvlBtn.style.color = '#38bdf8';
-                lvlBtn.title = 'Switch to Sub-Chapter';
+                if (idx === 0) {
+                    lvlBtn.textContent = 'Normal';
+                    lvlBtn.style.color = 'var(--slate)';
+                    lvlBtn.title = 'First chapter must remain a starting chapter';
+                    lvlBtn.disabled = true;
+                } else {
+                    lvlBtn.textContent = '↳ Sub';
+                    lvlBtn.style.color = '#818cf8';
+                    lvlBtn.title = `Nest as Sub-Chapter under Chapter #${idx}`;
+                }
             }
             lvlBtn.onclick = () => {
+                if (idx === 0 && ch.level === 1) return;
                 harvestTocManagerInputs();
                 ch.level = ch.level === 2 ? 1 : 2;
                 renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
@@ -2459,6 +2472,9 @@
             const isSub = ch.level === 2;
             const [blockStart, blockEnd] = getChapterBlockRange(idx);
             const hasChildren = !isSub && (idx + 1 < state.chapters.length && state.chapters[idx + 1].level === 2);
+            const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc|Part|Act|Season|Saga|Section|Episode|卷|部|篇)\b/i;
+            const hasChWord = /(?:chapter|\bch\b\.?\s*\d+|\bep\b\.?\s*\d+)/i;
+            const isExplicitVolume = !isSub && volRegex.test((ch.title || '').trim()) && !hasChWord.test((ch.title || '').trim());
 
             if (!isSub) {
                 currentVolumeId = ch.id;
@@ -2480,11 +2496,11 @@
             }`;
             card.style.background = isSub
                 ? 'rgba(99,102,241,0.03)'
-                : (hasChildren ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.03)');
+                : (isExplicitVolume ? 'rgba(99,102,241,0.08)' : (hasChildren ? 'rgba(99,102,241,0.04)' : 'rgba(255,255,255,0.03)'));
             card.style.borderColor = isSub
                 ? 'rgba(99,102,241,0.2)'
-                : (hasChildren ? 'rgba(99,102,241,0.45)' : 'var(--hairline)');
-            if (hasChildren) {
+                : (isExplicitVolume ? 'rgba(99,102,241,0.45)' : (hasChildren ? 'rgba(99,102,241,0.3)' : 'var(--hairline)'));
+            if (isExplicitVolume) {
                 card.style.borderLeft = '4px solid #6366f1';
             }
 
@@ -2495,7 +2511,7 @@
             const line1Left = document.createElement('div');
             line1Left.className = 'flex items-center gap-2 min-w-0 flex-1';
 
-            // If volume header, add collapse toggle chevron
+            // If volume header or has sub-chapters, add collapse toggle chevron
             if (hasChildren) {
                 const collBtn = document.createElement('button');
                 collBtn.type = 'button';
@@ -2523,9 +2539,9 @@
             // Index / Hierarchy Badge (Clickable to jump to position)
             const numBadge = document.createElement('span');
             numBadge.className = 'text-xs font-mono font-bold shrink-0 cursor-pointer select-none px-1.5 py-0.5 rounded';
-            numBadge.style.color = isSub ? '#818cf8' : (hasChildren ? '#a5b4fc' : 'var(--paper-dim)');
+            numBadge.style.color = isSub ? '#818cf8' : (isExplicitVolume ? '#a5b4fc' : 'var(--paper-dim)');
             numBadge.style.background = 'rgba(255,255,255,0.06)';
-            numBadge.textContent = isSub ? `↳ #${idx + 1}` : (hasChildren ? `📁 #${idx + 1}` : `#${idx + 1}`);
+            numBadge.textContent = isSub ? `↳ #${idx + 1}` : (isExplicitVolume ? `📁 #${idx + 1}` : `#${idx + 1}`);
             numBadge.title = 'Click to jump to a specific position number';
             numBadge.onclick = (e) => {
                 e.stopPropagation();
@@ -2700,7 +2716,7 @@
 
             line2Left.appendChild(reorderGroup);
 
-            // Hierarchy Level Toggle Pill
+            // Hierarchy Level Action Pill
             const lvlToggleBtn = document.createElement('button');
             lvlToggleBtn.type = 'button';
             lvlToggleBtn.className = 'chip-act shrink-0 inline-flex items-center';
@@ -2708,26 +2724,58 @@
             lvlToggleBtn.style.height = '34px';
             lvlToggleBtn.style.fontSize = '11.5px';
             lvlToggleBtn.style.fontWeight = '600';
-            if (ch.level === 1) {
-                lvlToggleBtn.textContent = '↳ Make Sub';
-                lvlToggleBtn.title = 'Nest as sub-chapter (Level 2)';
-                lvlToggleBtn.style.color = '#818cf8';
-                lvlToggleBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    ch.level = 2;
-                    renderChapterList();
-                    updateStats();
-                };
-            } else {
-                lvlToggleBtn.textContent = '📁 Make Main';
-                lvlToggleBtn.title = 'Promote to main section (Level 1)';
-                lvlToggleBtn.style.color = '#38bdf8';
+
+            if (isSub) {
+                // Currently nested sub-chapter: 1-tap restore to normal
+                lvlToggleBtn.textContent = '↰ Make Normal';
+                lvlToggleBtn.title = 'Restore to normal flat chapter (Level 1)';
+                lvlToggleBtn.style.color = '#34d399';
+                lvlToggleBtn.style.borderColor = 'rgba(52,211,153,0.3)';
                 lvlToggleBtn.onclick = (e) => {
                     e.stopPropagation();
                     ch.level = 1;
                     renderChapterList();
                     updateStats();
+                    saveNovelToDatabase({ silent: true }).catch(err => console.warn('Auto-save error:', err));
+                    if (typeof window.toast === 'function') window.toast(`Chapter #${idx + 1} restored to normal chapter!`, 'success');
                 };
+            } else if (hasChildren) {
+                // Chapter with nested sub-chapters under it: 1-tap un-nest / flatten children
+                const childCount = blockEnd - blockStart;
+                lvlToggleBtn.textContent = '↰ Flatten Subs';
+                lvlToggleBtn.title = `Reset all ${childCount} nested sub-chapters under this chapter back to normal flat chapters`;
+                lvlToggleBtn.style.color = '#a78bfa';
+                lvlToggleBtn.style.borderColor = 'rgba(167,139,250,0.3)';
+                lvlToggleBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    for (let cIdx = idx + 1; cIdx <= blockEnd; cIdx++) {
+                        if (state.chapters[cIdx]) state.chapters[cIdx].level = 1;
+                    }
+                    renderChapterList();
+                    updateStats();
+                    saveNovelToDatabase({ silent: true }).catch(err => console.warn('Auto-save error:', err));
+                    if (typeof window.toast === 'function') window.toast(`Un-nested ${childCount} sub-chapter(s) to normal flat chapters!`, 'success');
+                };
+            } else {
+                // Normal chapter
+                if (idx === 0) {
+                    lvlToggleBtn.textContent = 'Normal';
+                    lvlToggleBtn.title = 'Chapter 1 is the starting chapter and cannot be indented';
+                    lvlToggleBtn.style.color = 'var(--slate)';
+                    lvlToggleBtn.disabled = true;
+                } else {
+                    lvlToggleBtn.textContent = `↳ Nest Under #${idx}`;
+                    lvlToggleBtn.title = `Nest as sub-chapter under Chapter #${idx}`;
+                    lvlToggleBtn.style.color = '#818cf8';
+                    lvlToggleBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        ch.level = 2;
+                        renderChapterList();
+                        updateStats();
+                        saveNovelToDatabase({ silent: true }).catch(err => console.warn('Auto-save error:', err));
+                        if (typeof window.toast === 'function') window.toast(`Nested Chapter #${idx + 1} under #${idx}!`, 'success');
+                    };
+                }
             }
             line2Left.appendChild(lvlToggleBtn);
 
@@ -4195,6 +4243,34 @@ ${bodyHtml}
         });
 
         // Table of Contents Full Manager Handlers
+        const handleFlattenAllChapters = () => {
+            if (!state.chapters || state.chapters.length === 0) return;
+            const hasSubs = state.chapters.some(c => c.level === 2);
+            if (!hasSubs) {
+                if (typeof window.toast === 'function') window.toast('All chapters are already normal flat chapters.', 'info');
+                return;
+            }
+            state.chapters.forEach(c => { c.level = 1; });
+            renderChapterList();
+            updateStats();
+            if (state.novelId || (state.chapters && state.chapters.length > 0)) {
+                saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save flatten error:', e));
+            }
+            if (typeof window.toast === 'function') {
+                window.toast('✓ All chapters restored to normal flat chapters!', 'success');
+            }
+        };
+
+        document.getElementById('btn-edit-flatten-all')?.addEventListener('click', handleFlattenAllChapters);
+        document.getElementById('btn-toc-manager-flatten-all')?.addEventListener('click', () => {
+            harvestTocManagerInputs();
+            if (tocManagerTempChapters) {
+                tocManagerTempChapters.forEach(c => { c.level = 1; });
+                renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+                if (typeof window.toast === 'function') window.toast('All chapters in TOC set to Normal (flat)!', 'info');
+            }
+        });
+
         document.getElementById('btn-edit-open-toc-manager')?.addEventListener('click', openTocManagerModal);
         document.getElementById('btn-toc-manager-save-all')?.addEventListener('click', saveTocManagerChanges);
         document.getElementById('btn-toc-manager-paste-titles')?.addEventListener('click', pasteBulkTitlesToToc);
@@ -4474,6 +4550,7 @@ ${bodyHtml}
                 state.chapters[activeMoveIdx].level = 1;
                 renderChapterList();
                 updateMoveSheet();
+                saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save level error:', e));
             }
         });
         document.getElementById('btn-move-sheet-level2')?.addEventListener('click', () => {
@@ -4481,6 +4558,7 @@ ${bodyHtml}
                 state.chapters[activeMoveIdx].level = 2;
                 renderChapterList();
                 updateMoveSheet();
+                saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save level error:', e));
             }
         });
         document.getElementById('btn-move-sheet-insert-above')?.addEventListener('click', () => {
