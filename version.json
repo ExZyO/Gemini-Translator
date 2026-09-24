@@ -1,9 +1,9 @@
 {
-  "version": "8.17.52",
-  "versionCode": 8292,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.52/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.52/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.52",
+  "version": "8.17.53",
+  "versionCode": 8293,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.53/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.53/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.53",
   "releaseDate": "2026-09-24",
-  "releaseNotes": "v8.17.52: Resolved cascading folder bug when indenting sub-chapters. Normal chapters no longer turn into folders; added 1-tap Flatten All to Normal button on TOC header, 1-tap Flatten Subs on parent cards, and clear Make Normal / Nest Under actions."
+  "releaseNotes": "v8.17.53: Fixed prose saving and eliminated heading mutation bug in EPUB Studio. Internal chapter headings and scene breaks are no longer overwritten with the chapter title. Added real-time in-memory prose sync, background auto-save to IndexedDB, Ctrl+S / Cmd+S save shortcuts, immediate sync into in-memory EPUB containers, and clean export parity across Library cards and in-app reader."
 }

@@ -736,7 +736,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   <script src="splitter.js"></script>
   <script src="merger.js?v=8.17.31"></script>
   <script src="epub_studio_ui.js?v=8.17.31"></script>
-  <script src="epub_editor.js?v=8.17.31"></script>
+  <script src="epub_editor.js?v=8.17.53"></script>
   <script src="sources/base_plugin.js?v=8.17.31"></script>
   <script src="sources/lnreader_adapter.js?v=8.17.31"></script>
   <script src="sources/syosetu.js?v=8.17.31"></script>
@@ -4218,7 +4218,7 @@ const formatModelName = (id, displayName) => {
           wordCount: totalWords,
           timestamp: new Date().toISOString(),
           isEpub: !!novelData.isEpub,
-          epubBlob: novelData.epubBlob || existingMeta?.epubBlob || undefined,
+          epubBlob: (novelData.isEdited || existingMeta?.isEdited) ? (novelData.epubBlob || undefined) : (novelData.epubBlob || existingMeta?.epubBlob || undefined),
           sourceUrl: detectedSourceUrl,
           chapterList: novelData.chapterList || [],
           rawChapters: cleanChapters,
@@ -5290,7 +5290,7 @@ const formatModelName = (id, displayName) => {
 
           // CRITICAL FIX: If full.epubBlob exists, parse the authoritative chapters directly from the EPUB container!
           // This guarantees 100% parity with selecting the EPUB file from device storage and never misses Chapter 4.
-          if (full.epubBlob && typeof readEpub === 'function') {
+          if (full.epubBlob && !full.isEdited && typeof readEpub === 'function') {
             try {
               epubMeta = await readEpub(full.epubBlob);
               if (epubMeta && epubMeta.chapters && epubMeta.chapters.length > 0) {
@@ -14154,7 +14154,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                         const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeNovelView.title, chs) : (activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
-                          if (activeNovelView && activeNovelView.epubBlob) {
+                          if (activeNovelView && activeNovelView.epubBlob && !activeNovelView.isEdited) {
                             const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
                             const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
                             await saveUniversalBlob(activeNovelView.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
@@ -14450,7 +14450,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                           const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeNovelView.title, chs) : (activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                           const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                           const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
-                          if (full && full.epubBlob) {
+                          if (full && full.epubBlob && !full.isEdited && !activeNovelView?.isEdited) {
                             const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
                             await saveUniversalBlob(full.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView || full));
                             toast(`EPUB downloaded successfully! (${chs.length} chapters)`, 'success');
@@ -15804,7 +15804,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                               const bookAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(item.author) : (item.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                               const isInc = item.isIncomplete || (item.totalChapterCount && chs.length < item.totalChapterCount);
                               try {
-                                if (full.epubBlob) {
+                                if (full.epubBlob && !full.isEdited && !item?.isEdited) {
                                   const epubFileName = getEpubFileName(bookTitle, chs.length, isInc);
                                   await saveUniversalBlob(full.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(item || full));
                                   toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');

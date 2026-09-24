@@ -1484,8 +1484,8 @@
         if (!record) return;
         state.novelId = record.id || '';
 
-        // If the record has a pre-built EPUB blob, parse it to preserve original fonts, styles, and illustrations
-        if (record.epubBlob) {
+        // If the record has a pre-built EPUB blob, parse it to preserve original fonts, styles, and illustrations (only if not manually edited)
+        if (record.epubBlob && !record.isEdited) {
             await parseEpubFile(record.epubBlob);
             if (state.chapters && state.chapters.length > 0) {
                 return;
@@ -1513,7 +1513,7 @@
         srcChapters.forEach((c, idx) => {
             const rawContent = c.content || c.text || '';
             const chImages = extractImagesFromContent(rawContent);
-            const chTitle = cleanTitle(c.title || `Chapter ${idx + 1}`, idx + 1);
+            const chTitle = record.isEdited ? (c.title || `Chapter ${idx + 1}`) : cleanTitle(c.title || `Chapter ${idx + 1}`, idx + 1);
             state.chapters.push({
                 id: 'ch_' + (idx + 1),
                 title: chTitle,
@@ -2154,11 +2154,21 @@
             if (orig) {
                 const trimmedTitle = (tempCh.title || '').trim() || `Chapter ${newIdx + 1}`;
                 if (orig.title !== trimmedTitle) {
+                    const prevTitle = orig.title;
                     orig.title = trimmedTitle;
                     orig.originalTitle = trimmedTitle;
                     renamedCount++;
-                    if (orig.content && /^#{1,6}\s+.+$/m.test(orig.content)) {
-                        orig.content = orig.content.replace(/^#{1,6}\s+.+$/m, `# ${trimmedTitle}`);
+                    if (orig.content) {
+                        const firstLine = orig.content.split('\n')[0].trim();
+                        if (/^#{1,6}\s+/.test(firstLine)) {
+                            const hText = firstLine.replace(/^#{1,6}\s+/, '').trim();
+                            const isEcho = (typeof window !== 'undefined' && window.isTitleEcho)
+                                ? window.isTitleEcho(hText, prevTitle)
+                                : (hText.toLowerCase() === (prevTitle || '').toLowerCase());
+                            if (isEcho) {
+                                orig.content = orig.content.replace(/^#{1,6}\s+.+/, `# ${trimmedTitle}`);
+                            }
+                        }
                     }
                     if (orig.originalHead) {
                         orig.originalHead = orig.originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(trimmedTitle)}</title>`);
@@ -2428,9 +2438,13 @@
         paras.forEach((p, idx) => {
             let trimmed = p.trim();
             if (!trimmed) return;
-            // If the first paragraph is a leading markdown heading (# Title), skip it since title is already rendered
+            // If the first paragraph is a leading markdown heading that echoes the chapter title, skip it since title is already rendered
             if (idx === 0 && /^#{1,6}\s+/.test(trimmed)) {
-                return;
+                const hText = trimmed.replace(/^#{1,6}\s+/, '').trim();
+                const isEcho = (typeof window !== 'undefined' && window.isTitleEcho)
+                    ? window.isTitleEcho(hText, title)
+                    : (hText.toLowerCase() === (title || '').toLowerCase());
+                if (isEcho) return;
             }
             if (trimmed === '---' || trimmed === '***') {
                 bodyParts.push('<hr />');
@@ -2922,15 +2936,46 @@
         if (modalLevel) ch.level = parseInt(modalLevel.value, 10) || 1;
         if (textarea) ch.content = textarea.value;
 
-        if (ch.content && /^#{1,6}\s+.+$/m.test(ch.content)) {
-            ch.content = ch.content.replace(/^#{1,6}\s+.+$/m, `# ${ch.title}`);
-        }
         if (ch.originalHead) {
             ch.originalHead = ch.originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(ch.title)}</title>`);
         }
 
         ch.words = countWords(ch.content);
         ch.images = extractImagesFromContent(ch.content);
+
+        // Update clean snapshot so modal is recognized as saved
+        initialChapterSnapshot = {
+            title: ch.title || '',
+            level: ch.level || 1,
+            content: ch.content || ''
+        };
+
+        // Immediately sync to originalZip container if present
+        if (state.originalZip && ch.fullPath) {
+            try {
+                let headContent = ch.originalHead || `<title>${escapeXml(ch.title)}</title>`;
+                if (headContent.includes('<title>')) {
+                    headContent = headContent.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(ch.title)}</title>`);
+                } else {
+                    headContent = `<title>${escapeXml(ch.title)}</title>\n` + headContent;
+                }
+                const bodyAttrs = ch.bodyAttrs ? ` ${ch.bodyAttrs}` : '';
+                const bodyHtml = markdownToChapterHtml(ch.content, ch.title);
+                const newXhtml = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+${headContent}
+</head>
+<body${bodyAttrs}>
+${bodyHtml}
+</body>
+</html>`;
+                state.originalZip.file(ch.fullPath, newXhtml);
+            } catch (zipErr) {
+                console.warn('Could not sync chapter to originalZip:', zipErr);
+            }
+        }
 
         renderChapterList();
         updateStats();
@@ -3439,6 +3484,7 @@
             }
 
             if (respectSub && ch.level === 2) {
+                const prevTitle = ch.title;
                 const subPad = String(subCounter).padStart(pad > 1 ? pad : 1, '0');
                 if (style === 'decimal') {
                     ch.title = `1.${subCounter}`;
@@ -3447,8 +3493,17 @@
                     ch.title = `${mainCounter - 1}.${subCounter} - ${clean || 'Untitled'}`;
                 }
                 ch.originalTitle = ch.title;
-                if (ch.content && /^#{1,6}\s+.+$/m.test(ch.content)) {
-                    ch.content = ch.content.replace(/^#{1,6}\s+.+$/m, `# ${ch.title}`);
+                if (ch.content) {
+                    const firstLine = ch.content.split('\n')[0].trim();
+                    if (/^#{1,6}\s+/.test(firstLine)) {
+                        const hText = firstLine.replace(/^#{1,6}\s+/, '').trim();
+                        const isEcho = (typeof window !== 'undefined' && window.isTitleEcho)
+                            ? window.isTitleEcho(hText, prevTitle)
+                            : (hText.toLowerCase() === (prevTitle || '').toLowerCase());
+                        if (isEcho) {
+                            ch.content = ch.content.replace(/^#{1,6}\s+.+/, `# ${ch.title}`);
+                        }
+                    }
                 }
                 if (ch.originalHead) {
                     ch.originalHead = ch.originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(ch.title)}</title>`);
@@ -3459,6 +3514,7 @@
             }
 
             // Level 1 chapter
+            const prevTitle = ch.title;
             subCounter = 1;
             const numStr = String(mainCounter).padStart(pad, '0');
 
@@ -3479,8 +3535,17 @@
             }
 
             ch.originalTitle = ch.title;
-            if (ch.content && /^#{1,6}\s+.+$/m.test(ch.content)) {
-                ch.content = ch.content.replace(/^#{1,6}\s+.+$/m, `# ${ch.title}`);
+            if (ch.content) {
+                const firstLine = ch.content.split('\n')[0].trim();
+                if (/^#{1,6}\s+/.test(firstLine)) {
+                    const hText = firstLine.replace(/^#{1,6}\s+/, '').trim();
+                    const isEcho = (typeof window !== 'undefined' && window.isTitleEcho)
+                        ? window.isTitleEcho(hText, prevTitle)
+                        : (hText.toLowerCase() === (prevTitle || '').toLowerCase());
+                    if (isEcho) {
+                        ch.content = ch.content.replace(/^#{1,6}\s+.+/, `# ${ch.title}`);
+                    }
+                }
             }
             if (ch.originalHead) {
                 ch.originalHead = ch.originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(ch.title)}</title>`);
@@ -3529,7 +3594,15 @@
             words: c.words || countWords(c.content)
         }));
 
+        let existing = null;
+        if (novelId && window.GeminiNovelDB) {
+            try {
+                existing = await window.GeminiNovelDB.getNovel(novelId);
+            } catch (e) {}
+        }
+
         const record = {
+            ...(existing || {}),
             id: novelId,
             title: state.title,
             author: state.author,
@@ -3546,7 +3619,8 @@
             isTranslated: true,
             chapters: chsData,
             rawChapters: chsData,
-            translatedChapters: chsData
+            translatedChapters: chsData,
+            epubBlob: undefined // Invalidate stale cached pre-built blob so downloads use updated edited prose
         };
 
         const success = await window.GeminiNovelDB.saveNovel(record);
@@ -4061,6 +4135,18 @@ ${bodyHtml}
             if (typeof window.toast === 'function') {
                 window.toast(`✓ Clean EPUB exported! (${state.chapters.length} chapters)`, 'success');
             }
+
+            // Cache freshly exported blob in IndexedDB for fast re-downloads
+            if (state.novelId && window.GeminiNovelDB && blob) {
+                try {
+                    const rec = await window.GeminiNovelDB.getNovel(state.novelId);
+                    if (rec) {
+                        rec.epubBlob = blob;
+                        rec.isEdited = true;
+                        await window.GeminiNovelDB.saveNovel(rec);
+                    }
+                } catch (e) {}
+            }
         } catch (err) {
             console.error('EPUB packaging error:', err);
             if (typeof window.toast === 'function') window.toast('Failed to package EPUB: ' + err.message, 'error');
@@ -4187,10 +4273,20 @@ ${bodyHtml}
             let appliedCount = 0;
             pendingSanitizeDiffs.forEach(d => {
                 if (state.chapters[d.idx]) {
+                    const prevTitle = state.chapters[d.idx].title;
                     state.chapters[d.idx].title = d.cleaned;
                     state.chapters[d.idx].originalTitle = d.cleaned;
-                    if (state.chapters[d.idx].content && /^#{1,6}\s+.+$/m.test(state.chapters[d.idx].content)) {
-                        state.chapters[d.idx].content = state.chapters[d.idx].content.replace(/^#{1,6}\s+.+$/m, `# ${d.cleaned}`);
+                    if (state.chapters[d.idx].content) {
+                        const firstLine = state.chapters[d.idx].content.split('\n')[0].trim();
+                        if (/^#{1,6}\s+/.test(firstLine)) {
+                            const hText = firstLine.replace(/^#{1,6}\s+/, '').trim();
+                            const isEcho = (typeof window !== 'undefined' && window.isTitleEcho)
+                                ? window.isTitleEcho(hText, prevTitle)
+                                : (hText.toLowerCase() === (prevTitle || '').toLowerCase());
+                            if (isEcho) {
+                                state.chapters[d.idx].content = state.chapters[d.idx].content.replace(/^#{1,6}\s+.+/, `# ${d.cleaned}`);
+                            }
+                        }
                     }
                     if (state.chapters[d.idx].originalHead) {
                         state.chapters[d.idx].originalHead = state.chapters[d.idx].originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(d.cleaned)}</title>`);
@@ -4405,7 +4501,11 @@ ${bodyHtml}
                     let trimmed = p.trim();
                     if (!trimmed) return;
                     if (idx === 0 && /^#{1,6}\s+/.test(trimmed)) {
-                        return; // Skip duplicate first-line markdown heading
+                        const hText = trimmed.replace(/^#{1,6}\s+/, '').trim();
+                        const isEcho = (typeof window !== 'undefined' && window.isTitleEcho)
+                            ? window.isTitleEcho(hText, currTitle)
+                            : (hText.toLowerCase() === (currTitle || '').toLowerCase());
+                        if (isEcho) return;
                     }
                     if (trimmed === '---' || trimmed === '***') {
                         htmlParts.push('<hr style="border:none; border-top:1px solid var(--hairline); margin:24px 0;" />');
@@ -4436,14 +4536,51 @@ ${bodyHtml}
             }
         });
 
-        // Modal: Word count & Undo recording on typing
+        // Modal: Word count, in-memory sync, and auto-save on typing
         document.getElementById('edit-ch-modal-textarea')?.addEventListener('input', () => {
             updateModalWordCount();
+            const ch = state.chapters[modalActiveIdx];
+            if (ch) {
+                ch.content = document.getElementById('edit-ch-modal-textarea')?.value || '';
+                ch.words = countWords(ch.content);
+            }
             clearTimeout(undoDebounceTimer);
             undoDebounceTimer = setTimeout(() => {
                 const val = document.getElementById('edit-ch-modal-textarea')?.value || '';
                 recordUndoState(val);
-            }, 350);
+                if (state.novelId || (state.chapters && state.chapters.length > 0)) {
+                    saveNovelToDatabase({ silent: true }).catch(() => {});
+                }
+            }, 800);
+        });
+
+        // Real-time title & level input sync
+        document.getElementById('edit-ch-modal-title')?.addEventListener('input', () => {
+            const ch = state.chapters[modalActiveIdx];
+            if (ch) {
+                ch.title = document.getElementById('edit-ch-modal-title')?.value.trim() || `Chapter ${modalActiveIdx + 1}`;
+            }
+        });
+        document.getElementById('edit-ch-modal-level')?.addEventListener('change', () => {
+            const ch = state.chapters[modalActiveIdx];
+            if (ch) {
+                ch.level = parseInt(document.getElementById('edit-ch-modal-level')?.value, 10) || 1;
+            }
+        });
+
+        // Keyboard shortcuts for Chapter Modal (Ctrl+S / Cmd+S to save, Escape to close)
+        document.getElementById('edit-chapter-modal')?.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                e.stopPropagation();
+                document.getElementById('btn-edit-modal-save')?.click();
+            } else if (e.key === 'Escape') {
+                if (!document.getElementById('edit-unsaved-confirm-modal')?.classList.contains('hidden')) {
+                    document.getElementById('btn-unsaved-cancel')?.click();
+                } else {
+                    requestCloseChapterModal();
+                }
+            }
         });
 
         // Modal: Insert Image file picker
@@ -4487,10 +4624,20 @@ ${bodyHtml}
                 const input = document.getElementById('edit-rename-input');
                 const val = input?.value.trim();
                 if (val) {
+                    const prevTitle = state.chapters[activeRenameIdx].title;
                     state.chapters[activeRenameIdx].title = val;
                     state.chapters[activeRenameIdx].originalTitle = val;
-                    if (state.chapters[activeRenameIdx].content && /^#{1,6}\s+.+$/m.test(state.chapters[activeRenameIdx].content)) {
-                        state.chapters[activeRenameIdx].content = state.chapters[activeRenameIdx].content.replace(/^#{1,6}\s+.+$/m, `# ${val}`);
+                    if (state.chapters[activeRenameIdx].content) {
+                        const firstLine = state.chapters[activeRenameIdx].content.split('\n')[0].trim();
+                        if (/^#{1,6}\s+/.test(firstLine)) {
+                            const hText = firstLine.replace(/^#{1,6}\s+/, '').trim();
+                            const isEcho = (typeof window !== 'undefined' && window.isTitleEcho)
+                                ? window.isTitleEcho(hText, prevTitle)
+                                : (hText.toLowerCase() === (prevTitle || '').toLowerCase());
+                            if (isEcho) {
+                                state.chapters[activeRenameIdx].content = state.chapters[activeRenameIdx].content.replace(/^#{1,6}\s+.+/, `# ${val}`);
+                            }
+                        }
                     }
                     if (state.chapters[activeRenameIdx].originalHead) {
                         state.chapters[activeRenameIdx].originalHead = state.chapters[activeRenameIdx].originalHead.replace(/<title>.*?<\/title>/gi, `<title>${escapeXml(val)}</title>`);
