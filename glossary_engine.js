@@ -395,13 +395,151 @@ const filterGlossaryForChunk = (rawGlossary, chunkText, isSmartEnabled = true) =
 };
 
 
+
+  const splitGlossaryIntoChunks = (text, maxLines = 130) => {
+    const lines = text.split(/\r?\n/);
+    if (lines.length <= maxLines) return [text];
+    const chunks = [];
+    let cur = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const isHeader = /^(?:#+\s*)?(?:SECTION\s+)?[IVXLCDM]+\.\s+/i.test(line) || /^#{1,2}\s+[A-Z]/i.test(line);
+      if (cur.length >= maxLines && (line.trim() === '' || isHeader)) {
+        chunks.push(cur.join('\n'));
+        cur = [];
+      } else if (cur.length >= maxLines * 1.5) {
+        chunks.push(cur.join('\n'));
+        cur = [];
+      }
+      cur.push(line);
+    }
+    if (cur.length > 0) chunks.push(cur.join('\n'));
+    return chunks;
+  };
+
+  const formatExtractedTermsIntoMasterGlossary = (terms) => {
+    const characters = [];
+    const factions = [];
+    const termsList = [];
+    const locations = [];
+    const other = [];
+
+    terms.forEach(t => {
+      const cat = (t.category || '').toLowerCase();
+      const line = `- ${t.orig} = ${t.trans}${t.note ? ` # ${t.category}: ${t.note}` : ''}`;
+      if (cat.includes('char') || cat.includes('person') || cat.includes('protagonist') || cat.includes('antagonist')) {
+        characters.push(line);
+      } else if (cat.includes('faction') || cat.includes('sect') || cat.includes('guild') || cat.includes('clan') || cat.includes('org')) {
+        factions.push(line);
+      } else if (cat.includes('loc') || cat.includes('place') || cat.includes('city') || cat.includes('realm') || cat.includes('world') || cat.includes('school')) {
+        locations.push(line);
+      } else if (cat.includes('rank') || cat.includes('skill') || cat.includes('item') || cat.includes('term') || cat.includes('magic') || cat.includes('artifact')) {
+        termsList.push(line);
+      } else {
+        other.push(line);
+      }
+    });
+
+    const sections = [
+      '## I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES',
+      '- Maintain strict character gender continuity and pronoun fidelity across all chapters.',
+      '- Preserve original Japanese/Chinese honorifics (-san, -kun, -sama, Shixiong, Shidi) where appropriate, or translate consistently.',
+      '- Keep specialized cultivation, magical techniques, and artifact names consistent with this glossary.',
+      '- Retain raw untranslated text structure, dialog formatting, and paragraph line breaks without omitting sentences.'
+    ];
+
+    let sectionNum = 2;
+    const roman = ['II', 'III', 'IV', 'V', 'VI'];
+
+    if (characters.length > 0 || factions.length > 0) {
+      sections.push('', `## ${roman[sectionNum - 2]}. CHARACTER & FACTION DIRECTORY`);
+      if (characters.length > 0) sections.push(...characters);
+      if (factions.length > 0) sections.push('', '### Factions & Organizations', ...factions);
+      sectionNum++;
+    }
+
+    if (termsList.length > 0) {
+      sections.push('', `## ${roman[sectionNum - 2]}. CORE CONCEPTS & SYSTEM TERMS`);
+      sections.push(...termsList);
+      sectionNum++;
+    }
+
+    if (locations.length > 0) {
+      sections.push('', `## ${roman[sectionNum - 2]}. LOCATIONS & GEOGRAPHY`);
+      sections.push(...locations);
+      sectionNum++;
+    }
+
+    if (other.length > 0) {
+      sections.push('', `## ${roman[sectionNum - 2]}. ADDITIONAL ENTITIES & TERMINOLOGY`);
+      sections.push(...other);
+    }
+
+    return sections.join('\n');
+  };
+
+  const parseUniversalGlossaryPairs = (text) => {
+    if (!text) return [];
+    const lines = text.split(/\r?\n/);
+    const pairs = [];
+    const seen = new Set();
+
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || line.startsWith('#') || line.startsWith('//') || line.startsWith('/*')) continue;
+      
+      const hashIdx = line.indexOf('#');
+      if (hashIdx !== -1) line = line.slice(0, hashIdx).trim();
+      const slashIdx = line.indexOf('//');
+      if (slashIdx !== -1) line = line.slice(0, slashIdx).trim();
+
+      line = line.replace(/^[-*•\s]+/, '').replace(/^\d+[\.\)]\s+/, '').trim();
+      if (!line) continue;
+
+      let orig = '';
+      let target = '';
+
+      const arrowMatch = line.match(/\s*(?:->|=>|→)\s*/);
+      if (arrowMatch) {
+        const idx = line.indexOf(arrowMatch[0]);
+        orig = line.slice(0, idx).trim();
+        target = line.slice(idx + arrowMatch[0].length).trim();
+      } else {
+        const eqIdx = line.indexOf('=');
+        if (eqIdx !== -1) {
+          orig = line.slice(0, eqIdx).trim();
+          target = line.slice(eqIdx + 1).trim();
+        }
+      }
+
+      if (!orig || !target) continue;
+      if (/^(?:Example|Legend|Note|Rule|Warning)/i.test(orig)) continue;
+
+      const origClean = orig.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      const targetClean = target.replace(/\s*\[[MFmf]\]\s*$/, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+      const primaryTarget = targetClean.split(/\s*[\/\;]\s*/)[0].replace(/^["']|["']$/g, '').trim();
+
+      if (origClean && primaryTarget && !seen.has(origClean)) {
+        seen.add(origClean);
+        pairs.push({ orig: origClean, target: primaryTarget });
+      }
+    }
+    return pairs;
+  };
+
   if (typeof window !== 'undefined') {
+    window.splitGlossaryIntoChunks = splitGlossaryIntoChunks;
+    window.formatExtractedTermsIntoMasterGlossary = formatExtractedTermsIntoMasterGlossary;
+    window.parseUniversalGlossaryPairs = parseUniversalGlossaryPairs;
     window.formatGlossaryString = formatGlossaryString;
     window.legacyFilterGlossaryForChunk = legacyFilterGlossaryForChunk;
     window.filterGlossaryForChunk = filterGlossaryForChunk;
   }
 
   return {
+    splitGlossaryIntoChunks,
+    formatExtractedTermsIntoMasterGlossary,
+    parseUniversalGlossaryPairs,
     formatGlossaryString,
     legacyFilterGlossaryForChunk,
     filterGlossaryForChunk
