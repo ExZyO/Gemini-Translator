@@ -1,9 +1,9 @@
 {
-  "version": "8.17.56",
-  "versionCode": 8296,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.56/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.56/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.56",
+  "version": "8.17.57",
+  "versionCode": 8297,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.57/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.57/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.57",
   "releaseDate": "2026-09-24",
-  "releaseNotes": "v8.17.56: Architecture modularization (Phase 1). Extracted 10 standalone modal components into app_modals.js, reducing app.js footprint by ~1,000 lines and improving component reusability and maintainability."
+  "releaseNotes": "v8.17.57: Modularization Step 2. Extracted Library Novel 3-Dot Action Sheet, Full-Screen Ongoing Novel Continuation, SwiftAudio Player suite (mini, full, and batch downloader), and Extensions & Sources Hub into app_modals.js. app.js line count reduced by 1,844 lines."
 }
