@@ -73,13 +73,29 @@
       openAppDB, dbGetAll, dbPut, dbDelete, dbClear, GeminiNovelDB,
       formatGlossaryString, legacyFilterGlossaryForChunk, filterGlossaryForChunk,
       splitGlossaryIntoChunks, formatExtractedTermsIntoMasterGlossary, parseUniversalGlossaryPairs,
+      auditNameConsistency, batchFixNameDrift,
       aiPolishEpubToc, formatModelName, groupModelsByCompany, fetchGeminiModels,
       calculateTokenBreakdown, buildPromptResult, buildPrompt, cleanNovelProse,
       parseTranslationOutput, isLikelyHeadingOnlyTranslation, translateGemini,
       streamGemini, translateDeepSeek, streamDeepSeek, stripContextLeak,
       translateDeepL, translateLibre, translateOpenAI, translateClaude,
-      streamWithRotation, translateWithRotation, translateChunk
+      streamWithRotation, translateWithRotation, translateChunk,
+      BackupEngine, ExportEngine, DocumentParser
     } = window;
+
+    // Helper adapters delegating to DocumentParser & ExportEngine
+    const readFileAsText = f => window.DocumentParser ? window.DocumentParser.readFileAsText(f) : new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = e => rej(e.target.error); r.readAsText(f); });
+    const readPdf = f => window.DocumentParser ? window.DocumentParser.readPdf(f) : Promise.reject(new Error('DocumentParser not loaded'));
+    const readEpub = f => window.DocumentParser ? window.DocumentParser.readEpub(f) : Promise.reject(new Error('DocumentParser not loaded'));
+    const readDocx = f => window.DocumentParser ? window.DocumentParser.readDocx(f) : Promise.reject(new Error('DocumentParser not loaded'));
+    const isGenericTitle = t => window.ExportEngine ? window.ExportEngine.isGenericTitle(t) : (!t || t.trim() === '' || /^translated\s*(document|file)?$/i.test(t.trim()));
+    const sanitizeTextForPdf = str => window.ExportEngine ? window.ExportEngine.sanitizeTextForPdf(str) : (str || '');
+    window.readFileAsText = readFileAsText;
+    window.readPdf = readPdf;
+    window.readEpub = readEpub;
+    window.readDocx = readDocx;
+    window.isGenericTitle = isGenericTitle;
+    window.sanitizeTextForPdf = sanitizeTextForPdf;
 
     // XML Escaper for EPUB Packaging
     function escapeXml(unsafe) {
@@ -118,7 +134,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.40';
+    let VERSION = '8.17.67';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -6095,7 +6111,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
       // --- Feature 4: Name Consistency Verifier Engine ---
       const handleRunConsistencyCheck = () => {
-        const glossaryPairs = parseUniversalGlossaryPairs(terminology || '');
+        const glossaryPairs = (typeof parseUniversalGlossaryPairs === 'function' ? parseUniversalGlossaryPairs(terminology || '') : window.parseUniversalGlossaryPairs?.(terminology || '')) || [];
         if (glossaryPairs.length === 0) {
           return toast('No glossary pairs found in active glossary. Use format "Original -> Translation" or "Original = Translation".', 'warning');
         }
@@ -6105,64 +6121,8 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
           : (chapters && chapters.length > 0 ? chapters : [{ title: 'Current Output', content: assembledText || inputText }]);
 
         setIsAuditingConsistency(true);
-        const results = [];
-
-        glossaryPairs.forEach(pair => {
-          const targetTerm = pair.target;
-          const origTerm = pair.orig;
-          let totalTargetOccurrences = 0;
-          let totalLeaks = 0;
-          const chapterOccurrences = [];
-          const leaksFoundIn = [];
-          const driftMatches = [];
-
-          const words = targetTerm.split(/\s+/).filter(w => w.length >= 4);
-
-          chs.forEach((ch, idx) => {
-            const text = (ch?.content || ch?.text || '');
-            const chName = ch?.title || `Ch. ${idx + 1}`;
-            
-            try {
-              const targetRegex = new RegExp('\\b' + escapeRegExp(targetTerm) + '\\b', 'gi');
-              const targetMatches = (text.match(targetRegex) || []).length;
-              if (targetMatches > 0) {
-                totalTargetOccurrences += targetMatches;
-                chapterOccurrences.push({ chName, count: targetMatches });
-              }
-
-              if (origTerm && origTerm.length >= 2) {
-                const leakRegex = new RegExp(escapeRegExp(origTerm), 'g');
-                const leakMatches = (text.match(leakRegex) || []).length;
-                if (leakMatches > 0) {
-                  totalLeaks += leakMatches;
-                  leaksFoundIn.push({ chName, count: leakMatches });
-                }
-              }
-
-              words.forEach(w => {
-                if (w.includes('ou')) {
-                  const alternate = w.replace(/ou/g, 'o');
-                  const altRegex = new RegExp('\\b' + escapeRegExp(alternate) + '\\b', 'gi');
-                  const altMatches = (text.match(altRegex) || []).length;
-                  if (altMatches > 0) {
-                    driftMatches.push({ chName, found: alternate, shouldBe: w, count: altMatches });
-                  }
-                }
-              });
-            } catch(e) {}
-          });
-
-          results.push({
-            orig: origTerm,
-            target: targetTerm,
-            totalCount: totalTargetOccurrences,
-            chapterOccurrences,
-            totalLeaks,
-            leaksFoundIn,
-            driftMatches,
-            status: totalLeaks > 0 ? 'leak' : (driftMatches.length > 0 ? 'drift' : (totalTargetOccurrences > 0 ? 'good' : 'missing'))
-          });
-        });
+        const auditFn = typeof auditNameConsistency === 'function' ? auditNameConsistency : window.auditNameConsistency;
+        const results = auditFn ? auditFn(glossaryPairs, chs) : [];
 
         setConsistencyAuditResults(results);
         setIsAuditingConsistency(false);
@@ -6171,25 +6131,12 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
       const handleBatchFixDrift = (foundWord, targetWord) => {
         if (!foundWord || !targetWord) return;
-        const regex = new RegExp('\\b' + escapeRegExp(foundWord) + '\\b', 'g');
-        let replacedCount = 0;
+        const fixFn = typeof batchFixNameDrift === 'function' ? batchFixNameDrift : window.batchFixNameDrift;
+        if (!fixFn) return;
 
-        if (translatedChapters && translatedChapters.length > 0) {
-          const updated = translatedChapters.map(ch => {
-            if (!ch) return null;
-            const c = ch.content || ch.text || '';
-            const matches = (c.match(regex) || []).length;
-            replacedCount += matches;
-            return { ...ch, content: c.replace(regex, targetWord) };
-          });
-          setTranslatedChapters(updated);
-        }
-
-        if (assembledText) {
-          const matches = (assembledText.match(regex) || []).length;
-          if (replacedCount === 0) replacedCount += matches;
-          setAssembledText(assembledText.replace(regex, targetWord));
-        }
+        const { updatedChapters, updatedAssembledText, replacedCount } = fixFn(foundWord, targetWord, translatedChapters, assembledText);
+        if (translatedChapters && translatedChapters.length > 0) setTranslatedChapters(updatedChapters);
+        if (assembledText) setAssembledText(updatedAssembledText);
 
         toast(`Replaced ${replacedCount} occurrences of "${foundWord}" with "${targetWord}"!`, 'success');
         try { window.NativeBridge?.showCompletionNotification?.('Name Drift Fixed! 🔍', `Replaced ${replacedCount} occurrences of "${foundWord}" with "${targetWord}".`); } catch(e) {}
@@ -6197,133 +6144,109 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
       };
 
       // --- Full App Backup & Restore & WebDAV Cloud Sync ---
+      const getBackupSetters = () => ({
+        setSavedGlossaries,
+        setTerminology,
+        setActiveGlossaryId,
+        setHistory,
+        setCustomInstructions,
+        setDefaultGlossaryName,
+        setSmartGlossary,
+        setEnableGlossary,
+        setProvider,
+        setGeminiModel,
+        setDeepseekModel,
+        setOpenaiModel,
+        setClaudeModel,
+        setConcurrency,
+        setContextAware,
+        setChunkSizePreset,
+        setEnableThinking,
+        setStrictModel,
+        setEnableStreaming,
+        setCustomModel,
+        setUseCustomModel,
+        setCustomDeepseekModel,
+        setUseCustomDeepseekModel,
+        setEpubDropCaps,
+        setEpubSmartQuotes,
+        setEpubCleanWebArtifacts,
+        setEpubFontTheme,
+        setEpubJustifyText,
+        setEpubIncludeImages,
+        setScrapeImages,
+        setReaderTheme,
+        setReaderFont,
+        setReaderFontSize,
+        setWebImportHistory,
+        setApiKeysByProvider,
+        setActiveKeyIds,
+        setLibreUrl
+      });
+
+      const getBackupAppState = () => ({
+        VERSION,
+        savedGlossaries,
+        terminology,
+        customInstructions,
+        history,
+        provider,
+        geminiModel,
+        deepseekModel,
+        openaiModel,
+        claudeModel,
+        concurrency,
+        contextAware,
+        chunkSizePreset,
+        enableThinking,
+        strictModel,
+        enableStreaming,
+        enableGlossary,
+        customModel,
+        useCustomModel,
+        customDeepseekModel,
+        useCustomDeepseekModel,
+        defaultGlossaryName,
+        smartGlossary,
+        epubDropCaps,
+        epubSmartQuotes,
+        epubCleanWebArtifacts,
+        epubFontTheme,
+        epubJustifyText,
+        epubIncludeImages,
+        scrapeImages,
+        readerTheme,
+        readerFont,
+        readerFontSize,
+        apiKeysByProvider,
+        activeKeyIds,
+        libreUrl
+      });
+
       const generateBackupPayload = async (shouldIncludeKeys = false) => {
-        const currentSavedGlossaries = (savedGlossaries && savedGlossaries.length > 0)
-          ? savedGlossaries
-          : (() => {
-              try { return JSON.parse(localStorage.getItem('savedGlossaries') || '[]'); } catch (e) { return []; }
-            })();
-        const currentTerminology = (terminology && terminology.trim())
-          ? terminology
-          : (localStorage.getItem('terminology') || '');
-        const currentInstructions = (customInstructions && customInstructions.trim())
-          ? customInstructions
-          : (localStorage.getItem('customInstructions') || '');
-
-        let fullHistory = await dbGetAll('history');
-        if (!fullHistory || fullHistory.length === 0) {
-          fullHistory = (history && history.length > 0) ? history : (() => {
-            try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
-          })();
-        }
-
-        let novelLibrary = [];
-        if (window.GeminiNovelDB) {
-          try {
-            novelLibrary = await window.GeminiNovelDB.getAllNovels();
-          } catch (e) {
-            console.warn('Backup novel library fetch error:', e);
-          }
-        }
-        const webImportMeta = (() => {
-          try {
-            return JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || localStorage.getItem('gemini_web_import_history') || '[]');
-          } catch (e) {
-            return [];
-          }
-        })();
-
-        const recentTelemetry = (typeof window !== 'undefined' && window.AppLogger && Array.isArray(window.AppLogger.logs))
-          ? window.AppLogger.logs.slice(-300)
-          : [];
-
-        const backup = {
+        const engine = window.BackupEngine;
+        if (!engine) throw new Error('Backup Engine is loading...');
+        return await engine.generatePayload({
+          shouldIncludeKeys,
           version: VERSION,
-          timestamp: new Date().toISOString(),
-          includesApiKeys: shouldIncludeKeys,
-          provider,
-          geminiModel,
-          deepseekModel,
-          openaiModel,
-          claudeModel,
-          concurrency,
-          contextAware,
-          chunkSizePreset: chunkSizePreset || localStorage.getItem('chunkSizePreset') || 'turbo',
-          enableThinking: enableThinking !== undefined ? enableThinking : (localStorage.getItem('enableThinking') === 'true'),
-          strictModel: strictModel !== undefined ? strictModel : (localStorage.getItem('strictModel') !== 'false'),
-          enableStreaming: enableStreaming !== undefined ? enableStreaming : (localStorage.getItem('enableStreaming') !== 'false'),
-          enableGlossary: enableGlossary !== undefined ? enableGlossary : (localStorage.getItem('enableGlossary') === 'true'),
-          customModel: customModel || localStorage.getItem('customModel') || '',
-          useCustomModel: useCustomModel !== undefined ? useCustomModel : (localStorage.getItem('useCustomModel') === 'true'),
-          customDeepseekModel: customDeepseekModel || localStorage.getItem('customDeepseekModel') || '',
-          useCustomDeepseekModel: useCustomDeepseekModel !== undefined ? useCustomDeepseekModel : (localStorage.getItem('useCustomDeepseekModel') === 'true'),
-          savedGlossaries: currentSavedGlossaries,
-          defaultGlossaryName: defaultGlossaryName || localStorage.getItem('defaultGlossaryName') || null,
-          terminology: currentTerminology,
-          smartGlossary,
-          customInstructions: currentInstructions,
-          epubDropCaps: epubDropCaps !== undefined ? epubDropCaps : (localStorage.getItem('epubDropCaps') !== 'false'),
-          epubSmartQuotes: epubSmartQuotes !== undefined ? epubSmartQuotes : (localStorage.getItem('epubSmartQuotes') !== 'false'),
-          epubCleanWebArtifacts: epubCleanWebArtifacts !== undefined ? epubCleanWebArtifacts : (localStorage.getItem('epubCleanWebArtifacts') !== 'false'),
-          epubFontTheme: epubFontTheme || localStorage.getItem('epubFontTheme') || 'literata',
-          epubJustifyText: epubJustifyText !== undefined ? epubJustifyText : (localStorage.getItem('epubJustifyText') !== 'false'),
-          epubIncludeImages: epubIncludeImages !== undefined ? epubIncludeImages : (localStorage.getItem('epubIncludeImages') !== 'false'),
-          scrapeImages: scrapeImages !== undefined ? scrapeImages : (localStorage.getItem('scrapeImages') !== 'false'),
-          readerTheme: readerTheme || localStorage.getItem('readerTheme') || 'sepia',
-          readerFont: readerFont || localStorage.getItem('readerFont') || 'serif',
-          readerFontSize: readerFontSize || parseInt(localStorage.getItem('readerFontSize')) || 18,
-          readerJustify: localStorage.getItem('readerJustify') !== 'false',
-          translationHistory: fullHistory,
-          exportHistory: JSON.parse(localStorage.getItem('exportHistory') || '[]'),
-          novelLibrary,
-          webImportHistory: webImportMeta,
-          telemetryLogs: recentTelemetry
-        };
-
-        if (shouldIncludeKeys) {
-          const exportKeys = {};
-          ['gemini', 'deepseek', 'openai', 'claude', 'deepl', 'libre'].forEach(prov => {
-            const legacyKey = localStorage.getItem(`${prov}ApiKey`) || (prov === 'gemini' ? (localStorage.getItem('apiKey') || '') : '');
-            const profiles = (apiKeysByProvider && apiKeysByProvider[prov]) ? [...apiKeysByProvider[prov]] : [];
-            if (profiles.length > 0) {
-              exportKeys[prov] = profiles.map(p => {
-                if (!p.key && legacyKey) return { ...p, key: legacyKey };
-                return p;
-              });
-            } else if (legacyKey) {
-              const provNames = { gemini: 'Gemini', deepseek: 'DeepSeek', openai: 'OpenAI', claude: 'Claude', deepl: 'DeepL', libre: 'LibreTranslate' };
-              exportKeys[prov] = [{ id: `${prov}-init`, name: `Primary ${provNames[prov] || prov} Key`, key: legacyKey }];
-            } else {
-              exportKeys[prov] = [];
-            }
-          });
-
-          backup.apiKeysByProvider = exportKeys;
-          backup.activeKeyIds = activeKeyIds;
-          backup.geminiApiKey = exportKeys.gemini?.[0]?.key || localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey') || '';
-          backup.deepseekApiKey = exportKeys.deepseek?.[0]?.key || localStorage.getItem('deepseekApiKey') || '';
-          backup.openaiApiKey = exportKeys.openai?.[0]?.key || localStorage.getItem('openaiApiKey') || '';
-          backup.claudeApiKey = exportKeys.claude?.[0]?.key || localStorage.getItem('claudeApiKey') || '';
-          backup.deeplApiKey = exportKeys.deepl?.[0]?.key || localStorage.getItem('deeplApiKey') || '';
-          backup.libreUrl = libreUrl;
-        }
-        return { backup, fullHistory, novelLibrary };
+          state: getBackupAppState()
+        });
       };
 
       const exportFullBackup = async (forceIncludeKeys = null) => {
         try {
           const shouldIncludeKeys = forceIncludeKeys !== null ? forceIncludeKeys : includeApiKeysInBackup;
-          const { backup, fullHistory, novelLibrary } = await generateBackupPayload(shouldIncludeKeys);
-          const jsonStr = JSON.stringify(backup, null, 2);
-          const backupFileName = `gemini_translator_backup_${shouldIncludeKeys ? 'with_keys_' : ''}${new Date().toISOString().slice(0, 10)}.json`;
-          const blob = new Blob([jsonStr], { type: 'application/json' });
-
-          await saveUniversalBlob(blob, backupFileName, 'application/json');
+          const engine = window.BackupEngine;
+          const res = await engine.exportBackup({
+            shouldIncludeKeys,
+            version: VERSION,
+            state: getBackupAppState()
+          });
           const details = [];
-          if (novelLibrary.length > 0) details.push(`${novelLibrary.length} novel(s)`);
-          if (fullHistory.length > 0) details.push(`${fullHistory.length} history item(s)`);
+          if (res.novelCount > 0) details.push(`${res.novelCount} novel(s)`);
+          if (res.historyCount > 0) details.push(`${res.historyCount} history item(s)`);
           details.push('all settings');
-          if (shouldIncludeKeys) details.push('keys');
+          if (res.hasKeys) details.push('keys');
           toast(`Full backup (${details.join(', ')}) saved to Downloads!`, 'success');
         } catch(e) {
           console.error('Full backup error:', e);
@@ -6335,17 +6258,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         if (!webdavUrl || !webdavUrl.trim()) return toast('Please enter a WebDAV URL in Settings', 'warning');
         setWebdavTesting(true);
         try {
-          const cleanUrl = webdavUrl.trim().replace(/\/+$/, '');
-          const headers = {};
-          if (webdavUser || webdavPass) {
-            headers['Authorization'] = 'Basic ' + btoa(`${webdavUser}:${webdavPass}`);
-          }
-          const res = await (window.NativeBridge?.webDavRequest ? window.NativeBridge.webDavRequest({
-            url: cleanUrl,
-            method: 'PROPFIND',
-            headers: { ...headers, 'Depth': '0' }
-          }) : fetch(cleanUrl, { method: 'GET', headers }));
-
+          const res = await window.BackupEngine.testWebDav({ url: webdavUrl, user: webdavUser, pass: webdavPass });
           if (res.status >= 200 && res.status < 400) {
             toast(`✅ Connected to WebDAV! (Status ${res.status})`, 'success');
           } else if (res.status === 401 || res.status === 403) {
@@ -6364,62 +6277,21 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         if (!webdavUrl || !webdavUrl.trim()) return toast('Please configure WebDAV URL in Settings first', 'warning');
         setWebdavSyncing(true);
         try {
-          const cleanUrl = webdavUrl.trim().replace(/\/+$/, '');
-          const targetFolder = (webdavPath || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
-          const fullBackupUrl = `${cleanUrl}/${targetFolder}/backup_full.json`;
-          const metaUrl = `${cleanUrl}/${targetFolder}/metadata.json`;
-
-          const headers = { 'Content-Type': 'application/json' };
-          if (webdavUser || webdavPass) {
-            headers['Authorization'] = 'Basic ' + btoa(`${webdavUser}:${webdavPass}`);
-          }
-
           const { backup } = await generateBackupPayload(true);
-          const backupJson = JSON.stringify(backup, null, 2);
-          const metaJson = JSON.stringify({
-            version: VERSION,
-            lastSync: new Date().toISOString(),
-            device: navigator.userAgent.includes('Android') ? 'Android' : 'Desktop/Web',
-            novelCount: (backup.novelLibrary || []).length,
-            glossaryCount: (backup.savedGlossaries || []).length
-          }, null, 2);
-
-          // 1. Try MKCOL to ensure directory exists (ignore if already exists or fails)
-          try {
-            await window.NativeBridge?.webDavRequest?.({
-              url: `${cleanUrl}/${targetFolder}`,
-              method: 'MKCOL',
-              headers
-            });
-          } catch(e) {}
-
-          // 2. PUT backup payload
-          const uploadRes = await (window.NativeBridge?.webDavRequest ? window.NativeBridge.webDavRequest({
-            url: fullBackupUrl,
-            method: 'PUT',
-            headers,
-            body: backupJson
-          }) : fetch(fullBackupUrl, { method: 'PUT', headers, body: backupJson }));
-
-          // 3. PUT metadata
-          try {
-            await (window.NativeBridge?.webDavRequest ? window.NativeBridge.webDavRequest({
-              url: metaUrl,
-              method: 'PUT',
-              headers,
-              body: metaJson
-            }) : fetch(metaUrl, { method: 'PUT', headers, body: metaJson }));
-          } catch(e) {}
-
-          if (uploadRes.status >= 200 && uploadRes.status < 300) {
-            const timeStr = new Date().toLocaleString();
-            toast(`☁️ WebDAV Backup Successful! Saved to /${targetFolder}/`, 'success');
-            try { window.NativeBridge?.showCompletionNotification?.('Cloud Backup Complete! ☁️', `Backup saved to WebDAV /${targetFolder}/.`); } catch(e) {}
-            setWebdavLastSync(timeStr);
-            localStorage.setItem('webdavLastSync', timeStr);
-          } else {
-            throw new Error(`HTTP ${uploadRes.status}: ${uploadRes.data?.slice(0, 100) || 'Upload failed'}`);
-          }
+          const targetFolder = (webdavPath || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
+          await window.BackupEngine.uploadToWebDav({
+            url: webdavUrl,
+            path: targetFolder,
+            user: webdavUser,
+            pass: webdavPass,
+            payload: backup,
+            version: VERSION
+          });
+          const timeStr = new Date().toLocaleString();
+          toast(`☁️ WebDAV Backup Successful! Saved to /${targetFolder}/`, 'success');
+          try { window.NativeBridge?.showCompletionNotification?.('Cloud Backup Complete! ☁️', `Backup saved to WebDAV /${targetFolder}/.`); } catch(e) {}
+          setWebdavLastSync(timeStr);
+          localStorage.setItem('webdavLastSync', timeStr);
         } catch (e) {
           console.error('WebDAV Backup Error:', e);
           toast(`WebDAV Backup failed: ${e.message}`, 'error');
@@ -6432,26 +6304,13 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         if (!webdavUrl || !webdavUrl.trim()) return toast('Please configure WebDAV URL in Settings first', 'warning');
         setWebdavSyncing(true);
         try {
-          const cleanUrl = webdavUrl.trim().replace(/\/+$/, '');
           const targetFolder = (webdavPath || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
-          const fullBackupUrl = `${cleanUrl}/${targetFolder}/backup_full.json`;
-
-          const headers = {};
-          if (webdavUser || webdavPass) {
-            headers['Authorization'] = 'Basic ' + btoa(`${webdavUser}:${webdavPass}`);
-          }
-
-          const res = await (window.NativeBridge?.webDavRequest ? window.NativeBridge.webDavRequest({
-            url: fullBackupUrl,
-            method: 'GET',
-            headers
-          }) : fetch(fullBackupUrl, { method: 'GET', headers }));
-
-          if (res.status !== 200 || !res.data) {
-            throw new Error(`HTTP ${res.status}: Backup file not found on WebDAV.`);
-          }
-
-          const data = JSON.parse(res.data);
+          const data = await window.BackupEngine.downloadFromWebDav({
+            url: webdavUrl,
+            path: targetFolder,
+            user: webdavUser,
+            pass: webdavPass
+          });
           const countNovels = (data.novelLibrary || []).length;
           const countGloss = (data.savedGlossaries || []).length;
 
@@ -6467,14 +6326,13 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         }
       };
 
-      // --- Google Drive Cloud Sync Engine Handlers (Mihon/Komikku Standard) ---
       const testGoogleDriveConnection = async () => {
         if (!window.GoogleDriveSync?.isConnected()) {
           return toast('Google Drive is not connected. Click "Sign in with Google" first.', 'warning');
         }
         setGdriveTesting(true);
         try {
-          const res = await window.GoogleDriveSync.testConnection();
+          const res = await window.BackupEngine.testGoogleDrive();
           if (res.success && res.profile) {
             setGdriveUser(res.profile);
             setGdriveConnected(true);
@@ -6496,7 +6354,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         setGdriveSyncing(true);
         try {
           const { backup, fullHistory, novelLibrary } = await generateBackupPayload(includeApiKeysInBackup);
-          const res = await window.GoogleDriveSync.uploadBackup(backup);
+          const res = await window.BackupEngine.uploadToGoogleDrive(backup);
           if (res.success) {
             const timeStr = new Date().toLocaleString();
             setGdriveLastSync(timeStr);
@@ -6517,7 +6375,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         setGdriveSyncing(true);
         try {
           toast('Fetching backup from Google Drive…', 'info');
-          const { data, meta } = await window.GoogleDriveSync.downloadBackup();
+          const { data, meta } = await window.BackupEngine.downloadFromGoogleDrive();
           const countNovels = (data.novelLibrary || data.novels || []).length;
           const countGloss = (data.savedGlossaries || data.glossaries || []).length;
           const backupDate = meta.modifiedTime ? new Date(meta.modifiedTime).toLocaleString() : 'recent';
@@ -6543,7 +6401,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         try {
           toast('Opening Google Authorization window…', 'info');
           await window.GoogleDriveSync.launchOAuthFlow();
-          const testRes = await window.GoogleDriveSync.testConnection();
+          const testRes = await window.BackupEngine.testGoogleDrive();
           setGdriveConnected(window.GoogleDriveSync.isConnected());
           if (testRes.success && testRes.profile) {
             setGdriveUser(testRes.profile);
@@ -6580,322 +6438,26 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
       };
 
       const applyRestoredData = async (data) => {
-        if (!data || typeof data !== 'object') throw new Error('Invalid backup data format.');
-        
-        // 1. Array format (Glossary export)
-        if (Array.isArray(data)) {
-          const merged = [...savedGlossaries];
-          data.forEach(g => {
-            if (g.name && g.content && !merged.find(x => x.name === g.name)) merged.push(g);
-          });
-          setSavedGlossaries(merged);
-          localStorage.setItem('savedGlossaries', JSON.stringify(merged));
-          if (merged.length > 0 && !terminology) {
-            setTerminology(merged[0].content || '');
-            localStorage.setItem('terminology', merged[0].content || '');
-            setActiveGlossaryId(merged[0].name);
-          }
-          toast(`Imported ${data.length} glossaries!`);
-          return;
+        const engine = window.BackupEngine;
+        if (!engine) throw new Error('Backup Engine not loaded.');
+        const res = await engine.applyRestoredData(data, getBackupSetters());
+        if (res.isGlossaryOnly) {
+          toast(`Imported ${res.count} glossaries!`);
+        } else {
+          toast(`Restored ${res.summary} successfully!`);
         }
-
-        // 2. Full Backup format
-        let keyCount = 0;
-        let glossaryCount = 0;
-        let restoredKeys = {};
-
-        if (data.savedGlossaries && Array.isArray(data.savedGlossaries)) {
-          setSavedGlossaries(data.savedGlossaries);
-          try { localStorage.setItem('savedGlossaries', JSON.stringify(data.savedGlossaries)); } catch (e) {}
-          data.savedGlossaries.forEach(g => dbPut('glossaries', g));
-          glossaryCount = data.savedGlossaries.length;
-        }
-        if (data.translationHistory && Array.isArray(data.translationHistory)) {
-          setHistory(data.translationHistory);
-          try { localStorage.setItem('translationHistory', JSON.stringify(data.translationHistory.slice(0, 10))); } catch (e) {}
-          data.translationHistory.forEach(h => dbPut('history', h));
-        }
-        if (data.exportHistory && Array.isArray(data.exportHistory)) {
-          localStorage.setItem('exportHistory', JSON.stringify(data.exportHistory));
-        }
-        if (data.terminology !== undefined && data.terminology !== null) {
-          setTerminology(data.terminology);
-          localStorage.setItem('terminology', data.terminology);
-        } else if (data.savedGlossaries && data.savedGlossaries.length > 0) {
-          setTerminology(data.savedGlossaries[0].content || '');
-          localStorage.setItem('terminology', data.savedGlossaries[0].content || '');
-          setActiveGlossaryId(data.savedGlossaries[0].name);
-        }
-        if (data.customInstructions !== undefined && data.customInstructions !== null) {
-          setCustomInstructions(data.customInstructions);
-          localStorage.setItem('customInstructions', data.customInstructions);
-        } else if (data.savedGlossaries && data.savedGlossaries.length > 0 && data.savedGlossaries[0].instructions) {
-          setCustomInstructions(data.savedGlossaries[0].instructions);
-          localStorage.setItem('customInstructions', data.savedGlossaries[0].instructions);
-        }
-        if (data.defaultGlossaryName) {
-          setDefaultGlossaryName(data.defaultGlossaryName);
-          localStorage.setItem('defaultGlossaryName', data.defaultGlossaryName);
-        }
-        if (data.smartGlossary !== undefined) {
-          setSmartGlossary(data.smartGlossary);
-          localStorage.setItem('smartGlossary', data.smartGlossary);
-        }
-        if (data.enableGlossary !== undefined) {
-          setEnableGlossary(!!data.enableGlossary);
-          localStorage.setItem('enableGlossary', String(data.enableGlossary));
-        }
-        if (data.provider) {
-          setProvider(data.provider);
-          localStorage.setItem('translationProvider', data.provider);
-        }
-        if (data.geminiModel) {
-          setGeminiModel(data.geminiModel);
-          localStorage.setItem('geminiModel', data.geminiModel);
-        }
-        if (data.deepseekModel) {
-          setDeepseekModel(data.deepseekModel);
-          localStorage.setItem('deepseekModel', data.deepseekModel);
-        }
-        if (data.openaiModel) {
-          setOpenaiModel(data.openaiModel);
-          localStorage.setItem('openaiModel', data.openaiModel);
-        }
-        if (data.claudeModel) {
-          setClaudeModel(data.claudeModel);
-          localStorage.setItem('claudeModel', data.claudeModel);
-        }
-        if (data.concurrency) {
-          setConcurrency(data.concurrency);
-          localStorage.setItem('concurrency', String(data.concurrency));
-        }
-        if (data.contextAware !== undefined) {
-          setContextAware(data.contextAware);
-          localStorage.setItem('contextAware', data.contextAware);
-        }
-        if (data.chunkSizePreset) {
-          setChunkSizePreset(data.chunkSizePreset);
-          localStorage.setItem('chunkSizePreset', data.chunkSizePreset);
-        }
-        if (data.enableThinking !== undefined) {
-          setEnableThinking(!!data.enableThinking);
-          localStorage.setItem('enableThinking', String(data.enableThinking));
-        }
-        if (data.strictModel !== undefined) {
-          setStrictModel(!!data.strictModel);
-          localStorage.setItem('strictModel', String(data.strictModel));
-        }
-        if (data.enableStreaming !== undefined) {
-          setEnableStreaming(!!data.enableStreaming);
-          localStorage.setItem('enableStreaming', String(data.enableStreaming));
-        }
-        if (data.customModel !== undefined) {
-          setCustomModel(data.customModel);
-          localStorage.setItem('customModel', data.customModel);
-        }
-        if (data.useCustomModel !== undefined) {
-          setUseCustomModel(!!data.useCustomModel);
-          localStorage.setItem('useCustomModel', String(data.useCustomModel));
-        }
-        if (data.customDeepseekModel !== undefined) {
-          setCustomDeepseekModel(data.customDeepseekModel);
-          localStorage.setItem('customDeepseekModel', data.customDeepseekModel);
-        }
-        if (data.useCustomDeepseekModel !== undefined) {
-          setUseCustomDeepseekModel(!!data.useCustomDeepseekModel);
-          localStorage.setItem('useCustomDeepseekModel', String(data.useCustomDeepseekModel));
-        }
-
-        // EPUB Styling & Typography preferences
-        if (data.epubDropCaps !== undefined) {
-          setEpubDropCaps(!!data.epubDropCaps);
-          localStorage.setItem('epubDropCaps', String(data.epubDropCaps));
-        }
-        if (data.epubSmartQuotes !== undefined) {
-          setEpubSmartQuotes(!!data.epubSmartQuotes);
-          localStorage.setItem('epubSmartQuotes', String(data.epubSmartQuotes));
-        }
-        if (data.epubCleanWebArtifacts !== undefined) {
-          setEpubCleanWebArtifacts(!!data.epubCleanWebArtifacts);
-          localStorage.setItem('epubCleanWebArtifacts', String(data.epubCleanWebArtifacts));
-        }
-        if (data.epubFontTheme) {
-          setEpubFontTheme(data.epubFontTheme);
-          localStorage.setItem('epubFontTheme', data.epubFontTheme);
-        }
-        if (data.epubJustifyText !== undefined) {
-          setEpubJustifyText(!!data.epubJustifyText);
-          localStorage.setItem('epubJustifyText', String(data.epubJustifyText));
-        }
-        if (data.epubIncludeImages !== undefined) {
-          setEpubIncludeImages(!!data.epubIncludeImages);
-          localStorage.setItem('epubIncludeImages', String(data.epubIncludeImages));
-        }
-        if (data.scrapeImages !== undefined) {
-          setScrapeImages(!!data.scrapeImages);
-          localStorage.setItem('scrapeImages', String(data.scrapeImages));
-        }
-
-        // Reader Preferences
-        if (data.readerTheme) {
-          setReaderTheme(data.readerTheme);
-          localStorage.setItem('readerTheme', data.readerTheme);
-        }
-        if (data.readerFont) {
-          setReaderFont(data.readerFont);
-          localStorage.setItem('readerFont', data.readerFont);
-        }
-        if (data.readerFontSize) {
-          setReaderFontSize(data.readerFontSize);
-          localStorage.setItem('readerFontSize', String(data.readerFontSize));
-        }
-        if (data.readerJustify !== undefined) {
-          localStorage.setItem('readerJustify', String(data.readerJustify));
-        }
-
-        // Novel Library Restore (Full chapters + Metadata)
-        let novelCount = 0;
-        if (data.novelLibrary && Array.isArray(data.novelLibrary) && data.novelLibrary.length > 0) {
-          if (window.GeminiNovelDB) {
-            for (const novel of data.novelLibrary) {
-              try {
-                if (!novel.id) novel.id = 'novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-                await window.GeminiNovelDB.saveNovel(novel);
-              } catch(e) {
-                console.warn('Restore novel error:', e);
-              }
-            }
-          }
-          novelCount = data.novelLibrary.length;
-        }
-        if (data.webImportHistory && Array.isArray(data.webImportHistory)) {
-          setWebImportHistory(data.webImportHistory);
-          try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(data.webImportHistory)); } catch (e) {}
-          if (novelCount === 0) novelCount = data.webImportHistory.length;
-        } else if (data.novelLibrary && Array.isArray(data.novelLibrary) && data.novelLibrary.length > 0) {
-          const synthesizedMeta = data.novelLibrary.map(n => ({
-            id: n.id,
-            title: n.title || 'Untitled Novel',
-            author: n.author || 'Author',
-            summary: (n.summary || '').substring(0, 300),
-            cover: n.cover || '',
-            tags: n.tags || [],
-            chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
-            totalChapterCount: n.totalChapterCount || (n.chapterList ? n.chapterList.length : (n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0))),
-            volumeCount: n.volumeCount || 0,
-            wordCount: n.wordCount || 0,
-            timestamp: n.timestamp || new Date().toISOString(),
-            isEpub: !!n.isEpub,
-            sourceUrl: n.sourceUrl || '',
-            folderTreeUri: n.folderTreeUri || '',
-            folderPath: n.folderPath || ''
-          }));
-          setWebImportHistory(synthesizedMeta);
-          try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(synthesizedMeta)); } catch (e) {}
-        }
-
-        // Telemetry Diagnostics Restore
-        if (data.telemetryLogs && Array.isArray(data.telemetryLogs) && window.AppLogger) {
-          window.AppLogger.logs = [...data.telemetryLogs];
-          window.AppLogger.listeners.forEach(fn => { try { fn([...window.AppLogger.logs]); } catch(e) {} });
-        }
-
-        // Restore API Key Profiles (Robust Multi-Format Parsing)
-        if (data.apiKeysByProvider && typeof data.apiKeysByProvider === 'object') {
-          ['gemini', 'deepseek', 'openai', 'claude', 'deepl', 'libre'].forEach(prov => {
-            const list = data.apiKeysByProvider[prov];
-            if (Array.isArray(list) && list.length > 0) {
-              restoredKeys[prov] = list.filter(k => k && (k.key || typeof k === 'string')).map((k, idx) => {
-                if (typeof k === 'string') return { id: `${prov}-${Date.now()}-${idx}`, name: `${prov.toUpperCase()} Key ${idx + 1}`, key: k.trim() };
-                return k;
-              });
-              restoredKeys[prov].forEach(k => {
-                if (k.key && k.key.trim()) keyCount++;
-              });
-              if (restoredKeys[prov][0]?.key) {
-                localStorage.setItem(`${prov}ApiKey`, restoredKeys[prov][0].key);
-                if (prov === 'gemini') localStorage.setItem('apiKey', restoredKeys[prov][0].key);
-              }
-            }
-          });
-        }
-
-        // Support Legacy Single Keys in backup
-        const legacyMappings = {
-          gemini: data.geminiApiKey || data.apiKey || '',
-          deepseek: data.deepseekApiKey || '',
-          openai: data.openaiApiKey || '',
-          claude: data.claudeApiKey || '',
-          deepl: data.deeplApiKey || ''
-        };
-
-        Object.entries(legacyMappings).forEach(([prov, lKey]) => {
-          if (lKey && lKey.trim()) {
-            localStorage.setItem(`${prov}ApiKey`, lKey);
-            if (prov === 'gemini') localStorage.setItem('apiKey', lKey);
-            if (!restoredKeys[prov] || restoredKeys[prov].length === 0) {
-              const provNames = { gemini: 'Gemini', deepseek: 'DeepSeek', openai: 'OpenAI', claude: 'Claude', deepl: 'DeepL', libre: 'LibreTranslate' };
-              restoredKeys[prov] = [{ id: `${prov}-init`, name: `Primary ${provNames[prov] || prov} Key`, key: lKey }];
-              keyCount++;
-            } else if (!restoredKeys[prov][0].key) {
-              restoredKeys[prov][0].key = lKey;
-              keyCount++;
-            }
-          }
-        });
-
-        if (Object.keys(restoredKeys).length > 0) {
-          setApiKeysByProvider(prev => {
-            const updated = { ...prev, ...restoredKeys };
-            localStorage.setItem('apiKeysByProvider', JSON.stringify(updated));
-            return updated;
-          });
-        }
-
-        if (data.activeKeyIds && typeof data.activeKeyIds === 'object') {
-          setActiveKeyIds(data.activeKeyIds);
-          localStorage.setItem('activeKeyIds', JSON.stringify(data.activeKeyIds));
-        }
-
-        if (data.libreUrl) {
-          setLibreUrl(data.libreUrl);
-          localStorage.setItem('libreUrl', data.libreUrl);
-        }
-
-        const parts = [];
-        if (keyCount > 0) parts.push(`${keyCount} API key(s)`);
-        if (glossaryCount > 0) parts.push(`${glossaryCount} glossary profile(s)`);
-        else if (data.terminology && data.terminology.trim()) parts.push('active glossary');
-        if (data.translationHistory && data.translationHistory.length > 0) parts.push(`${data.translationHistory.length} book session(s)`);
-        if (novelCount > 0) parts.push(`${novelCount} library novel(s)`);
-        parts.push('all settings & typography');
-        toast(` Restored ${parts.join(', ')} successfully!`);
       };
 
-      const readFileContentAsText = (file) => {
-        return new Promise((resolve, reject) => {
-          if (file.text) {
-            file.text().then(resolve).catch(() => {
-              const reader = new FileReader();
-              reader.onload = (evt) => resolve(evt.target.result);
-              reader.onerror = (err) => reject(err);
-              reader.readAsText(file);
-            });
-          } else {
-            const reader = new FileReader();
-            reader.onload = (evt) => resolve(evt.target.result);
-            reader.onerror = (err) => reject(err);
-            reader.readAsText(file);
-          }
-        });
-      };
+      const readFileContentAsText = (file) => window.BackupEngine ? window.BackupEngine.readFileAsText(file) : new Promise((res, rej) => {
+        const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsText(file);
+      });
 
       const importFullBackup = async (e) => {
         const f = e.target?.files?.[0];
         if (!f) return;
         try {
           const txt = await readFileContentAsText(f);
-          const data = JSON.parse(txt);
+          const data = window.BackupEngine.parseBackup(txt);
           await applyRestoredData(data);
         } catch (err) {
           console.error("Backup import error:", err);
@@ -6913,7 +6475,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
           }
           const input = prompt('Paste your backup JSON content below:', text);
           if (!input || !input.trim()) return;
-          const data = JSON.parse(input.trim());
+          const data = window.BackupEngine.parseBackup(input.trim());
           await applyRestoredData(data);
         } catch (err) {
           setError('Failed to parse backup JSON: ' + err.message);
@@ -7402,27 +6964,11 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
               try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
             })();
           }
-
           if (!historyData || historyData.length === 0) {
             return toast('No translation history to export.', 'warning');
           }
-
-          const sorted = historyData.sort((a, b) => new Date(b.ts) - new Date(a.ts));
-          const exportObj = {
-            app: 'Gemini EPUB Translator',
-            type: 'history_export',
-            storageEngine: 'IndexedDB',
-            version: VERSION,
-            exportedAt: new Date().toISOString(),
-            totalEntries: sorted.length,
-            history: sorted
-          };
-
-          const jsonStr = JSON.stringify(exportObj, null, 2);
-          const blob = new Blob([jsonStr], { type: 'application/json' });
-          const d = new Date().toISOString().slice(0, 10);
-          await saveUniversalBlob(blob, `gemini_translation_history_${d}.json`, 'application/json');
-          toast(`Exported ${sorted.length} history records (IndexedDB)!`, 'success');
+          const res = await window.ExportEngine.exportHistoryJson(historyData, VERSION);
+          toast(`Exported ${res.count} history records (IndexedDB)!`, 'success');
         } catch (e) {
           toast('Export history error: ' + e.message, 'error');
         }
@@ -7430,11 +6976,7 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
       const exportSingleHistoryItem = async (entry) => {
         try {
-          const title = `${(entry.tgtLang ? `${entry.srcLang || 'Auto'} to ${entry.tgtLang}` : 'Translation')}_${new Date(entry.ts).toISOString().slice(0, 10)}`;
-          const content = `====================================================\nGEMINI TRANSLATION HISTORY ENTRY\nProvider: ${entry.provider || 'AI'}\nLanguage: ${entry.srcLang || 'Auto'} -> ${entry.tgtLang}\nDate: ${new Date(entry.ts).toLocaleString()}\nTokens: ${entry.stats?.totalTokens?.toLocaleString() || 'N/A'}\nCost: ${entry.stats?.cost || 'N/A'}\n====================================================\n\n[INPUT TEXT]:\n${entry.fullInput || entry.inputPreview || ''}\n\n====================================================\n[TRANSLATED OUTPUT]:\n${entry.fullOutput || entry.outputPreview || ''}\n`;
-          const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-          const exportFileName = `${title.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}.txt`;
-          await saveUniversalBlob(blob, exportFileName, 'text/plain');
+          await window.ExportEngine.exportHistoryItemTxt(entry);
           toast('History entry exported as .txt file!', 'success');
         } catch (e) {
           toast('Export item error: ' + e.message, 'error');
@@ -8418,333 +7960,30 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         setProgressLabel('');
       };
 
-      // --- File Handling ---
-      const readFileAsText = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = e => rej(e.target.error); r.readAsText(f) });
-
-      const readPdf = async f => {
-        if (!window.pdfjsLib) throw new Error('PDF.js not loaded.');
-        const buf = await f.arrayBuffer(); const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise; let txt = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i); const tc = await page.getTextContent(); if (!tc.items?.length) continue;
-          const items = tc.items.sort((a, b) => a.transform[5] < b.transform[5] ? 1 : a.transform[5] > b.transform[5] ? -1 : a.transform[4] - b.transform[4]);
-          let lastY = items[0].transform[5], line = '';
-          for (const it of items) { const y = it.transform[5]; if (Math.abs(y - lastY) > it.height * 0.4) { txt += line + '\n'; if (Math.abs(y - lastY) > it.height * 1.2) txt += '\n'; line = '' } line += it.str + (it.str.endsWith(' ') ? '' : ' '); lastY = y }
-          txt += line + '\n\n';
-        } return txt;
-      };
-
-      const readEpub = async f => {
-        if (!window.JSZip) throw new Error('JSZip not loaded.');
-        const zip = await window.JSZip.loadAsync(f); const chapters = [];
-        const seenChapterKeys = new Set();
-        const chapterKey = text => String(text || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
-        const cf = zip.file('META-INF/container.xml'); if (!cf) throw new Error('Invalid EPUB');
-        const cc = await cf.async('text'); const cd = new DOMParser().parseFromString(cc, 'text/xml');
-        const rp = cd.querySelector('rootfile')?.getAttribute('full-path'); if (!rp) throw new Error('No rootfile');
-        const od = rp.substring(0, rp.lastIndexOf('/') + 1);
-        const of2 = zip.file(rp); if (!of2) throw new Error('OPF not found');
-        const oc = await of2.async('text'); const opf = new DOMParser().parseFromString(oc, 'text/xml');
-        const bookTitle = (opf.querySelector('title, dc\\:title')?.textContent || '').trim();
-        const bookAuthor = (opf.querySelector('creator, dc\\:creator')?.textContent || '').trim();
-        const bookIdentifier = (opf.querySelector('identifier, dc\\:identifier')?.textContent || '').trim();
-        const bookSource = (opf.querySelector('source, dc\\:source')?.textContent || opf.querySelector('meta[name="source"]')?.getAttribute('content') || '').trim();
-        const ncxI = opf.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
-        const ncxH = ncxI ? od + ncxI.getAttribute('href') : null;
-        const navI = Array.from(opf.querySelectorAll('manifest item')).find(i => (i.getAttribute('properties') || '').split(/\s+/).includes('nav'));
-        const navH = navI ? od + navI.getAttribute('href') : null;
-        const titles = new Map();
-        if (ncxH) { const nf = zip.file(ncxH); if (nf) { const nc = await nf.async('text'); const nd = new DOMParser().parseFromString(nc, 'text/xml'); nd.querySelectorAll('navPoint').forEach(np => { const l = np.querySelector('navLabel text')?.textContent; const s = np.querySelector('content')?.getAttribute('src'); if (l && s) titles.set(s.split('#')[0], l.trim()) }) } }
-
-        // Only extract raw text for the history preview. We keep `doc` and `zipPath` for True EPUB translation.
-        const extractText = n => {
-          let t = '';
-          const blocks = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'li', 'blockquote', 'tr', 'section', 'article', 'pre'];
-          if (n.nodeType === 3) {
-            t += (n.textContent || '');
-          } else if (n.nodeType === 1) {
-            const tag = n.tagName.toLowerCase();
-            if (tag === 'br') return '\n';
-            for (const c of n.childNodes) {
-              const childTxt = extractText(c);
-              if (childTxt) {
-                if (t && !t.endsWith(' ') && !t.endsWith('\n') && !childTxt.startsWith(' ') && !childTxt.startsWith('\n') && !/[，。！？、,.!?\s]/.test(t.slice(-1))) {
-                  t += ' ';
-                }
-                t += childTxt;
-              }
-            }
-            if (blocks.includes(tag)) {
-              t = t.trimEnd() + '\n\n';
-            }
-          }
-          // Clean missing spaces after english punctuation
-          return t.replace(/([.!?])([A-Z])/g, '$1 $2');
-        };
-
-        for (const ir of opf.querySelectorAll('spine itemref')) {
-          const id = ir.getAttribute('idref'); const mi = opf.querySelector(`manifest item[id="${id}"]`); const href = mi?.getAttribute('href'); if (!href) continue;
-          const hrefPath = href.split('#')[0];
-          const cp = od + hrefPath;
-          const properties = (mi.getAttribute('properties') || '').toLowerCase().split(/\s+/);
-          if (properties.includes('nav') || cp === navH || cp === ncxH || /(?:^|\/)(?:nav|toc|table[-_ ]?of[-_ ]?contents)(?:[-_.]|\/|$)/i.test(hrefPath)) continue;
-          const mt = (mi.getAttribute('media-type') || '').toLowerCase();
-          if (mt && (mt === 'application/xhtml+xml' || mt === 'text/html')) {
-            const file = zip.file(cp);
-            if (file) {
-              try {
-                const html = await file.async('text');
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                let txt = extractText(doc.body);
-                let title = titles.get(href.split('#')[0]) || titles.get(href) || '';
-                if (!title) {
-                  const headingEl = doc.querySelector('h1,h2,h3,h4, [class*="title"], [class*="heading"], [id*="title"], [class*="chap"]');
-                  if (headingEl && headingEl.textContent.trim()) {
-                    title = headingEl.textContent.trim();
-                  }
-                }
-                if (!title) {
-                  const firstLine = (txt || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0] || '';
-                  if (firstLine && (/^(?:第[0-9零一二三四五六七八九十百千万]+[章节回节卷集部]|Chapter\s+\d+|Section\s+\d+|Volume\s+\d+|[【\[(]?(?:作品相关|内容简介|版权信息|制作信息|引言|序章|前言|楔子)[\]】)]?)/i.test(firstLine) || firstLine.length <= 40)) {
-                    title = firstLine;
-                  }
-                }
-                if (!title) title = `Chapter ${chapters.length + 1}`;
-
-                // AO3 / EPUB Summary & Foreword Disambiguation:
-                // If chapter body is primarily a summary/synopsis/warning/metadata block, label it "Summary"
-                const isSummaryBlock = doc.querySelector('.meta, .tags, [class*="summary"], [class*="preface"], dl.tags') ||
-                  /(?:^|\n)\s*(?:by\s+[^\n]+\r?\n+)?\s*(?:Summary|Synopsis|Warning|Notes|Author'?s?\s*Note|内容简介|简介|前言|文案)[:：\s]/i.test(txt || '');
-                if (isSummaryBlock && (title.toLowerCase() === bookTitle.toLowerCase() || !title || /^chapter\s+\d+$/i.test(title))) {
-                  title = 'Summary';
-                }
-
-                if (!txt || !txt.trim()) {
-                  const hasImg = doc.querySelector('img, image, svg');
-                  if (hasImg) {
-                    txt = '[Illustration]';
-                  } else {
-                    txt = doc.body?.textContent?.trim() || '[Chapter Content]';
-                  }
-                }
-                chapters.push({ title, text: txt, doc, zipPath: cp });
-              } catch (e) { }
-            }
-          }
-        }
-        // Deduplicate adjacent identical chapter titles (e.g. AO3 summary page and chapter 1 both titled with book name)
-        for (let idx = 0; idx < chapters.length - 1; idx++) {
-          const cur = chapters[idx];
-          const next = chapters[idx + 1];
-          if (cur.title.trim().toLowerCase() === next.title.trim().toLowerCase()) {
-            const curIsSummary = /(?:^|\n)\s*(?:by\s+[^\n]+\r?\n+)?\s*(?:Summary|Synopsis|Warning|Notes|简介|内容简介|前言)[:：\s]/i.test(cur.text || '');
-            if (curIsSummary) {
-              cur.title = 'Summary';
-            }
-          }
-        }
-        if (!chapters.length) throw new Error('No readable text in EPUB.');
-
-        let extractedCover = '';
-        try {
-          let coverHref = '';
-          let coverMediaType = '';
-
-          // 1. EPUB 3 manifest item with properties="cover-image"
-          const coverItem = Array.from(opf.querySelectorAll('manifest item')).find(i => {
-            const props = (i.getAttribute('properties') || '').split(/\s+/);
-            return props.includes('cover-image');
-          });
-          if (coverItem) {
-            coverHref = coverItem.getAttribute('href');
-            coverMediaType = coverItem.getAttribute('media-type');
-          }
-
-          // 2. EPUB 2 <meta name="cover" content="cover_item_id"/>
-          if (!coverHref) {
-            const metaCover = opf.querySelector('metadata meta[name="cover"]');
-            if (metaCover) {
-              const coverId = metaCover.getAttribute('content');
-              if (coverId) {
-                const item = opf.querySelector(`manifest item[id="${coverId}"]`);
-                if (item) {
-                  coverHref = item.getAttribute('href');
-                  coverMediaType = item.getAttribute('media-type');
-                }
-              }
-            }
-          }
-
-          // 3. EPUB 2/3 <guide><reference type="cover" href="..."/></guide>
-          if (!coverHref) {
-            const guideCover = opf.querySelector('guide reference[type="cover"]');
-            if (guideCover) {
-              const href = guideCover.getAttribute('href');
-              if (href) {
-                if (/\.(jpe?g|png|webp|gif|svg)(?:\?.*)?$/i.test(href)) {
-                  coverHref = href;
-                } else {
-                  const coverHtmlFile = zip.file(od + href.split('#')[0]);
-                  if (coverHtmlFile) {
-                    const html = await coverHtmlFile.async('text');
-                    const imgDoc = new DOMParser().parseFromString(html, 'text/html');
-                    const imgEl = imgDoc.querySelector('image[*|href], img[src]');
-                    const foundSrc = imgEl ? (imgEl.getAttribute('href') || imgEl.getAttribute('xlink:href') || imgEl.getAttribute('src')) : '';
-                    if (foundSrc) {
-                      const pageDir = (od + href.split('#')[0]).substring(0, (od + href.split('#')[0]).lastIndexOf('/') + 1);
-                      const resolvedCoverPath = (pageDir + foundSrc).replace(/\/\.\//g, '/').replace(/[^/]+\/\.\.\//g, '');
-                      const resolvedFile = zip.file(resolvedCoverPath);
-                      if (resolvedFile) {
-                        const b64 = await resolvedFile.async('base64');
-                        const ext = resolvedCoverPath.split('.').pop().toLowerCase();
-                        const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg';
-                        extractedCover = `data:${mime};base64,${b64}`;
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          // 4. Heuristic manifest search for cover image
-          if (!extractedCover && !coverHref) {
-            const heuristicItem = Array.from(opf.querySelectorAll('manifest item')).find(i => {
-              const id = (i.getAttribute('id') || '').toLowerCase();
-              const href = (i.getAttribute('href') || '').toLowerCase();
-              const mt = (i.getAttribute('media-type') || '').toLowerCase();
-              return mt.startsWith('image/') && (id.includes('cover') || href.includes('cover'));
-            });
-            if (heuristicItem) {
-              coverHref = heuristicItem.getAttribute('href');
-              coverMediaType = heuristicItem.getAttribute('media-type');
-            }
-          }
-
-          if (!extractedCover && coverHref) {
-            const cleanHref = coverHref.split('#')[0];
-            const fullCoverPath = od + cleanHref;
-            const coverZipFile = zip.file(fullCoverPath) || zip.file(cleanHref);
-            if (coverZipFile) {
-              const b64 = await coverZipFile.async('base64');
-              const ext = fullCoverPath.split('.').pop().toLowerCase();
-              const mime = coverMediaType || (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg');
-              extractedCover = `data:${mime};base64,${b64}`;
-            }
-          }
-        } catch (coverErr) {
-          console.warn('Cover extraction warning:', coverErr);
-        }
-
-        window.telemetryLog?.('EPUB_PARSE', `Extracted ${chapters.length} chapters from EPUB: "${bookTitle || f.name}"`, {
-          title: bookTitle || f.name,
-          chapterCount: chapters.length,
-          hasCover: Boolean(extractedCover),
-          sizeBytes: f.size
-        });
-        return { chapters, isEpub: true, originalZip: zip, cover: extractedCover, title: bookTitle, author: bookAuthor, uuid: bookIdentifier, sourceUrl: bookSource };
-      };
-
-      const readDocx = async f => {
-        if (!window.JSZip) throw new Error('JSZip is required to read .docx files.');
-        const zip = await window.JSZip.loadAsync(f);
-        const docFile = zip.file('word/document.xml');
-        if (!docFile) throw new Error('Invalid Word (.docx) document: word/document.xml not found.');
-        const xmlText = await docFile.async('text');
-
-        let lines = [];
-        try {
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-          const paragraphs = xmlDoc.getElementsByTagName('w:p');
-          if (paragraphs && paragraphs.length > 0) {
-            for (let i = 0; i < paragraphs.length; i++) {
-              const p = paragraphs[i];
-              const isHeading = Boolean(p.querySelector && p.querySelector('pStyle[val*="Heading"], pStyle[val*="Title"], pStyle[val*="heading"], pStyle[val*="title"], w\\:pStyle[w\\:val*="Heading"], w\\:pStyle[w\\:val*="Title"]'));
-              const textNodes = p.querySelectorAll ? p.querySelectorAll('w\\:t, t, w\\:br, br, w\\:tab, tab') : p.getElementsByTagName('w:t');
-              let pText = '';
-              if (textNodes && textNodes.length > 0) {
-                for (let j = 0; j < textNodes.length; j++) {
-                  const node = textNodes[j];
-                  const tag = (node.tagName || '').toLowerCase();
-                  if (tag.endsWith('br')) pText += '\n';
-                  else if (tag.endsWith('tab')) pText += ' ';
-                  else pText += node.textContent || '';
-                }
-              } else {
-                const ts = p.getElementsByTagName('w:t');
-                for (let j = 0; j < ts.length; j++) pText += ts[j].textContent || '';
-              }
-              const trimmed = pText.trim();
-              if (trimmed) {
-                if (isHeading && !trimmed.startsWith('#')) {
-                  lines.push(`# ${trimmed}`);
-                } else {
-                  lines.push(trimmed);
-                }
-              }
-            }
-          }
-        } catch (domErr) {
-          console.warn('DOMParser failed on docx, using regex fallback:', domErr);
-        }
-
-        if (lines.length === 0) {
-          const pMatches = xmlText.match(/<w:p[\s>].*?<\/w:p>/g) || [];
-          lines = pMatches.map(p => {
-            const tMatches = p.match(/<w:t[^>]*>(.*?)<\/w:t>/g) || [];
-            return tMatches.map(m => m.replace(/<[^>]+>/g, '')).join('');
-          }).filter(l => l.trim());
-        }
-
-        const fullText = lines.join('\n\n');
-        if (!fullText.trim()) throw new Error('Word document contains no readable text.');
-        return fullText;
-      };
-
+      // --- File Handling (Delegated to DocumentParser) ---
       const processFile = async f => {
         setUploadingFile(true); setError(''); setInputText(''); setAssembledText(''); setTranslatedChapters([]); setChapters([]);
         const hashId = generateJobId(f.name + f.size, true);
         setCurrentFileHash(hashId);
         try {
           const fname = (f.name || '').toLowerCase();
-          let data;
-          if (fname.endsWith('.docx') || fname.endsWith('.doc')) {
-            if (fname.endsWith('.doc') && !fname.endsWith('.docx')) {
-              throw new Error('Legacy binary .doc files are not supported. Please save as modern .docx or .txt before importing.');
-            }
-            const docxText = await readDocx(f);
-            const fallbackTitle = f.name.replace(/\.docx$/i, '');
-            const parsedChs = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(docxText, fallbackTitle) : [];
-            const chs = (parsedChs.length > 0)
-              ? parsedChs.map(c => ({ title: c.title, text: c.content || c.text || '', content: c.content || c.text || '' }))
-              : [{ title: fallbackTitle, text: docxText, content: docxText }];
-            data = { chapters: chs, title: fallbackTitle };
-            setInputText(docxText);
-          } else if (fname.endsWith('.json') || f.type === 'application/json') {
+          if (fname.endsWith('.json') || f.type === 'application/json') {
             setUploadingFile(false);
             return importFullBackup({ target: { files: [f] } });
-          } else if (f.type === 'text/plain' || fname.endsWith('.txt')) {
-            const rawText = await readFileAsText(f);
-            data = { chapters: [{ title: f.name.replace(/\.txt$/i, ''), text: rawText, content: rawText }] };
-            setInputText(rawText);
-          } else if (f.type === 'application/pdf' || fname.endsWith('.pdf')) {
-            const pdfText = await readPdf(f);
-            data = { chapters: [{ title: f.name.replace(/\.pdf$/i, ''), text: pdfText, content: pdfText }] };
-          } else if (f.type === 'application/epub+zip' || fname.endsWith('.epub') || fname.endsWith('.zip')) {
-            data = await readEpub(f);
-          } else {
-            // Fallback: try reading as text
-            try {
-              const rawText = await readFileAsText(f);
-              if (rawText && rawText.trim()) {
-                data = { chapters: [{ title: f.name || 'Imported Document', text: rawText, content: rawText }] };
-                setInputText(rawText);
-              } else {
-                throw new Error('Unsupported file type. Please use .txt, .pdf, .epub, .docx, or .json backup.');
-              }
-            } catch (err) {
-              throw new Error('Unsupported file type. Please use .txt, .pdf, .epub, .docx, or .json backup.');
+          }
+
+          let data;
+          if (window.DocumentParser) {
+            data = await window.DocumentParser.parseFile(f, {
+              parseAssembledTextToChapters: typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters : null
+            });
+            if (data.rawText && !data.isEpub) {
+              setInputText(data.rawText);
             }
+          } else {
+            const rawText = await readFileAsText(f);
+            data = { chapters: [{ title: f.name || 'Imported Document', text: rawText, content: rawText }] };
+            setInputText(rawText);
           }
 
           const isEpub = data.isEpub || false;
@@ -8849,33 +8088,8 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         const s = srcLang; setSrcLang(tgtLang); setTgtLang(s);
       };
 
-      // --- Download Handlers ---
-      const sanitizeTextForPdf = (str) => {
-        if (!str) return '';
-        let s = str
-          .replace(/[ōŌ]/g, m => m === 'ō' ? 'o' : 'O')
-          .replace(/[ūŪ]/g, m => m === 'ū' ? 'u' : 'U')
-          .replace(/[āĀ]/g, m => m === 'ā' ? 'a' : 'A')
-          .replace(/[īĪ]/g, m => m === 'ī' ? 'i' : 'I')
-          .replace(/[ēĒ]/g, m => m === 'ē' ? 'e' : 'E')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '');
-
-        s = s
-          .replace(/[\u3000\u00A0\u2000-\u200B\u202F\u205F\uFEFF]/g, ' ')
-          .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
-          .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
-          .replace(/[\u2013\u2014\u2015\u2E3A\u2E3B]/g, ' - ')
-          .replace(/\u2026/g, '...')
-          .replace(/[«»「」『』]/g, '"')
-          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
-          .replace(/[^\x20-\x7E\xA0-\xFF]/g, '')
-          .replace(/[ \t]+/g, ' ')
-          .trim();
-        return s;
-      };
-
-      const isGenericTitle = t => !t || t.trim() === '' || /^translated\s*(document|file)?$/i.test(t.trim());
+      // --- Download Handlers (Delegated to ExportEngine) ---
+      const isGenericTitle = t => window.ExportEngine ? window.ExportEngine.isGenericTitle(t) : (!t || t.trim() === '' || /^translated\s*(document|file)?$/i.test(t.trim()));
 
       const getExportChapters = () => {
         const curText = assembledText && assembledText.trim();
@@ -8943,62 +8157,21 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         }
         setDownloadingPdf(true); setError('');
         try {
-          const { jsPDF } = window.jspdf;
-          const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-          doc.setFont('Helvetica', 'normal');
-          const m = 18;
-          const mw = doc.internal.pageSize.getWidth() - 2 * m;
-          const pageHeight = doc.internal.pageSize.getHeight();
-          const lh = 6.2;
-          let y = m + 5;
-
-          chaptersToExport.forEach((ch, i) => {
-            if (i > 0) { doc.addPage(); y = m + 5; }
-            const hasRealTitle = ch.title && ch.title.trim() && !isGenericTitle(ch.title);
-            if (hasRealTitle) {
-              const cleanTitle = sanitizeTextForPdf(ch.title);
-              doc.setFontSize(16);
-              doc.setFont('Helvetica', 'bold');
-              doc.text(cleanTitle, m, y);
-              y += lh * 2.2;
-              doc.setFont('Helvetica', 'normal');
-            }
-            doc.setFontSize(10.5);
-            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
-            const cleanContent = (typeof stripFn === 'function') ? stripFn(ch.content || '', ch.title, ch.originalTitle) : (ch.content || '');
-            const rawLines = cleanContent.split(/\r?\n/);
-            for (const rawLine of rawLines) {
-              const p = sanitizeTextForPdf(rawLine);
-              if (!p) continue;
-
-              const isSceneDivider = /^(\*|\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(p);
-              const splitLines = doc.splitTextToSize(p, mw);
-
-              if (y + (splitLines.length * lh) > pageHeight - m) {
-                doc.addPage();
-                y = m + 5;
-              }
-
-              splitLines.forEach(l => {
-                if (isSceneDivider) {
-                  doc.text(l, doc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
-                } else {
-                  doc.text(l, m, y);
-                }
-                y += lh;
-              });
-              y += isSceneDivider ? lh * 0.8 : lh * 0.45;
-            }
-          });
-          const pdfBlob = doc.output('blob');
-          const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
-          const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
-          const pdfFileName = `${cleanDocName}.pdf`;
-          await saveUniversalBlob(pdfBlob, pdfFileName, 'application/pdf');
-        } catch (e) { setError(`PDF error: ${e.message}`) } finally { setDownloadingPdf(false) }
+          if (window.ExportEngine) {
+            const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
+            await window.ExportEngine.exportPdf(chaptersToExport, {
+              title: docTitle,
+              tgtLang,
+              fileName
+            });
+          }
+        } catch (e) {
+          setError(`PDF error: ${e.message}`);
+          toast(`PDF error: ${e.message}`, 'error');
+        } finally {
+          setDownloadingPdf(false);
+        }
       };
-
-      // (escapeXml is global)
 
       const handleDownloadEPUB = async () => {
         const chaptersToExport = getExportChapters();
@@ -9011,35 +8184,9 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         setError('');
         try {
           const rawBaseTitle = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || (chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : null);
-          const docTitle = rawBaseTitle
-            ? (rawBaseTitle.includes('(Translated)') ? rawBaseTitle : `${rawBaseTitle} (Translated)`)
-            : `Translated Novel (${tgtLang})`;
-          const cleanDocTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(docTitle, chaptersToExport) : (docTitle || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
           const author = (activeNovelRecord && activeNovelRecord.author) || 'Gemini Translator';
-          const cleanAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(author) : (author || 'Gemini Translator')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-          const lang = tgtLang.split(/[-_ ]/)[0].toLowerCase() || 'en';
 
-          window.telemetryLog?.('FILE_EXPORT', `Starting EPUB export: "${cleanDocTitle}" (${chaptersToExport.length} chapters, preserveOriginal=${!!(currentIsEpub && currentOriginalZip)})`, {
-            title: cleanDocTitle,
-            author: cleanAuthor,
-            chapters: chaptersToExport.length
-          });
-
-          // Preserve the ORIGINAL EPUB structure (OPF/TOC/format) when translating from an EPUB file
-          if (currentIsEpub && currentOriginalZip && typeof currentOriginalZip.generateAsync === 'function') {
-            setEpubPackagingModal({ title: cleanDocTitle, status: ' Packaging original EPUB structure…', pct: 40 });
-            await updateOriginalEpubNavigation(currentOriginalZip, chaptersToExport);
-            const zipBlob = await currentOriginalZip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
-            setEpubPackagingModal(null);
-            const cleanDocName = sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim();
-            const outFileName = `${cleanDocName}.epub`;
-            const res = await saveUniversalBlob(zipBlob, outFileName, 'application/epub+zip');
-            toast(' EPUB downloaded with the original structure!', 'success');
-            window.telemetryLog?.('FILE_EXPORT', `EPUB exported (original structure): "${outFileName}" (${(zipBlob.size / 1024).toFixed(1)} KB)`);
-            return { blob: zipBlob, fileName: outFileName, path: res?.path };
-          }
-
-          const cleanDocBase = String(cleanDocTitle || fileName || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+          const cleanDocBase = String(rawBaseTitle || fileName || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
           const matchedFromHistory = (typeof webImportHistory !== 'undefined' && Array.isArray(webImportHistory))
             ? webImportHistory.find(n => {
                 const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
@@ -9053,26 +8200,28 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
                                 matchedFromHistory?.cover ||
                                 (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
 
-          // Always compile a clean, standardized EPUB with translated TOC and proper paragraph spacing
-          setEpubPackagingModal({ title: cleanDocTitle, status: ' Assembling translated EPUB archive...', pct: 10 });
-          const epubOpts = typeof getEpubOptions === 'function'
-            ? getEpubOptions({ title: cleanDocTitle, coverUrl: resolvedCover })
-            : { coverUrl: resolvedCover };
-          const blob = await generateEpubFromChapters(chaptersToExport, cleanDocTitle, cleanAuthor, lang, (status, pct, elapsed) => {
-            setEpubPackagingModal({ title: cleanDocTitle, status, pct, elapsed });
-          }, epubOpts);
-          setEpubPackagingModal(null);
-          toast(' EPUB downloaded successfully!', 'success');
-          const cleanDocName = cleanDocTitle && !isGenericTitle(cleanDocTitle) ? sanitizeFilename(cleanDocTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
-          const outFileName = `${cleanDocName}.epub`;
-          const res = await saveUniversalBlob(blob, outFileName, 'application/epub+zip');
-          window.telemetryLog?.('FILE_EXPORT', `EPUB exported: "${outFileName}" (${(blob.size / 1024).toFixed(1)} KB)`);
-          return { blob, fileName: outFileName, path: res?.path };
+          if (window.ExportEngine) {
+            const res = await window.ExportEngine.exportEpub(chaptersToExport, {
+              title: rawBaseTitle,
+              author,
+              tgtLang,
+              currentIsEpub,
+              currentOriginalZip,
+              coverUrl: resolvedCover,
+              onProgress: (status, pct, elapsed) => {
+                setEpubPackagingModal({ title: rawBaseTitle || 'EPUB Packaging', status, pct, elapsed });
+              }
+            });
+            setEpubPackagingModal(null);
+            toast(' EPUB downloaded successfully!', 'success');
+            return res;
+          }
         } catch (e) {
           setError(`EPUB error: ${e.message}`);
           toast(`EPUB error: ${e.message}`, 'error');
         } finally {
           setDownloadingEpub(false);
+          setEpubPackagingModal(null);
         }
       };
 
@@ -9086,66 +8235,13 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
         setDownloadingDocx(true);
         setError('');
         try {
-          const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = window.docx;
-          const sections = chaptersToExport.map((ch, i) => {
-            const hasRealTitle = ch.title && ch.title.trim() && !isGenericTitle(ch.title);
-            const paragraphElements = [];
-
-            if (hasRealTitle) {
-              paragraphElements.push(new Paragraph({
-                text: ch.title.trim(),
-                heading: HeadingLevel.HEADING_1,
-                spacing: { before: 240, after: 280 }
-              }));
-            }
-
-            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
-            const cleanContent = (typeof stripFn === 'function') ? stripFn(ch.content || '', ch.title, ch.originalTitle) : (ch.content || '');
-            const lines = cleanContent.split(/\r?\n/);
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed) continue;
-
-              // Center divider markers (e.g. *, ***, ..., ---)
-              const isSceneDivider = /^(\*|\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(trimmed);
-
-              paragraphElements.push(new Paragraph({
-                alignment: isSceneDivider ? AlignmentType.CENTER : AlignmentType.LEFT,
-                children: [
-                  new TextRun({
-                    text: trimmed,
-                    font: 'Calibri',
-                    size: 24 // 12pt
-                  })
-                ],
-                spacing: {
-                  line: 360, // 1.5 line height
-                  after: isSceneDivider ? 240 : 180 // Webnovel spacing after sentence/dialogue
-                }
-              }));
-            }
-
-            return {
-              properties: i > 0 ? { type: (window.docx?.SectionType?.NEXT_PAGE || 'nextPage'), page: { pageBreaks: { before: true } } } : {},
-              children: paragraphElements
-            };
-          });
-
-          const doc = new Document({
-            sections,
-            styles: {
-              default: {
-                document: {
-                  run: { font: 'Calibri', size: 24 }
-                }
-              }
-            }
-          });
-          const blob = await Packer.toBlob(doc);
-          const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
-          const cleanDocName = docTitle && !isGenericTitle(docTitle) ? sanitizeFilename(docTitle).replace(/\s+/g, ' ').trim() : `Translated Novel (${tgtLang})`;
-          const docxFileName = `${cleanDocName}.docx`;
-          await saveUniversalBlob(blob, docxFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+          if (window.ExportEngine) {
+            const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
+            await window.ExportEngine.exportDocx(chaptersToExport, {
+              title: docTitle,
+              tgtLang
+            });
+          }
         } catch (e) {
           setError(`DOCX error: ${e.message}`);
           toast(`DOCX error: ${e.message}`, 'error');

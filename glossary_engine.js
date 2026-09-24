@@ -527,6 +527,98 @@ const filterGlossaryForChunk = (rawGlossary, chunkText, isSmartEnabled = true) =
     return pairs;
   };
 
+  const auditNameConsistency = (glossaryPairs, chapters) => {
+    if (!glossaryPairs || !chapters) return [];
+    const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const results = [];
+
+    glossaryPairs.forEach(pair => {
+      const targetTerm = pair.target;
+      const origTerm = pair.orig;
+      let totalTargetOccurrences = 0;
+      let totalLeaks = 0;
+      const chapterOccurrences = [];
+      const leaksFoundIn = [];
+      const driftMatches = [];
+
+      const words = targetTerm.split(/\s+/).filter(w => w.length >= 4);
+
+      chapters.forEach((ch, idx) => {
+        const text = (ch?.content || ch?.text || '');
+        const chName = ch?.title || `Ch. ${idx + 1}`;
+
+        try {
+          const targetRegex = new RegExp('\\b' + escapeRegExp(targetTerm) + '\\b', 'gi');
+          const targetMatches = (text.match(targetRegex) || []).length;
+          if (targetMatches > 0) {
+            totalTargetOccurrences += targetMatches;
+            chapterOccurrences.push({ chName, count: targetMatches });
+          }
+
+          if (origTerm && origTerm.length >= 2) {
+            const leakRegex = new RegExp(escapeRegExp(origTerm), 'g');
+            const leakMatches = (text.match(leakRegex) || []).length;
+            if (leakMatches > 0) {
+              totalLeaks += leakMatches;
+              leaksFoundIn.push({ chName, count: leakMatches });
+            }
+          }
+
+          words.forEach(w => {
+            if (w.includes('ou')) {
+              const alternate = w.replace(/ou/g, 'o');
+              const altRegex = new RegExp('\\b' + escapeRegExp(alternate) + '\\b', 'gi');
+              const altMatches = (text.match(altRegex) || []).length;
+              if (altMatches > 0) {
+                driftMatches.push({ chName, found: alternate, shouldBe: w, count: altMatches });
+              }
+            }
+          });
+        } catch (e) {}
+      });
+
+      results.push({
+        orig: origTerm,
+        target: targetTerm,
+        totalCount: totalTargetOccurrences,
+        chapterOccurrences,
+        totalLeaks,
+        leaksFoundIn,
+        driftMatches,
+        status: totalLeaks > 0 ? 'leak' : (driftMatches.length > 0 ? 'drift' : (totalTargetOccurrences > 0 ? 'good' : 'missing'))
+      });
+    });
+
+    return results;
+  };
+
+  const batchFixNameDrift = (foundWord, targetWord, chapters, assembledText) => {
+    if (!foundWord || !targetWord) return { updatedChapters: chapters, updatedAssembledText: assembledText, replacedCount: 0 };
+    const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp('\\b' + escapeRegExp(foundWord) + '\\b', 'g');
+    let replacedCount = 0;
+    let updatedChapters = chapters;
+    let updatedAssembledText = assembledText;
+
+    if (chapters && chapters.length > 0) {
+      updatedChapters = chapters.map(ch => {
+        if (!ch) return null;
+        const c = ch.content || ch.text || '';
+        const matches = (c.match(regex) || []).length;
+        replacedCount += matches;
+        return { ...ch, content: c.replace(regex, targetWord) };
+      });
+    }
+
+    if (assembledText) {
+      const matches = (assembledText.match(regex) || []).length;
+      if (replacedCount === 0) replacedCount += matches;
+      updatedAssembledText = assembledText.replace(regex, targetWord);
+    }
+
+    return { updatedChapters, updatedAssembledText, replacedCount };
+  };
+
   if (typeof window !== 'undefined') {
     window.splitGlossaryIntoChunks = splitGlossaryIntoChunks;
     window.formatExtractedTermsIntoMasterGlossary = formatExtractedTermsIntoMasterGlossary;
@@ -534,6 +626,8 @@ const filterGlossaryForChunk = (rawGlossary, chunkText, isSmartEnabled = true) =
     window.formatGlossaryString = formatGlossaryString;
     window.legacyFilterGlossaryForChunk = legacyFilterGlossaryForChunk;
     window.filterGlossaryForChunk = filterGlossaryForChunk;
+    window.auditNameConsistency = auditNameConsistency;
+    window.batchFixNameDrift = batchFixNameDrift;
   }
 
   return {
@@ -542,6 +636,8 @@ const filterGlossaryForChunk = (rawGlossary, chunkText, isSmartEnabled = true) =
     parseUniversalGlossaryPairs,
     formatGlossaryString,
     legacyFilterGlossaryForChunk,
-    filterGlossaryForChunk
+    filterGlossaryForChunk,
+    auditNameConsistency,
+    batchFixNameDrift
   };
 }));
