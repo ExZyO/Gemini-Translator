@@ -82,7 +82,7 @@
       streamWithRotation, translateWithRotation, translateChunk,
       BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine, LibraryEngine,
       NovelEnrichmentEngine, KeyManagerEngine, GlossaryManagerEngine,
-      TranslationLoopEngine
+      TranslationLoopEngine, WebNovelCrawlerEngine
     } = window;
 
     // Helper adapters delegating to DocumentParser & ExportEngine
@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.73';
+    let VERSION = '8.17.74';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4984,361 +4984,182 @@ RAW GLOSSARY DATA TO CLEAN:
         }
       };
 
-      // --- Web Novel Crawl Pause, Cancel & Resume Controls ---
+      // --- Web Novel Crawl Pause, Cancel & Resume Controls (Delegated to WebNovelCrawlerEngine) ---
       const handleStartFetch = async (isResume = false, resumeSessionData = null, autoExportEpub = false, overrideUrl = null) => {
-        const targetSession = resumeSessionData || (isResume ? activeCrawlSession : null);
-        const targetUrl = (overrideUrl || targetSession?.url || (targetSession?.sourceUrl) || webImportUrl).trim();
-
-        if (!targetUrl) {
-          toast('Please enter a novel URL to fetch.', 'warning');
+        const engine = window.WebNovelCrawlerEngine || WebNovelCrawlerEngine;
+        if (!engine) {
+          toast('WebNovelCrawlerEngine module not loaded.', 'error');
           return;
         }
-
-        setIsFetchingUrl(true);
-        setIsFetchingPaused(false);
-        setWebImportError(null);
-        setWebImportStatus(isResume ? 'Resuming novel crawl…' : 'Connecting to source…');
-        window.__scrapeImages = scrapeImages;
-
-        try {
-          window.NativeBridge?.acquireWakeLock?.('Gemini Web Importer', isResume ? 'Resuming novel crawl...' : 'Starting novel download...');
-        } catch (e) {}
-
-        const initialChapters = targetSession?.chapters || targetSession?.rawChapters || [];
-        const novelId = targetSession?.id || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
-
-        let lastPersistTime = 0;
-        let pendingSaveTimer = null;
-        let latestSessionSnapshot = null;
-
-        const flushCrawlPersistence = (session) => {
-          if (!session) return;
-          try {
-            localStorage.setItem('gemini_active_crawl_session', JSON.stringify(session));
-          } catch (e) {}
-          saveNovelToHistory(session);
-        };
-
-        try {
-          const data = await window.WebNovelImporter.importUrl(targetUrl, (status, pct) => {
-            setWebImportStatus(status);
-          }, {
-            initialChapters,
-            onChapterDone: (newChapterObj, allChapters, stats) => {
-              const totalChs = stats.total || stats.totalCount || targetSession?.totalChapterCount || (stats.chapterList ? stats.chapterList.length : 0);
-              const currentTotal = totalChs > 0 ? totalChs : Math.max(allChapters.length + 1, targetSession?.totalChapterCount || 0);
-              const isIncomplete = totalChs > 0 ? (allChapters.length < totalChs) : true;
-
-              const existingFolder = getNovelFolderOptions({ id: novelId, title: stats.title || targetSession?.title, sourceUrl: targetUrl });
-              const customTitle = targetSession?.customTitle || getCustomTitle(targetUrl) || getCustomTitle(novelId) || (targetSession?.title !== stats.title ? targetSession?.title : null);
-              const sessionObj = {
-                id: novelId,
-                url: targetUrl,
-                sourceUrl: targetUrl,
-                title: customTitle || stats.title || targetSession?.title || 'Web Novel',
-                customTitle: customTitle || undefined,
-                originalSourceTitle: stats.title || targetSession?.originalSourceTitle || targetSession?.title || undefined,
-                author: stats.author || targetSession?.author || 'Unknown',
-                summary: stats.summary || targetSession?.summary || '',
-                cover: stats.cover || targetSession?.cover || '',
-                chapters: allChapters,
-                chapterList: stats.chapterList || targetSession?.chapterList || [],
-                completedCount: allChapters.length,
-                totalChapterCount: currentTotal,
-                isIncomplete: isIncomplete,
-                folderTreeUri: targetSession?.folderTreeUri || existingFolder.treeUri || '',
-                folderPath: targetSession?.folderPath || existingFolder.folderPath || '',
-                inSavedSpace: targetSession?.inSavedSpace !== undefined ? targetSession.inSavedSpace : undefined,
-                timestamp: new Date().toISOString()
-              };
-              latestSessionSnapshot = sessionObj;
-
-              // Smooth 1.5s throttled persistence to IndexedDB & localStorage so UI stays 60fps
-              const now = Date.now();
-              if (now - lastPersistTime > 1500) {
-                lastPersistTime = now;
-                setActiveCrawlSession(sessionObj);
-                setWebImportData(sessionObj);
-                flushCrawlPersistence(sessionObj);
-              } else {
-                if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
-                pendingSaveTimer = setTimeout(() => {
-                  if (latestSessionSnapshot) {
-                    setActiveCrawlSession(latestSessionSnapshot);
-                    setWebImportData(latestSessionSnapshot);
-                    flushCrawlPersistence(latestSessionSnapshot);
-                  }
-                }, 1200);
-              }
-
-              setWebImportStatus(`Chapter ${stats.current || stats.completedCount || allChapters.length}/${currentTotal}: ${(newChapterObj.title || '').substring(0, 32)}…`);
-            }
-          });
-
-          // Flush any pending save immediately upon completion/pause
-          if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
-          if (latestSessionSnapshot) {
-            flushCrawlPersistence(latestSessionSnapshot);
+        return engine.startCrawl({
+          targetUrl: overrideUrl,
+          isResume,
+          resumeSessionData,
+          autoExportEpub,
+          options: {
+            activeCrawlSession,
+            webImportUrl,
+            scrapeImages,
+            getNovelFolderOptions,
+            getCustomTitle,
+            cleanBookTitle,
+            cleanBookAuthor,
+            getEpubOptions,
+            getEpubFileName,
+            generateEpubFromChapters,
+            saveUniversalBlob
+          },
+          callbacks: {
+            setIsFetchingUrl,
+            setIsFetchingPaused,
+            setWebImportStatus,
+            setWebImportError,
+            setActiveCrawlSession,
+            setWebImportData,
+            saveNovelToHistory,
+            toast,
+            exportCleanLnoriEpub
           }
-
-          const ctrl = window.WebNovelImporter?.getActiveController?.();
-          if (ctrl?.isPaused) {
-            setIsFetchingPaused(true);
-            setIsFetchingUrl(false);
-            const finalSession = latestSessionSnapshot || (data?.chapters ? { ...targetSession, chapters: data.chapters } : null);
-            if (finalSession) {
-              setActiveCrawlSession(finalSession);
-              setWebImportData(finalSession);
-              flushCrawlPersistence(finalSession);
-            }
-            if (ctrl.circuitBreakerTripped) {
-              setWebImportError({
-                message: ctrl.pauseReason || '3 consecutive chapters unreachable. Crawl auto-paused to protect novel data.',
-                isCircuitBreaker: true,
-                targetUrl,
-                partialCount: finalSession?.chapters?.length || initialChapters.length,
-                totalCount: finalSession?.totalChapterCount || 0
-              });
-            }
-            toast(ctrl.pauseReason ? `⏸ ${ctrl.pauseReason}` : `⏸ Fetch paused. ${finalSession?.chapters?.length || data?.chapters?.length || initialChapters.length} chapters saved to Library.`, 'info');
-            return;
-          }
-
-          if (ctrl?.isCancelled) {
-            setIsFetchingPaused(false);
-            setIsFetchingUrl(false);
-            if (latestSessionSnapshot) {
-              setActiveCrawlSession(latestSessionSnapshot);
-              setWebImportData(latestSessionSnapshot);
-            }
-            toast(`✕ Fetch cancelled. Progress preserved in Library.`, 'warning');
-            return;
-          }
-
-          // Fetch completed or returned
-          if (data) {
-            const totalExpected = data.totalChapterCount || (data.chapterList ? data.chapterList.length : (data.chapters ? data.chapters.length : (latestSessionSnapshot?.totalChapterCount || targetSession?.totalChapterCount || 0)));
-            const isActuallyFinished = totalExpected > 0 ? (data.chapters.length >= totalExpected || (data.chapterList && data.chapterList.length > 0 && data.chapters.length >= data.chapterList.length)) : true;
-
-            data.id = novelId;
-            data.sourceUrl = data.sourceUrl || targetUrl;
-            const completedCustomTitle = targetSession?.customTitle || getCustomTitle(targetUrl) || getCustomTitle(novelId) || targetSession?.title;
-            if (completedCustomTitle) {
-              data.title = completedCustomTitle;
-              data.customTitle = completedCustomTitle;
-            }
-            data.cover = data.cover || (typeof stats !== 'undefined' ? stats?.cover : '') || targetSession?.cover || latestSessionSnapshot?.cover || '';
-            const existingFolder = getNovelFolderOptions(data);
-            data.folderTreeUri = data.folderTreeUri || targetSession?.folderTreeUri || latestSessionSnapshot?.folderTreeUri || existingFolder.treeUri || '';
-            data.folderPath = data.folderPath || targetSession?.folderPath || latestSessionSnapshot?.folderPath || existingFolder.folderPath || '';
-            data.isIncomplete = !isActuallyFinished;
-            data.totalChapterCount = totalExpected || data.chapters.length;
-            setWebImportData(data);
-            saveNovelToHistory(data);
-
-            if (isActuallyFinished) {
-              localStorage.removeItem('gemini_active_crawl_session');
-              setActiveCrawlSession(null);
-              setIsFetchingPaused(false);
-              setIsFetchingUrl(false);
-              setWebImportStatus('');
-              setWebImportError(null);
-              toast(`Imported "${data.title}" — ${data.chapters.length} chapters! 🎉`, 'success');
-              try {
-                window.NativeBridge?.clearProgressNotification?.(true);
-                window.NativeBridge?.showCompletionNotification?.('Novel Import Complete! 📥', `Imported "${data.title}" (${data.chapters.length} chapters).`);
-              } catch (e) {}
-              if (autoExportEpub && data.chapters && data.chapters.length > 0) {
-                exportCleanLnoriEpub(data);
-              }
-            } else {
-              // Not finished (e.g. rate limit, partial pause, or network interrupt) — retain active session
-              window.NativeBridge?.clearProgressNotification?.(false);
-              window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', `Saved ${data.chapters.length}/${totalExpected} chapters. Tap to resume.`);
-              const partialSession = {
-                ...latestSessionSnapshot,
-                ...data,
-                id: novelId,
-                isIncomplete: true,
-                totalChapterCount: totalExpected,
-                completedCount: data.chapters.length,
-                folderTreeUri: data.folderTreeUri || latestSessionSnapshot?.folderTreeUri || existingFolder.treeUri || '',
-                folderPath: data.folderPath || latestSessionSnapshot?.folderPath || existingFolder.folderPath || ''
-              };
-              setActiveCrawlSession(partialSession);
-              flushCrawlPersistence(partialSession);
-              setIsFetchingPaused(true);
-              setIsFetchingUrl(false);
-              toast(`⚠️ Partial import: Saved ${data.chapters.length}/${totalExpected} chapters. Click "Resume Fetch" to continue.`, 'warning');
-            }
-          }
-        } catch (err) {
-          if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
-          if (latestSessionSnapshot) flushCrawlPersistence(latestSessionSnapshot);
-
-          const ctrl = window.WebNovelImporter?.getActiveController?.();
-          window.NativeBridge?.clearProgressNotification?.(false);
-          if (ctrl?.isPaused) {
-            setIsFetchingPaused(true);
-            window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', 'Fetch paused. Progress saved.');
-            toast(ctrl?.pauseReason || 'Fetch paused. Progress saved.', 'info');
-          } else if (ctrl?.isCancelled) {
-            setIsFetchingPaused(false);
-            toast('Fetch cancelled.', 'warning');
-          } else {
-            console.error('Fetch novel error:', err);
-            const partialCount = latestSessionSnapshot?.chapters?.length || targetSession?.chapters?.length || 0;
-            const totalCount = latestSessionSnapshot?.totalChapterCount || targetSession?.totalChapterCount || 0;
-            if (partialCount > 0) {
-              setIsFetchingPaused(true);
-            }
-            setWebImportError({
-              message: err.message || 'Failed to fetch remote novel.',
-              isCloudflare: !!err.isCloudflare,
-              challengeType: err.challengeType || null,
-              targetUrl: err.targetUrl || targetUrl,
-              partialCount,
-              totalCount
-            });
-            if (err.isCloudflare) {
-              toast('🛡️ Remote site has Cloudflare verification active.', 'warning');
-            } else {
-              toast('Failed to fetch URL: ' + err.message, 'error');
-            }
-          }
-        } finally {
-          setIsFetchingUrl(false);
-          const ctrl = window.WebNovelImporter?.getActiveController?.();
-          if (!ctrl?.isPaused) {
-            try { window.NativeBridge?.releaseWakeLock?.(); } catch (e) {}
-          }
-        }
+        });
       };
 
       const handlePauseFetch = () => {
-        window.WebNovelImporter?.pause?.();
-        window.NativeBridge?.clearProgressNotification?.(false);
-        window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', 'Fetch paused. Current progress saved.');
-        try { window.NativeBridge?.releaseWakeLock?.(); } catch (e) {}
-        setIsFetchingPaused(true);
-        setIsFetchingUrl(false);
-        setWebImportStatus('Pausing… progress saved.');
-        toast('Pausing fetch… current progress has been saved.', 'info');
+        const engine = window.WebNovelCrawlerEngine || WebNovelCrawlerEngine;
+        if (engine?.pauseCrawl) {
+          engine.pauseCrawl({
+            setIsFetchingPaused,
+            setIsFetchingUrl,
+            setWebImportStatus,
+            toast
+          });
+        }
       };
 
       const handleCancelFetch = () => {
-        window.WebNovelImporter?.cancel?.();
-        window.NativeBridge?.clearProgressNotification?.(false);
-        try { window.NativeBridge?.releaseWakeLock?.(); } catch (e) {}
-        setIsFetchingPaused(false);
-        setIsFetchingUrl(false);
-        setWebImportStatus('');
-        toast('Cancelled fetch. Progress has been preserved in Library.', 'warning');
+        const engine = window.WebNovelCrawlerEngine || WebNovelCrawlerEngine;
+        if (engine?.cancelCrawl) {
+          engine.cancelCrawl({
+            setIsFetchingPaused,
+            setIsFetchingUrl,
+            setWebImportStatus,
+            toast
+          });
+        }
       };
 
       const exportCleanLnoriEpub = async (novelData) => {
-        if (!novelData || !novelData.chapters || novelData.chapters.length === 0) {
-          toast('No chapters downloaded to export.', 'warning');
+        const engine = window.WebNovelCrawlerEngine || WebNovelCrawlerEngine;
+        if (!engine?.exportCleanLnoriEpub) {
+          toast('Crawler Engine export not available.', 'error');
           return;
         }
-        const chs = novelData.chapters;
-        const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(novelData.title, chs) : (novelData.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-        const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(novelData.author) : (novelData.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-        const coverUrl = novelData.cover || (chs[0]?.content?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || (chs[0]?.text?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || '';
-
-        try {
-          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: novelData.id || novelData.sourceUrl || novelTitle }) : {};
-          opts.hierarchicalToc = true;
-          opts.cleanWebArtifacts = true;
-          opts.includeImages = true;
-          if (coverUrl) opts.coverUrl = coverUrl;
-
-          const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
-            setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
-          }, opts);
-
-          const isInc = novelData.isIncomplete || (novelData.totalChapterCount && chs.length < novelData.totalChapterCount);
-          const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
-          await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(novelData));
-          toast(`Clean Lnori EPUB downloaded! (${chs.length} chapters)`, 'success');
-        } catch (e) {
-          toast('EPUB export error: ' + e.message, 'error');
-        } finally {
-          setEpubPackagingModal(null);
-        }
+        return engine.exportCleanLnoriEpub(novelData, {
+          cleanBookTitle,
+          cleanBookAuthor,
+          getEpubOptions,
+          getEpubFileName,
+          getNovelFolderOptions,
+          saveUniversalBlob,
+          generateEpubFromChapters
+        }, {
+          setEpubPackagingModal,
+          toast
+        });
       };
 
       const handleLnoriDirectEpubDownload = async (targetUrl) => {
-        const url = (targetUrl || webImportUrl || '').trim();
-        if (!url) return toast('Please enter an Lnori URL', 'warning');
-        if (url !== webImportUrl) setWebImportUrl(url);
-
-        // Automatically ensure illustrations are enabled
-        setScrapeImages(true);
-        localStorage.setItem('scrapeImages', 'true');
-        if (typeof window !== 'undefined') window.__scrapeImages = true;
-        setEpubIncludeImages(true);
-        localStorage.setItem('epubIncludeImages', 'true');
-
-        // Check if novel data is already loaded in memory (activeCrawlSession or webImportData)
-        const currentData = (activeCrawlSession?.chapters?.length >= (webImportData?.chapters?.length || 0))
-          ? activeCrawlSession
-          : (webImportData || activeCrawlSession);
-
-        if (currentData && currentData.chapters && currentData.chapters.length > 0 &&
-            (!url || currentData.sourceUrl === url || currentData.url === url || url === webImportUrl)) {
-          toast('Novel already loaded — packaging clean EPUB…', 'info');
-          return exportCleanLnoriEpub(currentData);
+        const engine = window.WebNovelCrawlerEngine || WebNovelCrawlerEngine;
+        if (!engine?.directEpubDownload) {
+          toast('Crawler Engine direct download not available.', 'error');
+          return;
         }
-
-        // Check if novel already exists in Library history
-        const existingInHistory = (webImportHistory || []).find(h => (h.sourceUrl && h.sourceUrl === url) || (h.url && h.url === url));
-        if (existingInHistory) {
-          try {
-            const full = await loadFullNovel(existingInHistory);
-            if (full && full.chapters && full.chapters.length > 0 && !full.isIncomplete) {
-              toast('Loaded from Library — packaging clean EPUB…', 'info');
-              return exportCleanLnoriEpub(full);
-            }
-          } catch (_) {}
-        }
-
-        toast('Starting 1-click download for clean Lnori EPUB…', 'info');
-        await handleStartFetch(false, null, true, url);
+        return engine.directEpubDownload({
+          targetUrl,
+          webImportUrl,
+          currentData: (activeCrawlSession?.chapters?.length >= (webImportData?.chapters?.length || 0))
+            ? activeCrawlSession
+            : (webImportData || activeCrawlSession),
+          history: webImportHistory,
+          options: {
+            activeCrawlSession,
+            webImportData,
+            webImportHistory,
+            loadFullNovel,
+            cleanBookTitle,
+            cleanBookAuthor,
+            getEpubOptions,
+            getEpubFileName,
+            getNovelFolderOptions,
+            saveUniversalBlob,
+            generateEpubFromChapters
+          },
+          callbacks: {
+            setWebImportUrl,
+            setScrapeImages,
+            setEpubIncludeImages,
+            setIsFetchingUrl,
+            setIsFetchingPaused,
+            setWebImportStatus,
+            setWebImportError,
+            setActiveCrawlSession,
+            setWebImportData,
+            saveNovelToHistory,
+            toast,
+            exportCleanLnoriEpub,
+            handleStartFetch
+          }
+        });
       };
 
       const resumeCrawlFromSession = async (sessionOrNovel) => {
-        setActiveTab('web_importer');
-        let full = sessionOrNovel;
-        if (!full.rawChapters && !full.chapters) {
-          const loaded = await loadFullNovel(sessionOrNovel);
-          if (loaded) full = loaded;
+        const engine = window.WebNovelCrawlerEngine || WebNovelCrawlerEngine;
+        if (!engine?.resumeCrawlFromSession) {
+          toast('Crawler Engine resume not available.', 'error');
+          return;
         }
-        const chs = full.rawChapters || full.chapters || [];
-        const sessionData = {
-          id: full.id,
-          url: full.sourceUrl || full.url,
-          sourceUrl: full.sourceUrl || full.url,
-          title: full.title,
-          author: full.author,
-          summary: full.summary,
-          chapters: chs,
-          chapterList: full.chapterList || [],
-          totalChapterCount: full.totalChapterCount || full.chapterList?.length || chs.length,
-          isIncomplete: true
-        };
-        setWebImportUrl(sessionData.url || '');
-        setActiveCrawlSession(sessionData);
-        setWebImportData(sessionData);
-        try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(sessionData)); } catch(e) {}
-        handleStartFetch(true, sessionData);
+        return engine.resumeCrawlFromSession(sessionOrNovel, {
+          loadFullNovel,
+          activeCrawlSession,
+          webImportUrl,
+          scrapeImages,
+          getNovelFolderOptions,
+          getCustomTitle,
+          cleanBookTitle,
+          cleanBookAuthor,
+          getEpubOptions,
+          getEpubFileName,
+          generateEpubFromChapters,
+          saveUniversalBlob
+        }, {
+          setActiveTab,
+          setWebImportUrl,
+          setActiveCrawlSession,
+          setWebImportData,
+          setIsFetchingUrl,
+          setIsFetchingPaused,
+          setWebImportStatus,
+          setWebImportError,
+          saveNovelToHistory,
+          toast,
+          exportCleanLnoriEpub,
+          handleStartFetch
+        });
       };
 
       const dismissCrawlSession = () => {
-        localStorage.removeItem('gemini_active_crawl_session');
-        setActiveCrawlSession(null);
-        setIsFetchingPaused(false);
-        toast('Crawl session dismissed.', 'info');
+        const engine = window.WebNovelCrawlerEngine || WebNovelCrawlerEngine;
+        if (engine?.dismissCrawlSession) {
+          engine.dismissCrawlSession({
+            setActiveCrawlSession,
+            setIsFetchingPaused,
+            toast
+          });
+        } else {
+          try { localStorage.removeItem('gemini_active_crawl_session'); } catch (e) {}
+          setActiveCrawlSession(null);
+          setIsFetchingPaused(false);
+          toast('Crawl session dismissed.', 'info');
+        }
       };
 
       // --- Modal ---
