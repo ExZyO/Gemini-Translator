@@ -81,7 +81,7 @@
       translateDeepL, translateLibre, translateOpenAI, translateClaude,
       streamWithRotation, translateWithRotation, translateChunk,
       BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine, LibraryEngine,
-      NovelEnrichmentEngine, KeyManagerEngine
+      NovelEnrichmentEngine, KeyManagerEngine, GlossaryManagerEngine
     } = window;
 
     // Helper adapters delegating to DocumentParser & ExportEngine
@@ -135,7 +135,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.71';
+    let VERSION = '8.17.72';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -641,6 +641,7 @@
     // (escapeXml is global)
 
     // saveUniversalBlob is globally provided by utils.js
+    const saveUniversalBlob = window.saveUniversalBlob;
 
     const updateOriginalEpubNavigation = window.updateOriginalEpubNavigation;
     const generateEpubFromChapters = window.generateEpubFromChapters;
@@ -4169,33 +4170,35 @@
       // (legacy single-key handlers removed — multi-key profiles replace them)
 
       // --- Profile/Glossary Handlers ---
-      const handleSaveGlossary = async (targetName = null) => {
+      const handleSaveGlossary = async (targetName = null, customContent = null) => {
         let name = (targetName || newGlossaryName || activeGlossaryId || '').trim();
         if (!name) {
           const prompted = prompt('Enter a name for this glossary profile:');
           if (!prompted || !prompted.trim()) return;
           name = prompted.trim();
         }
-        if (!terminology.trim() && !customInstructions.trim()) return setError('Profile content is empty.');
-        const existing = savedGlossaries.findIndex(g => g.name === name);
-        const updatedEntry = { name, content: terminology, instructions: customInstructions };
-        let u;
-        if (existing > -1) {
-          u = [...savedGlossaries];
-          u[existing] = updatedEntry;
-        } else {
-          u = [...savedGlossaries, updatedEntry];
+        const contentToSave = customContent !== null ? customContent : terminology;
+        if (!contentToSave.trim() && !customInstructions.trim()) return setError('Profile content is empty.');
+
+        try {
+          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+          const { savedGlossaries: u, activeGlossaryId: newActiveId } = await engine.saveGlossary(
+            name,
+            contentToSave,
+            customInstructions,
+            savedGlossaries,
+            { dbPut }
+          );
+          setSavedGlossaries(u);
+          setTerminology(contentToSave);
+          setNewGlossaryName('');
+          setActiveGlossaryId(newActiveId);
+          setError('');
+          toast(`Profile "${name}" saved!`, 'success');
+        } catch (err) {
+          setError(err.message);
+          toast(err.message, 'error');
         }
-        setSavedGlossaries(u);
-        localStorage.setItem('savedGlossaries', JSON.stringify(u));
-        localStorage.setItem('terminology', terminology);
-        localStorage.setItem('customInstructions', customInstructions);
-        try { await dbPut('glossaries', updatedEntry); } catch(e) {}
-        setNewGlossaryName('');
-        setActiveGlossaryId(name);
-        localStorage.setItem('activeGlossaryId', name);
-        setError('');
-        toast(`Profile "${name}" saved!`, 'success');
       };
 
       const handleLoadGlossary = g => {
@@ -4237,75 +4240,60 @@
 
       const handleDeleteGlossary = n => {
         confirmAction(`Delete profile "${n}"?`, async () => {
-          const u = savedGlossaries.filter(g => g.name !== n);
-          setSavedGlossaries(u);
-          localStorage.setItem('savedGlossaries', JSON.stringify(u));
-          try { await dbDelete('glossaries', n); } catch(e) {}
-          if (activeGlossaryId === n) {
-            setActiveGlossaryId(null);
-            setTerminology('');
-            localStorage.removeItem('activeGlossaryId');
-            localStorage.removeItem('terminology');
+          try {
+            const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+            const { savedGlossaries: u, activeGlossaryId: newActive, defaultGlossaryName: newDef } = await engine.deleteGlossary(
+              n, savedGlossaries, activeGlossaryId, defaultGlossaryName, { dbDelete }
+            );
+            setSavedGlossaries(u);
+            if (activeGlossaryId === n) {
+              setActiveGlossaryId(newActive);
+              setTerminology('');
+            }
+            if (defaultGlossaryName === n) {
+              setDefaultGlossaryName(newDef);
+            }
+            toast('Profile deleted.', 'info');
+          } catch (err) {
+            toast(err.message, 'error');
           }
-          if (defaultGlossaryName === n) {
-            localStorage.removeItem('defaultGlossaryName');
-            setDefaultGlossaryName(null);
-          }
-          toast('Profile deleted.', 'info');
         });
       };
 
       const handleUpdateGlossary = async n => {
-        const i = savedGlossaries.findIndex(g => g.name === n);
-        if (i > -1) {
-          const updatedEntry = { name: n, content: terminology, instructions: customInstructions };
-          const u = [...savedGlossaries];
-          u[i] = updatedEntry;
+        try {
+          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+          const { savedGlossaries: u, activeGlossaryId: newActiveId } = await engine.saveGlossary(
+            n,
+            terminology,
+            customInstructions,
+            savedGlossaries,
+            { dbPut }
+          );
           setSavedGlossaries(u);
-          localStorage.setItem('savedGlossaries', JSON.stringify(u));
-          localStorage.setItem('terminology', terminology);
-          localStorage.setItem('customInstructions', customInstructions);
-          setActiveGlossaryId(n);
-          localStorage.setItem('activeGlossaryId', n);
-          try { await dbPut('glossaries', updatedEntry); } catch(e) {}
+          setActiveGlossaryId(newActiveId);
           toast(`Saved changes to "${n}"!`);
-        } else {
-          // If not found in list, save as new
-          const updatedEntry = { name: n, content: terminology, instructions: customInstructions };
-          const u = [...savedGlossaries, updatedEntry];
-          setSavedGlossaries(u);
-          localStorage.setItem('savedGlossaries', JSON.stringify(u));
-          setActiveGlossaryId(n);
-          localStorage.setItem('activeGlossaryId', n);
-          try { await dbPut('glossaries', updatedEntry); } catch(e) {}
-          toast(`Created and saved "${n}"!`);
+        } catch (err) {
+          toast(err.message, 'error');
         }
       };
 
-      const handleRenameGlossary = (oldName) => {
+      const handleRenameGlossary = async (oldName) => {
         const newName = window.prompt(`Enter new name for profile "${oldName}":`, oldName);
         if (!newName || !newName.trim() || newName.trim() === oldName) return;
-        const trimmed = newName.trim();
-        if (savedGlossaries.some(g => g.name === trimmed)) {
-          return setError(`A profile named "${trimmed}" already exists.`);
+        try {
+          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+          const { savedGlossaries: u, activeGlossaryId: newActive, defaultGlossaryName: newDef } = await engine.renameGlossary(
+            oldName, newName, savedGlossaries, activeGlossaryId, defaultGlossaryName, { dbPut, dbDelete }
+          );
+          setSavedGlossaries(u);
+          if (activeGlossaryId === oldName) setActiveGlossaryId(newActive);
+          if (defaultGlossaryName === oldName) setDefaultGlossaryName(newDef);
+          toast(`Profile renamed to "${newName.trim()}"!`);
+        } catch (err) {
+          setError(err.message);
+          toast(err.message, 'error');
         }
-        const u = savedGlossaries.map(g => g.name === oldName ? { ...g, name: trimmed } : g);
-        setSavedGlossaries(u);
-        localStorage.setItem('savedGlossaries', JSON.stringify(u));
-        try { dbDelete('glossaries', oldName); } catch(e) {}
-        const renamed = u.find(g => g.name === trimmed);
-        if (renamed) {
-          try { dbPut('glossaries', renamed); } catch(e) {}
-        }
-        if (activeGlossaryId === oldName) {
-          setActiveGlossaryId(trimmed);
-          localStorage.setItem('activeGlossaryId', trimmed);
-        }
-        if (defaultGlossaryName === oldName) {
-          setDefaultGlossaryName(trimmed);
-          localStorage.setItem('defaultGlossaryName', trimmed);
-        }
-        toast(`Profile renamed to "${trimmed}"!`);
       };
 
       const handleUnlinkGlossary = () => {
@@ -4316,25 +4304,24 @@
 
       const setDefaultGloss = () => { if (!activeGlossaryId) return setError('Load a profile first.'); localStorage.setItem('defaultGlossaryName', activeGlossaryId); setDefaultGlossaryName(activeGlossaryId); toast(`"${activeGlossaryId}" set as default!`) };
       const clearDefaultGloss = () => { confirmAction('Clear default profile?', () => { localStorage.removeItem('defaultGlossaryName'); setDefaultGlossaryName(null); toast('Default cleared.', 'info') }) };
-      const exportGlossaries = async () => { try { const blob = new Blob([JSON.stringify(savedGlossaries, null, 2)], { type: 'application/json' }); await saveUniversalBlob(blob, 'glossaries_backup.json', 'application/json'); toast('Glossaries exported!', 'success'); } catch (e) { toast('Export error: ' + e.message, 'error'); } };
+      const exportGlossaries = async () => {
+        try {
+          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+          await engine.exportGlossaries(savedGlossaries);
+          toast('Glossaries exported!', 'success');
+        } catch (e) {
+          toast('Export error: ' + e.message, 'error');
+        }
+      };
       const importGlossaries = async e => {
         const f = e.target.files[0];
         if (!f) return;
         try {
           const txt = await f.text();
-          const data = JSON.parse(txt);
-          if (!Array.isArray(data) || data.length === 0) throw new Error('Glossary file is empty or invalid format.');
-          const merged = [...savedGlossaries];
-          let added = 0;
-          data.forEach(g => {
-            if (g.name && g.content && !merged.find(x => x.name === g.name)) {
-              merged.push(g);
-              added++;
-            }
-          });
+          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+          const { savedGlossaries: merged, addedCount } = engine.importGlossaries(txt, savedGlossaries);
           setSavedGlossaries(merged);
-          localStorage.setItem('savedGlossaries', JSON.stringify(merged));
-          toast(`Imported ${added} new glossaries (${data.length} total)!`, 'success');
+          toast(`Imported ${addedCount} new glossaries (${merged.length} total)!`, 'success');
         } catch (err) {
           setError('Invalid glossary file: ' + err.message);
           toast('Invalid glossary file: ' + err.message, 'error');
@@ -4392,17 +4379,13 @@
       };
 
       const exportGlossaryTxt = async () => {
-        if (!terminology.trim()) {
-          toast('Glossary is empty. Add terms before exporting.', 'warning');
-          return setError('Glossary is empty.');
-        }
-        const blob = new Blob([terminology], { type: 'text/plain;charset=utf-8' });
-        const exportFileName = (activeGlossaryId ? activeGlossaryId.replace(/\s+/g, '_') : 'glossary_export') + '.txt';
         try {
-          await saveUniversalBlob(blob, exportFileName, 'text/plain');
+          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+          await engine.exportGlossaryTxt(terminology, activeGlossaryId);
           toast('Glossary exported to Downloads as .txt!', 'success');
-        } catch(e) {
-          toast('Export error: ' + e.message, 'error');
+        } catch (e) {
+          setError(e.message);
+          toast(e.message, 'error');
         }
       };
 
@@ -4443,121 +4426,35 @@ RAW GLOSSARY DATA TO CLEAN:
         const key = getActiveApiKey(provider);
         if (!key) return setError(`Please enter your ${provider === 'deepseek' ? 'DeepSeek' : 'Gemini'} API key in Settings.`);
 
-        const chunks = splitGlossaryIntoChunks(terminology, 130);
-        const totalChunks = chunks.length;
-
-        if (totalChunks > 1) {
-          const proceed = window.confirm(
-            `⚡ Lossless Section Optimizer (${Math.round(terminology.length / 1000)}k chars, ${terminology.split('\n').length} lines):\n\n` +
-            `This glossary will be optimized across ${totalChunks} discrete sections to guarantee 0% truncation and 100% preservation of all terms against API output token limits.\n\n` +
-            `Proceed with lossless AI optimization?`
-          );
-          if (!proceed) return;
-        }
-
         setIsOptimizingGlossary(true);
         setError('');
-        toast(totalChunks > 1 ? `Starting lossless AI optimization across ${totalChunks} sections...` : 'Optimizing glossary with AI...', 'info');
-
-        const systemPrompt = `You are an expert literary localization editor and terminology engineer.
-Your task is to organize, standardize, clean up, and optimize raw glossary notes, character lists, or wiki dumps into a standardized Master Glossary for a translation engine.
-
-FORMATTING & STRUCTURE RULES:
-1. NO TOKEN-WASTING DIVIDERS (do not use === or --- lines).
-2. PRESERVE ALL SECTION HEADINGS (e.g. "I. SYSTEM TRANSLATION RULES...", "II. CORE CONCEPTS...", "III. CHARACTER DIRECTORY...").
-3. STANDARD SYNTAX FOR ENTRIES:
-   - Format entries strictly as:
-     - [Original Language Source Key] -> [English Translation] ([Optional Lore / Alias / Context])
-   - Always put the original language characters (Chinese/Korean/Japanese) on the LEFT side of ->.
-   - FOR ALL CHARACTERS: Always explicitly append their gender: (female), (male), or [context] (for gender-fluid, shifting, or dynamic forms).
-     Example:
-     - 休·迪尔查 -> Xio Derecha (female)
-     - 克莱恩·莫雷蒂 -> Klein Moretti (male)
-     - 特莉丝 -> Trissy [context]
-4. STRICT LOSSLESS REQUIREMENT: Never delete, omit, summarize, deduplicate, merge, paraphrase, or truncate any original rule, term, alias, note, example, heading, section, or line. Preserve every original fact and its ordering. Add searchable aliases or index lines only when additive; never replace source text.
-5. Keep all original content even when it appears repetitive or belongs to another series; dynamic selection handles relevance during translation.
-6. Output ONLY the lossless plaintext glossary content for this section. No conversational opening, explanations, or closing chatter.`;
-
-        const optimizeSingleChunk = async (chunk, idx, total) => {
-          const userPrompt = total > 1
-            ? `Please format and optimize Part ${idx + 1} of ${total} of this glossary. Preserve EVERY entry, character, rule, and note losslessly without truncation:\n\n${chunk}`
-            : `Please optimize, structure, and format the following glossary data losslessly:\n\n${chunk}`;
-
-          if (provider === 'deepseek') {
-            const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-              body: JSON.stringify({
-                model: useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : 'deepseek-reasoner',
-                messages: [
-                  { role: 'system', content: systemPrompt },
-                  { role: 'user', content: userPrompt }
-                ],
-                stream: false
-              })
-            });
-            if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`DeepSeek API error ${r.status}: ${b.substring(0, 150)}`); }
-            const j = await r.json();
-            return j.choices?.[0]?.message?.content || '';
-          } else {
-            const model = useCustomModel && customModel ? customModel : geminiModel;
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-            const r = await fetchRetry(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-                generationConfig: {
-                  temperature: 0.1,
-                  maxOutputTokens: 8192,
-                  thinkingConfig: { thinkingBudget: 1024 }
-                }
-              })
-            });
-            if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`Gemini API error ${r.status}: ${b.substring(0, 150)}`); }
-            const j = await r.json();
-            const finishReason = j?.candidates?.[0]?.finishReason;
-            if (finishReason === 'MAX_TOKENS') {
-              console.warn(`Chunk ${idx + 1} reached MAX_TOKENS, falling back to original chunk to prevent data loss.`);
-              return chunk;
-            }
-            const candidateParts = j?.candidates?.[0]?.content?.parts || [];
-            const actualParts = candidateParts.filter(p => !p.thought);
-            const text = actualParts.length > 0
-              ? actualParts.map(p => p.text || '').join('')
-              : (candidateParts.map(p => p.text || '').join(''));
-            return text || '';
-          }
-        };
 
         try {
-          const optimizedParts = [];
-          for (let i = 0; i < totalChunks; i++) {
-            if (totalChunks > 1) {
-              toast(`Optimizing section ${i + 1}/${totalChunks} (100% lossless)...`, 'info');
+          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+          const finalResult = await engine.aiOptimizeGlossary(
+            terminology,
+            {
+              provider,
+              apiKey: key,
+              geminiModel,
+              customModel,
+              useCustomModel,
+              customDeepseekModel,
+              useCustomDeepseekModel,
+              splitGlossaryIntoChunks
+            },
+            {
+              confirm: async (msg) => window.confirm(msg),
+              toast: (msg, type) => toast(msg, type),
+              fetchRetry
             }
-            let res = '';
-            try {
-              res = await optimizeSingleChunk(chunks[i], i, totalChunks);
-            } catch (chunkErr) {
-              console.warn(`Chunk ${i + 1} failed:`, chunkErr);
-              res = chunks[i];
-            }
+          );
 
-            if (!res || (res.length < chunks[i].length * 0.4 && chunks[i].length > 300)) {
-              console.warn(`Chunk ${i + 1} output truncated or empty, preserving original chunk.`);
-              res = chunks[i];
-            }
-            optimizedParts.push(res.trim());
+          if (finalResult) {
+            setTerminology(finalResult);
+            toast('Glossary successfully cleaned and structured (100% lossless)!', 'success');
+            window.telemetryLog?.('AI_OPTIMIZE', `Losslessly optimized glossary (${finalResult.split('\n').length} lines).`);
           }
-
-          const finalResult = optimizedParts.join('\n\n');
-          if (!finalResult.trim()) throw new Error('Received empty response from AI.');
-
-          setTerminology(finalResult.trim());
-          toast(`Glossary successfully cleaned and structured (${totalChunks} section${totalChunks > 1 ? 's' : ''}, 100% lossless)!`, 'success');
-          window.telemetryLog?.('AI_OPTIMIZE', `Losslessly optimized glossary across ${totalChunks} chunk(s) (${finalResult.split('\n').length} lines).`);
         } catch (err) {
           setError('AI Glossary Optimization failed: ' + err.message);
         } finally {
@@ -4569,57 +4466,17 @@ FORMATTING & STRUCTURE RULES:
       const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
       const callAiAnalysis = async (prompt, systemInstruction = '', modelOverride = null, providerOverride = null) => {
-        const prov = providerOverride || (modelOverride && modelOverride.startsWith('deepseek') ? 'deepseek' : (provider || 'gemini'));
-        let allKeys = [];
-        try {
-          const stored = JSON.parse(localStorage.getItem('apiKeysByProvider') || '{}');
-          allKeys = (stored[prov] || []).map(p => p.key).filter(Boolean);
-        } catch (e) {}
-        if (allKeys.length === 0) {
-          const single = localStorage.getItem(`${prov}ApiKey`) || (prov === 'gemini' ? (localStorage.getItem('apiKey') || '') : '');
-          if (single) allKeys.push(single);
-        }
-        if (allKeys.length === 0) throw new Error(`Please configure an API key for ${prov.toUpperCase()} in Settings.`);
-
-        let key = allKeys[0];
-        if (prov === 'deepseek') {
-          const m = modelOverride || (useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : 'deepseek-chat');
-          const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-            body: JSON.stringify({
-              model: m,
-              messages: [
-                ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
-                { role: 'user', content: prompt }
-              ],
-              stream: false
-            })
-          });
-          if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`DeepSeek error ${r.status}: ${b.substring(0, 120)}`); }
-          const j = await r.json();
-          return j.choices?.[0]?.message?.content || '';
-        } else {
-          const activeM = modelOverride || (useCustomModel && customModel ? customModel : (geminiModel || 'gemini-3.5-flash-lite'));
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeM}:generateContent?key=${key}`;
-          const bodyPayload = {
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
-          };
-          if (systemInstruction) {
-            bodyPayload.systemInstruction = { parts: [{ text: systemInstruction }] };
-          }
-          const r = await fetchRetry(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(bodyPayload)
-          });
-          if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`Gemini error ${r.status}: ${b.substring(0, 120)}`); }
-          const j = await r.json();
-          const candidateParts = j?.candidates?.[0]?.content?.parts || [];
-          const actualParts = candidateParts.filter(p => !p.thought);
-          return actualParts.length > 0 ? actualParts.map(p => p.text || '').join('') : candidateParts.map(p => p.text || '').join('');
-        }
+        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+        return await engine.callAiAnalysis(prompt, systemInstruction, {
+          modelOverride,
+          providerOverride,
+          customDeepseekModel,
+          useCustomDeepseekModel,
+          customModel,
+          useCustomModel,
+          geminiModel,
+          fetchRetry
+        });
       };
 
       const handleOpenAutoGlossary = (targetNovel = null) => {
@@ -4651,63 +4508,18 @@ FORMATTING & STRUCTURE RULES:
         setIsExtractingGlossary(true);
         window.telemetryLog?.('AUTO_GLOSSARY', `Started AI glossary extraction with ${sampleText.length} chars of novel text sample.`);
         try {
-          const sysPrompt = `You are an expert light novel and web novel translator and editor.
-Analyze the provided novel chapter excerpts and extract:
-1. Character names (protagonists, side characters, villains, titles, aliases) with verified gender
-2. Factions, sects, guilds, schools, academies, or family clans
-3. Special fantasy terminology, cultivation ranks, magical skills, or key locations
-
-For each entity, output a single line in this exact format:
-- OriginalTerm = TranslatedTerm # Category: Note
-
-For characters, explicitly specify their gender in the Category tag if known from context, pronouns, or honorifics:
-- Character (male)
-- Character (female)
-
-If a character or term has aliases, multiple names, or honorific forms, include them separated by slashes on the left and right sides so the Smart Glossary matches all variations:
-Examples:
-- 綾小路 清隆 / 綾小路 = Kiyotaka Ayanokouji / Kiyo # Character (male): Main protagonist, Class D
-- 堀北 鈴音 = Suzune Horikita # Character (female): Class D leader
-- 高度育成高等学校 = Advanced Nurturing High School # Location: Main setting
-- 鬼道 / 破道 = Kido / Hado # Skill: Soul Reaper incantation magic
-
-Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown code blocks or add conversational chatter.`;
-
-          const raw = await callAiAnalysis(`NOVEL TEXT EXCERPTS:\n${sampleText}`, sysPrompt);
-          const parsed = [];
-          const lines = raw.split(/\r?\n/);
-          lines.forEach((line, idx) => {
-            line = line.trim();
-            if (!line || line.startsWith('//') || line.startsWith('/*')) return;
-            line = line.replace(/^[-*•\s]+/, '').trim();
-            const match = line.match(/^(.*?)\s*(?:->|=>|=)\s*(.*?)$/);
-            if (match) {
-              const orig = match[1].trim();
-              let rest = match[2].trim();
-              let cat = 'Character';
-              let note = '';
-              const hashIdx = rest.indexOf('#');
-              if (hashIdx !== -1) {
-                const comment = rest.slice(hashIdx + 1).trim();
-                rest = rest.slice(0, hashIdx).trim();
-                const colIdx = comment.indexOf(':');
-                if (colIdx !== -1) {
-                  cat = comment.slice(0, colIdx).trim();
-                  note = comment.slice(colIdx + 1).trim();
-                } else {
-                  cat = comment;
-                }
-              }
-              let gen = null;
-              if (/\b(?:female|f)\b/i.test(cat)) gen = 'female';
-              else if (/\b(?:male|m)\b/i.test(cat)) gen = 'male';
-              if (orig && rest) {
-                parsed.push({ id: 'term_' + idx, orig, trans: rest, category: cat || 'Entity', gender: gen, note, checked: true });
-              }
-            }
+          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+          const parsed = await engine.extractGlossaryFromSample(sampleText, {
+            provider,
+            geminiModel,
+            customModel,
+            useCustomModel,
+            customDeepseekModel,
+            useCustomDeepseekModel,
+            fetchRetry
           });
 
-          if (parsed.length === 0) {
+          if (!parsed || parsed.length === 0) {
             toast('No terms identified. Try increasing chapter count or check chapter content.', 'info');
             window.telemetryLog?.('AUTO_GLOSSARY', 'No terms identified from novel sample.');
           } else {
@@ -4728,42 +4540,31 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
       const handleApplyExtractedTerms = async (asNewProfile = false) => {
         const selected = extractedTerms.filter(t => t.checked);
         if (selected.length === 0) return toast('No terms selected', 'warning');
-        
-        // Auto-register verified character genders directly into genderLocks!
-        let autoLockedCount = 0;
-        const updatedLocks = { ...genderLocks };
-        selected.forEach(t => {
-          const gen = t.gender || (/\b(?:female|f)\b/i.test(t.category) ? 'female' : (/\b(?:male|m)\b/i.test(t.category) ? 'male' : null));
-          if (gen) {
-            if (t.trans) {
-              t.trans.split(/[/|,]/).map(x => x.trim()).filter(Boolean).forEach(alias => {
-                updatedLocks[alias] = gen;
-              });
-            }
-            if (t.orig && t.orig !== t.trans) {
-              t.orig.split(/[/|,]/).map(x => x.trim()).filter(Boolean).forEach(alias => {
-                updatedLocks[alias] = gen;
-              });
-            }
-            autoLockedCount++;
-          }
+
+        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+        const {
+          updatedTerminology,
+          autoLockedCount,
+          updatedGenderLocks,
+          structuredGlossary
+        } = engine.applyExtractedTerms(selected, terminology, {
+          genderLocks,
+          formatExtractedTermsIntoMasterGlossary
         });
+
         if (autoLockedCount > 0) {
-          setGenderLocks(updatedLocks);
-          try { localStorage.setItem('gemini_gender_locks', JSON.stringify(updatedLocks)); } catch(e) {}
+          setGenderLocks(updatedGenderLocks);
+          try { localStorage.setItem('gemini_gender_locks', JSON.stringify(updatedGenderLocks)); } catch(e) {}
           const lockedList = selected
             .filter(t => t.gender || (/\b(?:female|f)\b/i.test(t.category)) || (/\b(?:male|m)\b/i.test(t.category)))
             .map(t => `${t.trans || t.orig} [${(t.gender || (/\b(?:female|f)\b/i.test(t.category) ? 'female' : 'male')).toUpperCase()}]`);
           window.telemetryLog?.('GENDER_LOCK', `Auto-locked ${autoLockedCount} character genders from extracted terms!`, {
             autoLockedCount,
             lockedCharacters: lockedList,
-            totalActiveLocks: Object.keys(updatedLocks).length
+            totalActiveLocks: Object.keys(updatedGenderLocks).length
           });
         }
 
-        const structuredGlossary = formatExtractedTermsIntoMasterGlossary(selected);
-        const formattedLines = selected.map(t => `- ${t.orig} = ${t.trans}${t.note ? ` # ${t.category}: ${t.note}` : ''}`).join('\n');
-        
         if (asNewProfile) {
           const targetTitle = (autoGlossaryTargetNovel?.title || (chapters && chapters[0]?.title) || (activeNovelRecord && activeNovelRecord.title) || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
           const defaultName = targetTitle ? `${targetTitle} Glossary` : 'Auto Extracted Glossary';
@@ -4789,23 +4590,14 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
           window.telemetryLog?.('AUTO_GLOSSARY', `Saved ${selected.length} terms as profile "${name.trim()}".`);
           toast(`Saved ${selected.length} terms as profile "${name.trim()}"!`, 'success');
         } else {
-          const current = (terminology || '').trim();
-          let updated = '';
-          if (!current) {
-            updated = structuredGlossary;
-          } else if (current.includes('## I.') || current.includes('## II.')) {
-            updated = `${current}\n\n${formattedLines}`;
-          } else {
-            updated = `${current}\n${formattedLines}`;
-          }
-          setTerminology(updated);
-          localStorage.setItem('terminology', updated);
+          setTerminology(updatedTerminology);
+          localStorage.setItem('terminology', updatedTerminology);
           if (autoGlossaryTargetNovel && window.GeminiNovelDB) {
             try {
               const novelId = autoGlossaryTargetNovel.id || autoGlossaryTargetNovel.sourceUrl;
               if (novelId) {
                 await window.GeminiNovelDB.updateNovel(novelId, {
-                  glossary: updated
+                  glossary: updatedTerminology
                 });
               }
             } catch(e) {}
@@ -4829,8 +4621,8 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
           : (chapters && chapters.length > 0 ? chapters : [{ title: 'Current Output', content: assembledText || inputText }]);
 
         setIsAuditingConsistency(true);
-        const auditFn = typeof auditNameConsistency === 'function' ? auditNameConsistency : window.auditNameConsistency;
-        const results = auditFn ? auditFn(glossaryPairs, chs) : [];
+        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+        const results = engine.runConsistencyCheck(terminology, chs, assembledText || inputText);
 
         setConsistencyAuditResults(results);
         setIsAuditingConsistency(false);
@@ -4839,10 +4631,10 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
 
       const handleBatchFixDrift = (foundWord, targetWord) => {
         if (!foundWord || !targetWord) return;
-        const fixFn = typeof batchFixNameDrift === 'function' ? batchFixNameDrift : window.batchFixNameDrift;
-        if (!fixFn) return;
-
-        const { updatedChapters, updatedAssembledText, replacedCount } = fixFn(foundWord, targetWord, translatedChapters, assembledText);
+        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+        const { updatedChapters, updatedAssembledText, replacedCount } = engine.batchFixDrift(
+          foundWord, targetWord, translatedChapters, assembledText
+        );
         if (translatedChapters && translatedChapters.length > 0) setTranslatedChapters(updatedChapters);
         if (assembledText) setAssembledText(updatedAssembledText);
 
