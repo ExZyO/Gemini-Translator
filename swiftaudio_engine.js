@@ -881,10 +881,193 @@
 
     const playerInstance = new SwiftAudioPlayerController();
 
+    // ══════════════════════════════════════════════════════════════════
+    // 4. SWIFTAUDIO CONTROLLER & PLAYBACK / DOWNLOAD WORKFLOWS
+    // ══════════════════════════════════════════════════════════════════
+    function safeControllerToast(callbacks, msg, type) {
+        if (typeof callbacks?.toast === 'function') {
+            callbacks.toast(msg, type);
+        } else if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+            window.toast(msg, type);
+        } else {
+            console.log(`[SwiftAudioController][${type || 'info'}] ${msg}`);
+        }
+    }
+
+    const SwiftAudioController = {
+        /**
+         * Search audiobooks or load a direct audiobook URL
+         */
+        searchAudiobooks: async function(queryOrUrl, callbacks = {}) {
+            const target = (queryOrUrl || '').trim();
+            if (!target || target === 'https://swiftaudiobooks.com/' || target === 'https://swiftaudiobooks.com') {
+                safeControllerToast(callbacks, 'Please enter an audiobook title or URL to search', 'warning');
+                return [];
+            }
+            if (!SwiftAudioScraper) {
+                safeControllerToast(callbacks, 'Audio engine is initializing, please try again in a moment…', 'info');
+                return [];
+            }
+
+            callbacks.onStart?.();
+            try {
+                const isBookUrl = /^https?:\/\/(?:www\.)?(?:swiftaudiobooks\.com|ipaudio7\.com)\/[a-z0-9-]+/i.test(target) &&
+                    !/https?:\/\/(?:www\.)?swiftaudiobooks\.com\/?$/i.test(target) &&
+                    !target.includes('/?s=');
+
+                if (isBookUrl) {
+                    safeControllerToast(callbacks, 'Fetching audiobook tracks…', 'info');
+                    const book = await SwiftAudioScraper.getBookDetails(target);
+                    callbacks.onBookLoaded?.(book);
+                    callbacks.onResults?.([book]);
+                    safeControllerToast(callbacks, `Loaded "${book.title}" (${book.totalTracks || (book.tracks && book.tracks.length) || 0} chapters)!`, 'success');
+                    return [book];
+                } else {
+                    const q = target.replace(/^https?:\/\/swiftaudiobooks\.com\/\?s=/i, '').replace(/^https?:\/\/[^\/]+\/?/i, '');
+                    const results = await SwiftAudioScraper.search(q || target);
+                    callbacks.onResults?.(results || []);
+                    if (!results || results.length === 0) {
+                        safeControllerToast(callbacks, 'No audiobooks found matching query.', 'info');
+                    } else {
+                        safeControllerToast(callbacks, `Found ${results.length} audiobooks on SwiftAudiobooks!`, 'success');
+                    }
+                    return results || [];
+                }
+            } catch (e) {
+                callbacks.onError?.(e);
+                safeControllerToast(callbacks, 'SwiftAudio error: ' + (e.message || e), 'error');
+                return [];
+            } finally {
+                callbacks.onEnd?.();
+            }
+        },
+
+        /**
+         * Start or resume playing an audiobook
+         */
+        startPlayAudiobook: async function(bookOrResult, startTrack = 0, callbacks = {}) {
+            try {
+                const targetUrl = bookOrResult?.url || (typeof bookOrResult === 'string' ? bookOrResult : '').trim();
+                if (!targetUrl || targetUrl === 'https://swiftaudiobooks.com/' || targetUrl === 'https://swiftaudiobooks.com') {
+                    safeControllerToast(callbacks, 'Please enter an audiobook title or select a book to play.', 'warning');
+                    return null;
+                }
+                const player = playerInstance;
+                if (!SwiftAudioScraper || !player) {
+                    safeControllerToast(callbacks, 'Audio engine is initializing, please try again in a moment…', 'info');
+                    return null;
+                }
+
+                // If the book is already loaded in the player, resume or switch track
+                if (player.currentBook && player.currentBook.url === targetUrl) {
+                    if (startTrack !== undefined && startTrack !== player.currentTrackIndex) {
+                        player.playTrack(startTrack);
+                    } else if (!player.isPlaying) {
+                        player.play();
+                    }
+                    callbacks.onPlaying?.(player.currentBook);
+                    return player.currentBook;
+                }
+
+                let fullBook = bookOrResult;
+                if (!fullBook || !fullBook.tracks || fullBook.tracks.length === 0) {
+                    safeControllerToast(callbacks, 'Loading chapter audio streams…', 'info');
+                    fullBook = await SwiftAudioScraper.getBookDetails(targetUrl);
+                }
+
+                player.loadBook(fullBook, startTrack, true);
+                callbacks.onPlaying?.(fullBook);
+                safeControllerToast(callbacks, `Playing: ${fullBook.title || 'Audiobook'}`, 'success');
+                return fullBook;
+            } catch (e) {
+                callbacks.onError?.(e);
+                safeControllerToast(callbacks, 'Could not play audiobook: ' + (e.message || e), 'error');
+                return null;
+            }
+        },
+
+        /**
+         * Prepare modal data for batch audiobook download
+         */
+        prepareAudioDownload: async function(bookOrResult, getFolderOptionsFn, callbacks = {}) {
+            try {
+                const targetUrl = bookOrResult?.url || (typeof bookOrResult === 'string' ? bookOrResult : '').trim();
+                if (!targetUrl || targetUrl === 'https://swiftaudiobooks.com/' || targetUrl === 'https://swiftaudiobooks.com') {
+                    safeControllerToast(callbacks, 'Please enter an audiobook title or select a book.', 'warning');
+                    return null;
+                }
+                if (!SwiftAudioScraper) {
+                    safeControllerToast(callbacks, 'Audio engine is initializing, please try again in a moment…', 'info');
+                    return null;
+                }
+
+                let fullBook = bookOrResult;
+                if (!fullBook || !fullBook.tracks || fullBook.tracks.length === 0) {
+                    safeControllerToast(callbacks, 'Loading chapter audio streams…', 'info');
+                    fullBook = await SwiftAudioScraper.getBookDetails(targetUrl);
+                }
+
+                const opts = typeof getFolderOptionsFn === 'function'
+                    ? getFolderOptionsFn(fullBook)
+                    : (window.MoonReaderEngine?.getNovelFolderOptions ? window.MoonReaderEngine.getNovelFolderOptions(fullBook) : {});
+                const allIndices = (fullBook.tracks || []).map((_, i) => i);
+                const modalData = {
+                    book: fullBook,
+                    folderOptions: opts,
+                    selectedIndices: allIndices,
+                    status: `Ready to download ${(fullBook.tracks || []).length} chapters`,
+                    percent: 0,
+                    active: false,
+                    isMinimized: false
+                };
+                callbacks.onReady?.(modalData);
+                return modalData;
+            } catch (e) {
+                callbacks.onError?.(e);
+                safeControllerToast(callbacks, 'Could not load audiobook for download: ' + (e.message || e), 'error');
+                return null;
+            }
+        },
+
+        /**
+         * Execute batch download of selected audiobook tracks
+         */
+        executeBatchDownload: async function(book, selectedIndices, folderOptions, callbacks = {}) {
+            if (!book) return null;
+            const opts = folderOptions || {};
+            const selected = selectedIndices || (book.tracks || []).map((_, i) => i);
+            if (!selected || selected.length === 0) {
+                safeControllerToast(callbacks, 'Please select at least one chapter to download.', 'warning');
+                return null;
+            }
+
+            callbacks.onProgress?.({
+                status: `Starting download (${selected.length} ch)…`,
+                percent: 0,
+                active: true
+            });
+
+            try {
+                const res = await SwiftAudioDownloader.downloadAllTracks(book, opts, (progress) => {
+                    callbacks.onProgress?.(progress);
+                }, selected);
+
+                callbacks.onSuccess?.(res);
+                safeControllerToast(callbacks, `Chapters of "${book.title || 'Audiobook'}" downloaded!`, 'success');
+                return res;
+            } catch (e) {
+                callbacks.onError?.(e);
+                safeControllerToast(callbacks, 'Audiobook download error: ' + (e.message || e), 'error');
+                return null;
+            }
+        }
+    };
+
     window.SwiftAudioEngine = {
         Scraper: SwiftAudioScraper,
         Player: playerInstance,
         Downloader: SwiftAudioDownloader,
+        Controller: SwiftAudioController,
         formatDuration: function(secs) {
             if (!secs || isNaN(secs) || secs < 0) return '0:00';
             const h = Math.floor(secs / 3600);

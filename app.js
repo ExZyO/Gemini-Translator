@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.76';
+    let VERSION = '8.17.77';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1931,207 +1931,70 @@
       // ── SWIFTAUDIO HANDLERS ──
       const handleSwiftAudioSearch = async (queryOrUrl) => {
         const target = (queryOrUrl || webImportUrl || '').trim();
-        if (!target || target === 'https://swiftaudiobooks.com/' || target === 'https://swiftaudiobooks.com') {
-          return toast('Please enter an audiobook title to search (e.g. Shadow Slave, Harry Potter)', 'warning');
-        }
-        if (!window.SwiftAudioEngine || !window.SwiftAudioEngine.Scraper) {
-          return toast('Audio engine is initializing, please try again in a moment…', 'info');
-        }
-
-        setIsSwiftAudioSearching(true);
-        setWebImportStatus('Searching SwiftAudiobooks…');
-        try {
-          const isBookUrl = /^https?:\/\/(?:www\.)?(?:swiftaudiobooks\.com|ipaudio7\.com)\/[a-z0-9-]+/i.test(target) &&
-            !/https?:\/\/(?:www\.)?swiftaudiobooks\.com\/?$/i.test(target) &&
-            !target.includes('/?s=');
-
-          if (isBookUrl) {
-            toast('Fetching audiobook tracks…', 'info');
-            const book = await window.SwiftAudioEngine.Scraper.getBookDetails(target);
+        await window.SwiftAudioEngine.Controller.searchAudiobooks(target, {
+          toast,
+          onStart: () => {
+            setIsSwiftAudioSearching(true);
+            setWebImportStatus('Searching SwiftAudiobooks…');
+          },
+          onEnd: () => {
+            setIsSwiftAudioSearching(false);
+            setWebImportStatus('');
+          },
+          onBookLoaded: (book) => {
             setActiveAudiobook(book);
-            setSwiftAudioResults([book]);
-            toast(`Loaded "${book.title}" (${book.totalTracks} chapters)!`, 'success');
-          } else {
-            const q = target.replace(/^https?:\/\/swiftaudiobooks\.com\/\?s=/i, '').replace(/^https?:\/\/[^\/]+\/?/i, '');
-            const results = await window.SwiftAudioEngine.Scraper.search(q || target);
+          },
+          onResults: (results) => {
             setSwiftAudioResults(results);
-            if (results.length === 0) {
-              toast('No audiobooks found matching query.', 'info');
-            } else {
-              toast(`Found ${results.length} audiobooks on SwiftAudiobooks!`, 'success');
-            }
           }
-        } catch (e) {
-          toast('SwiftAudio error: ' + e.message, 'error');
-        } finally {
-          setIsSwiftAudioSearching(false);
-          setWebImportStatus('');
-        }
+        });
       };
 
       // ── NOVEL SEARCH HANDLER ──
       const handleSearchNovels = async (queryOrUrl, sourceOverride = 'all') => {
         const target = (queryOrUrl || webImportUrl || '').trim();
-        if (!target || target === 'https://novelbuddy.me' || target === 'https://www.royalroad.com' || target === 'https://novelfire.net' || target === 'https://lnori.com/' || target === 'https://lnori.com' || target === 'https://witchculttranslation.com/table-of-content/') {
-          return toast('Please enter a novel title or keyword to search (e.g. Horror Game Developer, Shadow Slave, Re:Zero)', 'warning');
-        }
-
-        // If user pasted a direct novel chapter or book URL, initiate crawl directly
-        if (/^https?:\/\//i.test(target) && !target.includes('/search') && !target.includes('?q=') && !target.includes('?s=')) {
-          toast('Direct novel URL detected. Starting novel fetch…', 'info');
-          return handleStartFetch(false, null, false, target);
-        }
-
         if (sourceOverride === 'all') {
           setNovelSearchFilter('all');
         }
-
-        setIsSearchingNovels(true);
-        setIsSearchResultsCollapsed(false);
-        setWebImportStatus('Searching novel sources and installed plugins…');
-        try {
-          const q = target.replace(/^https?:\/\/[^\/]+\/(?:search|fictions\/search)\?[^=]+=/i, '');
-          let results = [];
-          if (window.WebNovelImporter?.searchNovels && sourceOverride !== 'plugins_only') {
-            try {
-              results = await window.WebNovelImporter.searchNovels(q || target, sourceOverride || 'all');
-            } catch (sErr) {
-              console.warn('[searchNovels] Scraper search error:', sErr);
-            }
-          }
-
-          // Search active community & built-in source plugins via SourceRegistry
-          const reg = window.sourceRegistry || window.SourceRegistry;
-          if (reg) {
-            try {
-              let pluginResults = [];
-              const normOverride = (sourceOverride || 'all').replace(/[\s\-_]+/g, '').toLowerCase();
-              if (normOverride !== 'all' && normOverride !== 'plugins' && normOverride !== 'plugins_only') {
-                if (typeof reg.searchPlugin === 'function') {
-                  pluginResults = await reg.searchPlugin(sourceOverride, q || target);
-                }
-              } else {
-                pluginResults = await reg.searchAll(q || target);
-              }
-              if (Array.isArray(pluginResults) && pluginResults.length > 0) {
-                const existingUrls = new Set((results || []).map(r => (r.url || '').replace(/\/$/, '')));
-                for (const p of pluginResults) {
-                  const pUrl = (p.url || p.path || '').replace(/\/$/, '');
-                  if (pUrl && !existingUrls.has(pUrl)) {
-                    existingUrls.add(pUrl);
-                    results.push({
-                      id: p.id || pUrl,
-                      title: p.title || p.name || 'Untitled Novel',
-                      author: p.author || '',
-                      url: p.url || p.path,
-                      cover: p.cover || '',
-                      summary: p.summary || '',
-                      chapters: p.chapters || '',
-                      rating: p.rating || '',
-                      status: p.status || '',
-                      source: p.source || 'Source Plugin'
-                    });
-                  }
-                }
-              }
-            } catch (pErr) {
-              console.warn('[handleSearchNovels] Plugin search failed:', pErr);
-            }
-          }
-
-          // If a specific source was requested but yielded 0 results, fall back to searching all sources
-          if ((!results || results.length === 0) && sourceOverride !== 'all' && sourceOverride !== 'plugins_only') {
-            try {
-              if (window.WebNovelImporter?.searchNovels) {
-                const fallbackResults = await window.WebNovelImporter.searchNovels(q || target, 'all');
-                if (Array.isArray(fallbackResults) && fallbackResults.length > 0) {
-                  results = fallbackResults;
-                  setNovelSearchFilter('all');
-                  toast(`No results on ${sourceOverride}, but found ${results.length} across other sources!`, 'info');
-                }
-              }
-            } catch (_) {}
-          }
-
-          setNovelSearchResults(results || []);
-          if (!results || results.length === 0) {
-            toast(`No novels found matching "${target}". Try different keywords or browse 278+ Source Plugins!`, 'info');
-          } else {
-            toast(`Found ${results.length} novels across supported sources & plugins!`, 'success');
-          }
-        } catch (e) {
-          toast('Novel search error: ' + (e?.message || e), 'error');
-        } finally {
-          setIsSearchingNovels(false);
-          setWebImportStatus('');
-        }
+        await window.WebNovelCrawlerEngine.searchNovels(target, sourceOverride, {
+          toast,
+          onDirectUrl: (url) => handleStartFetch(false, null, false, url),
+          onStart: () => {
+            setIsSearchingNovels(true);
+            setIsSearchResultsCollapsed(false);
+            setWebImportStatus('Searching novel sources and installed plugins…');
+          },
+          onEnd: () => {
+            setIsSearchingNovels(false);
+            setWebImportStatus('');
+          },
+          onFilterFallback: (filter) => setNovelSearchFilter(filter),
+          onResults: (results) => setNovelSearchResults(results)
+        });
       };
 
       const handleStartPlayAudiobook = async (bookOrResult, startTrack = 0) => {
-        try {
-          const targetUrl = bookOrResult?.url || (typeof bookOrResult === 'string' ? bookOrResult : webImportUrl || '').trim();
-          if (!targetUrl || targetUrl === 'https://swiftaudiobooks.com/' || targetUrl === 'https://swiftaudiobooks.com') {
-            return toast('Please enter an audiobook title to search (e.g. Shadow Slave) or select a book.', 'warning');
-          }
-          if (!window.SwiftAudioEngine || !window.SwiftAudioEngine.Scraper || !window.SwiftAudioEngine.Player) {
-            return toast('Audio engine is initializing, please try again in a moment…', 'info');
-          }
-
-          // If the book is already loaded in the player, resume or switch track
-          const player = window.SwiftAudioEngine.Player;
-          if (player.currentBook && player.currentBook.url === targetUrl) {
-            if (startTrack !== undefined && startTrack !== player.currentTrackIndex) {
-              player.playTrack(startTrack);
-            } else if (!player.isPlaying) {
-              player.play();
-            }
+        const target = bookOrResult || webImportUrl;
+        await window.SwiftAudioEngine.Controller.startPlayAudiobook(target, startTrack, {
+          toast,
+          onPlaying: (book) => {
+            setActiveAudiobook(book);
             setIsFullPlayerOpen(true);
-            return;
           }
-
-          let fullBook = bookOrResult;
-          if (!fullBook || !fullBook.tracks || fullBook.tracks.length === 0) {
-            toast('Loading chapter audio streams…', 'info');
-            fullBook = await window.SwiftAudioEngine.Scraper.getBookDetails(targetUrl);
-          }
-          setActiveAudiobook(fullBook);
-          window.SwiftAudioEngine.Player.loadBook(fullBook, startTrack, true);
-          setIsFullPlayerOpen(true);
-          toast(`Playing: ${fullBook.title}`, 'success');
-        } catch (e) {
-          toast('Could not play audiobook: ' + e.message, 'error');
-        }
+        });
       };
 
       const handleOpenAudioDownload = async (bookOrResult) => {
-        try {
-          const targetUrl = bookOrResult?.url || (typeof bookOrResult === 'string' ? bookOrResult : webImportUrl || '').trim();
-          if (!targetUrl || targetUrl === 'https://swiftaudiobooks.com/' || targetUrl === 'https://swiftaudiobooks.com') {
-            return toast('Please enter an audiobook title to search (e.g. Shadow Slave) or select a book.', 'warning');
+        const target = bookOrResult || webImportUrl;
+        await window.SwiftAudioEngine.Controller.prepareAudioDownload(target, getNovelFolderOptions, {
+          toast,
+          onReady: (modalData) => {
+            if (modalData && modalData.book) {
+              setActiveAudiobook(modalData.book);
+            }
+            setAudioDownloadModal(modalData);
           }
-          if (!window.SwiftAudioEngine || !window.SwiftAudioEngine.Scraper) {
-            return toast('Audio engine is initializing, please try again in a moment…', 'info');
-          }
-          let fullBook = bookOrResult;
-          if (!fullBook || !fullBook.tracks || fullBook.tracks.length === 0) {
-            toast('Loading chapter audio streams…', 'info');
-            fullBook = await window.SwiftAudioEngine.Scraper.getBookDetails(targetUrl);
-          }
-          setActiveAudiobook(fullBook);
-          const opts = getNovelFolderOptions(fullBook);
-          const allIndices = (fullBook.tracks || []).map((_, i) => i);
-          setAudioDownloadModal({
-            book: fullBook,
-            folderOptions: opts,
-            selectedIndices: allIndices,
-            status: `Ready to download ${fullBook.tracks.length} chapters`,
-            percent: 0,
-            active: false,
-            isMinimized: false
-          });
-        } catch (e) {
-          toast('Could not load audiobook for download: ' + e.message, 'error');
-        }
+        });
       };
 
       const handleExecuteAudioBatchDownload = async () => {
@@ -2139,32 +2002,30 @@
         const book = audioDownloadModal.book;
         const opts = audioDownloadModal.folderOptions || getNovelFolderOptions(book);
         const selected = audioDownloadModal.selectedIndices || (book.tracks || []).map((_, i) => i);
-        if (selected.length === 0) {
-          return toast('Please select at least one chapter to download.', 'warning');
-        }
 
-        setAudioDownloadModal(prev => ({ ...prev, active: true, status: `Starting download (${selected.length} ch)…`, percent: 0 }));
-
-        try {
-          const res = await window.SwiftAudioEngine.Downloader.downloadAllTracks(book, opts, (progress) => {
+        await window.SwiftAudioEngine.Controller.executeBatchDownload(book, selected, opts, {
+          toast,
+          onProgress: (progress) => {
             setAudioDownloadModal(prev => prev ? ({
               ...prev,
+              active: progress.active !== undefined ? progress.active : prev.active,
               status: progress.status,
-              percent: progress.percent,
+              percent: progress.percent !== undefined ? progress.percent : prev.percent,
               completed: progress.completed
             }) : prev);
-          }, selected);
-          setAudioDownloadModal(prev => prev ? ({
-            ...prev,
-            active: false,
-            status: res && res.count ? `Complete! Downloaded ${res.count} chapter(s).` : 'Download completed.',
-            percent: 100
-          }) : null);
-          toast(`Chapters of "${book.title}" downloaded!`, 'success');
-        } catch (e) {
-          toast('Audiobook download error: ' + e.message, 'error');
-          setAudioDownloadModal(prev => prev ? ({ ...prev, active: false, status: 'Download failed: ' + e.message }) : null);
-        }
+          },
+          onSuccess: (res) => {
+            setAudioDownloadModal(prev => prev ? ({
+              ...prev,
+              active: false,
+              status: res && res.count ? `Complete! Downloaded ${res.count} chapter(s).` : 'Download completed.',
+              percent: 100
+            }) : null);
+          },
+          onError: (e) => {
+            setAudioDownloadModal(prev => prev ? ({ ...prev, active: false, status: 'Download failed: ' + (e.message || e) }) : null);
+          }
+        });
       };
 
       // --- Language State ---

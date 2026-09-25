@@ -3,6 +3,7 @@
  * Module: crawler_engine.js
  * 
  * Provides:
+ * - searchNovels: Unified multi-source & plugin novel search with deduplication and source fallback
  * - startCrawl: Initiates or resumes multi-chapter crawl with wake lock, throttled persistence, error handling
  * - pauseCrawl: Pauses active crawl, releases wake lock, persists state
  * - cancelCrawl: Cancels active crawl, releases wake lock
@@ -581,7 +582,124 @@
     callbacks.onDismissed?.();
   }
 
+  /**
+   * Unified Novel Search across scrapers and plugin registries
+   */
+  async function searchNovels(queryOrUrl, sourceOverride = 'all', callbacks = {}) {
+    const target = (queryOrUrl || '').trim();
+    if (!target || target === 'https://novelbuddy.me' || target === 'https://www.royalroad.com' || target === 'https://novelfire.net' || target === 'https://lnori.com/' || target === 'https://lnori.com' || target === 'https://witchculttranslation.com/table-of-content/') {
+      safeToast(callbacks, 'Please enter a novel title or keyword to search', 'warning');
+      return [];
+    }
+
+    // If user pasted a direct novel chapter or book URL, initiate crawl directly
+    if (/^https?:\/\//i.test(target) && !target.includes('/search') && !target.includes('?q=') && !target.includes('?s=')) {
+      safeToast(callbacks, 'Direct novel URL detected. Starting novel fetch…', 'info');
+      if (typeof callbacks?.onDirectUrl === 'function') {
+        return callbacks.onDirectUrl(target);
+      }
+      return [];
+    }
+
+    if (sourceOverride === 'all') {
+      callbacks?.onFilterFallback?.('all');
+    }
+
+    callbacks?.onStart?.();
+    safeToast(callbacks, 'Searching novel sources and installed plugins…', 'info');
+
+    try {
+      const q = target.replace(/^https?:\/\/[^\/]+\/(?:search|fictions\/search)\?[^=]+=/i, '');
+
+      // Search scraper and plugins in parallel
+      const scraperPromise = (async () => {
+        if (typeof window !== 'undefined' && window.WebNovelImporter?.searchNovels && sourceOverride !== 'plugins_only') {
+          try {
+            return await window.WebNovelImporter.searchNovels(q || target, sourceOverride || 'all');
+          } catch (sErr) {
+            console.warn('[searchNovels] Scraper search error:', sErr);
+          }
+        }
+        return [];
+      })();
+
+      const pluginPromise = (async () => {
+        const reg = (typeof window !== 'undefined' ? (window.sourceRegistry || window.SourceRegistry) : null) || global.sourceRegistry || global.SourceRegistry;
+        if (reg) {
+          try {
+            const normOverride = (sourceOverride || 'all').replace(/[\s\-_]+/g, '').toLowerCase();
+            if (normOverride !== 'all' && normOverride !== 'plugins' && normOverride !== 'plugins_only') {
+              if (typeof reg.searchPlugin === 'function') {
+                return await reg.searchPlugin(sourceOverride, q || target);
+              }
+            } else if (typeof reg.searchAll === 'function') {
+              return await reg.searchAll(q || target);
+            }
+          } catch (pErr) {
+            console.warn('[searchNovels] Plugin search failed:', pErr);
+          }
+        }
+        return [];
+      })();
+
+      const [scraperResults, rawPluginResults] = await Promise.all([scraperPromise, pluginPromise]);
+
+      let results = Array.isArray(scraperResults) ? [...scraperResults] : [];
+
+      if (Array.isArray(rawPluginResults) && rawPluginResults.length > 0) {
+        const existingUrls = new Set(results.map(r => (r.url || '').replace(/\/$/, '')));
+        for (const p of rawPluginResults) {
+          const pUrl = (p.url || p.path || '').replace(/\/$/, '');
+          if (pUrl && !existingUrls.has(pUrl)) {
+            existingUrls.add(pUrl);
+            results.push({
+              id: p.id || pUrl,
+              title: p.title || p.name || 'Untitled Novel',
+              author: p.author || '',
+              url: p.url || p.path,
+              cover: p.cover || '',
+              summary: p.summary || '',
+              chapters: p.chapters || '',
+              rating: p.rating || '',
+              status: p.status || '',
+              source: p.source || 'Source Plugin'
+            });
+          }
+        }
+      }
+
+      // If a specific source was requested but yielded 0 results, fall back to searching all sources
+      if (results.length === 0 && sourceOverride !== 'all' && sourceOverride !== 'plugins_only') {
+        try {
+          if (typeof window !== 'undefined' && window.WebNovelImporter?.searchNovels) {
+            const fallbackResults = await window.WebNovelImporter.searchNovels(q || target, 'all');
+            if (Array.isArray(fallbackResults) && fallbackResults.length > 0) {
+              results = fallbackResults;
+              callbacks?.onFilterFallback?.('all');
+              safeToast(callbacks, `No results on ${sourceOverride}, but found ${results.length} across other sources!`, 'info');
+            }
+          }
+        } catch (_) {}
+      }
+
+      callbacks?.onResults?.(results);
+      if (results.length === 0) {
+        safeToast(callbacks, `No novels found matching "${target}". Try different keywords or browse installed plugins!`, 'info');
+      } else {
+        safeToast(callbacks, `Found ${results.length} novels across supported sources & plugins!`, 'success');
+      }
+      return results;
+    } catch (e) {
+      callbacks?.onError?.(e);
+      safeToast(callbacks, 'Novel search error: ' + (e?.message || e), 'error');
+      return [];
+    } finally {
+      callbacks?.onEnd?.();
+    }
+  }
+
   const WebNovelCrawlerEngine = {
+    searchNovels,
     startCrawl,
     pauseCrawl,
     cancelCrawl,
