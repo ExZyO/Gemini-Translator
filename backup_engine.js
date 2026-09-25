@@ -54,7 +54,7 @@
     async generatePayload(options = {}) {
       const {
         shouldIncludeKeys = false,
-        version = '8.17.67',
+        version = '8.17.76',
         state = {}
       } = options;
 
@@ -111,7 +111,7 @@
 
       // 7. Base backup object
       const backup = {
-        version: version || state.VERSION || '8.17.67',
+        version: version || state.VERSION || '8.17.76',
         timestamp: new Date().toISOString(),
         includesApiKeys: shouldIncludeKeys,
         provider: state.provider || localStorage.getItem('translationProvider') || 'gemini',
@@ -195,7 +195,7 @@
      * Downloads full backup payload directly to client storage
      */
     async exportBackup(options = {}) {
-      const { shouldIncludeKeys = false, version = '8.17.67', state = {} } = options;
+      const { shouldIncludeKeys = false, version = '8.17.76', state = {} } = options;
       const { backup, fullHistory, novelLibrary } = await this.generatePayload({ shouldIncludeKeys, version, state });
       const jsonStr = JSON.stringify(backup, null, 2);
       const dateStr = new Date().toISOString().slice(0, 10);
@@ -250,7 +250,7 @@
     /**
      * Uploads backup to WebDAV folder
      */
-    async uploadToWebDav({ url, path = 'GeminiTranslator', user, pass, payload, version = '8.17.67' }) {
+    async uploadToWebDav({ url, path = 'GeminiTranslator', user, pass, payload, version = '8.17.76' }) {
       if (!url || !url.trim()) throw new Error('Please configure WebDAV URL.');
       const cleanUrl = url.trim().replace(/\/+$/, '');
       const targetFolder = (path || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
@@ -722,6 +722,180 @@
         historyCount: data.translationHistory ? data.translationHistory.length : 0,
         summary: summaryParts.join(', ')
       };
+    },
+
+    /**
+     * High-level WebDAV Backup coordinator
+     */
+    async performWebDavBackup({ webdavUrl, webdavPath, webdavUser, webdavPass, version = '8.17.76', state = {}, callbacks = {} } = {}) {
+      if (!webdavUrl || !webdavUrl.trim()) {
+        const err = new Error('Please configure WebDAV URL in Settings first');
+        if (callbacks.onError) callbacks.onError(err);
+        throw err;
+      }
+      const { backup } = await this.generatePayload({ shouldIncludeKeys: true, version, state });
+      const targetFolder = (webdavPath || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
+      await this.uploadToWebDav({
+        url: webdavUrl,
+        path: targetFolder,
+        user: webdavUser,
+        pass: webdavPass,
+        payload: backup,
+        version
+      });
+      const timeStr = new Date().toLocaleString();
+      try {
+        window.NativeBridge?.showCompletionNotification?.('Cloud Backup Complete! ☁️', `Backup saved to WebDAV /${targetFolder}/.`);
+      } catch (e) {}
+      if (callbacks.onSuccess) callbacks.onSuccess(timeStr, targetFolder);
+      return { timeStr, targetFolder };
+    },
+
+    /**
+     * High-level WebDAV Restore coordinator
+     */
+    async performWebDavRestore({ webdavUrl, webdavPath, webdavUser, webdavPass, setters = {}, callbacks = {} } = {}) {
+      if (!webdavUrl || !webdavUrl.trim()) {
+        const err = new Error('Please configure WebDAV URL in Settings first');
+        if (callbacks.onError) callbacks.onError(err);
+        throw err;
+      }
+      const targetFolder = (webdavPath || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
+      const data = await this.downloadFromWebDav({
+        url: webdavUrl,
+        path: targetFolder,
+        user: webdavUser,
+        pass: webdavPass
+      });
+      const countNovels = (data.novelLibrary || []).length;
+      const countGloss = (data.savedGlossaries || []).length;
+
+      const confirmMsg = `Found WebDAV backup (${countNovels} novels, ${countGloss} glossaries). Restore now? This will safely merge and update your data.`;
+      const shouldProceed = callbacks.confirm
+        ? await callbacks.confirm(confirmMsg, countNovels, countGloss)
+        : (typeof confirm === 'function' ? confirm(confirmMsg) : true);
+
+      if (!shouldProceed) return { cancelled: true };
+
+      const restoreSummary = await this.applyRestoredData(data, setters);
+      try {
+        window.NativeBridge?.showCompletionNotification?.('Cloud Restore Complete! 📥', `Restored ${countNovels} novels and ${countGloss} glossaries from WebDAV.`);
+      } catch (e) {}
+      if (callbacks.onSuccess) callbacks.onSuccess(countNovels, countGloss, restoreSummary);
+      return { success: true, countNovels, countGloss, restoreSummary };
+    },
+
+    /**
+     * High-level Google Drive Connection test
+     */
+    async testGoogleDriveConnection(callbacks = {}) {
+      if (!window.GoogleDriveSync?.isConnected()) {
+        const err = new Error('Google Drive is not connected. Click "Sign in with Google" first.');
+        if (callbacks.onError) callbacks.onError(err);
+        throw err;
+      }
+      const res = await this.testGoogleDrive();
+      if (res && res.success && res.profile) {
+        if (callbacks.onSuccess) callbacks.onSuccess(res.profile);
+        return res;
+      }
+      const err = new Error(res?.error || 'Google Drive connection failed.');
+      if (callbacks.onError) callbacks.onError(err);
+      throw err;
+    },
+
+    /**
+     * High-level Google Drive Backup coordinator
+     */
+    async performGoogleDriveBackup({ includeKeys = false, version = '8.17.76', state = {}, callbacks = {} } = {}) {
+      if (!window.GoogleDriveSync?.isConnected()) {
+        const err = new Error('Please connect Google Drive in Settings first');
+        if (callbacks.onError) callbacks.onError(err);
+        throw err;
+      }
+      const { backup, fullHistory, novelLibrary } = await this.generatePayload({
+        shouldIncludeKeys: includeKeys,
+        version,
+        state
+      });
+      const res = await this.uploadToGoogleDrive(backup);
+      if (res && res.success) {
+        const timeStr = new Date().toLocaleString();
+        if (callbacks.onSuccess) callbacks.onSuccess(timeStr, novelLibrary.length, fullHistory.length);
+        return { success: true, timeStr, novelCount: novelLibrary.length, historyCount: fullHistory.length };
+      }
+      throw new Error(res?.error || 'Google Drive backup failed.');
+    },
+
+    /**
+     * High-level Google Drive Restore coordinator
+     */
+    async performGoogleDriveRestore({ setters = {}, callbacks = {} } = {}) {
+      if (!window.GoogleDriveSync?.isConnected()) {
+        const err = new Error('Please connect Google Drive in Settings first');
+        if (callbacks.onError) callbacks.onError(err);
+        throw err;
+      }
+      if (callbacks.onStart) callbacks.onStart();
+      const { data, meta } = await this.downloadFromGoogleDrive();
+      const countNovels = (data.novelLibrary || data.novels || []).length;
+      const countGloss = (data.savedGlossaries || data.glossaries || []).length;
+      const backupDate = meta?.modifiedTime ? new Date(meta.modifiedTime).toLocaleString() : 'recent';
+
+      const confirmMsg = `Found Google Drive backup (${backupDate}) with ${countNovels} novels and ${countGloss} glossaries. Restore now? This will safely merge with your local library.`;
+      const shouldProceed = callbacks.confirm
+        ? await callbacks.confirm(confirmMsg, countNovels, countGloss, backupDate)
+        : (typeof confirm === 'function' ? confirm(confirmMsg) : true);
+
+      if (!shouldProceed) return { cancelled: true };
+
+      const restoreSummary = await this.applyRestoredData(data, setters);
+      try {
+        window.NativeBridge?.showCompletionNotification?.('Google Drive Restore Complete! 📥', `Restored ${countNovels} novels and ${countGloss} glossaries from Google Drive.`);
+      } catch (e) {}
+      if (callbacks.onSuccess) callbacks.onSuccess(countNovels, countGloss, restoreSummary);
+      return { success: true, countNovels, countGloss, restoreSummary };
+    },
+
+    /**
+     * High-level Google Drive OAuth connection flow
+     */
+    async connectGoogleDrive(callbacks = {}) {
+      if (!window.GoogleDriveSync?.getClientId()) {
+        const err = new Error('MISSING_CLIENT_ID');
+        if (callbacks.onMissingClientId) callbacks.onMissingClientId();
+        throw err;
+      }
+      if (callbacks.onStart) callbacks.onStart();
+      await window.GoogleDriveSync.launchOAuthFlow();
+      const testRes = await this.testGoogleDrive();
+      const isConnected = !!window.GoogleDriveSync.isConnected();
+      const profile = (testRes && testRes.success && testRes.profile) ? testRes.profile : null;
+      if (callbacks.onSuccess) callbacks.onSuccess(profile, isConnected);
+      return { isConnected, profile };
+    },
+
+    /**
+     * File import backup parser and restore coordinator
+     */
+    async importBackupFile(file, setters = {}, callbacks = {}) {
+      if (!file) throw new Error('No backup file selected.');
+      const text = await this.readFileAsText(file);
+      const data = this.parseBackup(text);
+      const summary = await this.applyRestoredData(data, setters);
+      if (callbacks.onSuccess) callbacks.onSuccess(summary);
+      return summary;
+    },
+
+    /**
+     * Direct clipboard / pasted text restore coordinator
+     */
+    async pasteAndRestoreBackup(pastedText, setters = {}, callbacks = {}) {
+      if (!pastedText || !pastedText.trim()) throw new Error('No backup JSON content provided.');
+      const data = this.parseBackup(pastedText.trim());
+      const summary = await this.applyRestoredData(data, setters);
+      if (callbacks.onSuccess) callbacks.onSuccess(summary);
+      return summary;
     }
   };
 

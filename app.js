@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.75';
+    let VERSION = '8.17.76';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4426,21 +4426,21 @@ RAW GLOSSARY DATA TO CLEAN:
         if (!webdavUrl || !webdavUrl.trim()) return toast('Please configure WebDAV URL in Settings first', 'warning');
         setWebdavSyncing(true);
         try {
-          const { backup } = await generateBackupPayload(true);
-          const targetFolder = (webdavPath || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
-          await window.BackupEngine.uploadToWebDav({
-            url: webdavUrl,
-            path: targetFolder,
-            user: webdavUser,
-            pass: webdavPass,
-            payload: backup,
-            version: VERSION
+          await window.BackupEngine.performWebDavBackup({
+            webdavUrl,
+            webdavPath,
+            webdavUser,
+            webdavPass,
+            version: VERSION,
+            state: getBackupAppState(),
+            callbacks: {
+              onSuccess: (timeStr, targetFolder) => {
+                toast(`☁️ WebDAV Backup Successful! Saved to /${targetFolder}/`, 'success');
+                setWebdavLastSync(timeStr);
+                localStorage.setItem('webdavLastSync', timeStr);
+              }
+            }
           });
-          const timeStr = new Date().toLocaleString();
-          toast(`☁️ WebDAV Backup Successful! Saved to /${targetFolder}/`, 'success');
-          try { window.NativeBridge?.showCompletionNotification?.('Cloud Backup Complete! ☁️', `Backup saved to WebDAV /${targetFolder}/.`); } catch(e) {}
-          setWebdavLastSync(timeStr);
-          localStorage.setItem('webdavLastSync', timeStr);
         } catch (e) {
           console.error('WebDAV Backup Error:', e);
           toast(`WebDAV Backup failed: ${e.message}`, 'error');
@@ -4453,21 +4453,19 @@ RAW GLOSSARY DATA TO CLEAN:
         if (!webdavUrl || !webdavUrl.trim()) return toast('Please configure WebDAV URL in Settings first', 'warning');
         setWebdavSyncing(true);
         try {
-          const targetFolder = (webdavPath || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
-          const data = await window.BackupEngine.downloadFromWebDav({
-            url: webdavUrl,
-            path: targetFolder,
-            user: webdavUser,
-            pass: webdavPass
+          await window.BackupEngine.performWebDavRestore({
+            webdavUrl,
+            webdavPath,
+            webdavUser,
+            webdavPass,
+            setters: getBackupSetters(),
+            callbacks: {
+              confirm: (msg) => confirm(msg),
+              onSuccess: (countNovels, countGloss) => {
+                toast(`Restored ${countNovels} novels and ${countGloss} glossaries from WebDAV!`, 'success');
+              }
+            }
           });
-          const countNovels = (data.novelLibrary || []).length;
-          const countGloss = (data.savedGlossaries || []).length;
-
-          if (confirm(`Found WebDAV backup (${countNovels} novels, ${countGloss} glossaries). Restore now? This will safely merge and update your data.`)) {
-            await applyRestoredData(data);
-            toast(`Restored ${countNovels} novels and ${countGloss} glossaries from WebDAV!`, 'success');
-            try { window.NativeBridge?.showCompletionNotification?.('Cloud Restore Complete! 📥', `Restored ${countNovels} novels and ${countGloss} glossaries from WebDAV.`); } catch(e) {}
-          }
         } catch (e) {
           toast(`WebDAV Restore failed: ${e.message}`, 'error');
         } finally {
@@ -4481,14 +4479,13 @@ RAW GLOSSARY DATA TO CLEAN:
         }
         setGdriveTesting(true);
         try {
-          const res = await window.BackupEngine.testGoogleDrive();
-          if (res.success && res.profile) {
-            setGdriveUser(res.profile);
-            setGdriveConnected(true);
-            toast(`✅ Connected to Google Drive! (${res.profile.emailAddress || res.profile.displayName})`, 'success');
-          } else {
-            toast(`Google Drive error: ${res.error}`, 'error');
-          }
+          await window.BackupEngine.testGoogleDriveConnection({
+            onSuccess: (profile) => {
+              setGdriveUser(profile);
+              setGdriveConnected(true);
+              toast(`✅ Connected to Google Drive! (${profile.emailAddress || profile.displayName})`, 'success');
+            }
+          });
         } catch (e) {
           toast(`Google Drive test failed: ${e.message}`, 'error');
         } finally {
@@ -4502,13 +4499,17 @@ RAW GLOSSARY DATA TO CLEAN:
         }
         setGdriveSyncing(true);
         try {
-          const { backup, fullHistory, novelLibrary } = await generateBackupPayload(includeApiKeysInBackup);
-          const res = await window.BackupEngine.uploadToGoogleDrive(backup);
-          if (res.success) {
-            const timeStr = new Date().toLocaleString();
-            setGdriveLastSync(timeStr);
-            toast(`☁️ Google Drive Backup Successful! (${novelLibrary.length} novels, ${fullHistory.length} history items)`, 'success');
-          }
+          await window.BackupEngine.performGoogleDriveBackup({
+            includeKeys: includeApiKeysInBackup,
+            version: VERSION,
+            state: getBackupAppState(),
+            callbacks: {
+              onSuccess: (timeStr, novelCount, historyCount) => {
+                setGdriveLastSync(timeStr);
+                toast(`☁️ Google Drive Backup Successful! (${novelCount} novels, ${historyCount} history items)`, 'success');
+              }
+            }
+          });
         } catch (e) {
           console.error('Google Drive Backup Error:', e);
           toast(`Google Drive Backup failed: ${e.message}`, 'error');
@@ -4523,17 +4524,16 @@ RAW GLOSSARY DATA TO CLEAN:
         }
         setGdriveSyncing(true);
         try {
-          toast('Fetching backup from Google Drive…', 'info');
-          const { data, meta } = await window.BackupEngine.downloadFromGoogleDrive();
-          const countNovels = (data.novelLibrary || data.novels || []).length;
-          const countGloss = (data.savedGlossaries || data.glossaries || []).length;
-          const backupDate = meta.modifiedTime ? new Date(meta.modifiedTime).toLocaleString() : 'recent';
-
-          if (confirm(`Found Google Drive backup (${backupDate}) with ${countNovels} novels and ${countGloss} glossaries. Restore now? This will safely merge with your local library.`)) {
-            await applyRestoredData(data);
-            toast(`Restored ${countNovels} novels and ${countGloss} glossaries from Google Drive!`, 'success');
-            try { window.NativeBridge?.showCompletionNotification?.('Google Drive Restore Complete! 📥', `Restored ${countNovels} novels and ${countGloss} glossaries from Google Drive.`); } catch(e) {}
-          }
+          await window.BackupEngine.performGoogleDriveRestore({
+            setters: getBackupSetters(),
+            callbacks: {
+              onStart: () => toast('Fetching backup from Google Drive…', 'info'),
+              confirm: (msg) => confirm(msg),
+              onSuccess: (countNovels, countGloss) => {
+                toast(`Restored ${countNovels} novels and ${countGloss} glossaries from Google Drive!`, 'success');
+              }
+            }
+          });
         } catch (e) {
           toast(`Google Drive Restore failed: ${e.message}`, 'error');
         } finally {
@@ -4548,16 +4548,18 @@ RAW GLOSSARY DATA TO CLEAN:
           return;
         }
         try {
-          toast('Opening Google Authorization window…', 'info');
-          await window.GoogleDriveSync.launchOAuthFlow();
-          const testRes = await window.BackupEngine.testGoogleDrive();
-          setGdriveConnected(window.GoogleDriveSync.isConnected());
-          if (testRes.success && testRes.profile) {
-            setGdriveUser(testRes.profile);
-            toast(`Google Drive connected as ${testRes.profile.emailAddress}! 🎉`, 'success');
-          } else {
-            toast('Google Drive connected!', 'success');
-          }
+          await window.BackupEngine.connectGoogleDrive({
+            onStart: () => toast('Opening Google Authorization window…', 'info'),
+            onSuccess: (profile, isConnected) => {
+              setGdriveConnected(isConnected);
+              if (profile) {
+                setGdriveUser(profile);
+                toast(`Google Drive connected as ${profile.emailAddress || profile.displayName}! 🎉`, 'success');
+              } else {
+                toast('Google Drive connected!', 'success');
+              }
+            }
+          });
         } catch (err) {
           if (err.message === 'MISSING_CLIENT_ID') {
             setGdriveConfigModalOpen(true);
@@ -4595,19 +4597,22 @@ RAW GLOSSARY DATA TO CLEAN:
         } else {
           toast(`Restored ${res.summary} successfully!`);
         }
+        return res;
       };
-
-      const readFileContentAsText = (file) => window.BackupEngine ? window.BackupEngine.readFileAsText(file) : new Promise((res, rej) => {
-        const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsText(file);
-      });
 
       const importFullBackup = async (e) => {
         const f = e.target?.files?.[0];
         if (!f) return;
         try {
-          const txt = await readFileContentAsText(f);
-          const data = window.BackupEngine.parseBackup(txt);
-          await applyRestoredData(data);
+          await window.BackupEngine.importBackupFile(f, getBackupSetters(), {
+            onSuccess: (res) => {
+              if (res.isGlossaryOnly) {
+                toast(`Imported ${res.count} glossaries!`);
+              } else {
+                toast(`Restored ${res.summary} successfully!`);
+              }
+            }
+          });
         } catch (err) {
           console.error("Backup import error:", err);
           setError('Failed to restore backup: ' + err.message);
@@ -4624,8 +4629,15 @@ RAW GLOSSARY DATA TO CLEAN:
           }
           const input = prompt('Paste your backup JSON content below:', text);
           if (!input || !input.trim()) return;
-          const data = window.BackupEngine.parseBackup(input.trim());
-          await applyRestoredData(data);
+          await window.BackupEngine.pasteAndRestoreBackup(input, getBackupSetters(), {
+            onSuccess: (res) => {
+              if (res.isGlossaryOnly) {
+                toast(`Imported ${res.count} glossaries!`);
+              } else {
+                toast(`Restored ${res.summary} successfully!`);
+              }
+            }
+          });
         } catch (err) {
           setError('Failed to parse backup JSON: ' + err.message);
           toast('Failed to parse backup JSON: ' + err.message, 'error');
