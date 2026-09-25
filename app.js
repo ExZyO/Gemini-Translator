@@ -81,7 +81,8 @@
       translateDeepL, translateLibre, translateOpenAI, translateClaude,
       streamWithRotation, translateWithRotation, translateChunk,
       BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine, LibraryEngine,
-      NovelEnrichmentEngine, KeyManagerEngine, GlossaryManagerEngine
+      NovelEnrichmentEngine, KeyManagerEngine, GlossaryManagerEngine,
+      TranslationLoopEngine
     } = window;
 
     // Helper adapters delegating to DocumentParser & ExportEngine
@@ -135,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.72';
+    let VERSION = '8.17.73';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -5507,30 +5508,18 @@ RAW GLOSSARY DATA TO CLEAN:
         libreUrl
       });
 
-      // --- HTML DOM Node Extraction Helper ---
-      // Extracts all non-empty text nodes from a DOM element (supporting all CJK, Latin, symbols)
+      // --- HTML DOM Node Extraction Helper (Delegated to TranslationLoopEngine) ---
       const extractTextNodes = (element) => {
-        const nodes = [];
-        if (!element) return nodes;
-        const walk = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
-        let n;
-        while (n = walk.nextNode()) {
-          const parentTag = n.parentElement ? n.parentElement.tagName.toLowerCase() : '';
-          if (parentTag === 'script' || parentTag === 'style' || parentTag === 'noscript') continue;
-          if (n.nodeValue && n.nodeValue.trim().length > 0) {
-            nodes.push(n);
-          }
-        }
-        return nodes;
+        const engine = window.TranslationLoopEngine || TranslationLoopEngine;
+        return engine ? engine.extractTextNodes(element) : [];
       };
 
       const handleTranslateText = async (resume = false) => {
         if (!inputText.trim()) return setError('Paste some text to translate.');
         let wakeLock = null;
         if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
-          try { navigator.wakeLock.request('screen').then(wl => { wakeLock = wl }).catch(() => {}); } catch(e) {}
+          try { navigator.wakeLock.request('screen').then(wl => { wakeLock = wl; }).catch(() => {}); } catch(e) {}
         }
-        const startTime = performance.now();
         setIsTranslating(true); setProgress(0); setProgressLabel(resume ? 'Resuming...' : 'Preparing...'); setError('');
         window.NativeBridge?.acquireWakeLock();
         window.NativeBridge?.showProgressNotification('Gemini Translator', resume ? 'Resuming translation...' : 'Starting text translation...', 0);
@@ -5541,304 +5530,93 @@ RAW GLOSSARY DATA TO CLEAN:
 
         try {
           const opts = getTranslateOpts(ctrl.signal);
-          const effectiveTerm = enableGlossary ? terminology : '';
-          const chunks = splitChunks(inputText, effectiveTerm.length, smartGlossary);
-          const isAIProvider = provider === 'gemini' || provider === 'deepseek';
-          const useContext = contextAware && chunks.length > 1 && isAIProvider;
-          const activeLocks = opts.genderLocks ? Object.keys(opts.genderLocks) : [];
-          window.telemetryLog?.('TRANSLATE', `Initiating text translation (${inputText.length} chars, ${chunks.length} chunk${chunks.length > 1 ? 's' : ''})`, {
-            model: opts.model,
+          const config = {
             provider,
-            srcLang: opts.srcLang,
-            tgtLang: opts.tgtLang,
-            chunksCount: chunks.length,
-            genderLocksInjectedCount: activeLocks.length,
-            genderLocksInjected: activeLocks.slice(0, 100),
-            glossaryRulesCount: effectiveTerm ? effectiveTerm.split('\n').filter(l => l.trim() && !l.startsWith('#')).length : 0
+            enableStreaming,
+            enableThinking,
+            strictModel: strictModel !== undefined ? strictModel : (localStorage.getItem('strictModel') !== 'false'),
+            contextAware,
+            concurrency,
+            chunkSizePreset,
+            smartGlossary,
+            enableGlossary,
+            terminology,
+            glossaryTermCount,
+            customInstructions,
+            antiMtlGateEnabled,
+            snapshotsEnabled,
+            fileName,
+            activeNovelRecord,
+            apiKeysByProvider,
+            model,
+            geminiModel,
+            customModel,
+            useCustomModel,
+            deepseekModel,
+            customDeepseekModel,
+            useCustomDeepseekModel,
+            jobId
+          };
+
+          const callbacks = {
+            onProgress: (pct) => setProgress(pct),
+            onProgressLabel: (label) => setProgressLabel(label),
+            onStream: (chunk, assembled) => setAssembledText(assembled),
+            onChunkDone: (info) => {
+              if (info && info.assembledText) setAssembledText(info.assembledText);
+            },
+            onSaveState: async (state) => {
+              activeSessionRef.current = state;
+              setActiveSession(state);
+              setSavedTranslationSession(state);
+              try {
+                if (state.result && state.result.length < 2000000) localStorage.setItem(jobId, JSON.stringify(state));
+              } catch (e) {}
+              if (window.GeminiNovelDB) {
+                await window.GeminiNovelDB.saveTranslationSession(state);
+              }
+            },
+            onToast: (msg, type) => toast(msg, type)
+          };
+
+          const loopEngine = window.TranslationLoopEngine || TranslationLoopEngine;
+          const sessionToResume = resume ? (activeSessionRef.current || activeSession) : null;
+          const res = await loopEngine.translateText({
+            inputText,
+            resume,
+            session: sessionToResume,
+            opts,
+            config,
+            callbacks
           });
 
-          const curSession = (resume ? (activeSessionRef.current || activeSession) : null);
-          let result = curSession ? curSession.result : '';
-          let ctx = curSession ? curSession.ctx : '';
-          let startIndex = curSession ? (curSession.completedCount || 0) : 0;
-          let totalPromptTokens = 0;
-          let totalOutputTokens = 0;
-          let totalTokensUsed = 0;
-          let accumulatedBreakdown = {
-            sourceTokens: 0,
-            glossaryTokens: 0,
-            genderTokens: 0,
-            contextTokens: 0,
-            systemTokens: 0
-          };
-
-          const saveState = async (res, c, count) => {
-            const state = { id: jobId, type: 'text', title: 'Text Translation', result: res, ctx: c, completedCount: count, total: chunks.length, timestamp: Date.now() };
-            try {
-              if (res.length < 2000000) localStorage.setItem(jobId, JSON.stringify(state));
-            } catch (e) {}
-            activeSessionRef.current = state;
-            setActiveSession(state);
-            setSavedTranslationSession(state);
-            if (window.GeminiNovelDB) {
-              await window.GeminiNovelDB.saveTranslationSession(state);
-            }
-          };
-
-          // Snapshot state immediately so pausing at any point captures the session
-          await saveState(result, ctx, startIndex);
-
-          if (isAIProvider && enableStreaming) {
-            for (let i = startIndex; i < chunks.length; i++) {
-              setProgressLabel(`Streaming chunk ${i + 1}/${chunks.length}${useContext ? ' (with context)' : ''}...`);
-              const pct = Math.round(((i + 1) / chunks.length) * 100);
-              window.NativeBridge?.showProgressNotification('Gemini Translator', `Chunk ${i + 1}/${chunks.length} (${pct}%)`, pct);
-              window.NativeBridge?.haptic('milestone');
-              let chunkResult = '';
-              const onChunkStream = t => {
-                if (chunkResult === '' && result !== '' && !result.endsWith('\n')) {
-                  result += '\n\n';
-                }
-                chunkResult += t;
-                result += t;
-                setAssembledText(result);
-              };
-              const isLastChunk = i === chunks.length - 1;
-              const hasIncomingContext = Boolean(ctx && ctx.trim());
-              const shouldPassContext = useContext && (hasIncomingContext || i > 0);
-              const shouldRequestUpdate = useContext && !isLastChunk;
-              let streamRes = await streamWithRotation(chunks[i], {
-                ...opts,
-                context: shouldPassContext ? ctx : undefined,
-                needContextUpdate: shouldRequestUpdate,
-                onChunk: onChunkStream
-              });
-              // Fallback: if the context-memory pass returned no translation body, retry once without context
-              if ((!chunkResult.trim() || (chunks[i].trim().length > 300 && chunkResult.trim().length < 100)) && useContext) {
-                chunkResult = '';
-                streamRes = await streamWithRotation(chunks[i], { ...opts, context: undefined, needContextUpdate: shouldRequestUpdate, onChunk: onChunkStream });
-              }
-              if (useContext) { ctx = streamRes.newContext || ctx; }
-              if (streamRes?.usage) {
-                totalPromptTokens += streamRes.usage.promptTokens || 0;
-                totalOutputTokens += streamRes.usage.outputTokens || 0;
-                totalTokensUsed += streamRes.usage.totalTokens || 0;
-                if (streamRes.usage.breakdown) {
-                  accumulatedBreakdown.sourceTokens += streamRes.usage.breakdown.sourceTokens || 0;
-                  accumulatedBreakdown.glossaryTokens += streamRes.usage.breakdown.glossaryTokens || 0;
-                  accumulatedBreakdown.genderTokens += streamRes.usage.breakdown.genderTokens || 0;
-                  accumulatedBreakdown.contextTokens += streamRes.usage.breakdown.contextTokens || 0;
-                  accumulatedBreakdown.systemTokens += streamRes.usage.breakdown.systemTokens || 0;
-                }
-              }
-              setProgress(Math.floor(((i + 1) / chunks.length) * 100));
-              saveState(result, ctx, i + 1);
-            }
-            result = stripContextLeak(result);
-            if (!(result || '').trim()) throw new Error('Provider returned an empty stream. Check the selected model in Settings · Engine.');
-            setTranslatedChapters([{ title: 'Translated Document', content: result }]);
-            localStorage.removeItem(jobId); activeSessionRef.current = null; setActiveSession(null); setSavedTranslationSession(null); setIsTranslationPaused(false);
-            if (window.GeminiNovelDB) { window.GeminiNovelDB.deleteTranslationSession(jobId); }
-          } else if (useContext) {
-            for (let i = startIndex; i < chunks.length; i++) {
-              setProgressLabel(`Translating chunk ${i + 1}/${chunks.length} (with context)...`);
-              let translated = null;
-              const isLastChunk = i === chunks.length - 1;
-              const hasIncomingContext = Boolean(ctx && ctx.trim());
-              const shouldPassContext = useContext && (hasIncomingContext || i > 0);
-              const shouldRequestUpdate = useContext && !isLastChunk;
-              try {
-                translated = await translateWithRotation(chunks[i], {
-                  ...opts,
-                  context: shouldPassContext ? ctx : undefined,
-                  needContextUpdate: shouldRequestUpdate
-                });
-              } catch (err) {
-                if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
-                const isFatalQuota = (err.message || '').includes('429') || (err.message || '').includes('quota') || (err.message || '').includes('billing');
-                if (isFatalQuota) {
-                  throw new Error(`API Quota exhausted across keys. Switch model to Gemini 3.5 Flash Lite in Settings · Engine. Progress saved at chunk ${i + 1}/${chunks.length}.`);
-                }
-                if (opts?.strictModel) {
-                  throw new Error(`Strict Model: Could not complete chunk ${i + 1}/${chunks.length} with ${opts.model || 'chosen model'}: ${err.message}. Progress safely preserved. Tap Resume to retry.`);
-                }
-                let recText = '';
-                try {
-                  const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
-                  const fallbackLeased = (availableKeys?.length > 1) ? await KeyPool.acquireKey(availableKeys) : null;
-                  const fallbackOpts = { ...opts, apiKey: fallbackLeased || opts.apiKey, context: undefined, needContextUpdate: false };
-                  const recRes = await translateWithRotation(chunks[i], fallbackOpts);
-                  if (fallbackLeased) KeyPool.releaseKey(fallbackLeased);
-                  recText = (recRes && typeof recRes === 'object') ? (recRes.text || '') : (typeof recRes === 'string' ? recRes : '');
-                } catch (recErr) {}
-                if (recText && recText.trim()) {
-                  translated = { text: recText };
-                } else {
-                  translated = { text: `\n\n[Error on chunk ${i + 1}: ${err.message}]\n\n` };
-                }
-              }
-              result += (result ? '\n' : '') + (translated.text || translated);
-              ctx = translated.newContext || ctx;
-              if (translated?.usage) {
-                totalPromptTokens += translated.usage.promptTokens || 0;
-                totalOutputTokens += translated.usage.outputTokens || 0;
-                totalTokensUsed += translated.usage.totalTokens || 0;
-                if (translated.usage.breakdown) {
-                  accumulatedBreakdown.sourceTokens += translated.usage.breakdown.sourceTokens || 0;
-                  accumulatedBreakdown.glossaryTokens += translated.usage.breakdown.glossaryTokens || 0;
-                  accumulatedBreakdown.genderTokens += translated.usage.breakdown.genderTokens || 0;
-                  accumulatedBreakdown.contextTokens += translated.usage.breakdown.contextTokens || 0;
-                  accumulatedBreakdown.systemTokens += translated.usage.breakdown.systemTokens || 0;
-                }
-              }
-              setAssembledText(result.replace(/\r\n/g, '\n').trim());
-              setProgress(Math.floor(((i + 1) / chunks.length) * 100));
-              saveState(result, ctx, i + 1);
-            }
-            const final = stripContextLeak(result).replace(/\r\n/g, '\n').trim();
-            if (!final) throw new Error('Provider returned an empty response. Check the selected model in Settings · Engine.');
-            setAssembledText(final); setTranslatedChapters([{ title: 'Translated Document', content: final }]);
-            localStorage.removeItem(jobId); setActiveSession(null);
-          } else {
-            // Parallel batch translation (no context)
-            setProgressLabel(`Translating ${chunks.length - startIndex} remaining chunk(s) with ${Math.min(concurrency, chunks.length - startIndex)} parallel...`);
-            let completed = startIndex;
-            const remainingChunks = chunks.slice(startIndex);
-            const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
-            // User requested full parallel speed (up to 20 workers)
-            const effectiveConcurrency = Math.max(1, concurrency || 3);
-            const results = await batchParallel(remainingChunks, async (chunk, idx, workerId = 0) => {
-              const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
-              const workerOpts = { ...opts, apiKey: workerKey, availableKeys, isParallelWorker: effectiveConcurrency > 1 };
-              const translated = await translateWithRotation(chunk, workerOpts);
-              completed++; setProgress(Math.floor((completed / chunks.length) * 100));
-              setProgressLabel(`Completed ${completed}/${chunks.length} chunks`);
-              saveState(result + (result ? '\n' : '') + '[Partial Parallel Completion]', '', completed);
-              return translated;
-            }, effectiveConcurrency, opts.signal);
-
-            if (opts?.strictModel) {
-              const failedItem = results.find(r => r?.error || (!r?.text && typeof r !== 'string'));
-              if (failedItem) {
-                throw new Error(`Strict Model: A chunk encountered an issue ("${failedItem.error || 'empty response'}"). Progress safely saved at ${completed}/${chunks.length}. Tap Resume to retry.`);
-              }
-            }
-
-            results.forEach(r => {
-              if (r?.usage) {
-                totalPromptTokens += r.usage.promptTokens || 0;
-                totalOutputTokens += r.usage.outputTokens || 0;
-                totalTokensUsed += r.usage.totalTokens || 0;
-                if (r.usage.breakdown) {
-                  accumulatedBreakdown.sourceTokens += r.usage.breakdown.sourceTokens || 0;
-                  accumulatedBreakdown.glossaryTokens += r.usage.breakdown.glossaryTokens || 0;
-                  accumulatedBreakdown.genderTokens += r.usage.breakdown.genderTokens || 0;
-                  accumulatedBreakdown.contextTokens += r.usage.breakdown.contextTokens || 0;
-                  accumulatedBreakdown.systemTokens += r.usage.breakdown.systemTokens || 0;
-                }
-              }
-            });
-
-            const translated = results.map(r => typeof r === 'string' ? r : (r?.text ? r.text : (r?.error ? `\n\n[Error: ${r.error}]\n\n` : '')));
-            const combinedNew = cleanNovelProse(translated.join('\n\n').replace(/\r\n/g, '\n')).trim();
-            result = stripContextLeak(result ? result + '\n\n' + combinedNew : combinedNew);
-
-            setAssembledText(result); setTranslatedChapters([{ title: 'Translated Document', content: result }]);
-            localStorage.removeItem(jobId); activeSessionRef.current = null; setActiveSession(null); setSavedTranslationSession(null); setIsTranslationPaused(false);
-            if (window.GeminiNovelDB) { window.GeminiNovelDB.deleteTranslationSession(jobId); }
-
-            // Anti-MTL Quality Gate & Proofreader Check (§7.5 + §5.9)
-            if (antiMtlGateEnabled && window.QAEngine && result) {
-              const refCheck = window.QAEngine.checkMtlRefusal(result);
-              const loopCheck = window.QAEngine.checkRepetitionLoop(result);
-              window.telemetryLog?.('ANTI_MTL', `Text translation quality audit: ${refCheck.hasRefusal ? `⚠️ Refusal [${refCheck.patternName}]` : loopCheck.hasLoop ? `⚠️ Loop [${loopCheck.phrase}]` : 'Clean Pass ✅'}`, {
-                hasRefusal: refCheck.hasRefusal,
-                refusalPattern: refCheck.patternName || null,
-                hasLoop: loopCheck.hasLoop,
-                loopPhrase: loopCheck.phrase || null
-              });
-              if (refCheck.hasRefusal) {
-                toast(`⚠️ Anti-MTL Gate: ${refCheck.patternName} detected in translation`, 'warning');
-              } else if (loopCheck.hasLoop) {
-                toast(`⚠️ QA Proofreader: Hallucinated repetition loop detected`, 'warning');
-              }
-            }
-
-            // Translation Revision Snapshot (§8.6)
-            if (snapshotsEnabled && window.TMDiffEngine && result) {
-              const novelKey = (activeNovelRecord && activeNovelRecord.id) || (fileName && fileName.trim()) || 'active_doc';
-              const activeM = provider === 'deepseek'
-                ? (useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel)
-                : (useCustomModel && customModel ? customModel : geminiModel);
-              window.TMDiffEngine.Snapshots.createSnapshot({
-                novelId: novelKey,
-                chapterIdx: 0,
-                chapterTitle: (fileName && fileName.trim()) || 'Translated Document',
-                text: result,
-                model: activeM || 'Gemini'
-              }).catch(e => console.warn('[Snapshots] Single text snapshot error:', e));
-            }
+          const { assembledText: result, lastUsageStats: stats } = res;
+          setAssembledText(result);
+          setTranslatedChapters([{ title: 'Translated Document', content: result }]);
+          localStorage.removeItem(jobId);
+          activeSessionRef.current = null;
+          setActiveSession(null);
+          setSavedTranslationSession(null);
+          setIsTranslationPaused(false);
+          if (window.GeminiNovelDB) {
+            window.GeminiNovelDB.deleteTranslationSession(jobId);
           }
 
-          const elapsedMs = performance.now() - startTime;
-          const durationStr = formatDuration(elapsedMs);
-          const totalToks = totalTokensUsed || (totalPromptTokens + totalOutputTokens);
-          const tokPerSec = elapsedMs > 0 && totalToks ? Math.round((totalToks / (elapsedMs / 1000))) : 0;
-
-          const activeM = provider === 'deepseek'
-            ? (useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel)
-            : (useCustomModel && customModel ? customModel : geminiModel);
-          const finalCost = calculateRealCost(totalPromptTokens, totalOutputTokens, activeM, provider);
-          const finalBreakdown = totalPromptTokens > 0 ? {
-            sourceTokens: accumulatedBreakdown.sourceTokens,
-            glossaryTokens: accumulatedBreakdown.glossaryTokens,
-            genderTokens: accumulatedBreakdown.genderTokens,
-            contextTokens: accumulatedBreakdown.contextTokens,
-            systemTokens: accumulatedBreakdown.systemTokens,
-            sourcePct: ((accumulatedBreakdown.sourceTokens / totalPromptTokens) * 100).toFixed(1),
-            glossaryPct: ((accumulatedBreakdown.glossaryTokens / totalPromptTokens) * 100).toFixed(1),
-            genderPct: ((accumulatedBreakdown.genderTokens / totalPromptTokens) * 100).toFixed(1),
-            contextPct: ((accumulatedBreakdown.contextTokens / totalPromptTokens) * 100).toFixed(1),
-            systemPct: ((accumulatedBreakdown.systemTokens / totalPromptTokens) * 100).toFixed(1)
-          } : null;
-
-          const stats = {
-            promptTokens: totalPromptTokens,
-            outputTokens: totalOutputTokens,
-            totalTokens: totalToks,
-            cost: finalCost,
-            duration: durationStr,
-            durationMs: elapsedMs,
-            speed: tokPerSec ? `${tokPerSec} tok/s` : '',
-            model: activeM,
-            provider,
-            enableStreaming: Boolean(enableStreaming),
-            enableThinking: Boolean(enableThinking),
-            strictModel: Boolean(strictModel),
-            contextAware: Boolean(contextAware),
-            concurrency: Number(concurrency || 1),
-            chunkSizePreset: String(chunkSizePreset || 'turbo'),
-            smartGlossary: Boolean(smartGlossary),
-            glossaryTermCount: Number(glossaryTermCount || 0),
-            hasGlossary: Boolean(terminology && terminology.trim()),
-            hasInstructions: Boolean(customInstructions && customInstructions.trim()),
-            breakdown: finalBreakdown
-          };
           setLastUsageStats(stats);
-          if (finalBreakdown) {
-            window.telemetryLog?.('TOKEN_BREAKDOWN', `Token Consumption Breakdown: ${totalPromptTokens.toLocaleString()} in (${finalBreakdown.glossaryTokens.toLocaleString()} glossary · ${finalBreakdown.sourceTokens.toLocaleString()} source · ${finalBreakdown.genderTokens.toLocaleString()} gender · ${finalBreakdown.systemTokens.toLocaleString()} system) + ${totalOutputTokens.toLocaleString()} out`, {
-              totalTokens: totalToks,
-              promptTokens: totalPromptTokens,
-              outputTokens: totalOutputTokens,
-              breakdown: finalBreakdown
+          if (stats.breakdown) {
+            window.telemetryLog?.('TOKEN_BREAKDOWN', `Token Consumption Breakdown: ${stats.promptTokens.toLocaleString()} in (${stats.breakdown.glossaryTokens.toLocaleString()} glossary · ${stats.breakdown.sourceTokens.toLocaleString()} source · ${stats.breakdown.genderTokens.toLocaleString()} gender · ${stats.breakdown.systemTokens.toLocaleString()} system) + ${stats.outputTokens.toLocaleString()} out`, {
+              totalTokens: stats.totalTokens,
+              promptTokens: stats.promptTokens,
+              outputTokens: stats.outputTokens,
+              breakdown: stats.breakdown
             });
           }
           window.sendTelemetry?.('REPORT', '\n' + getReportSummaryText(stats));
           addToHistory(srcLang, tgtLang, provider, inputText, result, stats);
-          toast(`Translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
+          toast(`Translation complete in ${stats.duration}! (${stats.totalTokens.toLocaleString()} tokens · ${stats.cost})`);
           try {
             window.NativeBridge?.releaseWakeLock?.();
-            window.NativeBridge?.showCompletionNotification?.('Text Translation Complete! ✨', `Translated in ${durationStr} (${stats.totalTokens.toLocaleString()} tokens).`);
+            window.NativeBridge?.showCompletionNotification?.('Text Translation Complete! ✨', `Translated in ${stats.duration} (${stats.totalTokens.toLocaleString()} tokens).`);
           } catch(e) {}
         } catch (e) {
           if (e.name !== 'AbortError') { setError(e.message); toast(e.message, 'error'); }
@@ -5854,8 +5632,7 @@ RAW GLOSSARY DATA TO CLEAN:
             }
             toast('Translation paused. Progress safely saved.', 'info');
           }
-        }
-        finally {
+        } finally {
           if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
           setIsTranslating(false);
           if (!isPausingRef.current) {
@@ -5871,9 +5648,8 @@ RAW GLOSSARY DATA TO CLEAN:
       const handleTranslateEbook = async (chapters, resume = false, isEpubParam = false, originalZipParam = null) => {
         let wakeLock = null;
         if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
-          try { navigator.wakeLock.request('screen').then(wl => { wakeLock = wl }).catch(() => {}); } catch(e) {}
+          try { navigator.wakeLock.request('screen').then(wl => { wakeLock = wl; }).catch(() => {}); } catch(e) {}
         }
-        const startTime = performance.now();
         setIsTranslating(true); setProgress(0); setError('');
         window.NativeBridge?.acquireWakeLock();
         window.NativeBridge?.showProgressNotification('Gemini Ebook Translator', resume ? 'Resuming book...' : 'Analyzing chapters...', 0);
@@ -5886,449 +5662,102 @@ RAW GLOSSARY DATA TO CLEAN:
 
         const ctrl = new AbortController(); abortRef.current = ctrl;
         const opts = getTranslateOpts(ctrl.signal);
-        const useContext = contextAware && (provider === 'gemini' || provider === 'deepseek');
+
         const curSession = (resume ? (activeSessionRef.current || activeSession) : null);
-        let ctx = curSession ? curSession.ctx : '';
-        let done = curSession ? (curSession.completedCount || 0) : 0;
-        let totalPromptTokens = 0;
-        let totalOutputTokens = 0;
-        let totalTokensUsed = 0;
-        let accumulatedBreakdown = {
-          sourceTokens: 0,
-          glossaryTokens: 0,
-          genderTokens: 0,
-          contextTokens: 0,
-          systemTokens: 0
-        };
-
-        const allParts = curSession ? [...curSession.allParts] : [];
-        const newChapters = curSession ? [...curSession.newChapters] : [];
-        const startChapterIdx = curSession ? (curSession.currentChapterIdx || 0) : 0;
-        const startChunkIdx = curSession ? (curSession.currentChunkIdx || 0) : 0;
-
         const bookTitle = (chapters && chapters[0]?.title && !isGenericTitle(chapters[0].title))
           ? chapters[0].title
           : ((fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || 'Web Novel');
         const jobId = currentFileHash || ('job_' + String(bookTitle).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30) + '_' + chapters.length);
 
-        const activeLocks = opts.genderLocks ? Object.keys(opts.genderLocks) : [];
-        window.telemetryLog?.('TRANSLATE', `Started eBook translation: "${bookTitle}" (${chapters.length} chapters, isEpub=${isEpub})`, {
-          bookTitle,
-          totalChapters: chapters.length,
-          model: opts.model,
-          provider,
-          srcLang: opts.srcLang,
-          tgtLang: opts.tgtLang,
-          resume,
-          activeGenderLocksCount: activeLocks.length,
-          activeGenderLocks: activeLocks.slice(0, 100),
-          glossaryRulesCount: opts.glossary ? opts.glossary.split('\n').filter(l => l.trim() && !l.startsWith('#')).length : 0,
-          translationMemoryEnabled: !!translationMemoryEnabled,
-          antiMtlGateEnabled: !!antiMtlGateEnabled
-        });
-        let lastUiAssembledUpdate = performance.now();
-        let totalChunks = 0;
-
         try {
-          // Disambiguate duplicate adjacent chapter titles in chapters array (e.g. AO3 summary block vs story chapter)
-          for (let idx = 0; idx < chapters.length - 1; idx++) {
-            const cur = chapters[idx];
-            const next = chapters[idx + 1];
-            const curTitle = (cur?.title || '').trim().toLowerCase();
-            const nextTitle = (next?.title || '').trim().toLowerCase();
-            if (curTitle && curTitle === nextTitle) {
-              const curText = (typeof cur === 'string' ? cur : (cur?.text || cur?.content || ''));
-              const curIsSummary = /(?:^|\n)\s*(?:by\s+[^\n]+\r?\n+)?\s*(?:Summary|Synopsis|Warning|Notes|简介|内容简介|前言)[:：\s]/i.test(curText);
-              if (curIsSummary) {
-                if (typeof cur === 'object') cur.title = 'Summary';
-              }
-            }
-          }
-
-          // Prepare chapter chunks with clean paragraph boundary splitting
-          const chapterData = chapters.map(c => {
-            const effectiveTerm = enableGlossary ? terminology : '';
-            let chapterText = (typeof c === 'string' ? c : (c?.text || c?.content || ''));
-            const chapterTitle = (typeof c === 'object' && c?.title) ? String(c.title).trim() : '';
-            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
-            if (typeof stripFn === 'function' && chapterTitle) {
-              chapterText = stripFn(chapterText, chapterTitle, c?.originalTitle);
-            }
-            const ch = splitChunks(chapterText, effectiveTerm.length, smartGlossary);
-            totalChunks += ch.length;
-            if (chapterTitle) totalChunks++;
-            return { title: chapterTitle, chunks: ch.map(text => ({ text })), doc: c?.doc, zipPath: c?.zipPath };
-          });
-
-          if (resume && newChapters.length > 0) {
-            done = 0;
-            newChapters.forEach((nc, idx) => {
-              if (nc && nc.content) {
-                done += (chapterData[idx]?.chunks?.length || 1) + (chapterData[idx]?.title?.trim() ? 1 : 0);
-              }
-            });
-          }
-
-          const saveState = async (c, count, chIdx, ckIdx, ap, nc) => {
-            const state = {
-              id: jobId,
-              type: 'ebook',
-              title: bookTitle,
-              ctx: c,
-              completedCount: count,
-              currentChapterIdx: chIdx,
-              currentChunkIdx: ckIdx,
-              allParts: ap,
-              newChapters: nc,
-              totalChunks,
-              chapters: (chapters || []).map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, text: c?.text || c?.content || '' })),
-              isEpub,
-              cover: currentDocCover || activeNovelRecord?.cover || curSession?.cover || '',
-              novelRecord: activeNovelRecord || curSession?.novelRecord || null,
-              timestamp: Date.now(),
-              isDeltaUpdate: Boolean(curSession?.isDeltaUpdate),
-              deltaStart: curSession?.deltaStart,
-              deltaEnd: curSession?.deltaEnd,
-              novelId: curSession?.novelId
-            };
-            try {
-              const sStr = JSON.stringify(state);
-              if (sStr.length < 2000000) localStorage.setItem(jobId, sStr);
-            } catch(e) {}
-            activeSessionRef.current = state;
-            setActiveSession(state);
-            setSavedTranslationSession(state);
-            if (window.GeminiNovelDB) {
-              await window.GeminiNovelDB.saveTranslationSession(state);
-            }
+          const config = {
+            provider,
+            enableStreaming,
+            enableThinking,
+            strictModel: strictModel !== undefined ? strictModel : (localStorage.getItem('strictModel') !== 'false'),
+            contextAware,
+            concurrency,
+            chunkSizePreset,
+            smartGlossary,
+            enableGlossary,
+            terminology,
+            glossaryTermCount,
+            customInstructions,
+            antiMtlGateEnabled,
+            snapshotsEnabled,
+            fileName,
+            activeNovelRecord,
+            apiKeysByProvider,
+            bookTitle,
+            fileHash: currentFileHash,
+            model,
+            geminiModel,
+            customModel,
+            useCustomModel,
+            deepseekModel,
+            customDeepseekModel,
+            useCustomDeepseekModel,
+            translationMemoryEnabled,
+            cover: currentDocCover || activeNovelRecord?.cover || curSession?.cover || '',
+            currentDocCover
           };
 
-          // Snapshot state immediately at millisecond zero so pausing during chapter 1 never yields null
-          await saveState(ctx, done, startChapterIdx, startChunkIdx, allParts, newChapters);
+          const callbacks = {
+            onProgress: (pct) => setProgress(pct),
+            onProgressLabel: (label) => setProgressLabel(label),
+            onLiveTextUpdate: (text) => setAssembledText(text),
+            onChapterComplete: (i, chapter, allChapters, allParts) => {
+              setTranslatedChapters([...allChapters]);
+              const currentAssembled = allParts.filter(Boolean).join('\n\n\n').trim();
+              setAssembledText(currentAssembled);
+            },
+            onSaveState: async (state) => {
+              activeSessionRef.current = state;
+              setActiveSession(state);
+              setSavedTranslationSession(state);
+              try {
+                const sStr = JSON.stringify(state);
+                if (sStr.length < 2000000) localStorage.setItem(jobId, sStr);
+              } catch(e) {}
+              if (window.GeminiNovelDB) {
+                await window.GeminiNovelDB.saveTranslationSession(state);
+              }
+            },
+            onToast: (msg, type) => toast(msg, type)
+          };
 
-          const chapterItems = chapterData.map((ch, idx) => ({ ch, idx })).filter(({ idx }) => {
-            if (!resume) return true;
-            return !newChapters[idx] || !newChapters[idx].content;
+          const loopEngine = window.TranslationLoopEngine || TranslationLoopEngine;
+          const res = await loopEngine.translateEbook({
+            chapters,
+            resume,
+            isEpub,
+            originalZip,
+            session: curSession,
+            opts,
+            config,
+            callbacks
           });
 
-          if (chapterItems.length === 0) {
-            toast('All chapters are already translated!', 'success');
-            setIsTranslating(false);
-            return;
-          }
-
-          const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
-          // User requested full parallel speed (up to 20 workers)
-          const effectiveConcurrency = Math.max(1, concurrency || 3);
-          const translatedTitleCache = new Map();
-
-          setProgress(Math.floor((done / totalChunks) * 100));
-          setProgressLabel(`Translating ${chapterItems.length} chapter(s) with ${Math.min(effectiveConcurrency, chapterItems.length)} parallel multi-key stream(s)${useContext ? ' (intra-chapter context)' : ''}...`);
-
-          await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx, workerId = 0) => {
-            const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
-            const workerOpts = { ...opts, apiKey: workerKey, availableKeys, isParallelWorker: effectiveConcurrency > 1 };
-            let title = ch.title;
-            const chunks = ch.chunks;
-            let chapterCtx = '';
-
-            // 1. Translate title if needed (cached so duplicate chapter titles match exactly)
-            if (title && String(title).trim()) {
-              if (!(resume && newChapters[i]?.title)) {
-                if (translatedTitleCache.has(title)) {
-                  title = translatedTitleCache.get(title);
-                } else {
-                  try {
-                    const hasCjk = /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(title);
-                    if (!hasCjk) {
-                      translatedTitleCache.set(title, title.trim());
-                    } else {
-                      const titleWorkerOpts = {
-                        ...workerOpts,
-                        context: undefined,
-                        needContextUpdate: false,
-                        glossary: '', // Titles are 1-10 words; omitting huge story glossary saves ~2,100 tokens per title!
-                        smartGlossary: false,
-                        instructions: 'Translate this novel chapter title accurately and concisely into English. Output ONLY the translated title, without quotes or markdown formatting.'
-                      };
-                      const tRes = await translateWithRotation(title, titleWorkerOpts);
-                      const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
-                      if (trans && trans.trim()) {
-                        const cleanT = (typeof window !== 'undefined' && window.sanitizeChapterTitle) ? window.sanitizeChapterTitle(trans.trim()) : trans.trim();
-                        translatedTitleCache.set(title, cleanT);
-                        title = cleanT;
-                      }
-                      if (tRes?.usage) {
-                        totalPromptTokens += tRes.usage.promptTokens || 0;
-                        totalOutputTokens += tRes.usage.outputTokens || 0;
-                        totalTokensUsed += tRes.usage.totalTokens || 0;
-                        if (tRes.usage.breakdown) {
-                          accumulatedBreakdown.sourceTokens += tRes.usage.breakdown.sourceTokens || 0;
-                          accumulatedBreakdown.glossaryTokens += tRes.usage.breakdown.glossaryTokens || 0;
-                          accumulatedBreakdown.genderTokens += tRes.usage.breakdown.genderTokens || 0;
-                          accumulatedBreakdown.contextTokens += tRes.usage.breakdown.contextTokens || 0;
-                          accumulatedBreakdown.systemTokens += tRes.usage.breakdown.systemTokens || 0;
-                        }
-                      }
-                    }
-                  } catch (e) { console.warn('Title translation failed, keeping original title for now:', e.message); }
-                }
-                done++;
-                const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
-                setProgress(curPct);
-                window.NativeBridge?.showProgressNotification(
-                  `Gemini Translator (${curPct}%)`,
-                  `Ch. ${i + 1}/${chapters.length}: Title standardized`,
-                  curPct,
-                  true
-                );
-              } else {
-                title = newChapters[i].title;
-              }
-            }
-
-            // 2. Translate Chunks with Intra-Chapter Context Pipeline
-            const parts = [];
-            for (let j = 0; j < chunks.length; j++) {
-              setProgressLabel(`Chapter ${i + 1}/${chapters.length}: chunk ${j + 1}/${chunks.length}${useContext ? ' (intra-context)' : ''}...`);
-              let translatedText = '';
-              const isLastChunk = j === chunks.length - 1;
-              const hasIncomingContext = Boolean(chapterCtx && chapterCtx.trim());
-              const shouldPassContext = useContext && (hasIncomingContext || j > 0);
-              const shouldRequestUpdate = useContext && !isLastChunk;
-              try {
-                const translated = await translateWithRotation(chunks[j].text, {
-                  ...workerOpts,
-                  context: shouldPassContext ? chapterCtx : undefined,
-                  needContextUpdate: shouldRequestUpdate
-                });
-                translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
-                if (useContext && translated?.newContext) {
-                  chapterCtx = translated.newContext;
-                }
-                if (translated?.usage) {
-                  totalPromptTokens += translated.usage.promptTokens || 0;
-                  totalOutputTokens += translated.usage.outputTokens || 0;
-                  totalTokensUsed += translated.usage.totalTokens || 0;
-                  if (translated.usage.breakdown) {
-                    accumulatedBreakdown.sourceTokens += translated.usage.breakdown.sourceTokens || 0;
-                    accumulatedBreakdown.glossaryTokens += translated.usage.breakdown.glossaryTokens || 0;
-                    accumulatedBreakdown.genderTokens += translated.usage.breakdown.genderTokens || 0;
-                    accumulatedBreakdown.contextTokens += translated.usage.breakdown.contextTokens || 0;
-                    accumulatedBreakdown.systemTokens += translated.usage.breakdown.systemTokens || 0;
-                  }
-                }
-              } catch (e) {
-                if (e.name === 'AbortError' || opts?.signal?.aborted) throw e;
-                const isFatalQuota = (e.message || '').includes('429') || (e.message || '').includes('quota') || (e.message || '').includes('billing');
-                if (isFatalQuota) {
-                  throw new Error(`API Quota exhausted across keys. Switch model to Gemini 3.5 Flash Lite in Settings · Engine. Progress saved at chapter ${i + 1}.`);
-                }
-                if (opts?.strictModel) {
-                  throw new Error(`Strict Model: Failed translating chunk ${j + 1}/${chunks.length} of "${title || `Chapter ${i + 1}`}": ${e.message}. Progress safely saved. Tap Resume to retry.`);
-                }
-                // When strictModel is OFF, attempt one fresh-key fallback before writing error placeholder
-                let recovered = false;
-                try {
-                  const fallbackLeased = (availableKeys.length > 1) ? await KeyPool.acquireKey(availableKeys) : null;
-                  const fallbackOpts = { ...workerOpts, apiKey: fallbackLeased || workerOpts.apiKey, context: undefined, needContextUpdate: false };
-                  const recRes = await translateWithRotation(chunks[j].text, fallbackOpts);
-                  if (fallbackLeased) KeyPool.releaseKey(fallbackLeased);
-                  const recText = (recRes && typeof recRes === 'object') ? (recRes.text || '') : (typeof recRes === 'string' ? recRes : '');
-                  if (recText && recText.trim()) {
-                    translatedText = recText;
-                    recovered = true;
-                  }
-                } catch (recErr) {
-                  console.warn(`Chunk fallback recovery failed: ${recErr.message}`);
-                }
-                if (!recovered) {
-                  translatedText = `\n\n[Error: ${e.message}]\n\n`;
-                }
-              }
-              parts.push(translatedText);
-              
-              // Live update output box throttled or on chapter completion
-              allParts[i] = `${title}\n\n${parts.join('\n\n')}`;
-              const nowTime = performance.now();
-              if (nowTime - lastUiAssembledUpdate > 2500 || j === chunks.length - 1) {
-                lastUiAssembledUpdate = nowTime;
-                const liveText = allParts.filter(Boolean).join('\n\n\n').trim();
-                setAssembledText(liveText);
-              }
-
-              done++;
-              const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
-              setProgress(curPct);
-              const chTitleClean = (title || `Chapter ${i + 1}`).trim().slice(0, 30);
-              window.NativeBridge?.showProgressNotification(
-                `Gemini Translator (${curPct}%)`,
-                `Ch. ${i + 1}/${chapters.length} (chunk ${j + 1}/${chunks.length}) • ${chTitleClean}`,
-                curPct,
-                true
-              );
-            }
-
-            let content = cleanNovelProse(stripContextLeak(parts.join('\n\n')).replace(/\r\n/g, '\n')).trim();
-            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
-            if (typeof stripFn === 'function' && title) {
-              content = stripFn(content, title, chapters[i]?.title);
-            }
-
-            // Anti-MTL Quality Gate & Proofreader Check (§7.5 + §5.9)
-            if (antiMtlGateEnabled && window.QAEngine && content) {
-              const refCheck = window.QAEngine.checkMtlRefusal(content);
-              const loopCheck = window.QAEngine.checkRepetitionLoop(content);
-              window.telemetryLog?.('ANTI_MTL', `Chapter ${i + 1} quality audit: ${refCheck.hasRefusal ? `⚠️ Refusal [${refCheck.patternName}]` : loopCheck.hasLoop ? `⚠️ Loop [${loopCheck.phrase}]` : 'Clean Pass ✅'}`, {
-                chapterIndex: i + 1,
-                hasRefusal: refCheck.hasRefusal,
-                refusalPattern: refCheck.patternName || null,
-                hasLoop: loopCheck.hasLoop,
-                loopPhrase: loopCheck.phrase || null
-              });
-              if (refCheck.hasRefusal) {
-                console.warn(`[Anti-MTL Gate] Chapter ${i + 1}:`, refCheck.matchedText);
-                toast(`⚠️ Anti-MTL Gate: ${refCheck.patternName} detected in Ch. ${i + 1}`, 'warning');
-              } else if (loopCheck.hasLoop) {
-                console.warn(`[QA Proofreader] Chapter ${i + 1}:`, loopCheck.phrase);
-                toast(`⚠️ QA Proofreader: Repetition loop detected in Ch. ${i + 1}`, 'warning');
-              }
-            }
-
-            let docHtml = null;
-            if (isEpub && ch.doc) {
-              if (title && ch.doc.querySelector('title')) ch.doc.querySelector('title').textContent = title;
-              
-              // Format clean HTML paragraphs into the EPUB chapter body
-              const lines = content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-              if (lines.length > 0) {
-                const titleHeading = (title && !isGenericTitle(title)) ? `<h2>${escapeXml(title)}</h2>\n` : '';
-                const bodyParagraphs = lines.map(line => {
-                  if (/^(\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(line)) {
-                    return `<p class="divider">${escapeXml(line)}</p>`;
-                  }
-                  return `<p>${escapeXml(line)}</p>`;
-                }).join('\n');
-                ch.doc.body.innerHTML = `${titleHeading}${bodyParagraphs}`;
-              }
-              
-              docHtml = ch.doc.documentElement.outerHTML;
-              if (originalZip && ch.zipPath) originalZip.file(ch.zipPath, docHtml);
-            }
-
-            // Translation Revision Snapshot (§8.6)
-            if (snapshotsEnabled && window.TMDiffEngine && content) {
-              const novelKey = (activeNovelRecord && activeNovelRecord.id) || (fileName && fileName.trim()) || 'active_doc';
-              window.TMDiffEngine.Snapshots.createSnapshot({
-                novelId: novelKey,
-                chapterIdx: i,
-                chapterTitle: title || chapters[i]?.title || `Chapter ${i + 1}`,
-                text: content,
-                model: workerOpts?.model || model || 'Gemini'
-              }).catch(e => console.warn('[Snapshots] Auto-save error:', e));
-            }
-
-            newChapters[i] = { originalTitle: chapters[i].title, title, content, zipPath: ch.zipPath, docHtml };
-            allParts[i] = `${title}\n\n${content}`;
-            
-            // Live UI state update for partial preview, copy, and download
-            const currentAssembled = allParts.filter(Boolean).join('\n\n\n').trim();
-            setAssembledText(currentAssembled);
-            setTranslatedChapters([...newChapters]);
-            saveState(chapterCtx, done, i + 1, 0, allParts, newChapters);
-          }, effectiveConcurrency, opts.signal);
-
-          // Title Healing Pass: Ensure zero chapters are left with raw untranslated CJK titles
-          const hasCjkTitle = s => /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(s || '');
-          const untranslatedTitles = newChapters
-            .map((nc, idx) => ({ nc, idx }))
-            .filter(({ nc }) => nc && hasCjkTitle(nc.title));
-
-          if (untranslatedTitles.length > 0 && !opts.signal?.aborted) {
-            console.log(`[Title Healing] Found ${untranslatedTitles.length} untranslated title(s). Running healing pass...`);
-            setProgressLabel(`Healing ${untranslatedTitles.length} untranslated chapter title(s)...`);
-            for (const { nc, idx } of untranslatedTitles) {
-              if (opts.signal?.aborted) break;
-              try {
-                const hRes = await translateWithRotation(nc.title, {
-                  ...opts,
-                  context: undefined,
-                  needContextUpdate: false,
-                  glossary: '',
-                  smartGlossary: false,
-                  instructions: 'Translate this novel chapter title accurately and concisely into English. Output ONLY the translated title, without quotes or markdown formatting.'
-                });
-                const hTrans = (hRes && typeof hRes === 'object') ? (hRes.text || '') : (typeof hRes === 'string' ? hRes : '');
-                if (hTrans && hTrans.trim()) {
-                  nc.title = hTrans.trim();
-                  allParts[idx] = `${nc.title}\n\n${nc.content}`;
-                }
-              } catch (hErr) {
-                console.warn(`[Title Healing] Failed for Ch. ${idx + 1}:`, hErr.message);
-              }
-            }
-          }
+          if (!res) return;
+          const { translatedChapters: newChapters, assembledText: final, lastUsageStats: stats } = res;
 
           if (isEpub && originalZip) {
             window.currentTranslatedZip = originalZip;
           }
-          setTranslatedChapters(newChapters); const final = stripContextLeak(allParts.join('\n\n\n')).trim(); setAssembledText(final);
-          
-          const elapsedMs = performance.now() - startTime;
-          const durationStr = formatDuration(elapsedMs);
-          const totalToks = totalTokensUsed || (totalPromptTokens + totalOutputTokens);
-          const tokPerSec = elapsedMs > 0 && totalToks ? Math.round((totalToks / (elapsedMs / 1000))) : 0;
-
-          const activeM = provider === 'deepseek'
-            ? (useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel)
-            : (useCustomModel && customModel ? customModel : geminiModel);
-          const finalCost = calculateRealCost(totalPromptTokens, totalOutputTokens, activeM, provider);
-          const finalBreakdown = totalPromptTokens > 0 ? {
-            sourceTokens: accumulatedBreakdown.sourceTokens,
-            glossaryTokens: accumulatedBreakdown.glossaryTokens,
-            genderTokens: accumulatedBreakdown.genderTokens,
-            contextTokens: accumulatedBreakdown.contextTokens,
-            systemTokens: accumulatedBreakdown.systemTokens,
-            sourcePct: ((accumulatedBreakdown.sourceTokens / totalPromptTokens) * 100).toFixed(1),
-            glossaryPct: ((accumulatedBreakdown.glossaryTokens / totalPromptTokens) * 100).toFixed(1),
-            genderPct: ((accumulatedBreakdown.genderTokens / totalPromptTokens) * 100).toFixed(1),
-            contextPct: ((accumulatedBreakdown.contextTokens / totalPromptTokens) * 100).toFixed(1),
-            systemPct: ((accumulatedBreakdown.systemTokens / totalPromptTokens) * 100).toFixed(1)
-          } : null;
-
-          const stats = {
-            promptTokens: totalPromptTokens,
-            outputTokens: totalOutputTokens,
-            totalTokens: totalToks,
-            cost: finalCost,
-            duration: durationStr,
-            durationMs: elapsedMs,
-            speed: tokPerSec ? `${tokPerSec} tok/s` : '',
-            model: activeM,
-            provider,
-            enableStreaming: Boolean(enableStreaming),
-            enableThinking: Boolean(enableThinking),
-            strictModel: Boolean(strictModel),
-            contextAware: Boolean(contextAware),
-            concurrency: Number(concurrency || 1),
-            chunkSizePreset: String(chunkSizePreset || 'turbo'),
-            smartGlossary: Boolean(smartGlossary),
-            glossaryTermCount: Number(glossaryTermCount || 0),
-            hasGlossary: Boolean(terminology && terminology.trim()),
-            hasInstructions: Boolean(customInstructions && customInstructions.trim()),
-            breakdown: finalBreakdown
-          };
+          setTranslatedChapters(newChapters);
+          setAssembledText(final);
           setLastUsageStats(stats);
-          if (finalBreakdown) {
-            window.telemetryLog?.('TOKEN_BREAKDOWN', `Token Consumption Breakdown: ${totalPromptTokens.toLocaleString()} in (${finalBreakdown.glossaryTokens.toLocaleString()} glossary · ${finalBreakdown.sourceTokens.toLocaleString()} source · ${finalBreakdown.genderTokens.toLocaleString()} gender · ${finalBreakdown.systemTokens.toLocaleString()} system) + ${totalOutputTokens.toLocaleString()} out`, {
-              totalTokens: totalToks,
-              promptTokens: totalPromptTokens,
-              outputTokens: totalOutputTokens,
-              breakdown: finalBreakdown
+          if (stats.breakdown) {
+            window.telemetryLog?.('TOKEN_BREAKDOWN', `Token Consumption Breakdown: ${stats.promptTokens.toLocaleString()} in (${stats.breakdown.glossaryTokens.toLocaleString()} glossary · ${stats.breakdown.sourceTokens.toLocaleString()} source · ${stats.breakdown.genderTokens.toLocaleString()} gender · ${stats.breakdown.systemTokens.toLocaleString()} system) + ${stats.outputTokens.toLocaleString()} out`, {
+              totalTokens: stats.totalTokens,
+              promptTokens: stats.promptTokens,
+              outputTokens: stats.outputTokens,
+              breakdown: stats.breakdown
             });
           }
           window.sendTelemetry?.('REPORT', '\n' + getReportSummaryText(stats));
           addToHistory(srcLang, tgtLang, provider, inputText || (chapters || []).map(c => c.text).join('\n\n'), final, stats);
+
           if (newChapters && newChapters.length > 0) {
             const mappedTranslated = newChapters.map((nc, idx) => ({
               title: nc?.title || (chapters && chapters[idx]?.title) || `Chapter ${idx + 1}`,
@@ -6398,13 +5827,20 @@ RAW GLOSSARY DATA TO CLEAN:
               }
             }
           }
-          localStorage.removeItem(jobId); activeSessionRef.current = null; setActiveSession(null); setSavedTranslationSession(null); setIsTranslationPaused(false);
-          if (window.GeminiNovelDB) { window.GeminiNovelDB.deleteTranslationSession(jobId); }
-          toast(`Ebook translation complete in ${durationStr}! (${stats.totalTokens.toLocaleString()} tokens · ${finalCost})`);
+
+          localStorage.removeItem(jobId);
+          activeSessionRef.current = null;
+          setActiveSession(null);
+          setSavedTranslationSession(null);
+          setIsTranslationPaused(false);
+          if (window.GeminiNovelDB) {
+            window.GeminiNovelDB.deleteTranslationSession(jobId);
+          }
+          toast(`Ebook translation complete in ${stats.duration}! (${stats.totalTokens.toLocaleString()} tokens · ${stats.cost})`);
           try {
             window.NativeBridge?.releaseWakeLock?.();
-            window.NativeBridge?.clearProgressNotification?.(true, 'Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${durationStr}. Tap to read!`);
-            window.NativeBridge?.showCompletionNotification?.('Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${durationStr}. Tap to read!`);
+            window.NativeBridge?.clearProgressNotification?.(true, 'Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${stats.duration}. Tap to read!`);
+            window.NativeBridge?.showCompletionNotification?.('Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${stats.duration}. Tap to read!`);
             window.NativeBridge?.haptic?.('success');
           } catch(e) {}
           if (webdavAutoSync && webdavUrl.trim()) {
@@ -6427,10 +5863,9 @@ RAW GLOSSARY DATA TO CLEAN:
             }
             toast('Translation paused. Progress safely saved to database.', 'info');
           }
-          const finalChapters = (activeSessionRef.current || activeSession)?.newChapters || (newChapters.length > 0 ? newChapters : []);
-          setTranslatedChapters(finalChapters);
-        }
-        finally { 
+          const finalChapters = (activeSessionRef.current || activeSession)?.newChapters || [];
+          if (finalChapters.length > 0) setTranslatedChapters(finalChapters);
+        } finally {
           setIsTranslating(false);
           if (!isPausingRef.current) {
             setProgress(0);
@@ -6443,9 +5878,12 @@ RAW GLOSSARY DATA TO CLEAN:
       };
 
       const handleStartTranslation = async (resume = false) => {
+        window.NativeBridge?.acquireWakeLock();
         if (chapters && chapters.length > 0) {
+          window.NativeBridge?.showProgressNotification('Gemini Ebook Translator', resume ? 'Resuming book...' : 'Analyzing chapters...', 0);
           await handleTranslateEbook(chapters, resume, currentIsEpub, currentOriginalZip);
         } else {
+          window.NativeBridge?.showProgressNotification('Gemini Translator', resume ? 'Resuming translation...' : 'Starting text translation...', 0);
           await handleTranslateText(resume);
         }
       };
