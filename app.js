@@ -81,7 +81,7 @@
       translateDeepL, translateLibre, translateOpenAI, translateClaude,
       streamWithRotation, translateWithRotation, translateChunk,
       BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine, LibraryEngine,
-      NovelEnrichmentEngine
+      NovelEnrichmentEngine, KeyManagerEngine
     } = window;
 
     // Helper adapters delegating to DocumentParser & ExportEngine
@@ -135,7 +135,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.70';
+    let VERSION = '8.17.71';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1993,62 +1993,35 @@
 
       // --- Multi-Key Profile Management Helpers ---
       const addApiKey = (prov) => {
-        const id = genId();
-        const provNames = { gemini: 'Gemini', deepseek: 'DeepSeek', openai: 'OpenAI', claude: 'Claude', deepl: 'DeepL', libre: 'LibreTranslate' };
-        const provName = provNames[prov] || prov.toUpperCase();
-        const newKey = { id, name: `${provName} Key ${(apiKeysByProvider[prov] || []).length + 1}`, key: '' };
-        setApiKeysByProvider(prev => {
-          const updated = { ...prev, [prov]: [...(prev[prov] || []), newKey] };
-          localStorage.setItem('apiKeysByProvider', JSON.stringify(updated));
-          return updated;
-        });
-        if (!activeKeyIds[prov]) {
-          setActiveKeyIds(prev => {
-            const updated = { ...prev, [prov]: id };
-            localStorage.setItem('activeKeyIds', JSON.stringify(updated));
-            return updated;
-          });
-        }
-        toast(`Added new ${provName} key profile.`);
+        const engine = window.KeyManagerEngine || KeyManagerEngine;
+        const res = engine.addApiKey(prov, apiKeysByProvider, activeKeyIds, genId);
+        setApiKeysByProvider(res.apiKeysByProvider);
+        setActiveKeyIds(res.activeKeyIds);
+        toast(`Added new ${res.provName} key profile.`);
       };
 
       const deleteApiKey = (prov, id) => {
         confirmAction(`Delete this API key profile?`, () => {
-          setApiKeysByProvider(prev => {
-            const updated = { ...prev, [prov]: (prev[prov] || []).filter(k => k.id !== id) };
-            localStorage.setItem('apiKeysByProvider', JSON.stringify(updated));
-            return updated;
-          });
-          if (activeKeyIds[prov] === id) {
-            setActiveKeyIds(prev => {
-              const remaining = (apiKeysByProvider[prov] || []).filter(k => k.id !== id);
-              const nextId = remaining.length > 0 ? remaining[0].id : null;
-              const updated = { ...prev, [prov]: nextId };
-              localStorage.setItem('activeKeyIds', JSON.stringify(updated));
-              return updated;
-            });
-          }
+          const engine = window.KeyManagerEngine || KeyManagerEngine;
+          const res = engine.deleteApiKey(prov, id, apiKeysByProvider, activeKeyIds);
+          setApiKeysByProvider(res.apiKeysByProvider);
+          setActiveKeyIds(res.activeKeyIds);
           toast('Key profile deleted.', 'info');
         });
       };
 
       const updateApiKey = (prov, id, field, value) => {
         setApiKeysByProvider(prev => {
-          const updated = {
-            ...prev,
-            [prov]: (prev[prov] || []).map(k => k.id === id ? { ...k, [field]: value } : k)
-          };
-          localStorage.setItem('apiKeysByProvider', JSON.stringify(updated));
-          return updated;
+          const engine = window.KeyManagerEngine || KeyManagerEngine;
+          const res = engine.updateApiKey(prov, id, field, value, prev);
+          return res.apiKeysByProvider;
         });
       };
 
       const setActiveKey = (prov, id) => {
-        setActiveKeyIds(prev => {
-          const updated = { ...prev, [prov]: id };
-          localStorage.setItem('activeKeyIds', JSON.stringify(updated));
-          return updated;
-        });
+        const engine = window.KeyManagerEngine || KeyManagerEngine;
+        const res = engine.setActiveKey(prov, id, activeKeyIds);
+        setActiveKeyIds(res.activeKeyIds);
         const kObj = (apiKeysByProvider[prov] || []).find(k => k.id === id);
         toast(`Active key set to "${kObj?.name || 'Selected Key'}"`);
       };
@@ -2057,50 +2030,26 @@
       useEffect(() => { activeKeyIdsRef.current = activeKeyIds; }, [activeKeyIds]);
 
       const rotateApiKey = (failingKey) => {
-        const keys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
-        if (keys.length <= 1) return null;
-        
-        let currentIdx = -1;
-        if (failingKey) {
-          currentIdx = keys.findIndex(k => k.key === failingKey);
-        }
-        if (currentIdx === -1) {
-          let currentId = activeKeyIdsRef.current ? activeKeyIdsRef.current[provider] : null;
-          if (!currentId) {
-            try {
-              const saved = JSON.parse(localStorage.getItem('activeKeyIds') || '{}');
-              currentId = saved[provider];
-            } catch(e) {}
+        const engine = window.KeyManagerEngine || KeyManagerEngine;
+        return engine.rotateApiKey(
+          provider,
+          failingKey,
+          apiKeysByProvider,
+          activeKeyIdsRef,
+          (nextKeyId, nextKey, nextIdx, total) => {
+            setActiveKeyIds(prev => ({ ...prev, [provider]: nextKeyId }));
+            if (!window._lastRotToast || Date.now() - window._lastRotToast > 2000) {
+              window._lastRotToast = Date.now();
+              toast(`Auto-rotated to "${nextKey.name}" (${nextIdx + 1}/${total})`, 'info');
+            }
           }
-          currentIdx = Math.max(0, keys.findIndex(k => k.id === currentId));
-        }
-
-        const nextIdx = (currentIdx + 1) % keys.length;
-        const nextKey = keys[nextIdx];
-
-        activeKeyIdsRef.current = { ...(activeKeyIdsRef.current || {}), [provider]: nextKey.id };
-        
-        try {
-          const saved = JSON.parse(localStorage.getItem('activeKeyIds') || '{}');
-          saved[provider] = nextKey.id;
-          localStorage.setItem('activeKeyIds', JSON.stringify(saved));
-        } catch(e) {}
-
-        setActiveKeyIds(prev => ({ ...prev, [provider]: nextKey.id }));
-
-        if (!window._lastRotToast || Date.now() - window._lastRotToast > 2000) {
-          window._lastRotToast = Date.now();
-          toast(`Auto-rotated to "${nextKey.name}" (${nextIdx + 1}/${keys.length})`, 'info');
-        }
-        return nextKey.key;
+        );
       };
       if (typeof window !== 'undefined') window.rotateApiKey = rotateApiKey;
 
       const getActiveApiKey = (prov = provider) => {
-        const keys = apiKeysByProvider[prov] || [];
-        const activeId = activeKeyIds[prov];
-        const found = keys.find(k => k.id === activeId);
-        return found ? found.key : (keys[0] ? keys[0].key : '');
+        const engine = window.KeyManagerEngine || KeyManagerEngine;
+        return engine.getActiveApiKey(prov, apiKeysByProvider, activeKeyIds);
       };
 
       const geminiKey = getActiveApiKey('gemini');
@@ -3500,116 +3449,10 @@
           return;
         }
         setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'testing', message: 'Testing connection & latency…' } }));
-        const start = performance.now();
-        const trimmedKey = keyStr.trim();
-        try {
-          if (prov === 'gemini') {
-            const targetTestModel = (geminiModel || 'gemini-3.8-flash');
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetTestModel}:generateContent?key=${encodeURIComponent(trimmedKey)}`;
-            const r = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': trimmedKey },
-              body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }], generationConfig: { maxOutputTokens: 5 } })
-            });
-            const latency = Math.round(performance.now() - start);
-            if (r.ok) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', latency, message: `🟢 Healthy & Active (${latency}ms)` } }));
-            } else {
-              const body = await r.text().catch(() => '');
-              let detail = '';
-              try {
-                const j = JSON.parse(body);
-                detail = j.error?.message || `HTTP ${r.status}`;
-              } catch(e) { detail = body.slice(0, 120) || `HTTP ${r.status}`; }
-              
-              const retryMatch = detail.match(/retry in\s+([\d\.]+)\s*s/i);
-              if (r.status === 429) {
-                if (retryMatch) {
-                  const sec = Math.ceil(parseFloat(retryMatch[1]));
-                  setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ Cooldown (${sec}s remaining · Key is Valid)` } }));
-                } else if (/quota|exhausted/i.test(detail)) {
-                  setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'exhausted', message: `🔴 Daily Quota Exhausted (${latency}ms)` } }));
-                } else {
-                  setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ Rate Limited (429 · ${latency}ms)` } }));
-                }
-              } else if (r.status === 400 || r.status === 403) {
-                setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid Key / Unauthorized (${r.status})` } }));
-              } else {
-                setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ HTTP ${r.status}: ${detail}` } }));
-              }
-            }
-          } else if (prov === 'deepseek') {
-            const r = await fetch('https://api.deepseek.com/models', {
-              headers: { 'Authorization': `Bearer ${trimmedKey}` }
-            });
-            const latency = Math.round(performance.now() - start);
-            if (r.ok) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', latency, message: `🟢 DeepSeek Active (${latency}ms)` } }));
-            } else if (r.status === 401 || r.status === 403) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid DeepSeek Key (${r.status})` } }));
-            } else if (r.status === 429) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ DeepSeek Rate Limited (429 · ${latency}ms)` } }));
-            } else {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ DeepSeek Error: HTTP ${r.status}` } }));
-            }
-          } else if (prov === 'openai') {
-            const r = await fetch('https://api.openai.com/v1/models', {
-              headers: { 'Authorization': `Bearer ${trimmedKey}` }
-            });
-            const latency = Math.round(performance.now() - start);
-            if (r.ok) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', latency, message: `🟢 OpenAI Active (${latency}ms)` } }));
-            } else if (r.status === 401 || r.status === 403) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid OpenAI Key (${r.status})` } }));
-            } else if (r.status === 429) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ OpenAI Rate Limited / Quota Exceeded (429)` } }));
-            } else {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ OpenAI Error: HTTP ${r.status}` } }));
-            }
-          } else if (prov === 'claude') {
-            const r = await fetch('https://api.anthropic.com/v1/models', {
-              headers: { 'x-api-key': trimmedKey, 'anthropic-version': '2023-06-01' }
-            });
-            const latency = Math.round(performance.now() - start);
-            if (r.ok) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', latency, message: `🟢 Anthropic Active (${latency}ms)` } }));
-            } else if (r.status === 401 || r.status === 403) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid Anthropic Key (${r.status})` } }));
-            } else {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Anthropic HTTP ${r.status}` } }));
-            }
-          } else if (prov === 'deepl') {
-            const isFree = trimmedKey.endsWith(':fx');
-            const endpoint = isFree ? 'https://api-free.deepl.com/v2/usage' : 'https://api.deepl.com/v2/usage';
-            const r = await fetch(endpoint, {
-              headers: { 'Authorization': `DeepL-Auth-Key ${trimmedKey}` }
-            });
-            const latency = Math.round(performance.now() - start);
-            if (r.ok) {
-              let usageInfo = '';
-              try {
-                const u = await r.json();
-                if (u.character_count !== undefined && u.character_limit !== undefined) {
-                  const pct = Math.round((u.character_count / u.character_limit) * 100);
-                  usageInfo = ` (${pct}% used · ${(u.character_count).toLocaleString()}/${(u.character_limit).toLocaleString()} chars)`;
-                }
-              } catch(e) {}
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', latency, message: `🟢 DeepL ${isFree ? 'Free' : 'Pro'} Active (${latency}ms)${usageInfo}` } }));
-            } else if (r.status === 403) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Invalid DeepL Key (403)` } }));
-            } else if (r.status === 456) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'exhausted', message: `🔴 DeepL Quota Exceeded (456)` } }));
-            } else if (r.status === 429) {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'cooling', message: `⏳ DeepL Rate Limited (429 · ${latency}ms)` } }));
-            } else {
-              setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ DeepL Error: HTTP ${r.status}` } }));
-            }
-          } else {
-            setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'ok', message: '🟢 Key Saved & Ready' } }));
-          }
-        } catch(err) {
-          setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: `❌ Network Error: ${err.message || 'connection failed'}` } }));
-        }
+        const engine = window.KeyManagerEngine || KeyManagerEngine;
+        const res = await engine.testSingleKey(prov, keyStr, geminiModel || 'gemini-3.8-flash');
+        setKeyHealth(prev => ({ ...prev, [keyId]: res }));
+        return res;
       };
 
       const handleTestAllKeys = async (prov) => {
@@ -3617,74 +3460,52 @@
         if (provKeys.length === 0) { toast('No keys to test', 'info'); return; }
         setTestingKeys(true);
         toast(`Testing ${provKeys.length} ${prov.toUpperCase()} keys against Google servers…`, 'info');
-        for (const k of provKeys) {
-          await testSingleKey(prov, k.key, k.id);
-          await new Promise(r => setTimeout(r, 200));
-        }
+        const engine = window.KeyManagerEngine || KeyManagerEngine;
+        await engine.testAllKeys(prov, provKeys, geminiModel || 'gemini-3.8-flash', {
+          onKeyTesting: (id) => {
+            setKeyHealth(prev => ({ ...prev, [id]: { status: 'testing', message: 'Testing connection & latency…' } }));
+          },
+          onKeyResult: (id, result) => {
+            setKeyHealth(prev => ({ ...prev, [id]: result }));
+          }
+        });
         setTestingKeys(false);
         toast('🎉 Key testing completed!', 'success');
       };
 
       const handleBulkImportKeys = () => {
         if (!bulkKeyText.trim()) return;
-        const rawLines = bulkKeyText.split(/[\r\n,;]+/);
-        const validKeys = rawLines.map(k => k.trim()).filter(k => k.length > 15);
-        if (validKeys.length === 0) {
-          toast('No valid API keys detected. Keys are usually 30+ characters.', 'error');
+        const engine = window.KeyManagerEngine || KeyManagerEngine;
+        const res = engine.bulkImportKeys(bulkKeyText, provider, apiKeysByProvider, activeKeyIds, genId);
+        if (!res.success) {
+          toast(res.message, 'error');
           return;
         }
-
-        const prov = provider;
-        const provNames = { gemini: 'Gemini', deepseek: 'DeepSeek', openai: 'OpenAI', claude: 'Claude', deepl: 'DeepL', libre: 'LibreTranslate' };
-        const provName = provNames[prov] || prov.toUpperCase();
-
-        const newProfiles = validKeys.map((k, idx) => ({
-          id: genId(),
-          name: `${provName} Key ${idx + 1}`,
-          key: k
-        }));
-
-        setApiKeysByProvider(prev => {
-          const updated = { ...prev, [prov]: newProfiles };
-          localStorage.setItem('apiKeysByProvider', JSON.stringify(updated));
-          return updated;
-        });
-
-        if (newProfiles.length > 0) {
-          setActiveKeyIds(prev => {
-            const updated = { ...prev, [prov]: newProfiles[0].id };
-            localStorage.setItem('activeKeyIds', JSON.stringify(updated));
-            return updated;
-          });
-        }
-
+        setApiKeysByProvider(res.apiKeysByProvider);
+        setActiveKeyIds(res.activeKeyIds);
         setBulkKeyText('');
         setBulkKeyModalOpen(false);
-        toast(`🎉 Successfully imported ${newProfiles.length} ${provName} API keys!`, 'success');
+        toast(res.message, 'success');
       };
 
       const getReportSummaryText = (overrideStats = null) => {
-        const s = overrideStats || lastUsageStats;
-        const lines = [
-          '=== 📊 TRANSLATION DIAGNOSTICS REPORT ===',
-          s ? `Model: ${s.provider || ''} · ${s.model || ''}` : `Model: ${provider} · ${provider === 'gemini' ? (geminiModel || 'gemini-3.7-flash') : deepseekModel}`,
-          `Typewriter Streaming: ${s ? (s.enableStreaming ? 'ON' : 'OFF') : (enableStreaming ? 'ON' : 'OFF')} | Extended Thinking: ${s ? (s.enableThinking ? 'ON' : 'OFF') : (enableThinking ? 'ON' : 'OFF')} | Strict Model: ${(s ? s.strictModel : strictModel) ? 'ON' : 'OFF'}`,
-          `Context-Aware Memory: ${s ? (s.contextAware ? 'ON' : 'OFF') : (contextAware ? 'ON' : 'OFF')} | Concurrency: ${s ? (s.concurrency || 1) : concurrency} parallel stream(s)`,
-          `Chunk Size Preset: ${(s?.chunkSizePreset || chunkSizePreset || 'turbo').toUpperCase()} | Smart Glossary: ${(s ? s.smartGlossary : smartGlossary) ? 'ON' : 'OFF'} (${s ? s.glossaryTermCount : glossaryTermCount} terms loaded)`,
-          s ? `Tokens: ${(s.totalTokens || 0).toLocaleString()} (${(s.promptTokens || 0).toLocaleString()} in · ${(s.outputTokens || 0).toLocaleString()} out)` : 'Tokens: In-flight / pending completion'
-        ];
-        if (s?.breakdown && s.promptTokens > 0) {
-          const b = s.breakdown;
-          if (b.glossaryTokens > 0) lines.push(`  ├─ Injected Glossary: ${b.glossaryTokens.toLocaleString()} tokens (${b.glossaryPct}%)`);
-          lines.push(`  ├─ Raw Source Text: ${b.sourceTokens.toLocaleString()} tokens (${b.sourcePct}%)`);
-          if (b.genderTokens > 0) lines.push(`  ├─ Gender Lock Protocol: ${b.genderTokens.toLocaleString()} tokens (${b.genderPct}%)`);
-          if (b.contextTokens > 0) lines.push(`  ├─ Context-Aware Memory: ${b.contextTokens.toLocaleString()} tokens (${b.contextPct}%)`);
-          lines.push(`  └─ System & Rules Overhead: ${b.systemTokens.toLocaleString()} tokens (${b.systemPct}%)`);
-        }
-        lines.push(
-          s ? `Cost: ${s.cost || '$0.0000'} | Time: ${s.duration || ''} (${s.speed || 'N/A'}) | Words: ${wordCount(assembledText).toLocaleString()}` : `Words: ${wordCount(assembledText).toLocaleString()}`
-        );
-        return lines.join('\n');
+        const engine = window.KeyManagerEngine || KeyManagerEngine;
+        return engine.formatDiagnosticsReport({
+          stats: overrideStats || lastUsageStats,
+          provider,
+          geminiModel,
+          deepseekModel,
+          enableStreaming,
+          enableThinking,
+          strictModel,
+          contextAware,
+          concurrency,
+          chunkSizePreset,
+          smartGlossary,
+          glossaryTermCount,
+          assembledText,
+          wordCount
+        });
       };
 
       // [📋 Copy Report] button: ONLY copies the clean diagnostic summary block
