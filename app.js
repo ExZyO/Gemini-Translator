@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.74';
+    let VERSION = '8.17.75';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -993,150 +993,39 @@
       };
 
       const handleUpdateTranslateAndMakeEpub = async (item) => {
-        if (!item) return;
+        if (!item || !window.LibraryEngine) return;
         const novelKey = item.id;
         setDownloadingUpdates(prev => ({ ...prev, [novelKey]: true }));
         try {
-          const full = await loadFullNovel(item);
-          const targetItem = full ? { ...item, ...full } : item;
-          const sourceUrl = targetItem.sourceUrl || item.sourceUrl || full?.sourceUrl;
-          if (!sourceUrl) return toast('No source URL found for this novel.', 'error');
-
-          const existingRaw = targetItem.rawChapters || targetItem.chapters || [];
-          const prevCount = existingRaw.length;
-          const badge = novelUpdateBadges[item.id] || (targetItem.id ? novelUpdateBadges[targetItem.id] : null);
-          toast(`Fetching newly published chapters for "${targetItem.title || item.title}"…`, 'info');
-
-          if (typeof setEpubPackagingModal === 'function') {
-            setEpubPackagingModal({
-              title: targetItem.title || item.title || 'Novel Updates',
-              status: `Fetching new chapters from source…`,
-              pct: 10
-            });
-          }
-
-          let updatedNovel = targetItem;
-          const res = await window.WebNovelImporter?.importUrl(sourceUrl, (msg, pct) => {
-            if (typeof setEpubPackagingModal === 'function') {
-              setEpubPackagingModal({
-                title: targetItem.title || item.title || 'Novel Updates',
-                status: msg || 'Downloading new chapters…',
-                pct: Math.max(5, Math.min(95, pct || 0))
-              });
-            }
+          await window.LibraryEngine.updateTranslateAndStage(item, {
+            novelUpdateBadges,
+            loadFullNovel,
+            saveNovelToHistory
           }, {
-            initialChapters: existingRaw,
-            resumeSession: targetItem,
-            isUpdate: true,
-            refreshToc: true,
-            chapterList: badge?.remoteChapterList && badge.remoteChapterList.length > prevCount ? badge.remoteChapterList : undefined
-          });
-          if (res && res.chapters && res.chapters.length > prevCount) {
-            const customTitle = targetItem.customTitle || getCustomTitle(sourceUrl) || getCustomTitle(targetItem.id) || targetItem.title;
-            updatedNovel = {
-              ...targetItem,
-              title: customTitle || targetItem.title,
-              customTitle: customTitle || targetItem.customTitle,
-              chapters: res.chapters,
-              rawChapters: res.chapters,
-              chapterCount: res.chapters.length,
-              totalChapterCount: res.totalChapterCount || res.chapters.length,
-              chapterList: res.chapterList || targetItem.chapterList || res.chapters.map((c, i) => ({ url: c.url, title: c.title || `Chapter ${i + 1}` })),
-              isIncomplete: false,
-              sourceUrl: sourceUrl
-            };
-            await saveNovelToHistory(updatedNovel);
-            setNovelUpdateBadges(prev => {
-              const next = { ...prev };
-              if (item.id) delete next[item.id];
-              if (targetItem.id) delete next[targetItem.id];
-              return next;
-            });
-          } else {
-            toast(`No new chapters found online for "${item.title}". (Local: ${prevCount} ch)`, 'info');
-            return;
-          }
-
-
-          const allRawChs = updatedNovel.rawChapters || updatedNovel.chapters || [];
-          const newCount = allRawChs.length - prevCount;
-          const cleanCh = (c) => {
-            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
-            const raw = c?.text || c?.content || '';
-            return (typeof stripFn === 'function' && c?.title) ? stripFn(raw, c.title, c.originalTitle) : raw;
-          };
-
-          const existingTranslated = updatedNovel.translatedChapters || full?.translatedChapters || full?.originalChapters || [];
-          const prefilledChapters = allRawChs.map((c, i) => ({
-            title: c?.title || `Chapter ${i + 1}`,
-            text: cleanCh(c),
-            content: cleanCh(c)
-          }));
-          const prefilledNewChapters = allRawChs.map((c, i) => {
-            if (i < prevCount) {
-              const prevTrans = existingTranslated[i];
-              if (prevTrans && (prevTrans.content || prevTrans.text)) {
-                return {
-                  title: prevTrans.title || c?.title || `Chapter ${i + 1}`,
-                  content: prevTrans.content || prevTrans.text,
-                  originalTitle: c?.title
-                };
-              }
-              return {
-                title: c?.title || `Chapter ${i + 1}`,
-                content: cleanCh(c),
-                originalTitle: c?.title
-              };
+            toast,
+            setEpubPackagingModal,
+            onClearBadge: (id1, id2) => {
+              setNovelUpdateBadges(prev => {
+                const next = { ...prev };
+                if (id1) delete next[id1];
+                if (id2) delete next[id2];
+                return next;
+              });
+            },
+            onStageSession: ({ updatedNovel, prefilledChapters, prefilledNewChapters, prefilledAssembled, inputText, sessionObj }) => {
+              setInputText(inputText);
+              setChapters(prefilledChapters);
+              setTranslatedChapters(prefilledNewChapters);
+              setAssembledText(prefilledAssembled);
+              setActiveNovelRecord(updatedNovel);
+              setFileName(updatedNovel.title);
+              activeSessionRef.current = sessionObj;
+              setActiveSession(sessionObj);
+              setSavedTranslationSession(sessionObj);
+              setIsTranslationPaused(true);
+              setActiveTab('text');
             }
-            return null;
           });
-
-          const prefilledAssembled = prefilledNewChapters.filter(Boolean).map(c => `${c?.title || ''}\n\n${c?.content || ''}`).join('\n\n\n');
-          setInputText(prefilledChapters.map(c => `# ${c?.title || ''}\n\n${c?.content || ''}`).join('\n\n'));
-          setChapters(prefilledChapters);
-          setTranslatedChapters(prefilledNewChapters);
-          setAssembledText(prefilledAssembled);
-          setActiveNovelRecord(updatedNovel);
-          setFileName(updatedNovel.title);
-
-          const jobId = 'update_' + String(updatedNovel.id || updatedNovel.title).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30) + '_' + allRawChs.length;
-          const sessionObj = {
-            id: jobId,
-            type: 'ebook',
-            title: updatedNovel.title,
-            ctx: '',
-            completedCount: prevCount,
-            currentChapterIdx: prevCount,
-            currentChunkIdx: 0,
-            allParts: prefilledNewChapters.map(c => c ? `${c.title || ''}\n\n${c.content || ''}` : ''),
-            newChapters: prefilledNewChapters,
-            totalChunks: allRawChs.length,
-            total: allRawChs.length,
-            chapters: prefilledChapters,
-            isEpub: false,
-            timestamp: Date.now(),
-            isDeltaUpdate: true,
-            deltaStart: prevCount + 1,
-            deltaEnd: allRawChs.length,
-            novelId: updatedNovel.id
-          };
-
-          activeSessionRef.current = sessionObj;
-          setActiveSession(sessionObj);
-          setSavedTranslationSession(sessionObj);
-          setIsTranslationPaused(true);
-
-          if (window.GeminiNovelDB) {
-            await window.GeminiNovelDB.saveTranslationSession(sessionObj);
-          }
-          try {
-            localStorage.setItem(jobId, JSON.stringify(sessionObj));
-          } catch(e) {}
-
-          setActiveTab('text');
-          toast(`Staged ${newCount} new chapters! Chapters 1–${prevCount} preserved. Review below and tap "Translate Only New Chapters".`, 'success');
-        } catch (fetchErr) {
-          toast(`Fetch failed: ${fetchErr.message}`, 'error');
         } finally {
           setDownloadingUpdates(prev => ({ ...prev, [novelKey]: false }));
           if (typeof setEpubPackagingModal === 'function') setEpubPackagingModal(null);
@@ -1144,39 +1033,16 @@
       };
 
       const handleCheckAllUpdates = async () => {
-        const webNovels = webImportHistory.filter(b => b.sourceUrl && b.sourceUrl.startsWith('http'));
-        if (webNovels.length === 0) {
-          toast('No web novels with source URLs found in library.', 'info');
-          return;
-        }
-        setIsBatchChecking(true);
-        toast(`Checking updates for ${webNovels.length} novel(s)...`, 'info');
-        let updatesFound = 0;
-        for (let i = 0; i < webNovels.length; i++) {
-          const b = webNovels[i];
-          setCheckingUpdates(prev => ({ ...prev, [b.id]: true }));
-          try {
-            const full = await loadFullNovel(b);
-            const targetB = full ? { ...b, ...full } : b;
-            const res = await window.WebNovelImporter?.checkNovelUpdates(targetB);
-            if (res && res.hasUpdates) {
-              updatesFound++;
-              setNovelUpdateBadges(prev => ({
-                ...prev,
-                [b.id]: {
-                  newCount: res.newCount,
-                  remoteTotal: res.remoteCount,
-                  isVolumeBased: !!res.isVolumeBased,
-                  remoteChapterList: res.remoteChapterList || []
-                }
-              }));
-            }
-          } catch(e) {}
-          setCheckingUpdates(prev => ({ ...prev, [b.id]: false }));
-          if (i < webNovels.length - 1) await new Promise(r => setTimeout(r, 1000));
-        }
-        setIsBatchChecking(false);
-        toast(updatesFound > 0 ? `Updates found for ${updatesFound} novel(s)! Check badges in Library.` : 'All novels are up to date! ✨', 'success');
+        if (!window.LibraryEngine) return;
+        await window.LibraryEngine.checkAllUpdates(webImportHistory, {
+          toast,
+          loadFullNovel,
+          onBatchStart: () => setIsBatchChecking(true),
+          onBatchEnd: () => setIsBatchChecking(false),
+          onNovelCheckingStart: (novelId) => setCheckingUpdates(prev => ({ ...prev, [novelId]: true })),
+          onNovelCheckingEnd: (novelId) => setCheckingUpdates(prev => ({ ...prev, [novelId]: false })),
+          onBadgeUpdate: (novelId, badgeData) => setNovelUpdateBadges(prev => ({ ...prev, [novelId]: badgeData }))
+        });
       };
 
       const loadFullNovel = async (meta) => {
@@ -1369,47 +1235,13 @@
       };
 
       const handleReindexFromTranslationHistory = async () => {
-        try {
-          const dbHist = await dbGetAll('history');
-          if (!dbHist || dbHist.length === 0) {
-            return toast('No translation history entries found in database.', 'info');
-          }
-          let recoveredCount = 0;
-          const heading = /^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|Chapter\s*\d+|CHAPTER\s*\d+)/;
-          for (const entry of dbHist) {
-            const out = entry.fullOutput || entry.outputPreview || '';
-            const chaps = [];
-            let cur = null;
-            for (const line of out.split(/\r?\n/)) {
-              const t = line.trim();
-              if (heading.test(t)) { if (cur) chaps.push(cur); cur = { title: t, content: '' }; }
-              else if (cur) cur.content += line + '\n';
-              else if (t) cur = { title: 'Chapter 1', content: line + '\n' };
-            }
-            if (cur) chaps.push(cur);
-            if (chaps.length >= 2) {
-              const title = ((chaps[0].title || '').replace(heading, '') || 'Translated Book').trim() + ' (Translated)';
-              const exists = (webImportHistory || []).some(n => (n.title || '').trim().toLowerCase() === title.trim().toLowerCase());
-              if (!exists) {
-                await saveNovelToHistory({
-                  title,
-                  author: 'Gemini Translator',
-                  isTranslated: true,
-                  chapters: chaps.map(c => ({ title: c.title, content: c.content.trim() })),
-                  originalText: entry.fullInput || ''
-                });
-                recoveredCount++;
-              }
-            }
-          }
-          if (recoveredCount > 0) {
-            toast(`Recovered ${recoveredCount} novel(s) from translation history!`, 'success');
-          } else {
-            toast('No new translated books to recover from history.', 'info');
-          }
-        } catch (e) {
-          toast('Recovery scan failed: ' + e.message, 'error');
-        }
+        if (!window.LibraryEngine) return;
+        await window.LibraryEngine.reindexFromTranslationHistory({
+          toast,
+          dbGetAll,
+          webImportHistory,
+          saveNovelToHistory
+        });
       };
 
       // ══════════════════════════════════════════════════════════════════════════
@@ -1452,119 +1284,25 @@
       };
 
       const handleSelectOngoingEpubFile = async (file) => {
-        if (!file) return;
-        if (!file.name.toLowerCase().endsWith('.epub')) {
-          return toast('Please select a valid .epub file.', 'warning');
-        }
-        try {
-          toast(`Inspecting "${file.name}"…`, 'info');
-          const epub = await readEpub(file);
-          if (!epub || !epub.chapters || epub.chapters.length === 0) {
-            return toast('No readable chapters found in this EPUB.', 'warning');
-          }
-          const cleanTitle = (epub.title || file.name.replace(/\.epub$/i, '')).replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
-          const existingCount = epub.chapters.length;
-          const detectedSource = epub.sourceUrl || '';
-
-          const fOpts = getNovelFolderOptions({ id: epub.uuid, title: cleanTitle, sourceUrl: detectedSource });
-          setOngoingEpubModal({
-            isOpen: true,
-            file,
-            title: cleanTitle,
-            searchQuery: cleanTitle,
-            author: epub.author || 'Author',
-            cover: epub.cover || '',
-            uuid: epub.uuid || '',
-            chapters: epub.chapters,
-            existingCount,
-            sourceUrl: detectedSource,
-            selectedSource: null,
-            continuationSources: [],
-            isSearchingSources: true,
-            showSourceSwitcher: false,
-            customUrlMode: false,
-            folderOptions: fOpts,
-            onlineToc: null,
-            totalOnlineCount: 0,
-            isScanningToc: false,
-            startChapter: existingCount + 1,
-            endChapter: existingCount + 1,
-            isFetching: false,
-            progress: { status: '', pct: 0, elapsed: '' }
-          });
-
-          handleSearchContinuationSources(cleanTitle);
-
-          if (detectedSource && /^https?:\/\//i.test(detectedSource)) {
-            handleScanContinuationToc(detectedSource, existingCount);
-          }
-        } catch (err) {
-          console.error('Failed to parse EPUB for continuation:', err);
-          toast('Failed to inspect EPUB: ' + err.message, 'error');
-        }
+        if (!window.MoonReaderEngine) return;
+        const modalState = await window.MoonReaderEngine.inspectOngoingEpubFile(file, { readEpub }, {
+          toast,
+          onModalState: setOngoingEpubModal,
+          onSearchSources: handleSearchContinuationSources,
+          onScanToc: handleScanContinuationToc
+        });
+        if (modalState) setOngoingEpubModal(modalState);
       };
 
       const handleOpenContinuationForNovel = async (novelItem) => {
-        try {
-          const full = await loadFullNovel(novelItem);
-          if (!full) return toast('Novel data not found in library.', 'error');
-          let chs = full.translatedChapters || full.rawChapters || full.chapters || [];
-          let epubMeta = null;
-
-          // CRITICAL FIX: If full.epubBlob exists, parse the authoritative chapters directly from the EPUB container!
-          // This guarantees 100% parity with selecting the EPUB file from device storage and never misses Chapter 4.
-          if (full.epubBlob && !full.isEdited && typeof readEpub === 'function') {
-            try {
-              epubMeta = await readEpub(full.epubBlob);
-              if (epubMeta && epubMeta.chapters && epubMeta.chapters.length > 0) {
-                chs = epubMeta.chapters;
-              }
-            } catch (err) {
-              console.warn('Could not parse full.epubBlob with readEpub, falling back to stored chapters:', err);
-            }
-          }
-
-          if (chs.length === 0) return toast('No chapters found in this novel.', 'warning');
-
-          const cleanTitle = (epubMeta?.title || full.title || 'Novel').replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
-          const existingCount = chs.length;
-          const detectedSource = epubMeta?.sourceUrl || full.sourceUrl || full.url || '';
-          const fOpts = getNovelFolderOptions(full || novelItem);
-
-          setOngoingEpubModal({
-            isOpen: true,
-            file: full.epubBlob || null,
-            title: cleanTitle,
-            searchQuery: cleanTitle,
-            author: epubMeta?.author || full.author || 'Author',
-            cover: epubMeta?.cover || full.cover || '',
-            uuid: epubMeta?.uuid || full.uuid || full.id || '',
-            chapters: chs,
-            existingCount,
-            sourceUrl: detectedSource,
-            selectedSource: null,
-            continuationSources: [],
-            isSearchingSources: true,
-            showSourceSwitcher: false,
-            customUrlMode: false,
-            folderOptions: fOpts,
-            onlineToc: null,
-            totalOnlineCount: 0,
-            isScanningToc: false,
-            startChapter: existingCount + 1,
-            endChapter: existingCount + 1,
-            isFetching: false,
-            progress: { status: '', pct: 0, elapsed: '' }
-          });
-
-          handleSearchContinuationSources(cleanTitle);
-
-          if (detectedSource && /^https?:\/\//i.test(detectedSource)) {
-            handleScanContinuationToc(detectedSource, existingCount);
-          }
-        } catch (e) {
-          toast('Error opening continuation: ' + e.message, 'error');
-        }
+        if (!window.MoonReaderEngine) return;
+        const modalState = await window.MoonReaderEngine.openContinuationForNovel(novelItem, loadFullNovel, { readEpub }, {
+          toast,
+          onModalState: setOngoingEpubModal,
+          onSearchSources: handleSearchContinuationSources,
+          onScanToc: handleScanContinuationToc
+        });
+        if (modalState) setOngoingEpubModal(modalState);
       };
 
       const handleScanContinuationToc = async (url, existingCount) => {
@@ -1654,111 +1392,21 @@
       };
 
       // Load persistent IndexedDB novels on mount, merging seamlessly with localStorage
+      // Load persistent IndexedDB novels on mount, merging seamlessly with localStorage
       useEffect(() => {
-        (async () => {
-          try {
-            const combined = [];
-            const seenIds = new Set();
-            const seenTitles = new Set();
-
-            if (window.GeminiNovelDB) {
-              const dbNovels = await window.GeminiNovelDB.getAllNovels();
-              if (dbNovels && dbNovels.length > 0) {
-                dbNovels.reverse().forEach(n => {
-                  const item = {
-                    id: n.id,
-                    title: n.title,
-                    author: n.author,
-                    summary: n.summary,
-                    cover: n.cover || '',
-                    tags: n.tags,
-                    chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
-                    totalChapterCount: n.totalChapterCount || (n.chapterList ? n.chapterList.length : (n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0))),
-                    volumeCount: n.volumeCount || 0,
-                    isIncomplete: !!n.isIncomplete,
-                    isTranslated: !!n.isTranslated || (n.title || '').includes('(Translated)'),
-                    inSavedSpace: !!n.inSavedSpace,
-                    wordCount: n.wordCount,
-                    timestamp: n.timestamp,
-                    isEpub: n.isEpub,
-                    sourceUrl: n.sourceUrl,
-                    chapterList: n.chapterList || [],
-                    folderTreeUri: n.folderTreeUri || '',
-                    folderPath: n.folderPath || ''
-                  };
-                  if (!seenIds.has(item.id)) {
-                    seenIds.add(item.id);
-                    if (item.title) seenTitles.add(item.title);
-                    combined.push(item);
-                  }
-                });
-              }
-            }
-
-            try {
-              const metaStr = localStorage.getItem('gemini_web_import_history_meta') || localStorage.getItem('gemini_web_import_history');
-              if (metaStr) {
-                const localList = JSON.parse(metaStr);
-                if (Array.isArray(localList)) {
-                  localList.forEach(item => {
-                    if (item && item.id) {
-                      const existing = combined.find(c => c.id === item.id || (item.title && c.title && c.title.trim().toLowerCase() === item.title.trim().toLowerCase()));
-                      if (existing) {
-                        if (!existing.cover && item.cover) existing.cover = item.cover;
-                        if (!existing.folderPath && item.folderPath) existing.folderPath = item.folderPath;
-                        if (!existing.folderTreeUri && item.folderTreeUri) existing.folderTreeUri = item.folderTreeUri;
-                        if (item.inSavedSpace) existing.inSavedSpace = true;
-                      } else if (!seenIds.has(item.id) && !seenTitles.has(item.title)) {
-                        seenIds.add(item.id);
-                        if (item.title) seenTitles.add(item.title);
-                        combined.push({ ...item, inSavedSpace: !!item.inSavedSpace });
-                      }
-                    }
-                  });
-                }
-              }
-            } catch(e) {}
-
-            if (combined.length > 0) {
-              setWebImportHistory(combined);
-            }
-            loadTrashCount();
-          } catch (e) {
-            console.warn('Novel history load error:', e);
-          }
-        })();
+        window.LibraryEngine?.loadInitialNovels({
+          onHistory: setWebImportHistory,
+          loadTrashCount
+        });
       }, []);
 
       // Lazy cover art hydration from IndexedDB for any novels missing covers
       useEffect(() => {
-        if (!window.GeminiNovelDB) return;
-        const missingCovers = (webImportHistory || []).filter(b => b && !b.cover && b.id);
-        if (missingCovers.length === 0) return;
-
         let isMounted = true;
-        (async () => {
-          try {
-            const updates = [];
-            for (const b of missingCovers) {
-              const full = await window.GeminiNovelDB.getNovel(b.id);
-              if (full && full.cover) {
-                updates.push({ id: b.id, cover: full.cover });
-              }
-            }
-            if (updates.length > 0 && isMounted) {
-              setWebImportHistory(prev => {
-                const map = new Map(updates.map(u => [u.id, u.cover]));
-                const next = (prev || []).map(item => map.has(item.id) ? { ...item, cover: map.get(item.id) } : item);
-                try {
-                  localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(next));
-                } catch(e) {}
-                return next;
-              });
-            }
-          } catch(e) {
-            console.warn('Cover hydration warning:', e);
-          }
-        })();
+        window.LibraryEngine?.hydrateMissingCovers(webImportHistory, {
+          isMounted: () => isMounted,
+          setWebImportHistory
+        });
         return () => { isMounted = false; };
       }, [webImportHistory?.length]);
 
