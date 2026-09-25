@@ -82,7 +82,7 @@
       streamWithRotation, translateWithRotation, translateChunk,
       BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine, LibraryEngine,
       NovelEnrichmentEngine, KeyManagerEngine, GlossaryManagerEngine,
-      TranslationLoopEngine, WebNovelCrawlerEngine
+      TranslationLoopEngine, WebNovelCrawlerEngine, NavigationEngine
     } = window;
 
     // Helper adapters delegating to DocumentParser & ExportEngine
@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.77';
+    let VERSION = '8.17.78';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3158,159 +3158,27 @@
       const [instructionsBoxHeight, setInstructionsBoxHeight] = useState(() => parseInt(localStorage.getItem('instructionsBoxHeight'), 10) || 80);
       const [glossaryBoxHeight, setGlossaryBoxHeight] = useState(() => parseInt(localStorage.getItem('glossaryBoxHeight'), 10) || 140);
 
-      const handlePointerResizeStart = (e, boxType) => {
-        if (e.button !== undefined && e.button !== 0) return;
-        const startY = e.clientY;
-        const initialHeights = {
+      const { handlePointerResizeStart, handleTouchResizeStart, setBoxPreset, toggleBoxExpand, renderBoxResizeBar } = (window.NavigationEngine || NavigationEngine).initBoxResizer({
+        getHeights: () => ({
           input: inputBoxHeight,
           output: outputBoxHeight,
           instructions: instructionsBoxHeight,
           glossary: glossaryBoxHeight
-        };
-        const minHeights = { input: 120, output: 120, instructions: 50, glossary: 80 };
-        const maxHeights = { input: 3500, output: 3500, instructions: 1200, glossary: 2500 };
-        const startH = initialHeights[boxType] || 200;
-        let lastH = startH;
-
-        const targetEl = e.currentTarget || e.target;
-        try {
-          if (targetEl && typeof targetEl.setPointerCapture === 'function') {
-            targetEl.setPointerCapture(e.pointerId);
-          }
-        } catch (_) {}
-
-        const onPointerMove = (moveEvt) => {
-          const delta = (moveEvt.clientY - startY);
-          const newH = Math.max(minHeights[boxType] || 80, Math.min(maxHeights[boxType] || 2500, Math.round(startH + delta)));
-          lastH = newH;
-          if (boxType === 'input') setInputBoxHeight(newH);
-          else if (boxType === 'output') setOutputBoxHeight(newH);
-          else if (boxType === 'instructions') setInstructionsBoxHeight(newH);
-          else if (boxType === 'glossary') setGlossaryBoxHeight(newH);
-        };
-
-        const onPointerUp = (upEvt) => {
-          try {
-            if (targetEl && typeof targetEl.releasePointerCapture === 'function') {
-              targetEl.releasePointerCapture(upEvt.pointerId);
-            }
-          } catch (_) {}
-          window.removeEventListener('pointermove', onPointerMove);
-          window.removeEventListener('pointerup', onPointerUp);
-          window.removeEventListener('pointercancel', onPointerUp);
-          localStorage.setItem(`${boxType}BoxHeight`, lastH);
-        };
-
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerup', onPointerUp);
-        window.addEventListener('pointercancel', onPointerUp);
-      };
-
-      const handleTouchResizeStart = (e, boxType) => {
-        const touch = e.touches && e.touches[0];
-        if (!touch) return;
-        const startY = touch.clientY;
-        const initialHeights = {
-          input: inputBoxHeight,
-          output: outputBoxHeight,
-          instructions: instructionsBoxHeight,
-          glossary: glossaryBoxHeight
-        };
-        const minHeights = { input: 120, output: 120, instructions: 50, glossary: 80 };
-        const maxHeights = { input: 3500, output: 3500, instructions: 1200, glossary: 2500 };
-        const startH = initialHeights[boxType] || 200;
-        let lastH = startH;
-
-        const onTouchMove = (moveEvt) => {
-          const curTouch = moveEvt.touches && moveEvt.touches[0];
-          if (!curTouch) return;
-          const delta = (curTouch.clientY - startY) * 1.85;
-          const newH = Math.max(minHeights[boxType] || 80, Math.min(maxHeights[boxType] || 2500, Math.round(startH + delta)));
-          lastH = newH;
-          if (boxType === 'input') setInputBoxHeight(newH);
-          else if (boxType === 'output') setOutputBoxHeight(newH);
-          else if (boxType === 'instructions') setInstructionsBoxHeight(newH);
-          else if (boxType === 'glossary') setGlossaryBoxHeight(newH);
-        };
-
-        const onTouchEnd = () => {
-          window.removeEventListener('touchmove', onTouchMove);
-          window.removeEventListener('touchend', onTouchEnd);
-          localStorage.setItem(`${boxType}BoxHeight`, lastH);
-        };
-
-        window.addEventListener('touchmove', onTouchMove, { passive: true });
-        window.addEventListener('touchend', onTouchEnd, { passive: true });
-      };
-
-      const setBoxPreset = (boxType, preset) => {
-        const refs = {
+        }),
+        setHeight: (boxType, val) => {
+          if (boxType === 'input') setInputBoxHeight(val);
+          else if (boxType === 'output') setOutputBoxHeight(val);
+          else if (boxType === 'instructions') setInstructionsBoxHeight(val);
+          else if (boxType === 'glossary') setGlossaryBoxHeight(val);
+        },
+        refs: {
           input: inputRef,
           output: outputRef,
           instructions: instructionsRef,
           glossary: glossaryRef
-        };
-        const defaults = { input: 220, output: 250, instructions: 80, glossary: 140 };
-        const talls = { input: 820, output: 820, instructions: 380, glossary: 600 };
-
-        let targetH = defaults[boxType];
-        if (preset === 'S') targetH = defaults[boxType];
-        else if (preset === 'auto') {
-          const el = refs[boxType]?.current;
-          if (el) {
-            targetH = Math.max(defaults[boxType], Math.min(4000, el.scrollHeight + 25));
-          } else {
-            targetH = talls[boxType];
-          }
-        }
-
-        if (boxType === 'input') setInputBoxHeight(targetH);
-        else if (boxType === 'output') setOutputBoxHeight(targetH);
-        else if (boxType === 'instructions') setInstructionsBoxHeight(targetH);
-        else if (boxType === 'glossary') setGlossaryBoxHeight(targetH);
-        localStorage.setItem(`${boxType}BoxHeight`, targetH);
-      };
-
-      const toggleBoxExpand = (boxType) => {
-        const defaults = { input: 220, output: 250, instructions: 80, glossary: 140 };
-        const expanded = { input: 750, output: 750, instructions: 350, glossary: 550 };
-        const curHeights = {
-          input: inputBoxHeight,
-          output: outputBoxHeight,
-          instructions: instructionsBoxHeight,
-          glossary: glossaryBoxHeight
-        };
-        const cur = curHeights[boxType] || defaults[boxType];
-        const target = (cur >= expanded[boxType] - 60) ? defaults[boxType] : expanded[boxType];
-        
-        if (boxType === 'input') setInputBoxHeight(target);
-        else if (boxType === 'output') setOutputBoxHeight(target);
-        else if (boxType === 'instructions') setInstructionsBoxHeight(target);
-        else if (boxType === 'glossary') setGlossaryBoxHeight(target);
-        localStorage.setItem(`${boxType}BoxHeight`, target);
-      };
-
-      const renderBoxResizeBar = (boxType) => {
-        const defaults = { input: 220, output: 250, instructions: 80, glossary: 140 };
-        const curHeights = {
-          input: inputBoxHeight,
-          output: outputBoxHeight,
-          instructions: instructionsBoxHeight,
-          glossary: glossaryBoxHeight
-        };
-        const cur = curHeights[boxType] || defaults[boxType];
-        const isExp = cur > (defaults[boxType] + 60);
-
-        return h('div', {
-          className: 'py-2 flex items-center justify-center cursor-row-resize touch-none group select-none',
-          onPointerDown: (e) => handlePointerResizeStart(e, boxType),
-          onTouchStart: (e) => handleTouchResizeStart(e, boxType),
-          onDoubleClick: () => toggleBoxExpand(boxType),
-          title: 'Drag to resize · double-click to expand or collapse'
         },
-          h('div', { className: 'w-24 h-1.5 rounded-full transition-colors', style: { background: isExp ? 'var(--iris-deep)' : 'var(--hairline)' } })
-        );
-      };
+        h
+      });
 
 // (toast is defined above)
 
@@ -3327,59 +3195,15 @@
 
       // Deep Linking & URL Scheme Router (§10.8)
       useEffect(() => {
-        const handleHashRoute = async () => {
-          const hash = window.location.hash || '';
-          if (!hash || !hash.includes('novel=')) return;
-          try {
-            const params = new URLSearchParams(hash.replace(/^#/, ''));
-            const novelParam = params.get('novel');
-            const chapterParam = parseInt(params.get('chapter') || '1', 10);
-            if (novelParam && window.GeminiNovelDB) {
-              const all = await window.GeminiNovelDB.getAllNovels();
-              const target = all.find(n => n.id === novelParam || n.title === novelParam || (n.title && n.title.toLowerCase().includes(novelParam.toLowerCase())));
-              if (target) {
-                const full = await loadFullNovel(target);
-                if (full) {
-                  const chs = (full.translatedChapters && full.translatedChapters.length > 0)
-                    ? full.translatedChapters
-                    : (full.rawChapters || full.chapters || []);
-                  if (chs.length > 0) {
-                    const cleanCh = (c) => {
-                      const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
-                      const raw = c?.text || c?.content || '';
-                      return (typeof stripFn === 'function' && c?.title) ? stripFn(raw, c.title, c.originalTitle) : raw;
-                    };
-                    const cleanedChs = chs.map(c => ({ title: c.title, content: cleanCh(c) }));
-                    setChapters(cleanedChs);
-                    const targetIdx = Math.max(0, Math.min(cleanedChs.length - 1, chapterParam - 1));
-                    setReaderChapterIdx(targetIdx);
-                    setReaderOpen(true);
-                    toast(`🔗 Deep link routed to "${target.title}" (Ch ${targetIdx + 1})`, 'success');
-                  }
-                }
-              }
-            }
-          } catch (e) {
-            console.warn('[DeepLink] Routing error:', e);
+        return (window.NavigationEngine || NavigationEngine).initDeepLinkRouter({
+          loadFullNovel,
+          onRouteNovel: (target, cleanedChs, targetIdx) => {
+            setChapters(cleanedChs);
+            setReaderChapterIdx(targetIdx);
+            setReaderOpen(true);
+            toast(`🔗 Deep link routed to "${target.title}" (Ch ${targetIdx + 1})`, 'success');
           }
-        };
-
-        const timer = setTimeout(handleHashRoute, 400);
-        window.addEventListener('hashchange', handleHashRoute);
-        if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.App) {
-          window.Capacitor.Plugins.App.addListener('appUrlOpen', (data) => {
-            if (data?.url) {
-              try {
-                const u = new URL(data.url);
-                if (u.hash) window.location.hash = u.hash;
-              } catch (_) {}
-            }
-          });
-        }
-        return () => {
-          clearTimeout(timer);
-          window.removeEventListener('hashchange', handleHashRoute);
-        };
+        });
       }, []);
 
       useEffect(() => {
@@ -3405,152 +3229,48 @@
 
       // ── Centralized Android Hardware & Edge-Swipe Back Button Handler ──
       useEffect(() => {
-        let lastBackPress = 0;
-        let removeListener = null;
-
-        const handleAppBack = () => {
-          // 1. Chapter Preview Mode in Edit Ebook
-          if (window.isEpubEditorPreviewActive && typeof window.exitEpubEditorPreview === 'function') {
-            window.exitEpubEditorPreview();
-            return true;
-          }
-
-          // 2. Unsaved confirmation dialog in Edit Ebook
-          const unsaved = document.getElementById('edit-unsaved-confirm-modal');
-          if (unsaved && !unsaved.classList.contains('hidden')) {
-            unsaved.classList.add('hidden');
-            return true;
-          }
-
-          // 3. Move & Hierarchy Sheet in Edit Ebook
-          const moveModal = document.getElementById('edit-move-chapter-modal');
-          if (moveModal && !moveModal.classList.contains('hidden')) {
-            moveModal.classList.add('hidden');
-            return true;
-          }
-
-          // 4. Rename Chapter Modal in Edit Ebook
-          const renModal = document.getElementById('edit-rename-modal');
-          if (renModal && !renModal.classList.contains('hidden')) {
-            renModal.classList.add('hidden');
-            return true;
-          }
-
-          // 5. Chapter Edit Prose Modal in Edit Ebook
-          const chModal = document.getElementById('edit-chapter-modal');
-          if (chModal && !chModal.classList.contains('hidden')) {
-            if (window.isEpubEditorPreviewActive && typeof window.exitEpubEditorPreview === 'function') {
-              window.exitEpubEditorPreview();
+        return (window.NavigationEngine || NavigationEngine).initBackButtonHandler({
+          closeActiveModal: () => {
+            if (ongoingEpubModal && ongoingEpubModal.isOpen) {
+              if (!ongoingEpubModal.isFetching) setOngoingEpubModal(null);
               return true;
             }
-            if (typeof window.requestCloseChapterModal === 'function') {
-              window.requestCloseChapterModal();
-            } else {
-              chModal.classList.add('hidden');
+            if (readerOpen) {
+              setReaderOpen(false);
+              return true;
             }
-            return true;
-          }
-
-          // 6. Other Studio Modals (Gallery Lightbox, Gallery, Find & Replace, Auto-Number, Library)
-          const galLightbox = document.getElementById('edit-gallery-lightbox');
-          if (galLightbox && (galLightbox.style.display === 'flex' || !galLightbox.classList.contains('hidden'))) {
-            if (typeof window.closeGalleryLightbox === 'function') {
-              window.closeGalleryLightbox();
-            } else {
-              galLightbox.style.display = 'none';
-              galLightbox.classList.add('hidden');
+            if (activeNovelView) {
+              setActiveNovelView(null);
+              return true;
             }
-            return true;
-          }
-          const galModal = document.getElementById('edit-gallery-modal');
-          if (galModal && (galModal.style.display === 'flex' || !galModal.classList.contains('hidden'))) {
-            if (typeof window.closeGalleryModal === 'function') {
-              window.closeGalleryModal();
-            } else {
-              galModal.style.display = 'none';
-              galModal.classList.add('hidden');
+            if (audioDownloadModal) {
+              setAudioDownloadModal(null);
+              return true;
             }
-            return true;
-          }
-          const frModal = document.getElementById('edit-find-replace-modal');
-          if (frModal && !frModal.classList.contains('hidden')) {
-            frModal.classList.add('hidden');
-            return true;
-          }
-          const anModal = document.getElementById('edit-autonumber-modal');
-          if (anModal && !anModal.classList.contains('hidden')) {
-            anModal.classList.add('hidden');
-            return true;
-          }
-          const libModal = document.getElementById('edit-library-modal');
-          if (libModal && !libModal.classList.contains('hidden')) {
-            libModal.classList.add('hidden');
-            return true;
-          }
-
-          // 7. React App Modals & Overlays
-          if (ongoingEpubModal && ongoingEpubModal.isOpen) {
-            if (!ongoingEpubModal.isFetching) setOngoingEpubModal(null);
-            return true;
-          }
-          if (readerOpen) {
-            setReaderOpen(false);
-            return true;
-          }
-          if (activeNovelView) {
-            setActiveNovelView(null);
-            return true;
-          }
-          if (audioDownloadModal) {
-            setAudioDownloadModal(null);
-            return true;
-          }
-          if (costEstimatorModalOpen) {
-            setCostEstimatorModalOpen(false);
-            return true;
-          }
-          if (epubPackagingModal) {
-            setEpubPackagingModal(null);
-            return true;
-          }
-          if (typeof renameModalNovel !== 'undefined' && renameModalNovel) {
-            setRenameModalNovel(null);
-            return true;
-          }
-
-          // 8. Secondary Tab -> Return to Library or Translate
-          if (activeTab === 'studio' || activeTab === 'web_importer' || activeTab === 'settings') {
-            setActiveTab('history');
-            localStorage.setItem('activeTab', 'history');
-            return true;
-          }
-
-          // 9. Root Level -> Double-tap within 2s to exit app
-          const now = Date.now();
-          if (now - lastBackPress < 2000) {
-            if (window.Capacitor?.Plugins?.App?.exitApp) {
-              window.Capacitor.Plugins.App.exitApp();
+            if (costEstimatorModalOpen) {
+              setCostEstimatorModalOpen(false);
+              return true;
             }
-          } else {
-            lastBackPress = now;
-            toast('Press back again to exit', 'info');
-          }
-          return true;
-        };
-
-        if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.App) {
-          window.Capacitor.Plugins.App.addListener('backButton', () => {
-            handleAppBack();
-          }).then(h => {
-            removeListener = h;
-          }).catch(() => {});
-        }
-
-        return () => {
-          if (removeListener && typeof removeListener.remove === 'function') {
-            removeListener.remove();
-          }
-        };
+            if (epubPackagingModal) {
+              setEpubPackagingModal(null);
+              return true;
+            }
+            if (typeof renameModalNovel !== 'undefined' && renameModalNovel) {
+              setRenameModalNovel(null);
+              return true;
+            }
+            return false;
+          },
+          popTab: () => {
+            if (activeTab === 'studio' || activeTab === 'web_importer' || activeTab === 'settings') {
+              setActiveTab('history');
+              localStorage.setItem('activeTab', 'history');
+              return true;
+            }
+            return false;
+          },
+          toast
+        });
       }, [ongoingEpubModal, readerOpen, activeNovelView, audioDownloadModal, costEstimatorModalOpen, epubPackagingModal, typeof renameModalNovel !== 'undefined' ? renameModalNovel : null, activeTab]);
 
       useEffect(() => { document.documentElement.classList.add('dark'); localStorage.setItem('darkMode', 'true'); }, []);
