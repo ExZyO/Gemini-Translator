@@ -80,7 +80,7 @@
       streamGemini, translateDeepSeek, streamDeepSeek, stripContextLeak,
       translateDeepL, translateLibre, translateOpenAI, translateClaude,
       streamWithRotation, translateWithRotation, translateChunk,
-      BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine
+      BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine, LibraryEngine
     } = window;
 
     // Helper adapters delegating to DocumentParser & ExportEngine
@@ -134,7 +134,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.68';
+    let VERSION = '8.17.69';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -887,457 +887,67 @@
 
       const getNovelFolderOptions = (novel) => window.MoonReaderEngine ? window.MoonReaderEngine.getNovelFolderOptions(novel) : {};
 
-      const getCustomTitle = (novelOrUrl) => {
-        if (!novelOrUrl) return '';
-        const url = typeof novelOrUrl === 'string' ? novelOrUrl : (novelOrUrl.sourceUrl || novelOrUrl.url || '');
-        const id = typeof novelOrUrl === 'object' ? novelOrUrl.id : '';
-        try {
-          const raw = localStorage.getItem('gemini_novel_custom_titles');
-          if (!raw) return '';
-          const map = JSON.parse(raw);
-          if (id && map[id]) return map[id];
-          if (url) {
-            const norm = url.trim().toLowerCase().replace(/\/+$/, '');
-            if (map[norm]) return map[norm];
-          }
-        } catch(e) {}
-        return '';
-      };
+      const getCustomTitle = (novelOrUrl) => window.LibraryEngine ? window.LibraryEngine.getCustomTitle(novelOrUrl) : '';
 
       const handleSaveNovelRename = async (novel, newTitle) => {
-        if (!novel) return;
-        const trimmed = (newTitle || '').trim();
-        if (!trimmed) {
-          toast('Title cannot be empty.', 'warning');
-          return;
-        }
-        const novelId = novel.id;
-        const sourceUrl = novel.sourceUrl || novel.url || '';
-
-        // 1. Update gemini_novel_custom_titles in localStorage
-        try {
-          const raw = localStorage.getItem('gemini_novel_custom_titles');
-          const map = raw ? JSON.parse(raw) : {};
-          if (novelId) map[novelId] = trimmed;
-          if (sourceUrl) {
-            const norm = sourceUrl.trim().toLowerCase().replace(/\/+$/, '');
-            map[norm] = trimmed;
-          }
-          localStorage.setItem('gemini_novel_custom_titles', JSON.stringify(map));
-        } catch(e) {}
-
-        // 2. Update webImportHistory (state & localStorage)
-        setWebImportHistory(prev => {
-          const updated = prev.map(item => {
-            if (item.id === novelId || (sourceUrl && (item.sourceUrl === sourceUrl || item.url === sourceUrl))) {
-              return { ...item, title: trimmed, customTitle: trimmed, originalSourceTitle: item.originalSourceTitle || item.title };
+        if (!window.LibraryEngine) return;
+        await window.LibraryEngine.saveNovelRename(novel, newTitle, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onUpdateWebImportData: setWebImportData,
+          onUpdateActiveCrawlSession: setActiveCrawlSession,
+          onUpdateActiveNovelRecord: typeof setActiveNovelRecord === 'function' ? setActiveNovelRecord : null,
+          onUpdateReaderTitle: (trimmed) => {
+            if (typeof readerNovelId !== 'undefined' && readerNovelId && (readerNovelId === novel?.id || readerNovelId === novel?.title)) {
+              setReaderNovelTitle(trimmed);
             }
-            return item;
-          });
-          try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updated)); } catch(e) {}
-          return updated;
+          },
+          onSuccess: () => setRenameModalNovel(null)
         });
-
-        // 3. Update IndexedDB full record
-        if (window.GeminiNovelDB && novelId) {
-          try {
-            const full = await window.GeminiNovelDB.getNovel(novelId);
-            if (full) {
-              full.title = trimmed;
-              full.customTitle = trimmed;
-              if (!full.originalSourceTitle) full.originalSourceTitle = novel.title;
-              await window.GeminiNovelDB.saveNovel(full);
-            }
-          } catch(e) {
-            console.warn('Failed to update novel title in IndexedDB:', e);
-          }
-        }
-
-        // 4. Update active sessions if currently active
-        setWebImportData(prev => {
-          if (prev && (prev.id === novelId || (sourceUrl && (prev.sourceUrl === sourceUrl || prev.url === sourceUrl)))) {
-            return { ...prev, title: trimmed, customTitle: trimmed, originalSourceTitle: prev.originalSourceTitle || prev.title };
-          }
-          return prev;
-        });
-        setActiveCrawlSession(prev => {
-          if (prev && (prev.id === novelId || (sourceUrl && (prev.sourceUrl === sourceUrl || prev.url === sourceUrl)))) {
-            const next = { ...prev, title: trimmed, customTitle: trimmed, originalSourceTitle: prev.originalSourceTitle || prev.title };
-            try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(next)); } catch(e) {}
-            return next;
-          }
-          return prev;
-        });
-        if (typeof setActiveNovelRecord === 'function') {
-          setActiveNovelRecord(prev => {
-            if (prev && (prev.id === novelId || (sourceUrl && (prev.sourceUrl === sourceUrl || prev.url === sourceUrl)))) {
-              return { ...prev, title: trimmed, customTitle: trimmed };
-            }
-            return prev;
-          });
-        }
-        if (typeof readerNovelId !== 'undefined' && readerNovelId && (readerNovelId === novelId || readerNovelId === novel.title)) {
-          setReaderNovelTitle(trimmed);
-        }
-
-        toast(`Renamed novel to "${trimmed}"! Future chapter updates will use this name. ✨`, 'success');
-        setRenameModalNovel(null);
       };
 
       const saveNovelToHistory = async (novelData) => {
-        if (!novelData || !novelData.chapters || novelData.chapters.length === 0) return;
-        const totalWords = novelData.chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : (c.content ? c.content.split(/\s+/).filter(Boolean).length : 0))), 0);
-        const novelId = novelData.id || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
-        
-        // Sanitize chapters into plain cloneable objects without DOM nodes, functions, or circular references
-        const cleanChapters = novelData.chapters.map((c, i) => ({
-          idx: c.idx !== undefined ? c.idx : i,
-          title: c.title || `Chapter ${i + 1}`,
-          url: c.url || '',
-          text: typeof c === 'string' ? c : (c.text || c.content || ''),
-          content: typeof c === 'string' ? c : (c.content || c.text || ''),
-          words: c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)
-        }));
-
-        // Compute volume count if multi-volume
-        let detectedVolumeCount = 0;
-        if (typeof novelData.volumeCount === 'number' && novelData.volumeCount > 0) {
-          detectedVolumeCount = novelData.volumeCount;
-        } else {
-          const volNums = new Set();
-          cleanChapters.forEach(c => {
-            const m = (c.title || '').match(/(?:Volume|Vol\.?|Book)\s*(\d+)/i);
-            if (m) volNums.add(parseInt(m[1], 10));
-          });
-          detectedVolumeCount = volNums.size;
-        }
-
-        // Clean originalChapters if provided
-        const cleanOriginalChapters = Array.isArray(novelData.originalChapters) && novelData.originalChapters.length > 0
-          ? novelData.originalChapters.map((c, i) => ({
-              idx: c.idx !== undefined ? c.idx : i,
-              title: c.title || `Chapter ${i + 1}`,
-              url: c.url || '',
-              text: typeof c === 'string' ? c : (c.text || c.content || ''),
-              content: typeof c === 'string' ? c : (c.content || c.text || ''),
-              words: c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)
-            }))
-          : null;
-        const totalChapters = novelData.totalChapterCount || (novelData.chapterList ? novelData.chapterList.length : cleanChapters.length);
-        const isIncomplete = novelData.isIncomplete !== undefined ? !!novelData.isIncomplete : (cleanChapters.length < totalChapters);
-        const isTranslated = !!novelData.isTranslated || (novelData.title || '').includes('(Translated)');
-        const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-        const existingMeta = (webImportHistory || []).find(n => (novelId && n.id === novelId) || (n.title && novelData.title && cleanT(n.title) === cleanT(novelData.title)));
-        const inSavedSpace = novelData.inSavedSpace !== undefined
-          ? !!novelData.inSavedSpace
-          : (existingMeta?.inSavedSpace !== undefined ? !!existingMeta.inSavedSpace : false);
-        const folderOpts = getNovelFolderOptions(novelData);
-        const folderTreeUri = novelData.folderTreeUri || folderOpts.treeUri || existingMeta?.folderTreeUri || '';
-        const folderPath = novelData.folderPath || folderOpts.folderPath || existingMeta?.folderPath || '';
-        let coverArt = novelData.cover || existingMeta?.cover || '';
-        if (!coverArt && novelData.title) {
-          const matchedAny = (webImportHistory || []).find(n => n.cover && cleanT(n.title) === cleanT(novelData.title));
-          if (matchedAny?.cover) coverArt = matchedAny.cover;
-        }
-        if (!coverArt && typeof currentDocCover !== 'undefined' && currentDocCover) {
-          coverArt = currentDocCover;
-        }
-        if (!coverArt && typeof localStorage !== 'undefined') {
-          coverArt = localStorage.getItem('gemini_current_doc_cover') || '';
-        }
-
-        const customTitle = novelData.customTitle || getCustomTitle(novelData.sourceUrl || novelData.url || novelId) || existingMeta?.customTitle;
-        const finalTitle = customTitle || novelData.title || existingMeta?.title || 'Untitled Novel';
-
-        let detectedSourceUrl = novelData.sourceUrl || novelData.url || existingMeta?.sourceUrl || existingMeta?.url || '';
-        if (!detectedSourceUrl) {
-          const chWithUrl = cleanChapters.find(c => c && c.url) || 
-                            (cleanOriginalChapters && cleanOriginalChapters.find(c => c && c.url)) ||
-                            (Array.isArray(novelData.chapterList) && novelData.chapterList.find(c => c && c.url));
-          if (chWithUrl && chWithUrl.url) {
-            const chUrl = chWithUrl.url;
-            if (chUrl.includes('novelfire.net/book/')) {
-              const m = chUrl.match(/(https?:\/\/[^\/]*novelfire\.net\/book\/[^\/]+)/i);
-              if (m) detectedSourceUrl = m[1];
-            } else if (chUrl.includes('royalroad.com/fiction/')) {
-              const m = chUrl.match(/(https?:\/\/[^\/]*royalroad\.com\/fiction\/\d+(?:\/[^\/]+)?)/i);
-              if (m) detectedSourceUrl = m[1];
-            } else if (chUrl.includes('syosetu.com/')) {
-              const m = chUrl.match(/(https?:\/\/[^\/]*syosetu\.com\/[^\/]+)/i);
-              if (m) detectedSourceUrl = m[1];
-            } else if (chUrl.includes('lnori.')) {
-              const m = chUrl.match(/(https?:\/\/[^\/]*lnori\.(?:org|com)\/[^\/]+)/i);
-              if (m) detectedSourceUrl = m[1];
-            }
-          }
-        }
-
-        const novelRecord = {
-          id: novelId,
-          title: finalTitle,
-          customTitle: customTitle || undefined,
-          originalSourceTitle: novelData.originalSourceTitle || existingMeta?.originalSourceTitle || (customTitle && customTitle !== novelData.title ? novelData.title : undefined),
-          author: novelData.author || 'Author',
-          summary: (novelData.summary || '').substring(0, 300),
-          cover: coverArt,
-          tags: novelData.tags || [],
-          chapterCount: cleanChapters.length,
-          totalChapterCount: totalChapters,
-          volumeCount: detectedVolumeCount,
-          isIncomplete,
-          isTranslated,
-          inSavedSpace,
-          hasOriginalSource: !!(cleanOriginalChapters && cleanOriginalChapters.length > 0),
-          wordCount: totalWords,
-          timestamp: new Date().toISOString(),
-          isEpub: !!novelData.isEpub,
-          epubBlob: (novelData.isEdited || existingMeta?.isEdited) ? (novelData.epubBlob || undefined) : (novelData.epubBlob || existingMeta?.epubBlob || undefined),
-          sourceUrl: detectedSourceUrl,
-          chapterList: novelData.chapterList || [],
-          rawChapters: cleanChapters,
-          originalChapters: cleanOriginalChapters,
-          originalText: novelData.originalText || '',
-          translatedChapters: Array.isArray(novelData.translatedChapters) ? novelData.translatedChapters : (cleanChapters && isTranslated ? cleanChapters : null),
-          targetLang: novelData.targetLang || (isTranslated ? 'en' : null),
-          folderTreeUri,
-          folderPath
-        };
-
-        if (window.GeminiNovelDB) {
-          try {
-            await window.GeminiNovelDB.saveNovel(novelRecord);
-          } catch (e) {
-            console.warn('GeminiNovelDB save error:', e);
-          }
-        }
-
-        const metaRecord = {
-          id: novelId,
-          title: novelRecord.title,
-          author: novelRecord.author,
-          summary: novelRecord.summary,
-          cover: coverArt,
-          tags: novelRecord.tags,
-          chapterCount: novelRecord.chapterCount,
-          totalChapterCount: novelRecord.totalChapterCount,
-          volumeCount: novelRecord.volumeCount,
-          isIncomplete: novelRecord.isIncomplete,
-          isTranslated: novelRecord.isTranslated,
-          inSavedSpace: novelRecord.inSavedSpace,
-          hasOriginalSource: novelRecord.hasOriginalSource,
-          hasTranslatedChapters: !!(novelRecord.translatedChapters && novelRecord.translatedChapters.length > 0),
-          wordCount: novelRecord.wordCount,
-          timestamp: novelRecord.timestamp,
-          isEpub: novelRecord.isEpub,
-          sourceUrl: novelRecord.sourceUrl,
-          folderTreeUri: novelRecord.folderTreeUri,
-          folderPath: novelRecord.folderPath
-        };
-
-        setWebImportHistory(prev => {
-          const updated = [metaRecord, ...prev.filter(n => n.id !== metaRecord.id && (!metaRecord.title || (n.title || '').trim().toLowerCase() !== metaRecord.title.trim().toLowerCase()))].slice(0, 50);
-          try {
-            localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updated));
-          } catch (e) {}
-          return updated;
+        if (!window.LibraryEngine) return null;
+        return await window.LibraryEngine.saveNovelToHistory(novelData, {
+          onUpdateHistory: setWebImportHistory,
+          onClearActiveCrawlSession: () => setActiveCrawlSession(null)
         });
-
-        if (!isIncomplete && cleanChapters.length >= totalChapters) {
-          localStorage.removeItem('gemini_active_crawl_session');
-          setActiveCrawlSession(null);
-        }
       };
 
       const toggleNovelSavedSpace = async (novelId, novelFallback = null) => {
-        let full = await loadFullNovel({ id: novelId, title: novelFallback?.title });
-        if (!full && novelFallback) {
-          full = { ...novelFallback };
-        }
-        if (!full) return;
-        const newSaved = !full.inSavedSpace;
-        full.inSavedSpace = newSaved;
-
-        // Guarantee folder options and cover are preserved
-        const folderOpts = getNovelFolderOptions(full);
-        if (folderOpts.folderPath) full.folderPath = folderOpts.folderPath;
-        if (folderOpts.treeUri) full.folderTreeUri = folderOpts.treeUri;
-        if (!full.cover && novelFallback?.cover) full.cover = novelFallback.cover;
-
-        if (window.GeminiNovelDB) {
-          try { await window.GeminiNovelDB.saveNovel(full); } catch(e) {}
-        }
-        setWebImportHistory(prev => {
-          const list = prev || [];
-          const exists = list.some(m => (full.id && m.id === full.id) || (m.title && full.title && m.title.trim().toLowerCase() === full.title.trim().toLowerCase()));
-          let updated;
-          if (exists) {
-            updated = list.map(m => ((full.id && m.id === full.id) || (m.title && full.title && m.title.trim().toLowerCase() === full.title.trim().toLowerCase()))
-              ? { ...m, inSavedSpace: newSaved, sourceUrl: full.sourceUrl || m.sourceUrl || full.url || m.url, cover: full.cover || m.cover, folderPath: full.folderPath || m.folderPath, folderTreeUri: full.folderTreeUri || m.folderTreeUri }
-              : m);
-          } else {
-            updated = [{ ...full, inSavedSpace: newSaved }, ...list];
-          }
-          try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updated)); } catch(e) {}
-          return updated;
+        if (!window.LibraryEngine) return false;
+        return await window.LibraryEngine.toggleNovelSavedSpace(novelId, novelFallback, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onUpdateActiveCrawlSession: setActiveCrawlSession,
+          onUpdateWebImportData: setWebImportData,
+          onUpdateActiveNovelRecord: typeof setActiveNovelRecord === 'function' ? setActiveNovelRecord : null
         });
-
-        // Also update active session / import data states so UI stays reactive
-        setActiveCrawlSession(prev => {
-          if (prev && ((full.id && prev.id === full.id) || (full.title && prev.title && prev.title.trim().toLowerCase() === full.title.trim().toLowerCase()))) {
-            const next = { ...prev, inSavedSpace: newSaved, folderPath: full.folderPath || prev.folderPath, folderTreeUri: full.folderTreeUri || prev.folderTreeUri };
-            try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(next)); } catch(e) {}
-            return next;
-          }
-          return prev;
-        });
-        setWebImportData(prev => {
-          if (prev && ((full.id && prev.id === full.id) || (full.title && prev.title && prev.title.trim().toLowerCase() === full.title.trim().toLowerCase()))) {
-            return { ...prev, inSavedSpace: newSaved, folderPath: full.folderPath || prev.folderPath, folderTreeUri: full.folderTreeUri || prev.folderTreeUri };
-          }
-          return prev;
-        });
-        if (typeof setActiveNovelRecord === 'function') {
-          setActiveNovelRecord(prev => {
-            if (prev && ((full.id && prev.id === full.id) || (full.title && prev.title && prev.title.trim().toLowerCase() === full.title.trim().toLowerCase()))) {
-              return { ...prev, inSavedSpace: newSaved, folderPath: full.folderPath || prev.folderPath, folderTreeUri: full.folderTreeUri || prev.folderTreeUri };
-            }
-            return prev;
-          });
-        }
-
-        toast(newSaved ? `"${full.title}" saved to your Special Space! ⭐` : `Removed from Special Space.`, 'info');
       };
 
       const handleCheckNovelUpdate = async (item) => {
-        let sourceUrl = item.sourceUrl || item.url || item.webUrl;
-        let targetItem = item;
-        const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-        const itemClean = cleanT(item.title);
-
-        // 1. Try loading full novel from IndexedDB / store
-        const full = await loadFullNovel(item);
-        if (full) {
-          targetItem = { ...item, ...full };
-          if (full.sourceUrl || full.url || full.webUrl) {
-            sourceUrl = full.sourceUrl || full.url || full.webUrl;
-          }
-        }
-
-        // 2. If sourceUrl still missing, check matching original novel in webImportHistory
-        if (!sourceUrl) {
-          const matchOrig = (webImportHistory || []).find(n => n && n.id !== item.id && cleanT(n.title) === itemClean && (n.sourceUrl || n.url));
-          if (matchOrig) {
-            sourceUrl = matchOrig.sourceUrl || matchOrig.url;
-          }
-        }
-
-        // 3. If sourceUrl still missing, check matching novel across all IndexedDB records
-        if (!sourceUrl && window.GeminiNovelDB) {
-          try {
-            const all = await window.GeminiNovelDB.getAllNovels();
-            const dbMatch = (all || []).find(n => n && cleanT(n.title) === itemClean && (n.sourceUrl || n.url));
-            if (dbMatch) {
-              sourceUrl = dbMatch.sourceUrl || dbMatch.url;
-            }
-          } catch (e) {}
-        }
-
-        // 4. If sourceUrl still missing, inspect chapter URLs & chapterList
-        if (!sourceUrl) {
-          const chs = targetItem.rawChapters || targetItem.chapters || [];
-          const chList = targetItem.chapterList || [];
-          const chWithUrl = chs.find(c => c && c.url) || chList.find(c => c && c.url);
-          const chUrl = chWithUrl?.url || '';
-          if (chUrl.includes('royalroad.com/fiction/')) {
-            const m = chUrl.match(/(https?:\/\/[^\/]*royalroad\.com\/fiction\/\d+(?:\/[^\/]+)?)/i);
-            if (m) sourceUrl = m[1];
-          } else if (chUrl.includes('novelfire.net/book/')) {
-            const m = chUrl.match(/(https?:\/\/[^\/]*novelfire\.net\/book\/[^\/]+)/i);
-            if (m) sourceUrl = m[1];
-          } else if (chUrl.includes('syosetu.com/')) {
-            const m = chUrl.match(/(https?:\/\/[^\/]*syosetu\.com\/[^\/]+)/i);
-            if (m) sourceUrl = m[1];
-          } else if (chUrl.includes('lnori.')) {
-            const m = chUrl.match(/(https?:\/\/[^\/]*lnori\.(?:org|com)\/[^\/]+)/i);
-            if (m) sourceUrl = m[1];
-          }
-        }
-
-        // 4b. If still missing, check activeCrawlSession
-        if (!sourceUrl && activeCrawlSession) {
-          if ((activeCrawlSession.id === item.id || cleanT(activeCrawlSession.title) === itemClean) && (activeCrawlSession.sourceUrl || activeCrawlSession.url)) {
-            sourceUrl = activeCrawlSession.sourceUrl || activeCrawlSession.url;
-          }
-        }
-
-        // 5. If recovered, persist permanently so future checks are instantaneous
-        if (sourceUrl) {
-          targetItem.sourceUrl = sourceUrl;
-          item.sourceUrl = sourceUrl;
-          setWebImportHistory(prev => {
-            const upd = prev.map(p => p.id === item.id ? { ...p, sourceUrl } : p);
-            try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(upd)); } catch(e) {}
-            return upd;
-          });
-          if (window.GeminiNovelDB && targetItem.id) {
-            try { window.GeminiNovelDB.saveNovel(targetItem); } catch(e) {}
-          }
-        }
-
-        if (!sourceUrl) {
-          toast(`Cannot check updates: "${item.title}" was not imported from a web URL.`, 'warning');
-          return;
-        }
+        if (!window.LibraryEngine) return;
         setCheckingUpdates(prev => ({ ...prev, [item.id]: true }));
         try {
-          targetItem.sourceUrl = targetItem.sourceUrl || sourceUrl;
-          // Self-heal: If volumeCount is missing in metadata, derive it from loaded chapters
-          const chaptersToCheck = targetItem.rawChapters || targetItem.chapters || [];
-          if (!targetItem.volumeCount && chaptersToCheck.length > 0) {
-            let maxV = 0;
-            chaptersToCheck.forEach(c => {
-              const m = (c.title || '').match(/(?:Volume|Vol\.?|Book)\s*(\d+)/i);
-              if (m) {
-                const v = parseInt(m[1], 10);
-                if (v > maxV) maxV = v;
-              }
-            });
-            if (maxV > 0) {
-              targetItem.volumeCount = maxV;
-              setWebImportHistory(prev => {
-                const upd = prev.map(p => p.id === item.id ? { ...p, volumeCount: maxV } : p);
-                try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(upd)); } catch(e) {}
-                return upd;
+          await window.LibraryEngine.checkNovelUpdate(item, {
+            onProgress: (msg) => toast(msg, 'info')
+          }, {
+            toast,
+            onBadgeUpdate: (id, badgeData) => {
+              setNovelUpdateBadges(prev => ({
+                ...prev,
+                [id]: badgeData
+              }));
+            },
+            onClearBadge: (id) => {
+              setNovelUpdateBadges(prev => {
+                const next = { ...prev };
+                delete next[id];
+                return next;
               });
             }
-          }
-          const res = await window.WebNovelImporter?.checkNovelUpdates(targetItem, (msg) => {
-            toast(msg, 'info');
           });
-          if (res && res.hasUpdates) {
-            setNovelUpdateBadges(prev => ({
-              ...prev,
-              [item.id]: {
-                newCount: res.newCount,
-                remoteTotal: res.remoteCount,
-                isVolumeBased: !!res.isVolumeBased,
-                remoteChapterList: res.remoteChapterList || []
-              }
-            }));
-            const unit = res.isVolumeBased ? (res.newCount === 1 ? 'new volume' : 'new volumes') : (res.newCount === 1 ? 'new chapter' : 'new chapters');
-            toast(`Found ${res.newCount} ${unit} for "${item.title}"! 🎉`, 'success');
-          } else if (res && !res.error) {
-            setNovelUpdateBadges(prev => {
-              const next = { ...prev };
-              delete next[item.id];
-              return next;
-            });
-            const unit = res.isVolumeBased ? 'vol' : 'ch';
-            toast(`"${item.title}" is already up to date (${res.localCount || targetItem.volumeCount || item.chapterCount} ${unit}).`, 'info');
-          } else if (res && res.error) {
-            toast(`Check failed: ${res.error}`, 'error');
-          }
-        } catch(e) {
+        } catch (e) {
           toast(`Check error: ${e.message}`, 'error');
         } finally {
           setCheckingUpdates(prev => ({ ...prev, [item.id]: false }));
@@ -1345,149 +955,31 @@
       };
 
       const handleDownloadNewChapters = async (item) => {
-        if (!item) return;
+        if (!item || !window.LibraryEngine) return;
         const novelKey = item.id;
         setDownloadingUpdates(prev => ({ ...prev, [novelKey]: true }));
         try {
-          const full = await loadFullNovel(item);
-          const targetItem = full ? { ...item, ...full } : item;
-          let sourceUrl = targetItem.sourceUrl || item.sourceUrl || full?.sourceUrl || targetItem.url || item.url || full?.url;
-
-          if (!sourceUrl) {
-            const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-            const itemClean = cleanT(item.title);
-            const matchOrig = (webImportHistory || []).find(n => n && n.id !== item.id && cleanT(n.title) === itemClean && (n.sourceUrl || n.url));
-            if (matchOrig) {
-              sourceUrl = matchOrig.sourceUrl || matchOrig.url;
-            }
-          }
-          if (!sourceUrl && window.GeminiNovelDB) {
-            try {
-              const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-              const itemClean = cleanT(item.title);
-              const all = await window.GeminiNovelDB.getAllNovels();
-              const dbMatch = (all || []).find(n => n && cleanT(n.title) === itemClean && (n.sourceUrl || n.url));
-              if (dbMatch) sourceUrl = dbMatch.sourceUrl || dbMatch.url;
-            } catch (e) {}
-          }
-          if (!sourceUrl) {
-            const chs = targetItem.rawChapters || targetItem.chapters || [];
-            const chUrl = chs.find(c => c && c.url)?.url || '';
-            if (chUrl.includes('royalroad.com/fiction/')) {
-              const m = chUrl.match(/(https?:\/\/[^\/]*royalroad\.com\/fiction\/\d+)/i);
-              if (m) sourceUrl = m[1];
-            } else if (chUrl.includes('novelfire.net/book/')) {
-              const m = chUrl.match(/(https?:\/\/[^\/]*novelfire\.net\/book\/[^\/]+)/i);
-              if (m) sourceUrl = m[1];
-            } else if (chUrl.includes('syosetu.com/')) {
-              const m = chUrl.match(/(https?:\/\/[^\/]*syosetu\.com\/[^\/]+)/i);
-              if (m) sourceUrl = m[1];
-            } else if (chUrl.includes('lnori.')) {
-              const m = chUrl.match(/(https?:\/\/[^\/]*lnori\.(?:org|com)\/[^\/]+)/i);
-              if (m) sourceUrl = m[1];
-            }
-          }
-          if (sourceUrl) {
-            targetItem.sourceUrl = sourceUrl;
-            item.sourceUrl = sourceUrl;
-          }
-          if (!sourceUrl) {
-            toast('No source URL found for this novel.', 'error');
-            return;
-          }
-          const isLnori = /lnori\.(?:org|com)/i.test(sourceUrl);
-          const existingRaw = (targetItem.rawChapters && targetItem.rawChapters.length > 0)
-            ? targetItem.rawChapters
-            : (targetItem.chapters || []);
-          const prevCount = existingRaw.length;
-          const badge = novelUpdateBadges[item.id] || (targetItem.id ? novelUpdateBadges[targetItem.id] : null);
-
-          toast(`Fetching updates for "${targetItem.title || item.title || 'Novel'}"...`, 'info');
-          if (typeof setEpubPackagingModal === 'function') {
-            setEpubPackagingModal({
-              title: targetItem.title || item.title || 'Novel Updates',
-              status: `Connecting to source and discovering chapters…`,
-              pct: 5
-            });
-          }
-
-          const res = await window.WebNovelImporter?.importUrl(sourceUrl, (msg, pct) => {
-            if (typeof setEpubPackagingModal === 'function') {
-              setEpubPackagingModal({
-                title: targetItem.title || item.title || 'Novel Updates',
-                status: msg || 'Downloading new chapters…',
-                pct: Math.max(5, Math.min(95, pct || 0))
-              });
-            }
+          await window.LibraryEngine.downloadNewChapters(item, {
+            badge: novelUpdateBadges[item.id]
           }, {
-            initialChapters: existingRaw,
-            resumeSession: targetItem,
-            isUpdate: true,
-            refreshToc: true,
-            chapterList: badge?.remoteChapterList && badge.remoteChapterList.length > prevCount ? badge.remoteChapterList : undefined
-          });
-
-          const fetchedChapters = res?.chapters || [];
-          if (fetchedChapters.length > 0) {
-            const hasNew = fetchedChapters.length > prevCount;
-            const customTitle = targetItem.customTitle || getCustomTitle(sourceUrl) || getCustomTitle(targetItem.id) || targetItem.title;
-            const updatedNovel = {
-              ...targetItem,
-              title: customTitle || targetItem.title,
-              customTitle: customTitle || targetItem.customTitle,
-              chapters: fetchedChapters,
-              rawChapters: fetchedChapters,
-              chapterCount: fetchedChapters.length,
-              totalChapterCount: res.totalChapterCount || fetchedChapters.length,
-              chapterList: res.chapterList || targetItem.chapterList || fetchedChapters.map((c, i) => ({ url: c.url, title: c.title || `Chapter ${i + 1}` })),
-              isIncomplete: false,
-              sourceUrl: sourceUrl
-            };
-            await saveNovelToHistory(updatedNovel);
-            setNovelUpdateBadges(prev => {
-              const next = { ...prev };
-              if (item.id) delete next[item.id];
-              if (targetItem.id) delete next[targetItem.id];
-              return next;
-            });
-
-            if (hasNew) {
-              toast(`Updated "${updatedNovel.title}" in library! (+${fetchedChapters.length - prevCount} new chapters, ${fetchedChapters.length} total)`, 'success');
-            } else {
-              toast(`All ${fetchedChapters.length} chapters verified. Packaging EPUB...`, 'info');
-            }
-
-            if (isLnori) {
-              // Direct clean Lnori EPUB packaging with volume TOC & cover art
-              await exportCleanLnoriEpub(updatedNovel);
-            } else {
-              // Packaging & Download updated raw EPUB
-              const chs = fetchedChapters;
-              const bookTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(updatedNovel.title, chs) : (updatedNovel.title || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-              const bookAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(updatedNovel.author) : (updatedNovel.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-              try {
-                if (typeof setEpubPackagingModal === 'function') {
-                  setEpubPackagingModal({ title: bookTitle, status: `Packaging ${chs.length} chapters into EPUB…`, pct: 95 });
-                }
-                const opts = typeof getEpubOptions === 'function'
-                  ? getEpubOptions({ novelId: updatedNovel.id || sourceUrl || bookTitle, coverUrl: updatedNovel.cover || '' })
-                  : { novelId: updatedNovel.id, coverUrl: updatedNovel.cover || '' };
-                const blob = await generateEpubFromChapters(chs, bookTitle, bookAuthor, updatedNovel.targetLang || 'en', (status, pct, elapsed) => {
-                  if (typeof setEpubPackagingModal === 'function') {
-                    setEpubPackagingModal({ title: bookTitle, status, pct, elapsed });
-                  }
-                }, opts);
-                const isInc = updatedNovel.isIncomplete || (updatedNovel.totalChapterCount && chs.length < updatedNovel.totalChapterCount);
-                const epubFileName = getEpubFileName(bookTitle, chs.length, isInc);
-                await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(updatedNovel));
-                toast(`Downloaded updated raw EPUB (${chs.length} chapters)! 📥`, 'success');
-              } catch (epubErr) {
-                toast(`Raw EPUB packaging error: ${epubErr.message}`, 'error');
+            toast,
+            getEpubOptions,
+            exportCleanLnoriEpub,
+            onProgress: (modalData) => {
+              if (typeof setEpubPackagingModal === 'function') {
+                setEpubPackagingModal(modalData);
               }
-            }
-          } else {
-            toast(`No chapters were retrieved for "${item.title}". Please check internet connection or URL.`, 'warning');
-          }
+            },
+            onClearBadge: (id) => {
+              setNovelUpdateBadges(prev => {
+                const next = { ...prev };
+                if (id) delete next[id];
+                return next;
+              });
+            },
+            onUpdateHistory: setWebImportHistory,
+            onClearActiveCrawlSession: () => setActiveCrawlSession(null)
+          });
         } catch (err) {
           console.error('[handleDownloadNewChapters]', err);
           toast(`Update failed: ${err.message}`, 'error');
@@ -1685,37 +1177,12 @@
       };
 
       const loadFullNovel = async (meta) => {
-        if (!meta) return null;
-        // 1. Try IndexedDB by meta.id
-        if (window.GeminiNovelDB && meta.id) {
-          try {
-            const full = await window.GeminiNovelDB.getNovel(meta.id);
-            if (full && (full.rawChapters?.length > 0 || full.chapters?.length > 0 || full.translatedChapters?.length > 0 || full.epubBlob)) return full;
-          } catch(e) {}
-        }
-        // 2. Try IndexedDB by matching title or id across all stored records
-        if (window.GeminiNovelDB && meta.title) {
-          try {
-            const all = await window.GeminiNovelDB.getAllNovels();
-            const match = (all || []).find(n => n.id === meta.id || n.title === meta.title);
-            if (match && (match.rawChapters?.length > 0 || match.chapters?.length > 0 || match.translatedChapters?.length > 0 || match.epubBlob)) return match;
-          } catch(e) {}
-        }
-        // 3. Fallback: check if meta already contains rawChapters or chapters or epubBlob
-        if (meta.rawChapters?.length > 0 || meta.chapters?.length > 0 || meta.translatedChapters?.length > 0 || meta.epubBlob) return meta;
-        // 4. Fallback: check currently active webImportData
-        if (webImportData && webImportData.title === meta.title && webImportData.chapters?.length > 0) {
+        if (!window.LibraryEngine) return null;
+        let loaded = await window.LibraryEngine.loadFullNovel(meta);
+        if (!loaded && webImportData && webImportData.title === meta?.title && webImportData.chapters?.length > 0) {
           return { ...webImportData, rawChapters: webImportData.chapters };
         }
-        // 5. Fallback: check legacy localStorage storage
-        try {
-          const old = JSON.parse(localStorage.getItem('gemini_web_import_history') || '[]');
-          const found = (old || []).find(n => n.id === (meta.id || '')) || (old || []).find(n => n.title === meta.title);
-          if (found && (found.chapters?.length || found.rawChapters?.length || found.translatedChapters?.length)) {
-            return { title: found.title, author: found.author, rawChapters: found.chapters || found.rawChapters || found.translatedChapters, originalChapters: found.originalChapters || null };
-          }
-        } catch (e) {}
-        return null;
+        return loaded;
       };
 
       const loadNovelFromHistory = async (meta) => {
@@ -1748,25 +1215,11 @@
       };
 
       const deleteNovelFromHistory = async (id) => {
-        const itemToDelete = (webImportHistory || []).find(n => n.id === id);
-        if (window.GeminiNovelDB) {
-          try {
-            await window.GeminiNovelDB.moveToTrash(id);
-          } catch(e) {}
-        }
-        setWebImportHistory(prev => {
-          const updated = prev.filter(item => item.id !== id);
-          try {
-            localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updated));
-          } catch (e) {}
-          return updated;
-        });
-        loadTrashCount();
-        toast(`Moved "${itemToDelete?.title || 'novel'}" to Recycle Bin`, 'info', {
-          label: 'Undo',
-          onClick: async () => {
-            await handleRestoreNovel(id);
-          }
+        if (!window.LibraryEngine) return;
+        await window.LibraryEngine.moveToTrash(id, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onUpdateTrashCount: loadTrashCount
         });
       };
 
@@ -1774,29 +1227,15 @@
         if (!booksToClear || booksToClear.length === 0) return;
         const count = booksToClear.length;
         const idsToClear = booksToClear.map(b => b.id).filter(Boolean);
-        const idSet = new Set(idsToClear);
-
-        if (window.GeminiNovelDB) {
-          try {
-            await window.GeminiNovelDB.moveMultipleToTrash(idsToClear);
-          } catch (e) {
-            console.warn('Failed to move to trash:', e);
-          }
-        }
-
         const snapshot = [...booksToClear];
         window.__gemini_last_cleared_snapshot = snapshot;
 
-        setWebImportHistory(prev => {
-          const updated = prev.filter(b => !idSet.has(b.id));
-          try {
-            localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updated));
-          } catch (e) {}
-          return updated;
-        });
-
-        loadTrashCount();
-
+        if (window.LibraryEngine) {
+          await window.LibraryEngine.moveMultipleToTrash(idsToClear, {
+            onUpdateHistory: setWebImportHistory,
+            onUpdateTrashCount: loadTrashCount
+          });
+        }
         toast(`Moved ${count} ${scopeName} book(s) to Recycle Bin`, 'info', {
           label: 'Undo',
           onClick: async () => {
@@ -1837,37 +1276,12 @@
       };
 
       const handleRestoreNovel = async (id) => {
-        if (window.GeminiNovelDB) {
-          await window.GeminiNovelDB.restoreFromTrash(id);
-          const restored = await window.GeminiNovelDB.getNovel(id);
-          if (restored) {
-            const meta = {
-              id: restored.id,
-              title: restored.title,
-              author: restored.author,
-              summary: restored.summary,
-              cover: restored.cover,
-              tags: restored.tags,
-              chapterCount: restored.chapterCount || (restored.rawChapters ? restored.rawChapters.length : 0),
-              totalChapterCount: restored.totalChapterCount || (restored.chapterList ? restored.chapterList.length : (restored.chapterCount || (restored.rawChapters ? restored.rawChapters.length : 0))),
-              volumeCount: restored.volumeCount,
-              isIncomplete: !!restored.isIncomplete,
-              isTranslated: !!restored.isTranslated || (restored.title || '').includes('(Translated)'),
-              inSavedSpace: !!restored.inSavedSpace,
-              wordCount: restored.wordCount,
-              timestamp: restored.timestamp || new Date().toISOString(),
-              isEpub: restored.isEpub,
-              sourceUrl: restored.sourceUrl
-            };
-            setWebImportHistory(prev => {
-              const next = [meta, ...prev.filter(n => n.id !== id)];
-              try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(next)); } catch (e) {}
-              return next;
-            });
-            loadTrashCount();
-            toast(`Restored "${restored.title}" to library!`, 'success');
-          }
-        }
+        if (!window.LibraryEngine) return;
+        await window.LibraryEngine.restoreFromTrash(id, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onUpdateTrashCount: loadTrashCount
+        });
       };
 
       const handleRestoreSnapshot = async (snapshot) => {
@@ -1924,55 +1338,30 @@
       };
 
       const handlePermanentDelete = async (id) => {
-        if (window.GeminiNovelDB) {
-          await window.GeminiNovelDB.deleteTrashNovel(id);
-        }
-        loadTrashCount();
-        toast('Permanently deleted from Recycle Bin.', 'info');
+        if (!window.LibraryEngine) return;
+        await window.LibraryEngine.permanentDelete(id, {
+          toast,
+          onUpdateTrashCount: loadTrashCount
+        });
       };
 
       const handleEmptyTrash = async () => {
-        if (window.GeminiNovelDB) {
-          await window.GeminiNovelDB.emptyTrash();
-        }
-        loadTrashCount();
-        toast('Recycle Bin emptied.', 'info');
+        if (!window.LibraryEngine) return;
+        await window.LibraryEngine.emptyTrash({
+          toast,
+          onUpdateTrashCount: loadTrashCount
+        });
       };
 
       const handleRestoreFromEpubFiles = async (e) => {
+        if (!window.LibraryEngine) return;
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
-        toast(`Reading ${files.length} EPUB file(s)...`, 'info');
-        let restoredCount = 0;
-        for (const f of files) {
-          try {
-            if (!f.name.toLowerCase().endsWith('.epub')) continue;
-            const epubData = await readEpub(f);
-            if (epubData && epubData.chapters && epubData.chapters.length > 0) {
-              const bookTitle = (epubData.title || f.name.replace(/\.epub$/i, '') || 'Imported Novel').replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
-              const novelData = {
-                title: bookTitle,
-                author: epubData.author || 'Author',
-                cover: epubData.cover || '',
-                uuid: epubData.uuid || '',
-                sourceUrl: epubData.sourceUrl || '',
-                chapters: epubData.chapters.map(c => ({ title: c.title, text: c.text, content: c.text })),
-                totalChapterCount: epubData.chapters.length,
-                isIncomplete: false,
-                isEpub: true
-              };
-              await saveNovelToHistory(novelData);
-              restoredCount++;
-            }
-          } catch (err) {
-            console.warn('EPUB restore failed for', f.name, err);
-          }
-        }
-        if (restoredCount > 0) {
-          toast(`Successfully restored ${restoredCount} novel(s) into your library!`, 'success');
-        } else {
-          toast('No readable EPUB chapters found.', 'warning');
-        }
+        await window.LibraryEngine.restoreFromEpubFiles(files, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onClearActiveCrawlSession: () => setActiveCrawlSession(null)
+        });
         e.target.value = '';
       };
 
