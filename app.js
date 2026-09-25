@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.78';
+    let VERSION = '8.17.79';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4962,74 +4962,43 @@ RAW GLOSSARY DATA TO CLEAN:
 
       // --- File Handling (Delegated to DocumentParser) ---
       const processFile = async f => {
-        setUploadingFile(true); setError(''); setInputText(''); setAssembledText(''); setTranslatedChapters([]); setChapters([]);
-        const hashId = generateJobId(f.name + f.size, true);
-        setCurrentFileHash(hashId);
-        try {
-          const fname = (f.name || '').toLowerCase();
-          if (fname.endsWith('.json') || f.type === 'application/json') {
-            setUploadingFile(false);
-            return importFullBackup({ target: { files: [f] } });
-          }
-
-          let data;
-          if (window.DocumentParser) {
-            data = await window.DocumentParser.parseFile(f, {
-              parseAssembledTextToChapters: typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters : null
-            });
-            if (data.rawText && !data.isEpub) {
-              setInputText(data.rawText);
+        if (window.DocumentParser?.processInputFile) {
+          await window.DocumentParser.processInputFile(f, {
+            parseAssembledTextToChapters: typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters : null,
+            generateJobId,
+            cleanText
+          }, {
+            setUploadingFile,
+            setError,
+            toast,
+            onResetState: () => {
+              setInputText('');
+              setAssembledText('');
+              setTranslatedChapters([]);
+              setChapters([]);
+            },
+            onBackupJson: file => importFullBackup({ target: { files: [file] } }),
+            onFileHash: hashId => setCurrentFileHash(hashId),
+            onResumeSession: async ({ savedSession, cleanedChapters, isEpub, originalZip }) => {
+              setActiveSession(savedSession);
+              await handleTranslateEbook(cleanedChapters, true, isEpub, originalZip);
+            },
+            onLoaded: data => {
+              if (data.rawText && !data.isEpub) {
+                setInputText(data.rawText);
+              }
+              setCurrentIsEpub(data.isEpub);
+              setCurrentOriginalZip(data.originalZip);
+              setCurrentDocCover(data.cover || '');
+              setFileName(data.fileName);
+              setCurrentDocTitle(data.docTitle);
+              setChapters(data.chapters);
+            },
+            onFinally: () => {
+              if (fileInputRef.current) fileInputRef.current.value = '';
             }
-          } else {
-            const rawText = await readFileAsText(f);
-            data = { chapters: [{ title: f.name || 'Imported Document', text: rawText, content: rawText }] };
-            setInputText(rawText);
-          }
-
-          const isEpub = data.isEpub || false;
-          const originalZip = data.originalZip || null;
-          const extractedCover = data.cover || '';
-          setCurrentIsEpub(isEpub);
-          setCurrentOriginalZip(originalZip);
-          if (extractedCover) {
-            setCurrentDocCover(extractedCover);
-          } else {
-            setCurrentDocCover('');
-          }
-          setFileName(f.name);
-          const docTitle = data.title || f.name.replace(/\.[^.]+$/, '');
-          setCurrentDocTitle(docTitle);
-          if (originalZip) window.currentTranslatedZip = originalZip;
-
-          const cleaned = data.chapters.map(c => ({
-            ...c,
-            text: isEpub ? (c.text || c.content || '') : cleanText(c.text || c.content || ''),
-            content: isEpub ? (c.content || c.text || '') : cleanText(c.content || c.text || '')
-          }));
-          setChapters(cleaned);
-          window.telemetryLog?.('FILE_IMPORT', `Ingested file "${f.name}" (${(f.size / 1024).toFixed(1)} KB, isEpub=${isEpub}) -> ${cleaned.length} chapters loaded.`, {
-            fileName: f.name,
-            fileSize: f.size,
-            chapterCount: cleaned.length,
-            isEpub
           });
-
-          const saved = localStorage.getItem(hashId);
-          if (saved) {
-            const willResume = confirm(`Found an incomplete translation for "${f.name}". Do you want to resume? (Cancel to start fresh)`);
-            if (willResume) {
-              setActiveSession(JSON.parse(saved));
-              toast(`Resuming translation for ${f.name}...`, 'info');
-              await handleTranslateEbook(cleaned, true, isEpub, originalZip);
-              return;
-            } else {
-              localStorage.removeItem(hashId);
-            }
-          }
-
-          toast(`Loaded "${f.name}" (${cleaned.length} chapters)! Review settings and tap "Translate".`, 'success');
-        } catch (e) { setError(e.message); toast(e.message, 'error') }
-        finally { setUploadingFile(false); if (fileInputRef.current) fileInputRef.current.value = '' }
+        }
       };
 
       // --- Drag & Drop ---
@@ -5037,216 +5006,127 @@ RAW GLOSSARY DATA TO CLEAN:
       const onDragLeave = () => setIsDragOver(false);
       const onDrop = e => { e.preventDefault(); setIsDragOver(false); const f = e.dataTransfer.files[0]; if (f) processFile(f) };
 
-      // Restored handlers referenced by the render tree (were undefined)
+      // Clipboard and Split handlers (Delegated to DocumentParser)
       const handlePasteFromClipboard = async () => {
-        try {
-          const t = await navigator.clipboard.readText();
-          if (t && t.trim()) {
-            setInputText(t);
-            setChapters([]);
-            localStorage.setItem('inputText', t);
-            toast('Pasted from clipboard.');
-          } else {
-            toast('Clipboard is empty.', 'info');
-          }
-        } catch (e) { toast('Clipboard access denied by browser.', 'error'); }
+        if (window.DocumentParser?.pasteFromClipboard) {
+          await window.DocumentParser.pasteFromClipboard({
+            onPasted: text => {
+              setInputText(text);
+              setChapters([]);
+              localStorage.setItem('inputText', text);
+            },
+            toast
+          });
+        }
       };
 
       const handleAutoDetectSplit = () => {
-        const text = (inputText || '').trim();
-        if (!text) {
-          toast('Please enter or paste text with chapter headings first.', 'warning');
-          return;
-        }
-        const lines = text.split(/\r?\n/);
-        const heading = /^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc)\b|CHAPTER\s*\d+)/i;
-        const parts = [];
-        let cur = null;
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (heading.test(trimmed)) {
-            if (cur) parts.push(cur);
-            cur = { title: trimmed, content: '' };
-          } else if (cur) {
-            cur.content += line + '\n';
-          } else {
-            cur = { title: 'Chapter 1', content: line + '\n' };
-          }
-        }
-        if (cur) parts.push(cur);
-        if (parts.length > 1) {
-          setChapters(parts.map(p => ({ title: p.title, content: p.content.trim(), text: p.content.trim() })));
-          toast(`Split into ${parts.length} chapters.`, 'success');
-        } else {
-          toast('No chapter headings detected — using whole text as one chapter.', 'info');
-          setChapters([{ title: 'Chapter 1', content: text, text: text }]);
+        if (window.DocumentParser?.autoDetectChapterSplit) {
+          window.DocumentParser.autoDetectChapterSplit(inputText, {
+            onSplit: chapters => setChapters(chapters),
+            toast
+          });
         }
       };
 
       const handleSwapLanguages = () => {
-        if (srcLang === 'Auto-detect') { toast('Auto-detect cannot be swapped — pick a source language first.', 'info'); return; }
-        const s = srcLang; setSrcLang(tgtLang); setTgtLang(s);
+        if (window.DocumentParser?.swapLanguages) {
+          window.DocumentParser.swapLanguages(srcLang, tgtLang, {
+            onSwapped: (newSrc, newTgt) => {
+              setSrcLang(newSrc);
+              setTgtLang(newTgt);
+            },
+            toast
+          });
+        }
       };
 
       // --- Download Handlers (Delegated to ExportEngine) ---
       const isGenericTitle = t => window.ExportEngine ? window.ExportEngine.isGenericTitle(t) : (!t || t.trim() === '' || /^translated\s*(document|file)?$/i.test(t.trim()));
 
       const getExportChapters = () => {
-        const curText = assembledText && assembledText.trim();
-        const knownTitles = (translatedChapters || []).map(c => c?.title || c?.originalTitle).filter(Boolean);
-
-        // Priority 1: Multi-chapter translation
-        if (translatedChapters && translatedChapters.length > 1) {
-          if (curText) {
-            const fallbackTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Chapter 1';
-            const parsed = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(curText, fallbackTitle, knownTitles) : [];
-            if (parsed.length === translatedChapters.length) {
-              return parsed.map((p, i) => ({
-                ...translatedChapters[i],
-                title: p.title || translatedChapters[i].title,
-                content: p.content || p.text || '',
-                text: p.content || p.text || ''
-              }));
-            } else if (parsed.length > 1) {
-              return parsed.map((p, i) => ({
-                ...(translatedChapters[i] || {}),
-                title: p.title || `Chapter ${i + 1}`,
-                content: p.content || p.text || '',
-                text: p.content || p.text || ''
-              }));
-            } else if (parsed.length === 1 && translatedChapters.length > 1) {
-              const partitioned = partitionTextByChapters(curText, translatedChapters);
-              if (partitioned && partitioned.length === translatedChapters.length) {
-                return partitioned;
-              }
-            }
-          }
-          const valid = translatedChapters.filter(ch => ch && (ch.content || ch.text) && String(ch.content || ch.text).trim() && !String(ch.content || ch.text).startsWith('[Error:'));
-          if (valid.length > 0) return valid;
-        }
-
-        // Priority 2: Single-chapter translation or edited text
-        if (curText) {
-          const fallbackTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Translated Document';
-          const parsed = typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters(curText, fallbackTitle, knownTitles) : [];
-          if (parsed.length > 0) {
-            return parsed;
-          }
-          return [{ title: fallbackTitle, content: curText, text: curText }];
-        }
-
-        // Priority 3: Fallback to translatedChapters
-        if (translatedChapters && translatedChapters.length > 0) {
-          const valid = translatedChapters.filter(ch => ch && (ch.content || ch.text) && String(ch.content || ch.text).trim() && !String(ch.content || ch.text).startsWith('[Error:'));
-          if (valid.length > 0) return valid;
-        }
-
-        // Priority 4: Source / raw chapters fallback
-        if (chapters && chapters.length > 0) {
-          return chapters.filter(Boolean).map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, content: c?.text || c?.content || '', text: c?.text || c?.content || '' }));
+        if (window.ExportEngine?.getExportChapters) {
+          return window.ExportEngine.getExportChapters({
+            assembledText,
+            translatedChapters,
+            chapters,
+            currentDocTitle,
+            fileName,
+            parseAssembledTextToChapters: typeof parseAssembledTextToChapters === 'function' ? parseAssembledTextToChapters : null,
+            partitionTextByChapters: typeof partitionTextByChapters === 'function' ? partitionTextByChapters : null
+          });
         }
         return [];
       };
 
       const handleDownloadPDF = async () => {
         const chaptersToExport = getExportChapters();
-        if (!chaptersToExport.length) {
-          setError('No translated content available yet to download.');
-          toast('No translated content available yet to download.', 'warning');
-          return;
-        }
-        setDownloadingPdf(true); setError('');
-        try {
-          if (window.ExportEngine) {
-            const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
-            await window.ExportEngine.exportPdf(chaptersToExport, {
-              title: docTitle,
-              tgtLang,
-              fileName
-            });
-          }
-        } catch (e) {
-          setError(`PDF error: ${e.message}`);
-          toast(`PDF error: ${e.message}`, 'error');
-        } finally {
-          setDownloadingPdf(false);
+        if (window.ExportEngine?.downloadPdf) {
+          await window.ExportEngine.downloadPdf({
+            chaptersToExport,
+            title: chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`,
+            tgtLang,
+            fileName,
+            callbacks: {
+              setDownloadingPdf,
+              setError,
+              toast
+            }
+          });
         }
       };
 
       const handleDownloadEPUB = async () => {
         const chaptersToExport = getExportChapters();
-        if (!chaptersToExport.length) {
-          setError('No translated content available yet to download.');
-          toast('No translated content available yet to download.', 'warning');
-          return;
-        }
-        setDownloadingEpub(true);
-        setError('');
-        try {
-          const rawBaseTitle = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || (chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : null);
-          const author = (activeNovelRecord && activeNovelRecord.author) || 'Gemini Translator';
+        const rawBaseTitle = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || (chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : null);
+        const author = (activeNovelRecord && activeNovelRecord.author) || 'Gemini Translator';
 
-          const cleanDocBase = String(rawBaseTitle || fileName || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-          const matchedFromHistory = (typeof webImportHistory !== 'undefined' && Array.isArray(webImportHistory))
-            ? webImportHistory.find(n => {
-                const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-                return nt && (nt === cleanDocBase || cleanDocBase.includes(nt) || nt.includes(cleanDocBase)) && n.cover;
-              })
-            : null;
-          const resolvedCover = (typeof currentDocCover !== 'undefined' && currentDocCover) ||
-                                activeNovelRecord?.cover ||
-                                activeCrawlSession?.cover ||
-                                webImportData?.cover ||
-                                matchedFromHistory?.cover ||
-                                (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
+        const cleanDocBase = String(rawBaseTitle || fileName || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+        const matchedFromHistory = (typeof webImportHistory !== 'undefined' && Array.isArray(webImportHistory))
+          ? webImportHistory.find(n => {
+              const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+              return nt && (nt === cleanDocBase || cleanDocBase.includes(nt) || nt.includes(cleanDocBase)) && n.cover;
+            })
+          : null;
+        const resolvedCover = (typeof currentDocCover !== 'undefined' && currentDocCover) ||
+                              activeNovelRecord?.cover ||
+                              activeCrawlSession?.cover ||
+                              webImportData?.cover ||
+                              matchedFromHistory?.cover ||
+                              (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
 
-          if (window.ExportEngine) {
-            const res = await window.ExportEngine.exportEpub(chaptersToExport, {
-              title: rawBaseTitle,
-              author,
-              tgtLang,
-              currentIsEpub,
-              currentOriginalZip,
-              coverUrl: resolvedCover,
-              onProgress: (status, pct, elapsed) => {
-                setEpubPackagingModal({ title: rawBaseTitle || 'EPUB Packaging', status, pct, elapsed });
-              }
-            });
-            setEpubPackagingModal(null);
-            toast(' EPUB downloaded successfully!', 'success');
-            return res;
-          }
-        } catch (e) {
-          setError(`EPUB error: ${e.message}`);
-          toast(`EPUB error: ${e.message}`, 'error');
-        } finally {
-          setDownloadingEpub(false);
-          setEpubPackagingModal(null);
+        if (window.ExportEngine?.downloadEpub) {
+          return await window.ExportEngine.downloadEpub({
+            chaptersToExport,
+            rawBaseTitle,
+            author,
+            tgtLang,
+            currentIsEpub,
+            currentOriginalZip,
+            resolvedCover,
+            callbacks: {
+              setDownloadingEpub,
+              setEpubPackagingModal,
+              setError,
+              toast
+            }
+          });
         }
       };
 
       const handleDownloadDOCX = async () => {
         const chaptersToExport = getExportChapters();
-        if (!chaptersToExport.length) {
-          setError('No content to download.');
-          toast('No content to download.', 'warning');
-          return;
-        }
-        setDownloadingDocx(true);
-        setError('');
-        try {
-          if (window.ExportEngine) {
-            const docTitle = chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`;
-            await window.ExportEngine.exportDocx(chaptersToExport, {
-              title: docTitle,
-              tgtLang
-            });
-          }
-        } catch (e) {
-          setError(`DOCX error: ${e.message}`);
-          toast(`DOCX error: ${e.message}`, 'error');
-        } finally {
-          setDownloadingDocx(false);
+        if (window.ExportEngine?.downloadDocx) {
+          await window.ExportEngine.downloadDocx({
+            chaptersToExport,
+            title: chaptersToExport.length === 1 && !isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`,
+            tgtLang,
+            callbacks: {
+              setDownloadingDocx,
+              setError,
+              toast
+            }
+          });
         }
       };
 

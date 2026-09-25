@@ -378,7 +378,7 @@
     /**
      * Unified document ingestor: reads any supported format into standardized chapter models
      */
-    async parseFile(f) {
+    async parseFile(f, options = {}) {
       if (!f) throw new Error('No file provided.');
       const fname = (f.name || '').toLowerCase();
 
@@ -394,7 +394,7 @@
         }
         const docxText = await this.readDocx(f);
         const fallbackTitle = f.name.replace(/\.docx$/i, '');
-        const parseAssembledFn = window.parseAssembledTextToChapters;
+        const parseAssembledFn = options?.parseAssembledTextToChapters || (typeof window !== 'undefined' ? window.parseAssembledTextToChapters : null);
         const parsedChs = typeof parseAssembledFn === 'function' ? parseAssembledFn(docxText, fallbackTitle) : [];
         const chs = (parsedChs.length > 0)
           ? parsedChs.map(c => ({ title: c.title, text: c.content || c.text || '', content: c.content || c.text || '' }))
@@ -446,6 +446,249 @@
       } catch (_) {}
 
       throw new Error('Unsupported file type. Please use .txt, .pdf, .epub, .docx, or .json backup.');
+    },
+
+    /**
+     * Cleans whitespace and newlines from raw plain text
+     */
+    cleanText(t) {
+      if (!t || typeof t !== 'string') return '';
+      let c = t.replace(/\r\n|\r/g, '\n');
+      c = c.replace(/[ \t]{2,}/g, ' ');
+      c = c.replace(/(\n\s*){2,}/g, '\n\n');
+      return c.trim();
+    },
+
+    /**
+     * Computes a deterministic job hash ID for document identification and session recovery
+     */
+    generateJobId(text, isFile = false) {
+      if (!text) return 'job_0';
+      let hash = 0;
+      const s = isFile ? String(text) : String(text).substring(0, 1000);
+      for (let i = 0; i < s.length; i++) {
+        hash = ((hash << 5) - hash) + s.charCodeAt(i);
+        hash |= 0;
+      }
+      return `job_${Math.abs(hash)}`;
+    },
+
+    /**
+     * Coordinates reading, decoding, resume detection, and ingestion of an uploaded file
+     */
+    async processInputFile(file, options = {}, callbacks = {}) {
+      if (!file) return;
+
+      const cbs = callbacks || {};
+      const setUploadingFile = cbs.setUploadingFile || (() => {});
+      const setError = cbs.setError || (() => {});
+      const toast = cbs.toast || ((msg, type) => (type === 'error' ? console.error(msg) : console.log(msg)));
+      const onResetState = cbs.onResetState || (() => {});
+      const onBackupJson = cbs.onBackupJson || (() => {});
+      const onFileHash = cbs.onFileHash || cbs.setCurrentFileHash || (() => {});
+      const onResumeSession = cbs.onResumeSession || null;
+      const onLoaded = cbs.onLoaded || (() => {});
+      const onError = cbs.onError || (() => {});
+      const onFinally = cbs.onFinally || (() => {});
+
+      setUploadingFile(true);
+      setError('');
+      if (typeof onResetState === 'function') onResetState();
+
+      const hasher = options.generateJobId || this.generateJobId.bind(this);
+      const hashId = hasher(file.name + file.size, true);
+      onFileHash(hashId);
+
+      try {
+        const fname = (file.name || '').toLowerCase();
+        if (fname.endsWith('.json') || file.type === 'application/json') {
+          setUploadingFile(false);
+          if (typeof onBackupJson === 'function') {
+            return onBackupJson(file);
+          }
+          return;
+        }
+
+        const data = await this.parseFile(file, {
+          parseAssembledTextToChapters: options.parseAssembledTextToChapters || (typeof window !== 'undefined' ? window.parseAssembledTextToChapters : null)
+        });
+
+        const isEpub = Boolean(data.isEpub);
+        const originalZip = data.originalZip || null;
+        const extractedCover = data.cover || '';
+        const docTitle = data.title || file.name.replace(/\.[^.]+$/, '');
+        const cleaner = options.cleanText || this.cleanText.bind(this);
+
+        const cleanedChapters = (data.chapters || []).map(c => ({
+          ...c,
+          text: isEpub ? (c.text || c.content || '') : cleaner(c.text || c.content || ''),
+          content: isEpub ? (c.content || c.text || '') : cleaner(c.content || c.text || '')
+        }));
+
+        if (typeof window !== 'undefined') {
+          if (originalZip) window.currentTranslatedZip = originalZip;
+          window.telemetryLog?.('FILE_IMPORT', `Ingested file "${file.name}" (${(file.size / 1024).toFixed(1)} KB, isEpub=${isEpub}) -> ${cleanedChapters.length} chapters loaded.`, {
+            fileName: file.name,
+            fileSize: file.size,
+            chapterCount: cleanedChapters.length,
+            isEpub
+          });
+        }
+
+        const saved = (typeof localStorage !== 'undefined') ? localStorage.getItem(hashId) : null;
+        if (saved && typeof onResumeSession === 'function') {
+          const willResume = (typeof confirm === 'function')
+            ? confirm(`Found an incomplete translation for "${file.name}". Do you want to resume? (Cancel to start fresh)`)
+            : false;
+          if (willResume) {
+            try {
+              const parsedSession = JSON.parse(saved);
+              toast(`Resuming translation for ${file.name}...`, 'info');
+              await onResumeSession({
+                savedSession: parsedSession,
+                cleanedChapters,
+                isEpub,
+                originalZip,
+                hashId
+              });
+              return;
+            } catch (resumeErr) {
+              console.warn('Failed to parse saved session resume:', resumeErr);
+            }
+          } else {
+            if (typeof localStorage !== 'undefined') localStorage.removeItem(hashId);
+          }
+        }
+
+        const loadedPayload = {
+          file,
+          hashId,
+          rawText: data.rawText || '',
+          isEpub,
+          originalZip,
+          cover: extractedCover,
+          fileName: file.name,
+          docTitle,
+          chapters: cleanedChapters
+        };
+
+        if (cbs.setInputText && data.rawText && !isEpub) cbs.setInputText(data.rawText);
+        if (cbs.setCurrentIsEpub) cbs.setCurrentIsEpub(isEpub);
+        if (cbs.setCurrentOriginalZip) cbs.setCurrentOriginalZip(originalZip);
+        if (cbs.setCurrentDocCover) cbs.setCurrentDocCover(extractedCover || '');
+        if (cbs.setFileName) cbs.setFileName(file.name);
+        if (cbs.setCurrentDocTitle) cbs.setCurrentDocTitle(docTitle);
+        if (cbs.setChapters) cbs.setChapters(cleanedChapters);
+
+        if (typeof onLoaded === 'function') {
+          onLoaded(loadedPayload);
+        }
+
+        toast(`Loaded "${file.name}" (${cleanedChapters.length} chapters)! Review settings and tap "Translate".`, 'success');
+        return loadedPayload;
+      } catch (e) {
+        setError(e.message);
+        toast(e.message, 'error');
+        if (typeof onError === 'function') onError(e);
+      } finally {
+        setUploadingFile(false);
+        if (typeof onFinally === 'function') onFinally();
+      }
+    },
+
+    /**
+     * Reads plain text from system clipboard and invokes callbacks
+     */
+    async pasteFromClipboard(callbacks = {}) {
+      const cbs = callbacks || {};
+      const onPasted = cbs.onPasted || (() => {});
+      const onError = cbs.onError || (() => {});
+      const toast = cbs.toast || ((msg, type) => (type === 'error' ? console.error(msg) : console.log(msg)));
+
+      try {
+        if (!navigator.clipboard?.readText) {
+          throw new Error('Clipboard access denied or not supported by browser.');
+        }
+        const text = await navigator.clipboard.readText();
+        if (text && text.trim()) {
+          onPasted(text);
+          toast('Pasted from clipboard.');
+          return text;
+        } else {
+          toast('Clipboard is empty.', 'info');
+          return '';
+        }
+      } catch (e) {
+        toast('Clipboard access denied by browser.', 'error');
+        onError(e);
+        return null;
+      }
+    },
+
+    /**
+     * Splits raw text into chapter segments using standard novel heading patterns
+     */
+    autoDetectChapterSplit(text, callbacks = {}) {
+      const cbs = callbacks || {};
+      const onSplit = cbs.onSplit || (() => {});
+      const toast = cbs.toast || ((msg, type) => (type === 'error' ? console.error(msg) : console.log(msg)));
+
+      const raw = (text || '').trim();
+      if (!raw) {
+        toast('Please enter or paste text with chapter headings first.', 'warning');
+        return [];
+      }
+
+      const lines = raw.split(/\r?\n/);
+      const heading = /^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc)\b|CHAPTER\s*\d+)/i;
+      const parts = [];
+      let cur = null;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (heading.test(trimmed)) {
+          if (cur) parts.push(cur);
+          cur = { title: trimmed, content: '' };
+        } else if (cur) {
+          cur.content += line + '\n';
+        } else {
+          cur = { title: 'Chapter 1', content: line + '\n' };
+        }
+      }
+      if (cur) parts.push(cur);
+
+      let resultChapters;
+      if (parts.length > 1) {
+        resultChapters = parts.map(p => ({
+          title: p.title,
+          content: p.content.trim(),
+          text: p.content.trim()
+        }));
+        toast(`Split into ${resultChapters.length} chapters.`, 'success');
+      } else {
+        toast('No chapter headings detected — using whole text as one chapter.', 'info');
+        resultChapters = [{ title: 'Chapter 1', content: raw, text: raw }];
+      }
+
+      onSplit(resultChapters);
+      return resultChapters;
+    },
+
+    /**
+     * Swaps source and target languages unless source is Auto-detect
+     */
+    swapLanguages(srcLang, tgtLang, callbacks = {}) {
+      const cbs = callbacks || {};
+      const onSwapped = cbs.onSwapped || (() => {});
+      const toast = cbs.toast || ((msg, type) => (type === 'error' ? console.error(msg) : console.log(msg)));
+
+      if (srcLang === 'Auto-detect') {
+        toast('Auto-detect cannot be swapped — pick a source language first.', 'info');
+        return false;
+      }
+      const newSrc = tgtLang;
+      const newTgt = srcLang;
+      onSwapped(newSrc, newTgt);
+      return { srcLang: newSrc, tgtLang: newTgt };
     }
   };
 

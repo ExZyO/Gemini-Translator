@@ -353,6 +353,221 @@
 
       await this.saveBlob(blob, exportFileName, 'text/plain');
       return { fileName: exportFileName };
+    },
+
+    /**
+     * Resolves the list of chapters to export based on assembled text, translated chapters, or raw chapters
+     */
+    getExportChapters(options = {}) {
+      const {
+        assembledText = '',
+        translatedChapters = [],
+        chapters = [],
+        currentDocTitle = '',
+        fileName = '',
+        parseAssembledTextToChapters = null,
+        partitionTextByChapters = null
+      } = options;
+
+      const parseFn = typeof parseAssembledTextToChapters === 'function'
+        ? parseAssembledTextToChapters
+        : (typeof window !== 'undefined' && typeof window.parseAssembledTextToChapters === 'function' ? window.parseAssembledTextToChapters : null);
+
+      const partitionFn = typeof partitionTextByChapters === 'function'
+        ? partitionTextByChapters
+        : (typeof window !== 'undefined' && typeof window.partitionTextByChapters === 'function' ? window.partitionTextByChapters : null);
+
+      const curText = assembledText && assembledText.trim();
+      const knownTitles = (translatedChapters || []).map(c => c?.title || c?.originalTitle).filter(Boolean);
+
+      // Priority 1: Multi-chapter translation
+      if (translatedChapters && translatedChapters.length > 1) {
+        if (curText) {
+          const fallbackTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Chapter 1';
+          const parsed = parseFn ? parseFn(curText, fallbackTitle, knownTitles) : [];
+          if (parsed.length === translatedChapters.length) {
+            return parsed.map((p, i) => ({
+              ...translatedChapters[i],
+              title: p.title || translatedChapters[i].title,
+              content: p.content || p.text || '',
+              text: p.content || p.text || ''
+            }));
+          } else if (parsed.length > 1) {
+            return parsed.map((p, i) => ({
+              ...(translatedChapters[i] || {}),
+              title: p.title || `Chapter ${i + 1}`,
+              content: p.content || p.text || '',
+              text: p.content || p.text || ''
+            }));
+          } else if (parsed.length === 1 && translatedChapters.length > 1) {
+            if (partitionFn) {
+              const partitioned = partitionFn(curText, translatedChapters);
+              if (partitioned && partitioned.length === translatedChapters.length) {
+                return partitioned;
+              }
+            }
+          }
+        }
+        const valid = translatedChapters.filter(ch => ch && (ch.content || ch.text) && String(ch.content || ch.text).trim() && !String(ch.content || ch.text).startsWith('[Error:'));
+        if (valid.length > 0) return valid;
+      }
+
+      // Priority 2: Single-chapter translation or edited text
+      if (curText) {
+        const fallbackTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Translated Document';
+        const parsed = parseFn ? parseFn(curText, fallbackTitle, knownTitles) : [];
+        if (parsed.length > 0) {
+          return parsed;
+        }
+        return [{ title: fallbackTitle, content: curText, text: curText }];
+      }
+
+      // Priority 3: Fallback to translatedChapters
+      if (translatedChapters && translatedChapters.length > 0) {
+        const valid = translatedChapters.filter(ch => ch && (ch.content || ch.text) && String(ch.content || ch.text).trim() && !String(ch.content || ch.text).startsWith('[Error:'));
+        if (valid.length > 0) return valid;
+      }
+
+      // Priority 4: Source / raw chapters fallback
+      if (chapters && chapters.length > 0) {
+        return chapters.filter(Boolean).map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, content: c?.text || c?.content || '', text: c?.text || c?.content || '' }));
+      }
+      return [];
+    },
+
+    /**
+     * High-level coordinator to validate and download PDF document
+     */
+    async downloadPdf(options = {}) {
+      const {
+        chaptersToExport = [],
+        title = '',
+        tgtLang = 'English',
+        fileName = ''
+      } = options;
+      const cbs = options.callbacks || options;
+      const setDownloadingPdf = cbs.setDownloadingPdf || (() => {});
+      const setError = cbs.setError || (() => {});
+      const toast = cbs.toast || ((msg, type) => (type === 'error' ? console.error(msg) : console.log(msg)));
+
+      if (!chaptersToExport || !chaptersToExport.length) {
+        const err = 'No translated content available yet to download.';
+        setError(err);
+        toast(err, 'warning');
+        return;
+      }
+
+      setDownloadingPdf(true);
+      setError('');
+      try {
+        const docTitle = title || (chaptersToExport.length === 1 && !this.isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`);
+        const res = await this.exportPdf(chaptersToExport, {
+          title: docTitle,
+          tgtLang,
+          fileName
+        });
+        toast('PDF downloaded successfully!', 'success');
+        return res;
+      } catch (e) {
+        setError(`PDF error: ${e.message}`);
+        toast(`PDF error: ${e.message}`, 'error');
+      } finally {
+        setDownloadingPdf(false);
+      }
+    },
+
+    /**
+     * High-level coordinator to validate, package, and download EPUB ebook
+     */
+    async downloadEpub(options = {}) {
+      const {
+        chaptersToExport = [],
+        rawBaseTitle = '',
+        author = 'Gemini Translator',
+        tgtLang = 'English',
+        currentIsEpub = false,
+        currentOriginalZip = null,
+        resolvedCover = ''
+      } = options;
+      const cbs = options.callbacks || options;
+      const setDownloadingEpub = cbs.setDownloadingEpub || (() => {});
+      const setEpubPackagingModal = cbs.setEpubPackagingModal || (() => {});
+      const setError = cbs.setError || (() => {});
+      const toast = cbs.toast || ((msg, type) => (type === 'error' ? console.error(msg) : console.log(msg)));
+
+      if (!chaptersToExport || !chaptersToExport.length) {
+        const err = 'No translated content available yet to download.';
+        setError(err);
+        toast(err, 'warning');
+        return;
+      }
+
+      setDownloadingEpub(true);
+      setError('');
+      try {
+        const cover = resolvedCover || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
+        const baseTitle = rawBaseTitle || (chaptersToExport.length === 1 && !this.isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : null);
+
+        const res = await this.exportEpub(chaptersToExport, {
+          title: baseTitle,
+          author: author || 'Gemini Translator',
+          tgtLang,
+          currentIsEpub,
+          currentOriginalZip,
+          coverUrl: cover,
+          onProgress: (status, pct, elapsed) => {
+            setEpubPackagingModal({ title: baseTitle || 'EPUB Packaging', status, pct, elapsed });
+          }
+        });
+        setEpubPackagingModal(null);
+        toast('EPUB downloaded successfully!', 'success');
+        return res;
+      } catch (e) {
+        setError(`EPUB error: ${e.message}`);
+        toast(`EPUB error: ${e.message}`, 'error');
+      } finally {
+        setDownloadingEpub(false);
+        setEpubPackagingModal(null);
+      }
+    },
+
+    /**
+     * High-level coordinator to validate and download Word (.docx) document
+     */
+    async downloadDocx(options = {}) {
+      const {
+        chaptersToExport = [],
+        title = '',
+        tgtLang = 'English'
+      } = options;
+      const cbs = options.callbacks || options;
+      const setDownloadingDocx = cbs.setDownloadingDocx || (() => {});
+      const setError = cbs.setError || (() => {});
+      const toast = cbs.toast || ((msg, type) => (type === 'error' ? console.error(msg) : console.log(msg)));
+
+      if (!chaptersToExport || !chaptersToExport.length) {
+        const err = 'No content to download.';
+        setError(err);
+        toast(err, 'warning');
+        return;
+      }
+
+      setDownloadingDocx(true);
+      setError('');
+      try {
+        const docTitle = title || (chaptersToExport.length === 1 && !this.isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`);
+        const res = await this.exportDocx(chaptersToExport, {
+          title: docTitle,
+          tgtLang
+        });
+        toast('DOCX downloaded successfully!', 'success');
+        return res;
+      } catch (e) {
+        setError(`DOCX error: ${e.message}`);
+        toast(`DOCX error: ${e.message}`, 'error');
+      } finally {
+        setDownloadingDocx(false);
+      }
     }
   };
 
