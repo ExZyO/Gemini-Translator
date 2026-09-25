@@ -80,7 +80,8 @@
       streamGemini, translateDeepSeek, streamDeepSeek, stripContextLeak,
       translateDeepL, translateLibre, translateOpenAI, translateClaude,
       streamWithRotation, translateWithRotation, translateChunk,
-      BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine, LibraryEngine
+      BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine, LibraryEngine,
+      NovelEnrichmentEngine
     } = window;
 
     // Helper adapters delegating to DocumentParser & ExportEngine
@@ -134,7 +135,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.69';
+    let VERSION = '8.17.70';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3053,7 +3054,8 @@
 
       // --- Novel Health & QA Proofreader Handlers (§5.9 + §7.1 + §7.5) ---
       const runNovelHealthAudit = (novelOrChapters, optionsOverride = {}) => {
-        if (!window.QAEngine) {
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        if (!engine || !window.QAEngine) {
           toast('QA Engine is loading...', 'info');
           return null;
         }
@@ -3065,7 +3067,7 @@
           checkLoops: optionsOverride.checkLoops !== undefined ? optionsOverride.checkLoops : qaCheckLoops,
           checkDuplicates: optionsOverride.checkDuplicates !== undefined ? optionsOverride.checkDuplicates : qaCheckDuplicates
         };
-        const result = window.QAEngine.auditNovel(novelOrChapters, opts);
+        const result = engine.auditNovelHealth(novelOrChapters, opts);
         setQaAuditResult(result);
         return result;
       };
@@ -3106,9 +3108,10 @@
       window.__translationMemoryEnabled = translationMemoryEnabled;
 
       const refreshTmStats = async () => {
-        if (!window.TMDiffEngine) return;
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        if (!engine) return;
         try {
-          const stats = await window.TMDiffEngine.TM.getStats();
+          const stats = await engine.TM.refreshStats();
           if (stats) setTmStats(stats);
         } catch (e) {
           console.warn('[TM] Stats refresh warning:', e);
@@ -3116,24 +3119,19 @@
       };
 
       const handleClearTm = async () => {
-        if (!window.TMDiffEngine) return;
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        if (!engine) return;
         if (!confirm('Are you sure you want to clear all cached Translation Memory segments? This cannot be undone.')) return;
-        await window.TMDiffEngine.TM.clearTM();
+        await engine.TM.clearTM();
         await refreshTmStats();
         toast('Translation Memory cache cleared.', 'info');
       };
 
       const handleExportTmx = async () => {
-        if (!window.TMDiffEngine) return;
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        if (!engine) return;
         try {
-          const tmx = await window.TMDiffEngine.TM.exportTMX();
-          const blob = new Blob([tmx], { type: 'application/xml;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `translation_memory_${new Date().toISOString().slice(0, 10)}.tmx`;
-          a.click();
-          URL.revokeObjectURL(url);
+          await engine.TM.exportTMX();
           toast('Exported Translation Memory (TMX).', 'success');
         } catch (e) {
           toast('Failed exporting TMX: ' + e.message, 'error');
@@ -3141,7 +3139,8 @@
       };
 
       const handleOpenDiffModal = async (chapterIdx = 0, novelOverride = null) => {
-        if (!window.TMDiffEngine) {
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        if (!engine || !window.TMDiffEngine) {
           toast('Diff Engine loading...', 'info');
           return;
         }
@@ -3159,14 +3158,14 @@
         };
         const curText = (targetCh.content || targetCh.text || assembledText || '').trim();
 
-        const snapshots = await window.TMDiffEngine.Snapshots.getChapterSnapshots(novelKey, chapterIdx);
+        const snapshots = await engine.TM.getChapterSnapshots(novelKey, chapterIdx);
 
         if (!snapshots || snapshots.length === 0) {
           if (!curText) {
             toast('No text or snapshots available for this chapter yet.', 'info');
             return;
           }
-          await window.TMDiffEngine.Snapshots.createSnapshot({
+          await engine.TM.createSnapshot({
             novelId: novelKey,
             chapterIdx: chapterIdx,
             chapterTitle: targetCh.title || `Chapter ${chapterIdx + 1}`,
@@ -3174,10 +3173,10 @@
             model: geminiModel || 'Current'
           });
           toast('Initial baseline snapshot recorded for this chapter.', 'info');
-          const refreshedSnaps = await window.TMDiffEngine.Snapshots.getChapterSnapshots(novelKey, chapterIdx);
+          const refreshedSnaps = await engine.TM.getChapterSnapshots(novelKey, chapterIdx);
           setDiffSnapshotsList(refreshedSnaps);
           setSelectedDiffSnapId(refreshedSnaps[0]?.id || '');
-          const diffResult = window.TMDiffEngine.Snapshots.computeDiff(curText, curText);
+          const diffResult = engine.TM.computeDiff(curText, curText);
           setActiveDiffData({
             title: targetCh.title || `Chapter ${chapterIdx + 1}`,
             chapterIdx,
@@ -3191,7 +3190,7 @@
         setDiffSnapshotsList(snapshots);
         const latestSnap = snapshots[snapshots.length - 1];
         setSelectedDiffSnapId(latestSnap.id);
-        const diffResult = window.TMDiffEngine.Snapshots.computeDiff(latestSnap.text, curText);
+        const diffResult = engine.TM.computeDiff(latestSnap.text, curText);
         setActiveDiffData({
           title: targetCh.title || `Chapter ${chapterIdx + 1}`,
           chapterIdx,
@@ -3202,7 +3201,8 @@
       };
 
       const handleManualSnapshot = async () => {
-        if (!window.TMDiffEngine || !activeDiffData) return;
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        if (!engine || !window.TMDiffEngine || !activeDiffData) return;
         const chs = (translatedChapters && translatedChapters.length > 0)
           ? translatedChapters
           : (activeNovelRecord?.translatedChapters && activeNovelRecord.translatedChapters.length > 0
@@ -3214,14 +3214,14 @@
           toast('No text available in this chapter to snapshot.', 'info');
           return;
         }
-        await window.TMDiffEngine.Snapshots.createSnapshot({
+        await engine.TM.createSnapshot({
           novelId: activeDiffData.novelKey,
           chapterIdx: activeDiffData.chapterIdx,
           chapterTitle: activeDiffData.title || `Chapter ${activeDiffData.chapterIdx + 1}`,
           text: curText,
           model: `${geminiModel || 'Current'} (Manual)`
         });
-        const refreshedSnaps = await window.TMDiffEngine.Snapshots.getChapterSnapshots(activeDiffData.novelKey, activeDiffData.chapterIdx);
+        const refreshedSnaps = await engine.TM.getChapterSnapshots(activeDiffData.novelKey, activeDiffData.chapterIdx);
         setDiffSnapshotsList(refreshedSnaps);
         if (refreshedSnaps && refreshedSnaps.length > 0) {
           setSelectedDiffSnapId(refreshedSnaps[refreshedSnaps.length - 1].id);
@@ -3231,7 +3231,8 @@
 
       const handleSelectDiffSnapshot = (snapId) => {
         setSelectedDiffSnapId(snapId);
-        if (!activeDiffData || !window.TMDiffEngine) return;
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        if (!activeDiffData || !engine || !window.TMDiffEngine) return;
         const snap = diffSnapshotsList.find(s => s.id === snapId);
         if (!snap) return;
 
@@ -3243,7 +3244,7 @@
         const targetCh = chs[activeDiffData.chapterIdx] || { content: assembledText || inputText || '' };
         const curText = (targetCh.content || targetCh.text || assembledText || '').trim();
 
-        const diffResult = window.TMDiffEngine.Snapshots.computeDiff(snap.text, curText);
+        const diffResult = engine.TM.computeDiff(snap.text, curText);
         setActiveDiffData(prev => ({
           ...prev,
           ...diffResult
@@ -3251,8 +3252,9 @@
       };
 
       const handleRollbackDiffSnapshot = async (snapId) => {
-        if (!window.TMDiffEngine) return;
-        const snap = await window.TMDiffEngine.Snapshots.rollbackSnapshot(snapId);
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        if (!engine || !window.TMDiffEngine) return;
+        const snap = await engine.TM.rollbackSnapshot(snapId);
         if (!snap || !snap.text) {
           toast('Failed to load snapshot for rollback.', 'error');
           return;
@@ -3300,12 +3302,11 @@
         if (!pluginCatalog || pluginCatalog.length === 0) {
           setIsCatalogLoading(true);
           try {
-            if (window.sourceRegistry && typeof window.sourceRegistry.fetchCatalog === 'function') {
-              const cat = await window.sourceRegistry.fetchCatalog();
-              setPluginCatalog(Array.isArray(cat) ? cat : []);
-            }
+            const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+            const cat = await engine.Plugins.fetchCatalog();
+            setPluginCatalog(Array.isArray(cat) ? cat : []);
           } catch (err) {
-            console.warn('Failed to fetch LNReader plugins catalog:', err);
+            console.warn('Failed to fetch plugins catalog:', err);
             toast('Could not fetch online plugins catalog: ' + err.message, 'warning');
           } finally {
             setIsCatalogLoading(false);
@@ -3317,7 +3318,8 @@
         try {
           setInstallingPluginId(item.id);
           toast(`Installing ${item.name} plugin…`, 'info');
-          await window.sourceRegistry.loadPluginById(item.id);
+          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+          await engine.Plugins.installPlugin(item);
           setPluginCatalogTick(t => t + 1);
           toast(`✅ Successfully installed ${item.name} (${item.id})!`, 'success');
         } catch (err) {
@@ -3328,7 +3330,8 @@
       };
 
       const handleUninstallPlugin = (id) => {
-        if (window.sourceRegistry.unregister(id)) {
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        if (engine.Plugins.uninstallPlugin(id)) {
           setPluginCatalogTick(t => t + 1);
           toast(`Uninstalled plugin: ${id}`, 'info');
         } else {
@@ -3340,7 +3343,8 @@
         if (!url || !url.trim()) return;
         try {
           toast('Fetching and installing custom plugin…', 'info');
-          await window.sourceRegistry.loadPluginFromUrl(url.trim());
+          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+          await engine.Plugins.installCustomPluginUrl(url.trim());
           setPluginCatalogTick(t => t + 1);
           toast('✅ Custom plugin registered and ready!', 'success');
           setCustomPluginUrl('');
@@ -3352,54 +3356,12 @@
       const handleSearchNovelsInPlugins = async (query, sourceId = 'all') => {
         const q = (query || pluginNovelSearchQuery || '').trim();
         if (!q) {
-          return toast('Please enter a novel title or keyword to search (e.g. Shadow Slave, Re:Zero).', 'warning');
+          return toast('Please enter a novel title or keyword to search.', 'warning');
         }
         setIsPluginNovelSearching(true);
         try {
-          const reg = window.sourceRegistry || window.SourceRegistry;
-          let results = [];
-          if (sourceId && sourceId !== 'all' && reg && typeof reg.searchPlugin === 'function') {
-            results = await reg.searchPlugin(sourceId, q);
-          } else {
-            // Concurrent parallel search across plugins and built-in scrapers
-            const promises = [];
-            if (reg && typeof reg.searchAll === 'function') {
-              promises.push(reg.searchAll(q).catch(e => { console.warn('[searchAll]', e); return []; }));
-            }
-            if (window.WebNovelImporter?.searchNovels) {
-              promises.push(window.WebNovelImporter.searchNovels(q, 'all').catch(e => { console.warn('[importerSearch]', e); return []; }));
-            }
-            const resLists = await Promise.all(promises);
-            const seenUrls = new Set();
-            for (const list of resLists) {
-              if (Array.isArray(list)) {
-                for (const item of list) {
-                  const itemUrl = (item.url || item.path || '').replace(/\/$/, '');
-                  if (itemUrl && !seenUrls.has(itemUrl)) {
-                    seenUrls.add(itemUrl);
-                    let title = (item.title || item.name || '').trim();
-                    if (!title || /^untitled/i.test(title)) {
-                      try {
-                        const pathParts = itemUrl.split('/').filter(Boolean);
-                        const slug = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2] || '';
-                        if (slug && !slug.startsWith('http')) {
-                          title = slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                        }
-                      } catch (_) {}
-                    }
-                    results.push({
-                      ...item,
-                      id: item.id || itemUrl,
-                      title: title || 'Web Novel',
-                      name: title || 'Web Novel',
-                      url: item.url || item.path,
-                      source: item.source || 'Plugin'
-                    });
-                  }
-                }
-              }
-            }
-          }
+          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+          const results = await engine.Plugins.searchNovels(q, sourceId);
           setPluginNovelSearchResults(results || []);
           if (!results || results.length === 0) {
             toast(`No novels found for "${q}". Try another query or install more plugins!`, 'info');
@@ -3416,66 +3378,28 @@
 
       const handleCheckRezeroUpdates = async () => {
         try {
-          toast('👑 Checking Witch Cult Translations for new chapters…', 'info');
           const wctUrl = 'https://witchculttranslation.com/table-of-content/';
-          setWebImportUrl(wctUrl);
-
           const existing = (webImportHistory || []).find(n => /witchcult|rezero/i.test(n?.sourceUrl || n?.url || n?.title || ''))
             || (activeCrawlSession && /witchcult|rezero/i.test(activeCrawlSession?.sourceUrl || activeCrawlSession?.url || activeCrawlSession?.title || '') ? activeCrawlSession : null);
-
           const existingChapters = existing?.chapters || existing?.rawChapters || (chapters && chapters.length > 0 && /rezero|witch/i.test(activeNovelRecord?.title || '') ? chapters : []);
 
-          if (!window.WebNovelImporter || typeof window.WebNovelImporter.importUrl !== 'function') {
-            return toast('Web Importer engine not loaded.', 'error');
-          }
-
-          setWebImportStatus('Scanning live Table of Contents…');
-          const tocResult = await window.WebNovelImporter.importUrl(wctUrl, (msg) => setWebImportStatus(msg), { tocOnly: true });
-          const remoteList = tocResult?.chapterList || (tocResult?.chapters && tocResult.chapters.length > 0 ? tocResult.chapters : []);
-
-          if (!remoteList || remoteList.length === 0) {
-            toast('Could not scan WCT chapter list. Check network connection.', 'warning');
-            return;
-          }
-
-          const existingUrls = new Set((existingChapters || []).map(c => (c.url || '').replace(/\/$/, '')).filter(Boolean));
-          const existingTitles = new Set((existingChapters || []).map(c => (c.title || '').trim().toLowerCase()).filter(Boolean));
-
-          const newChapters = remoteList.filter(c => {
-            const cleanU = (c.url || '').replace(/\/$/, '');
-            const cleanT = (c.title || '').trim().toLowerCase();
-            const hasUrl = cleanU && existingUrls.has(cleanU);
-            const hasTitle = cleanT && existingTitles.has(cleanT);
-            return !hasUrl && !hasTitle;
-          });
-
-          if (newChapters.length === 0 && existingChapters.length > 0) {
-            toast(`👑 Re:Zero is 100% up to date! All ${existingChapters.length} chapters downloaded.`, 'success');
-            setWebImportStatus('');
-            return;
-          }
-
-          if (existingChapters.length === 0) {
-            toast(`👑 Re:Zero TOC discovered ${remoteList.length} chapters. Starting ingestion…`, 'info');
-            handleStartFetch(false, null, false, wctUrl);
-            return;
-          }
-
-          toast(`👑 Found ${newChapters.length} new chapters! Downloading incrementally…`, 'success');
-          handleStartFetch(true, {
-            id: existing?.id,
+          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+          await engine.Plugins.checkRezeroUpdates({
             url: wctUrl,
-            sourceUrl: wctUrl,
-            title: existing?.title || 'Re:Zero − Starting Life in Another World (WCT)',
-            author: 'Tappei Nagatsuki',
-            cover: existing?.cover || 'https://witchculttranslation.com/wp-content/uploads/2024/09/png-echidna-beatrice-2-editado-2.jpg',
-            chapters: existingChapters,
-            rawChapters: existingChapters,
-            totalChapterCount: remoteList.length
-          }, false, wctUrl);
+            existingNovel: existing,
+            existingChapters,
+            title: existing?.title || 'Web Novel Series (WCT)',
+            author: existing?.author || 'Tappei Nagatsuki',
+            cover: existing?.cover || 'https://witchculttranslation.com/wp-content/uploads/2024/09/png-echidna-beatrice-2-editado-2.jpg'
+          }, {
+            onSetWebImportUrl: (u) => setWebImportUrl(u),
+            onProgress: (m) => setWebImportStatus(m),
+            toast: (m, t) => toast(m, t),
+            onStartFetch: (isInc, data, skipConf, url) => handleStartFetch(isInc, data, skipConf, url)
+          });
         } catch (err) {
           console.error('[handleCheckRezeroUpdates]', err);
-          toast('Re:Zero update check failed: ' + (err?.message || err), 'error');
+          toast('Update check failed: ' + (err?.message || err), 'error');
         } finally {
           setWebImportStatus('');
         }
@@ -3483,118 +3407,19 @@
 
       // --- Cost & Time Estimator Handlers (§7.2) ---
       const handleOpenCostEstimator = () => {
-        let chs = (chapters && chapters.length > 0) ? chapters : [];
-        let totalChars = 0;
-        let totalWords = 0;
-
-        if (chs.length > 0) {
-          for (const c of chs) {
-            const t = (typeof c === 'string' ? c : (c?.text || c?.content || ''));
-            totalChars += t.length;
-            totalWords += t.split(/\s+/).filter(Boolean).length;
-          }
-        } else if (inputText && inputText.trim()) {
-          totalChars = inputText.length;
-          totalWords = inputText.split(/\s+/).filter(Boolean).length;
-          chs = [{ title: 'Current Text', content: inputText }];
-        }
-
-        if (totalChars === 0) {
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        const data = engine.calculateCostEstimate({
+          chapters,
+          inputText,
+          glossaryTermCount,
+          smartGlossary,
+          genderLocks
+        });
+        if (!data) {
           toast('Please paste text or load a novel/EPUB before estimating cost.', 'warning');
           return;
         }
-
-        const estSourceTokens = Math.round(totalChars / 2.8);
-        const glossaryTermsActive = glossaryTermCount || 0;
-        const estGlossaryTokens = smartGlossary ? Math.min(chs.length * 40, glossaryTermsActive * 12) : (glossaryTermsActive * 15);
-        const estGenderTokens = Object.keys(genderLocks || {}).length * 8;
-        const estSystemOverhead = chs.length * 85;
-        const totalPromptTokens = estSourceTokens + estGlossaryTokens + estGenderTokens + estSystemOverhead;
-        const totalOutputTokens = Math.max(Math.round(totalWords * 1.3), Math.round(estSourceTokens * 0.75));
-        const totalTokens = totalPromptTokens + totalOutputTokens;
-
-        const models = [
-          {
-            id: 'gemini-2.5-flash-lite',
-            name: 'Gemini 3.5 Flash-Lite',
-            tag: 'Most Cost Effective ⚡',
-            inRate: 0.075,
-            outRate: 0.30,
-            recommended: true
-          },
-          {
-            id: 'gemini-2.5-flash',
-            name: 'Gemini 3.7 Flash',
-            tag: 'Balanced Quality & Speed',
-            inRate: 0.10,
-            outRate: 0.40,
-            recommended: false
-          },
-          {
-            id: 'gemini-2.5-flash-thinking',
-            name: 'Gemini 3.8 Flash (Thinking)',
-            tag: 'High Nuance & Slang',
-            inRate: 0.15,
-            outRate: 0.60,
-            recommended: false
-          },
-          {
-            id: 'deepseek-chat',
-            name: 'DeepSeek V3',
-            tag: 'Web Novel Specialist',
-            inRate: 0.14,
-            outRate: 0.28,
-            recommended: false
-          },
-          {
-            id: 'gemini-2.5-pro',
-            name: 'Gemini 3.5 Pro',
-            tag: 'Maximum Literary Depth',
-            inRate: 1.25,
-            outRate: 5.00,
-            recommended: false
-          }
-        ];
-
-        const calculatedModels = models.map(m => {
-          const inCost = (totalPromptTokens / 1000000) * m.inRate;
-          const outCost = (totalOutputTokens / 1000000) * m.outRate;
-          const totalCost = inCost + outCost;
-          return {
-            ...m,
-            inCost,
-            outCost,
-            totalCost: totalCost < 0.01 ? '< $0.01' : `$${totalCost.toFixed(3)}`
-          };
-        });
-
-        const wordsPerSecStream = 55;
-        const baseSecs = Math.max(5, Math.round(totalWords / wordsPerSecStream));
-        const timeTiers = [
-          { streams: 1, duration: formatDuration(baseSecs) },
-          { streams: 5, duration: formatDuration(Math.max(3, Math.round(baseSecs / 4.2))), recommended: true },
-          { streams: 10, duration: formatDuration(Math.max(2, Math.round(baseSecs / 7.5))) },
-          { streams: 15, duration: formatDuration(Math.max(2, Math.round(baseSecs / 10.5))) }
-        ];
-
-        function formatDuration(sec) {
-          if (sec < 60) return `${sec}s`;
-          const mins = Math.floor(sec / 60);
-          const rem = sec % 60;
-          return rem > 0 ? `${mins}m ${rem}s` : `${mins}m`;
-        }
-
-        setCostEstimatorData({
-          chapterCount: chs.length,
-          totalChars,
-          totalWords,
-          estSourceTokens,
-          totalPromptTokens,
-          totalOutputTokens,
-          totalTokens,
-          models: calculatedModels,
-          timeTiers
-        });
+        setCostEstimatorData(data);
         setCostEstimatorModalOpen(true);
       };
 
@@ -3604,115 +3429,27 @@
           toast('No novel selected for metadata enrichment.', 'warning');
           return;
         }
-        let rawTitle = novelRecord.title.replace(/\s*\(Translated\)\s*$/i, '').trim();
-        // Clean title for higher matching accuracy
-        const cleanQuery = rawTitle
-          .replace(/\s*[-—~|:]\s*(?:Web Novel Complete Edition|Complete Edition|Web Novel|Arc Edition|Starting Life in Another World|Lnori|Syosetu|NovelBuddy|RoyalRoad|Witch Cult).*$/i, '')
-          .replace(/\s*\(.*?\)\s*/g, ' ')
-          .replace(/\s*\[.*?\]\s*/g, ' ')
-          .trim() || rawTitle;
-
-        toast(`Fetching official metadata for "${cleanQuery}"…`, 'info');
+        toast(`Fetching official metadata for "${novelRecord.title}"…`, 'info');
         try {
-          let metadata = null;
-          let sourceProvider = 'AniList';
-
-          // 1. Try AniList GraphQL first (with strict 3.5s timeout)
-          try {
-            const query = `
-              query ($search: String) {
-                Media (search: $search, type: MANGA) {
-                  id
-                  title { romaji english native }
-                  description(asHtml: false)
-                  coverImage { extraLarge large }
-                  genres
-                  averageScore
-                  status
-                }
-              }
-            `;
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 3500);
-            const res = await fetch('https://graphql.anilist.co', {
-              method: 'POST',
-              signal: ctrl.signal,
-              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-              body: JSON.stringify({ query, variables: { search: cleanQuery } })
-            });
-            clearTimeout(timer);
-            if (res.ok) {
-              const data = await res.json();
-              const media = data?.data?.Media;
-              if (media) {
-                metadata = {
-                  title: media.title?.english || media.title?.romaji || media.title?.native || rawTitle,
-                  cover: media.coverImage?.extraLarge || media.coverImage?.large || '',
-                  summary: (media.description || '').replace(/<[^>]*>/g, '').trim(),
-                  genres: Array.isArray(media.genres) ? media.genres : [],
-                  rating: media.averageScore,
-                  id: media.id
-                };
-              }
-            }
-          } catch (_) {
-            // Fallback to Kitsu API
-          }
-
-          // 2. High-Availability Fallback: Kitsu Light Novel / Manga Catalog (CORS-friendly, zero rate-limiting)
+          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+          const metadata = await engine.fetchNovelMetadata(novelRecord.title);
           if (!metadata) {
-            try {
-              sourceProvider = 'Kitsu / Manga Catalog';
-              const ctrl = new AbortController();
-              const timer = setTimeout(() => ctrl.abort(), 4500);
-              const kRes = await fetch(`https://kitsu.io/api/edge/manga?filter[text]=${encodeURIComponent(cleanQuery)}&page[limit]=1`, { signal: ctrl.signal });
-              clearTimeout(timer);
-              if (kRes.ok) {
-                const kData = await kRes.json();
-                const item = kData?.data?.[0]?.attributes;
-                if (item) {
-                  const ratingVal = item.averageRating ? Math.round(parseFloat(item.averageRating)) : null;
-                  metadata = {
-                    title: item.canonicalTitle || cleanQuery,
-                    cover: item.posterImage?.large || item.posterImage?.original || item.posterImage?.medium || '',
-                    summary: (item.synopsis || '').replace(/<[^>]*>/g, '').trim(),
-                    genres: [item.mangaType || 'Light Novel', ...(item.subtype ? [item.subtype] : [])],
-                    rating: ratingVal,
-                    id: kData?.data?.[0]?.id
-                  };
-                }
-              }
-            } catch (_) {}
-          }
-
-          if (!metadata) {
-            toast(`No matching metadata found for "${cleanQuery}".`, 'warning');
+            toast(`No matching metadata found for "${novelRecord.title}".`, 'warning');
             return;
           }
-
-          const bestTitle = metadata.title;
-          const coverUrl = metadata.cover;
-          const summary = metadata.summary;
-          const genres = metadata.genres;
-
-          const confirmMsg = `Found metadata via ${sourceProvider}:\n\nTitle: ${bestTitle}\nGenres: ${genres.join(', ') || 'None'}\nRating: ${metadata.rating ? metadata.rating + '%' : 'N/A'}\n\nApply enriched cover art, synopsis, and tags to this novel?`;
-          if (confirm(confirmMsg)) {
-            const updates = {
-              enrichedTitle: bestTitle,
-              cover: coverUrl || novelRecord.cover,
-              summary: summary || novelRecord.summary,
-              genres: genres,
-              metadataId: metadata.id,
-              rating: metadata.rating
-            };
-            if (window.novelDB && novelRecord.id) {
-              await window.novelDB.novels.update(novelRecord.id, updates);
+          const applied = await engine.applyEnrichedMetadata(novelRecord, metadata, {
+            confirm: (msg) => confirm(msg),
+            onUpdateHistory: (updates) => {
+              setWebImportHistory(prev => prev.map(b => b.id === novelRecord.id ? { ...b, ...updates } : b));
+            },
+            onUpdateActiveNovelView: (updates) => {
+              if (activeNovelView && activeNovelView.id === novelRecord.id) {
+                setActiveNovelView(prev => ({ ...prev, ...updates }));
+              }
             }
-            setWebImportHistory(prev => prev.map(b => b.id === novelRecord.id ? { ...b, ...updates } : b));
-            if (activeNovelView && activeNovelView.id === novelRecord.id) {
-              setActiveNovelView(prev => ({ ...prev, ...updates }));
-            }
-            toast(`Enriched "${bestTitle}" with official HD cover art & synopsis!`, 'success');
+          });
+          if (applied) {
+            toast(`Enriched "${metadata.title}" with official HD cover art & synopsis!`, 'success');
           }
         } catch (err) {
           console.warn('Metadata enrichment error:', err);
@@ -3740,17 +3477,14 @@
         localStorage.setItem('activeTab', 'studio');
         toast(`Packaging "${full.title || 'Novel'}" into Volume Splitter…`, 'info');
         try {
-          const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(full.title, chs) : (full.title || 'Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-          const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(full.author) : (full.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-          const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, full.targetLang || 'en');
-          const safeName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(novelTitle) : novelTitle.replace(/[^a-zA-Z0-9_-]/g, '_')) || 'Novel';
-          const file = new File([blob], `${safeName}.epub`, { type: 'application/epub+zip' });
-          setTimeout(() => {
-            if (typeof window.processSplitFile === 'function') {
-              window.processSplitFile(file);
-              toast(`Loaded "${novelTitle}" (${chs.length} chapters) into Volume Splitter!`, 'success');
-            }
-          }, 250);
+          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+          await engine.packageNovelForArcSplitter(full, {
+            cleanBookTitle,
+            cleanBookAuthor,
+            generateEpubFromChapters,
+            sanitizeFilename,
+            toast
+          });
         } catch (splitErr) {
           console.warn('Auto-split mounting warning:', splitErr);
           toast(`Switched to EPUB Studio with "${full.title || 'Novel'}"!`, 'info');
