@@ -940,6 +940,263 @@
     }
   };
 
+  const ChapterList = {
+    syncSession(chapters, setActiveCrawlSession) {
+      if (typeof setActiveCrawlSession === 'function') {
+        setActiveCrawlSession(prev => {
+          if (!prev) return null;
+          const nextSession = { ...prev, chapters };
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('gemini_active_crawl_session', JSON.stringify(nextSession));
+            }
+          } catch (_) {}
+          return nextSession;
+        });
+      } else {
+        try {
+          if (typeof localStorage !== 'undefined') {
+            const raw = localStorage.getItem('gemini_active_crawl_session');
+            if (raw) {
+              const s = JSON.parse(raw);
+              s.chapters = chapters;
+              localStorage.setItem('gemini_active_crawl_session', JSON.stringify(s));
+            }
+          }
+        } catch (_) {}
+      }
+    },
+
+    removeChapter(idx, params = {}) {
+      const {
+        webImportData,
+        activeCrawlSession,
+        setWebImportData,
+        syncSession,
+        confirmAction = (typeof window !== 'undefined' ? window.confirmAction : null)
+      } = params;
+
+      const targetChapter = (webImportData?.chapters && webImportData.chapters[idx]) ||
+                            (activeCrawlSession?.chapters && activeCrawlSession.chapters[idx]) || null;
+      const chTitle = targetChapter?.title ? `"${targetChapter.title}"` : `Chapter ${idx + 1}`;
+      const doRemove = () => {
+        if (typeof setWebImportData === 'function') {
+          setWebImportData(prev => {
+            const base = prev || activeCrawlSession;
+            if (!base || !base.chapters) return prev;
+            const chapters = base.chapters.filter((_, i) => i !== idx);
+            if (typeof syncSession === 'function') {
+              syncSession(chapters);
+            }
+            return { ...base, chapters };
+          });
+        }
+      };
+
+      if (typeof confirmAction === 'function') {
+        confirmAction(`Remove ${chTitle} from the chapter list?`, doRemove);
+      } else if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        if (window.confirm(`Remove ${chTitle} from the chapter list?`)) {
+          doRemove();
+        }
+      } else {
+        doRemove();
+      }
+    },
+
+    moveChapter(idx, dir, params = {}) {
+      const {
+        webImportData,
+        activeCrawlSession,
+        setWebImportData,
+        syncSession
+      } = params;
+
+      if (typeof setWebImportData === 'function') {
+        setWebImportData(prev => {
+          const base = prev || activeCrawlSession;
+          if (!base || !base.chapters) return prev;
+          const chapters = [...base.chapters];
+          const j = idx + dir;
+          if (j < 0 || j >= chapters.length) return prev;
+          [chapters[idx], chapters[j]] = [chapters[j], chapters[idx]];
+          if (typeof syncSession === 'function') {
+            syncSession(chapters);
+          }
+          return { ...base, chapters };
+        });
+      }
+    },
+
+    moveChapterToEdge(idx, edge, params = {}) {
+      const {
+        webImportData,
+        activeCrawlSession,
+        setWebImportData,
+        syncSession,
+        toast = (typeof window !== 'undefined' ? window.toast : console.log)
+      } = params;
+
+      if (typeof setWebImportData === 'function') {
+        setWebImportData(prev => {
+          const base = prev || activeCrawlSession;
+          if (!base || !base.chapters || base.chapters.length <= 1) return prev;
+          const chapters = [...base.chapters];
+          const [target] = chapters.splice(idx, 1);
+          if (edge === 'top') {
+            chapters.unshift(target);
+          } else {
+            chapters.push(target);
+          }
+          if (typeof syncSession === 'function') {
+            syncSession(chapters);
+          }
+          return { ...base, chapters };
+        });
+      }
+      if (typeof toast === 'function') {
+        toast(edge === 'top' ? 'Moved chapter to start.' : 'Moved chapter to end.', 'info');
+      }
+    },
+
+    autoSort(params = {}) {
+      const {
+        webImportData,
+        activeCrawlSession,
+        setWebImportData,
+        syncSession,
+        toast = (typeof window !== 'undefined' ? window.toast : console.log)
+      } = params;
+
+      if (typeof setWebImportData === 'function') {
+        setWebImportData(prev => {
+          const base = prev || activeCrawlSession;
+          if (!base || !base.chapters || base.chapters.length <= 1) return prev;
+          const sorted = autoSortChapters(base.chapters);
+          if (typeof syncSession === 'function') {
+            syncSession(sorted);
+          }
+          return { ...base, chapters: sorted };
+        });
+      }
+      if (typeof toast === 'function') {
+        toast('✨ Chapters auto-sorted chronologically!', 'success');
+      }
+    },
+
+    reverse(params = {}) {
+      const {
+        webImportData,
+        activeCrawlSession,
+        setWebImportData,
+        syncSession,
+        toast = (typeof window !== 'undefined' ? window.toast : console.log)
+      } = params;
+
+      if (typeof setWebImportData === 'function') {
+        setWebImportData(prev => {
+          const base = prev || activeCrawlSession;
+          if (!base || !base.chapters || base.chapters.length <= 1) return prev;
+          const chapters = reverseChapters(base.chapters);
+          if (typeof syncSession === 'function') {
+            syncSession(chapters);
+          }
+          return { ...base, chapters };
+        });
+      }
+      if (typeof toast === 'function') {
+        toast('Chapters order reversed (1 ↔ N).', 'info');
+      }
+    },
+
+    async aiReorder(options = {}, callbacks = {}) {
+      const merged = { ...options, ...callbacks };
+      const {
+        webImportData,
+        activeCrawlSession,
+        provider = 'gemini',
+        apiKey,
+        getActiveApiKey,
+        geminiModel,
+        customModel,
+        useCustomModel,
+        customDeepseekModel,
+        useCustomDeepseekModel,
+        setIsAiSorting = () => {},
+        setWebImportData = () => {},
+        syncSession = () => {},
+        autoSort: fallbackAutoSort,
+        toast = (typeof window !== 'undefined' ? window.toast : console.log)
+      } = merged;
+
+      const currentData = webImportData || activeCrawlSession;
+      if (!currentData || !currentData.chapters || currentData.chapters.length <= 1) {
+        if (typeof toast === 'function') toast('No chapters to reorder.', 'info');
+        return;
+      }
+
+      const key = apiKey || (typeof getActiveApiKey === 'function' ? (getActiveApiKey('gemini') || getActiveApiKey(provider)) : null);
+      if (!key) {
+        if (typeof toast === 'function') toast('Please add an API key in Settings for AI Reorder, or use Auto-Sort.', 'error');
+        return;
+      }
+
+      if (typeof setIsAiSorting === 'function') setIsAiSorting(true);
+      if (typeof toast === 'function') toast('🤖 AI analyzing chapter reading order...', 'info');
+
+      try {
+        const res = await aiReorderChapters({
+          chapters: currentData.chapters,
+          provider,
+          apiKey: key,
+          model: geminiModel,
+          customModel,
+          useCustomModel,
+          customDeepseekModel,
+          useCustomDeepseekModel,
+          callbacks: {
+            onError: (err) => console.warn('AI Reorder error:', err)
+          }
+        });
+
+        if (res?.chapters) {
+          if (typeof setWebImportData === 'function') {
+            setWebImportData(prev => {
+              const base = prev || activeCrawlSession;
+              if (!base || !base.chapters) return prev;
+              if (typeof syncSession === 'function') {
+                syncSession(res.chapters);
+              }
+              return { ...base, chapters: res.chapters };
+            });
+          }
+
+          if (res.success) {
+            if (typeof toast === 'function') toast('✨ AI successfully reorganized chapters in reading order!', 'success');
+            try {
+              if (typeof window !== 'undefined') {
+                window.NativeBridge?.showCompletionNotification?.('Chapters Sorted! 🤖', `Successfully reorganized ${res.chapters.length} chapters into reading order.`);
+              }
+            } catch(e) {}
+          } else {
+            if (typeof toast === 'function') toast('AI sort notice: ' + (res.error?.message || 'Using Auto-Sort fallback.'), 'warn');
+          }
+        }
+        return res;
+      } catch (aiErr) {
+        console.warn('AI Reorder error:', aiErr);
+        if (typeof toast === 'function') toast('AI sort notice: ' + aiErr.message + '. Running instant Auto-Sort instead.', 'warn');
+        if (typeof fallbackAutoSort === 'function') {
+          fallbackAutoSort();
+        } else {
+          ChapterList.autoSort({ webImportData, activeCrawlSession, setWebImportData, syncSession, toast });
+        }
+      } finally {
+        if (typeof setIsAiSorting === 'function') setIsAiSorting(false);
+      }
+    }
+  };
+
   const WebNovelCrawlerEngine = {
     searchNovels,
     startCrawl,
@@ -953,6 +1210,7 @@
     autoSortChapters,
     reverseChapters,
     aiReorderChapters,
+    ChapterList,
     Controller
   };
 
@@ -960,6 +1218,7 @@
   if (typeof window !== 'undefined') {
     window.WebNovelCrawlerEngine = WebNovelCrawlerEngine;
     window.WebNovelCrawlerEngine.Controller = Controller;
+    window.WebNovelCrawlerEngine.ChapterList = ChapterList;
   }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = WebNovelCrawlerEngine;

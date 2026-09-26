@@ -412,6 +412,91 @@
     }, true);
   }
 
+  const TelemetryController = {
+    async testConnection(serverUrl, callbacks = {}) {
+      const {
+        setTesting = () => {},
+        setStatus = () => {},
+        setStatusMsg = () => {},
+        toast = (typeof window !== 'undefined' ? window.toast : console.log)
+      } = callbacks;
+
+      setTesting(true);
+      setStatusMsg('');
+      const cleanUrl = (serverUrl || (typeof localStorage !== 'undefined' && localStorage.getItem('telemetry_server_url')) || 'http://192.168.1.216:9090').replace(/\/+$/, '');
+
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        let res;
+        try {
+          res = await fetch(`${cleanUrl}/ping`, { signal: ctrl.signal });
+          if (!res.ok && res.status === 404) {
+            res = await fetch(`${cleanUrl}/status`, { signal: ctrl.signal });
+          }
+        } catch (pingErr) {
+          if (pingErr.name === 'AbortError') throw pingErr;
+          res = await fetch(`${cleanUrl}/status`, { signal: ctrl.signal });
+        }
+        clearTimeout(timer);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json().catch(() => ({}));
+        setStatus('connected');
+        setStatusMsg(`✅ Connected! Telemetry Server active at ${cleanUrl} (Host: ${data.host || 'PC'})`);
+        if (typeof window !== 'undefined' && typeof window.updateTelemetryConfig === 'function') {
+          window.updateTelemetryConfig({ serverUrl: cleanUrl });
+        }
+        if (typeof toast === 'function') toast('Connected to PC Agent Telemetry!', 'success');
+        if (typeof window !== 'undefined' && typeof window.sendTelemetry === 'function') {
+          window.sendTelemetry('PING', 'Android device successfully connected to PC Telemetry Server!', {
+            userAgent: (typeof navigator !== 'undefined' ? navigator.userAgent : '')
+          });
+        }
+        return { success: true, data };
+      } catch (err) {
+        setStatus('error');
+        setStatusMsg(`❌ Could not connect to ${cleanUrl}: ${err.message}. Ensure PC and phone are on the same Wi-Fi.`);
+        if (typeof toast === 'function') toast('Connection failed. Check Wi-Fi & URL.', 'error');
+        return { success: false, error: err };
+      } finally {
+        setTesting(false);
+      }
+    },
+
+    async clearServerLogs(serverUrl, callbacks = {}) {
+      const {
+        toast = (typeof window !== 'undefined' ? window.toast : console.log)
+      } = callbacks;
+      const cleanUrl = (serverUrl || (typeof localStorage !== 'undefined' && localStorage.getItem('telemetry_server_url')) || 'http://192.168.1.216:9090').replace(/\/+$/, '');
+
+      try {
+        await fetch(`${cleanUrl}/clear`, { method: 'POST' });
+        if (typeof window !== 'undefined' && window.AppLogger && typeof window.AppLogger.clear === 'function') {
+          window.AppLogger.clear();
+        }
+        if (typeof window !== 'undefined' && typeof window.telemetryLog === 'function') {
+          window.telemetryLog('CONFIG', 'Cleared all live telemetry logs on PC & device.');
+        }
+        if (typeof toast === 'function') toast('Telemetry logs cleared on PC & device.', 'info');
+        return { success: true };
+      } catch (e) {
+        if (typeof toast === 'function') toast('Could not clear server logs: ' + e.message, 'error');
+        return { success: false, error: e };
+      }
+    }
+  };
+
+  window.TelemetryController = TelemetryController;
+  if (typeof global !== 'undefined') {
+    global.TelemetryController = TelemetryController;
+  }
   window.maskKey = maskKey;
   window.KeyPool = KeyPool;
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      TelemetryController,
+      maskKey,
+      KeyPool
+    };
+  }
 })(typeof window !== 'undefined' ? window : this);

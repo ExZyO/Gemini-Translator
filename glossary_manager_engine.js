@@ -1068,6 +1068,139 @@ RAW GLOSSARY DATA TO CLEAN:
     return res;
   }
 
+  const Controller = {
+    async aiOptimize(params = {}) {
+      const {
+        terminology = '',
+        provider = 'gemini',
+        apiKey,
+        getActiveApiKey,
+        geminiModel,
+        customModel,
+        useCustomModel,
+        customDeepseekModel,
+        useCustomDeepseekModel,
+        splitGlossaryIntoChunks = (typeof window !== 'undefined' ? window.splitGlossaryIntoChunks : null),
+        setTerminology,
+        setIsOptimizingGlossary,
+        setError = console.error,
+        toast = (typeof window !== 'undefined' ? window.toast : console.log),
+        confirm = (typeof window !== 'undefined' ? window.confirm : () => true),
+        fetchRetry = (typeof window !== 'undefined' ? window.fetchRetry : fetch),
+        telemetryLog = (typeof window !== 'undefined' ? window.telemetryLog : null)
+      } = params;
+
+      if (!terminology || !terminology.trim()) {
+        if (typeof setError === 'function') setError('Enter or paste some glossary notes/text first to optimize.');
+        return null;
+      }
+      const key = apiKey || (typeof getActiveApiKey === 'function' ? getActiveApiKey(provider) : resolveApiKey(provider));
+      if (!key) {
+        if (typeof setError === 'function') setError(`Please enter your ${provider === 'deepseek' ? 'DeepSeek' : 'Gemini'} API key in Settings.`);
+        return null;
+      }
+
+      if (typeof setIsOptimizingGlossary === 'function') setIsOptimizingGlossary(true);
+      if (typeof setError === 'function') setError('');
+
+      try {
+        const finalResult = await aiOptimizeGlossary(
+          terminology,
+          {
+            provider,
+            apiKey: key,
+            geminiModel,
+            customModel,
+            useCustomModel,
+            customDeepseekModel,
+            useCustomDeepseekModel,
+            splitGlossaryIntoChunks
+          },
+          {
+            confirm: async (msg) => (typeof confirm === 'function' ? confirm(msg) : true),
+            toast: (msg, type) => (typeof toast === 'function' ? toast(msg, type) : null),
+            fetchRetry
+          }
+        );
+
+        if (finalResult) {
+          if (typeof setTerminology === 'function') setTerminology(finalResult);
+          if (typeof toast === 'function') toast('Glossary successfully cleaned and structured (100% lossless)!', 'success');
+          if (typeof telemetryLog === 'function') {
+            telemetryLog('AI_OPTIMIZE', `Losslessly optimized glossary (${finalResult.split('\n').length} lines).`);
+          }
+          return finalResult;
+        }
+        return null;
+      } catch (err) {
+        if (typeof setError === 'function') setError('AI Glossary Optimization failed: ' + err.message);
+        throw err;
+      } finally {
+        if (typeof setIsOptimizingGlossary === 'function') setIsOptimizingGlossary(false);
+      }
+    },
+
+    async callAiAnalysis(prompt, systemInstruction = '', options = {}) {
+      return await callAiAnalysis(prompt, systemInstruction, options);
+    },
+
+    async extractGlossary(options = {}, callbacks = {}) {
+      const mergedOptions = { ...options };
+      const mergedCallbacks = callbacks && Object.keys(callbacks).length > 0
+        ? callbacks
+        : (options.callbacks || {});
+      return await extractGlossaryWorkflow({
+        ...mergedOptions,
+        callbacks: mergedCallbacks
+      });
+    },
+
+    async applyExtractedTerms(options = {}, callbacks = {}) {
+      const mergedOptions = { ...options };
+      const mergedCallbacks = callbacks && Object.keys(callbacks).length > 0
+        ? callbacks
+        : (options.callbacks || {});
+      return await applyExtractedTermsWorkflow({
+        ...mergedOptions,
+        callbacks: mergedCallbacks
+      });
+    },
+
+    runConsistencyCheck(options = {}, callbacks = {}) {
+      const mergedOptions = { ...options };
+      const mergedCallbacks = callbacks && Object.keys(callbacks).length > 0
+        ? callbacks
+        : (options.callbacks || {});
+      return runConsistencyCheckWorkflow({
+        ...mergedOptions,
+        callbacks: mergedCallbacks
+      });
+    },
+
+    batchFixDrift(options = {}, callbacks = {}) {
+      if (typeof options === 'string') {
+        const foundWord = options;
+        const targetWord = arguments[1];
+        const opts = (arguments[2] && typeof arguments[2] === 'object') ? arguments[2] : {};
+        const cbs = (arguments[3] && typeof arguments[3] === 'object') ? arguments[3] : {};
+        return batchFixDriftWorkflow({
+          foundWord,
+          targetWord,
+          ...opts,
+          callbacks: cbs
+        });
+      }
+      const mergedOptions = { ...options };
+      const mergedCallbacks = callbacks && Object.keys(callbacks).length > 0
+        ? callbacks
+        : (options.callbacks || {});
+      return batchFixDriftWorkflow({
+        ...mergedOptions,
+        callbacks: mergedCallbacks
+      });
+    }
+  };
+
   const GlossaryManagerEngine = {
     saveGlossary,
     deleteGlossary,
@@ -1091,10 +1224,15 @@ RAW GLOSSARY DATA TO CLEAN:
     extractGlossaryWorkflow,
     applyExtractedTermsWorkflow,
     runConsistencyCheckWorkflow,
-    batchFixDriftWorkflow
+    batchFixDriftWorkflow,
+    Controller
   };
 
   global.GlossaryManagerEngine = GlossaryManagerEngine;
+  if (typeof window !== 'undefined') {
+    window.GlossaryManagerEngine = GlossaryManagerEngine;
+    window.GlossaryManagerEngine.Controller = Controller;
+  }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = GlossaryManagerEngine;
   }

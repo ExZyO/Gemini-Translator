@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.17.88';
+        let VERSION = '8.17.89';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2502,43 +2502,25 @@
       };
 
       const handleAiOptimizeGlossary = async () => {
-        if (!terminology.trim()) return setError('Enter or paste some glossary notes/text first to optimize.');
-        const key = getActiveApiKey(provider);
-        if (!key) return setError(`Please enter your ${provider === 'deepseek' ? 'DeepSeek' : 'Gemini'} API key in Settings.`);
-
-        setIsOptimizingGlossary(true);
-        setError('');
-
-        try {
-          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
-          const finalResult = await engine.aiOptimizeGlossary(
+        const controller = window.GlossaryManagerEngine?.Controller || GlossaryManagerEngine?.Controller;
+        if (controller?.aiOptimize) {
+          return await controller.aiOptimize({
             terminology,
-            {
-              provider,
-              apiKey: key,
-              geminiModel,
-              customModel,
-              useCustomModel,
-              customDeepseekModel,
-              useCustomDeepseekModel,
-              splitGlossaryIntoChunks
-            },
-            {
-              confirm: async (msg) => window.confirm(msg),
-              toast: (msg, type) => toast(msg, type),
-              fetchRetry
-            }
-          );
-
-          if (finalResult) {
-            setTerminology(finalResult);
-            toast('Glossary successfully cleaned and structured (100% lossless)!', 'success');
-            window.telemetryLog?.('AI_OPTIMIZE', `Losslessly optimized glossary (${finalResult.split('\n').length} lines).`);
-          }
-        } catch (err) {
-          setError('AI Glossary Optimization failed: ' + err.message);
-        } finally {
-          setIsOptimizingGlossary(false);
+            provider,
+            getActiveApiKey,
+            geminiModel,
+            customModel,
+            useCustomModel,
+            customDeepseekModel,
+            useCustomDeepseekModel,
+            splitGlossaryIntoChunks,
+            setTerminology,
+            setIsOptimizingGlossary,
+            setError,
+            toast,
+            fetchRetry,
+            telemetryLog: window.telemetryLog
+          });
         }
       };
 
@@ -2546,8 +2528,9 @@
       const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
       const callAiAnalysis = async (prompt, systemInstruction = '', modelOverride = null, providerOverride = null) => {
-        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
-        return await engine.callAiAnalysis(prompt, systemInstruction, {
+        const controller = window.GlossaryManagerEngine?.Controller || GlossaryManagerEngine?.Controller;
+        const fn = controller?.callAiAnalysis || (window.GlossaryManagerEngine || GlossaryManagerEngine)?.callAiAnalysis;
+        return await fn(prompt, systemInstruction, {
           modelOverride,
           providerOverride,
           customDeepseekModel,
@@ -2570,8 +2553,9 @@
 
       const handleExtractGlossary = async () => {
         setIsExtractingGlossary(true);
-        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
-        await engine.extractGlossaryWorkflow({
+        const controller = window.GlossaryManagerEngine?.Controller || GlossaryManagerEngine?.Controller;
+        const extractFn = controller?.extractGlossary || (window.GlossaryManagerEngine || GlossaryManagerEngine)?.extractGlossaryWorkflow;
+        await extractFn({
           targetNovel: autoGlossaryTargetNovel,
           chapters,
           chapterCount: autoGlossaryChapterCount,
@@ -2614,8 +2598,9 @@
         const selected = extractedTerms.filter(t => t.checked);
         if (selected.length === 0) return toast('No terms selected', 'warning');
 
-        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
-        await engine.applyExtractedTermsWorkflow({
+        const controller = window.GlossaryManagerEngine?.Controller || GlossaryManagerEngine?.Controller;
+        const applyFn = controller?.applyExtractedTerms || (window.GlossaryManagerEngine || GlossaryManagerEngine)?.applyExtractedTermsWorkflow;
+        await applyFn({
           selected,
           asNewProfile,
           currentTerminology: terminology,
@@ -2660,9 +2645,10 @@
 
       // --- Feature 4: Name Consistency Verifier Engine ---
       const handleRunConsistencyCheck = () => {
-        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+        const controller = window.GlossaryManagerEngine?.Controller || GlossaryManagerEngine?.Controller;
         setIsAuditingConsistency(true);
-        const results = engine.runConsistencyCheckWorkflow({
+        const checkFn = controller?.runConsistencyCheck || (window.GlossaryManagerEngine || GlossaryManagerEngine)?.runConsistencyCheckWorkflow;
+        const results = checkFn({
           terminology,
           translatedChapters,
           chapters,
@@ -2682,8 +2668,9 @@
 
       const handleBatchFixDrift = (foundWord, targetWord) => {
         if (!foundWord || !targetWord) return;
-        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
-        const { updatedChapters, updatedAssembledText, replacedCount } = engine.batchFixDriftWorkflow({
+        const controller = window.GlossaryManagerEngine?.Controller || GlossaryManagerEngine?.Controller;
+        const fixFn = controller?.batchFixDrift || (window.GlossaryManagerEngine || GlossaryManagerEngine)?.batchFixDriftWorkflow;
+        const { updatedChapters, updatedAssembledText, replacedCount } = fixFn({
           foundWord, targetWord, translatedChapters, assembledText
         });
         if (translatedChapters && translatedChapters.length > 0) setTranslatedChapters(updatedChapters);
@@ -3203,60 +3190,32 @@
       };
 
       // --- Translation ---
-      // --- Translation ---
-      const getTranslateOpts = (signal) => {
-        const engine = window.TranslationLoopEngine || TranslationLoopEngine;
-        if (engine?.Controller?.buildTranslateOpts) {
-          return engine.Controller.buildTranslateOpts({
-            provider,
-            deepseekKey,
-            geminiKey,
-            deeplKey,
-            rotateApiKey,
-            useCustomDeepseekModel,
-            customDeepseekModel,
-            deepseekModel,
-            useCustomModel,
-            customModel,
-            geminiModel,
-            srcLang,
-            tgtLang,
-            terminology,
-            customInstructions,
-            genderLocks,
-            activeNovelView,
-            smartGlossary,
-            epubSmartQuotes,
-            epubCleanWebArtifacts,
-            enableThinking,
-            strictModel,
-            signal,
-            libreUrl
-          });
-        }
-        return {
-          apiKey: provider === 'deepseek' ? deepseekKey : geminiKey,
-          rotateApiKey,
-          deepseekApiKey: deepseekKey,
-          deeplApiKey: deeplKey,
-          model: provider === 'deepseek'
-            ? (useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel)
-            : (useCustomModel && customModel ? customModel : geminiModel),
-          srcLang,
-          tgtLang,
-          glossary: terminology,
-          instructions: customInstructions,
-          genderLocks: (activeNovelView && activeNovelView.genderLocks) ? { ...genderLocks, ...activeNovelView.genderLocks } : genderLocks,
-          smartGlossary,
-          epubSmartQuotes,
-          epubCleanWebArtifacts,
-          enableThinking,
-          strictModel: strictModel !== undefined ? strictModel : (localStorage.getItem('strictModel') !== 'false'),
-          signal,
-          provider,
-          libreUrl
-        };
-      };
+      const getTranslateOpts = (signal) => (window.TranslationLoopEngine?.Controller || TranslationLoopEngine?.Controller)?.buildTranslateOpts({
+        provider,
+        deepseekKey,
+        geminiKey,
+        deeplKey,
+        rotateApiKey,
+        useCustomDeepseekModel,
+        customDeepseekModel,
+        deepseekModel,
+        useCustomModel,
+        customModel,
+        geminiModel,
+        srcLang,
+        tgtLang,
+        terminology,
+        customInstructions,
+        genderLocks,
+        activeNovelView,
+        smartGlossary,
+        epubSmartQuotes,
+        epubCleanWebArtifacts,
+        enableThinking,
+        strictModel,
+        signal,
+        libreUrl
+      });
 
       // --- HTML DOM Node Extraction Helper (Delegated to TranslationLoopEngine) ---
       const extractTextNodes = (element) => {
@@ -3591,12 +3550,6 @@
         }
       };
 
-      // --- Helpers for render ---
-      const btn = (props, ...ch) => h('button', props, ...ch);
-      const ic = (Icon, size = 18) => {
-        const comp = Icon || LucideIcons?.['BookText'] || LucideIcons?.['FileText'] || 'span';
-        return h(comp, { size, className: 'shrink-0' });
-      };
       const disabled = isTranslating || uploadingFile;
       const activeModel = useCustomModel && customModel ? customModel : geminiModel;
 
@@ -3653,39 +3606,21 @@
       const [telemetryStatusMsg, setTelemetryStatusMsg] = useState('');
 
       const handleTestTelemetryConnection = async () => {
-        setTelemetryTesting(true);
-        setTelemetryStatusMsg('');
-        try {
-          const cleanUrl = (telemetryServerUrl || 'http://192.168.1.216:9090').replace(/\/+$/, '');
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 4000);
-          const res = await fetch(`${cleanUrl}/status`, { signal: ctrl.signal });
-          clearTimeout(timer);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          setTelemetryStatus('connected');
-          setTelemetryStatusMsg(`✅ Connected! Telemetry Server active at ${cleanUrl} (Host: ${data.host || 'PC'})`);
-          window.updateTelemetryConfig?.({ serverUrl: cleanUrl });
-          toast('Connected to PC Agent Telemetry!', 'success');
-          window.sendTelemetry?.('PING', 'Android device successfully connected to PC Telemetry Server!', { userAgent: navigator.userAgent });
-        } catch (err) {
-          setTelemetryStatus('error');
-          setTelemetryStatusMsg(`❌ Could not connect to ${telemetryServerUrl}: ${err.message}. Ensure PC and phone are on the same Wi-Fi.`);
-          toast('Connection failed. Check Wi-Fi & URL.', 'error');
-        } finally {
-          setTelemetryTesting(false);
+        const controller = window.TelemetryController;
+        if (controller?.testConnection) {
+          return await controller.testConnection(telemetryServerUrl, {
+            setTesting: setTelemetryTesting,
+            setStatus: setTelemetryStatus,
+            setStatusMsg: setTelemetryStatusMsg,
+            toast
+          });
         }
       };
 
       const handleClearTelemetryServer = async () => {
-        try {
-          const cleanUrl = (telemetryServerUrl || 'http://192.168.1.216:9090').replace(/\/+$/, '');
-          await fetch(`${cleanUrl}/clear`, { method: 'POST' });
-          window.AppLogger?.clear();
-          window.telemetryLog?.('CONFIG', 'Cleared all live telemetry logs on PC & device.');
-          toast('Telemetry logs cleared on PC & device.', 'info');
-        } catch(e) {
-          toast('Could not clear server logs: ' + e.message, 'error');
+        const controller = window.TelemetryController;
+        if (controller?.clearServerLogs) {
+          return await controller.clearServerLogs(telemetryServerUrl, { toast });
         }
       };
       const [elapsedSec, setElapsedSec] = useState(0);
@@ -3786,6 +3721,10 @@
       };
 
       const syncCrawlSessionChapters = (updatedChapters) => {
+        const chapterList = window.WebNovelCrawlerEngine?.ChapterList || WebNovelCrawlerEngine?.ChapterList;
+        if (chapterList?.syncSession) {
+          return chapterList.syncSession(updatedChapters, setActiveCrawlSession);
+        }
         setActiveCrawlSession(prev => {
           if (!prev) return null;
           const nextSession = { ...prev, chapters: updatedChapters };
@@ -3797,130 +3736,89 @@
       };
 
       const removeImportChapter = (idx) => {
-        const targetChapter = (webImportData?.chapters && webImportData.chapters[idx]) ||
-                              (activeCrawlSession?.chapters && activeCrawlSession.chapters[idx]) || null;
-        const chTitle = targetChapter?.title ? `"${targetChapter.title}"` : `Chapter ${idx + 1}`;
-        confirmAction(`Remove ${chTitle} from the chapter list?`, () => {
-          setWebImportData(prev => {
-            const base = prev || activeCrawlSession;
-            if (!base || !base.chapters) return prev;
-            const chapters = base.chapters.filter((_, i) => i !== idx);
-            syncCrawlSessionChapters(chapters);
-            return { ...base, chapters };
+        const chapterList = window.WebNovelCrawlerEngine?.ChapterList || WebNovelCrawlerEngine?.ChapterList;
+        if (chapterList?.removeChapter) {
+          return chapterList.removeChapter(idx, {
+            webImportData,
+            activeCrawlSession,
+            setWebImportData,
+            syncSession: syncCrawlSessionChapters,
+            confirmAction
           });
-        });
+        }
       };
 
       const moveImportChapter = (idx, dir) => {
-        setWebImportData(prev => {
-          const base = prev || activeCrawlSession;
-          if (!base || !base.chapters) return prev;
-          const chapters = [...base.chapters];
-          const j = idx + dir;
-          if (j < 0 || j >= chapters.length) return prev;
-          [chapters[idx], chapters[j]] = [chapters[j], chapters[idx]];
-          syncCrawlSessionChapters(chapters);
-          return { ...base, chapters };
-        });
+        const chapterList = window.WebNovelCrawlerEngine?.ChapterList || WebNovelCrawlerEngine?.ChapterList;
+        if (chapterList?.moveChapter) {
+          return chapterList.moveChapter(idx, dir, {
+            webImportData,
+            activeCrawlSession,
+            setWebImportData,
+            syncSession: syncCrawlSessionChapters
+          });
+        }
       };
 
       const moveImportChapterToEdge = (idx, edge) => {
-        setWebImportData(prev => {
-          const base = prev || activeCrawlSession;
-          if (!base || !base.chapters || base.chapters.length <= 1) return prev;
-          const chapters = [...base.chapters];
-          const [target] = chapters.splice(idx, 1);
-          if (edge === 'top') {
-            chapters.unshift(target);
-          } else {
-            chapters.push(target);
-          }
-          syncCrawlSessionChapters(chapters);
-          return { ...base, chapters };
-        });
-        toast(edge === 'top' ? 'Moved chapter to start.' : 'Moved chapter to end.', 'info');
+        const chapterList = window.WebNovelCrawlerEngine?.ChapterList || WebNovelCrawlerEngine?.ChapterList;
+        if (chapterList?.moveChapterToEdge) {
+          return chapterList.moveChapterToEdge(idx, edge, {
+            webImportData,
+            activeCrawlSession,
+            setWebImportData,
+            syncSession: syncCrawlSessionChapters,
+            toast
+          });
+        }
       };
 
       const autoSortImportChapters = () => {
-        setWebImportData(prev => {
-          const base = prev || activeCrawlSession;
-          if (!base || !base.chapters || base.chapters.length <= 1) return prev;
-          const sortFn = window.WebNovelCrawlerEngine?.autoSortChapters;
-          const sorted = sortFn ? sortFn(base.chapters) : base.chapters;
-          syncCrawlSessionChapters(sorted);
-          return { ...base, chapters: sorted };
-        });
-        toast('✨ Chapters auto-sorted chronologically!', 'success');
+        const chapterList = window.WebNovelCrawlerEngine?.ChapterList || WebNovelCrawlerEngine?.ChapterList;
+        if (chapterList?.autoSort) {
+          return chapterList.autoSort({
+            webImportData,
+            activeCrawlSession,
+            setWebImportData,
+            syncSession: syncCrawlSessionChapters,
+            toast
+          });
+        }
       };
 
       const reverseImportChapters = () => {
-        setWebImportData(prev => {
-          const base = prev || activeCrawlSession;
-          if (!base || !base.chapters || base.chapters.length <= 1) return prev;
-          const revFn = window.WebNovelCrawlerEngine?.reverseChapters;
-          const chapters = revFn ? revFn(base.chapters) : [...base.chapters].reverse();
-          syncCrawlSessionChapters(chapters);
-          return { ...base, chapters };
-        });
-        toast('Chapters order reversed (1 ↔ N).', 'info');
+        const chapterList = window.WebNovelCrawlerEngine?.ChapterList || WebNovelCrawlerEngine?.ChapterList;
+        if (chapterList?.reverse) {
+          return chapterList.reverse({
+            webImportData,
+            activeCrawlSession,
+            setWebImportData,
+            syncSession: syncCrawlSessionChapters,
+            toast
+          });
+        }
       };
 
       const aiReorderImportChapters = async () => {
-        const currentData = webImportData || activeCrawlSession;
-        if (!currentData || !currentData.chapters || currentData.chapters.length <= 1) {
-          toast('No chapters to reorder.', 'info');
-          return;
-        }
-
-        const key = getActiveApiKey('gemini') || getActiveApiKey(provider);
-        if (!key) {
-          toast('Please add an API key in Settings for AI Reorder, or use Auto-Sort.', 'error');
-          return;
-        }
-
-        setIsAiSorting(true);
-        toast('🤖 AI analyzing chapter reading order...', 'info');
-
-        try {
-          const reorderFn = window.WebNovelCrawlerEngine?.aiReorderChapters;
-          if (!reorderFn) throw new Error('Crawler engine AI reorder not loaded.');
-          const res = await reorderFn({
-            chapters: currentData.chapters,
+        const chapterList = window.WebNovelCrawlerEngine?.ChapterList || WebNovelCrawlerEngine?.ChapterList;
+        if (chapterList?.aiReorder) {
+          return await chapterList.aiReorder({
+            webImportData,
+            activeCrawlSession,
             provider,
-            apiKey: key,
-            model: geminiModel,
+            getActiveApiKey,
+            geminiModel,
             customModel,
             useCustomModel,
             customDeepseekModel,
-            useCustomDeepseekModel,
-            callbacks: {
-              onError: (err) => console.warn('AI Reorder error:', err)
-            }
+            useCustomDeepseekModel
+          }, {
+            setIsAiSorting,
+            setWebImportData,
+            syncSession: syncCrawlSessionChapters,
+            autoSort: autoSortImportChapters,
+            toast
           });
-
-          if (res?.chapters) {
-            setWebImportData(prev => {
-              const base = prev || activeCrawlSession;
-              if (!base || !base.chapters) return prev;
-              syncCrawlSessionChapters(res.chapters);
-              return { ...base, chapters: res.chapters };
-            });
-
-            if (res.success) {
-              toast('✨ AI successfully reorganized chapters in reading order!', 'success');
-              try {
-                window.NativeBridge?.showCompletionNotification?.('Chapters Sorted! 🤖', `Successfully reorganized ${res.chapters.length} chapters into reading order.`);
-              } catch(e) {}
-            } else {
-              toast('AI sort notice: ' + (res.error?.message || 'Using Auto-Sort fallback.'), 'warn');
-            }
-          }
-        } catch (aiErr) {
-          console.warn('AI Reorder error:', aiErr);
-          toast('AI sort notice: ' + aiErr.message + '. Running instant Auto-Sort instead.', 'warn');
-          autoSortImportChapters();
-        } finally {
-          setIsAiSorting(false);
         }
       };
 

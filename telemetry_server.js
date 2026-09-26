@@ -430,7 +430,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 1. Health & Server Status
-  if (req.method === 'GET' && req.url === '/status') {
+  if (req.method === 'GET' && (req.url === '/status' || req.url === '/ping')) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'active',
