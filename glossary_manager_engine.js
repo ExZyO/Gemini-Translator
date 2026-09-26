@@ -723,6 +723,351 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
     return { terminology: '', activeGlossaryId: null };
   }
 
+  /**
+   * 13. Copy Standardized Master Glossary Prompt Template
+   */
+  const MASTER_GLOSSARY_PROMPT_TEMPLATE = `You are an expert literary localization editor and terminology engineer.
+Organize, standardize, clean up, and optimize raw glossary notes, character lists, or novel wiki notes into a standardized Master Glossary file for a translation engine.
+
+FORMATTING & STRUCTURE RULES:
+1. NO TOKEN-WASTING DIVIDERS (do not use === or --- lines). Use clean section numbers (I., II., III.) and blank lines.
+2. SECTION BREAKDOWN:
+   I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES (Global rules, tone, pronoun conventions like 祂 -> "He", formatting preservation)
+   II. CORE CONCEPTS & SYSTEM TERMS (Cultivation ranks, power systems, currencies, realms)
+   III. CHARACTER & FACTION DIRECTORY
+   IV. ABILITIES, ARTIFACTS, ITEMS & TECHNIQUES
+   V. GEOGRAPHY & LOCATIONS
+3. STANDARD SYNTAX FOR ENTRIES:
+   Format every term strictly as:
+   - [Original Language Source Key] -> [English Translation] ([Optional Lore, Notes, or Alias])
+   Always put the original language characters (Chinese/Korean/Japanese) on the LEFT side of ->.
+   FOR ALL CHARACTERS IN SECTION III: Always explicitly append their gender: (female), (male), or [context] (for gender-fluid, shifting, or dynamic forms).
+   Example:
+   - 休·迪尔查 -> Xio Derecha (female)
+   - 克莱恩·莫雷蒂 -> Klein Moretti (male)
+   - 特莉丝 -> Trissy [context]
+4. LOSSLESS REQUIREMENT: Do not delete, omit, summarize, deduplicate, merge, paraphrase, or silently correct any original rule, term, alias, note, example, heading, section, or line. Preserve every original fact and its ordering. You may add searchable aliases or index lines, but additions must be clearly additive and must never replace the original text.
+5. Keep all original content even when it appears repetitive or belongs to another series; the translation engine's dynamic selector decides what to use per source chunk.
+6. Output ONLY the lossless plaintext glossary content. No meta-commentary.
+
+---
+RAW GLOSSARY DATA TO CLEAN:
+[PASTE YOUR RAW NOTES HERE]`;
+
+  async function copyAiGlossaryPrompt(callbacks = {}) {
+    const prompt = MASTER_GLOSSARY_PROMPT_TEMPLATE;
+    let copied = false;
+    const copyFn = (callbacks && typeof callbacks.copyText === 'function')
+      ? callbacks.copyText
+      : (typeof window !== 'undefined' && typeof window.copyText === 'function' ? window.copyText : null);
+
+    if (copyFn) {
+      try {
+        await copyFn(prompt);
+        copied = true;
+      } catch (e) {}
+    }
+    if (!copied && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(prompt);
+        copied = true;
+      } catch (e) {}
+    }
+    if (callbacks && typeof callbacks.onCopied === 'function') {
+      callbacks.onCopied();
+    } else if (typeof callbacks === 'function') {
+      callbacks();
+    }
+    return prompt;
+  }
+
+  /**
+   * 14. Apply Glossary Preset (Presets from window.GLOSSARY_PRESETS)
+   */
+  function applyPreset(type, currentTerminology = '', currentInstructions = '') {
+    const presets = (typeof window !== 'undefined' && window.GLOSSARY_PRESETS)
+      || (typeof global !== 'undefined' && global.GLOSSARY_PRESETS) || {};
+    const selected = presets[type];
+    if (!selected) {
+      return {
+        updatedTerminology: currentTerminology || '',
+        updatedInstructions: currentInstructions || '',
+        isInstruction: false,
+        presetApplied: false
+      };
+    }
+    const isInstruction = (type === 'literary' || type === 'dialogue');
+    let updatedTerminology = currentTerminology || '';
+    let updatedInstructions = currentInstructions || '';
+
+    if (isInstruction) {
+      updatedInstructions = updatedInstructions ? `${updatedInstructions}\n${selected}` : selected;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('customInstructions', updatedInstructions);
+        }
+      } catch (e) {}
+    } else {
+      updatedTerminology = updatedTerminology ? `${updatedTerminology}\n\n${selected}` : selected;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('terminology', updatedTerminology);
+        }
+      } catch (e) {}
+    }
+
+    return {
+      updatedTerminology,
+      updatedInstructions,
+      isInstruction,
+      presetApplied: true
+    };
+  }
+
+  /**
+   * 15. Format Glossary Content Cleanly
+   */
+  function formatGlossaryContent(terminology = '') {
+    if (!terminology || !terminology.trim()) {
+      return '';
+    }
+    const fmt = (typeof window !== 'undefined' && window.formatGlossaryString)
+      || (typeof global !== 'undefined' && global.formatGlossaryString)
+      || (typeof formatGlossaryString === 'function' ? formatGlossaryString : null);
+    const formatted = fmt ? fmt(terminology) : terminology;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('terminology', formatted);
+      }
+    } catch (e) {}
+    return formatted;
+  }
+
+  /**
+   * 16. Auto-Glossary Extraction Orchestration Workflow
+   */
+  async function extractGlossaryWorkflow({
+    sampleText = '',
+    chapterCount = 5,
+    targetNovel = null,
+    chapters = [],
+    inputText = '',
+    options = {},
+    callbacks = {}
+  } = {}) {
+    let text = sampleText;
+    if (!text || !text.trim()) {
+      const targetChs = targetNovel?.chapters || targetNovel?.rawChapters || chapters || [];
+      if (targetChs && targetChs.length > 0) {
+        const count = Math.min(chapterCount || 5, targetChs.length);
+        let built = '';
+        for (let i = 0; i < count; i++) {
+          const c = targetChs[i];
+          const title = (typeof c === 'object' && c?.title) ? c.title : `Chapter ${i + 1}`;
+          const txt = (typeof c === 'string' ? c : (c?.text || c?.content || '')).slice(0, 4000);
+          built += `\n--- ${title} ---\n${txt}\n`;
+        }
+        text = built;
+      } else if (inputText && inputText.trim()) {
+        text = inputText.slice(0, 16000);
+      }
+    }
+
+    if (!text || !text.trim()) {
+      const err = new Error('Please load a novel or enter text in the translate box first');
+      if (callbacks && typeof callbacks.onError === 'function') {
+        callbacks.onError(err);
+      }
+      return null;
+    }
+
+    if (callbacks && typeof callbacks.onStart === 'function') {
+      callbacks.onStart(text);
+    }
+
+    try {
+      const parsedTerms = await extractGlossaryFromSample(text, options, callbacks);
+      if (callbacks && typeof callbacks.onSuccess === 'function') {
+        callbacks.onSuccess(parsedTerms);
+      }
+      return parsedTerms;
+    } catch (err) {
+      if (callbacks && typeof callbacks.onError === 'function') {
+        callbacks.onError(err);
+      } else {
+        throw err;
+      }
+      return null;
+    }
+  }
+
+  /**
+   * 17. Apply Extracted Terms Workflow
+   */
+  async function applyExtractedTermsWorkflow({
+    selected = [],
+    asNewProfile = false,
+    currentTerminology = '',
+    genderLocks = {},
+    targetNovel = null,
+    activeNovelRecord = null,
+    chapters = [],
+    savedGlossaries = [],
+    callbacks = {}
+  } = {}) {
+    const terms = (selected || []).filter(t => t && t.checked !== false);
+    if (terms.length === 0) {
+      if (callbacks && typeof callbacks.onError === 'function') {
+        callbacks.onError(new Error('No terms selected'));
+      }
+      return null;
+    }
+
+    const {
+      updatedTerminology,
+      autoLockedCount,
+      updatedGenderLocks,
+      structuredGlossary
+    } = applyExtractedTerms(terms, currentTerminology, {
+      genderLocks,
+      formatExtractedTermsIntoMasterGlossary: (typeof window !== 'undefined' && window.formatExtractedTermsIntoMasterGlossary)
+        || (typeof global !== 'undefined' && global.formatExtractedTermsIntoMasterGlossary)
+    });
+
+    if (autoLockedCount > 0) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('gemini_gender_locks', JSON.stringify(updatedGenderLocks));
+        }
+      } catch (e) {}
+    }
+
+    let newProfileName = null;
+
+    if (asNewProfile) {
+      const targetTitle = (targetNovel?.title || (chapters && chapters[0]?.title) || (activeNovelRecord && activeNovelRecord.title) || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+      const defaultName = targetTitle ? `${targetTitle} Glossary` : 'Auto Extracted Glossary';
+      const promptFn = (callbacks && callbacks.prompt) || (typeof window !== 'undefined' && window.prompt ? window.prompt.bind(window) : null);
+      const name = promptFn ? promptFn('Enter profile name for these terms:', defaultName) : defaultName;
+      if (!name || !name.trim()) {
+        return null;
+      }
+      newProfileName = name.trim();
+
+      if (callbacks && typeof callbacks.onSaveProfile === 'function') {
+        await callbacks.onSaveProfile(newProfileName, structuredGlossary);
+      } else {
+        await saveGlossary(newProfileName, structuredGlossary, '', savedGlossaries, callbacks);
+      }
+
+      if (targetNovel && typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
+        try {
+          const novelId = targetNovel.id || targetNovel.sourceUrl;
+          if (novelId) {
+            await window.GeminiNovelDB.updateNovel(novelId, {
+              glossaryProfile: newProfileName,
+              glossary: structuredGlossary
+            });
+          }
+        } catch (e) {
+          console.warn('Could not bind glossary to novel in DB:', e);
+        }
+      }
+    } else {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('terminology', updatedTerminology);
+        }
+      } catch (e) {}
+
+      if (targetNovel && typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
+        try {
+          const novelId = targetNovel.id || targetNovel.sourceUrl;
+          if (novelId) {
+            await window.GeminiNovelDB.updateNovel(novelId, {
+              glossary: updatedTerminology
+            });
+          }
+        } catch (e) {}
+      }
+    }
+
+    const result = {
+      updatedLocks: updatedGenderLocks,
+      updatedTerminology,
+      newProfileName,
+      autoLockedCount,
+      structuredGlossary,
+      selectedCount: terms.length
+    };
+
+    if (callbacks && typeof callbacks.onComplete === 'function') {
+      callbacks.onComplete(result);
+    }
+
+    return result;
+  }
+
+  /**
+   * 18. Name Consistency Verification Workflow
+   */
+  function runConsistencyCheckWorkflow({
+    terminology = '',
+    translatedChapters = [],
+    chapters = [],
+    assembledText = '',
+    inputText = '',
+    callbacks = {}
+  } = {}) {
+    const parseFn = (typeof window !== 'undefined' && window.parseUniversalGlossaryPairs)
+      || (typeof global !== 'undefined' && global.parseUniversalGlossaryPairs)
+      || (typeof parseUniversalGlossaryPairs === 'function' ? parseUniversalGlossaryPairs : null);
+
+    const pairs = parseFn ? parseFn(terminology || '') : [];
+    if (!pairs || pairs.length === 0) {
+      if (callbacks && typeof callbacks.onNoPairs === 'function') {
+        callbacks.onNoPairs();
+      }
+      return null;
+    }
+
+    const targetChapters = (translatedChapters && translatedChapters.length > 0)
+      ? translatedChapters
+      : (chapters && chapters.length > 0 ? chapters : [{ title: 'Current Output', content: assembledText || inputText || '' }]);
+
+    const auditFn = (typeof window !== 'undefined' && window.auditNameConsistency)
+      || (typeof global !== 'undefined' && global.auditNameConsistency)
+      || (typeof auditNameConsistency === 'function' ? auditNameConsistency : null);
+
+    const results = auditFn ? auditFn(pairs, targetChapters) : [];
+
+    if (callbacks && typeof callbacks.onComplete === 'function') {
+      callbacks.onComplete(results);
+    }
+    return results;
+  }
+
+  /**
+   * 19. Batch Fix Name Drift Workflow
+   */
+  function batchFixDriftWorkflow({
+    foundWord,
+    targetWord,
+    translatedChapters = [],
+    assembledText = '',
+    callbacks = {}
+  } = {}) {
+    const fixFn = (typeof window !== 'undefined' && window.batchFixNameDrift)
+      || (typeof global !== 'undefined' && global.batchFixNameDrift)
+      || batchFixDrift;
+
+    const res = fixFn(foundWord, targetWord, translatedChapters, assembledText);
+    if (callbacks && typeof callbacks.onComplete === 'function') {
+      callbacks.onComplete(res);
+    }
+    return res;
+  }
+
   const GlossaryManagerEngine = {
     saveGlossary,
     deleteGlossary,
@@ -739,7 +1084,14 @@ Output ONLY the glossary lines starting with a hyphen. Do not wrap in markdown c
     loadGlossary,
     unlinkGlossary,
     unloadGlossary,
-    resolveApiKey
+    resolveApiKey,
+    copyAiGlossaryPrompt,
+    applyPreset,
+    formatGlossaryContent,
+    extractGlossaryWorkflow,
+    applyExtractedTermsWorkflow,
+    runConsistencyCheckWorkflow,
+    batchFixDriftWorkflow
   };
 
   global.GlossaryManagerEngine = GlossaryManagerEngine;

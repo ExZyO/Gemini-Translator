@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.81';
+    let VERSION = '8.17.82';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -3487,22 +3487,14 @@
       };
 
       const applyGlossaryPreset = (type) => {
-        const presets = window.GLOSSARY_PRESETS || {};
-        const selected = presets[type];
-        if (selected) {
-          if (type === 'literary' || type === 'dialogue') {
-            setCustomInstructions(p => {
-              const next = p ? `${p}\n${selected}` : selected;
-              localStorage.setItem('customInstructions', next);
-              return next;
-            });
+        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+        const res = engine.applyPreset(type, terminology, customInstructions);
+        if (res.presetApplied) {
+          if (res.isInstruction) {
+            setCustomInstructions(res.updatedInstructions);
             toast(`Added ${type} instructions!`);
           } else {
-            setTerminology(p => {
-              const next = p ? `${p}\n\n${selected}` : selected;
-              localStorage.setItem('terminology', next);
-              return next;
-            });
+            setTerminology(res.updatedTerminology);
             toast(`Added ${type} terminology!`);
           }
         }
@@ -3513,9 +3505,9 @@
           toast('Glossary is empty.', 'warning');
           return setError('Glossary is empty.');
         }
-        const formatted = formatGlossaryString(terminology);
+        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+        const formatted = engine.formatGlossaryContent(terminology);
         setTerminology(formatted);
-        localStorage.setItem('terminology', formatted);
         toast('Glossary formatted cleanly!', 'success');
       };
 
@@ -3531,35 +3523,11 @@
       };
 
       const copyAiGlossaryPrompt = () => {
-        const prompt = `You are an expert literary localization editor and terminology engineer.
-Organize, standardize, clean up, and optimize raw glossary notes, character lists, or novel wiki notes into a standardized Master Glossary file for a translation engine.
-
-FORMATTING & STRUCTURE RULES:
-1. NO TOKEN-WASTING DIVIDERS (do not use === or --- lines). Use clean section numbers (I., II., III.) and blank lines.
-2. SECTION BREAKDOWN:
-   I. SYSTEM TRANSLATION RULES & STYLE GUIDELINES (Global rules, tone, pronoun conventions like 祂 -> "He", formatting preservation)
-   II. CORE CONCEPTS & SYSTEM TERMS (Cultivation ranks, power systems, currencies, realms)
-   III. CHARACTER & FACTION DIRECTORY
-   IV. ABILITIES, ARTIFACTS, ITEMS & TECHNIQUES
-   V. GEOGRAPHY & LOCATIONS
-3. STANDARD SYNTAX FOR ENTRIES:
-   Format every term strictly as:
-   - [Original Language Source Key] -> [English Translation] ([Optional Lore, Notes, or Alias])
-   Always put the original language characters (Chinese/Korean/Japanese) on the LEFT side of ->.
-   FOR ALL CHARACTERS IN SECTION III: Always explicitly append their gender: (female), (male), or [context] (for gender-fluid, shifting, or dynamic forms).
-   Example:
-   - 休·迪尔查 -> Xio Derecha (female)
-   - 克莱恩·莫雷蒂 -> Klein Moretti (male)
-   - 特莉丝 -> Trissy [context]
-4. LOSSLESS REQUIREMENT: Do not delete, omit, summarize, deduplicate, merge, paraphrase, or silently correct any original rule, term, alias, note, example, heading, section, or line. Preserve every original fact and its ordering. You may add searchable aliases or index lines, but additions must be clearly additive and must never replace the original text.
-5. Keep all original content even when it appears repetitive or belongs to another series; the translation engine's dynamic selector decides what to use per source chunk.
-6. Output ONLY the lossless plaintext glossary content. No meta-commentary.
-
----
-RAW GLOSSARY DATA TO CLEAN:
-[PASTE YOUR RAW NOTES HERE]`;
-
-        copyText(prompt).then(() => toast('AI Optimizer Prompt copied to clipboard!'));
+        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+        engine.copyAiGlossaryPrompt({
+          copyText,
+          onCopied: () => toast('AI Optimizer Prompt copied to clipboard!')
+        });
       };
 
       const handleAiOptimizeGlossary = async () => {
@@ -3630,27 +3598,14 @@ RAW GLOSSARY DATA TO CLEAN:
       };
 
       const handleExtractGlossary = async () => {
-        const targetChs = autoGlossaryTargetNovel?.chapters || autoGlossaryTargetNovel?.rawChapters || chapters || [];
-        let sampleText = '';
-        if (targetChs && targetChs.length > 0) {
-          const count = Math.min(autoGlossaryChapterCount, targetChs.length);
-          for (let i = 0; i < count; i++) {
-            const c = targetChs[i];
-            const title = (typeof c === 'object' && c?.title) ? c.title : `Chapter ${i + 1}`;
-            const txt = (typeof c === 'string' ? c : (c?.text || c?.content || '')).slice(0, 4000);
-            sampleText += `\n--- ${title} ---\n${txt}\n`;
-          }
-        } else if (inputText && inputText.trim()) {
-          sampleText = inputText.slice(0, 16000);
-        } else {
-          return toast('Please load a novel or enter text in the translate box first', 'warning');
-        }
-
         setIsExtractingGlossary(true);
-        window.telemetryLog?.('AUTO_GLOSSARY', `Started AI glossary extraction with ${sampleText.length} chars of novel text sample.`);
-        try {
-          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
-          const parsed = await engine.extractGlossaryFromSample(sampleText, {
+        const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+        await engine.extractGlossaryWorkflow({
+          targetNovel: autoGlossaryTargetNovel,
+          chapters,
+          chapterCount: autoGlossaryChapterCount,
+          inputText,
+          options: {
             provider,
             geminiModel,
             customModel,
@@ -3658,24 +3613,30 @@ RAW GLOSSARY DATA TO CLEAN:
             customDeepseekModel,
             useCustomDeepseekModel,
             fetchRetry
-          });
-
-          if (!parsed || parsed.length === 0) {
-            toast('No terms identified. Try increasing chapter count or check chapter content.', 'info');
-            window.telemetryLog?.('AUTO_GLOSSARY', 'No terms identified from novel sample.');
-          } else {
-            setExtractedTerms(parsed);
-            toast(`Extracted ${parsed.length} terms from novel!`, 'success');
-            window.telemetryLog?.('AUTO_GLOSSARY', `Successfully extracted ${parsed.length} terms from novel!`, { termCount: parsed.length });
-            try { window.NativeBridge?.showCompletionNotification?.('AI Glossary Extracted! ⚡', `Discovered ${parsed.length} character names and lore terms.`); } catch(e) {}
+          },
+          callbacks: {
+            onStart: (sampleText) => {
+              window.telemetryLog?.('AUTO_GLOSSARY', `Started AI glossary extraction with ${sampleText.length} chars of novel text sample.`);
+            },
+            onSuccess: (parsed) => {
+              if (!parsed || parsed.length === 0) {
+                toast('No terms identified. Try increasing chapter count or check chapter content.', 'info');
+                window.telemetryLog?.('AUTO_GLOSSARY', 'No terms identified from novel sample.');
+              } else {
+                setExtractedTerms(parsed);
+                toast(`Extracted ${parsed.length} terms from novel!`, 'success');
+                window.telemetryLog?.('AUTO_GLOSSARY', `Successfully extracted ${parsed.length} terms from novel!`, { termCount: parsed.length });
+                try { window.NativeBridge?.showCompletionNotification?.('AI Glossary Extracted! ⚡', `Discovered ${parsed.length} character names and lore terms.`); } catch(e) {}
+              }
+            },
+            onError: (err) => {
+              console.error('Auto-glossary extraction error:', err);
+              window.telemetryLog?.('AUTO_GLOSSARY', `Extraction failed: ${err.message}`, null, 'error');
+              toast(err.message.includes('Please load a novel') ? err.message : 'Extraction failed: ' + err.message, err.message.includes('Please load a novel') ? 'warning' : 'error');
+            }
           }
-        } catch (err) {
-          console.error('Auto-glossary extraction error:', err);
-          window.telemetryLog?.('AUTO_GLOSSARY', `Extraction failed: ${err.message}`, null, 'error');
-          toast('Extraction failed: ' + err.message, 'error');
-        } finally {
-          setIsExtractingGlossary(false);
-        }
+        });
+        setIsExtractingGlossary(false);
       };
 
       const handleApplyExtractedTerms = async (asNewProfile = false) => {
@@ -3683,99 +3644,77 @@ RAW GLOSSARY DATA TO CLEAN:
         if (selected.length === 0) return toast('No terms selected', 'warning');
 
         const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
-        const {
-          updatedTerminology,
-          autoLockedCount,
-          updatedGenderLocks,
-          structuredGlossary
-        } = engine.applyExtractedTerms(selected, terminology, {
+        await engine.applyExtractedTermsWorkflow({
+          selected,
+          asNewProfile,
+          currentTerminology: terminology,
           genderLocks,
-          formatExtractedTermsIntoMasterGlossary
-        });
-
-        if (autoLockedCount > 0) {
-          setGenderLocks(updatedGenderLocks);
-          try { localStorage.setItem('gemini_gender_locks', JSON.stringify(updatedGenderLocks)); } catch(e) {}
-          const lockedList = selected
-            .filter(t => t.gender || (/\b(?:female|f)\b/i.test(t.category)) || (/\b(?:male|m)\b/i.test(t.category)))
-            .map(t => `${t.trans || t.orig} [${(t.gender || (/\b(?:female|f)\b/i.test(t.category) ? 'female' : 'male')).toUpperCase()}]`);
-          window.telemetryLog?.('GENDER_LOCK', `Auto-locked ${autoLockedCount} character genders from extracted terms!`, {
-            autoLockedCount,
-            lockedCharacters: lockedList,
-            totalActiveLocks: Object.keys(updatedGenderLocks).length
-          });
-        }
-
-        if (asNewProfile) {
-          const targetTitle = (autoGlossaryTargetNovel?.title || (chapters && chapters[0]?.title) || (activeNovelRecord && activeNovelRecord.title) || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-          const defaultName = targetTitle ? `${targetTitle} Glossary` : 'Auto Extracted Glossary';
-          const name = prompt('Enter profile name for these terms:', defaultName);
-          if (!name || !name.trim()) return;
-          await handleSaveGlossary(name.trim(), structuredGlossary);
-
-          if (autoGlossaryTargetNovel && window.GeminiNovelDB) {
-            try {
-              const novelId = autoGlossaryTargetNovel.id || autoGlossaryTargetNovel.sourceUrl;
-              if (novelId) {
-                await window.GeminiNovelDB.updateNovel(novelId, {
-                  glossaryProfile: name.trim(),
-                  glossary: structuredGlossary
+          targetNovel: autoGlossaryTargetNovel,
+          activeNovelRecord,
+          chapters,
+          savedGlossaries,
+          callbacks: {
+            onSaveProfile: async (name, structuredGlossary) => {
+              await handleSaveGlossary(name, structuredGlossary);
+            },
+            onComplete: ({ updatedLocks, updatedTerminology, newProfileName, autoLockedCount }) => {
+              if (autoLockedCount > 0) {
+                setGenderLocks(updatedLocks);
+                const lockedList = selected
+                  .filter(t => t.gender || (/\b(?:female|f)\b/i.test(t.category)) || (/\b(?:male|m)\b/i.test(t.category)))
+                  .map(t => `${t.trans || t.orig} [${(t.gender || (/\b(?:female|f)\b/i.test(t.category) ? 'female' : 'male')).toUpperCase()}]`);
+                window.telemetryLog?.('GENDER_LOCK', `Auto-locked ${autoLockedCount} character genders from extracted terms!`, {
+                  autoLockedCount,
+                  lockedCharacters: lockedList,
+                  totalActiveLocks: Object.keys(updatedLocks).length
                 });
               }
-            } catch(e) {
-              console.warn('Could not bind glossary to novel in DB:', e);
+
+              if (asNewProfile && newProfileName) {
+                setAutoGlossaryModalOpen(false);
+                setAutoGlossaryTargetNovel(null);
+                window.telemetryLog?.('AUTO_GLOSSARY', `Saved ${selected.length} terms as profile "${newProfileName}".`);
+                toast(`Saved ${selected.length} terms as profile "${newProfileName}"!`, 'success');
+              } else {
+                setTerminology(updatedTerminology);
+                setAutoGlossaryModalOpen(false);
+                setAutoGlossaryTargetNovel(null);
+                window.telemetryLog?.('AUTO_GLOSSARY', `Applied ${selected.length} terms to active glossary.`);
+                toast(`Applied ${selected.length} terms to active glossary!`, 'success');
+              }
             }
           }
-          setAutoGlossaryModalOpen(false);
-          setAutoGlossaryTargetNovel(null);
-          window.telemetryLog?.('AUTO_GLOSSARY', `Saved ${selected.length} terms as profile "${name.trim()}".`);
-          toast(`Saved ${selected.length} terms as profile "${name.trim()}"!`, 'success');
-        } else {
-          setTerminology(updatedTerminology);
-          localStorage.setItem('terminology', updatedTerminology);
-          if (autoGlossaryTargetNovel && window.GeminiNovelDB) {
-            try {
-              const novelId = autoGlossaryTargetNovel.id || autoGlossaryTargetNovel.sourceUrl;
-              if (novelId) {
-                await window.GeminiNovelDB.updateNovel(novelId, {
-                  glossary: updatedTerminology
-                });
-              }
-            } catch(e) {}
-          }
-          setAutoGlossaryModalOpen(false);
-          setAutoGlossaryTargetNovel(null);
-          window.telemetryLog?.('AUTO_GLOSSARY', `Applied ${selected.length} terms to active glossary.`);
-          toast(`Applied ${selected.length} terms to active glossary!`, 'success');
-        }
+        });
       };
 
       // --- Feature 4: Name Consistency Verifier Engine ---
       const handleRunConsistencyCheck = () => {
-        const glossaryPairs = (typeof parseUniversalGlossaryPairs === 'function' ? parseUniversalGlossaryPairs(terminology || '') : window.parseUniversalGlossaryPairs?.(terminology || '')) || [];
-        if (glossaryPairs.length === 0) {
-          return toast('No glossary pairs found in active glossary. Use format "Original -> Translation" or "Original = Translation".', 'warning');
-        }
-
-        const chs = (translatedChapters && translatedChapters.length > 0)
-          ? translatedChapters
-          : (chapters && chapters.length > 0 ? chapters : [{ title: 'Current Output', content: assembledText || inputText }]);
-
-        setIsAuditingConsistency(true);
         const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
-        const results = engine.runConsistencyCheck(terminology, chs, assembledText || inputText);
-
-        setConsistencyAuditResults(results);
+        setIsAuditingConsistency(true);
+        const results = engine.runConsistencyCheckWorkflow({
+          terminology,
+          translatedChapters,
+          chapters,
+          assembledText,
+          inputText,
+          callbacks: {
+            onNoPairs: () => {
+              toast('No glossary pairs found in active glossary. Use format "Original -> Translation" or "Original = Translation".', 'warning');
+            }
+          }
+        });
         setIsAuditingConsistency(false);
+        if (results === null) return;
+        setConsistencyAuditResults(results);
         setConsistencyModalOpen(true);
       };
 
       const handleBatchFixDrift = (foundWord, targetWord) => {
         if (!foundWord || !targetWord) return;
         const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
-        const { updatedChapters, updatedAssembledText, replacedCount } = engine.batchFixDrift(
+        const { updatedChapters, updatedAssembledText, replacedCount } = engine.batchFixDriftWorkflow({
           foundWord, targetWord, translatedChapters, assembledText
-        );
+        });
         if (translatedChapters && translatedChapters.length > 0) setTranslatedChapters(updatedChapters);
         if (assembledText) setAssembledText(updatedAssembledText);
 
