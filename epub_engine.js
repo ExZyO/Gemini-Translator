@@ -678,9 +678,13 @@ hr {
               const metaRaw = localStorage.getItem('gemini_web_import_history_meta');
               if (metaRaw) {
                 const metaList = JSON.parse(metaRaw);
-                const cleanBT = String(bookTitle).replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                const cleanBT = (typeof window !== 'undefined' && window.normalizeTitleKey)
+                  ? window.normalizeTitleKey(bookTitle)
+                  : String(bookTitle).replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
                 const matched = (metaList || []).find(n => {
-                  const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                  const nt = (typeof window !== 'undefined' && window.normalizeTitleKey)
+                    ? window.normalizeTitleKey(n?.title)
+                    : String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
                   return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
                 });
                 if (matched?.cover) coverUrl = matched.cover.trim();
@@ -1834,9 +1838,13 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
       if (!coverCandidate && Array.isArray(historyList) && historyList.length > 0) {
         const searchTitle = extraOpts?.novelId || extraOpts?.title || state.fileName || state.currentDocTitle || '';
         if (searchTitle) {
-          const cleanST = String(searchTitle).replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+          const cleanST = (typeof window !== 'undefined' && window.normalizeTitleKey)
+            ? window.normalizeTitleKey(searchTitle)
+            : String(searchTitle).replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
           const matchedMeta = historyList.find(n => {
-            const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+            const nt = (typeof window !== 'undefined' && window.normalizeTitleKey)
+              ? window.normalizeTitleKey(n?.title)
+              : String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
             return nt && (nt === cleanST || cleanST.includes(nt) || nt.includes(cleanST)) && n.cover;
           });
           if (matchedMeta?.cover) coverCandidate = matchedMeta.cover;

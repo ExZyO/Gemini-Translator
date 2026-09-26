@@ -1544,7 +1544,9 @@
             console.warn('EPUB blob in record yielded 0 chapters, falling back to stored chapters array');
         }
 
-        state.title = (record.title || 'Novel').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim();
+        state.title = (typeof window !== 'undefined' && window.cleanTranslatedTitle)
+            ? window.cleanTranslatedTitle(record.title || 'Novel')
+            : (record.title || 'Novel').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim();
         state.author = (record.author || 'Gemini Translator').trim();
         state.series = record.series || '';
         state.lang = record.targetLang || 'en';

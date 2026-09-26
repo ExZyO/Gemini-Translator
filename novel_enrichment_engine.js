@@ -138,7 +138,9 @@
    */
   async function fetchNovelMetadata(rawTitle) {
     if (!rawTitle || typeof rawTitle !== 'string') return null;
-    const baseTitle = rawTitle.replace(/\s*\(Translated\)\s*$/i, '').trim();
+    const baseTitle = (typeof window !== 'undefined' && window.cleanTranslatedTitle)
+      ? window.cleanTranslatedTitle(rawTitle)
+      : rawTitle.replace(/\s*\(Translated\)\s*$/i, '').trim();
     const cleanQuery = baseTitle
       .replace(/\s*[-—~|:]\s*(?:Web Novel Complete Edition|Complete Edition|Web Novel|Arc Edition|Starting Life in Another World|Lnori|Syosetu|NovelBuddy|RoyalRoad|Witch Cult).*$/i, '')
       .replace(/\s*\(.*?\)\s*/g, ' ')
