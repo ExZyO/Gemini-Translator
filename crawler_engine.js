@@ -937,6 +937,10 @@
     dismissCrawl(params = {}) {
       const cbs = params.callbacks || params;
       return dismissCrawlSession(cbs);
+    },
+
+    searchNovels(queryOrUrl, sourceOverride = 'all', callbacks = {}) {
+      return searchNovels(queryOrUrl, sourceOverride, callbacks);
     }
   };
 

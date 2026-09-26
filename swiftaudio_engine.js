@@ -1060,6 +1060,98 @@
                 safeControllerToast(callbacks, 'Audiobook download error: ' + (e.message || e), 'error');
                 return null;
             }
+        },
+
+        /**
+         * Convenience delegator for search Audiobooks from UI
+         */
+        handleSwiftAudioSearch: async function(queryOrUrl, deps = {}) {
+            const { webImportUrl, toast, setIsSwiftAudioSearching, setWebImportStatus, setActiveAudiobook, setSwiftAudioResults } = deps;
+            const target = (queryOrUrl || webImportUrl || '').trim();
+            return await this.searchAudiobooks(target, {
+                toast,
+                onStart: () => {
+                    setIsSwiftAudioSearching?.(true);
+                    setWebImportStatus?.('Searching SwiftAudiobooks…');
+                },
+                onEnd: () => {
+                    setIsSwiftAudioSearching?.(false);
+                    setWebImportStatus?.('');
+                },
+                onBookLoaded: (book) => {
+                    setActiveAudiobook?.(book);
+                },
+                onResults: (results) => {
+                    setSwiftAudioResults?.(results);
+                }
+            });
+        },
+
+        /**
+         * Convenience delegator for starting / playing an audiobook from UI
+         */
+        handleStartPlayAudiobook: async function(bookOrResult, startTrack = 0, deps = {}) {
+            const { webImportUrl, toast, setActiveAudiobook, setIsFullPlayerOpen } = deps;
+            const target = bookOrResult || webImportUrl;
+            return await this.startPlayAudiobook(target, startTrack, {
+                toast,
+                onPlaying: (book) => {
+                    setActiveAudiobook?.(book);
+                    setIsFullPlayerOpen?.(true);
+                }
+            });
+        },
+
+        /**
+         * Convenience delegator for opening audiobook download modal from UI
+         */
+        handleOpenAudioDownload: async function(bookOrResult, deps = {}) {
+            const { webImportUrl, getNovelFolderOptions, toast, setActiveAudiobook, setAudioDownloadModal } = deps;
+            const target = bookOrResult || webImportUrl;
+            return await this.prepareAudioDownload(target, getNovelFolderOptions, {
+                toast,
+                onReady: (modalData) => {
+                    if (modalData && modalData.book) {
+                        setActiveAudiobook?.(modalData.book);
+                    }
+                    setAudioDownloadModal?.(modalData);
+                }
+            });
+        },
+
+        /**
+         * Convenience delegator for executing batch download from UI modal
+         */
+        handleExecuteAudioBatchDownload: async function(deps = {}) {
+            const { audioDownloadModal, getNovelFolderOptions, setAudioDownloadModal, toast } = deps;
+            if (!audioDownloadModal || !audioDownloadModal.book) return;
+            const book = audioDownloadModal.book;
+            const opts = audioDownloadModal.folderOptions || (typeof getNovelFolderOptions === 'function' ? getNovelFolderOptions(book) : {});
+            const selected = audioDownloadModal.selectedIndices || (book.tracks || []).map((_, i) => i);
+
+            return await this.executeBatchDownload(book, selected, opts, {
+                toast,
+                onProgress: (progress) => {
+                    setAudioDownloadModal?.(prev => prev ? ({
+                        ...prev,
+                        active: progress.active !== undefined ? progress.active : prev.active,
+                        status: progress.status,
+                        percent: progress.percent !== undefined ? progress.percent : prev.percent,
+                        completed: progress.completed
+                    }) : prev);
+                },
+                onSuccess: (res) => {
+                    setAudioDownloadModal?.(prev => prev ? ({
+                        ...prev,
+                        active: false,
+                        status: res && res.count ? `Complete! Downloaded ${res.count} chapter(s).` : 'Download completed.',
+                        percent: 100
+                    }) : null);
+                },
+                onError: (e) => {
+                    setAudioDownloadModal?.(prev => prev ? ({ ...prev, active: false, status: 'Download failed: ' + (e.message || e) }) : null);
+                }
+            });
         }
     };
 
