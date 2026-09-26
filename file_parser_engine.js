@@ -689,8 +689,128 @@
       const newTgt = srcLang;
       onSwapped(newSrc, newTgt);
       return { srcLang: newSrc, tgtLang: newTgt };
+    },
+
+    /**
+     * Attempts to partition assembled raw text by identifying base chapter titles
+     */
+    partitionTextByChapters(fullText, baseChapters) {
+      if (!fullText || !baseChapters || baseChapters.length <= 1) return null;
+      const positions = [];
+      for (let i = 0; i < baseChapters.length; i++) {
+        const ch = baseChapters[i];
+        const t = (ch.title || ch.originalTitle || '').trim();
+        if (!t) return null;
+        const regex = new RegExp(`(?:^|\\n)\\s*(?:#{1,6}\\s*)?(?:\\*\\*)?${t.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}(?:\\*\\*)?\\s*(?:\\n|$)`, 'i');
+        const match = fullText.match(regex);
+        if (!match || typeof match.index !== 'number') {
+          const idx = fullText.indexOf(t);
+          if (idx === -1) return null;
+          positions.push({ idx, title: t, origCh: ch });
+        } else {
+          positions.push({ idx: match.index, title: t, origCh: ch });
+        }
+      }
+      for (let i = 0; i < positions.length - 1; i++) {
+        if (positions[i].idx >= positions[i + 1].idx) return null;
+      }
+      const result = [];
+      for (let i = 0; i < positions.length; i++) {
+        const start = positions[i].idx;
+        const end = (i + 1 < positions.length) ? positions[i + 1].idx : fullText.length;
+        let chText = fullText.substring(start, end).trim();
+        const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+        const cleanContent = (typeof stripFn === 'function') ? stripFn(chText, positions[i].title, positions[i].origCh?.originalTitle) : chText;
+        result.push({
+          ...positions[i].origCh,
+          title: positions[i].title,
+          content: cleanContent,
+          text: cleanContent
+        });
+      }
+      return result;
+    },
+
+    /**
+     * Parses assembled full text into structured chapters by detecting markdown headings, bold titles, and standard CJK/Western chapter markers
+     */
+    parseAssembledTextToChapters(text, fallbackTitle = 'Chapter 1', knownTitles = []) {
+      if (!text || !text.trim()) return [];
+      const lines = text.split(/\r?\n/);
+      const cleanKnown = (knownTitles || []).map(t => String(t || '').replace(/^#{1,6}\s+/, '').replace(/^\*\*|\*\*$/g, '').trim().toLowerCase()).filter(Boolean);
+      const knownSet = new Set(cleanKnown);
+
+      // Matches markdown headings (# Title), bold headings (**Chapter 1**), standard chapter patterns (Chapter 1, Ch. 2, Volume 1, Prologue, etc.), CJK patterns (第1章, 第一回), and numbered patterns (1. Title, 1 - Title, 1: Title)
+      const headingRegex = /^(?:#{1,6}\s+(.+)$|\*\*(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc|第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]).+\*\*|(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc)\b\s*[\dIVXLCDM\s:.-].*|第[0-9零一二三四五六七八九十百千万]+[章回卷节篇].*|^(?:Chapter\s*)?\d+[\s:.-]+[A-Za-z\u4e00-\u9fa5].*)/i;
+      const parts = [];
+      let cur = null;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        const titleCandidate = trimmed.replace(/^#{1,6}\s+/, '').replace(/^\*\*|\*\*$/g, '').trim();
+        const isKnown = titleCandidate && knownSet.has(titleCandidate.toLowerCase());
+        const match = trimmed.match(headingRegex);
+        if ((match || isKnown) && trimmed.length <= 150) {
+          if (cur) parts.push({ title: cur.title, content: cur.content.trim() });
+          const titleClean = titleCandidate || (match && match[1]) || trimmed;
+          cur = { title: titleClean || fallbackTitle, content: '' };
+        } else if (cur) {
+          cur.content += line + '\n';
+        } else {
+          cur = { title: fallbackTitle, content: line + '\n' };
+        }
+      }
+      if (cur) parts.push({ title: cur.title, content: cur.content.trim() });
+      return parts;
+    },
+
+    /**
+     * Synchronizes live edits in the assembled studio text editor back into structured translatedChapters
+     */
+    syncAssembledTextToChapters({ newText, translatedChapters = [], setAssembledText, setTranslatedChapters, defaultTitle } = {}) {
+      if (typeof setAssembledText === 'function') {
+        setAssembledText(newText);
+      }
+      const knownTitles = (translatedChapters || []).map(c => c?.title || c?.originalTitle).filter(Boolean);
+      if (!translatedChapters || translatedChapters.length <= 1) {
+        const fallback = (translatedChapters && translatedChapters[0]?.title) || defaultTitle || 'Chapter 1';
+        const parsed = this.parseAssembledTextToChapters(newText, fallback, knownTitles);
+        if (typeof setTranslatedChapters === 'function') {
+          if (parsed.length > 0) {
+            setTranslatedChapters(parsed);
+          } else {
+            setTranslatedChapters([{ title: fallback, content: newText }]);
+          }
+        }
+      } else {
+        const parsed = this.parseAssembledTextToChapters(newText, translatedChapters[0]?.title || 'Chapter 1', knownTitles);
+        if (typeof setTranslatedChapters === 'function') {
+          if (parsed.length === translatedChapters.length) {
+            // Keep original chapter metadata (index, stats, raw) but update titles and content with user's edits
+            setTranslatedChapters(prev => (prev || []).map((ch, i) => ({
+              ...ch,
+              title: parsed[i].title || ch.title,
+              content: parsed[i].content || parsed[i].text || '',
+              text: parsed[i].content || parsed[i].text || ''
+            })));
+          } else if (parsed.length > 1) {
+            setTranslatedChapters(parsed);
+          } else if (parsed.length === 1 && translatedChapters.length > 1) {
+            const partitioned = this.partitionTextByChapters(newText, translatedChapters);
+            if (partitioned && partitioned.length === translatedChapters.length) {
+              setTranslatedChapters(partitioned);
+            }
+          }
+          // If parsed.length <= 1 and cannot partition, do NOT overwrite chapter 0 with all chapters; keep translatedChapters intact
+        }
+      }
     }
   };
 
   window.DocumentParser = DocumentParser;
+  window.partitionTextByChapters = DocumentParser.partitionTextByChapters.bind(DocumentParser);
+  window.parseAssembledTextToChapters = DocumentParser.parseAssembledTextToChapters.bind(DocumentParser);
+  window.syncAssembledTextToChapters = DocumentParser.syncAssembledTextToChapters.bind(DocumentParser);
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = DocumentParser;
+  }
 })(typeof window !== 'undefined' ? window : this);

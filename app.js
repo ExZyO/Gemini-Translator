@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.85';
+    let VERSION = '8.17.86';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1094,24 +1094,15 @@
       };
 
       const handleClearScopedBooks = async (booksToClear, scopeName) => {
-        if (!booksToClear || booksToClear.length === 0) return;
-        const count = booksToClear.length;
-        const idsToClear = booksToClear.map(b => b.id).filter(Boolean);
-        const snapshot = [...booksToClear];
-        window.__gemini_last_cleared_snapshot = snapshot;
-
-        if (window.LibraryEngine) {
-          await window.LibraryEngine.moveMultipleToTrash(idsToClear, {
-            onUpdateHistory: setWebImportHistory,
-            onUpdateTrashCount: loadTrashCount
+        if (window.LibraryEngine?.Trash?.clearScopedBooks) {
+          return window.LibraryEngine.Trash.clearScopedBooks({
+            booksToClear,
+            scopeName,
+            setWebImportHistory,
+            loadTrashCount,
+            toast
           });
         }
-        toast(`Moved ${count} ${scopeName} book(s) to Recycle Bin`, 'info', {
-          label: 'Undo',
-          onClick: async () => {
-            await handleRestoreSnapshot(snapshot);
-          }
-        });
       };
 
       const handleClearSavedSpace = async (books) => {
@@ -1123,272 +1114,143 @@
       };
 
       const clearAllNovelHistory = async () => {
-        const allBooks = [...(webImportHistory || [])];
-        if (allBooks.length === 0) return;
-
-        if (window.GeminiNovelDB) {
-          try {
-            await window.GeminiNovelDB.moveAllToTrash();
-          } catch (e) {}
+        if (window.LibraryEngine?.Trash?.clearAllHistory) {
+          return window.LibraryEngine.Trash.clearAllHistory({
+            webImportHistory,
+            setWebImportHistory,
+            loadTrashCount,
+            toast
+          });
         }
-        window.__gemini_last_cleared_snapshot = allBooks;
-        setWebImportHistory([]);
-        try { localStorage.removeItem('gemini_web_import_history_meta'); } catch (e) {}
-
-        loadTrashCount();
-
-        toast(`Moved all ${allBooks.length} books to Recycle Bin`, 'info', {
-          label: 'Undo',
-          onClick: async () => {
-            await handleRestoreSnapshot(allBooks);
-          }
-        });
       };
 
       const handleRestoreNovel = async (id) => {
-        if (!window.LibraryEngine) return;
-        await window.LibraryEngine.restoreFromTrash(id, {
-          toast,
-          onUpdateHistory: setWebImportHistory,
-          onUpdateTrashCount: loadTrashCount
-        });
+        if (window.LibraryEngine?.Trash?.restoreNovel) {
+          return window.LibraryEngine.Trash.restoreNovel(id, {
+            setWebImportHistory,
+            loadTrashCount,
+            toast
+          });
+        }
       };
 
       const handleRestoreSnapshot = async (snapshot) => {
-        if (!snapshot || snapshot.length === 0) return;
-        if (window.GeminiNovelDB) {
-          for (const b of snapshot) {
-            if (b.id) await window.GeminiNovelDB.restoreFromTrash(b.id);
-          }
+        if (window.LibraryEngine?.Trash?.restoreSnapshot) {
+          return window.LibraryEngine.Trash.restoreSnapshot(snapshot, {
+            setWebImportHistory,
+            loadTrashCount,
+            toast
+          });
         }
-        setWebImportHistory(prev => {
-          const existingIds = new Set(prev.map(p => p.id));
-          const restored = snapshot.filter(b => b.id && !existingIds.has(b.id));
-          const next = [...restored, ...prev];
-          try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(next)); } catch (e) {}
-          return next;
-        });
-        loadTrashCount();
-        toast(`Restored ${snapshot.length} book(s) to library!`, 'success');
       };
 
       const handleRestoreAllTrash = async () => {
-        if (window.GeminiNovelDB) {
-          const restoredItems = await window.GeminiNovelDB.restoreAllFromTrash();
-          if (restoredItems && restoredItems.length > 0) {
-            const restoredMetas = restoredItems.map(n => ({
-              id: n.id,
-              title: n.title,
-              author: n.author,
-              summary: n.summary,
-              cover: n.cover,
-              tags: n.tags,
-              chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
-              totalChapterCount: n.totalChapterCount || (n.chapterList ? n.chapterList.length : (n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0))),
-              volumeCount: n.volumeCount,
-              isIncomplete: !!n.isIncomplete,
-              isTranslated: !!n.isTranslated || (n.title || '').includes('(Translated)'),
-              inSavedSpace: !!n.inSavedSpace,
-              wordCount: n.wordCount,
-              timestamp: n.timestamp || new Date().toISOString(),
-              isEpub: n.isEpub,
-              sourceUrl: n.sourceUrl
-            }));
-            setWebImportHistory(prev => {
-              const existingIds = new Set(prev.map(p => p.id));
-              const adding = restoredMetas.filter(m => !existingIds.has(m.id));
-              const next = [...adding, ...prev];
-              try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(next)); } catch (e) {}
-              return next;
-            });
-            loadTrashCount();
-            toast(`Restored all ${restoredItems.length} novel(s) to library!`, 'success');
-          }
+        if (window.LibraryEngine?.Trash?.restoreAllTrash) {
+          return window.LibraryEngine.Trash.restoreAllTrash({
+            setWebImportHistory,
+            loadTrashCount,
+            toast
+          });
         }
       };
 
       const handlePermanentDelete = async (id) => {
-        if (!window.LibraryEngine) return;
-        await window.LibraryEngine.permanentDelete(id, {
-          toast,
-          onUpdateTrashCount: loadTrashCount
-        });
+        if (window.LibraryEngine?.Trash?.permanentDelete) {
+          return window.LibraryEngine.Trash.permanentDelete(id, {
+            loadTrashCount,
+            toast
+          });
+        }
       };
 
       const handleEmptyTrash = async () => {
-        if (!window.LibraryEngine) return;
-        await window.LibraryEngine.emptyTrash({
-          toast,
-          onUpdateTrashCount: loadTrashCount
-        });
+        if (window.LibraryEngine?.Trash?.emptyTrash) {
+          return window.LibraryEngine.Trash.emptyTrash({
+            loadTrashCount,
+            toast
+          });
+        }
       };
 
       const handleRestoreFromEpubFiles = async (e) => {
-        if (!window.LibraryEngine) return;
-        const files = Array.from(e.target.files || []);
-        if (files.length === 0) return;
-        await window.LibraryEngine.restoreFromEpubFiles(files, {
-          toast,
-          onUpdateHistory: setWebImportHistory,
-          onClearActiveCrawlSession: () => setActiveCrawlSession(null)
-        });
-        e.target.value = '';
+        if (window.LibraryEngine?.Trash?.restoreFromEpubFiles) {
+          return window.LibraryEngine.Trash.restoreFromEpubFiles(e, {
+            setWebImportHistory,
+            setActiveCrawlSession: () => setActiveCrawlSession(null),
+            toast
+          });
+        }
       };
 
       const handleReindexFromTranslationHistory = async () => {
-        if (!window.LibraryEngine) return;
-        await window.LibraryEngine.reindexFromTranslationHistory({
-          toast,
-          dbGetAll,
-          webImportHistory,
-          saveNovelToHistory
-        });
+        if (window.LibraryEngine?.Trash?.reindexFromTranslationHistory) {
+          return window.LibraryEngine.Trash.reindexFromTranslationHistory({
+            webImportHistory,
+            saveNovelToHistory,
+            toast
+          });
+        }
       };
 
       // ══════════════════════════════════════════════════════════════════════════
       // ONGOING EPUB CONTINUATION & MOON+ READER CONTINUITY ENGINE
       // ══════════════════════════════════════════════════════════════════════════
       const handleSearchContinuationSources = async (query) => {
-        const cleanQuery = (query || '').trim();
-        if (!cleanQuery) return;
-        setOngoingEpubModal(prev => prev ? { ...prev, isSearchingSources: true, continuationSources: [] } : null);
-        try {
-          const deduped = window.MoonReaderEngine
-            ? await window.MoonReaderEngine.searchContinuationSources(cleanQuery)
-            : [];
-          setOngoingEpubModal(prev => {
-            if (!prev) return null;
-            return {
-              ...prev,
-              isSearchingSources: false,
-              continuationSources: deduped
-            };
+        if (window.MoonReaderEngine?.Continuation?.handleSearchContinuationSources) {
+          return window.MoonReaderEngine.Continuation.handleSearchContinuationSources(query, {}, {
+            setOngoingEpubModal
           });
-        } catch (err) {
-          console.error('[handleSearchContinuationSources] Error:', err);
-          setOngoingEpubModal(prev => prev ? { ...prev, isSearchingSources: false } : null);
         }
       };
 
       const handleSelectContinuationSource = async (srcItem) => {
-        const targetUrl = srcItem?.url || srcItem?.path;
-        if (!targetUrl) return;
-        const srcName = srcItem?.source || srcItem?.name || 'source';
-        toast(`Switching to ${srcName}…`, 'info');
-        setOngoingEpubModal(prev => prev ? {
-          ...prev,
-          selectedSource: srcItem,
-          sourceUrl: targetUrl,
-          showSourceSwitcher: false
-        } : null);
-        await handleScanContinuationToc(targetUrl, ongoingEpubModal?.existingCount);
+        if (window.MoonReaderEngine?.Continuation?.handleSelectContinuationSource) {
+          return window.MoonReaderEngine.Continuation.handleSelectContinuationSource(srcItem, { ongoingEpubModal }, {
+            toast,
+            setOngoingEpubModal,
+            handleScanContinuationToc
+          });
+        }
       };
 
       const handleSelectOngoingEpubFile = async (file) => {
-        if (!window.MoonReaderEngine) return;
-        const modalState = await window.MoonReaderEngine.inspectOngoingEpubFile(file, { readEpub }, {
-          toast,
-          onModalState: setOngoingEpubModal,
-          onSearchSources: handleSearchContinuationSources,
-          onScanToc: handleScanContinuationToc
-        });
-        if (modalState) setOngoingEpubModal(modalState);
+        if (window.MoonReaderEngine?.Continuation?.handleSelectOngoingEpubFile) {
+          return window.MoonReaderEngine.Continuation.handleSelectOngoingEpubFile(file, { readEpub }, {
+            toast,
+            setOngoingEpubModal,
+            handleSearchContinuationSources,
+            handleScanContinuationToc
+          });
+        }
       };
 
       const handleOpenContinuationForNovel = async (novelItem) => {
-        if (!window.MoonReaderEngine) return;
-        const modalState = await window.MoonReaderEngine.openContinuationForNovel(novelItem, loadFullNovel, { readEpub }, {
-          toast,
-          onModalState: setOngoingEpubModal,
-          onSearchSources: handleSearchContinuationSources,
-          onScanToc: handleScanContinuationToc
-        });
-        if (modalState) setOngoingEpubModal(modalState);
+        if (window.MoonReaderEngine?.Continuation?.handleOpenContinuationForNovel) {
+          return window.MoonReaderEngine.Continuation.handleOpenContinuationForNovel(novelItem, { loadFullNovel, readEpub }, {
+            toast,
+            setOngoingEpubModal,
+            handleSearchContinuationSources,
+            handleScanContinuationToc
+          });
+        }
       };
 
       const handleScanContinuationToc = async (url, existingCount) => {
-        const targetUrl = (url || ongoingEpubModal?.sourceUrl || '').trim();
-        if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
-          return toast('Please enter a valid web novel source URL.', 'warning');
-        }
-        setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: true, sourceUrl: targetUrl } : null);
-        try {
-          if (!window.MoonReaderEngine) throw new Error('MoonReaderEngine is not loaded.');
-          const { totalOnlineCount, chapterList } = await window.MoonReaderEngine.scanContinuationToc(targetUrl);
-          if (!totalOnlineCount || totalOnlineCount === 0) {
-            toast('Failed to retrieve online chapters from this URL.', 'warning');
-            setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: false } : null);
-            return;
-          }
-
-          setOngoingEpubModal(prev => {
-            if (!prev) return null;
-            const curExisting = prev.existingCount || existingCount || 0;
-            const start = curExisting + 1;
-            return {
-              ...prev,
-              isScanningToc: false,
-              onlineToc: chapterList || [],
-              totalOnlineCount,
-              startChapter: Math.min(start, totalOnlineCount),
-              endChapter: totalOnlineCount
-            };
+        if (window.MoonReaderEngine?.Continuation?.handleScanContinuationToc) {
+          return window.MoonReaderEngine.Continuation.handleScanContinuationToc(url, { ongoingEpubModal, existingCount }, {
+            toast,
+            setOngoingEpubModal
           });
-          toast(`Discovered ${totalOnlineCount} chapters online! (Ready to fetch from Ch. ${(existingCount || 0) + 1})`, 'success');
-        } catch (err) {
-          console.error('Scan TOC error:', err);
-          toast('Failed to scan online source: ' + err.message, 'error');
-          setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: false } : null);
         }
       };
 
       const handleExecuteContinuation = async () => {
-        if (!ongoingEpubModal || !ongoingEpubModal.sourceUrl) {
-          return toast('Source URL is required to fetch new chapters.', 'warning');
-        }
-        setOngoingEpubModal(prev => prev ? {
-          ...prev,
-          isFetching: true,
-          progress: { status: 'Connecting to online source…', pct: 5, elapsed: '0s' }
-        } : null);
-
-        try {
-          if (!window.MoonReaderEngine) throw new Error('MoonReaderEngine is not loaded.');
-          const result = await window.MoonReaderEngine.executeContinuation(ongoingEpubModal, {
-            onProgress: (status, pct, elapsed) => {
-              setOngoingEpubModal(prev => prev ? {
-                ...prev,
-                progress: { status, pct, elapsed }
-              } : null);
-            }
+        if (window.MoonReaderEngine?.Continuation?.handleExecuteContinuation) {
+          return window.MoonReaderEngine.Continuation.handleExecuteContinuation({ ongoingEpubModal }, {
+            toast,
+            setOngoingEpubModal,
+            saveNovelToHistory
           });
-
-          const { epubBlob, mergedChapters, isInc, folderOpts, totalChapterCount, newFetchedCount } = result;
-          const { title, author, cover, uuid, sourceUrl } = ongoingEpubModal;
-
-          // Save updated novel into library with epubBlob cached for preserved re-downloads
-          await saveNovelToHistory({
-            title,
-            author,
-            cover,
-            uuid: uuid || '',
-            sourceUrl,
-            chapters: mergedChapters,
-            totalChapterCount,
-            isIncomplete: isInc,
-            isEpub: true,
-            epubBlob,
-            folderOptions: folderOpts,
-            folderPath: folderOpts?.folderPath || '',
-            folderTreeUri: folderOpts?.treeUri || ''
-          });
-
-          toast(`Updated "${title}"! Appended ${newFetchedCount} new chapters. Book ID and styling preserved for Moon+ Reader Pro!`, 'success');
-          setOngoingEpubModal(null);
-        } catch (err) {
-          console.error('Continuation error:', err);
-          toast('Continuation failed: ' + err.message, 'error');
-          setOngoingEpubModal(prev => prev ? { ...prev, isFetching: false } : null);
         }
       };
 
@@ -1424,101 +1286,28 @@
       const [activeBookMenuNovel, setActiveBookMenuNovel] = useState(null);
 
       const partitionTextByChapters = (fullText, baseChapters) => {
-        if (!fullText || !baseChapters || baseChapters.length <= 1) return null;
-        const positions = [];
-        for (let i = 0; i < baseChapters.length; i++) {
-          const ch = baseChapters[i];
-          const t = (ch.title || ch.originalTitle || '').trim();
-          if (!t) return null;
-          const regex = new RegExp(`(?:^|\\n)\\s*(?:#{1,6}\\s*)?(?:\\*\\*)?${t.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}(?:\\*\\*)?\\s*(?:\\n|$)`, 'i');
-          const match = fullText.match(regex);
-          if (!match || typeof match.index !== 'number') {
-            const idx = fullText.indexOf(t);
-            if (idx === -1) return null;
-            positions.push({ idx, title: t, origCh: ch });
-          } else {
-            positions.push({ idx: match.index, title: t, origCh: ch });
-          }
+        if (window.DocumentParser?.partitionTextByChapters) {
+          return window.DocumentParser.partitionTextByChapters(fullText, baseChapters);
         }
-        for (let i = 0; i < positions.length - 1; i++) {
-          if (positions[i].idx >= positions[i + 1].idx) return null;
-        }
-        const result = [];
-        for (let i = 0; i < positions.length; i++) {
-          const start = positions[i].idx;
-          const end = (i + 1 < positions.length) ? positions[i + 1].idx : fullText.length;
-          let chText = fullText.substring(start, end).trim();
-          const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
-          const cleanContent = (typeof stripFn === 'function') ? stripFn(chText, positions[i].title, positions[i].origCh?.originalTitle) : chText;
-          result.push({
-            ...positions[i].origCh,
-            title: positions[i].title,
-            content: cleanContent,
-            text: cleanContent
-          });
-        }
-        return result;
+        return null;
       };
 
       const parseAssembledTextToChapters = (text, fallbackTitle = 'Chapter 1', knownTitles = []) => {
-        if (!text || !text.trim()) return [];
-        const lines = text.split(/\r?\n/);
-        const cleanKnown = (knownTitles || []).map(t => String(t || '').replace(/^#{1,6}\s+/, '').replace(/^\*\*|\*\*$/g, '').trim().toLowerCase()).filter(Boolean);
-        const knownSet = new Set(cleanKnown);
-
-        // Matches markdown headings (# Title), bold headings (**Chapter 1**), standard chapter patterns (Chapter 1, Ch. 2, Volume 1, Prologue, etc.), CJK patterns (第1章, 第一回), and numbered patterns (1. Title, 1 - Title, 1: Title)
-        const headingRegex = /^(?:#{1,6}\s+(.+)$|\*\*(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc|第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]).+\*\*|(?:Chapter|Ch\.|Episode|Ep\.|Volume|Vol\.|Book|Part|Act|Section|Prologue|Epilogue|Side Story|Interlude|Arc)\b\s*[\dIVXLCDM\s:.-].*|第[0-9零一二三四五六七八九十百千万]+[章回卷节篇].*|^(?:Chapter\s*)?\d+[\s:.-]+[A-Za-z\u4e00-\u9fa5].*)/i;
-        const parts = [];
-        let cur = null;
-        for (const line of lines) {
-          const trimmed = line.trim();
-          const titleCandidate = trimmed.replace(/^#{1,6}\s+/, '').replace(/^\*\*|\*\*$/g, '').trim();
-          const isKnown = titleCandidate && knownSet.has(titleCandidate.toLowerCase());
-          const match = trimmed.match(headingRegex);
-          if ((match || isKnown) && trimmed.length <= 150) {
-            if (cur) parts.push({ title: cur.title, content: cur.content.trim() });
-            const titleClean = titleCandidate || (match && match[1]) || trimmed;
-            cur = { title: titleClean || fallbackTitle, content: '' };
-          } else if (cur) {
-            cur.content += line + '\n';
-          } else {
-            cur = { title: fallbackTitle, content: line + '\n' };
-          }
+        if (window.DocumentParser?.parseAssembledTextToChapters) {
+          return window.DocumentParser.parseAssembledTextToChapters(text, fallbackTitle, knownTitles);
         }
-        if (cur) parts.push({ title: cur.title, content: cur.content.trim() });
-        return parts;
+        return [];
       };
 
       const handleAssembledTextChange = (newText) => {
-        setAssembledText(newText);
-        const knownTitles = (translatedChapters || []).map(c => c?.title || c?.originalTitle).filter(Boolean);
-        if (!translatedChapters || translatedChapters.length <= 1) {
-          const defaultTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Chapter 1';
-          const parsed = parseAssembledTextToChapters(newText, defaultTitle, knownTitles);
-          if (parsed.length > 0) {
-            setTranslatedChapters(parsed);
-          } else {
-            setTranslatedChapters([{ title: defaultTitle, content: newText }]);
-          }
-        } else {
-          const parsed = parseAssembledTextToChapters(newText, translatedChapters[0]?.title || 'Chapter 1', knownTitles);
-          if (parsed.length === translatedChapters.length) {
-            // Keep original chapter metadata (index, stats, raw) but update titles and content with user's edits
-            setTranslatedChapters(prev => prev.map((ch, i) => ({
-              ...ch,
-              title: parsed[i].title || ch.title,
-              content: parsed[i].content || parsed[i].text || '',
-              text: parsed[i].content || parsed[i].text || ''
-            })));
-          } else if (parsed.length > 1) {
-            setTranslatedChapters(parsed);
-          } else if (parsed.length === 1 && translatedChapters.length > 1) {
-            const partitioned = partitionTextByChapters(newText, translatedChapters);
-            if (partitioned && partitioned.length === translatedChapters.length) {
-              setTranslatedChapters(partitioned);
-            }
-          }
-          // If parsed.length <= 1 and cannot partition, do NOT overwrite chapter 0 with all chapters; keep translatedChapters intact
+        if (window.DocumentParser?.syncAssembledTextToChapters) {
+          window.DocumentParser.syncAssembledTextToChapters({
+            newText,
+            translatedChapters,
+            setAssembledText,
+            setTranslatedChapters,
+            defaultTitle: (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Chapter 1'
+          });
         }
       };
 
@@ -4608,59 +4397,36 @@
       const [libCollapsed, setLibCollapsed] = useState({ books: false, history: false });
       const [libQuery, setLibQuery] = useState('');
       const [libTab, setLibTab] = useState('all');
-      const libQ = libQuery.trim().toLowerCase();
-      const filteredBooks = useMemo(() => {
-        if (!libQ) return webImportHistory || [];
-        return (webImportHistory || []).filter(item => {
-          const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleDateString() : '';
-          return `${item.title || ''} ${item.chapterCount || ''} ${dateStr}`.toLowerCase().includes(libQ);
-        });
-      }, [webImportHistory, libQ]);
-
-      const filteredHistory = useMemo(() => {
-        if (!libQ) return history || [];
-        return (history || []).filter(entry => {
-          const dateStr = entry.ts ? new Date(entry.ts).toLocaleDateString() : '';
-          return `${dateStr} ${entry.srcLang || ''} ${entry.tgtLang || ''} ${entry.outputPreview || ''}`.toLowerCase().includes(libQ);
-        });
-      }, [history, libQ]);
-
-      const filteredAudiobooks = useMemo(() => {
-        if (!libQ) return savedAudiobooks || [];
-        return (savedAudiobooks || []).filter(item => {
-          return `${item.title || ''} ${item.author || ''}`.toLowerCase().includes(libQ);
-        });
-      }, [savedAudiobooks, libQ]);
-
-      const totalSavedSpace = useMemo(() => (webImportHistory || []).filter(b => b && b.inSavedSpace).length, [webImportHistory]);
-      const totalTrans = useMemo(() => (webImportHistory || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)'))).length, [webImportHistory]);
-      const totalInc = useMemo(() => (webImportHistory || []).filter(b => b && b.isIncomplete).length + (savedTranslationSession ? 1 : 0), [webImportHistory, savedTranslationSession]);
-
-      const savedSpaceCount = useMemo(() => {
-        const m = (filteredBooks || []).filter(b => b && b.inSavedSpace).length;
-        return libQ ? `${m}/${totalSavedSpace}` : m;
-      }, [filteredBooks, totalSavedSpace, libQ]);
-
-      const transCount = useMemo(() => {
-        const m = (filteredBooks || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)'))).length;
-        return libQ ? `${m}/${totalTrans}` : m;
-      }, [filteredBooks, totalTrans, libQ]);
-
-      const incCount = useMemo(() => {
-        const m = (filteredBooks || []).filter(b => b && b.isIncomplete).length + (savedTranslationSession ? 1 : 0);
-        return libQ ? `${m}/${totalInc}` : m;
-      }, [filteredBooks, totalInc, savedTranslationSession, libQ]);
-
-      const allCountLabel = useMemo(() => {
-        const total = (webImportHistory || []).length;
-        return libQ ? `${filteredBooks.length}/${total}` : total;
-      }, [filteredBooks.length, webImportHistory, libQ]);
-      const displayedBooks = useMemo(() => {
-        if (libTab === 'saved') return (filteredBooks || []).filter(b => b && b.inSavedSpace);
-        if (libTab === 'translated') return (filteredBooks || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)')));
-        if (libTab === 'incomplete') return (filteredBooks || []).filter(b => b && b.isIncomplete);
-        return (filteredBooks || []).filter(Boolean);
-      }, [filteredBooks, libTab]);
+      const libMetrics = useMemo(() => {
+        if (window.LibraryEngine?.computeLibraryMetrics) {
+          return window.LibraryEngine.computeLibraryMetrics({
+            webImportHistory,
+            history,
+            savedAudiobooks,
+            libQuery,
+            libTab,
+            savedTranslationSession
+          });
+        }
+        return {
+          filteredBooks: webImportHistory || [],
+          filteredHistory: history || [],
+          filteredAudiobooks: savedAudiobooks || [],
+          displayedBooks: webImportHistory || [],
+          savedSpaceCount: 0,
+          transCount: 0,
+          incCount: 0,
+          allCountLabel: (webImportHistory || []).length
+        };
+      }, [webImportHistory, history, savedAudiobooks, libQuery, libTab, savedTranslationSession]);
+      const filteredBooks = libMetrics.filteredBooks;
+      const filteredHistory = libMetrics.filteredHistory;
+      const filteredAudiobooks = libMetrics.filteredAudiobooks;
+      const displayedBooks = libMetrics.displayedBooks;
+      const savedSpaceCount = libMetrics.savedSpaceCount;
+      const transCount = libMetrics.transCount;
+      const incCount = libMetrics.incCount;
+      const allCountLabel = libMetrics.allCountLabel;
       const translateStartRef = useRef(null);
       useEffect(() => {
         if (!isTranslating) {

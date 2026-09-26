@@ -707,6 +707,225 @@
         }
         return null;
       }
+    },
+
+    /**
+     * Workflow handlers for Ongoing EPUB Continuation UI
+     */
+    Continuation: {
+      async handleSelectOngoingEpubFile(e, options = {}, callbacks = {}) {
+        const file = (e && e.target && e.target.files) ? e.target.files[0] : e;
+        if (!file) return null;
+        const readEpub = options.readEpub || (typeof window !== 'undefined' ? window.readEpub : null);
+        const toast = callbacks.toast || (typeof window !== 'undefined' ? window.toast : null);
+        const setOngoingEpubModal = callbacks.setOngoingEpubModal || callbacks.onModalState;
+        const onSearch = callbacks.handleSearchContinuationSources || callbacks.onSearchSources || ((q) => this.handleSearchContinuationSources(q, options, callbacks));
+        const onScan = callbacks.handleScanContinuationToc || callbacks.onScanToc || ((u, count) => this.handleScanContinuationToc(u, { ...options, existingCount: count }, callbacks));
+
+        const modalState = await MoonReaderEngine.inspectOngoingEpubFile(file, { readEpub }, {
+          toast,
+          onModalState: setOngoingEpubModal,
+          onSearchSources: onSearch,
+          onScanToc: onScan
+        });
+        if (modalState && typeof setOngoingEpubModal === 'function') {
+          setOngoingEpubModal(modalState);
+        }
+        if (e && e.target && 'value' in e.target) {
+          e.target.value = '';
+        }
+        return modalState;
+      },
+
+      async handleOpenContinuationForNovel(novelItem, options = {}, callbacks = {}) {
+        if (!novelItem) return null;
+        const readEpub = options.readEpub || (typeof window !== 'undefined' ? window.readEpub : null);
+        const loadFullNovel = options.loadFullNovel || (typeof window !== 'undefined' ? (window.loadFullNovel || window.LibraryEngine?.loadFullNovel) : null);
+        const toast = callbacks.toast || (typeof window !== 'undefined' ? window.toast : null);
+        const setOngoingEpubModal = callbacks.setOngoingEpubModal || callbacks.onModalState;
+        const onSearch = callbacks.handleSearchContinuationSources || callbacks.onSearchSources || ((q) => this.handleSearchContinuationSources(q, options, callbacks));
+        const onScan = callbacks.handleScanContinuationToc || callbacks.onScanToc || ((u, count) => this.handleScanContinuationToc(u, { ...options, existingCount: count }, callbacks));
+
+        const modalState = await MoonReaderEngine.openContinuationForNovel(novelItem, loadFullNovel, { readEpub }, {
+          toast,
+          onModalState: setOngoingEpubModal,
+          onSearchSources: onSearch,
+          onScanToc: onScan
+        });
+        if (modalState && typeof setOngoingEpubModal === 'function') {
+          setOngoingEpubModal(modalState);
+        }
+        return modalState;
+      },
+
+      async handleScanContinuationToc(url, options = {}, callbacks = {}) {
+        const targetUrl = (url || options.url || options.sourceUrl || options.ongoingEpubModal?.sourceUrl || '').trim();
+        const toast = callbacks.toast || (typeof window !== 'undefined' ? window.toast : console.log);
+        const setOngoingEpubModal = callbacks.setOngoingEpubModal || callbacks.onModalState;
+        const existingCount = options.existingCount !== undefined ? options.existingCount : (options.ongoingEpubModal?.existingCount || 0);
+
+        if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
+          if (typeof toast === 'function') toast('Please enter a valid web novel source URL.', 'warning');
+          return null;
+        }
+        if (typeof setOngoingEpubModal === 'function') {
+          setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: true, sourceUrl: targetUrl } : null);
+        }
+        try {
+          const { totalOnlineCount, chapterList } = await MoonReaderEngine.scanContinuationToc(targetUrl);
+          if (!totalOnlineCount || totalOnlineCount === 0) {
+            if (typeof toast === 'function') toast('Failed to retrieve online chapters from this URL.', 'warning');
+            if (typeof setOngoingEpubModal === 'function') {
+              setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: false } : null);
+            }
+            return null;
+          }
+
+          if (typeof setOngoingEpubModal === 'function') {
+            setOngoingEpubModal(prev => {
+              if (!prev) return null;
+              const curExisting = prev.existingCount || existingCount || 0;
+              const start = curExisting + 1;
+              return {
+                ...prev,
+                isScanningToc: false,
+                onlineToc: chapterList || [],
+                totalOnlineCount,
+                startChapter: Math.min(start, totalOnlineCount),
+                endChapter: totalOnlineCount
+              };
+            });
+          }
+          if (typeof toast === 'function') {
+            toast(`Discovered ${totalOnlineCount} chapters online! (Ready to fetch from Ch. ${(existingCount || 0) + 1})`, 'success');
+          }
+          return { totalOnlineCount, chapterList };
+        } catch (err) {
+          console.error('Scan TOC error:', err);
+          if (typeof toast === 'function') toast('Failed to scan online source: ' + err.message, 'error');
+          if (typeof setOngoingEpubModal === 'function') {
+            setOngoingEpubModal(prev => prev ? { ...prev, isScanningToc: false } : null);
+          }
+          return null;
+        }
+      },
+
+      async handleSearchContinuationSources(cleanTitle, options = {}, callbacks = {}) {
+        const query = (cleanTitle || options.query || '').trim();
+        if (!query) return [];
+        const setOngoingEpubModal = callbacks.setOngoingEpubModal || callbacks.onModalState;
+        if (typeof setOngoingEpubModal === 'function') {
+          setOngoingEpubModal(prev => prev ? { ...prev, isSearchingSources: true, continuationSources: [] } : null);
+        }
+        try {
+          const deduped = await MoonReaderEngine.searchContinuationSources(query);
+          if (typeof setOngoingEpubModal === 'function') {
+            setOngoingEpubModal(prev => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                isSearchingSources: false,
+                continuationSources: deduped
+              };
+            });
+          }
+          return deduped;
+        } catch (err) {
+          console.error('[handleSearchContinuationSources] Error:', err);
+          if (typeof setOngoingEpubModal === 'function') {
+            setOngoingEpubModal(prev => prev ? { ...prev, isSearchingSources: false } : null);
+          }
+          return [];
+        }
+      },
+
+      async handleSelectContinuationSource(source, options = {}, callbacks = {}) {
+        const targetUrl = source?.url || source?.path;
+        if (!targetUrl) return;
+        const toast = callbacks.toast || (typeof window !== 'undefined' ? window.toast : console.log);
+        const setOngoingEpubModal = callbacks.setOngoingEpubModal || callbacks.onModalState;
+        const srcName = source?.source || source?.name || 'source';
+        if (typeof toast === 'function') toast(`Switching to ${srcName}…`, 'info');
+        if (typeof setOngoingEpubModal === 'function') {
+          setOngoingEpubModal(prev => prev ? {
+            ...prev,
+            selectedSource: source,
+            sourceUrl: targetUrl,
+            showSourceSwitcher: false
+          } : null);
+        }
+        const onScan = callbacks.handleScanContinuationToc || callbacks.onScanToc || ((u, count) => this.handleScanContinuationToc(u, { ...options, existingCount: count }, callbacks));
+        const count = options.existingCount !== undefined ? options.existingCount : options.ongoingEpubModal?.existingCount;
+        await onScan(targetUrl, count);
+      },
+
+      async handleExecuteContinuation(options = {}, callbacks = {}) {
+        const ongoingEpubModal = options.ongoingEpubModal || options;
+        const toast = callbacks.toast || (typeof window !== 'undefined' ? window.toast : console.log);
+        const setOngoingEpubModal = callbacks.setOngoingEpubModal || callbacks.onModalState;
+        const saveNovelToHistory = callbacks.saveNovelToHistory || (typeof window !== 'undefined' ? (window.saveNovelToHistory || window.LibraryEngine?.saveNovelToHistory) : null);
+
+        if (!ongoingEpubModal || !ongoingEpubModal.sourceUrl) {
+          if (typeof toast === 'function') toast('Source URL is required to fetch new chapters.', 'warning');
+          return;
+        }
+        if (typeof setOngoingEpubModal === 'function') {
+          setOngoingEpubModal(prev => prev ? {
+            ...prev,
+            isFetching: true,
+            progress: { status: 'Connecting to online source…', pct: 5, elapsed: '0s' }
+          } : null);
+        }
+
+        try {
+          const result = await MoonReaderEngine.executeContinuation(ongoingEpubModal, {
+            onProgress: (status, pct, elapsed) => {
+              if (typeof setOngoingEpubModal === 'function') {
+                setOngoingEpubModal(prev => prev ? {
+                  ...prev,
+                  progress: { status, pct, elapsed }
+                } : null);
+              }
+            }
+          });
+
+          const { epubBlob, mergedChapters, isInc, folderOpts, totalChapterCount, newFetchedCount } = result;
+          const { title, author, cover, uuid, sourceUrl } = ongoingEpubModal;
+
+          // Save updated novel into library with epubBlob cached for preserved re-downloads
+          if (typeof saveNovelToHistory === 'function') {
+            await saveNovelToHistory({
+              title,
+              author,
+              cover,
+              uuid: uuid || '',
+              sourceUrl,
+              chapters: mergedChapters,
+              totalChapterCount,
+              isIncomplete: isInc,
+              isEpub: true,
+              epubBlob,
+              folderOptions: folderOpts,
+              folderPath: folderOpts?.folderPath || '',
+              folderTreeUri: folderOpts?.treeUri || ''
+            });
+          }
+
+          if (typeof toast === 'function') {
+            toast(`Updated "${title}"! Appended ${newFetchedCount} new chapters. Book ID and styling preserved for Moon+ Reader Pro!`, 'success');
+          }
+          if (typeof setOngoingEpubModal === 'function') {
+            setOngoingEpubModal(null);
+          }
+          return result;
+        } catch (err) {
+          console.error('Continuation error:', err);
+          if (typeof toast === 'function') toast('Continuation failed: ' + err.message, 'error');
+          if (typeof setOngoingEpubModal === 'function') {
+            setOngoingEpubModal(prev => prev ? { ...prev, isFetching: false } : null);
+          }
+        }
+      }
     }
   };
 

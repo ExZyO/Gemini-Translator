@@ -1579,6 +1579,293 @@
         console.warn('[LibraryEngine] Cover hydration warning:', e);
         return [];
       }
+    },
+
+    /**
+     * Computes filtered lists and badge counts for the library bookshelf view
+     */
+    computeLibraryMetrics({
+      webImportHistory = [],
+      history = [],
+      savedAudiobooks = [],
+      libQuery = '',
+      libTab = 'all',
+      savedTranslationSession = null
+    } = {}) {
+      const libQ = (libQuery || '').trim().toLowerCase();
+      const filteredBooks = !libQ
+        ? (webImportHistory || [])
+        : (webImportHistory || []).filter(item => {
+            if (!item) return false;
+            const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleDateString() : '';
+            return `${item.title || ''} ${item.chapterCount || ''} ${dateStr}`.toLowerCase().includes(libQ);
+          });
+
+      const filteredHistory = !libQ
+        ? (history || [])
+        : (history || []).filter(entry => {
+            if (!entry) return false;
+            const dateStr = entry.ts ? new Date(entry.ts).toLocaleDateString() : '';
+            return `${dateStr} ${entry.srcLang || ''} ${entry.tgtLang || ''} ${entry.outputPreview || ''}`.toLowerCase().includes(libQ);
+          });
+
+      const filteredAudiobooks = !libQ
+        ? (savedAudiobooks || [])
+        : (savedAudiobooks || []).filter(item => {
+            if (!item) return false;
+            return `${item.title || ''} ${item.author || ''}`.toLowerCase().includes(libQ);
+          });
+
+      const totalSavedSpace = (webImportHistory || []).filter(b => b && b.inSavedSpace).length;
+      const totalTrans = (webImportHistory || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)'))).length;
+      const totalInc = (webImportHistory || []).filter(b => b && b.isIncomplete).length + (savedTranslationSession ? 1 : 0);
+
+      const mSaved = (filteredBooks || []).filter(b => b && b.inSavedSpace).length;
+      const savedSpaceCount = libQ ? `${mSaved}/${totalSavedSpace}` : mSaved;
+
+      const mTrans = (filteredBooks || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)'))).length;
+      const transCount = libQ ? `${mTrans}/${totalTrans}` : mTrans;
+
+      const mInc = (filteredBooks || []).filter(b => b && b.isIncomplete).length + (savedTranslationSession ? 1 : 0);
+      const incCount = libQ ? `${mInc}/${totalInc}` : mInc;
+
+      const total = (webImportHistory || []).length;
+      const allCountLabel = libQ ? `${filteredBooks.length}/${total}` : total;
+
+      let displayedBooks;
+      if (libTab === 'saved') {
+        displayedBooks = (filteredBooks || []).filter(b => b && b.inSavedSpace);
+      } else if (libTab === 'translated') {
+        displayedBooks = (filteredBooks || []).filter(b => b && (b.isTranslated || (b.title || '').includes('(Translated)')));
+      } else if (libTab === 'incomplete') {
+        displayedBooks = (filteredBooks || []).filter(b => b && b.isIncomplete);
+      } else {
+        displayedBooks = (filteredBooks || []).filter(Boolean);
+      }
+
+      return {
+        filteredBooks,
+        filteredHistory,
+        filteredAudiobooks,
+        displayedBooks,
+        savedSpaceCount,
+        transCount,
+        incCount,
+        allCountLabel
+      };
+    },
+
+    /**
+     * Recycle Bin & Trash Management Operations
+     */
+    Trash: {
+      /**
+       * Moves scoped books (e.g. translated, incomplete, saved) to Recycle Bin
+       */
+      async clearScopedBooks({ booksToClear, scopeName = 'books', setWebImportHistory, loadTrashCount, toast } = {}) {
+        if (!booksToClear || booksToClear.length === 0) return;
+        const count = booksToClear.length;
+        const idsToClear = booksToClear.map(b => b && b.id).filter(Boolean);
+        const snapshot = [...booksToClear];
+        if (typeof window !== 'undefined') {
+          window.__gemini_last_cleared_snapshot = snapshot;
+        }
+
+        if (LibraryEngine.moveMultipleToTrash) {
+          await LibraryEngine.moveMultipleToTrash(idsToClear, {
+            onUpdateHistory: setWebImportHistory,
+            onUpdateTrashCount: loadTrashCount
+          });
+        }
+        if (typeof toast === 'function') {
+          toast(`Moved ${count} ${scopeName} book(s) to Recycle Bin`, 'info', {
+            label: 'Undo',
+            onClick: async () => {
+              await this.restoreSnapshot(snapshot, { setWebImportHistory, loadTrashCount, toast });
+            }
+          });
+        }
+      },
+
+      /**
+       * Moves all novel history to Recycle Bin
+       */
+      async clearAllHistory({ webImportHistory, setWebImportHistory, loadTrashCount, toast } = {}) {
+        const allBooks = [...(webImportHistory || [])];
+        if (allBooks.length === 0) return;
+
+        if (window.GeminiNovelDB?.moveAllToTrash) {
+          try {
+            await window.GeminiNovelDB.moveAllToTrash();
+          } catch (e) {}
+        }
+        if (typeof window !== 'undefined') {
+          window.__gemini_last_cleared_snapshot = allBooks;
+        }
+        if (typeof setWebImportHistory === 'function') {
+          setWebImportHistory([]);
+        }
+        try { localStorage.removeItem('gemini_web_import_history_meta'); } catch (e) {}
+
+        if (typeof loadTrashCount === 'function') {
+          loadTrashCount();
+        }
+
+        if (typeof toast === 'function') {
+          toast(`Moved all ${allBooks.length} books to Recycle Bin`, 'info', {
+            label: 'Undo',
+            onClick: async () => {
+              await this.restoreSnapshot(allBooks, { setWebImportHistory, loadTrashCount, toast });
+            }
+          });
+        }
+      },
+
+      /**
+       * Restores a single novel from trash
+       */
+      async restoreNovel(id, { setWebImportHistory, loadTrashCount, toast } = {}) {
+        if (!LibraryEngine.restoreFromTrash) return;
+        await LibraryEngine.restoreFromTrash(id, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onUpdateTrashCount: loadTrashCount
+        });
+      },
+
+      /**
+       * Restores a snapshot array of novels to the library
+       */
+      async restoreSnapshot(snapshot, { setWebImportHistory, loadTrashCount, toast } = {}) {
+        if (!snapshot || snapshot.length === 0) return;
+        if (window.GeminiNovelDB?.restoreFromTrash) {
+          for (const b of snapshot) {
+            if (b && b.id) await window.GeminiNovelDB.restoreFromTrash(b.id);
+          }
+        }
+        if (typeof setWebImportHistory === 'function') {
+          setWebImportHistory(prev => {
+            const existingIds = new Set((prev || []).map(p => p.id));
+            const restored = snapshot.filter(b => b && b.id && !existingIds.has(b.id));
+            const next = [...restored, ...(prev || [])];
+            try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(next)); } catch (e) {}
+            return next;
+          });
+        }
+        if (typeof loadTrashCount === 'function') {
+          loadTrashCount();
+        }
+        if (typeof toast === 'function') {
+          toast(`Restored ${snapshot.length} book(s) to library!`, 'success');
+        }
+      },
+
+      /**
+       * Restores all novels from the recycle bin
+       */
+      async restoreAllTrash({ setWebImportHistory, loadTrashCount, toast } = {}) {
+        if (!window.GeminiNovelDB?.restoreAllFromTrash) return;
+        const restoredItems = await window.GeminiNovelDB.restoreAllFromTrash();
+        if (restoredItems && restoredItems.length > 0) {
+          const restoredMetas = restoredItems.map(n => ({
+            id: n.id,
+            title: n.title,
+            author: n.author,
+            summary: n.summary,
+            cover: n.cover,
+            tags: n.tags,
+            chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
+            totalChapterCount: n.totalChapterCount || (n.chapterList ? n.chapterList.length : (n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0))),
+            volumeCount: n.volumeCount,
+            isIncomplete: !!n.isIncomplete,
+            isTranslated: !!n.isTranslated || (n.title || '').includes('(Translated)'),
+            inSavedSpace: !!n.inSavedSpace,
+            wordCount: n.wordCount,
+            timestamp: n.timestamp || new Date().toISOString(),
+            isEpub: n.isEpub,
+            sourceUrl: n.sourceUrl
+          }));
+          if (typeof setWebImportHistory === 'function') {
+            setWebImportHistory(prev => {
+              const existingIds = new Set((prev || []).map(p => p.id));
+              const adding = restoredMetas.filter(m => !existingIds.has(m.id));
+              const next = [...adding, ...(prev || [])];
+              try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
+          }
+          if (typeof loadTrashCount === 'function') {
+            loadTrashCount();
+          }
+          if (typeof toast === 'function') {
+            toast(`Restored all ${restoredItems.length} novel(s) to library!`, 'success');
+          }
+        }
+      },
+
+      /**
+       * Permanently deletes a single novel by ID from trash
+       */
+      async permanentDelete(id, { loadTrashCount, toast } = {}) {
+        if (!LibraryEngine.permanentDelete) return;
+        await LibraryEngine.permanentDelete(id, {
+          toast,
+          onUpdateTrashCount: loadTrashCount
+        });
+      },
+
+      /**
+       * Empties the entire trash bin
+       */
+      async emptyTrash({ loadTrashCount, toast } = {}) {
+        if (!LibraryEngine.emptyTrash) return;
+        await LibraryEngine.emptyTrash({
+          toast,
+          onUpdateTrashCount: loadTrashCount
+        });
+      },
+
+      /**
+       * Restores novels from one or more user-selected EPUB files
+       */
+      async restoreFromEpubFiles(files, { setWebImportHistory, setActiveCrawlSession, toast } = {}) {
+        if (!LibraryEngine.restoreFromEpubFiles) return;
+        let fileList = [];
+        if (Array.isArray(files)) {
+          fileList = files;
+        } else if (files && files.target && files.target.files) {
+          fileList = Array.from(files.target.files || []);
+        } else if (files && files.length !== undefined) {
+          fileList = Array.from(files);
+        } else if (files) {
+          fileList = [files];
+        }
+        if (fileList.length === 0) return;
+        await LibraryEngine.restoreFromEpubFiles(fileList, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onClearActiveCrawlSession: () => {
+            if (typeof setActiveCrawlSession === 'function') setActiveCrawlSession(null);
+          }
+        });
+        if (files && files.target && 'value' in files.target) {
+          files.target.value = '';
+        }
+      },
+
+      /**
+       * Reindexes and recovers translated novels from IndexedDB history table
+       */
+      async reindexFromTranslationHistory({ webImportHistory, saveNovelToHistory, toast, dbGetAll } = {}) {
+        if (!LibraryEngine.reindexFromTranslationHistory) return;
+        const dbGetAllFn = dbGetAll || (typeof window !== 'undefined' ? (window.dbGetAll || window.StorageEngine?.dbGetAll) : null);
+        await LibraryEngine.reindexFromTranslationHistory({
+          toast,
+          dbGetAll: dbGetAllFn,
+          webImportHistory,
+          saveNovelToHistory
+        });
+      }
     }
   };
 
