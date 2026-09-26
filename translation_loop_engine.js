@@ -6,6 +6,7 @@
  * - extractTextNodes(element): Traverses DOM with createTreeWalker and extracts non-empty text nodes
  * - translateText({ inputText, resume, session, opts, config, callbacks }): Full text translation loop with streaming, intra-context, and parallel workers
  * - translateEbook({ chapters, resume, isEpub, originalZip, session, opts, config, callbacks }): Full ebook chapter dispatcher with intra-chapter context, parallel concurrency, title translation, healing pass, and DOM node replacement
+ * - Controller: buildTranslateOpts, buildTranslationConfig, pauseTranslation, resumeTranslation, discardSession, saveTranslationToLibrarySpace, executeTranslateText, executeTranslateEbook
  * - splitChunks, batchParallel, calculateRealCost, formatDuration, generateJobId utilities
  */
 
@@ -1073,7 +1074,805 @@
     };
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // 4. Controller: Execution Orchestration, Session State & Library Staging
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Builds normalized options for translation dispatcher.
+   */
+  function buildTranslateOpts(options = {}) {
+    const provider = options.provider || 'gemini';
+    const deepseekKey = options.deepseekKey || '';
+    const geminiKey = options.geminiKey || options.apiKey || '';
+    const deeplKey = options.deeplKey || '';
+    const apiKey = options.apiKey || (provider === 'deepseek' ? deepseekKey : geminiKey);
+
+    let model = options.model;
+    if (!model) {
+      if (provider === 'deepseek') {
+        model = (options.useCustomDeepseekModel && options.customDeepseekModel)
+          ? options.customDeepseekModel
+          : (options.deepseekModel || 'deepseek-chat');
+      } else {
+        model = (options.useCustomModel && options.customModel)
+          ? options.customModel
+          : (options.geminiModel || 'gemini-2.5-flash');
+      }
+    }
+
+    let strictModel = options.strictModel;
+    if (strictModel === undefined) {
+      if (typeof localStorage !== 'undefined') {
+        try {
+          strictModel = localStorage.getItem('strictModel') !== 'false';
+        } catch (_) {
+          strictModel = true;
+        }
+      } else {
+        strictModel = true;
+      }
+    }
+
+    const baseLocks = options.genderLocks || {};
+    const activeViewLocks = (options.activeNovelView && options.activeNovelView.genderLocks) || {};
+    const genderLocks = (options.activeNovelView && options.activeNovelView.genderLocks)
+      ? { ...baseLocks, ...activeViewLocks }
+      : baseLocks;
+
+    return {
+      apiKey,
+      rotateApiKey: options.rotateApiKey,
+      deepseekApiKey: deepseekKey,
+      deeplApiKey: deeplKey,
+      model,
+      srcLang: options.srcLang,
+      tgtLang: options.tgtLang,
+      glossary: options.glossary || options.terminology || '',
+      instructions: options.instructions || options.customInstructions || '',
+      genderLocks,
+      smartGlossary: options.smartGlossary !== false,
+      epubSmartQuotes: Boolean(options.epubSmartQuotes),
+      epubCleanWebArtifacts: Boolean(options.epubCleanWebArtifacts),
+      enableThinking: Boolean(options.enableThinking),
+      strictModel: Boolean(strictModel),
+      signal: options.signal || null,
+      provider,
+      libreUrl: options.libreUrl || ''
+    };
+  }
+
+  /**
+   * Builds normalized configuration for translation dispatcher.
+   */
+  function buildTranslationConfig(options = {}) {
+    let strictModel = options.strictModel;
+    if (strictModel === undefined) {
+      if (typeof localStorage !== 'undefined') {
+        try {
+          strictModel = localStorage.getItem('strictModel') !== 'false';
+        } catch (_) {
+          strictModel = true;
+        }
+      } else {
+        strictModel = true;
+      }
+    }
+
+    return {
+      provider: options.provider || 'gemini',
+      enableStreaming: Boolean(options.enableStreaming),
+      enableThinking: Boolean(options.enableThinking),
+      strictModel: Boolean(strictModel),
+      contextAware: Boolean(options.contextAware),
+      concurrency: options.concurrency || 1,
+      chunkSizePreset: options.chunkSizePreset || 'turbo',
+      smartGlossary: options.smartGlossary !== false,
+      enableGlossary: options.enableGlossary !== false,
+      terminology: options.terminology || options.glossary || '',
+      glossaryTermCount: options.glossaryTermCount || 0,
+      customInstructions: options.customInstructions || options.instructions || '',
+      antiMtlGateEnabled: Boolean(options.antiMtlGateEnabled),
+      snapshotsEnabled: Boolean(options.snapshotsEnabled),
+      fileName: options.fileName || '',
+      activeNovelRecord: options.activeNovelRecord || null,
+      apiKeysByProvider: options.apiKeysByProvider || null,
+      model: options.model || '',
+      geminiModel: options.geminiModel || '',
+      customModel: options.customModel || '',
+      useCustomModel: Boolean(options.useCustomModel),
+      deepseekModel: options.deepseekModel || '',
+      customDeepseekModel: options.customDeepseekModel || '',
+      useCustomDeepseekModel: Boolean(options.useCustomDeepseekModel),
+      jobId: options.jobId || '',
+      bookTitle: options.bookTitle || '',
+      fileHash: options.fileHash || options.currentFileHash || '',
+      translationMemoryEnabled: Boolean(options.translationMemoryEnabled),
+      cover: options.cover || options.currentDocCover || (options.activeNovelRecord && options.activeNovelRecord.cover) || '',
+      currentDocCover: options.currentDocCover || ''
+    };
+  }
+
+  /**
+   * Pauses an active translation, synthesizes session if needed, and persists state to GeminiNovelDB.
+   */
+  async function pauseTranslation(params = {}) {
+    if (params.isPausingRef) params.isPausingRef.current = true;
+    if (params.setIsTranslationPaused) params.setIsTranslationPaused(true);
+    if (params.abortRef && params.abortRef.current) {
+      try { params.abortRef.current.abort(); } catch (_) {}
+    }
+
+    let session = (params.activeSessionRef && params.activeSessionRef.current) || params.activeSession;
+    if (!session && typeof window !== 'undefined' && window.GeminiNovelDB) {
+      try {
+        session = await window.GeminiNovelDB.getActiveTranslationSession();
+      } catch (_) {}
+    }
+
+    // Fallback: If still no session, synthesize one from current state so Resume is GUARANTEED to exist
+    if (!session) {
+      const chapters = params.chapters || [];
+      const translatedChapters = params.translatedChapters || [];
+      const fileName = params.fileName || '';
+      const activeNovelRecord = params.activeNovelRecord || null;
+      const currentFileHash = params.currentFileHash || '';
+      const currentIsEpub = Boolean(params.currentIsEpub);
+      const currentDocCover = params.currentDocCover || '';
+      const inputText = params.inputText || '';
+      const assembledText = params.assembledText || '';
+
+      if (chapters && chapters.length > 0) {
+        const bTitle = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || (chapters[0] && chapters[0].title) || 'Web Novel';
+        const jId = currentFileHash || ('job_' + String(bTitle).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30) + '_' + chapters.length);
+        const compCount = translatedChapters.filter(c => c && (c.content || c.text)).length;
+        session = {
+          id: jId,
+          type: 'ebook',
+          title: bTitle,
+          ctx: '',
+          completedCount: compCount,
+          currentChapterIdx: compCount,
+          currentChunkIdx: 0,
+          allParts: translatedChapters.map(c => c ? `${c.title || ''}\n\n${c.content || c.text || ''}` : ''),
+          newChapters: translatedChapters,
+          totalChunks: chapters.length,
+          chapters: chapters.map((c, i) => ({ title: c?.title || `Chapter ${i + 1}`, text: c?.text || c?.content || '' })),
+          isEpub: currentIsEpub,
+          cover: currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || '',
+          novelRecord: activeNovelRecord || null,
+          timestamp: Date.now()
+        };
+      } else if (inputText.trim()) {
+        const jId = generateJobId(inputText);
+        session = {
+          id: jId,
+          type: 'text',
+          title: 'Text Translation',
+          result: assembledText,
+          ctx: '',
+          completedCount: assembledText ? 1 : 0,
+          total: 1,
+          cover: currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || '',
+          novelRecord: activeNovelRecord || null,
+          timestamp: Date.now()
+        };
+      }
+    }
+
+    if (session) {
+      const cover = params.currentDocCover || (params.activeNovelRecord && params.activeNovelRecord.cover) || '';
+      if (!session.cover && cover) {
+        session.cover = cover;
+      }
+      if (!session.novelRecord && params.activeNovelRecord) {
+        session.novelRecord = params.activeNovelRecord;
+      }
+      if (params.activeSessionRef) params.activeSessionRef.current = session;
+      if (params.setActiveSession) params.setActiveSession(session);
+      if (params.setSavedTranslationSession) params.setSavedTranslationSession(session);
+      if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+        window.GeminiNovelDB.saveTranslationSession(session).catch(() => {});
+      }
+    }
+
+    if (typeof window !== 'undefined' && window.NativeBridge) {
+      window.NativeBridge.clearProgressNotification?.(false);
+      window.NativeBridge.showCompletionNotification?.('Translation Paused ⏸', 'Translation paused. Progress safely saved.');
+    }
+    if (typeof params.toast === 'function') {
+      params.toast('Translation paused. All progress safely saved to database.', 'info');
+    }
+    return session;
+  }
+
+  /**
+   * Resumes a paused translation session.
+   */
+  async function resumeTranslation(params = {}) {
+    const s = params.session || params.savedTranslationSession || (params.activeSessionRef && params.activeSessionRef.current) || params.activeSession;
+    if (!s) {
+      if (typeof params.toast === 'function') {
+        params.toast('No saved translation session found.', 'warning');
+      }
+      return;
+    }
+    if (typeof params.toast === 'function') {
+      params.toast(`Resuming translation (${s.completedCount || 0} done)...`, 'info');
+    }
+    if (params.activeSessionRef) params.activeSessionRef.current = s;
+    if (params.setActiveSession) params.setActiveSession(s);
+    if (params.setSavedTranslationSession) params.setSavedTranslationSession(s);
+    if (params.setIsTranslationPaused) params.setIsTranslationPaused(false);
+    if (params.isPausingRef) params.isPausingRef.current = false;
+    if (s.cover && params.setCurrentDocCover) params.setCurrentDocCover(s.cover);
+    if (s.novelRecord && params.setActiveNovelRecord) params.setActiveNovelRecord(s.novelRecord);
+    if (s.title) {
+      if (params.setFileName) params.setFileName(s.title);
+      if (params.setCurrentDocTitle) params.setCurrentDocTitle(s.title);
+    }
+    if (params.setActiveTab) params.setActiveTab('text');
+
+    const handleTranslateEbook = (params.handlers && params.handlers.handleTranslateEbook) || params.handleTranslateEbook;
+    const handleTranslateText = (params.handlers && params.handlers.handleTranslateText) || params.handleTranslateText;
+
+    if (s.type === 'ebook') {
+      if (s.newChapters && s.newChapters.length > 0 && params.setTranslatedChapters) {
+        params.setTranslatedChapters(s.newChapters);
+      }
+      if (s.allParts && s.allParts.length > 0 && params.setAssembledText) {
+        params.setAssembledText(s.allParts.filter(Boolean).join('\n\n\n').trim());
+      }
+      const chs = (params.chapters && params.chapters.length > 0) ? params.chapters : (s.chapters || []);
+      if (typeof handleTranslateEbook === 'function') {
+        handleTranslateEbook(chs, true, s.isEpub);
+      }
+    } else {
+      if (s.result && params.setAssembledText) params.setAssembledText(s.result);
+      if (typeof handleTranslateText === 'function') {
+        handleTranslateText(true);
+      }
+    }
+  }
+
+  /**
+   * Discards a saved translation session from database and local storage.
+   */
+  async function discardSession(params = {}) {
+    const sessionId = params.sessionId || (params.session && params.session.id);
+    if (typeof window !== 'undefined' && window.GeminiNovelDB && sessionId) {
+      await window.GeminiNovelDB.deleteTranslationSession(sessionId).catch(() => {});
+    }
+    if (sessionId && typeof localStorage !== 'undefined') {
+      try { localStorage.removeItem(sessionId); } catch (_) {}
+    }
+    if (params.activeSessionRef) params.activeSessionRef.current = null;
+    if (params.setSavedTranslationSession) params.setSavedTranslationSession(null);
+    if (params.setActiveSession) params.setActiveSession(null);
+    if (params.setIsTranslationPaused) params.setIsTranslationPaused(false);
+    if (typeof params.toast === 'function') {
+      params.toast('Discarded saved translation session.', 'info');
+    }
+  }
+
+  /**
+   * Saves translated document/chapters to Saved Space in library history.
+   */
+  async function saveTranslationToLibrarySpace(params = {}) {
+    const assembledText = params.assembledText || '';
+    const toast = typeof params.toast === 'function' ? params.toast : (() => {});
+    if (!assembledText.trim()) {
+      toast('No translated text to save.', 'warning');
+      return;
+    }
+
+    const fileName = params.fileName || '';
+    const activeNovelRecord = params.activeNovelRecord || null;
+    const currentDocTitle = params.currentDocTitle || '';
+    const translatedChapters = params.translatedChapters || [];
+    const chapters = params.chapters || [];
+    const inputText = params.inputText || '';
+    const parseFn = params.parseAssembledTextToChapters || (typeof window !== 'undefined' && window.ExportEngine && window.ExportEngine.parseAssembledTextToChapters) || (typeof window !== 'undefined' && window.parseAssembledTextToChapters);
+
+    const title = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || (translatedChapters && translatedChapters[0]?.title && !isGenericTitle(translatedChapters[0].title) ? translatedChapters[0].title : 'Translated Document');
+    const exportChs = (typeof parseFn === 'function' && assembledText.trim())
+      ? parseFn(assembledText, title)
+      : [];
+    const chs = (exportChs.length > 0)
+      ? exportChs.map((c, i) => ({
+          idx: i,
+          title: c?.title || `Chapter ${i + 1}`,
+          text: c?.content || c?.text || '',
+          content: c?.content || c?.text || '',
+          words: (c?.content || c?.text || '').split(/\s+/).filter(Boolean).length
+        }))
+      : (translatedChapters && translatedChapters.length > 0)
+      ? translatedChapters.filter(Boolean).map((c, i) => ({
+          idx: i,
+          title: c?.title || `Chapter ${i + 1}`,
+          text: c?.content || c?.text || '',
+          content: c?.content || c?.text || '',
+          words: (c?.content || c?.text || '').split(/\s+/).filter(Boolean).length
+        }))
+      : [{
+          idx: 0,
+          title: title,
+          text: assembledText,
+          content: assembledText,
+          words: assembledText.split(/\s+/).filter(Boolean).length
+        }];
+
+    const origChs = (chapters && chapters.length > 0)
+      ? chapters.filter(Boolean).map((c, i) => ({
+          idx: i,
+          title: c?.title || `Chapter ${i + 1}`,
+          text: c?.content || c?.text || '',
+          content: c?.content || c?.text || '',
+          words: (c?.content || c?.text || '').split(/\s+/).filter(Boolean).length
+        }))
+      : (inputText.trim() ? [{
+          idx: 0,
+          title: title,
+          text: inputText,
+          content: inputText,
+          words: inputText.split(/\s+/).filter(Boolean).length
+        }] : []);
+
+    const saveTitle = title.includes('(Translated)') ? title : `${title} (Translated)`;
+    const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+    const baseTitle = cleanT(title);
+    const webImportHistory = params.webImportHistory || [];
+    const webImportData = params.webImportData || null;
+    const webImportUrl = params.webImportUrl || '';
+    const matchingOriginal = webImportHistory.find(n => n && cleanT(n.title) === baseTitle);
+    const resolvedCover = params.currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || (webImportData && webImportData.cover) || (matchingOriginal && matchingOriginal.cover) || '';
+    const resolvedAuthor = (activeNovelRecord && activeNovelRecord.author) || (webImportData && webImportData.author) || (matchingOriginal && matchingOriginal.author) || 'Author';
+    const resolvedSourceUrl = (activeNovelRecord && (activeNovelRecord.sourceUrl || activeNovelRecord.url)) ||
+                              (webImportData && (webImportData.sourceUrl || webImportData.url)) ||
+                              (webImportUrl ? webImportUrl : '') ||
+                              (matchingOriginal && (matchingOriginal.sourceUrl || matchingOriginal.url)) || '';
+
+    if (typeof params.saveNovelToHistory === 'function') {
+      await params.saveNovelToHistory({
+        title: saveTitle,
+        author: resolvedAuthor,
+        cover: resolvedCover,
+        sourceUrl: resolvedSourceUrl,
+        chapters: chs,
+        rawChapters: chs,
+        originalChapters: origChs,
+        chapterCount: chs.length,
+        totalChapterCount: chs.length,
+        isTranslated: true,
+        inSavedSpace: true,
+        isIncomplete: false
+      });
+    }
+    toast(`"${saveTitle}" saved to your Saved Space! ⭐`, 'success');
+  }
+
+  /**
+   * Executes text translation cycle with wake-lock, notifications, abort coordination, and telemetry.
+   */
+  async function executeTranslateText(params = {}) {
+    const inputText = params.inputText || '';
+    const resume = Boolean(params.resume);
+    const toast = typeof params.toast === 'function' ? params.toast : (() => {});
+
+    if (!inputText.trim()) {
+      if (params.setError) params.setError('Paste some text to translate.');
+      return;
+    }
+
+    let wakeLock = null;
+    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+      try { navigator.wakeLock.request('screen').then(wl => { wakeLock = wl; }).catch(() => {}); } catch (_) {}
+    }
+    if (params.setIsTranslating) params.setIsTranslating(true);
+    if (params.setProgress) params.setProgress(0);
+    if (params.setProgressLabel) params.setProgressLabel(resume ? 'Resuming...' : 'Preparing...');
+    if (params.setError) params.setError('');
+    if (typeof window !== 'undefined' && window.NativeBridge) {
+      window.NativeBridge.acquireWakeLock?.();
+      window.NativeBridge.showProgressNotification?.('Gemini Translator', resume ? 'Resuming translation...' : 'Starting text translation...', 0);
+    }
+    if (!resume) {
+      if (params.setAssembledText) params.setAssembledText('');
+      if (params.setTranslatedChapters) params.setTranslatedChapters([]);
+    }
+
+    const ctrl = new AbortController();
+    if (params.abortRef) params.abortRef.current = ctrl;
+    const jobId = params.jobId || generateJobId(inputText);
+
+    try {
+      const opts = params.opts || (typeof params.getTranslateOpts === 'function' ? params.getTranslateOpts(ctrl.signal) : buildTranslateOpts({ ...params, signal: ctrl.signal }));
+      const config = params.config || buildTranslationConfig({ ...params, jobId });
+
+      const callbacks = {
+        onProgress: (pct) => params.setProgress && params.setProgress(pct),
+        onProgressLabel: (label) => params.setProgressLabel && params.setProgressLabel(label),
+        onStream: (chunk, assembled) => params.setAssembledText && params.setAssembledText(assembled),
+        onChunkDone: (info) => {
+          if (info && info.assembledText && params.setAssembledText) params.setAssembledText(info.assembledText);
+        },
+        onSaveState: async (state) => {
+          if (params.activeSessionRef) params.activeSessionRef.current = state;
+          if (params.setActiveSession) params.setActiveSession(state);
+          if (params.setSavedTranslationSession) params.setSavedTranslationSession(state);
+          try {
+            if (state.result && state.result.length < 2000000 && typeof localStorage !== 'undefined') {
+              localStorage.setItem(jobId, JSON.stringify(state));
+            }
+          } catch (_) {}
+          if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+            await window.GeminiNovelDB.saveTranslationSession(state).catch(() => {});
+          }
+        },
+        onToast: (msg, type) => toast(msg, type),
+        ...(params.callbacks || {})
+      };
+
+      const loopEngine = (typeof window !== 'undefined' && window.TranslationLoopEngine) || TranslationLoopEngine;
+      const sessionToResume = resume ? ((params.activeSessionRef && params.activeSessionRef.current) || params.activeSession) : null;
+      const res = await (loopEngine.translateText || translateText)({
+        inputText,
+        resume,
+        session: sessionToResume,
+        opts,
+        config,
+        callbacks
+      });
+
+      const { assembledText: result, lastUsageStats: stats } = res;
+      if (params.setAssembledText) params.setAssembledText(result);
+      if (params.setTranslatedChapters) params.setTranslatedChapters([{ title: 'Translated Document', content: result }]);
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.removeItem(jobId); } catch (_) {}
+      }
+      if (params.activeSessionRef) params.activeSessionRef.current = null;
+      if (params.setActiveSession) params.setActiveSession(null);
+      if (params.setSavedTranslationSession) params.setSavedTranslationSession(null);
+      if (params.setIsTranslationPaused) params.setIsTranslationPaused(false);
+      if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+        window.GeminiNovelDB.deleteTranslationSession(jobId).catch(() => {});
+      }
+
+      if (params.setLastUsageStats) params.setLastUsageStats(stats);
+      if (stats && stats.breakdown && typeof window !== 'undefined') {
+        window.telemetryLog?.('TOKEN_BREAKDOWN', `Token Consumption Breakdown: ${stats.promptTokens.toLocaleString()} in (${stats.breakdown.glossaryTokens.toLocaleString()} glossary · ${stats.breakdown.sourceTokens.toLocaleString()} source · ${stats.breakdown.genderTokens.toLocaleString()} gender · ${stats.breakdown.systemTokens.toLocaleString()} system) + ${stats.outputTokens.toLocaleString()} out`, {
+          totalTokens: stats.totalTokens,
+          promptTokens: stats.promptTokens,
+          outputTokens: stats.outputTokens,
+          breakdown: stats.breakdown
+        });
+      }
+      const summaryText = typeof params.getReportSummaryText === 'function'
+        ? params.getReportSummaryText(stats)
+        : (typeof window !== 'undefined' && window.getReportSummaryText ? window.getReportSummaryText(stats) : '');
+      if (summaryText && typeof window !== 'undefined') {
+        window.sendTelemetry?.('REPORT', '\n' + summaryText);
+      }
+      if (typeof params.addToHistory === 'function') {
+        params.addToHistory(params.srcLang, params.tgtLang, config.provider, inputText, result, stats);
+      }
+      toast(`Translation complete in ${stats.duration}! (${stats.totalTokens.toLocaleString()} tokens · ${stats.cost})`);
+      try {
+        if (typeof window !== 'undefined' && window.NativeBridge) {
+          window.NativeBridge.releaseWakeLock?.();
+          window.NativeBridge.showCompletionNotification?.('Text Translation Complete! ✨', `Translated in ${stats.duration} (${stats.totalTokens.toLocaleString()} tokens).`);
+        }
+      } catch (_) {}
+      return res;
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        if (params.setError) params.setError(e.message);
+        toast(e.message, 'error');
+      } else {
+        if (params.setIsTranslationPaused) params.setIsTranslationPaused(true);
+        const session = (params.activeSessionRef && params.activeSessionRef.current) || params.activeSession;
+        if (session) {
+          if (params.setSavedTranslationSession) params.setSavedTranslationSession(session);
+        } else if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+          window.GeminiNovelDB.getActiveTranslationSession().then(s => {
+            if (s && params.setSavedTranslationSession) params.setSavedTranslationSession(s);
+          }).catch(() => {});
+        }
+        toast('Translation paused. Progress safely saved.', 'info');
+      }
+    } finally {
+      if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+      if (params.setIsTranslating) params.setIsTranslating(false);
+      const isPausing = params.isPausingRef && params.isPausingRef.current;
+      if (!isPausing) {
+        if (params.setProgress) params.setProgress(0);
+        if (params.setProgressLabel) params.setProgressLabel('');
+        try {
+          if (typeof window !== 'undefined' && window.NativeBridge) {
+            window.NativeBridge.releaseWakeLock?.();
+          }
+        } catch (_) {}
+      }
+      if (params.abortRef) params.abortRef.current = null;
+      if (params.isPausingRef) params.isPausingRef.current = false;
+    }
+  }
+
+  /**
+   * Executes ebook translation cycle with wake-lock, notifications, abort coordination, library history persistence, and cloud sync.
+   */
+  async function executeTranslateEbook(params = {}) {
+    const chapters = params.chapters || [];
+    const resume = Boolean(params.resume);
+    const toast = typeof params.toast === 'function' ? params.toast : (() => {});
+
+    let wakeLock = null;
+    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+      try { navigator.wakeLock.request('screen').then(wl => { wakeLock = wl; }).catch(() => {}); } catch (_) {}
+    }
+    if (params.setIsTranslating) params.setIsTranslating(true);
+    if (params.setProgress) params.setProgress(0);
+    if (params.setError) params.setError('');
+    if (typeof window !== 'undefined' && window.NativeBridge) {
+      window.NativeBridge.acquireWakeLock?.();
+      window.NativeBridge.showProgressNotification?.('Gemini Ebook Translator', resume ? 'Resuming book...' : 'Analyzing chapters...', 0);
+    }
+    if (!resume) {
+      if (params.setAssembledText) params.setAssembledText('');
+      if (params.setTranslatedChapters) params.setTranslatedChapters([]);
+    }
+
+    const isEpub = params.isEpub !== undefined ? params.isEpub : (params.isEpubParam || params.currentIsEpub || false);
+    const originalZip = params.originalZip || params.originalZipParam || params.currentOriginalZip || (typeof window !== 'undefined' ? window.currentTranslatedZip : null) || null;
+    if (isEpub && params.setCurrentIsEpub) params.setCurrentIsEpub(true);
+    if (originalZip) {
+      if (params.setCurrentOriginalZip) params.setCurrentOriginalZip(originalZip);
+      if (typeof window !== 'undefined') window.currentTranslatedZip = originalZip;
+    }
+
+    const ctrl = new AbortController();
+    if (params.abortRef) params.abortRef.current = ctrl;
+    const opts = params.opts || (typeof params.getTranslateOpts === 'function' ? params.getTranslateOpts(ctrl.signal) : buildTranslateOpts({ ...params, signal: ctrl.signal }));
+
+    const curSession = (resume ? ((params.activeSessionRef && params.activeSessionRef.current) || params.activeSession) : null);
+    const fileName = params.fileName || '';
+    const activeNovelRecord = params.activeNovelRecord || null;
+    const currentDocTitle = params.currentDocTitle || '';
+    const currentDocCover = params.currentDocCover || '';
+    const currentFileHash = params.currentFileHash || '';
+    const bookTitle = (chapters && chapters[0]?.title && !isGenericTitle(chapters[0].title))
+      ? chapters[0].title
+      : ((fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || 'Web Novel');
+    const jobId = currentFileHash || ('job_' + String(bookTitle).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30) + '_' + chapters.length);
+
+    try {
+      const config = params.config || buildTranslationConfig({
+        ...params,
+        bookTitle,
+        fileHash: currentFileHash,
+        cover: currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || (curSession && curSession.cover) || '',
+        currentDocCover
+      });
+
+      const callbacks = {
+        onProgress: (pct) => params.setProgress && params.setProgress(pct),
+        onProgressLabel: (label) => params.setProgressLabel && params.setProgressLabel(label),
+        onLiveTextUpdate: (text) => params.setAssembledText && params.setAssembledText(text),
+        onChapterComplete: (i, chapter, allChapters, allParts) => {
+          if (params.setTranslatedChapters) params.setTranslatedChapters([...allChapters]);
+          const currentAssembled = allParts.filter(Boolean).join('\n\n\n').trim();
+          if (params.setAssembledText) params.setAssembledText(currentAssembled);
+        },
+        onSaveState: async (state) => {
+          if (params.activeSessionRef) params.activeSessionRef.current = state;
+          if (params.setActiveSession) params.setActiveSession(state);
+          if (params.setSavedTranslationSession) params.setSavedTranslationSession(state);
+          try {
+            const sStr = JSON.stringify(state);
+            if (sStr.length < 2000000 && typeof localStorage !== 'undefined') localStorage.setItem(jobId, sStr);
+          } catch (_) {}
+          if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+            await window.GeminiNovelDB.saveTranslationSession(state).catch(() => {});
+          }
+        },
+        onToast: (msg, type) => toast(msg, type),
+        ...(params.callbacks || {})
+      };
+
+      const loopEngine = (typeof window !== 'undefined' && window.TranslationLoopEngine) || TranslationLoopEngine;
+      const res = await (loopEngine.translateEbook || translateEbook)({
+        chapters,
+        resume,
+        isEpub,
+        originalZip,
+        session: curSession,
+        opts,
+        config,
+        callbacks
+      });
+
+      if (!res) return;
+      const { translatedChapters: newChapters, assembledText: final, lastUsageStats: stats } = res;
+
+      if (isEpub && originalZip && typeof window !== 'undefined') {
+        window.currentTranslatedZip = originalZip;
+      }
+      if (params.setTranslatedChapters) params.setTranslatedChapters(newChapters);
+      if (params.setAssembledText) params.setAssembledText(final);
+      if (params.setLastUsageStats) params.setLastUsageStats(stats);
+      if (stats && stats.breakdown && typeof window !== 'undefined') {
+        window.telemetryLog?.('TOKEN_BREAKDOWN', `Token Consumption Breakdown: ${stats.promptTokens.toLocaleString()} in (${stats.breakdown.glossaryTokens.toLocaleString()} glossary · ${stats.breakdown.sourceTokens.toLocaleString()} source · ${stats.breakdown.genderTokens.toLocaleString()} gender · ${stats.breakdown.systemTokens.toLocaleString()} system) + ${stats.outputTokens.toLocaleString()} out`, {
+          totalTokens: stats.totalTokens,
+          promptTokens: stats.promptTokens,
+          outputTokens: stats.outputTokens,
+          breakdown: stats.breakdown
+        });
+      }
+      const summaryText = typeof params.getReportSummaryText === 'function'
+        ? params.getReportSummaryText(stats)
+        : (typeof window !== 'undefined' && window.getReportSummaryText ? window.getReportSummaryText(stats) : '');
+      if (summaryText && typeof window !== 'undefined') {
+        window.sendTelemetry?.('REPORT', '\n' + summaryText);
+      }
+      if (typeof params.addToHistory === 'function') {
+        params.addToHistory(params.srcLang, params.tgtLang, config.provider, params.inputText || (chapters || []).map(c => c.text).join('\n\n'), final, stats);
+      }
+
+      if (newChapters && newChapters.length > 0) {
+        const mappedTranslated = newChapters.map((nc, idx) => ({
+          title: nc?.title || (chapters && chapters[idx]?.title) || `Chapter ${idx + 1}`,
+          text: nc?.content || nc?.text || (chapters && (chapters[idx]?.text || chapters[idx]?.content)) || '',
+          content: nc?.content || nc?.text || (chapters && (chapters[idx]?.content || chapters[idx]?.text)) || ''
+        }));
+        const srcChaps = (chapters || []).map((c, idx) => ({
+          title: c?.title || `Chapter ${idx + 1}`,
+          text: typeof c === 'string' ? c : (c?.text || c?.content || ''),
+          content: typeof c === 'string' ? c : (c?.content || c?.text || '')
+        }));
+
+        const webImportHistory = params.webImportHistory || [];
+        const webImportData = params.webImportData || null;
+        const activeCrawlSession = params.activeCrawlSession || null;
+
+        if (activeNovelRecord && activeNovelRecord.id) {
+          const cleanBT = String(activeNovelRecord.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+          const matchedMeta = webImportHistory.find(n => {
+            const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+            return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
+          });
+          const resolvedCover = activeNovelRecord.cover || currentDocCover || matchedMeta?.cover || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
+          const updatedRec = {
+            ...activeNovelRecord,
+            cover: resolvedCover,
+            isTranslated: true,
+            translatedChapters: mappedTranslated,
+            targetLang: params.tgtLang,
+            chapters: mappedTranslated,
+            rawChapters: (activeNovelRecord.rawChapters && activeNovelRecord.rawChapters.length >= srcChaps.length) ? activeNovelRecord.rawChapters : srcChaps,
+            originalChapters: srcChaps,
+            chapterCount: mappedTranslated.length
+          };
+          if (typeof params.saveNovelToHistory === 'function') {
+            params.saveNovelToHistory(updatedRec).catch(e => console.warn('History save error:', e));
+          }
+          if (params.setActiveNovelRecord) params.setActiveNovelRecord(updatedRec);
+          if (resolvedCover) {
+            if (params.setCurrentDocCover) params.setCurrentDocCover(resolvedCover);
+            try { localStorage.setItem('gemini_current_doc_cover', resolvedCover); } catch (_) {}
+          }
+          if (params.setNovelUpdateBadges) {
+            params.setNovelUpdateBadges(prev => {
+              const next = { ...prev };
+              delete next[activeNovelRecord.id];
+              return next;
+            });
+          }
+        } else {
+          const bTitle = (fileName && fileName.trim()) ? fileName.replace(/\.[^/.]+$/, '') : ((chapters && chapters[0]?.title) || 'Translated Novel');
+          const cleanBT = bTitle.replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+          const matchedMeta = webImportHistory.find(n => {
+            const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+            return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
+          });
+          const recCover = currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || (activeCrawlSession && activeCrawlSession.cover) || (webImportData && webImportData.cover) || (matchedMeta && matchedMeta.cover) || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
+          const newRec = {
+            id: (activeNovelRecord && activeNovelRecord.id) || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)),
+            title: bTitle.includes('(Translated)') ? bTitle : `${bTitle} (Translated)`,
+            author: (activeNovelRecord && activeNovelRecord.author) || 'Gemini Translator',
+            cover: recCover,
+            isTranslated: true,
+            chapters: mappedTranslated,
+            translatedChapters: mappedTranslated,
+            targetLang: params.tgtLang,
+            originalChapters: srcChaps,
+            originalText: params.inputText || ''
+          };
+          if (typeof params.saveNovelToHistory === 'function') {
+            params.saveNovelToHistory(newRec).catch(e => console.warn('History save error:', e));
+          }
+          if (params.setActiveNovelRecord) params.setActiveNovelRecord(newRec);
+          if (recCover) {
+            if (params.setCurrentDocCover) params.setCurrentDocCover(recCover);
+            try { localStorage.setItem('gemini_current_doc_cover', recCover); } catch (_) {}
+          }
+        }
+      }
+
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.removeItem(jobId); } catch (_) {}
+      }
+      if (params.activeSessionRef) params.activeSessionRef.current = null;
+      if (params.setActiveSession) params.setActiveSession(null);
+      if (params.setSavedTranslationSession) params.setSavedTranslationSession(null);
+      if (params.setIsTranslationPaused) params.setIsTranslationPaused(false);
+      if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+        window.GeminiNovelDB.deleteTranslationSession(jobId).catch(() => {});
+      }
+      toast(`Ebook translation complete in ${stats.duration}! (${stats.totalTokens.toLocaleString()} tokens · ${stats.cost})`);
+      try {
+        if (typeof window !== 'undefined' && window.NativeBridge) {
+          window.NativeBridge.releaseWakeLock?.();
+          window.NativeBridge.clearProgressNotification?.(true, 'Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${stats.duration}. Tap to read!`);
+          window.NativeBridge.showCompletionNotification?.('Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${stats.duration}. Tap to read!`);
+          window.NativeBridge.haptic?.('success');
+        }
+      } catch (_) {}
+      if (params.webdavAutoSync && params.webdavUrl && params.webdavUrl.trim() && typeof params.backupToWebDav === 'function') {
+        params.backupToWebDav().catch(e => console.warn('Auto WebDAV sync error:', e));
+      }
+      if (params.gdriveAutoSync && typeof window !== 'undefined' && window.GoogleDriveSync?.isConnected() && typeof params.backupToGoogleDrive === 'function') {
+        params.backupToGoogleDrive().catch(e => console.warn('Auto Google Drive sync error:', e));
+      }
+      return res;
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        if (params.setError) params.setError(e.message);
+        toast(e.message, 'error');
+      } else {
+        if (params.setIsTranslationPaused) params.setIsTranslationPaused(true);
+        const session = (params.activeSessionRef && params.activeSessionRef.current) || params.activeSession;
+        if (session) {
+          if (params.setSavedTranslationSession) params.setSavedTranslationSession(session);
+        } else if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+          window.GeminiNovelDB.getActiveTranslationSession().then(s => {
+            if (s && params.setSavedTranslationSession) params.setSavedTranslationSession(s);
+          }).catch(() => {});
+        }
+        toast('Translation paused. Progress safely saved to database.', 'info');
+      }
+      const finalChapters = ((params.activeSessionRef && params.activeSessionRef.current) || params.activeSession)?.newChapters || [];
+      if (finalChapters.length > 0 && params.setTranslatedChapters) params.setTranslatedChapters(finalChapters);
+    } finally {
+      if (params.setIsTranslating) params.setIsTranslating(false);
+      const isPausing = params.isPausingRef && params.isPausingRef.current;
+      if (!isPausing) {
+        if (params.setProgress) params.setProgress(0);
+        if (params.setProgressLabel) params.setProgressLabel('');
+      }
+      if (params.abortRef) params.abortRef.current = null;
+      if (params.isPausingRef) params.isPausingRef.current = false;
+      if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+      try {
+        if (typeof window !== 'undefined' && window.NativeBridge) {
+          window.NativeBridge.releaseWakeLock?.();
+        }
+      } catch (_) {}
+    }
+  }
+
+  const Controller = {
+    buildTranslateOpts,
+    buildTranslationConfig,
+    pauseTranslation,
+    resumeTranslation,
+    discardSession,
+    saveTranslationToLibrarySpace,
+    executeTranslateText,
+    executeTranslateEbook
+  };
+
   const TranslationLoopEngine = {
+    Controller,
     extractTextNodes,
     translateText,
     translateEbook,
@@ -1087,7 +1886,11 @@
   };
 
   global.TranslationLoopEngine = TranslationLoopEngine;
+  if (typeof window !== 'undefined') {
+    window.TranslationLoopEngine = TranslationLoopEngine;
+  }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = TranslationLoopEngine;
   }
 })(typeof window !== 'undefined' ? window : this);
+
