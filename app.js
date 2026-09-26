@@ -82,7 +82,7 @@
       streamWithRotation, translateWithRotation, translateChunk,
       BackupEngine, ExportEngine, DocumentParser, MoonReaderEngine, LibraryEngine,
       NovelEnrichmentEngine, KeyManagerEngine, GlossaryManagerEngine,
-      TranslationLoopEngine, WebNovelCrawlerEngine, NavigationEngine
+      TranslationLoopEngine, WebNovelCrawlerEngine, NavigationEngine, HistoryEngine
     } = window;
 
     // Helper adapters delegating to DocumentParser & ExportEngine
@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.79';
+    let VERSION = '8.17.80';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -4408,141 +4408,87 @@ RAW GLOSSARY DATA TO CLEAN:
 
       // --- History (IndexedDB Unlimited Storage + LocalStorage Fallback) ---
       const addToHistory = async (src, tgt, prov, input, output, stats = null) => {
-        try {
-          const entry = {
-            id: genId(),
-            ts: new Date().toISOString(),
-            srcLang: src,
-            tgtLang: tgt,
-            provider: prov,
-            inputPreview: (input || '').substring(0, 200),
-            outputPreview: (output || '').substring(0, 200),
-            fullInput: input || '',
-            fullOutput: output || '',
-            stats
-          };
-          
-          // 1. Unlimited storage in IndexedDB
-          await dbPut('history', entry);
-
-          // 2. React state update
-          setHistory(prev => [entry, ...(prev || [])]);
-
-          // 3. Fallback sync to localStorage
-          try {
-            const lightList = [entry, ...(history || []).slice(0, 9)].map(h => ({
-              ...h,
-              fullInput: (h.fullInput && h.fullInput.length > 3000) ? (h.fullInput.substring(0, 3000) + '...[Full text in IndexedDB]') : h.fullInput,
-              fullOutput: (h.fullOutput && h.fullOutput.length > 3000) ? (h.fullOutput.substring(0, 3000) + '...[Full text in IndexedDB]') : h.fullOutput
-            }));
-            localStorage.setItem('translationHistory', JSON.stringify(lightList));
-          } catch (e) {}
-
-          // 4. Mirror translated books into the unified Library (one store)
-          try {
-            const heading = /^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|Chapter\s*\d+|CHAPTER\s*\d+)/;
-            const chaps = [];
-            let cur = null;
-            for (const line of (output || '').split(/\r?\n/)) {
-              const t = line.trim();
-              if (heading.test(t)) { if (cur) chaps.push(cur); cur = { title: t, content: '' }; }
-              else if (cur) cur.content += line + '\n';
-              else if (t) cur = { title: 'Chapter 1', content: line + '\n' };
+        const engine = window.HistoryEngine || HistoryEngine;
+        if (engine?.addToHistory) {
+          return engine.addToHistory({
+            src,
+            tgt,
+            prov,
+            input,
+            output,
+            stats,
+            chapters,
+            history,
+            callbacks: {
+              saveNovelToHistory,
+              onHistoryUpdated: (newHistory) => setHistory(newHistory)
             }
-            if (cur) chaps.push(cur);
-            if (chaps.length >= 2) {
-              const srcChaps = (chapters && chapters.length > 0)
-                ? chapters.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, content: c.text || c.content || '', text: c.text || c.content || '' }))
-                : null;
-              await saveNovelToHistory({
-                title: ((chaps[0].title || '').replace(heading, '') || 'Translated Book').trim() + ' (Translated)',
-                author: 'Gemini Translator',
-                isTranslated: true,
-                chapters: chaps.map(c => ({ title: c.title, content: c.content.trim() })),
-                originalChapters: srcChaps,
-                originalText: input || ''
-              });
-            }
-          } catch (e) {}
-        } catch (e) {
-          console.warn('History storage note:', e);
+          });
         }
       };
 
-      const loadFromHistory = async entry => {
-        let fullIn = entry.fullInput;
-        let fullOut = entry.fullOutput;
-        if (!fullIn || !fullOut || fullIn.includes('[Full text in IndexedDB]')) {
-          const all = await dbGetAll('history');
-          const found = (all || []).find(x => x.id === entry.id);
-          if (found) {
-            fullIn = found.fullInput || fullIn;
-            fullOut = found.fullOutput || fullOut;
-          }
+      const loadFromHistory = async (entry) => {
+        const engine = window.HistoryEngine || HistoryEngine;
+        if (engine?.loadFromHistory) {
+          return engine.loadFromHistory(entry, {
+            onLoaded: ({ inputText, assembledText, srcLang, tgtLang, chapters: loadedChapters }) => {
+              setInputText(inputText);
+              setAssembledText(assembledText);
+              setSrcLang(srcLang);
+              setTgtLang(tgtLang);
+              if (loadedChapters && loadedChapters.length > 1) {
+                setChapters(loadedChapters);
+              }
+              setActiveTab('text');
+              toast('Loaded translation from history!');
+            }
+          });
         }
-        setInputText(fullIn || '');
-        setAssembledText(fullOut || '');
-        setSrcLang(entry.srcLang || 'Auto-detect');
-        setTgtLang(entry.tgtLang || 'English');
-        if (fullIn) {
-          const heading = /^(?:第[0-9零一二三四五六七八九十百千万]+[章回卷节篇]|Chapter\s*\d+|CHAPTER\s*\d+)/;
-          const parsed = [];
-          let cur = null;
-          for (const line of fullIn.split(/\r?\n/)) {
-            const t = line.trim();
-            if (heading.test(t)) { if (cur) parsed.push(cur); cur = { title: t, text: '', content: '' }; }
-            else if (cur) { cur.content += line + '\n'; cur.text += line + '\n'; }
-            else if (t) { cur = { title: 'Chapter 1', content: line + '\n', text: line + '\n' }; }
-          }
-          if (cur) parsed.push(cur);
-          if (parsed.length > 1) {
-            setChapters(parsed);
-          }
-        }
-        setActiveTab('text');
-        toast('Loaded translation from history!');
       };
 
       const clearHistory = () => {
         confirmAction('Clear all translation history?', async () => {
-          await dbClear('history');
-          setHistory([]);
-          localStorage.setItem('translationHistory', '[]');
-          toast('Translation history cleared.', 'info');
+          const engine = window.HistoryEngine || HistoryEngine;
+          if (engine?.clearHistory) {
+            await engine.clearHistory({
+              onCleared: () => {
+                setHistory([]);
+                toast('Translation history cleared.', 'info');
+              }
+            });
+          }
         });
       };
 
       const deleteHistoryItem = async (id) => {
-        await dbDelete('history', id);
-        const u = history.filter(h => h.id !== id);
-        setHistory(u);
-        try { localStorage.setItem('translationHistory', JSON.stringify(u.slice(0, 10))); } catch (e) {}
+        const engine = window.HistoryEngine || HistoryEngine;
+        if (engine?.deleteHistoryItem) {
+          await engine.deleteHistoryItem(id, history, {
+            onDeleted: (updatedList) => {
+              setHistory(updatedList);
+            }
+          });
+        }
       };
 
       const exportHistoryJSON = async () => {
-        try {
-          let historyData = await dbGetAll('history');
-          if (!historyData || historyData.length === 0) {
-            historyData = (history && history.length > 0) ? history : (() => {
-              try { return JSON.parse(localStorage.getItem('translationHistory') || '[]'); } catch (e) { return []; }
-            })();
-          }
-          if (!historyData || historyData.length === 0) {
-            return toast('No translation history to export.', 'warning');
-          }
-          const res = await window.ExportEngine.exportHistoryJson(historyData, VERSION);
-          toast(`Exported ${res.count} history records (IndexedDB)!`, 'success');
-        } catch (e) {
-          toast('Export history error: ' + e.message, 'error');
+        const engine = window.HistoryEngine || HistoryEngine;
+        if (engine?.exportHistoryJSON) {
+          await engine.exportHistoryJSON(history, VERSION, {
+            onSuccess: (res) => toast(`Exported ${res.count} history records (IndexedDB)!`, 'success'),
+            onWarning: (msg) => toast(msg, 'warning'),
+            onError: (err) => toast('Export history error: ' + (err?.message || err), 'error')
+          });
         }
       };
 
       const exportSingleHistoryItem = async (entry) => {
-        try {
-          await window.ExportEngine.exportHistoryItemTxt(entry);
-          toast('History entry exported as .txt file!', 'success');
-        } catch (e) {
-          toast('Export item error: ' + e.message, 'error');
+        const engine = window.HistoryEngine || HistoryEngine;
+        if (engine?.exportSingleHistoryItem) {
+          await engine.exportSingleHistoryItem(entry, {
+            onSuccess: () => toast('History entry exported as .txt file!', 'success'),
+            onError: (err) => toast('Export item error: ' + (err?.message || err), 'error')
+          });
         }
       };
 
