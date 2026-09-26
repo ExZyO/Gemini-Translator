@@ -488,6 +488,542 @@ function sanitizeChapterTitle(title) {
     return t.trim() || title.trim();
 }
 
+// ═══════════════════════════════════════
+// GLOBAL CONSTANTS
+// ═══════════════════════════════════════
+const MAX_PAYLOAD = 12000;
+const PROMPT_OVERHEAD = 800;
+const MAX_HISTORY = 20;
+const DEFAULT_CONCURRENCY = 3;
+
+const LANGUAGES = [
+    'Auto-detect', 'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+    'Chinese (Simplified)', 'Chinese (Traditional)', 'Japanese', 'Korean', 'Russian',
+    'Arabic', 'Hindi', 'Bengali', 'Urdu', 'Vietnamese', 'Turkish', 'Polish', 'Dutch',
+    'Swedish', 'Norwegian', 'Danish', 'Finnish', 'Greek', 'Hebrew', 'Thai', 'Indonesian',
+    'Malay', 'Filipino', 'Romanian', 'Hungarian', 'Czech', 'Slovak', 'Bulgarian',
+    'Serbian', 'Croatian', 'Ukrainian', 'Lithuanian', 'Latvian', 'Estonian', 'Slovenian',
+    'Catalan', 'Basque', 'Galician'
+];
+const TARGET_LANGUAGES = LANGUAGES.filter(l => l !== 'Auto-detect');
+
+const DEEPL_LANG_MAP = {
+    'English': 'EN', 'Spanish': 'ES', 'French': 'FR', 'German': 'DE', 'Italian': 'IT',
+    'Portuguese': 'PT', 'Chinese (Simplified)': 'ZH', 'Chinese (Traditional)': 'ZH',
+    'Japanese': 'JA', 'Korean': 'KO', 'Russian': 'RU', 'Arabic': 'AR', 'Hindi': 'HI',
+    'Vietnamese': 'VI', 'Turkish': 'TR', 'Polish': 'PL', 'Dutch': 'NL', 'Swedish': 'SV',
+    'Norwegian': 'NB', 'Danish': 'DA', 'Finnish': 'FI', 'Greek': 'EL', 'Hebrew': 'HE',
+    'Indonesian': 'ID', 'Romanian': 'RO', 'Hungarian': 'HU', 'Czech': 'CS', 'Slovak': 'SK',
+    'Bulgarian': 'BG', 'Serbian': 'SR', 'Croatian': 'HR', 'Ukrainian': 'UK', 'Lithuanian': 'LT',
+    'Latvian': 'LV', 'Estonian': 'ET', 'Slovenian': 'SL'
+};
+
+const LIBRE_LANG_MAP = {
+    'English': 'en', 'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Italian': 'it',
+    'Portuguese': 'pt', 'Chinese (Simplified)': 'zh', 'Chinese (Traditional)': 'zt',
+    'Japanese': 'ja', 'Korean': 'ko', 'Russian': 'ru', 'Arabic': 'ar', 'Hindi': 'hi',
+    'Vietnamese': 'vi', 'Turkish': 'tr', 'Polish': 'pl', 'Dutch': 'nl', 'Swedish': 'sv',
+    'Norwegian': 'nb', 'Danish': 'da', 'Finnish': 'fi', 'Greek': 'el', 'Hebrew': 'he',
+    'Indonesian': 'id', 'Filipino': 'tl', 'Romanian': 'ro', 'Hungarian': 'hu', 'Czech': 'cs',
+    'Slovak': 'sk', 'Bulgarian': 'bg', 'Serbian': 'sr', 'Croatian': 'hr', 'Ukrainian': 'uk'
+};
+
+const DEFAULT_GEMINI_MODELS = [
+    { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Latest Flagship · Fast & Literary)' },
+    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash (Flagship Hybrid & Fast)' },
+    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Official 2026 Recommended)' },
+    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash (Ultra Fast)' },
+    { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite (Highest Free Quota)' },
+    { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash-Lite (High Quota & Fast)' },
+    { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Deep Literary Reasoning)' },
+    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Preview)' }
+];
+
+const DEFAULT_DEEPSEEK_MODELS = [
+    { id: 'deepseek-chat', name: 'DeepSeek V3 / V4 Chat (Ultra Fast & Cheap)' },
+    { id: 'deepseek-reasoner', name: 'DeepSeek R1 / V4 Pro (Deep Reasoning)' }
+];
+
+// ═══════════════════════════════════════
+// METRICS, MATH & STRING HELPERS
+// ═══════════════════════════════════════
+const estimateTokens = (text) => {
+    if (!text) return 0;
+    const cjkMatch = text.match(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g) || [];
+    const nonCjk = text.replace(/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g, '');
+    const words = nonCjk.trim().split(/\s+/).filter(Boolean);
+    return Math.ceil(cjkMatch.length * 1.2 + words.length * 1.3);
+};
+
+const estimateCost = (tokens, modelId = 'gemini-3.7-flash', provider = 'gemini') => {
+    let perMillion = 0.075;
+    if (provider === 'deepseek') {
+        if (modelId === 'deepseek-reasoner') perMillion = 0.55;
+        else perMillion = 0.14;
+    } else {
+        if (modelId.includes('3.1-pro') || modelId.includes('pro')) perMillion = 1.25;
+        else if (modelId.includes('flash-lite') || modelId.includes('8b')) perMillion = 0.0375;
+        else if (modelId.includes('3.7-flash') || modelId.includes('3.6-flash') || modelId.includes('3.5-flash') || modelId.includes('3-flash')) perMillion = 0.075;
+    }
+    return ((tokens / 1000000) * perMillion).toFixed(4);
+};
+
+const calculateRealCost = (promptTokens, outputTokens, modelId = 'gemini-3.7-flash', provider = 'gemini') => {
+    let inPerM = 0.075;
+    let outPerM = 0.30;
+    if (provider === 'deepseek') {
+        if (modelId === 'deepseek-reasoner') {
+            inPerM = 0.55;
+            outPerM = 2.19;
+        } else {
+            inPerM = 0.14;
+            outPerM = 0.28;
+        }
+    } else {
+        if (modelId.includes('3.1-pro') || modelId.includes('pro')) {
+            inPerM = 1.25;
+            outPerM = 5.00;
+        } else if (modelId.includes('flash-lite') || modelId.includes('8b')) {
+            inPerM = 0.0375;
+            outPerM = 0.15;
+        } else {
+            inPerM = 0.075;
+            outPerM = 0.30;
+        }
+    }
+    const cost = ((promptTokens / 1000000) * inPerM) + ((outputTokens / 1000000) * outPerM);
+    return cost < 0.0001 && cost > 0 ? '$0.0001' : `$${cost.toFixed(4)}`;
+};
+
+const formatDuration = (ms) => {
+    if (!ms || ms <= 0) return '0.0s';
+    const totalSec = ms / 1000;
+    if (totalSec < 1) {
+        return `${totalSec.toFixed(2)}s`;
+    }
+    if (totalSec < 60) {
+        return `${totalSec.toFixed(1)}s`;
+    }
+    const totalMin = Math.floor(totalSec / 60);
+    const remSec = Math.floor(totalSec % 60);
+    if (totalMin < 60) {
+        return `${totalMin}m ${remSec}s`;
+    }
+    const totalHours = Math.floor(totalMin / 60);
+    const remMin = totalMin % 60;
+    if (totalHours < 24) {
+        return `${totalHours}h ${remMin}m ${remSec}s`;
+    }
+    const days = Math.floor(totalHours / 24);
+    const remHours = totalHours % 24;
+    return `${days}d ${remHours}h ${remMin}m`;
+};
+
+const wordCount = (t) => {
+    if (!t) return 0;
+    let count = 0;
+    let inWord = false;
+    for (let i = 0; i < t.length; i++) {
+        const code = t.charCodeAt(i);
+        if ((code >= 0x4e00 && code <= 0x9fa5) ||
+            (code >= 0x3040 && code <= 0x30ff) ||
+            (code >= 0xac00 && code <= 0xd7af)) {
+            if (inWord) inWord = false;
+            count++;
+        } else if (
+            (code >= 48 && code <= 57) ||
+            (code >= 65 && code <= 90) ||
+            (code >= 97 && code <= 122) ||
+            code === 95 ||
+            (code > 127 && /\w/.test(t[i]))
+        ) {
+            if (!inWord) {
+                inWord = true;
+                count++;
+            }
+        } else {
+            inWord = false;
+        }
+    }
+    return count;
+};
+
+const charCount = t => (t ? t.length : 0);
+const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+const cleanText = t => {
+    if (!t || typeof t !== 'string') return '';
+    let c = t.replace(/\r\n|\r/g, '\n');
+    c = c.replace(/[ \t]{2,}/g, ' ');
+    c = c.replace(/(\n\s*){2,}/g, '\n\n');
+    return c.trim();
+};
+
+const copyText = async t => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(t);
+    }
+};
+
+const generateJobId = (text, isFile = false) => {
+    let hash = 0; const s = isFile ? text : (text ? text.substring(0, 1000) : '');
+    for (let i = 0; i < s.length; i++) { hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
+    return `job_${Math.abs(hash)}`;
+};
+
+// ═══════════════════════════════════════
+// NETWORKING & PARALLELISM
+// ═══════════════════════════════════════
+const fetchRetry = async (url, opts, retries = 3, timeoutMs = 75000) => {
+    let delay = 1500;
+    for (let i = 0; i < retries; i++) {
+        if (opts?.signal?.aborted) {
+            const err = new Error('Translation paused.');
+            err.name = 'AbortError';
+            throw err;
+        }
+
+        const attemptController = new AbortController();
+        let timeoutId = setTimeout(() => {
+            attemptController.abort(new Error(`Request timed out (${Math.round(timeoutMs / 1000)}s).`));
+        }, timeoutMs);
+
+        const onParentAbort = () => {
+            clearTimeout(timeoutId);
+            attemptController.abort(opts.signal?.reason || new Error('Translation paused.'));
+        };
+
+        if (opts?.signal) {
+            opts.signal.addEventListener('abort', onParentAbort, { once: true });
+        }
+
+        try {
+            const fetchOpts = { ...opts, signal: attemptController.signal };
+            const r = await fetch(url, fetchOpts);
+            clearTimeout(timeoutId);
+            if (opts?.signal) opts.signal.removeEventListener('abort', onParentAbort);
+
+            if (r.status === 429) {
+                const errText = await r.text().catch(() => '');
+                const err = new Error(`Rate limit (429): ${errText.substring(0, 150)}`);
+                err.status = 429;
+                throw err;
+            }
+            if (r.status >= 500 && i < retries - 1) {
+                if (opts?.signal?.aborted) {
+                    const err = new Error('Translation paused.');
+                    err.name = 'AbortError';
+                    throw err;
+                }
+                const msg = r.status === 503
+                    ? `Google server high demand (503). Retrying in ${(delay / 1000).toFixed(1)}s... (${i + 1}/${retries})`
+                    : `API Error ${r.status}. Retrying in ${(delay / 1000).toFixed(1)}s... (${i + 1}/${retries})`;
+                console.warn(msg);
+
+                await new Promise((resolve, reject) => {
+                    const timer = setTimeout(resolve, delay);
+                    if (opts?.signal) {
+                        const onAbort = () => {
+                            clearTimeout(timer);
+                            const err = new Error('Translation paused.');
+                            err.name = 'AbortError';
+                            reject(err);
+                        };
+                        opts.signal.addEventListener('abort', onAbort, { once: true });
+                    }
+                });
+                delay *= 1.5;
+                continue;
+            }
+            return r;
+        } catch (e) {
+            clearTimeout(timeoutId);
+            if (opts?.signal) opts.signal.removeEventListener('abort', onParentAbort);
+
+            if (opts?.signal?.aborted || (e.name === 'AbortError' && opts?.signal?.aborted)) {
+                const err = new Error('Translation paused.');
+                err.name = 'AbortError';
+                throw err;
+            }
+
+            if (e.status === 429 || (e.message || '').includes('429')) {
+                throw e;
+            }
+
+            if (i === retries - 1) throw e;
+            const msg = e.message?.includes('timed out')
+                ? `Request timed out. Retrying in ${(delay / 1000).toFixed(1)}s... (${i + 1}/${retries})`
+                : `Connection busy. Retrying in ${(delay / 1000).toFixed(1)}s... (${i + 1}/${retries})`;
+            console.warn(msg);
+
+            await new Promise((resolve, reject) => {
+                const timer = setTimeout(resolve, delay);
+                if (opts?.signal) {
+                    const onAbort = () => {
+                        clearTimeout(timer);
+                        const err = new Error('Translation paused.');
+                        err.name = 'AbortError';
+                        reject(err);
+                    };
+                    opts.signal.addEventListener('abort', onAbort, { once: true });
+                }
+            });
+            delay *= 1.5;
+        }
+    }
+};
+
+const batchParallel = async (items, fn, concurrency = 3, signal = null) => {
+    if (!items || items.length === 0) return [];
+    const results = new Array(items.length);
+    let nextIndex = 0;
+    const numWorkers = Math.max(1, Math.min(concurrency, items.length));
+
+    const workers = Array.from({ length: numWorkers }, async (_, workerId) => {
+        if (workerId > 0) {
+            await new Promise(r => setTimeout(r, workerId * 350));
+        }
+        while (nextIndex < items.length) {
+            if (signal?.aborted) {
+                const err = new Error('Translation paused.');
+                err.name = 'AbortError';
+                throw err;
+            }
+            const currentIndex = nextIndex++;
+            const item = items[currentIndex];
+            try {
+                const res = await fn(item, currentIndex, workerId);
+                results[currentIndex] = res;
+            } catch (err) {
+                if (signal?.aborted || err.name === 'AbortError') throw err;
+                results[currentIndex] = { error: err.message || 'Unknown error' };
+            }
+        }
+    });
+
+    await Promise.all(workers);
+    return results;
+};
+
+const CHUNK_PAYLOAD_MAP = {
+    turbo: 4500,
+    large: 3800,
+    medium: 2800,
+    small: 1800
+};
+
+const splitChunks = (text, effectiveTermLength = 0, smartGlossary = false, preset = null) => {
+    if (!text || typeof text !== 'string') return [];
+    const activePreset = preset || (typeof localStorage !== 'undefined' ? localStorage.getItem('chunkSizePreset') : null) || 'turbo';
+    const basePayload = CHUNK_PAYLOAD_MAP[activePreset] || 4500;
+    const glossaryLen = typeof effectiveTermLength === 'number' ? effectiveTermLength : 0;
+    const effectiveGlossaryLen = smartGlossary ? Math.min(glossaryLen, 1500) : glossaryLen;
+    const promptOverhead = typeof PROMPT_OVERHEAD !== 'undefined' ? PROMPT_OVERHEAD : 800;
+    let max = basePayload - Math.min(promptOverhead + effectiveGlossaryLen, 1800);
+    if (max > 3500) max = 3500;
+    if (max <= 0) max = 1800;
+    const chunks = []; let rem = text;
+    while (rem.length > 0) {
+        if (rem.length <= max) { chunks.push(rem); break; }
+        let sp = max;
+        // Priority 1: Paragraph break (\n\n)
+        let idx = rem.lastIndexOf('\n\n', max);
+        if (idx !== -1 && idx >= max * 0.4) {
+            sp = idx + 2;
+        } else {
+            // Priority 2: Single newline (\n)
+            idx = rem.lastIndexOf('\n', max);
+            if (idx !== -1 && idx >= max * 0.4) {
+                sp = idx + 1;
+            } else {
+                // Priority 3: Sentence terminators
+                const punctIndices = [
+                    rem.lastIndexOf('。\n', max),
+                    rem.lastIndexOf('。', max),
+                    rem.lastIndexOf('！\n', max),
+                    rem.lastIndexOf('！', max),
+                    rem.lastIndexOf('？\n', max),
+                    rem.lastIndexOf('？', max),
+                    rem.lastIndexOf('”\n', max),
+                    rem.lastIndexOf('”', max),
+                    rem.lastIndexOf('…\n', max),
+                    rem.lastIndexOf('…', max),
+                    rem.lastIndexOf('.\n', max),
+                    rem.lastIndexOf('.', max),
+                    rem.lastIndexOf('!\n', max),
+                    rem.lastIndexOf('!', max),
+                    rem.lastIndexOf('?\n', max),
+                    rem.lastIndexOf('?', max)
+                ].filter(i => i >= max * 0.3);
+
+                if (punctIndices.length > 0) {
+                    sp = Math.max(...punctIndices) + 1;
+                } else {
+                    // Priority 4: Fallback to any newline or period in the first half rather than cutting mid-sentence
+                    const anyPunct = [
+                        rem.lastIndexOf('\n\n', max),
+                        rem.lastIndexOf('\n', max),
+                        rem.lastIndexOf('。', max),
+                        rem.lastIndexOf('.', max)
+                    ].filter(i => i > 0);
+                    if (anyPunct.length > 0) {
+                        sp = Math.max(...anyPunct) + 1;
+                    }
+                }
+            }
+        }
+        if (sp <= 0) sp = max;
+        chunks.push(rem.substring(0, sp));
+        rem = rem.substring(sp);
+    }
+    return chunks;
+};
+
+// ═══════════════════════════════════════
+// BACKGROUND WEB WORKER BRIDGE
+// ═══════════════════════════════════════
+let appWorker = null;
+let workerMsgId = 0;
+const workerCallbacks = new Map();
+
+const initAppWorker = () => {
+    try {
+        if (typeof window !== 'undefined' && window.Worker && !appWorker) {
+            appWorker = new Worker('./worker.js');
+            appWorker.onmessage = (e) => {
+                const { id, success, error, ...rest } = e.data || {};
+                if (workerCallbacks.has(id)) {
+                    const { resolve, reject } = workerCallbacks.get(id);
+                    workerCallbacks.delete(id);
+                    if (success) resolve(rest);
+                    else reject(new Error(error || 'Worker operation failed'));
+                }
+            };
+            appWorker.onerror = (err) => {
+                console.warn('Worker error:', err);
+            };
+        }
+    } catch (e) {
+        console.warn('Web Worker not available, falling back seamlessly to main thread:', e);
+    }
+};
+
+const callWorker = (type, payload) => {
+    return new Promise((resolve, reject) => {
+        try {
+            if (!appWorker) initAppWorker();
+            if (!appWorker) return resolve(null);
+            const id = ++workerMsgId;
+            workerCallbacks.set(id, { resolve, reject });
+            appWorker.postMessage({ id, type, payload });
+        } catch (e) {
+            resolve(null);
+        }
+    });
+};
+
+// ═══════════════════════════════════════
+// INFO TOOLTIP (Responsive & Touch-Friendly)
+// ═══════════════════════════════════════
+const InfoTooltip = ({ title, text, tip }) => {
+    const ReactObj = (typeof window !== 'undefined' && window.React) || (typeof React !== 'undefined' ? React : null);
+    if (!ReactObj) return null;
+    const { useState, useEffect, useRef, createElement: h } = ReactObj;
+    const ic = (typeof window !== 'undefined' && window.ic) || ((Icon, size, className) => h('span', { className }));
+    const Info = (typeof window !== 'undefined' && window.Info) || 'Info';
+    const X = (typeof window !== 'undefined' && window.X) || 'X';
+
+    const [show, setShow] = useState(false);
+    const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+    const [placement, setPlacement] = useState('top');
+    const btnRef = useRef(null);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+        if (typeof window !== 'undefined') {
+            window.addEventListener('resize', handleResize, { passive: true });
+            return () => window.removeEventListener('resize', handleResize);
+        }
+    }, []);
+
+    const checkPlacement = () => {
+        if (btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect();
+            if (rect.top < 240) {
+                setPlacement('bottom');
+            } else {
+                setPlacement('top');
+            }
+        }
+    };
+
+    const handleOpen = () => {
+        checkPlacement();
+        setShow(true);
+    };
+
+    const isBottom = placement === 'bottom';
+
+    return h('span', { className: 'relative inline-flex items-center ml-1' },
+        h('button', {
+            ref: btnRef,
+            type: 'button',
+            onClick: (e) => { e.preventDefault(); e.stopPropagation(); checkPlacement(); setShow(p => !p); },
+            onMouseEnter: () => { if (!isMobile) handleOpen(); },
+            onMouseLeave: () => { if (!isMobile) setShow(false); },
+            className: 'text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 rounded-full hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-w-[24px] min-h-[24px]',
+            'aria-label': `${title} information`
+        }, ic(Info, 14)),
+
+        // Mobile Centered Modal Popover with Backdrop
+        show && isMobile && h('div', {
+            className: 'fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-fade-in',
+            onClick: (e) => { e.stopPropagation(); setShow(false); }
+        },
+            h('div', {
+                className: 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-sm max-h-[85vh] overflow-y-auto space-y-3 relative',
+                onClick: (e) => e.stopPropagation()
+            },
+                h('div', { className: 'flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5' },
+                    h('div', { className: 'font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2 text-sm' },
+                        ic(Info, 16),
+                        title
+                    ),
+                    h('button', {
+                        type: 'button',
+                        onClick: () => setShow(false),
+                        className: 'p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer',
+                        'aria-label': 'Close info'
+                    }, ic(X, 16))
+                ),
+                h('p', { className: 'text-slate-600 dark:text-slate-300 text-xs leading-relaxed' }, text),
+                tip && h('div', { className: 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 p-2.5 rounded-xl text-[11px] text-indigo-800 dark:text-indigo-300' },
+                    h('strong', { className: 'font-semibold text-indigo-900 dark:text-indigo-200' }, 'Tip: '), tip
+                ),
+                h('button', {
+                    type: 'button',
+                    onClick: () => setShow(false),
+                    className: 'w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer'
+                }, 'Got it')
+            )
+        ),
+
+        // Desktop Sleek Popover
+        show && !isMobile && h('div', {
+            className: `absolute ${isBottom ? 'top-full mt-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 w-80 max-w-[calc(100vw-32px)] p-3.5 bg-slate-900 dark:bg-slate-900 text-white text-xs rounded-xl shadow-2xl border border-slate-700 z-50 transition-all pointer-events-none`
+        },
+            h('div', { className: 'font-bold text-indigo-300 mb-1 flex items-center gap-1.5' },
+                ic(Info, 13),
+                title
+            ),
+            h('p', { className: 'text-slate-200 leading-relaxed mb-1.5' }, text),
+            tip && h('p', { className: 'text-slate-400 border-t border-slate-700 pt-1.5 text-[11px]' },
+                h('strong', { className: 'text-indigo-300' }, 'Tip: '), tip
+            )
+        )
+    );
+};
+
 window.decodeHtmlEntities = decodeHtmlEntities;
 window.cleanNovelProse = cleanNovelProse;
 window.sanitizeChapterTitle = sanitizeChapterTitle;
@@ -506,4 +1042,86 @@ window.logMsg = logMsg;
 window.showToast = showToast;
 window.addExportEntry = addExportEntry;
 window.saveUniversalBlob = saveUniversalBlob;
+
+window.DEFAULT_GEMINI_MODELS = DEFAULT_GEMINI_MODELS;
+window.DEFAULT_DEEPSEEK_MODELS = DEFAULT_DEEPSEEK_MODELS;
+window.LANGUAGES = LANGUAGES;
+window.TARGET_LANGUAGES = TARGET_LANGUAGES;
+window.DEEPL_LANG_MAP = DEEPL_LANG_MAP;
+window.LIBRE_LANG_MAP = LIBRE_LANG_MAP;
+window.MAX_PAYLOAD = MAX_PAYLOAD;
+window.PROMPT_OVERHEAD = PROMPT_OVERHEAD;
+window.MAX_HISTORY = MAX_HISTORY;
+window.DEFAULT_CONCURRENCY = DEFAULT_CONCURRENCY;
+
+window.estimateTokens = estimateTokens;
+window.estimateCost = estimateCost;
+window.calculateRealCost = calculateRealCost;
+window.formatDuration = formatDuration;
+window.wordCount = wordCount;
+window.charCount = charCount;
+window.genId = genId;
+window.cleanText = cleanText;
+window.copyText = copyText;
+window.generateJobId = generateJobId;
+
+window.fetchRetry = fetchRetry;
+window.batchParallel = batchParallel;
+window.CHUNK_PAYLOAD_MAP = CHUNK_PAYLOAD_MAP;
+window.splitChunks = splitChunks;
+
+window.initAppWorker = initAppWorker;
+window.callWorker = callWorker;
+
+window.InfoTooltip = InfoTooltip;
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        escapeXml,
+        sanitizeFilename,
+        sanitize,
+        setSmartTitle,
+        forceNewIdentifier,
+        logMsg,
+        showToast,
+        addExportEntry,
+        saveUniversalBlob,
+        parseChapterTitleComponents,
+        normalizeTextForComparison,
+        getWordStems,
+        isSimilarToTitle,
+        isTitleEcho,
+        stripLeadingTitleFromContent,
+        decodeHtmlEntities,
+        cleanNovelProse,
+        sanitizeChapterTitle,
+        DEFAULT_GEMINI_MODELS,
+        DEFAULT_DEEPSEEK_MODELS,
+        LANGUAGES,
+        TARGET_LANGUAGES,
+        DEEPL_LANG_MAP,
+        LIBRE_LANG_MAP,
+        MAX_PAYLOAD,
+        PROMPT_OVERHEAD,
+        MAX_HISTORY,
+        DEFAULT_CONCURRENCY,
+        estimateTokens,
+        estimateCost,
+        calculateRealCost,
+        formatDuration,
+        wordCount,
+        charCount,
+        genId,
+        cleanText,
+        copyText,
+        generateJobId,
+        CHUNK_PAYLOAD_MAP,
+        fetchRetry,
+        batchParallel,
+        splitChunks,
+        initAppWorker,
+        callWorker,
+        InfoTooltip
+    };
+}
 })();
