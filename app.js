@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.17.92';
+        let VERSION = '8.17.93';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -44,7 +44,7 @@
       DEFAULT_GEMINI_MODELS, DEFAULT_DEEPSEEK_MODELS,
       LANGUAGES, TARGET_LANGUAGES, DEEPL_LANG_MAP, LIBRE_LANG_MAP,
       MAX_PAYLOAD, PROMPT_OVERHEAD, MAX_HISTORY, DEFAULT_CONCURRENCY,
-      MoonReaderModal, AppModalsContainer
+      MoonReaderModal, AppModalsContainer, AppTabsContainer
     } = window;
 
     const copyText = window.copyText;
@@ -93,6 +93,7 @@
       const [inputText, setInputText] = useState('');
       const [assembledText, setAssembledText] = useState('');
       const [terminology, setTerminology] = useState(() => localStorage.getItem('terminology') || '');
+      const glossaryTermCount = (terminology || '').split(/\r?\n/).filter(l => l.trim().startsWith('-')).length;
       const [enableGlossary, setEnableGlossary] = useState(() => localStorage.getItem('enableGlossary') === 'true');
       const [customInstructions, setCustomInstructions] = useState(() => localStorage.getItem('customInstructions') || '');
       const [smartGlossary, setSmartGlossary] = useState(() => localStorage.getItem('smartGlossary') !== 'false');
@@ -517,6 +518,9 @@
       const [useCustomOpenaiModel, setUseCustomOpenaiModel] = useState(false);
       const [customClaudeModel, setCustomClaudeModel] = useState('');
       const [useCustomClaudeModel, setUseCustomClaudeModel] = useState(false);
+      const model = (provider === 'deepseek')
+        ? (useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel)
+        : (useCustomModel && customModel ? customModel : geminiModel);
       const isStandalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
       const [deferredPrompt, setDeferredPrompt] = useState(globalDeferredPrompt);
 
@@ -2222,8 +2226,6 @@
       );
 
       const chipSelectStyle = { background: 'var(--void)', border: '1px solid var(--hairline)', color: 'var(--paper-dim)', borderRadius: 8, padding: '4px 6px', fontSize: 11, outline: 'none', maxWidth: 170 };
-
-      const glossaryTermCount = (terminology || '').split(/\r?\n/).filter(l => l.trim().startsWith('-')).length;
 
       const tabTitle = activeTab === 'text' ? 'Translate' : activeTab === 'web_importer' ? 'Import' : activeTab === 'studio' ? 'Studio' : activeTab === 'history' ? 'Library' : 'Settings';
       const tabSub = activeTab === 'text'
