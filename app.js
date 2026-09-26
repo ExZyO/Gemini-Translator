@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.80';
+    let VERSION = '8.17.81';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -2515,47 +2515,72 @@
       // --- Novel Health & QA Proofreader Handlers (§5.9 + §7.1 + §7.5) ---
       const runNovelHealthAudit = (novelOrChapters, optionsOverride = {}) => {
         const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        if (!engine || !window.QAEngine) {
+        if (!engine?.QA || !window.QAEngine) {
           toast('QA Engine is loading...', 'info');
           return null;
         }
-        const opts = {
-          checkGaps: optionsOverride.checkGaps !== undefined ? optionsOverride.checkGaps : qaCheckGaps,
-          checkCorrupt: optionsOverride.checkCorrupt !== undefined ? optionsOverride.checkCorrupt : qaCheckCorrupt,
-          checkCjkLeaks: optionsOverride.checkCjkLeaks !== undefined ? optionsOverride.checkCjkLeaks : (cjkLeakCheckEnabled && qaCheckCjk),
-          checkAntiMtl: optionsOverride.checkAntiMtl !== undefined ? optionsOverride.checkAntiMtl : (antiMtlGateEnabled && qaCheckAntiMtl),
-          checkLoops: optionsOverride.checkLoops !== undefined ? optionsOverride.checkLoops : qaCheckLoops,
-          checkDuplicates: optionsOverride.checkDuplicates !== undefined ? optionsOverride.checkDuplicates : qaCheckDuplicates
+        const state = {
+          qaCheckGaps,
+          qaCheckCorrupt,
+          qaCheckCjk,
+          qaCheckAntiMtl,
+          qaCheckLoops,
+          qaCheckDuplicates,
+          cjkLeakCheckEnabled,
+          antiMtlGateEnabled
         };
-        const result = engine.auditNovelHealth(novelOrChapters, opts);
+        const result = engine.QA.runAudit(novelOrChapters, optionsOverride, state);
         setQaAuditResult(result);
         return result;
       };
 
-      const handleOpenNovelHealthModal = async (item) => {
-        const full = await loadFullNovel(item);
-        if (!full) {
-          toast('Novel data not found.', 'error');
-          return;
-        }
-        setQaAuditNovelRef(full);
-        runNovelHealthAudit(full);
-        setQaFilterCategory('all');
-        setQaModalOpen(true);
+      const handleOpenNovelHealthModal = (item) => {
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        return engine?.QA?.openNovelHealthModal(item, loadFullNovel, {
+          toast,
+          setQaAuditNovelRef,
+          setQaAuditResult,
+          setQaFilterCategory,
+          setQaModalOpen,
+          state: {
+            qaCheckGaps,
+            qaCheckCorrupt,
+            qaCheckCjk,
+            qaCheckAntiMtl,
+            qaCheckLoops,
+            qaCheckDuplicates,
+            cjkLeakCheckEnabled,
+            antiMtlGateEnabled
+          }
+        });
       };
 
       const handleOpenActiveQaModal = () => {
-        const chs = (translatedChapters && translatedChapters.length > 0)
-          ? translatedChapters
-          : (chapters && chapters.length > 0 ? chapters : [{ title: (fileName && fileName.trim()) || 'Active Document', content: assembledText || inputText }]);
-        const novelObj = {
-          title: (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || 'Active Document',
-          chapters: chs
-        };
-        setQaAuditNovelRef(novelObj);
-        runNovelHealthAudit(novelObj);
-        setQaFilterCategory('all');
-        setQaModalOpen(true);
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        return engine?.QA?.openActiveQaModal({
+          translatedChapters,
+          chapters,
+          fileName,
+          assembledText,
+          inputText,
+          activeNovelRecord,
+          currentDocTitle
+        }, {
+          setQaAuditNovelRef,
+          setQaAuditResult,
+          setQaFilterCategory,
+          setQaModalOpen,
+          state: {
+            qaCheckGaps,
+            qaCheckCorrupt,
+            qaCheckCjk,
+            qaCheckAntiMtl,
+            qaCheckLoops,
+            qaCheckDuplicates,
+            cjkLeakCheckEnabled,
+            antiMtlGateEnabled
+          }
+        });
       };
 
       useEffect(() => {
@@ -2598,155 +2623,80 @@
         }
       };
 
-      const handleOpenDiffModal = async (chapterIdx = 0, novelOverride = null) => {
+      const handleOpenDiffModal = (chapterIdx = 0, novelOverride = null) => {
         const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        if (!engine || !window.TMDiffEngine) {
-          toast('Diff Engine loading...', 'info');
-          return;
-        }
-        const activeNovel = novelOverride || activeNovelRecord;
-        const novelKey = activeNovel?.id || (fileName && fileName.trim()) || 'active_doc';
-        const chs = (translatedChapters && translatedChapters.length > 0)
-          ? translatedChapters
-          : (activeNovel?.translatedChapters && activeNovel.translatedChapters.length > 0
-              ? activeNovel.translatedChapters
-              : (chapters && chapters.length > 0 ? chapters : []));
-
-        const targetCh = chs[chapterIdx] || {
-          title: (fileName && fileName.trim()) || 'Active Document',
-          content: assembledText || inputText || ''
-        };
-        const curText = (targetCh.content || targetCh.text || assembledText || '').trim();
-
-        const snapshots = await engine.TM.getChapterSnapshots(novelKey, chapterIdx);
-
-        if (!snapshots || snapshots.length === 0) {
-          if (!curText) {
-            toast('No text or snapshots available for this chapter yet.', 'info');
-            return;
-          }
-          await engine.TM.createSnapshot({
-            novelId: novelKey,
-            chapterIdx: chapterIdx,
-            chapterTitle: targetCh.title || `Chapter ${chapterIdx + 1}`,
-            text: curText,
-            model: geminiModel || 'Current'
-          });
-          toast('Initial baseline snapshot recorded for this chapter.', 'info');
-          const refreshedSnaps = await engine.TM.getChapterSnapshots(novelKey, chapterIdx);
-          setDiffSnapshotsList(refreshedSnaps);
-          setSelectedDiffSnapId(refreshedSnaps[0]?.id || '');
-          const diffResult = engine.TM.computeDiff(curText, curText);
-          setActiveDiffData({
-            title: targetCh.title || `Chapter ${chapterIdx + 1}`,
-            chapterIdx,
-            novelKey,
-            ...diffResult
-          });
-          setDiffModalOpen(true);
-          return;
-        }
-
-        setDiffSnapshotsList(snapshots);
-        const latestSnap = snapshots[snapshots.length - 1];
-        setSelectedDiffSnapId(latestSnap.id);
-        const diffResult = engine.TM.computeDiff(latestSnap.text, curText);
-        setActiveDiffData({
-          title: targetCh.title || `Chapter ${chapterIdx + 1}`,
+        return engine?.TM?.openDiffModal({
           chapterIdx,
-          novelKey,
-          ...diffResult
+          novelOverride,
+          activeNovelRecord,
+          fileName,
+          translatedChapters,
+          chapters,
+          assembledText,
+          inputText,
+          geminiModel,
+          callbacks: {
+            toast,
+            setDiffSnapshotsList,
+            setSelectedDiffSnapId,
+            setActiveDiffData,
+            setDiffModalOpen
+          }
         });
-        setDiffModalOpen(true);
       };
 
-      const handleManualSnapshot = async () => {
+      const handleManualSnapshot = () => {
         const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        if (!engine || !window.TMDiffEngine || !activeDiffData) return;
-        const chs = (translatedChapters && translatedChapters.length > 0)
-          ? translatedChapters
-          : (activeNovelRecord?.translatedChapters && activeNovelRecord.translatedChapters.length > 0
-              ? activeNovelRecord.translatedChapters
-              : (chapters && chapters.length > 0 ? chapters : []));
-        const targetCh = chs[activeDiffData.chapterIdx] || { content: assembledText || inputText || '' };
-        const curText = (targetCh.content || targetCh.text || assembledText || '').trim();
-        if (!curText) {
-          toast('No text available in this chapter to snapshot.', 'info');
-          return;
-        }
-        await engine.TM.createSnapshot({
-          novelId: activeDiffData.novelKey,
-          chapterIdx: activeDiffData.chapterIdx,
-          chapterTitle: activeDiffData.title || `Chapter ${activeDiffData.chapterIdx + 1}`,
-          text: curText,
-          model: `${geminiModel || 'Current'} (Manual)`
+        return engine?.TM?.saveManualSnapshot({
+          activeDiffData,
+          translatedChapters,
+          activeNovelRecord,
+          chapters,
+          assembledText,
+          inputText,
+          geminiModel,
+          callbacks: {
+            toast,
+            setDiffSnapshotsList,
+            setSelectedDiffSnapId
+          }
         });
-        const refreshedSnaps = await engine.TM.getChapterSnapshots(activeDiffData.novelKey, activeDiffData.chapterIdx);
-        setDiffSnapshotsList(refreshedSnaps);
-        if (refreshedSnaps && refreshedSnaps.length > 0) {
-          setSelectedDiffSnapId(refreshedSnaps[refreshedSnaps.length - 1].id);
-        }
-        toast('Snapshot saved successfully!', 'success');
       };
 
       const handleSelectDiffSnapshot = (snapId) => {
-        setSelectedDiffSnapId(snapId);
         const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        if (!activeDiffData || !engine || !window.TMDiffEngine) return;
-        const snap = diffSnapshotsList.find(s => s.id === snapId);
-        if (!snap) return;
-
-        const chs = (translatedChapters && translatedChapters.length > 0)
-          ? translatedChapters
-          : (activeNovelRecord?.translatedChapters && activeNovelRecord.translatedChapters.length > 0
-              ? activeNovelRecord.translatedChapters
-              : (chapters && chapters.length > 0 ? chapters : []));
-        const targetCh = chs[activeDiffData.chapterIdx] || { content: assembledText || inputText || '' };
-        const curText = (targetCh.content || targetCh.text || assembledText || '').trim();
-
-        const diffResult = engine.TM.computeDiff(snap.text, curText);
-        setActiveDiffData(prev => ({
-          ...prev,
-          ...diffResult
-        }));
+        return engine?.TM?.selectDiffSnapshot({
+          snapId,
+          activeDiffData,
+          diffSnapshotsList,
+          translatedChapters,
+          activeNovelRecord,
+          chapters,
+          assembledText,
+          inputText,
+          callbacks: {
+            setSelectedDiffSnapId,
+            setActiveDiffData
+          }
+        });
       };
 
-      const handleRollbackDiffSnapshot = async (snapId) => {
+      const handleRollbackDiffSnapshot = (snapId) => {
         const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        if (!engine || !window.TMDiffEngine) return;
-        const snap = await engine.TM.rollbackSnapshot(snapId);
-        if (!snap || !snap.text) {
-          toast('Failed to load snapshot for rollback.', 'error');
-          return;
-        }
-
-        if (!confirm(`Roll back "${snap.chapterTitle || 'Chapter'}" to revision from ${new Date(snap.timestamp).toLocaleString()}?`)) return;
-
-        const chIdx = snap.chapterIdx || 0;
-        if (translatedChapters && translatedChapters.length > chIdx) {
-          const updated = [...translatedChapters];
-          updated[chIdx] = { ...updated[chIdx], content: snap.text };
-          setTranslatedChapters(updated);
-          const currentDisplay = updated.map(c => `${c?.title || ''}\n\n${c?.content || ''}`).join('\n\n\n').trim();
-          setAssembledText(currentDisplay);
-        } else {
-          setAssembledText(snap.text);
-        }
-
-        if (activeNovelRecord) {
-          try {
-            const full = await loadFullNovel(activeNovelRecord);
-            if (full && full.translatedChapters && full.translatedChapters.length > chIdx) {
-              full.translatedChapters[chIdx].content = snap.text;
-              await saveNovelRecord(full);
-            }
-          } catch (e) {
-            console.warn('[Rollback] DB save warning:', e);
+        return engine?.TM?.rollbackDiffSnapshot({
+          snapId,
+          translatedChapters,
+          activeNovelRecord,
+          loadFullNovelFn: loadFullNovel,
+          saveNovelRecordFn: saveNovelRecord,
+          callbacks: {
+            toast,
+            confirm: (msg) => confirm(msg),
+            setTranslatedChapters,
+            setAssembledText,
+            setDiffModalOpen
           }
-        }
-
-        toast(`↺ Reverted "${snap.chapterTitle || 'Chapter'}" to revision.`, 'success');
-        setDiffModalOpen(false);
+        });
       };
 
       useEffect(() => {
@@ -2757,112 +2707,73 @@
       }, [translatedChapters, chapters, assembledText, inputText, fileName, activeNovelRecord, geminiModel]);
 
       // --- Source Plugins Handlers (§4.1) ---
-      const handleOpenSourcePluginsModal = async () => {
-        setSourcePluginsModalOpen(true);
-        if (!pluginCatalog || pluginCatalog.length === 0) {
-          setIsCatalogLoading(true);
-          try {
-            const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-            const cat = await engine.Plugins.fetchCatalog();
-            setPluginCatalog(Array.isArray(cat) ? cat : []);
-          } catch (err) {
-            console.warn('Failed to fetch plugins catalog:', err);
-            toast('Could not fetch online plugins catalog: ' + err.message, 'warning');
-          } finally {
-            setIsCatalogLoading(false);
+      const handleOpenSourcePluginsModal = () => {
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        return engine?.Plugins?.openCatalog({
+          pluginCatalog,
+          callbacks: {
+            setSourcePluginsModalOpen,
+            setIsCatalogLoading,
+            setPluginCatalog,
+            toast
           }
-        }
+        });
       };
 
-      const handleInstallPlugin = async (item) => {
-        try {
-          setInstallingPluginId(item.id);
-          toast(`Installing ${item.name} plugin…`, 'info');
-          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-          await engine.Plugins.installPlugin(item);
-          setPluginCatalogTick(t => t + 1);
-          toast(`✅ Successfully installed ${item.name} (${item.id})!`, 'success');
-        } catch (err) {
-          toast(`Plugin install failed: ${err.message}`, 'error');
-        } finally {
-          setInstallingPluginId(null);
-        }
+      const handleInstallPlugin = (item) => {
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        return engine?.Plugins?.installPlugin(item, {
+          setInstallingPluginId,
+          setPluginCatalogTick,
+          toast
+        });
       };
 
       const handleUninstallPlugin = (id) => {
         const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        if (engine.Plugins.uninstallPlugin(id)) {
-          setPluginCatalogTick(t => t + 1);
-          toast(`Uninstalled plugin: ${id}`, 'info');
-        } else {
-          toast('Cannot uninstall built-in plugin.', 'warning');
-        }
+        return engine?.Plugins?.uninstallPlugin(id, {
+          setPluginCatalogTick,
+          toast
+        });
       };
 
-      const handleInstallCustomPluginUrl = async (url) => {
-        if (!url || !url.trim()) return;
-        try {
-          toast('Fetching and installing custom plugin…', 'info');
-          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-          await engine.Plugins.installCustomPluginUrl(url.trim());
-          setPluginCatalogTick(t => t + 1);
-          toast('✅ Custom plugin registered and ready!', 'success');
-          setCustomPluginUrl('');
-        } catch (err) {
-          toast(`Custom plugin load failed: ${err.message}`, 'error');
-        }
+      const handleInstallCustomPluginUrl = (url) => {
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        return engine?.Plugins?.installCustomPluginUrl(url, {
+          setPluginCatalogTick,
+          setCustomPluginUrl,
+          toast
+        });
       };
 
-      const handleSearchNovelsInPlugins = async (query, sourceId = 'all') => {
-        const q = (query || pluginNovelSearchQuery || '').trim();
-        if (!q) {
-          return toast('Please enter a novel title or keyword to search.', 'warning');
-        }
-        setIsPluginNovelSearching(true);
-        try {
-          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-          const results = await engine.Plugins.searchNovels(q, sourceId);
-          setPluginNovelSearchResults(results || []);
-          if (!results || results.length === 0) {
-            toast(`No novels found for "${q}". Try another query or install more plugins!`, 'info');
-          } else {
-            toast(`Found ${results.length} novels across active plugins & sources!`, 'success');
+      const handleSearchNovelsInPlugins = (query, sourceId = 'all') => {
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        return engine?.Plugins?.searchNovelsInPlugins({
+          query,
+          sourceId,
+          pluginNovelSearchQuery,
+          callbacks: {
+            toast,
+            setIsPluginNovelSearching,
+            setPluginNovelSearchResults
           }
-        } catch (err) {
-          console.error('[handleSearchNovelsInPlugins]', err);
-          toast('Plugin novel search error: ' + (err?.message || err), 'error');
-        } finally {
-          setIsPluginNovelSearching(false);
-        }
+        });
       };
 
-      const handleCheckRezeroUpdates = async () => {
-        try {
-          const wctUrl = 'https://witchculttranslation.com/table-of-content/';
-          const existing = (webImportHistory || []).find(n => /witchcult|rezero/i.test(n?.sourceUrl || n?.url || n?.title || ''))
-            || (activeCrawlSession && /witchcult|rezero/i.test(activeCrawlSession?.sourceUrl || activeCrawlSession?.url || activeCrawlSession?.title || '') ? activeCrawlSession : null);
-          const existingChapters = existing?.chapters || existing?.rawChapters || (chapters && chapters.length > 0 && /rezero|witch/i.test(activeNovelRecord?.title || '') ? chapters : []);
-
-          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-          await engine.Plugins.checkRezeroUpdates({
-            url: wctUrl,
-            existingNovel: existing,
-            existingChapters,
-            title: existing?.title || 'Web Novel Series (WCT)',
-            author: existing?.author || 'Tappei Nagatsuki',
-            cover: existing?.cover || 'https://witchculttranslation.com/wp-content/uploads/2024/09/png-echidna-beatrice-2-editado-2.jpg'
-          }, {
+      const handleCheckRezeroUpdates = () => {
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        return engine?.Plugins?.checkRezeroUpdates({
+          webImportHistory,
+          activeCrawlSession,
+          chapters,
+          activeNovelRecord,
+          callbacks: {
             onSetWebImportUrl: (u) => setWebImportUrl(u),
             onProgress: (m) => setWebImportStatus(m),
             toast: (m, t) => toast(m, t),
             onStartFetch: (isInc, data, skipConf, url) => handleStartFetch(isInc, data, skipConf, url)
-          });
-        } catch (err) {
-          console.error('[handleCheckRezeroUpdates]', err);
-          toast('Update check failed: ' + (err?.message || err), 'error');
-        } finally {
-          setWebImportStatus('');
-        }
+          }
+        });
       };
 
       // --- Cost & Time Estimator Handlers (§7.2) ---
