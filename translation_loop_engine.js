@@ -6,7 +6,7 @@
  * - extractTextNodes(element): Traverses DOM with createTreeWalker and extracts non-empty text nodes
  * - translateText({ inputText, resume, session, opts, config, callbacks }): Full text translation loop with streaming, intra-context, and parallel workers
  * - translateEbook({ chapters, resume, isEpub, originalZip, session, opts, config, callbacks }): Full ebook chapter dispatcher with intra-chapter context, parallel concurrency, title translation, healing pass, and DOM node replacement
- * - Controller: buildTranslateOpts, buildTranslationConfig, pauseTranslation, resumeTranslation, discardSession, saveTranslationToLibrarySpace, executeTranslateText, executeTranslateEbook
+ * - Controller: buildTranslateOpts, buildTranslationConfig, pauseTranslation, resumeTranslation, discardSession, saveTranslationToLibrarySpace, executeTranslateText, executeTranslateEbook, createTranslationDispatcher
  * - splitChunks, batchParallel, calculateRealCost, formatDuration, generateJobId utilities
  */
 
@@ -1868,7 +1868,26 @@
     discardSession,
     saveTranslationToLibrarySpace,
     executeTranslateText,
-    executeTranslateEbook
+    executeTranslateEbook,
+    createTranslationDispatcher(ctx) {
+      return {
+        translateText: async (resume = false) => {
+          return await (TranslationLoopEngine?.Controller || Controller).executeTranslateText({
+            ...ctx,
+            resume
+          });
+        },
+        translateEbook: async (chapters, resume = false, isEpubParam, originalZipParam) => {
+          return await (TranslationLoopEngine?.Controller || Controller).executeTranslateEbook({
+            ...ctx,
+            chapters,
+            resume,
+            isEpubParam,
+            originalZipParam
+          });
+        }
+      };
+    }
   };
 
   const TranslationLoopEngine = {
