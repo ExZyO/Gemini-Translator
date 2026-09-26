@@ -24,6 +24,16 @@
       .replace(/'/g, '&apos;');
   }
 
+  // --- Title Normalization Helper ---
+  function normalizeTitleKey(title) {
+    if (typeof window !== 'undefined' && window.normalizeTitleKey) return window.normalizeTitleKey(title);
+    return String(title || '')
+      .replace(/\.[^/.]+$/, '')
+      .replace(/\s*\((?:Translated|Translation)\)/gi, '')
+      .replace(/\s*[-|]\s*Lnori\s*$/i, '')
+      .trim().toLowerCase();
+  }
+
   // --- Generic Title Detector ---
   function isGenericTitle(title) {
     if (typeof global !== 'undefined' && global.isGenericTitle) return global.isGenericTitle(title);
@@ -1419,12 +1429,11 @@
         }] : []);
 
     const saveTitle = title.includes('(Translated)') ? title : `${title} (Translated)`;
-    const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-    const baseTitle = cleanT(title);
+    const baseTitle = normalizeTitleKey(title);
     const webImportHistory = params.webImportHistory || [];
     const webImportData = params.webImportData || null;
     const webImportUrl = params.webImportUrl || '';
-    const matchingOriginal = webImportHistory.find(n => n && cleanT(n.title) === baseTitle);
+    const matchingOriginal = webImportHistory.find(n => n && normalizeTitleKey(n.title) === baseTitle);
     const resolvedCover = params.currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || (webImportData && webImportData.cover) || (matchingOriginal && matchingOriginal.cover) || '';
     const resolvedAuthor = (activeNovelRecord && activeNovelRecord.author) || (webImportData && webImportData.author) || (matchingOriginal && matchingOriginal.author) || 'Author';
     const resolvedSourceUrl = (activeNovelRecord && (activeNovelRecord.sourceUrl || activeNovelRecord.url)) ||
@@ -1735,9 +1744,9 @@
         const activeCrawlSession = params.activeCrawlSession || null;
 
         if (activeNovelRecord && activeNovelRecord.id) {
-          const cleanBT = String(activeNovelRecord.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+          const cleanBT = normalizeTitleKey(activeNovelRecord.title);
           const matchedMeta = webImportHistory.find(n => {
-            const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+            const nt = normalizeTitleKey(n?.title);
             return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
           });
           const resolvedCover = activeNovelRecord.cover || currentDocCover || matchedMeta?.cover || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
@@ -1769,9 +1778,9 @@
           }
         } else {
           const bTitle = (fileName && fileName.trim()) ? fileName.replace(/\.[^/.]+$/, '') : ((chapters && chapters[0]?.title) || 'Translated Novel');
-          const cleanBT = bTitle.replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+          const cleanBT = normalizeTitleKey(bTitle);
           const matchedMeta = webImportHistory.find(n => {
-            const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+            const nt = normalizeTitleKey(n?.title);
             return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
           });
           const recCover = currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || (activeCrawlSession && activeCrawlSession.cover) || (webImportData && webImportData.cover) || (matchedMeta && matchedMeta.cover) || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';

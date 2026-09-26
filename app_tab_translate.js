@@ -551,10 +551,14 @@
               !isTranslating && !(savedTranslationSession || isTranslationPaused || activeSessionRef.current) && assembledText && translatedChapters && translatedChapters.filter(c => c && (c.content || c.text)).length > 0 && (activeNovelRecord || (chapters && chapters.length > 0)) && (() => {
                 const transCount = translatedChapters.filter(c => c && (c.content || c.text)).length;
                 const novelTitle = (activeNovelRecord && activeNovelRecord.title) || (fileName && fileName.trim()) || 'Translated Novel';
-                const cleanNT = String(novelTitle || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                const cleanNT = (typeof window !== 'undefined' && window.normalizeTitleKey)
+                  ? window.normalizeTitleKey(novelTitle)
+                  : String(novelTitle || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
                 const historyMatch = (typeof webImportHistory !== 'undefined' && Array.isArray(webImportHistory))
                   ? webImportHistory.find(n => {
-                      const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                      const nt = (typeof window !== 'undefined' && window.normalizeTitleKey)
+                        ? window.normalizeTitleKey(n?.title)
+                        : String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
                       return nt && (nt === cleanNT || cleanNT.includes(nt) || nt.includes(cleanNT)) && n.cover;
                     })
                   : null;

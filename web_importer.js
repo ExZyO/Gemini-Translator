@@ -4750,10 +4750,10 @@
                     let full = null;
                     if (novelRecord.id) full = await window.GeminiNovelDB.getNovel(novelRecord.id);
                     if (!full && novelRecord.title) {
-                        const all = await window.GeminiNovelDB.getAllNovels();
-                        const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-                        const targetT = cleanT(novelRecord.title);
-                        full = all?.find(n => n.id === novelRecord.id || n.title === novelRecord.title || cleanT(n.title) === targetT);
+                        const targetT = (typeof window !== 'undefined' && window.normalizeTitleKey)
+                            ? window.normalizeTitleKey(novelRecord.title)
+                            : String(novelRecord.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                        full = all?.find(n => n.id === novelRecord.id || n.title === novelRecord.title || ((typeof window !== 'undefined' && window.normalizeTitleKey ? window.normalizeTitleKey(n.title) : String(n.title || '').toLowerCase()) === targetT));
                     }
                     if (full) {
                         novelRecord = { ...full, ...novelRecord, sourceUrl: novelRecord.sourceUrl || full.sourceUrl || full.url, rawChapters: full.rawChapters || full.chapters || novelRecord.rawChapters };

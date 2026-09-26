@@ -925,9 +925,13 @@
                                   toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                                   return;
                                 }
-                                const cleanBT = String(bookTitle).replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                                const cleanBT = (typeof window !== 'undefined' && window.normalizeTitleKey)
+                                  ? window.normalizeTitleKey(bookTitle)
+                                  : String(bookTitle).replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
                                 const matchingOriginal = (webImportHistory || []).find(n => {
-                                  const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                                  const nt = (typeof window !== 'undefined' && window.normalizeTitleKey)
+                                    ? window.normalizeTitleKey(n?.title)
+                                    : String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
                                   return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
                                 });
                                 const resolvedCover = item.cover || full?.cover || matchingOriginal?.cover || (typeof currentDocCover !== 'undefined' ? currentDocCover : '') || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';

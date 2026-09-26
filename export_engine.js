@@ -628,10 +628,14 @@
 
         let resolvedCover = options.resolvedCover;
         if (!resolvedCover) {
-          const cleanDocBase = String(rawBaseTitle || options.fileName || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+          const cleanDocBase = (typeof window !== 'undefined' && window.normalizeTitleKey)
+            ? window.normalizeTitleKey(rawBaseTitle || options.fileName || '')
+            : String(rawBaseTitle || options.fileName || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
           const matchedFromHistory = (Array.isArray(options.webImportHistory))
             ? options.webImportHistory.find(n => {
-                const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                const nt = (typeof window !== 'undefined' && window.normalizeTitleKey)
+                  ? window.normalizeTitleKey(n?.title)
+                  : String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
                 return nt && (nt === cleanDocBase || cleanDocBase.includes(nt) || nt.includes(cleanDocBase)) && n.cover;
               })
             : null;

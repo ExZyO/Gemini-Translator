@@ -14,6 +14,10 @@
 (function(window) {
   'use strict';
 
+  const normalizeTitleKey = (t) => (window.normalizeTitleKey ? window.normalizeTitleKey(t) : String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase());
+  const cleanTranslatedTitle = (t) => (window.cleanTranslatedTitle ? window.cleanTranslatedTitle(t) : String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim());
+  const cleanT = normalizeTitleKey;
+
   const LibraryEngine = {
     /**
      * Retrieves stored custom title if user has previously renamed this novel
@@ -41,8 +45,7 @@
     async resolveNovelSourceUrl(item, options = {}) {
       if (!item) return '';
       let sourceUrl = item.sourceUrl || item.url || item.webUrl || '';
-      const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-      const itemClean = cleanT(item.title);
+      const itemClean = normalizeTitleKey(item.title);
 
       // 1. Try from full novel in IndexedDB if sourceUrl not found
       if (!sourceUrl && window.GeminiNovelDB && item.id) {
@@ -297,12 +300,11 @@
       const totalChapters = novelData.totalChapterCount || (novelData.chapterList ? novelData.chapterList.length : cleanChapters.length);
       const isIncomplete = novelData.isIncomplete !== undefined ? !!novelData.isIncomplete : (cleanChapters.length < totalChapters);
       const isTranslated = !!novelData.isTranslated || (novelData.title || '').includes('(Translated)');
-      const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
 
       let existingMeta = null;
       try {
         const storedMeta = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
-        existingMeta = storedMeta.find(n => (novelId && n.id === novelId) || (n.title && novelData.title && cleanT(n.title) === cleanT(novelData.title)));
+        existingMeta = storedMeta.find(n => (novelId && n.id === novelId) || (n.title && novelData.title && normalizeTitleKey(n.title) === normalizeTitleKey(novelData.title)));
       } catch(e) {}
 
       const inSavedSpace = novelData.inSavedSpace !== undefined
@@ -456,9 +458,8 @@
       if (window.GeminiNovelDB && meta.title) {
         try {
           const all = await window.GeminiNovelDB.getAllNovels();
-          const cleanT = (t) => String(t || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-          const targetClean = cleanT(meta.title);
-          const match = (all || []).find(n => n.id === meta.id || n.title === meta.title || (n.title && cleanT(n.title) === targetClean));
+          const targetClean = normalizeTitleKey(meta.title);
+          const match = (all || []).find(n => n.id === meta.id || n.title === meta.title || (n.title && normalizeTitleKey(n.title) === targetClean));
           if (match && (match.rawChapters?.length > 0 || match.chapters?.length > 0 || match.translatedChapters?.length > 0 || match.epubBlob)) return match;
         } catch(e) {}
       }
@@ -1512,6 +1513,22 @@
         } catch(e) {}
 
         if (combined.length > 0) {
+          try {
+            const syncMeta = combined.map(item => ({
+              id: item.id,
+              title: item.title,
+              author: item.author || '',
+              cover: item.cover || '',
+              chapterCount: item.chapterCount || (item.chapters ? item.chapters.length : 0),
+              sourceUrl: item.sourceUrl || item.url || '',
+              inSavedSpace: !!item.inSavedSpace,
+              folderPath: item.folderPath || '',
+              folderTreeUri: item.folderTreeUri || '',
+              timestamp: item.timestamp || Date.now()
+            }));
+            localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(syncMeta));
+          } catch(e) {}
+
           if (typeof callbacks.onHistory === 'function') {
             callbacks.onHistory(combined);
           }

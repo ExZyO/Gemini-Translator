@@ -659,6 +659,17 @@ const cleanText = t => {
     return c.trim();
 };
 
+const cleanTranslatedTitle = t => {
+    if (!t || typeof t !== 'string') return '';
+    return String(t)
+        .replace(/\.[^/.]+$/, '')
+        .replace(/\s*\((?:Translated|Translation)\)/gi, '')
+        .replace(/\s*[-|]\s*Lnori\s*$/i, '')
+        .trim();
+};
+
+const normalizeTitleKey = t => cleanTranslatedTitle(t).toLowerCase();
+
 const copyText = async t => {
     if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(t);
@@ -1062,6 +1073,8 @@ window.wordCount = wordCount;
 window.charCount = charCount;
 window.genId = genId;
 window.cleanText = cleanText;
+window.cleanTranslatedTitle = cleanTranslatedTitle;
+window.normalizeTitleKey = normalizeTitleKey;
 window.copyText = copyText;
 window.generateJobId = generateJobId;
 
@@ -1113,6 +1126,8 @@ if (typeof module !== 'undefined' && module.exports) {
         charCount,
         genId,
         cleanText,
+        cleanTranslatedTitle,
+        normalizeTitleKey,
         copyText,
         generateJobId,
         CHUNK_PAYLOAD_MAP,
