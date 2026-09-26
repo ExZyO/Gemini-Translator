@@ -54,7 +54,7 @@
     async generatePayload(options = {}) {
       const {
         shouldIncludeKeys = false,
-        version = '8.17.76',
+        version = '8.17.88',
         state = {}
       } = options;
 
@@ -111,7 +111,7 @@
 
       // 7. Base backup object
       const backup = {
-        version: version || state.VERSION || '8.17.76',
+        version: version || state.VERSION || '8.17.88',
         timestamp: new Date().toISOString(),
         includesApiKeys: shouldIncludeKeys,
         provider: state.provider || localStorage.getItem('translationProvider') || 'gemini',
@@ -195,7 +195,7 @@
      * Downloads full backup payload directly to client storage
      */
     async exportBackup(options = {}) {
-      const { shouldIncludeKeys = false, version = '8.17.76', state = {} } = options;
+      const { shouldIncludeKeys = false, version = '8.17.88', state = {} } = options;
       const { backup, fullHistory, novelLibrary } = await this.generatePayload({ shouldIncludeKeys, version, state });
       const jsonStr = JSON.stringify(backup, null, 2);
       const dateStr = new Date().toISOString().slice(0, 10);
@@ -250,7 +250,7 @@
     /**
      * Uploads backup to WebDAV folder
      */
-    async uploadToWebDav({ url, path = 'GeminiTranslator', user, pass, payload, version = '8.17.76' }) {
+    async uploadToWebDav({ url, path = 'GeminiTranslator', user, pass, payload, version = '8.17.88' }) {
       if (!url || !url.trim()) throw new Error('Please configure WebDAV URL.');
       const cleanUrl = url.trim().replace(/\/+$/, '');
       const targetFolder = (path || 'GeminiTranslator').trim().replace(/^\/+|\/+$/g, '');
@@ -727,7 +727,7 @@
     /**
      * High-level WebDAV Backup coordinator
      */
-    async performWebDavBackup({ webdavUrl, webdavPath, webdavUser, webdavPass, version = '8.17.76', state = {}, callbacks = {} } = {}) {
+    async performWebDavBackup({ webdavUrl, webdavPath, webdavUser, webdavPass, version = '8.17.88', state = {}, callbacks = {} } = {}) {
       if (!webdavUrl || !webdavUrl.trim()) {
         const err = new Error('Please configure WebDAV URL in Settings first');
         if (callbacks.onError) callbacks.onError(err);
@@ -807,7 +807,7 @@
     /**
      * High-level Google Drive Backup coordinator
      */
-    async performGoogleDriveBackup({ includeKeys = false, version = '8.17.76', state = {}, callbacks = {} } = {}) {
+    async performGoogleDriveBackup({ includeKeys = false, version = '8.17.88', state = {}, callbacks = {} } = {}) {
       if (!window.GoogleDriveSync?.isConnected()) {
         const err = new Error('Please connect Google Drive in Settings first');
         if (callbacks.onError) callbacks.onError(err);
@@ -899,5 +899,406 @@
     }
   };
 
-  window.BackupEngine = BackupEngine;
+  const Controller = {
+    buildBackupSetters(setters = {}) {
+      return {
+        setSavedGlossaries: setters.setSavedGlossaries,
+        setTerminology: setters.setTerminology,
+        setActiveGlossaryId: setters.setActiveGlossaryId,
+        setHistory: setters.setHistory,
+        setCustomInstructions: setters.setCustomInstructions,
+        setDefaultGlossaryName: setters.setDefaultGlossaryName,
+        setSmartGlossary: setters.setSmartGlossary,
+        setEnableGlossary: setters.setEnableGlossary,
+        setProvider: setters.setProvider,
+        setGeminiModel: setters.setGeminiModel,
+        setDeepseekModel: setters.setDeepseekModel,
+        setOpenaiModel: setters.setOpenaiModel,
+        setClaudeModel: setters.setClaudeModel,
+        setConcurrency: setters.setConcurrency,
+        setContextAware: setters.setContextAware,
+        setChunkSizePreset: setters.setChunkSizePreset,
+        setEnableThinking: setters.setEnableThinking,
+        setStrictModel: setters.setStrictModel,
+        setEnableStreaming: setters.setEnableStreaming,
+        setCustomModel: setters.setCustomModel,
+        setUseCustomModel: setters.setUseCustomModel,
+        setCustomDeepseekModel: setters.setCustomDeepseekModel,
+        setUseCustomDeepseekModel: setters.setUseCustomDeepseekModel,
+        setEpubDropCaps: setters.setEpubDropCaps,
+        setEpubSmartQuotes: setters.setEpubSmartQuotes,
+        setEpubCleanWebArtifacts: setters.setEpubCleanWebArtifacts,
+        setEpubFontTheme: setters.setEpubFontTheme,
+        setEpubJustifyText: setters.setEpubJustifyText,
+        setEpubIncludeImages: setters.setEpubIncludeImages,
+        setScrapeImages: setters.setScrapeImages,
+        setReaderTheme: setters.setReaderTheme,
+        setReaderFont: setters.setReaderFont,
+        setReaderFontSize: setters.setReaderFontSize,
+        setWebImportHistory: setters.setWebImportHistory,
+        setApiKeysByProvider: setters.setApiKeysByProvider,
+        setActiveKeyIds: setters.setActiveKeyIds,
+        setLibreUrl: setters.setLibreUrl,
+        ...setters
+      };
+    },
+
+    buildBackupState(state = {}) {
+      return {
+        VERSION: state.VERSION || '8.17.88',
+        savedGlossaries: state.savedGlossaries,
+        terminology: state.terminology,
+        customInstructions: state.customInstructions,
+        history: state.history,
+        provider: state.provider,
+        geminiModel: state.geminiModel,
+        deepseekModel: state.deepseekModel,
+        openaiModel: state.openaiModel,
+        claudeModel: state.claudeModel,
+        concurrency: state.concurrency,
+        contextAware: state.contextAware,
+        chunkSizePreset: state.chunkSizePreset,
+        enableThinking: state.enableThinking,
+        strictModel: state.strictModel,
+        enableStreaming: state.enableStreaming,
+        enableGlossary: state.enableGlossary,
+        customModel: state.customModel,
+        useCustomModel: state.useCustomModel,
+        customDeepseekModel: state.customDeepseekModel,
+        useCustomDeepseekModel: state.useCustomDeepseekModel,
+        defaultGlossaryName: state.defaultGlossaryName,
+        smartGlossary: state.smartGlossary,
+        epubDropCaps: state.epubDropCaps,
+        epubSmartQuotes: state.epubSmartQuotes,
+        epubCleanWebArtifacts: state.epubCleanWebArtifacts,
+        epubFontTheme: state.epubFontTheme,
+        epubJustifyText: state.epubJustifyText,
+        epubIncludeImages: state.epubIncludeImages,
+        scrapeImages: state.scrapeImages,
+        readerTheme: state.readerTheme,
+        readerFont: state.readerFont,
+        readerFontSize: state.readerFontSize,
+        apiKeysByProvider: state.apiKeysByProvider,
+        activeKeyIds: state.activeKeyIds,
+        libreUrl: state.libreUrl,
+        ...state
+      };
+    },
+
+    async performWebDav(type, options = {}, callbacks = {}) {
+      const {
+        webdavUrl = options.url || '',
+        webdavPath = options.path || 'GeminiTranslator',
+        webdavUser = options.user || '',
+        webdavPass = options.pass || '',
+        version = '8.17.88',
+        state = {},
+        setters = {}
+      } = options;
+
+      const toast = callbacks.toast || ((m, t) => console.log(m));
+      const setSyncing = callbacks.setSyncing || callbacks.setWebdavSyncing || (() => {});
+      const setTesting = callbacks.setTesting || callbacks.setWebdavTesting || (() => {});
+
+      if (type === 'test') {
+        if (!webdavUrl || !webdavUrl.trim()) {
+          toast('Please enter a WebDAV URL in Settings', 'warning');
+          return;
+        }
+        setTesting(true);
+        try {
+          const res = await BackupEngine.testWebDav({ url: webdavUrl, user: webdavUser, pass: webdavPass });
+          if (res.status >= 200 && res.status < 400) {
+            toast(`✅ Connected to WebDAV! (Status ${res.status})`, 'success');
+          } else if (res.status === 401 || res.status === 403) {
+            toast(`Authentication failed (HTTP ${res.status}). Check username/password.`, 'error');
+          } else {
+            toast(`WebDAV server responded with HTTP ${res.status}.`, 'info');
+          }
+          if (callbacks.onSuccess) callbacks.onSuccess(res);
+          return res;
+        } catch (e) {
+          toast(`Connection failed: ${e.message}`, 'error');
+          if (callbacks.onError) callbacks.onError(e);
+        } finally {
+          setTesting(false);
+        }
+        return;
+      }
+
+      if (type === 'backup') {
+        if (!webdavUrl || !webdavUrl.trim()) {
+          toast('Please configure WebDAV URL in Settings first', 'warning');
+          return;
+        }
+        setSyncing(true);
+        try {
+          const res = await BackupEngine.performWebDavBackup({
+            webdavUrl,
+            webdavPath,
+            webdavUser,
+            webdavPass,
+            version,
+            state,
+            callbacks: {
+              onSuccess: (timeStr, targetFolder) => {
+                toast(`☁️ WebDAV Backup Successful! Saved to /${targetFolder}/`, 'success');
+                if (callbacks.setLastSync) callbacks.setLastSync(timeStr);
+                try { localStorage.setItem('webdavLastSync', timeStr); } catch (e) {}
+                if (callbacks.onSuccess) callbacks.onSuccess(timeStr, targetFolder);
+              }
+            }
+          });
+          return res;
+        } catch (e) {
+          console.error('WebDAV Backup Error:', e);
+          toast(`WebDAV Backup failed: ${e.message}`, 'error');
+          if (callbacks.onError) callbacks.onError(e);
+        } finally {
+          setSyncing(false);
+        }
+        return;
+      }
+
+      if (type === 'restore') {
+        if (!webdavUrl || !webdavUrl.trim()) {
+          toast('Please configure WebDAV URL in Settings first', 'warning');
+          return;
+        }
+        setSyncing(true);
+        try {
+          const res = await BackupEngine.performWebDavRestore({
+            webdavUrl,
+            webdavPath,
+            webdavUser,
+            webdavPass,
+            setters,
+            callbacks: {
+              confirm: callbacks.confirm || ((msg) => (typeof confirm === 'function' ? confirm(msg) : true)),
+              onSuccess: (countNovels, countGloss, restoreSummary) => {
+                toast(`Restored ${countNovels} novels and ${countGloss} glossaries from WebDAV!`, 'success');
+                if (callbacks.onSuccess) callbacks.onSuccess(countNovels, countGloss, restoreSummary);
+              }
+            }
+          });
+          return res;
+        } catch (e) {
+          console.error('WebDAV Restore Error:', e);
+          toast(`WebDAV Restore failed: ${e.message}`, 'error');
+          if (callbacks.onError) callbacks.onError(e);
+        } finally {
+          setSyncing(false);
+        }
+        return;
+      }
+    },
+
+    async performGoogleDrive(type, options = {}, callbacks = {}) {
+      const {
+        includeKeys = false,
+        version = '8.17.88',
+        state = {},
+        setters = {}
+      } = options;
+
+      const toast = callbacks.toast || ((m, t) => console.log(m));
+      const setSyncing = callbacks.setSyncing || callbacks.setGdriveSyncing || (() => {});
+      const setTesting = callbacks.setTesting || callbacks.setGdriveTesting || (() => {});
+
+      if (type === 'test') {
+        if (!window.GoogleDriveSync?.isConnected()) {
+          toast('Google Drive is not connected. Click "Sign in with Google" first.', 'warning');
+          return;
+        }
+        setTesting(true);
+        try {
+          const res = await BackupEngine.testGoogleDriveConnection({
+            onSuccess: (profile) => {
+              if (callbacks.setProfile) callbacks.setProfile(profile);
+              if (callbacks.setConnected) callbacks.setConnected(true);
+              toast(`✅ Connected to Google Drive! (${profile.emailAddress || profile.displayName})`, 'success');
+              if (callbacks.onSuccess) callbacks.onSuccess(profile);
+            }
+          });
+          return res;
+        } catch (e) {
+          toast(`Google Drive test failed: ${e.message}`, 'error');
+          if (callbacks.onError) callbacks.onError(e);
+        } finally {
+          setTesting(false);
+        }
+        return;
+      }
+
+      if (type === 'backup') {
+        if (!window.GoogleDriveSync?.isConnected()) {
+          toast('Please connect Google Drive in Settings first', 'warning');
+          return;
+        }
+        setSyncing(true);
+        try {
+          const res = await BackupEngine.performGoogleDriveBackup({
+            includeKeys,
+            version,
+            state,
+            callbacks: {
+              onSuccess: (timeStr, novelCount, historyCount) => {
+                if (callbacks.setLastSync) callbacks.setLastSync(timeStr);
+                toast(`☁️ Google Drive Backup Successful! (${novelCount} novels, ${historyCount} history items)`, 'success');
+                if (callbacks.onSuccess) callbacks.onSuccess(timeStr, novelCount, historyCount);
+              }
+            }
+          });
+          return res;
+        } catch (e) {
+          console.error('Google Drive Backup Error:', e);
+          toast(`Google Drive Backup failed: ${e.message}`, 'error');
+          if (callbacks.onError) callbacks.onError(e);
+        } finally {
+          setSyncing(false);
+        }
+        return;
+      }
+
+      if (type === 'restore') {
+        if (!window.GoogleDriveSync?.isConnected()) {
+          toast('Please connect Google Drive in Settings first', 'warning');
+          return;
+        }
+        setSyncing(true);
+        try {
+          const res = await BackupEngine.performGoogleDriveRestore({
+            setters,
+            callbacks: {
+              onStart: () => toast('Fetching backup from Google Drive…', 'info'),
+              confirm: callbacks.confirm || ((msg) => (typeof confirm === 'function' ? confirm(msg) : true)),
+              onSuccess: (countNovels, countGloss, restoreSummary) => {
+                toast(`Restored ${countNovels} novels and ${countGloss} glossaries from Google Drive!`, 'success');
+                if (callbacks.onSuccess) callbacks.onSuccess(countNovels, countGloss, restoreSummary);
+              }
+            }
+          });
+          return res;
+        } catch (e) {
+          console.error('Google Drive Restore Error:', e);
+          toast(`Google Drive Restore failed: ${e.message}`, 'error');
+          if (callbacks.onError) callbacks.onError(e);
+        } finally {
+          setSyncing(false);
+        }
+        return;
+      }
+
+      if (type === 'connect') {
+        if (!window.GoogleDriveSync?.getClientId()) {
+          if (callbacks.setConfigModalOpen) callbacks.setConfigModalOpen(true);
+          toast('Please configure your Google OAuth Client ID or paste an Access Token.', 'info');
+          return;
+        }
+        try {
+          const res = await BackupEngine.connectGoogleDrive({
+            onStart: () => toast('Opening Google Authorization window…', 'info'),
+            onSuccess: (profile, isConnected) => {
+              if (callbacks.setConnected) callbacks.setConnected(isConnected);
+              if (profile) {
+                if (callbacks.setProfile) callbacks.setProfile(profile);
+                toast(`Google Drive connected as ${profile.emailAddress || profile.displayName}! 🎉`, 'success');
+              } else {
+                toast('Google Drive connected!', 'success');
+              }
+              if (callbacks.onSuccess) callbacks.onSuccess(profile, isConnected);
+            }
+          });
+          return res;
+        } catch (err) {
+          if (err.message === 'MISSING_CLIENT_ID') {
+            if (callbacks.setConfigModalOpen) callbacks.setConfigModalOpen(true);
+          } else {
+            console.warn('Google Drive Auth error:', err);
+            toast(`Google Drive Sign-in: ${err.message}`, 'error');
+          }
+          if (callbacks.onError) callbacks.onError(err);
+        }
+        return;
+      }
+
+      if (type === 'disconnect') {
+        window.GoogleDriveSync?.disconnect();
+        if (callbacks.setConnected) callbacks.setConnected(false);
+        if (callbacks.setProfile) callbacks.setProfile(null);
+        toast('Google Drive disconnected.', 'info');
+        if (callbacks.onSuccess) callbacks.onSuccess();
+        return;
+      }
+    },
+
+    async performFullBackup(type, options = {}, callbacks = {}) {
+      const toast = callbacks.toast || ((m, t) => console.log(m));
+      const setError = callbacks.setError || (() => {});
+      const setters = options.setters || {};
+
+      if (type === 'file' || type === 'import') {
+        const file = options.file || options.event?.target?.files?.[0];
+        if (!file) return;
+        try {
+          const res = await BackupEngine.importBackupFile(file, setters, {
+            onSuccess: (summary) => {
+              if (summary.isGlossaryOnly) {
+                toast(`Imported ${summary.count} glossaries!`);
+              } else {
+                toast(`Restored ${summary.summary} successfully!`);
+              }
+              if (callbacks.onSuccess) callbacks.onSuccess(summary);
+            }
+          });
+          return res;
+        } catch (err) {
+          console.error("Backup import error:", err);
+          setError('Failed to restore backup: ' + err.message);
+          toast('Failed to restore backup: ' + err.message, 'error');
+          if (callbacks.onError) callbacks.onError(err);
+        } finally {
+          if (options.event?.target) options.event.target.value = '';
+        }
+        return;
+      }
+
+      if (type === 'paste' || type === 'clipboard') {
+        try {
+          let text = '';
+          if (navigator.clipboard?.readText) {
+            try { text = await navigator.clipboard.readText(); } catch (e) {}
+          }
+          const input = prompt('Paste your backup JSON content below:', text);
+          if (!input || !input.trim()) return;
+          const res = await BackupEngine.pasteAndRestoreBackup(input, setters, {
+            onSuccess: (summary) => {
+              if (summary.isGlossaryOnly) {
+                toast(`Imported ${summary.count} glossaries!`);
+              } else {
+                toast(`Restored ${summary.summary} successfully!`);
+              }
+              if (callbacks.onSuccess) callbacks.onSuccess(summary);
+            }
+          });
+          return res;
+        } catch (err) {
+          console.error("Backup paste error:", err);
+          setError('Failed to parse backup JSON: ' + err.message);
+          toast('Failed to parse backup JSON: ' + err.message, 'error');
+          if (callbacks.onError) callbacks.onError(err);
+        }
+        return;
+      }
+    }
+  };
+
+  BackupEngine.Controller = Controller;
+  if (typeof window !== 'undefined') {
+    window.BackupEngine = BackupEngine;
+    window.BackupEngine.Controller = Controller;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = BackupEngine;
+  }
 })(typeof window !== 'undefined' ? window : this);

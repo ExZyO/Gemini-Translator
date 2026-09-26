@@ -806,10 +806,33 @@
     }
   };
 
-  window.DocumentParser = DocumentParser;
-  window.partitionTextByChapters = DocumentParser.partitionTextByChapters.bind(DocumentParser);
-  window.parseAssembledTextToChapters = DocumentParser.parseAssembledTextToChapters.bind(DocumentParser);
-  window.syncAssembledTextToChapters = DocumentParser.syncAssembledTextToChapters.bind(DocumentParser);
+  const Controller = {
+    async handleFile(file, options = {}, callbacks = {}) {
+      if (!file) return;
+      return DocumentParser.processInputFile(file, options, callbacks);
+    },
+
+    async handlePaste(callbacks = {}) {
+      return DocumentParser.pasteFromClipboard(callbacks);
+    },
+
+    handleAutoSplit(inputText, callbacks = {}) {
+      return DocumentParser.autoDetectChapterSplit(inputText, callbacks);
+    },
+
+    handleSwap(srcLang, tgtLang, callbacks = {}) {
+      return DocumentParser.swapLanguages(srcLang, tgtLang, callbacks);
+    }
+  };
+
+  DocumentParser.Controller = Controller;
+  if (typeof window !== 'undefined') {
+    window.DocumentParser = DocumentParser;
+    window.DocumentParser.Controller = Controller;
+    window.partitionTextByChapters = DocumentParser.partitionTextByChapters.bind(DocumentParser);
+    window.parseAssembledTextToChapters = DocumentParser.parseAssembledTextToChapters.bind(DocumentParser);
+    window.syncAssembledTextToChapters = DocumentParser.syncAssembledTextToChapters.bind(DocumentParser);
+  }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = DocumentParser;
   }

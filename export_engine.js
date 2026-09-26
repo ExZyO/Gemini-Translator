@@ -571,5 +571,111 @@
     }
   };
 
-  window.ExportEngine = ExportEngine;
+  const Controller = {
+    async export(format, options = {}, callbacks = {}) {
+      const cbs = callbacks || options.callbacks || {};
+      const toast = cbs.toast || ((msg, type) => (type === 'error' ? console.error(msg) : console.log(msg)));
+      const setError = cbs.setError || (() => {});
+      const setSheetOpen = cbs.setSheetOpen || (() => {});
+
+      if (options.isTranslating) {
+        toast('Translation is in progress. Please pause or wait for completion before exporting.', 'warning');
+        return;
+      }
+
+      const chaptersToExport = options.chaptersToExport || ExportEngine.getExportChapters(options);
+      const tgtLang = options.tgtLang || 'English';
+
+      if (format === 'pdf') {
+        setSheetOpen(false);
+        const title = options.title || (chaptersToExport.length === 1 && !ExportEngine.isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`);
+        return ExportEngine.downloadPdf({
+          chaptersToExport,
+          title,
+          tgtLang,
+          fileName: options.fileName,
+          callbacks: {
+            setDownloadingPdf: cbs.setDownloadingPdf,
+            setError,
+            toast
+          }
+        });
+      }
+
+      if (format === 'docx') {
+        setSheetOpen(false);
+        const title = options.title || (chaptersToExport.length === 1 && !ExportEngine.isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : `Translated Novel (${tgtLang})`);
+        return ExportEngine.downloadDocx({
+          chaptersToExport,
+          title,
+          tgtLang,
+          callbacks: {
+            setDownloadingDocx: cbs.setDownloadingDocx,
+            setError,
+            toast
+          }
+        });
+      }
+
+      if (format === 'epub' || format === 'reader') {
+        setSheetOpen(false);
+        const rawBaseTitle = options.rawBaseTitle ||
+          (options.fileName && options.fileName.trim()) ||
+          (options.activeNovelRecord && options.activeNovelRecord.title) ||
+          options.currentDocTitle ||
+          (chaptersToExport.length === 1 && !ExportEngine.isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : null);
+        const author = options.author || (options.activeNovelRecord && options.activeNovelRecord.author) || 'Gemini Translator';
+
+        let resolvedCover = options.resolvedCover;
+        if (!resolvedCover) {
+          const cleanDocBase = String(rawBaseTitle || options.fileName || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+          const matchedFromHistory = (Array.isArray(options.webImportHistory))
+            ? options.webImportHistory.find(n => {
+                const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                return nt && (nt === cleanDocBase || cleanDocBase.includes(nt) || nt.includes(cleanDocBase)) && n.cover;
+              })
+            : null;
+          resolvedCover = options.currentDocCover ||
+            options.activeNovelRecord?.cover ||
+            options.activeCrawlSession?.cover ||
+            options.webImportData?.cover ||
+            matchedFromHistory?.cover ||
+            (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
+        }
+
+        const res = await ExportEngine.downloadEpub({
+          chaptersToExport,
+          rawBaseTitle,
+          author,
+          tgtLang,
+          currentIsEpub: options.currentIsEpub,
+          currentOriginalZip: options.currentOriginalZip,
+          resolvedCover,
+          callbacks: {
+            setDownloadingEpub: cbs.setDownloadingEpub,
+            setEpubPackagingModal: cbs.setEpubPackagingModal,
+            setError,
+            toast
+          }
+        });
+
+        if (format === 'reader' && res && res.fileName) {
+          const opened = await window.NativeBridge?.openWithReader?.(res.fileName, res.path);
+          if (!opened) {
+            toast('EPUB saved to Downloads! Tap to open with your favorite reader.', 'info');
+          }
+        }
+        return res;
+      }
+    }
+  };
+
+  ExportEngine.Controller = Controller;
+  if (typeof window !== 'undefined') {
+    window.ExportEngine = ExportEngine;
+    window.ExportEngine.Controller = Controller;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = ExportEngine;
+  }
 })(typeof window !== 'undefined' ? window : this);

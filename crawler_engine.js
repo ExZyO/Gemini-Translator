@@ -889,6 +889,57 @@
     }
   }
 
+  const Controller = {
+    startFetch(params = {}) {
+      const {
+        isResume = false,
+        resumeSessionData = null,
+        autoExportEpub = false,
+        overrideUrl = null,
+        targetUrl = null,
+        options = {},
+        callbacks = {}
+      } = params;
+      return startCrawl({
+        targetUrl: overrideUrl || targetUrl,
+        isResume,
+        resumeSessionData,
+        autoExportEpub,
+        options,
+        callbacks
+      });
+    },
+
+    pauseFetch(params = {}) {
+      const cbs = params.callbacks || params;
+      return pauseCrawl(cbs);
+    },
+
+    cancelFetch(params = {}) {
+      const cbs = params.callbacks || params;
+      return cancelCrawl(cbs);
+    },
+
+    directEpubDownload(params = {}) {
+      return directEpubDownload(params);
+    },
+
+    resumeCrawl(sessionOrNovelOrParams, options = {}, callbacks = {}) {
+      if (sessionOrNovelOrParams && typeof sessionOrNovelOrParams === 'object' && ('sessionOrNovel' in sessionOrNovelOrParams || 'novel' in sessionOrNovelOrParams || 'session' in sessionOrNovelOrParams)) {
+        const novel = sessionOrNovelOrParams.sessionOrNovel || sessionOrNovelOrParams.novel || sessionOrNovelOrParams.session;
+        const opts = sessionOrNovelOrParams.options || options;
+        const cbs = sessionOrNovelOrParams.callbacks || callbacks;
+        return resumeCrawlFromSession(novel, opts, cbs);
+      }
+      return resumeCrawlFromSession(sessionOrNovelOrParams, options, callbacks);
+    },
+
+    dismissCrawl(params = {}) {
+      const cbs = params.callbacks || params;
+      return dismissCrawlSession(cbs);
+    }
+  };
+
   const WebNovelCrawlerEngine = {
     searchNovels,
     startCrawl,
@@ -901,10 +952,15 @@
     parseChapterWeight,
     autoSortChapters,
     reverseChapters,
-    aiReorderChapters
+    aiReorderChapters,
+    Controller
   };
 
   global.WebNovelCrawlerEngine = WebNovelCrawlerEngine;
+  if (typeof window !== 'undefined') {
+    window.WebNovelCrawlerEngine = WebNovelCrawlerEngine;
+    window.WebNovelCrawlerEngine.Controller = Controller;
+  }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = WebNovelCrawlerEngine;
   }
