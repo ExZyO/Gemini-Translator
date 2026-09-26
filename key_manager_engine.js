@@ -461,6 +461,167 @@
     return lines.join('\n');
   }
 
+  const Controller = {
+    addKey(prov, { apiKeysByProvider, activeKeyIds, genId, setApiKeysByProvider, setActiveKeyIds, toast } = {}) {
+      const res = KeyManagerEngine.addApiKey(prov, apiKeysByProvider, activeKeyIds, genId);
+      if (typeof setApiKeysByProvider === 'function') setApiKeysByProvider(res.apiKeysByProvider);
+      if (typeof setActiveKeyIds === 'function') setActiveKeyIds(res.activeKeyIds);
+      if (typeof toast === 'function') toast(`Added new ${res.provName} key profile.`);
+      return res;
+    },
+
+    deleteKey(prov, id, { apiKeysByProvider, activeKeyIds, setApiKeysByProvider, setActiveKeyIds, toast, confirmAction } = {}) {
+      const performDelete = () => {
+        const res = KeyManagerEngine.deleteApiKey(prov, id, apiKeysByProvider, activeKeyIds);
+        if (typeof setApiKeysByProvider === 'function') setApiKeysByProvider(res.apiKeysByProvider);
+        if (typeof setActiveKeyIds === 'function') setActiveKeyIds(res.activeKeyIds);
+        if (typeof toast === 'function') toast('Key profile deleted.', 'info');
+        return res;
+      };
+      if (typeof confirmAction === 'function') {
+        confirmAction('Delete this API key profile?', performDelete);
+      } else {
+        return performDelete();
+      }
+    },
+
+    updateKey(prov, id, field, value, setApiKeysByProvider) {
+      if (typeof setApiKeysByProvider === 'function') {
+        setApiKeysByProvider(prev => {
+          const res = KeyManagerEngine.updateApiKey(prov, id, field, value, prev);
+          return res.apiKeysByProvider;
+        });
+      }
+    },
+
+    setActiveKey(prov, id, setActiveKeyIds, options = {}) {
+      const opts = (typeof setActiveKeyIds === 'object' && setActiveKeyIds !== null) ? setActiveKeyIds : (options || {});
+      const setter = (typeof setActiveKeyIds === 'function') ? setActiveKeyIds : opts.setActiveKeyIds;
+      const res = KeyManagerEngine.setActiveKey(prov, id, opts.activeKeyIds);
+      if (typeof setter === 'function') {
+        setter(prev => (typeof prev === 'object' && prev ? { ...prev, [prov || 'gemini']: id } : res.activeKeyIds));
+      }
+      if (opts.apiKeysByProvider && typeof opts.toast === 'function') {
+        const kObj = ((opts.apiKeysByProvider && opts.apiKeysByProvider[prov || 'gemini']) || []).find(k => k && k.id === id);
+        opts.toast(`Active key set to "${kObj?.name || 'Selected Key'}"`);
+      }
+      return res;
+    },
+
+    rotateKey(prov, failingKey, { apiKeysByProvider, activeKeyIdsRef, toast, setActiveKeyIds } = {}) {
+      return KeyManagerEngine.rotateApiKey(
+        prov,
+        failingKey,
+        apiKeysByProvider,
+        activeKeyIdsRef,
+        (nextKeyId, nextKey, nextIdx, total) => {
+          if (typeof setActiveKeyIds === 'function') {
+            setActiveKeyIds(prev => ({ ...(prev || {}), [prov]: nextKeyId }));
+          }
+          if (typeof toast === 'function') {
+            const win = typeof window !== 'undefined' ? window : {};
+            if (!win._lastRotToast || Date.now() - win._lastRotToast > 2000) {
+              win._lastRotToast = Date.now();
+              toast(`Auto-rotated to "${nextKey.name}" (${nextIdx + 1}/${total})`, 'info');
+            }
+          }
+        }
+      );
+    },
+
+    getActiveKey(prov, apiKeysByProvider, activeKeyIds) {
+      return KeyManagerEngine.getActiveApiKey(prov, apiKeysByProvider, activeKeyIds);
+    },
+
+    async testSingleKey(prov, keyStr, keyId, geminiModel, setKeyHealth) {
+      if (!keyStr || !keyStr.trim()) {
+        if (typeof setKeyHealth === 'function') {
+          setKeyHealth(prev => ({ ...(prev || {}), [keyId]: { status: 'error', message: '❌ Key is empty' } }));
+        }
+        return { status: 'error', message: '❌ Key is empty' };
+      }
+      if (typeof setKeyHealth === 'function') {
+        setKeyHealth(prev => ({ ...(prev || {}), [keyId]: { status: 'testing', message: 'Testing connection & latency…' } }));
+      }
+      const res = await KeyManagerEngine.testSingleKey(prov, keyStr, geminiModel || 'gemini-3.8-flash');
+      if (typeof setKeyHealth === 'function') {
+        setKeyHealth(prev => ({ ...(prev || {}), [keyId]: res }));
+      }
+      return res;
+    },
+
+    async testAllKeys(prov, apiKeysByProvider, geminiModel, setTestingKeys, setKeyHealth, toast) {
+      const provKeys = ((apiKeysByProvider && apiKeysByProvider[prov]) || []).filter(k => k && k.key && k.key.trim());
+      if (provKeys.length === 0) {
+        if (typeof toast === 'function') toast('No keys to test', 'info');
+        return;
+      }
+      if (typeof setTestingKeys === 'function') setTestingKeys(true);
+      if (typeof toast === 'function') toast(`Testing ${provKeys.length} ${String(prov).toUpperCase()} keys against Google servers…`, 'info');
+      await KeyManagerEngine.testAllKeys(prov, provKeys, geminiModel || 'gemini-3.8-flash', {
+        onKeyTesting: (id) => {
+          if (typeof setKeyHealth === 'function') {
+            setKeyHealth(prev => ({ ...(prev || {}), [id]: { status: 'testing', message: 'Testing connection & latency…' } }));
+          }
+        },
+        onKeyResult: (id, result) => {
+          if (typeof setKeyHealth === 'function') {
+            setKeyHealth(prev => ({ ...(prev || {}), [id]: result }));
+          }
+        }
+      });
+      if (typeof setTestingKeys === 'function') setTestingKeys(false);
+      if (typeof toast === 'function') toast('🎉 Key testing completed!', 'success');
+    },
+
+    bulkImport(bulkKeyText, provider, { apiKeysByProvider, activeKeyIds, setApiKeysByProvider, setActiveKeyIds, setBulkKeyText, setBulkKeyModalOpen, toast, genId } = {}) {
+      if (!bulkKeyText || !bulkKeyText.trim()) return null;
+      const res = KeyManagerEngine.bulkImportKeys(bulkKeyText, provider, apiKeysByProvider, activeKeyIds, genId);
+      if (!res.success) {
+        if (typeof toast === 'function') toast(res.message, 'error');
+        return res;
+      }
+      if (typeof setApiKeysByProvider === 'function') setApiKeysByProvider(res.apiKeysByProvider);
+      if (typeof setActiveKeyIds === 'function') setActiveKeyIds(res.activeKeyIds);
+      if (typeof setBulkKeyText === 'function') setBulkKeyText('');
+      if (typeof setBulkKeyModalOpen === 'function') setBulkKeyModalOpen(false);
+      if (typeof toast === 'function') toast(res.message, 'success');
+      return res;
+    },
+
+    formatReport(params) {
+      return KeyManagerEngine.formatDiagnosticsReport(params);
+    },
+
+    copyReport(params, toast) {
+      const text = typeof params === 'string' ? params : KeyManagerEngine.formatDiagnosticsReport(params);
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        return navigator.clipboard.writeText(text).then(() => {
+          if (typeof toast === 'function') toast('📋 Diagnostics summary copied to clipboard!', 'success');
+          return true;
+        }).catch(() => {
+          if (typeof toast === 'function') toast('Failed to copy report', 'error');
+          return false;
+        });
+      }
+    },
+
+    copyLogs(params, toast) {
+      const summary = typeof params === 'string' ? params : KeyManagerEngine.formatDiagnosticsReport(params);
+      const logs = (typeof window !== 'undefined' && window.AppLogger) ? window.AppLogger.getFormattedText() : 'No logs recorded.';
+      const fullText = `${summary}\n\n=== 📜 RECENT TELEMETRY EVENTS ===\n${logs}`;
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        return navigator.clipboard.writeText(fullText).then(() => {
+          if (typeof toast === 'function') toast('📋 Report summary & Telemetry logs copied to clipboard!', 'success');
+          return true;
+        }).catch(() => {
+          if (typeof toast === 'function') toast('Failed to copy logs', 'error');
+          return false;
+        });
+      }
+    }
+  };
+
   const KeyManagerEngine = {
     addApiKey,
     deleteApiKey,
@@ -471,10 +632,15 @@
     testSingleKey,
     testAllKeys,
     bulkImportKeys,
-    formatDiagnosticsReport
+    formatDiagnosticsReport,
+    Controller
   };
 
   global.KeyManagerEngine = KeyManagerEngine;
+  if (typeof window !== 'undefined') {
+    window.KeyManagerEngine = KeyManagerEngine;
+    window.KeyManagerEngine.Controller = Controller;
+  }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = KeyManagerEngine;
   }

@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.17.89';
+        let VERSION = '8.17.90';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -314,210 +314,133 @@
       const getCustomTitle = (novelOrUrl) => window.LibraryEngine ? window.LibraryEngine.getCustomTitle(novelOrUrl) : '';
 
       const handleSaveNovelRename = async (novel, newTitle) => {
-        if (!window.LibraryEngine) return;
-        await window.LibraryEngine.saveNovelRename(novel, newTitle, {
-          toast,
-          onUpdateHistory: setWebImportHistory,
-          onUpdateWebImportData: setWebImportData,
-          onUpdateActiveCrawlSession: setActiveCrawlSession,
-          onUpdateActiveNovelRecord: typeof setActiveNovelRecord === 'function' ? setActiveNovelRecord : null,
-          onUpdateReaderTitle: (trimmed) => {
-            if (typeof readerNovelId !== 'undefined' && readerNovelId && (readerNovelId === novel?.id || readerNovelId === novel?.title)) {
-              setReaderNovelTitle(trimmed);
-            }
-          },
-          onSuccess: () => setRenameModalNovel(null)
-        });
+        if (window.LibraryEngine?.Controller?.saveRename) {
+          return await window.LibraryEngine.Controller.saveRename(novel, newTitle, {
+            setWebImportHistory,
+            setWebImportData,
+            setActiveCrawlSession,
+            setActiveNovelRecord,
+            setReaderNovelTitle: (trimmed) => {
+              if (typeof readerNovelId !== 'undefined' && readerNovelId && (readerNovelId === novel?.id || readerNovelId === novel?.title)) {
+                setReaderNovelTitle(trimmed);
+              }
+            },
+            setRenameModalNovel,
+            toast
+          });
+        }
       };
 
       const saveNovelToHistory = async (novelData) => {
-        if (!window.LibraryEngine) return null;
-        return await window.LibraryEngine.saveNovelToHistory(novelData, {
-          onUpdateHistory: setWebImportHistory,
-          onClearActiveCrawlSession: () => setActiveCrawlSession(null)
-        });
+        if (window.LibraryEngine?.Controller?.saveToHistory) {
+          return await window.LibraryEngine.Controller.saveToHistory(novelData, {
+            setWebImportHistory,
+            setActiveCrawlSession
+          });
+        }
       };
 
       const toggleNovelSavedSpace = async (novelId, novelFallback = null) => {
-        if (!window.LibraryEngine) return false;
-        return await window.LibraryEngine.toggleNovelSavedSpace(novelId, novelFallback, {
-          toast,
-          onUpdateHistory: setWebImportHistory,
-          onUpdateActiveCrawlSession: setActiveCrawlSession,
-          onUpdateWebImportData: setWebImportData,
-          onUpdateActiveNovelRecord: typeof setActiveNovelRecord === 'function' ? setActiveNovelRecord : null
-        });
+        if (window.LibraryEngine?.Controller?.toggleSavedSpace) {
+          return await window.LibraryEngine.Controller.toggleSavedSpace(novelId, novelFallback, {
+            setWebImportHistory,
+            setActiveCrawlSession,
+            setWebImportData,
+            setActiveNovelRecord,
+            toast
+          });
+        }
       };
 
       const handleCheckNovelUpdate = async (item) => {
-        if (!window.LibraryEngine) return;
-        setCheckingUpdates(prev => ({ ...prev, [item.id]: true }));
-        try {
-          await window.LibraryEngine.checkNovelUpdate(item, {
-            onProgress: (msg) => toast(msg, 'info')
-          }, {
-            toast,
-            onBadgeUpdate: (id, badgeData) => {
-              setNovelUpdateBadges(prev => ({
-                ...prev,
-                [id]: badgeData
-              }));
-            },
-            onClearBadge: (id) => {
-              setNovelUpdateBadges(prev => {
-                const next = { ...prev };
-                delete next[id];
-                return next;
-              });
-            }
+        if (window.LibraryEngine?.Controller?.checkUpdate) {
+          return await window.LibraryEngine.Controller.checkUpdate(item, novelUpdateBadges, {
+            setCheckingUpdates,
+            setNovelUpdateBadges,
+            toast
           });
-        } catch (e) {
-          toast(`Check error: ${e.message}`, 'error');
-        } finally {
-          setCheckingUpdates(prev => ({ ...prev, [item.id]: false }));
         }
       };
 
       const handleDownloadNewChapters = async (item) => {
-        if (!item || !window.LibraryEngine) return;
-        const novelKey = item.id;
-        setDownloadingUpdates(prev => ({ ...prev, [novelKey]: true }));
-        try {
-          await window.LibraryEngine.downloadNewChapters(item, {
-            badge: novelUpdateBadges[item.id]
-          }, {
-            toast,
+        if (window.LibraryEngine?.Controller?.downloadUpdates) {
+          return await window.LibraryEngine.Controller.downloadUpdates(item, {
+            novelUpdateBadges,
             getEpubOptions,
             exportCleanLnoriEpub,
-            onProgress: (modalData) => {
-              if (typeof setEpubPackagingModal === 'function') {
-                setEpubPackagingModal(modalData);
-              }
-            },
-            onClearBadge: (id) => {
-              setNovelUpdateBadges(prev => {
-                const next = { ...prev };
-                if (id) delete next[id];
-                return next;
-              });
-            },
-            onUpdateHistory: setWebImportHistory,
-            onClearActiveCrawlSession: () => setActiveCrawlSession(null)
+            setEpubPackagingModal,
+            setNovelUpdateBadges,
+            setWebImportHistory,
+            setActiveCrawlSession,
+            setDownloadingUpdates,
+            toast
           });
-        } catch (err) {
-          console.error('[handleDownloadNewChapters]', err);
-          toast(`Update failed: ${err.message}`, 'error');
-        } finally {
-          setDownloadingUpdates(prev => ({ ...prev, [novelKey]: false }));
-          if (typeof setEpubPackagingModal === 'function') setEpubPackagingModal(null);
         }
       };
 
       const handleUpdateTranslateAndMakeEpub = async (item) => {
-        if (!item || !window.LibraryEngine) return;
-        const novelKey = item.id;
-        setDownloadingUpdates(prev => ({ ...prev, [novelKey]: true }));
-        try {
-          await window.LibraryEngine.updateTranslateAndStage(item, {
+        if (window.LibraryEngine?.Controller?.stageUpdateTranslation) {
+          return await window.LibraryEngine.Controller.stageUpdateTranslation(item, {
             novelUpdateBadges,
             loadFullNovel,
-            saveNovelToHistory
-          }, {
-            toast,
+            saveNovelToHistory,
             setEpubPackagingModal,
-            onClearBadge: (id1, id2) => {
-              setNovelUpdateBadges(prev => {
-                const next = { ...prev };
-                if (id1) delete next[id1];
-                if (id2) delete next[id2];
-                return next;
-              });
-            },
-            onStageSession: ({ updatedNovel, prefilledChapters, prefilledNewChapters, prefilledAssembled, inputText, sessionObj }) => {
-              setInputText(inputText);
-              setChapters(prefilledChapters);
-              setTranslatedChapters(prefilledNewChapters);
-              setAssembledText(prefilledAssembled);
-              setActiveNovelRecord(updatedNovel);
-              setFileName(updatedNovel.title);
-              activeSessionRef.current = sessionObj;
-              setActiveSession(sessionObj);
-              setSavedTranslationSession(sessionObj);
-              setIsTranslationPaused(true);
-              setActiveTab('text');
-            }
+            setNovelUpdateBadges,
+            setInputText,
+            setChapters,
+            setTranslatedChapters,
+            setAssembledText,
+            setActiveNovelRecord,
+            setFileName,
+            activeSessionRef,
+            setActiveSession,
+            setSavedTranslationSession,
+            setIsTranslationPaused,
+            setActiveTab,
+            setDownloadingUpdates,
+            toast
           });
-        } finally {
-          setDownloadingUpdates(prev => ({ ...prev, [novelKey]: false }));
-          if (typeof setEpubPackagingModal === 'function') setEpubPackagingModal(null);
         }
       };
 
       const handleCheckAllUpdates = async () => {
-        if (!window.LibraryEngine) return;
-        await window.LibraryEngine.checkAllUpdates(webImportHistory, {
-          toast,
-          loadFullNovel,
-          onBatchStart: () => setIsBatchChecking(true),
-          onBatchEnd: () => setIsBatchChecking(false),
-          onNovelCheckingStart: (novelId) => setCheckingUpdates(prev => ({ ...prev, [novelId]: true })),
-          onNovelCheckingEnd: (novelId) => setCheckingUpdates(prev => ({ ...prev, [novelId]: false })),
-          onBadgeUpdate: (novelId, badgeData) => setNovelUpdateBadges(prev => ({ ...prev, [novelId]: badgeData }))
-        });
+        if (window.LibraryEngine?.Controller?.checkAllUpdates) {
+          return await window.LibraryEngine.Controller.checkAllUpdates(webImportHistory, {
+            loadFullNovel,
+            setIsBatchChecking,
+            setCheckingUpdates,
+            setNovelUpdateBadges,
+            toast
+          });
+        }
       };
 
       const loadFullNovel = async (meta) => {
-        if (!window.LibraryEngine) return null;
-        let loaded = await window.LibraryEngine.loadFullNovel(meta);
-        if (!loaded && webImportData && webImportData.title === meta?.title && webImportData.chapters?.length > 0) {
-          return { ...webImportData, rawChapters: webImportData.chapters };
+        if (window.LibraryEngine?.Controller?.loadFullNovel) {
+          return await window.LibraryEngine.Controller.loadFullNovel(meta, webImportData);
         }
-        return loaded;
+        return window.LibraryEngine ? await window.LibraryEngine.loadFullNovel(meta) : null;
       };
 
       const loadNovelFromHistory = async (meta) => {
-        try {
-          toast(` Loading "${meta.title}" from library...`, 'info');
-          const fullNovel = await loadFullNovel(meta);
-          if (!fullNovel || (!fullNovel.rawChapters && !fullNovel.chapters)) {
-            throw new Error('Novel chapter data not found in local library store.');
-          }
-          const rawChs = fullNovel.rawChapters || fullNovel.chapters || [];
-          const loadedData = {
-            title: fullNovel.title,
-            author: fullNovel.author,
-            summary: fullNovel.summary,
-            tags: fullNovel.tags,
-            chapters: rawChs,
-            rawChapters: rawChs,
-            isEpub: fullNovel.isEpub,
-            inSavedSpace: !!fullNovel.inSavedSpace,
-            sourceUrl: fullNovel.sourceUrl
-          };
-          setWebImportData(loadedData);
-          toast(` Loaded "${loadedData.title}" (${loadedData.chapters.length} chapters)!`, 'success');
-          return loadedData;
-        } catch (err) {
-          console.error('Failed to load novel from library:', err);
-          toast('Failed to load: ' + err.message, 'error');
-          return null;
+        if (window.LibraryEngine?.Controller?.loadNovelToImporter) {
+          return await window.LibraryEngine.Controller.loadNovelToImporter(meta, loadFullNovel, setWebImportData, toast);
         }
       };
 
       const deleteNovelFromHistory = async (id) => {
-        if (!window.LibraryEngine) return;
-        await window.LibraryEngine.moveToTrash(id, {
-          toast,
-          onUpdateHistory: setWebImportHistory,
-          onUpdateTrashCount: loadTrashCount
-        });
+        if (window.LibraryEngine?.Controller?.moveToTrash) {
+          return await window.LibraryEngine.Controller.moveToTrash(id, {
+            setWebImportHistory,
+            loadTrashCount,
+            toast
+          });
+        }
       };
 
       const handleClearScopedBooks = async (booksToClear, scopeName) => {
-        if (window.LibraryEngine?.Trash?.clearScopedBooks) {
-          return window.LibraryEngine.Trash.clearScopedBooks({
-            booksToClear,
-            scopeName,
+        if (window.LibraryEngine?.Controller?.clearScoped) {
+          return await window.LibraryEngine.Controller.clearScoped(booksToClear, scopeName, {
             setWebImportHistory,
             loadTrashCount,
             toast
@@ -526,17 +449,14 @@
       };
 
       const handleClearSavedSpace = async (books) => {
-        if (!books || books.length === 0) return;
-        for (const b of books) {
-          if (b.id) await toggleNovelSavedSpace(b.id, b);
+        if (window.LibraryEngine?.Controller?.clearSavedSpace) {
+          return await window.LibraryEngine.Controller.clearSavedSpace(books, toggleNovelSavedSpace, toast);
         }
-        toast(`Removed ${books.length} novel(s) from Saved Space.`, 'info');
       };
 
       const clearAllNovelHistory = async () => {
-        if (window.LibraryEngine?.Trash?.clearAllHistory) {
-          return window.LibraryEngine.Trash.clearAllHistory({
-            webImportHistory,
+        if (window.LibraryEngine?.Controller?.clearAll) {
+          return await window.LibraryEngine.Controller.clearAll(webImportHistory, {
             setWebImportHistory,
             loadTrashCount,
             toast
@@ -545,8 +465,8 @@
       };
 
       const handleRestoreNovel = async (id) => {
-        if (window.LibraryEngine?.Trash?.restoreNovel) {
-          return window.LibraryEngine.Trash.restoreNovel(id, {
+        if (window.LibraryEngine?.Controller?.restoreNovel) {
+          return await window.LibraryEngine.Controller.restoreNovel(id, {
             setWebImportHistory,
             loadTrashCount,
             toast
@@ -555,8 +475,8 @@
       };
 
       const handleRestoreSnapshot = async (snapshot) => {
-        if (window.LibraryEngine?.Trash?.restoreSnapshot) {
-          return window.LibraryEngine.Trash.restoreSnapshot(snapshot, {
+        if (window.LibraryEngine?.Controller?.restoreSnapshot) {
+          return await window.LibraryEngine.Controller.restoreSnapshot(snapshot, {
             setWebImportHistory,
             loadTrashCount,
             toast
@@ -565,18 +485,17 @@
       };
 
       const handleRestoreAllTrash = async () => {
-        if (window.LibraryEngine?.Trash?.restoreAllTrash) {
-          return window.LibraryEngine.Trash.restoreAllTrash({
+        if (window.LibraryEngine?.Controller?.restoreAll) {
+          return await window.LibraryEngine.Controller.restoreAll({
             setWebImportHistory,
-            loadTrashCount,
-            toast
-          });
+            loadTrashCount
+          }, toast);
         }
       };
 
       const handlePermanentDelete = async (id) => {
-        if (window.LibraryEngine?.Trash?.permanentDelete) {
-          return window.LibraryEngine.Trash.permanentDelete(id, {
+        if (window.LibraryEngine?.Controller?.permanentDelete) {
+          return await window.LibraryEngine.Controller.permanentDelete(id, {
             loadTrashCount,
             toast
           });
@@ -584,8 +503,8 @@
       };
 
       const handleEmptyTrash = async () => {
-        if (window.LibraryEngine?.Trash?.emptyTrash) {
-          return window.LibraryEngine.Trash.emptyTrash({
+        if (window.LibraryEngine?.Controller?.emptyTrash) {
+          return await window.LibraryEngine.Controller.emptyTrash({
             loadTrashCount,
             toast
           });
@@ -593,8 +512,8 @@
       };
 
       const handleRestoreFromEpubFiles = async (e) => {
-        if (window.LibraryEngine?.Trash?.restoreFromEpubFiles) {
-          return window.LibraryEngine.Trash.restoreFromEpubFiles(e, {
+        if (window.LibraryEngine?.Controller?.restoreEpubFiles) {
+          return await window.LibraryEngine.Controller.restoreEpubFiles(e, {
             setWebImportHistory,
             setActiveCrawlSession: () => setActiveCrawlSession(null),
             toast
@@ -603,8 +522,9 @@
       };
 
       const handleReindexFromTranslationHistory = async () => {
-        if (window.LibraryEngine?.Trash?.reindexFromTranslationHistory) {
-          return window.LibraryEngine.Trash.reindexFromTranslationHistory({
+        if (window.LibraryEngine?.Controller?.reindex) {
+          return await window.LibraryEngine.Controller.reindex({
+            dbGetAll,
             webImportHistory,
             saveNovelToHistory,
             toast
@@ -853,6 +773,10 @@
 
       // --- Multi-Key Profile Management Helpers ---
       const addApiKey = (prov) => {
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.addKey) {
+          return controller.addKey(prov, { apiKeysByProvider, activeKeyIds, genId, setApiKeysByProvider, setActiveKeyIds, toast });
+        }
         const engine = window.KeyManagerEngine || KeyManagerEngine;
         const res = engine.addApiKey(prov, apiKeysByProvider, activeKeyIds, genId);
         setApiKeysByProvider(res.apiKeysByProvider);
@@ -861,6 +785,10 @@
       };
 
       const deleteApiKey = (prov, id) => {
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.deleteKey) {
+          return controller.deleteKey(prov, id, { apiKeysByProvider, activeKeyIds, setApiKeysByProvider, setActiveKeyIds, toast, confirmAction });
+        }
         confirmAction(`Delete this API key profile?`, () => {
           const engine = window.KeyManagerEngine || KeyManagerEngine;
           const res = engine.deleteApiKey(prov, id, apiKeysByProvider, activeKeyIds);
@@ -871,6 +799,10 @@
       };
 
       const updateApiKey = (prov, id, field, value) => {
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.updateKey) {
+          return controller.updateKey(prov, id, field, value, setApiKeysByProvider);
+        }
         setApiKeysByProvider(prev => {
           const engine = window.KeyManagerEngine || KeyManagerEngine;
           const res = engine.updateApiKey(prov, id, field, value, prev);
@@ -879,6 +811,10 @@
       };
 
       const setActiveKey = (prov, id) => {
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.setActiveKey) {
+          return controller.setActiveKey(prov, id, { setActiveKeyIds, activeKeyIds, apiKeysByProvider, toast });
+        }
         const engine = window.KeyManagerEngine || KeyManagerEngine;
         const res = engine.setActiveKey(prov, id, activeKeyIds);
         setActiveKeyIds(res.activeKeyIds);
@@ -890,6 +826,10 @@
       useEffect(() => { activeKeyIdsRef.current = activeKeyIds; }, [activeKeyIds]);
 
       const rotateApiKey = (failingKey) => {
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.rotateKey) {
+          return controller.rotateKey(provider, failingKey, { apiKeysByProvider, activeKeyIdsRef, toast, setActiveKeyIds });
+        }
         const engine = window.KeyManagerEngine || KeyManagerEngine;
         return engine.rotateApiKey(
           provider,
@@ -908,6 +848,10 @@
       if (typeof window !== 'undefined') window.rotateApiKey = rotateApiKey;
 
       const getActiveApiKey = (prov = provider) => {
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.getActiveKey) {
+          return controller.getActiveKey(prov, apiKeysByProvider, activeKeyIds);
+        }
         const engine = window.KeyManagerEngine || KeyManagerEngine;
         return engine.getActiveApiKey(prov, apiKeysByProvider, activeKeyIds);
       };
@@ -1522,11 +1466,7 @@
 
       // --- Novel Health & QA Proofreader Handlers (§5.9 + §7.1 + §7.5) ---
       const runNovelHealthAudit = (novelOrChapters, optionsOverride = {}) => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        if (!engine?.QA || !window.QAEngine) {
-          toast('QA Engine is loading...', 'info');
-          return null;
-        }
+        const controller = window.NovelEnrichmentEngine?.Controller;
         const state = {
           qaCheckGaps,
           qaCheckCorrupt,
@@ -1537,35 +1477,56 @@
           cjkLeakCheckEnabled,
           antiMtlGateEnabled
         };
+        if (controller?.runAudit) {
+          return controller.runAudit(novelOrChapters, optionsOverride, { setQaAuditResult, toast, state });
+        }
+        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
+        if (!engine?.QA || !window.QAEngine) {
+          toast('QA Engine is loading...', 'info');
+          return null;
+        }
         const result = engine.QA.runAudit(novelOrChapters, optionsOverride, state);
         setQaAuditResult(result);
         return result;
       };
 
       const handleOpenNovelHealthModal = (item) => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.QA?.openNovelHealthModal(item, loadFullNovel, {
-          toast,
-          setQaAuditNovelRef,
-          setQaAuditResult,
-          setQaFilterCategory,
-          setQaModalOpen,
-          state: {
-            qaCheckGaps,
-            qaCheckCorrupt,
-            qaCheckCjk,
-            qaCheckAntiMtl,
-            qaCheckLoops,
-            qaCheckDuplicates,
-            cjkLeakCheckEnabled,
-            antiMtlGateEnabled
-          }
-        });
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        const state = {
+          qaCheckGaps,
+          qaCheckCorrupt,
+          qaCheckCjk,
+          qaCheckAntiMtl,
+          qaCheckLoops,
+          qaCheckDuplicates,
+          cjkLeakCheckEnabled,
+          antiMtlGateEnabled
+        };
+        if (controller?.openHealthModal) {
+          return controller.openHealthModal(item, loadFullNovel, {
+            toast,
+            setQaAuditNovelRef,
+            setQaAuditResult,
+            setQaFilterCategory,
+            setQaModalOpen,
+            state
+          });
+        }
       };
 
       const handleOpenActiveQaModal = () => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.QA?.openActiveQaModal({
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        const state = {
+          qaCheckGaps,
+          qaCheckCorrupt,
+          qaCheckCjk,
+          qaCheckAntiMtl,
+          qaCheckLoops,
+          qaCheckDuplicates,
+          cjkLeakCheckEnabled,
+          antiMtlGateEnabled
+        };
+        const context = {
           translatedChapters,
           chapters,
           fileName,
@@ -1573,22 +1534,16 @@
           inputText,
           activeNovelRecord,
           currentDocTitle
-        }, {
-          setQaAuditNovelRef,
-          setQaAuditResult,
-          setQaFilterCategory,
-          setQaModalOpen,
-          state: {
-            qaCheckGaps,
-            qaCheckCorrupt,
-            qaCheckCjk,
-            qaCheckAntiMtl,
-            qaCheckLoops,
-            qaCheckDuplicates,
-            cjkLeakCheckEnabled,
-            antiMtlGateEnabled
-          }
-        });
+        };
+        if (controller?.openActiveQaModal) {
+          return controller.openActiveQaModal(context, {
+            setQaAuditNovelRef,
+            setQaAuditResult,
+            setQaFilterCategory,
+            setQaModalOpen,
+            state
+          });
+        }
       };
 
       const handleInspectChapterInReader = (iss) => {
@@ -1647,99 +1602,101 @@
       };
 
       const handleClearTm = async () => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        if (!engine) return;
-        if (!confirm('Are you sure you want to clear all cached Translation Memory segments? This cannot be undone.')) return;
-        await engine.TM.clearTM();
-        await refreshTmStats();
-        toast('Translation Memory cache cleared.', 'info');
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.clearTm) {
+          return await controller.clearTm(refreshTmStats, toast, (msg) => confirm(msg));
+        }
       };
 
       const handleExportTmx = async () => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        if (!engine) return;
-        try {
-          await engine.TM.exportTMX();
-          toast('Exported Translation Memory (TMX).', 'success');
-        } catch (e) {
-          toast('Failed exporting TMX: ' + e.message, 'error');
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.exportTmx) {
+          return await controller.exportTmx(toast);
         }
       };
 
       const handleOpenDiffModal = (chapterIdx = 0, novelOverride = null) => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.TM?.openDiffModal({
-          chapterIdx,
-          novelOverride,
-          activeNovelRecord,
-          fileName,
-          translatedChapters,
-          chapters,
-          assembledText,
-          inputText,
-          geminiModel,
-          callbacks: {
-            toast,
-            setDiffSnapshotsList,
-            setSelectedDiffSnapId,
-            setActiveDiffData,
-            setDiffModalOpen
-          }
-        });
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.openDiffModal) {
+          return controller.openDiffModal({
+            chapterIdx,
+            novelOverride,
+            activeNovelRecord,
+            fileName,
+            translatedChapters,
+            chapters,
+            assembledText,
+            inputText,
+            geminiModel,
+            callbacks: {
+              toast,
+              setDiffSnapshotsList,
+              setSelectedDiffSnapId,
+              setActiveDiffData,
+              setDiffModalOpen
+            }
+          });
+        }
       };
 
       const handleManualSnapshot = () => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.TM?.saveManualSnapshot({
-          activeDiffData,
-          translatedChapters,
-          activeNovelRecord,
-          chapters,
-          assembledText,
-          inputText,
-          geminiModel,
-          callbacks: {
-            toast,
-            setDiffSnapshotsList,
-            setSelectedDiffSnapId
-          }
-        });
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.manualSnapshot) {
+          return controller.manualSnapshot({
+            activeDiffData,
+            translatedChapters,
+            activeNovelRecord,
+            chapters,
+            assembledText,
+            inputText,
+            geminiModel,
+            callbacks: {
+              toast,
+              setDiffSnapshotsList,
+              setSelectedDiffSnapId
+            }
+          });
+        }
       };
 
       const handleSelectDiffSnapshot = (snapId) => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.TM?.selectDiffSnapshot({
-          snapId,
-          activeDiffData,
-          diffSnapshotsList,
-          translatedChapters,
-          activeNovelRecord,
-          chapters,
-          assembledText,
-          inputText,
-          callbacks: {
-            setSelectedDiffSnapId,
-            setActiveDiffData
-          }
-        });
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.selectDiffSnapshot) {
+          return controller.selectDiffSnapshot({
+            snapId,
+            activeDiffData,
+            diffSnapshotsList,
+            translatedChapters,
+            activeNovelRecord,
+            chapters,
+            assembledText,
+            inputText,
+            callbacks: {
+              setSelectedDiffSnapId,
+              setActiveDiffData
+            }
+          });
+        }
       };
 
       const handleRollbackDiffSnapshot = (snapId) => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.TM?.rollbackDiffSnapshot({
-          snapId,
-          translatedChapters,
-          activeNovelRecord,
-          loadFullNovelFn: loadFullNovel,
-          saveNovelRecordFn: saveNovelRecord,
-          callbacks: {
-            toast,
-            confirm: (msg) => confirm(msg),
-            setTranslatedChapters,
-            setAssembledText,
-            setDiffModalOpen
-          }
-        });
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.rollbackDiffSnapshot) {
+          return controller.rollbackDiffSnapshot({
+            snapId,
+            translatedChapters,
+            activeNovelRecord,
+            loadFullNovelFn: loadFullNovel,
+            saveNovelRecordFn: saveNovelRecord,
+            callbacks: {
+              toast,
+              confirm: (msg) => confirm(msg),
+              setTranslatedChapters,
+              setAssembledText,
+              setDiffModalOpen
+            }
+          });
+        }
       };
 
       useEffect(() => {
@@ -1751,56 +1708,59 @@
 
       // --- Source Plugins Handlers (§4.1) ---
       const handleOpenSourcePluginsModal = () => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.Plugins?.openCatalog({
-          pluginCatalog,
-          callbacks: {
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.openPlugins) {
+          return controller.openPlugins(pluginCatalog, {
             setSourcePluginsModalOpen,
             setIsCatalogLoading,
             setPluginCatalog,
             toast
-          }
-        });
+          });
+        }
       };
 
       const handleInstallPlugin = (item) => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.Plugins?.installPlugin(item, {
-          setInstallingPluginId,
-          setPluginCatalogTick,
-          toast
-        });
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.installPlugin) {
+          return controller.installPlugin(item, {
+            setInstallingPluginId,
+            setPluginCatalogTick,
+            toast
+          });
+        }
       };
 
       const handleUninstallPlugin = (id) => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.Plugins?.uninstallPlugin(id, {
-          setPluginCatalogTick,
-          toast
-        });
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.uninstallPlugin) {
+          return controller.uninstallPlugin(id, {
+            setPluginCatalogTick,
+            toast
+          });
+        }
       };
 
       const handleInstallCustomPluginUrl = (url) => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.Plugins?.installCustomPluginUrl(url, {
-          setPluginCatalogTick,
-          setCustomPluginUrl,
-          toast
-        });
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.installCustomUrl) {
+          return controller.installCustomUrl(url, {
+            setPluginCatalogTick,
+            setCustomPluginUrl,
+            toast
+          });
+        }
       };
 
       const handleSearchNovelsInPlugins = (query, sourceId = 'all') => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        return engine?.Plugins?.searchNovelsInPlugins({
-          query,
-          sourceId,
-          pluginNovelSearchQuery,
-          callbacks: {
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.searchPlugins) {
+          return controller.searchPlugins(query, sourceId, {
             toast,
             setIsPluginNovelSearching,
-            setPluginNovelSearchResults
-          }
-        });
+            setPluginNovelSearchResults,
+            pluginNovelSearchQuery
+          });
+        }
       };
 
       const handleCheckRezeroUpdates = () => {
@@ -1821,87 +1781,49 @@
 
       // --- Cost & Time Estimator Handlers (§7.2) ---
       const handleOpenCostEstimator = () => {
-        const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-        const data = engine.calculateCostEstimate({
-          chapters,
-          inputText,
-          glossaryTermCount,
-          smartGlossary,
-          genderLocks
-        });
-        if (!data) {
-          toast('Please paste text or load a novel/EPUB before estimating cost.', 'warning');
-          return;
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.openCostEstimator) {
+          return controller.openCostEstimator({
+            chapters,
+            inputText,
+            glossaryTermCount,
+            smartGlossary,
+            genderLocks,
+            toast,
+            setCostEstimatorData,
+            setCostEstimatorModalOpen
+          });
         }
-        setCostEstimatorData(data);
-        setCostEstimatorModalOpen(true);
       };
 
       // --- AniList Metadata Enrichment Handlers (§7.4) ---
       const handleEnrichNovelMetadata = async (novelRecord) => {
-        if (!novelRecord || !novelRecord.title) {
-          toast('No novel selected for metadata enrichment.', 'warning');
-          return;
-        }
-        toast(`Fetching official metadata for "${novelRecord.title}"…`, 'info');
-        try {
-          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-          const metadata = await engine.fetchNovelMetadata(novelRecord.title);
-          if (!metadata) {
-            toast(`No matching metadata found for "${novelRecord.title}".`, 'warning');
-            return;
-          }
-          const applied = await engine.applyEnrichedMetadata(novelRecord, metadata, {
-            confirm: (msg) => confirm(msg),
-            onUpdateHistory: (updates) => {
-              setWebImportHistory(prev => prev.map(b => b.id === novelRecord.id ? { ...b, ...updates } : b));
-            },
-            onUpdateActiveNovelView: (updates) => {
-              if (activeNovelView && activeNovelView.id === novelRecord.id) {
-                setActiveNovelView(prev => ({ ...prev, ...updates }));
-              }
-            }
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.enrichMetadata) {
+          return await controller.enrichMetadata(novelRecord, {
+            setWebImportHistory,
+            setActiveNovelView,
+            activeNovelView,
+            toast,
+            confirm: (msg) => confirm(msg)
           });
-          if (applied) {
-            toast(`Enriched "${metadata.title}" with official HD cover art & synopsis!`, 'success');
-          }
-        } catch (err) {
-          console.warn('Metadata enrichment error:', err);
-          toast(`Metadata enrichment error: ${err.message}`, 'error');
         }
       };
 
       // --- Split Novel into Arcs Handler (§7.3) ---
       const handleSplitNovelIntoArcs = async (novelRecord) => {
-        const full = await loadFullNovel(novelRecord);
-        if (!full) {
-          toast('Novel data not found in database.', 'error');
-          return;
-        }
-        const chs = (full.translatedChapters && full.translatedChapters.length > 0)
-          ? full.translatedChapters
-          : (full.rawChapters || full.chapters || []);
-        if (chs.length === 0) {
-          toast('No chapters available to split.', 'warning');
-          return;
-        }
-
-        setActiveTab('studio');
-        setStudioSubTab('split');
-        localStorage.setItem('activeTab', 'studio');
-        toast(`Packaging "${full.title || 'Novel'}" into Volume Splitter…`, 'info');
-        try {
-          const engine = window.NovelEnrichmentEngine || NovelEnrichmentEngine;
-          await engine.packageNovelForArcSplitter(full, {
+        const controller = window.NovelEnrichmentEngine?.Controller;
+        if (controller?.splitIntoArcs) {
+          return await controller.splitIntoArcs(novelRecord, {
+            loadFullNovel,
+            setActiveTab,
+            setStudioSubTab,
+            toast,
             cleanBookTitle,
             cleanBookAuthor,
             generateEpubFromChapters,
-            sanitizeFilename,
-            toast
+            sanitizeFilename
           });
-        } catch (splitErr) {
-          console.warn('Auto-split mounting warning:', splitErr);
-          toast(`Switched to EPUB Studio with "${full.title || 'Novel'}"!`, 'info');
         }
       };
 
@@ -1909,6 +1831,10 @@
       
       
       const testSingleKey = async (prov, keyStr, keyId) => {
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.testSingleKey) {
+          return await controller.testSingleKey(prov, keyStr, keyId, geminiModel, setKeyHealth);
+        }
         if (!keyStr || !keyStr.trim()) {
           setKeyHealth(prev => ({ ...prev, [keyId]: { status: 'error', message: '❌ Key is empty' } }));
           return;
@@ -1921,6 +1847,10 @@
       };
 
       const handleTestAllKeys = async (prov) => {
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.testAllKeys) {
+          return await controller.testAllKeys(prov, apiKeysByProvider, geminiModel, setTestingKeys, setKeyHealth, toast);
+        }
         const provKeys = (apiKeysByProvider[prov] || []).filter(k => k.key && k.key.trim());
         if (provKeys.length === 0) { toast('No keys to test', 'info'); return; }
         setTestingKeys(true);
@@ -1939,23 +1869,24 @@
       };
 
       const handleBulkImportKeys = () => {
-        if (!bulkKeyText.trim()) return;
-        const engine = window.KeyManagerEngine || KeyManagerEngine;
-        const res = engine.bulkImportKeys(bulkKeyText, provider, apiKeysByProvider, activeKeyIds, genId);
-        if (!res.success) {
-          toast(res.message, 'error');
-          return;
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.bulkImport) {
+          return controller.bulkImport(bulkKeyText, provider, {
+            apiKeysByProvider,
+            activeKeyIds,
+            setApiKeysByProvider,
+            setActiveKeyIds,
+            setBulkKeyText,
+            setBulkKeyModalOpen,
+            toast,
+            genId
+          });
         }
-        setApiKeysByProvider(res.apiKeysByProvider);
-        setActiveKeyIds(res.activeKeyIds);
-        setBulkKeyText('');
-        setBulkKeyModalOpen(false);
-        toast(res.message, 'success');
       };
 
       const getReportSummaryText = (overrideStats = null) => {
-        const engine = window.KeyManagerEngine || KeyManagerEngine;
-        return engine.formatDiagnosticsReport({
+        const controller = window.KeyManagerEngine?.Controller;
+        const params = {
           stats: overrideStats || lastUsageStats,
           provider,
           geminiModel,
@@ -1970,11 +1901,20 @@
           glossaryTermCount,
           assembledText,
           wordCount
-        });
+        };
+        if (controller?.formatReport) {
+          return controller.formatReport(params);
+        }
+        const engine = window.KeyManagerEngine || KeyManagerEngine;
+        return engine.formatDiagnosticsReport(params);
       };
 
       // [📋 Copy Report] button: ONLY copies the clean diagnostic summary block
       const copyDiagnosticsReport = () => {
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.copyReport) {
+          return controller.copyReport(getReportSummaryText(), toast);
+        }
         const text = getReportSummaryText();
         navigator.clipboard.writeText(text).then(() => {
           toast('📋 Diagnostics summary copied to clipboard!', 'success');
@@ -1985,6 +1925,10 @@
 
       // [📋 Copy Logs] button: copies BOTH the diagnostic summary block AND the telemetry event stream
       const copyLogsWithReport = () => {
+        const controller = window.KeyManagerEngine?.Controller;
+        if (controller?.copyLogs) {
+          return controller.copyLogs(getReportSummaryText(), toast);
+        }
         const summary = getReportSummaryText();
         const logs = window.AppLogger ? window.AppLogger.getFormattedText() : 'No logs recorded.';
         const fullText = `${summary}\n\n=== 📜 RECENT TELEMETRY EVENTS ===\n${logs}`;
@@ -2290,6 +2234,18 @@
           name = prompted.trim();
         }
         const contentToSave = customContent !== null ? customContent : terminology;
+        const profiles = window.GlossaryManagerEngine?.Profiles;
+        if (profiles?.save) {
+          return await profiles.save(name, contentToSave, customInstructions, savedGlossaries, {
+            setSavedGlossaries,
+            setActiveGlossaryId,
+            setTerminology,
+            setNewGlossaryName,
+            setError,
+            toast,
+            dbPut
+          });
+        }
         if (!contentToSave.trim() && !customInstructions.trim()) return setError('Profile content is empty.');
 
         try {
@@ -2351,6 +2307,18 @@
       };
 
       const handleDeleteGlossary = n => {
+        const profiles = window.GlossaryManagerEngine?.Profiles;
+        if (profiles?.delete) {
+          return profiles.delete(n, savedGlossaries, activeGlossaryId, defaultGlossaryName, {
+            setSavedGlossaries,
+            setActiveGlossaryId,
+            setDefaultGlossaryName,
+            setTerminology,
+            toast,
+            confirmAction,
+            dbDelete
+          });
+        }
         confirmAction(`Delete profile "${n}"?`, async () => {
           try {
             const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
@@ -2373,6 +2341,16 @@
       };
 
       const handleUpdateGlossary = async n => {
+        const profiles = window.GlossaryManagerEngine?.Profiles;
+        if (profiles?.save) {
+          return await profiles.save(n, terminology, customInstructions, savedGlossaries, {
+            setSavedGlossaries,
+            setActiveGlossaryId,
+            setError,
+            toast: () => toast(`Saved changes to "${n}"!`),
+            dbPut
+          });
+        }
         try {
           const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
           const { savedGlossaries: u, activeGlossaryId: newActiveId } = await engine.saveGlossary(
@@ -2393,6 +2371,18 @@
       const handleRenameGlossary = async (oldName) => {
         const newName = window.prompt(`Enter new name for profile "${oldName}":`, oldName);
         if (!newName || !newName.trim() || newName.trim() === oldName) return;
+        const profiles = window.GlossaryManagerEngine?.Profiles;
+        if (profiles?.rename) {
+          return await profiles.rename(oldName, newName, savedGlossaries, activeGlossaryId, defaultGlossaryName, {
+            setSavedGlossaries,
+            setActiveGlossaryId,
+            setDefaultGlossaryName,
+            setError,
+            toast,
+            dbPut,
+            dbDelete
+          });
+        }
         try {
           const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
           const { savedGlossaries: u, activeGlossaryId: newActive, defaultGlossaryName: newDef } = await engine.renameGlossary(
@@ -2417,6 +2407,10 @@
       const setDefaultGloss = () => { if (!activeGlossaryId) return setError('Load a profile first.'); localStorage.setItem('defaultGlossaryName', activeGlossaryId); setDefaultGlossaryName(activeGlossaryId); toast(`"${activeGlossaryId}" set as default!`) };
       const clearDefaultGloss = () => { confirmAction('Clear default profile?', () => { localStorage.removeItem('defaultGlossaryName'); setDefaultGlossaryName(null); toast('Default cleared.', 'info') }) };
       const exportGlossaries = async () => {
+        const profiles = window.GlossaryManagerEngine?.Profiles;
+        if (profiles?.exportAll) {
+          return await profiles.exportAll(savedGlossaries, toast);
+        }
         try {
           const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
           await engine.exportGlossaries(savedGlossaries);
@@ -2430,10 +2424,19 @@
         if (!f) return;
         try {
           const txt = await f.text();
-          const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
-          const { savedGlossaries: merged, addedCount } = engine.importGlossaries(txt, savedGlossaries);
-          setSavedGlossaries(merged);
-          toast(`Imported ${addedCount} new glossaries (${merged.length} total)!`, 'success');
+          const profiles = window.GlossaryManagerEngine?.Profiles;
+          if (profiles?.import) {
+            profiles.import(txt, savedGlossaries, {
+              setSavedGlossaries,
+              setError,
+              toast
+            });
+          } else {
+            const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
+            const { savedGlossaries: merged, addedCount } = engine.importGlossaries(txt, savedGlossaries);
+            setSavedGlossaries(merged);
+            toast(`Imported ${addedCount} new glossaries (${merged.length} total)!`, 'success');
+          }
         } catch (err) {
           setError('Invalid glossary file: ' + err.message);
           toast('Invalid glossary file: ' + err.message, 'error');
@@ -2458,6 +2461,14 @@
       };
 
       const applyGlossaryPreset = (type) => {
+        const profiles = window.GlossaryManagerEngine?.Profiles;
+        if (profiles?.applyPreset) {
+          return profiles.applyPreset(type, terminology, customInstructions, {
+            setTerminology,
+            setCustomInstructions,
+            toast
+          });
+        }
         const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
         const res = engine.applyPreset(type, terminology, customInstructions);
         if (res.presetApplied) {
@@ -2483,6 +2494,10 @@
       };
 
       const exportGlossaryTxt = async () => {
+        const profiles = window.GlossaryManagerEngine?.Profiles;
+        if (profiles?.exportTxt) {
+          return await profiles.exportTxt(terminology, activeGlossaryId, toast, setError);
+        }
         try {
           const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
           await engine.exportGlossaryTxt(terminology, activeGlossaryId);
@@ -2494,6 +2509,10 @@
       };
 
       const copyAiGlossaryPrompt = () => {
+        const profiles = window.GlossaryManagerEngine?.Profiles;
+        if (profiles?.copyAiPrompt) {
+          return profiles.copyAiPrompt(toast);
+        }
         const engine = window.GlossaryManagerEngine || GlossaryManagerEngine;
         engine.copyAiGlossaryPrompt({
           copyText,

@@ -1866,10 +1866,351 @@
           saveNovelToHistory
         });
       }
+    },
+
+    /**
+     * Library Controller orchestrating novel persistence, updates, loading and trash operations
+     */
+    Controller: {
+      async saveRename(novel, newTitle, { setWebImportHistory, setWebImportData, setActiveCrawlSession, setActiveNovelRecord, setReaderNovelTitle, setRenameModalNovel, toast } = {}) {
+        if (!LibraryEngine.saveNovelRename) return;
+        return await LibraryEngine.saveNovelRename(novel, newTitle, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onUpdateWebImportData: setWebImportData,
+          onUpdateActiveCrawlSession: setActiveCrawlSession,
+          onUpdateActiveNovelRecord: typeof setActiveNovelRecord === 'function' ? setActiveNovelRecord : null,
+          onUpdateReaderTitle: (trimmed) => {
+            if (typeof setReaderNovelTitle === 'function') {
+              setReaderNovelTitle(trimmed);
+            }
+          },
+          onSuccess: () => {
+            if (typeof setRenameModalNovel === 'function') {
+              setRenameModalNovel(null);
+            }
+          }
+        });
+      },
+
+      async saveToHistory(novelData, { setWebImportHistory, setActiveCrawlSession } = {}) {
+        if (!LibraryEngine.saveNovelToHistory) return null;
+        return await LibraryEngine.saveNovelToHistory(novelData, {
+          onUpdateHistory: setWebImportHistory,
+          onClearActiveCrawlSession: () => {
+            if (typeof setActiveCrawlSession === 'function') setActiveCrawlSession(null);
+          }
+        });
+      },
+
+      async toggleSavedSpace(novelId, fallback = null, { setWebImportHistory, setActiveCrawlSession, setWebImportData, setActiveNovelRecord, toast } = {}) {
+        if (!LibraryEngine.toggleNovelSavedSpace) return false;
+        return await LibraryEngine.toggleNovelSavedSpace(novelId, fallback, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onUpdateActiveCrawlSession: setActiveCrawlSession,
+          onUpdateWebImportData: setWebImportData,
+          onUpdateActiveNovelRecord: typeof setActiveNovelRecord === 'function' ? setActiveNovelRecord : null
+        });
+      },
+
+      async checkUpdate(item, badges, { setCheckingUpdates, setNovelUpdateBadges, toast } = {}) {
+        if (!item || !LibraryEngine.checkNovelUpdate) return;
+        if (typeof setCheckingUpdates === 'function') {
+          setCheckingUpdates(prev => ({ ...prev, [item.id]: true }));
+        }
+        try {
+          await LibraryEngine.checkNovelUpdate(item, {
+            onProgress: (msg) => { if (typeof toast === 'function') toast(msg, 'info'); }
+          }, {
+            toast,
+            onBadgeUpdate: (id, badgeData) => {
+              if (typeof setNovelUpdateBadges === 'function') {
+                setNovelUpdateBadges(prev => ({ ...prev, [id]: badgeData }));
+              }
+            },
+            onClearBadge: (id) => {
+              if (typeof setNovelUpdateBadges === 'function') {
+                setNovelUpdateBadges(prev => {
+                  const next = { ...prev };
+                  delete next[id];
+                  return next;
+                });
+              }
+            }
+          });
+        } catch (e) {
+          if (typeof toast === 'function') toast(`Check error: ${e.message}`, 'error');
+        } finally {
+          if (typeof setCheckingUpdates === 'function') {
+            setCheckingUpdates(prev => ({ ...prev, [item.id]: false }));
+          }
+        }
+      },
+
+      async downloadUpdates(item, { novelUpdateBadges, getEpubOptions, exportCleanLnoriEpub, setEpubPackagingModal, setNovelUpdateBadges, setWebImportHistory, setActiveCrawlSession, setDownloadingUpdates, toast } = {}) {
+        if (!item || !LibraryEngine.downloadNewChapters) return;
+        const novelKey = item.id;
+        if (typeof setDownloadingUpdates === 'function') {
+          setDownloadingUpdates(prev => ({ ...prev, [novelKey]: true }));
+        }
+        try {
+          await LibraryEngine.downloadNewChapters(item, {
+            badge: (novelUpdateBadges && novelUpdateBadges[item.id]) || null
+          }, {
+            toast,
+            getEpubOptions,
+            exportCleanLnoriEpub,
+            onProgress: (modalData) => {
+              if (typeof setEpubPackagingModal === 'function') setEpubPackagingModal(modalData);
+            },
+            onClearBadge: (id) => {
+              if (typeof setNovelUpdateBadges === 'function') {
+                setNovelUpdateBadges(prev => {
+                  const next = { ...prev };
+                  if (id) delete next[id];
+                  return next;
+                });
+              }
+            },
+            onUpdateHistory: setWebImportHistory,
+            onClearActiveCrawlSession: () => {
+              if (typeof setActiveCrawlSession === 'function') setActiveCrawlSession(null);
+            }
+          });
+        } catch (err) {
+          console.error('[downloadUpdates]', err);
+          if (typeof toast === 'function') toast(`Update failed: ${err.message}`, 'error');
+        } finally {
+          if (typeof setDownloadingUpdates === 'function') {
+            setDownloadingUpdates(prev => ({ ...prev, [novelKey]: false }));
+          }
+          if (typeof setEpubPackagingModal === 'function') setEpubPackagingModal(null);
+        }
+      },
+
+      async stageUpdateTranslation(item, { novelUpdateBadges, loadFullNovel, saveNovelToHistory, setEpubPackagingModal, setNovelUpdateBadges, setInputText, setChapters, setTranslatedChapters, setAssembledText, setActiveNovelRecord, setFileName, activeSessionRef, setActiveSession, setSavedTranslationSession, setIsTranslationPaused, setActiveTab, setDownloadingUpdates, toast } = {}) {
+        if (!item || !LibraryEngine.updateTranslateAndStage) return;
+        const novelKey = item.id;
+        if (typeof setDownloadingUpdates === 'function') {
+          setDownloadingUpdates(prev => ({ ...prev, [novelKey]: true }));
+        }
+        try {
+          await LibraryEngine.updateTranslateAndStage(item, {
+            novelUpdateBadges,
+            loadFullNovel,
+            saveNovelToHistory
+          }, {
+            toast,
+            setEpubPackagingModal,
+            onClearBadge: (id1, id2) => {
+              if (typeof setNovelUpdateBadges === 'function') {
+                setNovelUpdateBadges(prev => {
+                  const next = { ...prev };
+                  if (id1) delete next[id1];
+                  if (id2) delete next[id2];
+                  return next;
+                });
+              }
+            },
+            onStageSession: ({ updatedNovel, prefilledChapters, prefilledNewChapters, prefilledAssembled, inputText, sessionObj }) => {
+              if (typeof setInputText === 'function') setInputText(inputText);
+              if (typeof setChapters === 'function') setChapters(prefilledChapters);
+              if (typeof setTranslatedChapters === 'function') setTranslatedChapters(prefilledNewChapters);
+              if (typeof setAssembledText === 'function') setAssembledText(prefilledAssembled);
+              if (typeof setActiveNovelRecord === 'function') setActiveNovelRecord(updatedNovel);
+              if (typeof setFileName === 'function') setFileName(updatedNovel.title);
+              if (activeSessionRef) activeSessionRef.current = sessionObj;
+              if (typeof setActiveSession === 'function') setActiveSession(sessionObj);
+              if (typeof setSavedTranslationSession === 'function') setSavedTranslationSession(sessionObj);
+              if (typeof setIsTranslationPaused === 'function') setIsTranslationPaused(true);
+              if (typeof setActiveTab === 'function') setActiveTab('text');
+            }
+          });
+        } finally {
+          if (typeof setDownloadingUpdates === 'function') {
+            setDownloadingUpdates(prev => ({ ...prev, [novelKey]: false }));
+          }
+          if (typeof setEpubPackagingModal === 'function') setEpubPackagingModal(null);
+        }
+      },
+
+      async checkAllUpdates(history, { loadFullNovel, setIsBatchChecking, setCheckingUpdates, setNovelUpdateBadges, toast } = {}) {
+        if (!LibraryEngine.checkAllUpdates) return;
+        await LibraryEngine.checkAllUpdates(history, {
+          toast,
+          loadFullNovel,
+          onBatchStart: () => { if (typeof setIsBatchChecking === 'function') setIsBatchChecking(true); },
+          onBatchEnd: () => { if (typeof setIsBatchChecking === 'function') setIsBatchChecking(false); },
+          onNovelCheckingStart: (novelId) => {
+            if (typeof setCheckingUpdates === 'function') setCheckingUpdates(prev => ({ ...prev, [novelId]: true }));
+          },
+          onNovelCheckingEnd: (novelId) => {
+            if (typeof setCheckingUpdates === 'function') setCheckingUpdates(prev => ({ ...prev, [novelId]: false }));
+          },
+          onBadgeUpdate: (novelId, badgeData) => {
+            if (typeof setNovelUpdateBadges === 'function') setNovelUpdateBadges(prev => ({ ...prev, [novelId]: badgeData }));
+          }
+        });
+      },
+
+      async loadFullNovel(meta, webImportData) {
+        if (!LibraryEngine.loadFullNovel) return null;
+        let loaded = await LibraryEngine.loadFullNovel(meta);
+        if (!loaded && webImportData && webImportData.title === meta?.title && webImportData.chapters?.length > 0) {
+          return { ...webImportData, rawChapters: webImportData.chapters };
+        }
+        return loaded;
+      },
+
+      async loadNovelToImporter(meta, loadFullNovelFn, setWebImportData, toast) {
+        try {
+          if (typeof toast === 'function') toast(` Loading "${meta?.title}" from library...`, 'info');
+          const fullNovel = typeof loadFullNovelFn === 'function' ? await loadFullNovelFn(meta) : await LibraryEngine.loadFullNovel(meta);
+          if (!fullNovel || (!fullNovel.rawChapters && !fullNovel.chapters)) {
+            throw new Error('Novel chapter data not found in local library store.');
+          }
+          const rawChs = fullNovel.rawChapters || fullNovel.chapters || [];
+          const loadedData = {
+            title: fullNovel.title,
+            author: fullNovel.author,
+            summary: fullNovel.summary,
+            tags: fullNovel.tags,
+            chapters: rawChs,
+            rawChapters: rawChs,
+            isEpub: fullNovel.isEpub,
+            inSavedSpace: !!fullNovel.inSavedSpace,
+            sourceUrl: fullNovel.sourceUrl
+          };
+          if (typeof setWebImportData === 'function') setWebImportData(loadedData);
+          if (typeof toast === 'function') toast(` Loaded "${loadedData.title}" (${loadedData.chapters.length} chapters)!`, 'success');
+          return loadedData;
+        } catch (err) {
+          console.error('Failed to load novel from library:', err);
+          if (typeof toast === 'function') toast('Failed to load: ' + err.message, 'error');
+          return null;
+        }
+      },
+
+      async moveToTrash(id, { setWebImportHistory, loadTrashCount, toast } = {}) {
+        if (!LibraryEngine.moveToTrash) return;
+        return await LibraryEngine.moveToTrash(id, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onUpdateTrashCount: loadTrashCount
+        });
+      },
+
+      async clearScoped(books, scope, { setWebImportHistory, loadTrashCount, handleRestoreSnapshot, toast } = {}) {
+        if (LibraryEngine.Trash?.clearScopedBooks) {
+          return await LibraryEngine.Trash.clearScopedBooks({
+            booksToClear: books,
+            scopeName: scope,
+            setWebImportHistory,
+            loadTrashCount,
+            toast
+          });
+        }
+      },
+
+      async clearSavedSpace(books, toggleSavedSpaceFn, toast) {
+        if (!books || books.length === 0) return;
+        for (const b of books) {
+          if (b && b.id && typeof toggleSavedSpaceFn === 'function') {
+            await toggleSavedSpaceFn(b.id, b);
+          }
+        }
+        if (typeof toast === 'function') toast(`Removed ${books.length} novel(s) from Saved Space.`, 'info');
+      },
+
+      async clearAll(allBooks, { setWebImportHistory, loadTrashCount, handleRestoreSnapshot, toast } = {}) {
+        if (LibraryEngine.Trash?.clearAllHistory) {
+          return await LibraryEngine.Trash.clearAllHistory({
+            webImportHistory: allBooks,
+            setWebImportHistory,
+            loadTrashCount,
+            toast
+          });
+        }
+      },
+
+      async restoreNovel(id, { setWebImportHistory, loadTrashCount, toast } = {}) {
+        if (LibraryEngine.Trash?.restoreNovel) {
+          return await LibraryEngine.Trash.restoreNovel(id, {
+            setWebImportHistory,
+            loadTrashCount,
+            toast
+          });
+        }
+      },
+
+      async restoreSnapshot(snapshot, { setWebImportHistory, loadTrashCount, toast } = {}) {
+        if (LibraryEngine.Trash?.restoreSnapshot) {
+          return await LibraryEngine.Trash.restoreSnapshot(snapshot, {
+            setWebImportHistory,
+            loadTrashCount,
+            toast
+          });
+        }
+      },
+
+      async restoreAll(setters, toast) {
+        if (LibraryEngine.Trash?.restoreAllTrash) {
+          const setWebImportHistory = setters?.setWebImportHistory || (typeof setters === 'function' ? setters : null);
+          const loadTrashCount = setters?.loadTrashCount;
+          return await LibraryEngine.Trash.restoreAllTrash({
+            setWebImportHistory,
+            loadTrashCount,
+            toast
+          });
+        }
+      },
+
+      async permanentDelete(id, { loadTrashCount, toast } = {}) {
+        if (LibraryEngine.Trash?.permanentDelete) {
+          return await LibraryEngine.Trash.permanentDelete(id, {
+            loadTrashCount,
+            toast
+          });
+        }
+      },
+
+      async emptyTrash({ loadTrashCount, toast } = {}) {
+        if (LibraryEngine.Trash?.emptyTrash) {
+          return await LibraryEngine.Trash.emptyTrash({
+            loadTrashCount,
+            toast
+          });
+        }
+      },
+
+      async restoreEpubFiles(files, { setWebImportHistory, setActiveCrawlSession, toast } = {}) {
+        if (LibraryEngine.Trash?.restoreFromEpubFiles) {
+          return await LibraryEngine.Trash.restoreFromEpubFiles(files, {
+            setWebImportHistory,
+            setActiveCrawlSession: typeof setActiveCrawlSession === 'function' ? () => setActiveCrawlSession(null) : null,
+            toast
+          });
+        }
+      },
+
+      async reindex({ dbGetAll, webImportHistory, saveNovelToHistory, toast } = {}) {
+        if (LibraryEngine.Trash?.reindexFromTranslationHistory) {
+          return await LibraryEngine.Trash.reindexFromTranslationHistory({
+            webImportHistory,
+            saveNovelToHistory,
+            toast,
+            dbGetAll
+          });
+        }
+      }
     }
   };
 
   window.LibraryEngine = LibraryEngine;
+  if (typeof window !== 'undefined') {
+    window.LibraryEngine.Controller = LibraryEngine.Controller;
+  }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = LibraryEngine;
   }

@@ -1228,10 +1228,160 @@ RAW GLOSSARY DATA TO CLEAN:
     Controller
   };
 
+  const Profiles = {
+    async save(name, content, instructions, savedGlossaries, callbacks = {}) {
+      const contentToSave = typeof content === 'string' ? content : '';
+      const instrToSave = typeof instructions === 'string' ? instructions : '';
+      if (!contentToSave.trim() && !instrToSave.trim()) {
+        if (typeof callbacks.setError === 'function') callbacks.setError('Profile content is empty.');
+        return null;
+      }
+      try {
+        const engine = GlossaryManagerEngine;
+        const { savedGlossaries: u, activeGlossaryId: newActiveId } = await engine.saveGlossary(
+          name,
+          contentToSave,
+          instrToSave,
+          savedGlossaries,
+          { dbPut: callbacks.dbPut }
+        );
+        if (typeof callbacks.setSavedGlossaries === 'function') callbacks.setSavedGlossaries(u);
+        if (typeof callbacks.setTerminology === 'function') callbacks.setTerminology(contentToSave);
+        if (typeof callbacks.setNewGlossaryName === 'function') callbacks.setNewGlossaryName('');
+        if (typeof callbacks.setActiveGlossaryId === 'function') callbacks.setActiveGlossaryId(newActiveId);
+        if (typeof callbacks.setError === 'function') callbacks.setError('');
+        if (typeof callbacks.toast === 'function') callbacks.toast(`Profile "${name}" saved!`, 'success');
+        return { savedGlossaries: u, activeGlossaryId: newActiveId };
+      } catch (err) {
+        if (typeof callbacks.setError === 'function') callbacks.setError(err.message);
+        if (typeof callbacks.toast === 'function') callbacks.toast(err.message, 'error');
+        return null;
+      }
+    },
+
+    delete(name, savedGlossaries, activeId, defaultName, callbacks = {}) {
+      const performDelete = async () => {
+        try {
+          const engine = GlossaryManagerEngine;
+          const { savedGlossaries: u, activeGlossaryId: newActive, defaultGlossaryName: newDef } = await engine.deleteGlossary(
+            name, savedGlossaries, activeId, defaultName, { dbDelete: callbacks.dbDelete }
+          );
+          if (typeof callbacks.setSavedGlossaries === 'function') callbacks.setSavedGlossaries(u);
+          if (activeId === name) {
+            if (typeof callbacks.setActiveGlossaryId === 'function') callbacks.setActiveGlossaryId(newActive);
+            if (typeof callbacks.setTerminology === 'function') callbacks.setTerminology('');
+          }
+          if (defaultName === name) {
+            if (typeof callbacks.setDefaultGlossaryName === 'function') callbacks.setDefaultGlossaryName(newDef);
+          }
+          if (typeof callbacks.toast === 'function') callbacks.toast('Profile deleted.', 'info');
+          return { savedGlossaries: u, activeGlossaryId: newActive, defaultGlossaryName: newDef };
+        } catch (err) {
+          if (typeof callbacks.toast === 'function') callbacks.toast(err.message, 'error');
+        }
+      };
+      if (typeof callbacks.confirmAction === 'function') {
+        callbacks.confirmAction(`Delete profile "${name}"?`, performDelete);
+      } else {
+        return performDelete();
+      }
+    },
+
+    async rename(oldName, newName, savedGlossaries, activeId, defaultName, callbacks = {}) {
+      if (!newName || !newName.trim() || newName.trim() === oldName) return null;
+      try {
+        const engine = GlossaryManagerEngine;
+        const { savedGlossaries: u, activeGlossaryId: newActive, defaultGlossaryName: newDef } = await engine.renameGlossary(
+          oldName, newName, savedGlossaries, activeId, defaultName, { dbPut: callbacks.dbPut, dbDelete: callbacks.dbDelete }
+        );
+        if (typeof callbacks.setSavedGlossaries === 'function') callbacks.setSavedGlossaries(u);
+        if (activeId === oldName && typeof callbacks.setActiveGlossaryId === 'function') callbacks.setActiveGlossaryId(newActive);
+        if (defaultName === oldName && typeof callbacks.setDefaultGlossaryName === 'function') callbacks.setDefaultGlossaryName(newDef);
+        if (typeof callbacks.toast === 'function') callbacks.toast(`Profile renamed to "${newName.trim()}"!`);
+        return { savedGlossaries: u, activeGlossaryId: newActive, defaultGlossaryName: newDef };
+      } catch (err) {
+        if (typeof callbacks.setError === 'function') callbacks.setError(err.message);
+        if (typeof callbacks.toast === 'function') callbacks.toast(err.message, 'error');
+        return null;
+      }
+    },
+
+    import(text, savedGlossaries, callbacks = {}) {
+      try {
+        const engine = GlossaryManagerEngine;
+        const { savedGlossaries: merged, addedCount } = engine.importGlossaries(text, savedGlossaries);
+        if (typeof callbacks.setSavedGlossaries === 'function') callbacks.setSavedGlossaries(merged);
+        if (typeof callbacks.toast === 'function') callbacks.toast(`Imported ${addedCount} new glossaries (${merged.length} total)!`, 'success');
+        return { savedGlossaries: merged, addedCount };
+      } catch (err) {
+        if (typeof callbacks.setError === 'function') callbacks.setError('Invalid glossary file: ' + err.message);
+        if (typeof callbacks.toast === 'function') callbacks.toast('Invalid glossary file: ' + err.message, 'error');
+        return null;
+      }
+    },
+
+    async exportAll(savedGlossaries, toast) {
+      const tst = typeof toast === 'function' ? toast : toast?.toast;
+      try {
+        const engine = GlossaryManagerEngine;
+        const blob = await engine.exportGlossaries(savedGlossaries);
+        if (typeof tst === 'function') tst('Glossaries exported!', 'success');
+        return blob;
+      } catch (e) {
+        if (typeof tst === 'function') tst('Export error: ' + e.message, 'error');
+        return null;
+      }
+    },
+
+    async exportTxt(terminology, activeId, toast, setError) {
+      const tst = typeof toast === 'function' ? toast : toast?.toast;
+      const setErr = typeof setError === 'function' ? setError : toast?.setError;
+      try {
+        const engine = GlossaryManagerEngine;
+        const res = await engine.exportGlossaryTxt(terminology, activeId);
+        if (typeof tst === 'function') tst('Glossary exported to Downloads as .txt!', 'success');
+        return res;
+      } catch (e) {
+        if (typeof setErr === 'function') setErr(e.message);
+        if (typeof tst === 'function') tst(e.message, 'error');
+        return null;
+      }
+    },
+
+    applyPreset(type, terminology, instructions, callbacks = {}) {
+      const engine = GlossaryManagerEngine;
+      const res = engine.applyPreset(type, terminology, instructions);
+      if (res.presetApplied) {
+        if (res.isInstruction) {
+          if (typeof callbacks.setCustomInstructions === 'function') callbacks.setCustomInstructions(res.updatedInstructions);
+          if (typeof callbacks.toast === 'function') callbacks.toast(`Added ${type} instructions!`);
+        } else {
+          if (typeof callbacks.setTerminology === 'function') callbacks.setTerminology(res.updatedTerminology);
+          if (typeof callbacks.toast === 'function') callbacks.toast(`Added ${type} terminology!`);
+        }
+      }
+      return res;
+    },
+
+    copyAiPrompt(toast) {
+      const tst = typeof toast === 'function' ? toast : toast?.toast;
+      const engine = GlossaryManagerEngine;
+      return engine.copyAiGlossaryPrompt({
+        copyText: typeof window !== 'undefined' ? window.copyText : null,
+        onCopied: () => {
+          if (typeof tst === 'function') tst('AI Optimizer Prompt copied to clipboard!');
+        }
+      });
+    }
+  };
+
+  GlossaryManagerEngine.Profiles = Profiles;
+
   global.GlossaryManagerEngine = GlossaryManagerEngine;
   if (typeof window !== 'undefined') {
     window.GlossaryManagerEngine = GlossaryManagerEngine;
     window.GlossaryManagerEngine.Controller = Controller;
+    window.GlossaryManagerEngine.Profiles = Profiles;
   }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = GlossaryManagerEngine;

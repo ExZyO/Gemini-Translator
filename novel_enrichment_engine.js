@@ -1070,6 +1070,198 @@
     }
   };
 
+  const Controller = {
+    openHealthModal(item, loadFullNovel, callbacks = {}) {
+      const engine = NovelEnrichmentEngine;
+      const loader = typeof loadFullNovel === 'function' ? loadFullNovel : ((typeof window !== 'undefined' && window.LibraryEngine?.Controller?.loadFullNovel) || null);
+      return engine?.QA?.openNovelHealthModal(item, loader, callbacks);
+    },
+
+    openActiveQaModal(context, callbacks = {}) {
+      const engine = NovelEnrichmentEngine;
+      return engine?.QA?.openActiveQaModal(context, callbacks);
+    },
+
+    runAudit(targetNovel, options = {}, callbacks = {}) {
+      const engine = NovelEnrichmentEngine;
+      const toast = callbacks.toast || (typeof window !== 'undefined' && window.__toast) || console.log;
+      if (!engine?.QA || !(typeof window !== 'undefined' && window.QAEngine)) {
+        if (typeof toast === 'function') toast('QA Engine is loading...', 'info');
+        return null;
+      }
+      const result = engine.QA.runAudit(targetNovel, options, callbacks.state || {});
+      if (typeof callbacks.setQaAuditResult === 'function') {
+        callbacks.setQaAuditResult(result);
+      }
+      return result;
+    },
+
+    async clearTm(refreshStats, toast, confirmFn) {
+      const rStats = typeof refreshStats === 'function' ? refreshStats : refreshStats?.refreshStats;
+      const tst = typeof toast === 'function' ? toast : refreshStats?.toast;
+      const conf = typeof confirmFn === 'function' ? confirmFn : (refreshStats?.confirm || (typeof window !== 'undefined' ? window.confirm : () => true));
+      const engine = NovelEnrichmentEngine;
+      if (!engine?.TM) return;
+      if (!conf('Are you sure you want to clear all cached Translation Memory segments? This cannot be undone.')) return;
+      await engine.TM.clearTM();
+      if (typeof rStats === 'function') await rStats();
+      if (typeof tst === 'function') tst('Translation Memory cache cleared.', 'info');
+    },
+
+    async exportTmx(toast) {
+      const tst = typeof toast === 'function' ? toast : toast?.toast;
+      const engine = NovelEnrichmentEngine;
+      if (!engine?.TM) return;
+      try {
+        await engine.TM.exportTMX();
+        if (typeof tst === 'function') tst('Exported Translation Memory (TMX).', 'success');
+      } catch (e) {
+        if (typeof tst === 'function') tst('Failed exporting TMX: ' + e.message, 'error');
+      }
+    },
+
+    openDiffModal(params) {
+      const engine = NovelEnrichmentEngine;
+      return engine?.TM?.openDiffModal(params);
+    },
+
+    manualSnapshot(params) {
+      const engine = NovelEnrichmentEngine;
+      return engine?.TM?.saveManualSnapshot(params);
+    },
+
+    selectDiffSnapshot(params) {
+      const engine = NovelEnrichmentEngine;
+      return engine?.TM?.selectDiffSnapshot(params);
+    },
+
+    rollbackDiffSnapshot(params) {
+      const engine = NovelEnrichmentEngine;
+      return engine?.TM?.rollbackDiffSnapshot(params);
+    },
+
+    openPlugins(catalog, setters = {}) {
+      const cat = Array.isArray(catalog) ? catalog : (catalog?.pluginCatalog || catalog?.catalog);
+      const cbs = typeof catalog === 'object' && !Array.isArray(catalog) ? catalog : setters;
+      const engine = NovelEnrichmentEngine;
+      return engine?.Plugins?.openCatalog({
+        pluginCatalog: cat,
+        callbacks: cbs
+      });
+    },
+
+    installPlugin(item, setters = {}) {
+      const engine = NovelEnrichmentEngine;
+      return engine?.Plugins?.installPlugin(item, setters);
+    },
+
+    uninstallPlugin(id, setters = {}) {
+      const engine = NovelEnrichmentEngine;
+      return engine?.Plugins?.uninstallPlugin(id, setters);
+    },
+
+    installCustomUrl(url, setters = {}) {
+      const engine = NovelEnrichmentEngine;
+      return engine?.Plugins?.installCustomPluginUrl(url, setters);
+    },
+
+    searchPlugins(query, sourceId = 'all', callbacks = {}) {
+      const q = typeof query === 'string' ? query : query?.query;
+      const src = typeof query === 'object' ? (query.sourceId || 'all') : sourceId;
+      const cbs = typeof query === 'object' ? query : (callbacks || {});
+      const engine = NovelEnrichmentEngine;
+      return engine?.Plugins?.searchNovelsInPlugins({
+        query: q,
+        sourceId: src,
+        callbacks: cbs
+      });
+    },
+
+    openCostEstimator(params = {}) {
+      const engine = NovelEnrichmentEngine;
+      const data = engine.calculateCostEstimate(params);
+      if (!data) {
+        if (typeof params.toast === 'function') params.toast('Please paste text or load a novel/EPUB before estimating cost.', 'warning');
+        return null;
+      }
+      if (typeof params.setCostEstimatorData === 'function') params.setCostEstimatorData(data);
+      if (typeof params.setCostEstimatorModalOpen === 'function') params.setCostEstimatorModalOpen(true);
+      return data;
+    },
+
+    async enrichMetadata(novelRecord, { setWebImportHistory, setActiveNovelView, activeNovelView, toast, confirm: confirmFn } = {}) {
+      if (!novelRecord || !novelRecord.title) {
+        if (typeof toast === 'function') toast('No novel selected for metadata enrichment.', 'warning');
+        return;
+      }
+      if (typeof toast === 'function') toast(`Fetching official metadata for "${novelRecord.title}"…`, 'info');
+      try {
+        const engine = NovelEnrichmentEngine;
+        const metadata = await engine.fetchNovelMetadata(novelRecord.title);
+        if (!metadata) {
+          if (typeof toast === 'function') toast(`No matching metadata found for "${novelRecord.title}".`, 'warning');
+          return;
+        }
+        const conf = typeof confirmFn === 'function' ? confirmFn : (typeof window !== 'undefined' ? window.confirm : () => true);
+        const applied = await engine.applyEnrichedMetadata(novelRecord, metadata, {
+          confirm: (msg) => conf(msg),
+          onUpdateHistory: (updates) => {
+            if (typeof setWebImportHistory === 'function') {
+              setWebImportHistory(prev => prev.map(b => b.id === novelRecord.id ? { ...b, ...updates } : b));
+            }
+          },
+          onUpdateActiveNovelView: (updates) => {
+            if (typeof setActiveNovelView === 'function' && activeNovelView && activeNovelView.id === novelRecord.id) {
+              setActiveNovelView(prev => ({ ...prev, ...updates }));
+            }
+          }
+        });
+        if (applied && typeof toast === 'function') {
+          toast(`Enriched "${metadata.title}" with official HD cover art & synopsis!`, 'success');
+        }
+        return applied;
+      } catch (err) {
+        console.warn('Metadata enrichment error:', err);
+        if (typeof toast === 'function') toast(`Metadata enrichment error: ${err.message}`, 'error');
+      }
+    },
+
+    async splitIntoArcs(novelRecord, { loadFullNovel: loadFullNovelFn, setActiveTab, setStudioSubTab, toast, cleanBookTitle, cleanBookAuthor, generateEpubFromChapters, sanitizeFilename } = {}) {
+      const loader = typeof loadFullNovelFn === 'function' ? loadFullNovelFn : ((typeof window !== 'undefined' && window.LibraryEngine?.Controller?.loadFullNovel) || null);
+      const full = loader ? await loader(novelRecord) : novelRecord;
+      if (!full) {
+        if (typeof toast === 'function') toast('Novel data not found in database.', 'error');
+        return;
+      }
+      const chs = (full.translatedChapters && full.translatedChapters.length > 0)
+        ? full.translatedChapters
+        : (full.rawChapters || full.chapters || []);
+      if (chs.length === 0) {
+        if (typeof toast === 'function') toast('No chapters available to split.', 'warning');
+        return;
+      }
+
+      if (typeof setActiveTab === 'function') setActiveTab('studio');
+      if (typeof setStudioSubTab === 'function') setStudioSubTab('split');
+      try { if (typeof localStorage !== 'undefined') localStorage.setItem('activeTab', 'studio'); } catch (e) {}
+      if (typeof toast === 'function') toast(`Packaging "${full.title || 'Novel'}" into Volume Splitter…`, 'info');
+
+      try {
+        const engine = NovelEnrichmentEngine;
+        await engine.packageNovelForArcSplitter(full, {
+          cleanBookTitle,
+          cleanBookAuthor,
+          generateEpubFromChapters,
+          sanitizeFilename,
+          toast
+        });
+      } catch (splitErr) {
+        console.warn('Auto-split mounting warning:', splitErr);
+        if (typeof toast === 'function') toast(`Switched to EPUB Studio with "${full.title || 'Novel'}"!`, 'info');
+      }
+    }
+  };
+
   const NovelEnrichmentEngine = {
     calculateCostEstimate,
     fetchNovelMetadata,
@@ -1079,10 +1271,15 @@
     QA,
     Plugins,
     TM,
-    AppUpdate
+    AppUpdate,
+    Controller
   };
 
   global.NovelEnrichmentEngine = NovelEnrichmentEngine;
+  if (typeof window !== 'undefined') {
+    window.NovelEnrichmentEngine = NovelEnrichmentEngine;
+    window.NovelEnrichmentEngine.Controller = Controller;
+  }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = NovelEnrichmentEngine;
   }
