@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.84';
+    let VERSION = '8.17.85';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -655,6 +655,7 @@
     // PRO MOON+ READER ENGINE (Virtual Windowing, High-Res Art & Pro TTS Player)
     // ══════════════════════════════════════════════════════════════════════
     const MoonReaderModal = window.MoonReaderModal;
+    const AppModalsContainer = window.AppModalsContainer;
 
     // ERROR BOUNDARY
     // ═══════════════════════════════════════
@@ -2381,6 +2382,41 @@
         });
       };
 
+      const handleInspectChapterInReader = (iss) => {
+        const targetNovel = qaAuditNovelRef;
+        if (targetNovel && targetNovel.chapters && targetNovel.chapters.length > 0) {
+          const chs = targetNovel.chapters;
+          const isTrans = targetNovel.isTranslated || (targetNovel.title || '').includes('(Translated)') || chs.some(c => c && (c.translated || c.targetLang || c.content));
+          const cleanCh = c => typeof c === 'string' ? c : (c.content || c.text || c.rawContent || '');
+          const cleanedChs = chs.map((c, i) => ({
+            title: (typeof c === 'object' && c.title) ? c.title : `Chapter ${i + 1}`,
+            content: cleanCh(c)
+          }));
+          if (targetNovel.title) {
+            setCurrentDocTitle(targetNovel.title);
+            setFileName(targetNovel.title);
+          }
+          setActiveNovelRecord(targetNovel);
+          if (isTrans) {
+            setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+            setTranslatedChapters(cleanedChs);
+            if (targetNovel.originalChapters && targetNovel.originalChapters.length > 0) {
+              const srcChs = targetNovel.originalChapters;
+              setInputText(srcChs.map(c => `# ${c.title || ''}\n\n${cleanCh(c)}`).join('\n\n'));
+              setChapters(srcChs.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, content: cleanCh(c) })));
+            }
+          } else {
+            setChapters(cleanedChs);
+            setInputText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+            setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+            setTranslatedChapters(cleanedChs);
+          }
+        }
+        setReaderChapterIdx(Math.max(0, iss?.chapterIdx || 0));
+        setReaderOpen(true);
+        setQaModalOpen(false);
+      };
+
       useEffect(() => {
         window.openNovelHealthAudit = () => {
           handleOpenActiveQaModal();
@@ -2751,97 +2787,25 @@
       };
 
       const checkForAppUpdate = async (isManual = false) => {
-        if (isManual) toast('Checking for updates...', 'info');
-        try {
-          const parseV = v => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
-          let update = null;
-          if (window.NativeBridge && typeof window.NativeBridge.checkForUpdate === 'function') {
-            update = await window.NativeBridge.checkForUpdate(VERSION);
-          }
-          if (!update || !update.latestVersion) {
-            // Web fallback: query GitHub releases and version manifest concurrently
-            const candidates = [];
-            let discoveredApk = null;
-            const q1 = fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now()).then(async r => {
-              if (r.ok) {
-                const d = await r.json();
-                const m = (d.name || '').match(/v?(\d+\.\d+\.\d+)/i) || (d.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
-                if (m) candidates.push(m[1]);
-                if (Array.isArray(d.assets)) {
-                  const a = d.assets.find(x => x.name && x.name.toLowerCase().endsWith('.apk'));
-                  if (a?.browser_download_url) discoveredApk = a.browser_download_url;
-                }
-              }
-            }).catch(() => {});
-            const q2 = fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/version.json?t=' + Date.now()).then(async r => {
-              if (r.ok) {
-                const d = await r.json();
-                if (d?.version) candidates.push(d.version);
-                if (d?.apkUrl || d?.downloadUrl) discoveredApk = d.apkUrl || d.downloadUrl;
-              }
-            }).catch(() => {});
-            await Promise.allSettled([q1, q2]);
-
-            if (candidates.length > 0) {
-              candidates.sort((a, b) => {
-                const [a1, a2, a3] = parseV(a);
-                const [b1, b2, b3] = parseV(b);
-                if (b1 !== a1) return b1 - a1;
-                if (b2 !== a2) return b2 - a2;
-                return b3 - a3;
-              });
-              const bestVer = candidates[0];
-              const [rMaj=0, rMin=0, rPat=0] = parseV(bestVer);
-              const [cMaj=0, cMin=0, cPat=0] = parseV(VERSION);
-              const isNewer = (rMaj > cMaj) || (rMaj === cMaj && rMin > cMin) || (rMaj === cMaj && rMin === cMin && rPat > cPat);
-              const latestTag = `v${[rMaj, rMin, rPat].join('.')}`;
-              update = {
-                isNewer,
-                latestVersion: latestTag,
-                currentVersion: 'v' + [cMaj, cMin, cPat].join('.'),
-                apkUrl: discoveredApk || `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`,
-                releasePage: `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`
-              };
+        if (window.NovelEnrichmentEngine?.AppUpdate?.checkForUpdate) {
+          await window.NovelEnrichmentEngine.AppUpdate.checkForUpdate(VERSION, isManual, {
+            toast,
+            onUpdateAvailable: (update) => setAvailableUpdate(update),
+            onUpToDate: () => setAvailableUpdate(null),
+            onError: (err, manual) => {
+              if (manual) toast('Failed to check for updates: ' + (err?.message || err), 'error');
             }
-          }
-
-          if (update && update.isNewer) {
-            setAvailableUpdate(update);
-            if (isManual) toast(`New version ${update.latestVersion} available!`, 'success');
-          } else {
-            setAvailableUpdate(null);
-            if (isManual) {
-              const remoteVer = update?.latestVersion || `v${VERSION}`;
-              toast(`You are on the latest version (${remoteVer})!`, 'success');
-            }
-          }
-        } catch (e) {
-          if (isManual) toast('Failed to check for updates: ' + e.message, 'error');
+          });
         }
       };
 
       const handlePerformUpdate = async () => {
-        setIsUpdating(true);
-        toast('⬇️ Starting update download...', 'info');
-        try {
-          const apkUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
-          const installResult = await window.NativeBridge?.installApk(apkUrl);
-          if (installResult && installResult.success === false) {
-            throw new Error(installResult.message || 'The package installer could not be launched.');
-          }
-          toast('🎉 Download complete. Opening package installer...', 'success');
-        } catch (err) {
-          console.error('Update error:', err);
-          const updateError = err?.message || String(err);
-          if (/unknown apps|allow from this source/i.test(updateError)) {
-            toast('Permission required: Please enable "Allow from this source" in Settings, then tap Update again.', 'warning', 7000);
-          } else {
-            toast('Failed to install update: ' + updateError + '. Opening browser download...', 'error', 5000);
-            const fallbackUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
-            window.open(fallbackUrl, '_blank');
-          }
-        } finally {
-          setIsUpdating(false);
+        if (window.NovelEnrichmentEngine?.AppUpdate?.installUpdate) {
+          await window.NovelEnrichmentEngine.AppUpdate.installUpdate(availableUpdate, {
+            toast,
+            onStart: () => setIsUpdating(true),
+            onComplete: () => setIsUpdating(false)
+          });
         }
       };
 
@@ -4820,50 +4784,8 @@
         setWebImportData(prev => {
           const base = prev || activeCrawlSession;
           if (!base || !base.chapters || base.chapters.length <= 1) return prev;
-
-          const parseChapterWeight = (title, idx) => {
-            const raw = (title || '').trim().toLowerCase();
-
-            // 1. Prologue / Preface / Intro / 序
-            if (/^(prologue|preface|intro|introduction|foreword|序章|序)\b/i.test(raw)) {
-              return -999999 + idx * 0.001;
-            }
-
-            // 2. Epilogue / Afterword / 终章 / 尾声 (only if not an explicitly numbered chapter like "Chapter 861: Epilogue")
-            if (/^(epilogue|afterword|postscript|终章|尾声|后记)\b/i.test(raw) && !/chapter\s*\d+/i.test(raw)) {
-              return 999999 + idx * 0.001;
-            }
-
-            // 3. Volume / Book + Chapter: "Volume 2 Chapter 15" -> 2 * 100000 + 15
-            const volChMatch = raw.match(/vol(?:ume)?\.?\s*(\d+).*?ch(?:apter)?\.?\s*(\d+(?:\.\d+)?)/i);
-            if (volChMatch) {
-              return parseFloat(volChMatch[1]) * 100000 + parseFloat(volChMatch[2]);
-            }
-
-            // 4. Standard "Chapter 123", "Ch. 123", "c123", "第123章", or leading number
-            const chMatch = raw.match(/(?:chapter|ch\.?|ep\.?|episode|c|part)\s*(\d+(?:\.\d+)?)/i) ||
-                            raw.match(/第\s*(\d+)\s*[章话話集]/) ||
-                            raw.match(/^(\d+(?:\.\d+)?)\b/);
-            if (chMatch) {
-              return parseFloat(chMatch[1]);
-            }
-
-            // If no explicit number, keep original relative index
-            return idx;
-          };
-
-          const chaptersWithWeights = base.chapters.map((c, originalIdx) => ({
-            chapter: c,
-            weight: parseChapterWeight(c.title || '', originalIdx),
-            originalIdx
-          }));
-
-          chaptersWithWeights.sort((a, b) => {
-            if (a.weight !== b.weight) return a.weight - b.weight;
-            return a.originalIdx - b.originalIdx;
-          });
-
-          const sorted = chaptersWithWeights.map(x => x.chapter);
+          const sortFn = window.WebNovelCrawlerEngine?.autoSortChapters;
+          const sorted = sortFn ? sortFn(base.chapters) : base.chapters;
           syncCrawlSessionChapters(sorted);
           return { ...base, chapters: sorted };
         });
@@ -4874,7 +4796,8 @@
         setWebImportData(prev => {
           const base = prev || activeCrawlSession;
           if (!base || !base.chapters || base.chapters.length <= 1) return prev;
-          const chapters = [...base.chapters].reverse();
+          const revFn = window.WebNovelCrawlerEngine?.reverseChapters;
+          const chapters = revFn ? revFn(base.chapters) : [...base.chapters].reverse();
           syncCrawlSessionChapters(chapters);
           return { ...base, chapters };
         });
@@ -4898,87 +4821,39 @@
         toast('🤖 AI analyzing chapter reading order...', 'info');
 
         try {
-          const titleItems = currentData.chapters.map((c, i) => `${i}: "${(c.title || `Chapter ${i + 1}`).replace(/"/g, "'")}"`);
-          const systemPrompt = "You are an expert novel editor and reading order analyzer. The user will provide a list of chapter titles with their 0-based indices from an imported web novel. Some chapters may be out of chronological reading order (such as a latest release teaser or side story placed at the top, or prologue out of place).\\n\\nOutput a valid JSON array of the original integer indices arranged in their proper, chronological reading order (from first chapter to last chapter).\\nInclude every single index from 0 to N-1 exactly once. Output ONLY the raw JSON array (e.g. [1, 2, 3, 0]), with NO extra commentary or markdown backticks.";
-          const userPrompt = `Reorder these ${currentData.chapters.length} chapter titles into proper chronological reading order:\\n${titleItems.join('\\n')}`;
-
-          let jsonStr = '';
-          if (provider === 'deepseek') {
-            const r = await fetchRetry('https://api.deepseek.com/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-              body: JSON.stringify({
-                model: useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : 'deepseek-chat',
-                messages: [
-                  { role: 'system', content: systemPrompt },
-                  { role: 'user', content: userPrompt }
-                ],
-                stream: false
-              })
-            });
-            if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`API error ${r.status}: ${b.substring(0, 150)}`); }
-            const j = await r.json();
-            jsonStr = j.choices?.[0]?.message?.content || '';
-          } else {
-            const model = useCustomModel && customModel ? customModel : geminiModel;
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-            const r = await fetchRetry(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-                generationConfig: {
-                  temperature: 0.1,
-                  maxOutputTokens: 8192
-                }
-              })
-            });
-            if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`Gemini API error ${r.status}: ${b.substring(0, 150)}`); }
-            const j = await r.json();
-            const candidateParts = j?.candidates?.[0]?.content?.parts || [];
-            const actualParts = candidateParts.filter(p => !p.thought);
-            jsonStr = actualParts.length > 0 ? actualParts.map(p => p.text || '').join('') : candidateParts.map(p => p.text || '').join('');
-          }
-
-          const cleanJson = jsonStr.replace(/```json/gi, '').replace(/```/g, '').trim();
-          const matchArray = cleanJson.match(/\[[\s\d,]+\]/);
-          let orderArray = null;
-          if (matchArray) {
-            try { orderArray = JSON.parse(matchArray[0]); } catch(e) {}
-          }
-          if (!orderArray) {
-            const bracketMatch = cleanJson.match(/\[([^\]]+)\]/);
-            if (bracketMatch) {
-              const nums = bracketMatch[1].match(/\d+/g);
-              if (nums) orderArray = nums.map(Number);
+          const reorderFn = window.WebNovelCrawlerEngine?.aiReorderChapters;
+          if (!reorderFn) throw new Error('Crawler engine AI reorder not loaded.');
+          const res = await reorderFn({
+            chapters: currentData.chapters,
+            provider,
+            apiKey: key,
+            model: geminiModel,
+            customModel,
+            useCustomModel,
+            customDeepseekModel,
+            useCustomDeepseekModel,
+            callbacks: {
+              onError: (err) => console.warn('AI Reorder error:', err)
             }
-          }
-          if (!orderArray || !Array.isArray(orderArray)) {
-            throw new Error('Could not parse index array from AI response.');
-          }
-
-          if (orderArray.length !== currentData.chapters.length) {
-            throw new Error(`AI returned ${orderArray.length} items (expected ${currentData.chapters.length}). Using Auto-Sort.`);
-          }
-
-          const indexSet = new Set(orderArray);
-          if (indexSet.size !== currentData.chapters.length) {
-            throw new Error('AI returned duplicate indices. Using Auto-Sort.');
-          }
-
-          setWebImportData(prev => {
-            const base = prev || activeCrawlSession;
-            if (!base || !base.chapters) return prev;
-            const reordered = orderArray.map(idx => base.chapters[idx]);
-            syncCrawlSessionChapters(reordered);
-            return { ...base, chapters: reordered };
           });
 
-          toast('✨ AI successfully reorganized chapters in reading order!', 'success');
-          try {
-            window.NativeBridge?.showCompletionNotification?.('Chapters Sorted! 🤖', `Successfully reorganized ${orderArray.length} chapters into reading order.`);
-          } catch(e) {}
+          if (res?.chapters) {
+            setWebImportData(prev => {
+              const base = prev || activeCrawlSession;
+              if (!base || !base.chapters) return prev;
+              syncCrawlSessionChapters(res.chapters);
+              return { ...base, chapters: res.chapters };
+            });
+
+            if (res.success) {
+              toast('✨ AI successfully reorganized chapters in reading order!', 'success');
+              try {
+                window.NativeBridge?.showCompletionNotification?.('Chapters Sorted! 🤖', `Successfully reorganized ${res.chapters.length} chapters into reading order.`);
+              } catch(e) {}
+            } else {
+              toast('AI sort notice: ' + (res.error?.message || 'Using Auto-Sort fallback.'), 'warn');
+            }
+          }
         } catch (aiErr) {
           console.warn('AI Reorder error:', aiErr);
           toast('AI sort notice: ' + aiErr.message + '. Running instant Auto-Sort instead.', 'warn');
@@ -5533,8 +5408,11 @@
           )
         ),
 
-        // ── EXPORT / TOOLS SHEET ──
-        h(ExportToolsSheet, {
+        // ══════════════════════════════════════════════════════════════════════
+        // CONSOLIDATED ROOT MODALS CONTAINER
+        // ══════════════════════════════════════════════════════════════════════
+        h(window.AppModalsContainer || AppModalsContainer, {
+          // Export Tools Sheet
           sheetOpen,
           setSheetOpen,
           handleExportRow,
@@ -5542,33 +5420,25 @@
           handleAutoDetectSplit,
           setBoxPreset,
           setGlossaryEditorOpen,
-          toast
-        }),
+          toast,
 
-        // ── GLOSSARY FULL-SCREEN EDITOR ──
-        
-        // ═════ DIAGNOSTICS & TELEMETRY LOGS MODAL ═════
-        h(DiagnosticsLogsModal, {
-          isOpen: logsModalOpen,
-          onClose: () => setLogsModalOpen(false),
+          // Diagnostics Logs Modal
+          logsModalOpen,
+          setLogsModalOpen,
           liveLogs,
-          copyLogsWithReport
-        }),
+          copyLogsWithReport,
 
-        // ═════ BULK API KEY IMPORT MODAL ═════
-        h(BulkApiKeyImportModal, {
-          isOpen: bulkKeyModalOpen,
-          onClose: () => setBulkKeyModalOpen(false),
+          // Bulk API Key Import Modal
+          bulkKeyModalOpen,
+          setBulkKeyModalOpen,
           provider,
           bulkKeyText,
           setBulkKeyText,
-          onImport: handleBulkImportKeys
-        }),
+          handleBulkImportKeys,
 
-        // ═════ GLOSSARY FULL-SCREEN EDITOR MODAL ═════
-        h(GlossaryEditorModal, {
-          isOpen: glossaryEditorOpen,
-          onClose: () => setGlossaryEditorOpen(false),
+          // Glossary Editor Modal
+          glossaryEditorOpen,
+          setGlossaryEditorOpen,
           terminology,
           setTerminology,
           glossaryTermCount,
@@ -5580,88 +5450,51 @@
           importGlossaryFile,
           exportGlossaryTxt,
           smartGlossary,
-          setSmartGlossary
-        }),
+          setSmartGlossary,
 
-        // ── TOASTS ──
-        h('div', { className: 'toast-wrap' },
-          toasts.map(t => h('div', {
-            key: t.id,
-            className: `toast ${t.type || 'success'}`,
-            style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textAlign: 'left' }
-          },
-            h('span', { style: { flex: 1 } }, t.msg),
-            t.action && h('button', {
-              type: 'button',
-              className: 'mini-btn',
-              style: {
-                background: '#ffffff',
-                color: '#111827',
-                padding: '4px 10px',
-                fontSize: 12,
-                fontWeight: 800,
-                borderRadius: 6,
-                cursor: 'pointer',
-                border: 'none',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                flexShrink: 0
-              },
-              onClick: (e) => {
-                e.stopPropagation();
-                if (typeof t.action.onClick === 'function') t.action.onClick();
-                setToasts(p => p.filter(item => item.id !== t.id));
-              }
-            }, t.action.label || 'Undo')
-          ))
-        ),
+          // Toast System
+          toasts,
+          setToasts,
 
-        // ── CONFIRM DIALOG ──
-        h(ConfirmDialog, {
+          // Confirmation Dialog
           showModal,
           setShowModal,
           modalMessage,
           modalCallback,
-          setModalCallback
-        }),
+          setModalCallback,
 
-        // ── EPUB PACKAGING PROGRESS DOCK (Main Screen, Non-Modal, Dismissible) ──
-        h(EpubPackagingProgressDock, {
+          // EPUB Packaging Progress Dock
           epubPackagingModal,
-          setEpubPackagingModal
-        }),
+          setEpubPackagingModal,
 
-        // ── DOWNLOAD SUCCESS MODAL ──
-        h(DownloadSuccessModal, {
+          // Download Success Modal
           downloadSuccessModal,
-          setDownloadSuccessModal
-        }),
+          setDownloadSuccessModal,
 
-        // ── READER ──
-        h(MoonReaderModal, {
-          open: readerOpen,
-          onClose: () => setReaderOpen(false),
-          text: assembledText,
-          chapters: getExportChapters(),
-          currentIdx: readerChapterIdx,
-          onChapterChange: setReaderChapterIdx,
-          theme: readerTheme,
-          setTheme: setReaderTheme,
-          font: readerFont,
-          setFont: setReaderFont,
-          fontSize: readerFontSize,
+          // Moon+ Reader Modal
+          MoonReaderModal,
+          readerOpen,
+          setReaderOpen,
+          assembledText,
+          getExportChapters,
+          readerChapterIdx,
+          setReaderChapterIdx,
+          readerTheme,
+          setReaderTheme,
+          readerFont,
+          setReaderFont,
+          readerFontSize,
           setFontSize: setReaderFontSize,
           tgtLang,
-          novelId: readerNovelId,
-          novelTitle: readerNovelTitle,
-          onVerifyConsistency: handleRunConsistencyCheck,
-          onOpenHealthAudit: handleOpenActiveQaModal,
-          onOpenDiff: (idx) => handleOpenDiffModal(idx ?? readerChapterIdx)
-        }),
+          readerNovelId,
+          readerNovelTitle,
+          handleRunConsistencyCheck,
+          handleOpenActiveQaModal,
+          handleOpenDiffModal,
 
-        // ── LIBRARY NOVEL ACTION SHEET (3-DOT MENU) ──
-        h(LibraryNovelActionSheet, {
-          novel: activeBookMenuNovel,
-          onClose: () => setActiveBookMenuNovel(null),
+          // Library Novel Action Sheet
+          activeBookMenuNovel,
+          setActiveBookMenuNovel,
           getNovelFolderOptions,
           setRenameModalNovel,
           setNewNovelTitleInput,
@@ -5675,93 +5508,57 @@
           toggleNovelSavedSpace,
           handleSetNovelFolder,
           handleOpenNovelHealthModal,
-          handleOpenDiffModal,
           handleEnrichNovelMetadata,
           handleSplitNovelIntoArcs,
           confirmAction,
-          deleteNovelFromHistory
-        }),
+          deleteNovelFromHistory,
 
-        // ── ONGOING EPUB CONTINUATION & MOON+ READER CONTINUITY FULL-SCREEN VIEW ──
-        h(OngoingEpubContinuationModal, {
-          modalData: ongoingEpubModal,
-          onClose: () => setOngoingEpubModal(null),
+          // Ongoing EPUB Continuation Modal
+          ongoingEpubModal,
           setOngoingEpubModal,
           updateNovelFolderRecord,
           handleScanContinuationToc,
           handleSearchContinuationSources,
           handleSelectContinuationSource,
-          handleExecuteContinuation
-        }),
+          handleExecuteContinuation,
 
-        // ── NOVEL HEALTH & TRANSLATION QA REPORT MODAL (§5.9 + §7.1 + §7.5) ──
-        h(QaReportModal, {
-          isOpen: qaModalOpen,
-          onClose: () => setQaModalOpen(false),
+          // QA Report Modal
+          qaModalOpen,
+          setQaModalOpen,
           qaAuditResult,
           qaFilterCategory,
           setQaFilterCategory,
-          qaCheckGaps, setQaCheckGaps,
-          qaCheckCorrupt, setQaCheckCorrupt,
-          qaCheckCjk, setQaCheckCjk,
-          qaCheckAntiMtl, setQaCheckAntiMtl,
-          qaCheckLoops, setQaCheckLoops,
-          qaCheckDuplicates, setQaCheckDuplicates,
+          qaCheckGaps,
+          setQaCheckGaps,
+          qaCheckCorrupt,
+          setQaCheckCorrupt,
+          qaCheckCjk,
+          setQaCheckCjk,
+          qaCheckAntiMtl,
+          setQaCheckAntiMtl,
+          qaCheckLoops,
+          setQaCheckLoops,
+          qaCheckDuplicates,
+          setQaCheckDuplicates,
           qaAuditNovelRef,
           runNovelHealthAudit,
-          onInspectChapterInReader: (iss) => {
-            const targetNovel = qaAuditNovelRef;
-            if (targetNovel && targetNovel.chapters && targetNovel.chapters.length > 0) {
-              const chs = targetNovel.chapters;
-              const isTrans = targetNovel.isTranslated || (targetNovel.title || '').includes('(Translated)') || chs.some(c => c && (c.translated || c.targetLang || c.content));
-              const cleanCh = c => typeof c === 'string' ? c : (c.content || c.text || c.rawContent || '');
-              const cleanedChs = chs.map((c, i) => ({
-                title: (typeof c === 'object' && c.title) ? c.title : `Chapter ${i + 1}`,
-                content: cleanCh(c)
-              }));
-              if (targetNovel.title) {
-                setCurrentDocTitle(targetNovel.title);
-                setFileName(targetNovel.title);
-              }
-              setActiveNovelRecord(targetNovel);
-              if (isTrans) {
-                setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
-                setTranslatedChapters(cleanedChs);
-                if (targetNovel.originalChapters && targetNovel.originalChapters.length > 0) {
-                  const srcChs = targetNovel.originalChapters;
-                  setInputText(srcChs.map(c => `# ${c.title || ''}\n\n${cleanCh(c)}`).join('\n\n'));
-                  setChapters(srcChs.map((c, i) => ({ title: c.title || `Chapter ${i + 1}`, content: cleanCh(c) })));
-                }
-              } else {
-                setChapters(cleanedChs);
-                setInputText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
-                setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
-                setTranslatedChapters(cleanedChs);
-              }
-            }
-            setReaderChapterIdx(Math.max(0, iss.chapterIdx || 0));
-            setReaderOpen(true);
-            setQaModalOpen(false);
-          }
-        }),
+          onInspectChapterInReader: handleInspectChapterInReader,
 
-        // ── TRANSLATION DIFF & REVISION HISTORY MODAL (§8.6) ──
-        h(DiffHistoryModal, {
-          isOpen: diffModalOpen,
-          onClose: () => setDiffModalOpen(false),
+          // Translation Diff & Revision History Modal
+          diffModalOpen,
+          setDiffModalOpen,
           activeDiffData,
           selectedDiffSnapId,
           handleSelectDiffSnapshot,
           diffSnapshotsList,
           handleManualSnapshot,
-          handleRollbackDiffSnapshot
-        }),
+          handleRollbackDiffSnapshot,
 
-        // ── AUTO-GLOSSARY & CHARACTER EXTRACTOR MODAL ──
-        h(AutoGlossaryModal, {
-          isOpen: autoGlossaryModalOpen,
-          onClose: () => { setAutoGlossaryModalOpen(false); setAutoGlossaryTargetNovel(null); },
+          // Auto-Glossary Modal
+          autoGlossaryModalOpen,
+          setAutoGlossaryModalOpen,
           autoGlossaryTargetNovel,
+          setAutoGlossaryTargetNovel,
           chapters,
           activeNovelRecord,
           autoGlossaryChapterCount,
@@ -5770,35 +5567,26 @@
           handleExtractGlossary,
           extractedTerms,
           setExtractedTerms,
-          handleApplyExtractedTerms
-        }),
+          handleApplyExtractedTerms,
 
-
-
-        // ── NAME CONSISTENCY VERIFIER MODAL ──
-        h(NameConsistencyModal, {
-          isOpen: consistencyModalOpen,
-          onClose: () => setConsistencyModalOpen(false),
+          // Name Consistency Modal
+          consistencyModalOpen,
+          setConsistencyModalOpen,
           consistencyAuditResults,
           handleBatchFixDrift,
-          handleRunConsistencyCheck,
-          isAuditingConsistency
-        }),
+          isAuditingConsistency,
 
-        // ── GOOGLE DRIVE CONFIGURATION MODAL ──
-        h(GdriveConfigModal, {
-          isOpen: gdriveConfigModalOpen,
-          onClose: () => setGdriveConfigModalOpen(false),
+          // Google Drive Config Modal
+          gdriveConfigModalOpen,
+          setGdriveConfigModalOpen,
           gdriveClientId,
           setGdriveClientId,
           gdriveManualToken,
           setGdriveManualToken,
           setGdriveConnected,
-          testGoogleDriveConnection
-        }),
+          testGoogleDriveConnection,
 
-        // ── SWIFTAUDIO PLAYER (FLOATING MINI-PLAYER, FULL PLAYER, BATCH DOWNLOAD) ──
-        h(SwiftAudioPlayer, {
+          // SwiftAudio Player
           audioPlayerState,
           amoledMode,
           isFullPlayerOpen,
@@ -5813,26 +5601,16 @@
           setDownloadingTrackId,
           audioDownloadModal,
           setAudioDownloadModal,
-          getNovelFolderOptions,
-          handleExecuteAudioBatchDownload
-        }),
+          handleExecuteAudioBatchDownload,
 
-        // ── NOVEL RENAME MODAL ──
-        h(NovelRenameModal, {
-          novel: renameModalNovel,
-          onClose: () => setRenameModalNovel(null),
-          value: newNovelTitleInput,
-          setValue: setNewNovelTitleInput,
-          onSave: (novel, val) => {
-            handleSaveNovelRename(novel, val);
-            setRenameModalNovel(null);
-          }
-        }),
+          // Novel Rename Modal
+          renameModalNovel,
+          newNovelTitleInput,
+          handleSaveNovelRename,
 
-        // ── SOURCE EXTENSIONS & SOURCES HUB (FULL-SCREEN MIHON-STYLE) ──
-        h(SourceExtensionsModal, {
-          isOpen: sourcePluginsModalOpen,
-          onClose: () => setSourcePluginsModalOpen(false),
+          // Source Extensions Modal
+          sourcePluginsModalOpen,
+          setSourcePluginsModalOpen,
           pluginSelectedTab,
           setPluginSelectedTab,
           pluginCatalog,
@@ -5846,22 +5624,17 @@
           handleInstallPlugin,
           customPluginUrl,
           setCustomPluginUrl,
-          handleInstallCustomPluginUrl
-        }),
+          handleInstallCustomPluginUrl,
 
-        // ── COST & TIME ESTIMATOR MODAL (§7.2 / §3.6) ──
-        h(CostEstimatorModal, {
-          isOpen: costEstimatorModalOpen,
+          // Cost Estimator Modal
+          costEstimatorModalOpen,
+          setCostEstimatorModalOpen,
           costEstimatorData,
-          onClose: () => setCostEstimatorModalOpen(false),
-          onProceed: () => {
-            setCostEstimatorModalOpen(false);
-            handleStartTranslation();
-          }
-        }),
+          handleStartTranslation,
 
-        // ── EPUB STUDIO PREVIEW MODAL ──
-        h('div', { dangerouslySetInnerHTML: { __html: window.modalHtml || (typeof modalHtml !== 'undefined' ? modalHtml : '') } })
+          // EPUB Studio Preview Modal
+          modalHtml: window.modalHtml || (typeof modalHtml !== 'undefined' ? modalHtml : '')
+        })
       );
     }
 

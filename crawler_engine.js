@@ -698,6 +698,197 @@
     }
   }
 
+  /**
+   * Computes a sorting weight for a chapter based on its title and original index.
+   */
+  function parseChapterWeight(titleOrRaw, idx = 0) {
+    const raw = (typeof titleOrRaw === 'string' ? titleOrRaw : (titleOrRaw?.title || '')).trim().toLowerCase();
+    const safeIdx = typeof idx === 'number' ? idx : 0;
+
+    // 1. Prologue / Preface / Intro / 序
+    if (/^(prologue|preface|intro|introduction|foreword|序章|序)\b/i.test(raw)) {
+      return -999999 + safeIdx * 0.001;
+    }
+
+    // 2. Epilogue / Afterword / 终章 / 尾声 (only if not an explicitly numbered chapter)
+    if (/^(epilogue|afterword|postscript|终章|尾声|后记)\b/i.test(raw) && !/chapter\s*\d+/i.test(raw)) {
+      return 999999 + safeIdx * 0.001;
+    }
+
+    // 3. Volume + Chapter match: "Volume 2 Chapter 15", "Vol. 1 - Ch. 5", "v3:c10"
+    const volChMatch = raw.match(/(?:volume|vol|v)\.?\s*(\d+)\s*[-_.:\s]\s*(?:chapter|ch|c)\.?\s*(\d+(?:\.\d+)?)/i) ||
+                       raw.match(/vol(?:ume)?\.?\s*(\d+).*?ch(?:apter)?\.?\s*(\d+(?:\.\d+)?)/i);
+    if (volChMatch) {
+      return parseFloat(volChMatch[1]) * 100000 + parseFloat(volChMatch[2]);
+    }
+
+    // 4. Volume match alone or Volume + Chapter detected separately
+    const volMatch = raw.match(/(?:volume|vol\.?|book|v)\s*(\d+)/i);
+
+    // 5. Standard chapter match: "Chapter 123", "Ch. 123", "c123", "第123章", or leading number
+    const chMatch = raw.match(/(?:chapter|ch\.?|ep\.?|episode|c|part)\s*(\d+(?:\.\d+)?)/i) ||
+                    raw.match(/第\s*(\d+)\s*[章话話集]/) ||
+                    raw.match(/^(\d+(?:\.\d+)?)\b/);
+
+    if (chMatch) {
+      const chVal = parseFloat(chMatch[1]);
+      if (volMatch) {
+        return parseFloat(volMatch[1]) * 100000 + chVal;
+      }
+      return chVal;
+    }
+
+    if (volMatch) {
+      return parseFloat(volMatch[1]) * 100000;
+    }
+
+    // If no explicit number, keep original relative index
+    return safeIdx;
+  }
+
+  /**
+   * Sorts chapters chronologically using parseChapterWeight and original index fallback.
+   */
+  function autoSortChapters(chapters) {
+    if (!Array.isArray(chapters) || chapters.length <= 1) {
+      return Array.isArray(chapters) ? [...chapters] : [];
+    }
+
+    const chaptersWithWeights = chapters.map((c, originalIdx) => ({
+      chapter: c,
+      weight: parseChapterWeight(typeof c === 'string' ? c : (c?.title || ''), originalIdx),
+      originalIdx
+    }));
+
+    chaptersWithWeights.sort((a, b) => {
+      if (a.weight !== b.weight) return a.weight - b.weight;
+      return a.originalIdx - b.originalIdx;
+    });
+
+    return chaptersWithWeights.map(x => x.chapter);
+  }
+
+  /**
+   * Reverses chapter order (1 <-> N).
+   */
+  function reverseChapters(chapters) {
+    if (!Array.isArray(chapters)) return [];
+    return [...chapters].reverse();
+  }
+
+  /**
+   * Uses Gemini or DeepSeek AI to intelligently analyze chapter titles and reading order.
+   */
+  async function aiReorderChapters({
+    chapters,
+    provider = 'gemini',
+    apiKey,
+    model = 'gemini-2.5-flash',
+    customModel,
+    useCustomModel,
+    customDeepseekModel,
+    useCustomDeepseekModel,
+    callbacks = {}
+  } = {}) {
+    if (!Array.isArray(chapters) || chapters.length <= 1) {
+      return { success: true, chapters: Array.isArray(chapters) ? [...chapters] : [] };
+    }
+
+    if (!apiKey) {
+      throw new Error('API key is required for AI Reorder.');
+    }
+
+    const fetchFn = (typeof window !== 'undefined' && window.fetchRetry) ? window.fetchRetry : fetch;
+
+    try {
+      const titleItems = chapters.map((c, i) => {
+        const t = (typeof c === 'string' ? c : (c?.title || `Chapter ${i + 1}`)).replace(/"/g, "'");
+        return `${i}: "${t}"`;
+      });
+      const systemPrompt = "You are an expert novel editor and reading order analyzer. The user will provide a list of chapter titles with their 0-based indices from an imported web novel. Some chapters may be out of chronological reading order (such as a latest release teaser or side story placed at the top, or prologue out of place).\\n\\nOutput a valid JSON array of the original integer indices arranged in their proper, chronological reading order (from first chapter to last chapter).\\nInclude every single index from 0 to N-1 exactly once. Output ONLY the raw JSON array (e.g. [1, 2, 3, 0]), with NO extra commentary or markdown backticks.";
+      const userPrompt = `Reorder these ${chapters.length} chapter titles into proper chronological reading order:\\n${titleItems.join('\\n')}`;
+
+      let jsonStr = '';
+      if (provider === 'deepseek') {
+        const actualDeepseekModel = (useCustomDeepseekModel && customDeepseekModel) ? customDeepseekModel : 'deepseek-chat';
+        const r = await fetchFn('https://api.deepseek.com/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: actualDeepseekModel,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            stream: false
+          })
+        });
+        if (!r.ok) {
+          const b = await r.text().catch(() => '');
+          throw new Error(`API error ${r.status}: ${b.substring(0, 150)}`);
+        }
+        const j = await r.json();
+        jsonStr = j.choices?.[0]?.message?.content || '';
+      } else {
+        const actualGeminiModel = (useCustomModel && customModel) ? customModel : (model || 'gemini-2.5-flash');
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${actualGeminiModel}:generateContent?key=${apiKey}`;
+        const r = await fetchFn(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 8192
+            }
+          })
+        });
+        if (!r.ok) {
+          const b = await r.text().catch(() => '');
+          throw new Error(`Gemini API error ${r.status}: ${b.substring(0, 150)}`);
+        }
+        const j = await r.json();
+        const candidateParts = j?.candidates?.[0]?.content?.parts || [];
+        const actualParts = candidateParts.filter(p => !p.thought);
+        jsonStr = actualParts.length > 0 ? actualParts.map(p => p.text || '').join('') : candidateParts.map(p => p.text || '').join('');
+      }
+
+      const cleanJson = jsonStr.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const matchArray = cleanJson.match(/\[[\s\d,]+\]/);
+      let orderArray = null;
+      if (matchArray) {
+        try { orderArray = JSON.parse(matchArray[0]); } catch(e) {}
+      }
+      if (!orderArray) {
+        const bracketMatch = cleanJson.match(/\[([^\]]+)\]/);
+        if (bracketMatch) {
+          const nums = bracketMatch[1].match(/\d+/g);
+          if (nums) orderArray = nums.map(Number);
+        }
+      }
+      if (!orderArray || !Array.isArray(orderArray)) {
+        throw new Error('Could not parse index array from AI response.');
+      }
+
+      if (orderArray.length !== chapters.length) {
+        throw new Error(`AI returned ${orderArray.length} items (expected ${chapters.length}). Using Auto-Sort.`);
+      }
+
+      const indexSet = new Set(orderArray);
+      if (indexSet.size !== chapters.length) {
+        throw new Error('AI returned duplicate indices. Using Auto-Sort.');
+      }
+
+      const reordered = orderArray.map(idx => chapters[idx]);
+      return { success: true, chapters: reordered };
+    } catch (aiErr) {
+      if (callbacks.onError) callbacks.onError(aiErr);
+      const fallback = autoSortChapters(chapters);
+      return { success: false, fallback: true, error: aiErr, chapters: fallback };
+    }
+  }
+
   const WebNovelCrawlerEngine = {
     searchNovels,
     startCrawl,
@@ -706,7 +897,11 @@
     exportCleanLnoriEpub,
     directEpubDownload,
     resumeCrawlFromSession,
-    dismissCrawlSession
+    dismissCrawlSession,
+    parseChapterWeight,
+    autoSortChapters,
+    reverseChapters,
+    aiReorderChapters
   };
 
   global.WebNovelCrawlerEngine = WebNovelCrawlerEngine;

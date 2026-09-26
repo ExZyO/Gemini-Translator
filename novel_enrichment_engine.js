@@ -953,6 +953,123 @@
     rollbackDiffSnapshot
   };
 
+  /**
+   * AppUpdate: In-app update checking and APK installation
+   */
+  const AppUpdate = {
+    async checkForUpdate(currentVersion, isManual = false, callbacks = {}) {
+      if (isManual && typeof callbacks.toast === 'function') callbacks.toast('Checking for updates...', 'info');
+      try {
+        const parseV = v => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+        let update = null;
+        if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.checkForUpdate === 'function') {
+          update = await window.NativeBridge.checkForUpdate(currentVersion);
+        }
+        if (!update || !update.latestVersion) {
+          // Web fallback: query GitHub releases and version manifest concurrently
+          const candidates = [];
+          let discoveredApk = null;
+          const q1 = fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now()).then(async r => {
+            if (r.ok) {
+              const d = await r.json();
+              const m = (d.name || '').match(/v?(\d+\.\d+\.\d+)/i) || (d.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
+              if (m) candidates.push(m[1]);
+              if (Array.isArray(d.assets)) {
+                const a = d.assets.find(x => x.name && x.name.toLowerCase().endsWith('.apk'));
+                if (a?.browser_download_url) discoveredApk = a.browser_download_url;
+              }
+            }
+          }).catch(() => {});
+          const q2 = fetch('https://raw.githubusercontent.com/ExZyO/Gemini-Translator/main/version.json?t=' + Date.now()).then(async r => {
+            if (r.ok) {
+              const d = await r.json();
+              if (d?.version) candidates.push(d.version);
+              if (d?.apkUrl || d?.downloadUrl) discoveredApk = d.apkUrl || d.downloadUrl;
+            }
+          }).catch(() => {});
+          await Promise.allSettled([q1, q2]);
+
+          if (candidates.length > 0) {
+            candidates.sort((a, b) => {
+              const [a1, a2, a3] = parseV(a);
+              const [b1, b2, b3] = parseV(b);
+              if (b1 !== a1) return b1 - a1;
+              if (b2 !== a2) return b2 - a2;
+              return b3 - a3;
+            });
+            const bestVer = candidates[0];
+            const [rMaj=0, rMin=0, rPat=0] = parseV(bestVer);
+            const [cMaj=0, cMin=0, cPat=0] = parseV(currentVersion);
+            const isNewer = (rMaj > cMaj) || (rMaj === cMaj && rMin > cMin) || (rMaj === cMaj && rMin === cMin && rPat > cPat);
+            const latestTag = `v${[rMaj, rMin, rPat].join('.')}`;
+            update = {
+              isNewer,
+              latestVersion: latestTag,
+              currentVersion: 'v' + [cMaj, cMin, cPat].join('.'),
+              apkUrl: discoveredApk || `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`,
+              releasePage: `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`
+            };
+          }
+        }
+
+        if (update && update.isNewer) {
+          if (typeof callbacks.onUpdateAvailable === 'function') {
+            callbacks.onUpdateAvailable(update);
+          }
+          if (isManual && typeof callbacks.toast === 'function') callbacks.toast(`New version ${update.latestVersion} available!`, 'success');
+        } else {
+          if (typeof callbacks.onUpToDate === 'function') {
+            callbacks.onUpToDate(currentVersion, isManual, update);
+          }
+          if (isManual && typeof callbacks.toast === 'function') {
+            const remoteVer = update?.latestVersion || `v${currentVersion}`;
+            callbacks.toast(`You are on the latest version (${remoteVer})!`, 'success');
+          }
+        }
+        return update;
+      } catch (e) {
+        if (typeof callbacks.onError === 'function') {
+          callbacks.onError(e, isManual);
+        }
+        if (isManual && typeof callbacks.toast === 'function') {
+          callbacks.toast('Failed to check for updates: ' + e.message, 'error');
+        }
+        return null;
+      }
+    },
+
+    async installUpdate(availableUpdate, callbacks = {}) {
+      if (typeof callbacks.onStart === 'function') callbacks.onStart();
+      if (typeof callbacks.toast === 'function') callbacks.toast('⬇️ Starting update download...', 'info');
+      try {
+        const apkUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
+        const installResult = (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.installApk === 'function')
+          ? await window.NativeBridge.installApk(apkUrl)
+          : null;
+        if (installResult && installResult.success === false) {
+          throw new Error(installResult.message || 'The package installer could not be launched.');
+        }
+        if (typeof callbacks.toast === 'function') callbacks.toast('🎉 Download complete. Opening package installer...', 'success');
+        if (typeof callbacks.onSuccess === 'function') callbacks.onSuccess(installResult);
+      } catch (err) {
+        console.error('Update error:', err);
+        const updateError = err?.message || String(err);
+        if (/unknown apps|allow from this source/i.test(updateError)) {
+          if (typeof callbacks.toast === 'function') callbacks.toast('Permission required: Please enable "Allow from this source" in Settings, then tap Update again.', 'warning', 7000);
+        } else {
+          if (typeof callbacks.toast === 'function') callbacks.toast('Failed to install update: ' + updateError + '. Opening browser download...', 'error', 5000);
+          const fallbackUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
+          if (typeof window !== 'undefined' && typeof window.open === 'function') {
+            window.open(fallbackUrl, '_blank');
+          }
+        }
+        if (typeof callbacks.onError === 'function') callbacks.onError(err);
+      } finally {
+        if (typeof callbacks.onComplete === 'function') callbacks.onComplete();
+      }
+    }
+  };
+
   const NovelEnrichmentEngine = {
     calculateCostEstimate,
     fetchNovelMetadata,
@@ -961,7 +1078,8 @@
     auditNovelHealth,
     QA,
     Plugins,
-    TM
+    TM,
+    AppUpdate
   };
 
   global.NovelEnrichmentEngine = NovelEnrichmentEngine;

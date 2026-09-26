@@ -3343,6 +3343,335 @@
     );
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // 19. APP MODALS CONTAINER (Consolidated Root Modal Container)
+  // ─────────────────────────────────────────────────────────────────────────
+  function AppModalsContainer(props) {
+    if (!props) return null;
+    const h = getH();
+    const toast = props.toast || getToast();
+    const Fragment = (typeof React !== 'undefined' && React.Fragment)
+      ? React.Fragment
+      : ((typeof window !== 'undefined' && window.React && window.React.Fragment)
+          ? window.React.Fragment
+          : 'div');
+    const MoonReaderModalComponent = props.MoonReaderModal || (typeof window !== 'undefined' ? window.MoonReaderModal : null);
+
+    return h(Fragment, null,
+      // 1. Export Tools Sheet
+      h(ExportToolsSheet, {
+        sheetOpen: props.sheetOpen,
+        setSheetOpen: props.setSheetOpen,
+        handleExportRow: props.handleExportRow,
+        isTranslating: props.isTranslating,
+        handleAutoDetectSplit: props.handleAutoDetectSplit,
+        setBoxPreset: props.setBoxPreset,
+        setGlossaryEditorOpen: props.setGlossaryEditorOpen,
+        toast
+      }),
+
+      // 2. Diagnostics & Telemetry Logs Modal
+      h(DiagnosticsLogsModal, {
+        isOpen: (typeof props.logsModalOpen !== 'undefined') ? props.logsModalOpen : props.isOpen,
+        onClose: props.onCloseLogsModal || (() => props.setLogsModalOpen?.(false)),
+        liveLogs: props.liveLogs,
+        copyLogsWithReport: props.copyLogsWithReport
+      }),
+
+      // 3. Bulk API Key Import Modal
+      h(BulkApiKeyImportModal, {
+        isOpen: (typeof props.bulkKeyModalOpen !== 'undefined') ? props.bulkKeyModalOpen : props.isOpen,
+        onClose: props.onCloseBulkKeyModal || (() => props.setBulkKeyModalOpen?.(false)),
+        provider: props.provider,
+        bulkKeyText: props.bulkKeyText,
+        setBulkKeyText: props.setBulkKeyText,
+        onImport: props.handleBulkImportKeys || props.onImport
+      }),
+
+      // 4. Glossary Full-Screen Editor Modal
+      h(GlossaryEditorModal, {
+        isOpen: (typeof props.glossaryEditorOpen !== 'undefined') ? props.glossaryEditorOpen : props.isOpen,
+        onClose: props.onCloseGlossaryEditor || (() => props.setGlossaryEditorOpen?.(false)),
+        terminology: props.terminology,
+        setTerminology: props.setTerminology,
+        glossaryTermCount: props.glossaryTermCount,
+        activeGlossaryId: props.activeGlossaryId,
+        handleSaveGlossary: props.handleSaveGlossary,
+        applyGlossaryPreset: props.applyGlossaryPreset,
+        handleAiOptimizeGlossary: props.handleAiOptimizeGlossary,
+        isOptimizingGlossary: props.isOptimizingGlossary,
+        importGlossaryFile: props.importGlossaryFile,
+        exportGlossaryTxt: props.exportGlossaryTxt,
+        smartGlossary: props.smartGlossary,
+        setSmartGlossary: props.setSmartGlossary
+      }),
+
+      // 5. Toasts
+      h('div', { className: 'toast-wrap' },
+        (props.toasts || []).map(t => h('div', {
+          key: t.id,
+          className: `toast ${t.type || 'success'}`,
+          style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textAlign: 'left' }
+        },
+          h('span', { style: { flex: 1 } }, t.msg),
+          t.action && h('button', {
+            type: 'button',
+            className: 'mini-btn',
+            style: {
+              background: '#ffffff',
+              color: '#111827',
+              padding: '4px 10px',
+              fontSize: 12,
+              fontWeight: 800,
+              borderRadius: 6,
+              cursor: 'pointer',
+              border: 'none',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+              flexShrink: 0
+            },
+            onClick: (e) => {
+              e.stopPropagation();
+              if (typeof t.action.onClick === 'function') t.action.onClick();
+              if (typeof props.setToasts === 'function') props.setToasts(p => p.filter(item => item.id !== t.id));
+            }
+          }, t.action.label || 'Undo')
+        ))
+      ),
+
+      // 6. Confirm Dialog
+      h(ConfirmDialog, {
+        showModal: props.showModal,
+        setShowModal: props.setShowModal,
+        modalMessage: props.modalMessage,
+        modalCallback: props.modalCallback,
+        setModalCallback: props.setModalCallback
+      }),
+
+      // 7. EPUB Packaging Progress Dock
+      h(EpubPackagingProgressDock, {
+        epubPackagingModal: props.epubPackagingModal,
+        setEpubPackagingModal: props.setEpubPackagingModal
+      }),
+
+      // 8. Download Success Modal
+      h(DownloadSuccessModal, {
+        downloadSuccessModal: props.downloadSuccessModal,
+        setDownloadSuccessModal: props.setDownloadSuccessModal
+      }),
+
+      // 9. Moon+ Reader Modal
+      MoonReaderModalComponent && h(MoonReaderModalComponent, {
+        open: props.readerOpen,
+        onClose: props.onCloseReader || (() => props.setReaderOpen?.(false)),
+        text: props.assembledText,
+        chapters: typeof props.getExportChapters === 'function' ? props.getExportChapters() : (props.exportChapters || []),
+        currentIdx: props.readerChapterIdx,
+        onChapterChange: props.setReaderChapterIdx,
+        theme: props.readerTheme,
+        setTheme: props.setReaderTheme,
+        font: props.readerFont,
+        setFont: props.setReaderFont,
+        fontSize: props.readerFontSize,
+        setFontSize: props.setReaderFontSize,
+        tgtLang: props.tgtLang,
+        novelId: props.readerNovelId,
+        novelTitle: props.readerNovelTitle,
+        onVerifyConsistency: props.handleRunConsistencyCheck,
+        onOpenHealthAudit: props.handleOpenActiveQaModal,
+        onOpenDiff: (idx) => {
+          if (typeof props.onOpenDiff === 'function') {
+            props.onOpenDiff(idx);
+          } else if (typeof props.handleOpenDiffModal === 'function') {
+            props.handleOpenDiffModal(idx ?? props.readerChapterIdx);
+          }
+        }
+      }),
+
+      // 10. Library Novel Action Sheet
+      h(LibraryNovelActionSheet, {
+        novel: props.activeBookMenuNovel,
+        onClose: props.onCloseBookMenu || (() => props.setActiveBookMenuNovel?.(null)),
+        getNovelFolderOptions: props.getNovelFolderOptions,
+        setRenameModalNovel: props.setRenameModalNovel,
+        setNewNovelTitleInput: props.setNewNovelTitleInput,
+        getCustomTitle: props.getCustomTitle,
+        loadFullNovel: props.loadFullNovel,
+        setActiveTab: props.setActiveTab,
+        setStudioSubTab: props.setStudioSubTab,
+        handleCheckNovelUpdate: props.handleCheckNovelUpdate,
+        handleOpenContinuationForNovel: props.handleOpenContinuationForNovel,
+        handleOpenAutoGlossary: props.handleOpenAutoGlossary,
+        toggleNovelSavedSpace: props.toggleNovelSavedSpace,
+        handleSetNovelFolder: props.handleSetNovelFolder,
+        handleOpenNovelHealthModal: props.handleOpenNovelHealthModal,
+        handleOpenDiffModal: props.handleOpenDiffModal,
+        handleEnrichNovelMetadata: props.handleEnrichNovelMetadata,
+        handleSplitNovelIntoArcs: props.handleSplitNovelIntoArcs,
+        confirmAction: props.confirmAction,
+        deleteNovelFromHistory: props.deleteNovelFromHistory
+      }),
+
+      // 11. Ongoing EPUB Continuation Modal
+      h(OngoingEpubContinuationModal, {
+        modalData: props.ongoingEpubModal,
+        onClose: props.onCloseOngoingEpubModal || (() => props.setOngoingEpubModal?.(null)),
+        setOngoingEpubModal: props.setOngoingEpubModal,
+        updateNovelFolderRecord: props.updateNovelFolderRecord,
+        handleScanContinuationToc: props.handleScanContinuationToc,
+        handleSearchContinuationSources: props.handleSearchContinuationSources,
+        handleSelectContinuationSource: props.handleSelectContinuationSource,
+        handleExecuteContinuation: props.handleExecuteContinuation
+      }),
+
+      // 12. QA Health & Translation Audit Modal
+      h(QaReportModal, {
+        isOpen: (typeof props.qaModalOpen !== 'undefined') ? props.qaModalOpen : props.isOpen,
+        onClose: props.onCloseQaModal || (() => props.setQaModalOpen?.(false)),
+        qaAuditResult: props.qaAuditResult,
+        qaFilterCategory: props.qaFilterCategory,
+        setQaFilterCategory: props.setQaFilterCategory,
+        qaCheckGaps: props.qaCheckGaps,
+        setQaCheckGaps: props.setQaCheckGaps,
+        qaCheckCorrupt: props.qaCheckCorrupt,
+        setQaCheckCorrupt: props.setQaCheckCorrupt,
+        qaCheckCjk: props.qaCheckCjk,
+        setQaCheckCjk: props.setQaCheckCjk,
+        qaCheckAntiMtl: props.qaCheckAntiMtl,
+        setQaCheckAntiMtl: props.setQaCheckAntiMtl,
+        qaCheckLoops: props.qaCheckLoops,
+        setQaCheckLoops: props.setQaCheckLoops,
+        qaCheckDuplicates: props.qaCheckDuplicates,
+        setQaCheckDuplicates: props.setQaCheckDuplicates,
+        qaAuditNovelRef: props.qaAuditNovelRef,
+        runNovelHealthAudit: props.runNovelHealthAudit,
+        onInspectChapterInReader: props.onInspectChapterInReader
+      }),
+
+      // 13. Translation Diff & Revision History Modal
+      h(DiffHistoryModal, {
+        isOpen: (typeof props.diffModalOpen !== 'undefined') ? props.diffModalOpen : props.isOpen,
+        onClose: props.onCloseDiffModal || (() => props.setDiffModalOpen?.(false)),
+        activeDiffData: props.activeDiffData,
+        selectedDiffSnapId: props.selectedDiffSnapId,
+        handleSelectDiffSnapshot: props.handleSelectDiffSnapshot,
+        diffSnapshotsList: props.diffSnapshotsList,
+        handleManualSnapshot: props.handleManualSnapshot,
+        handleRollbackDiffSnapshot: props.handleRollbackDiffSnapshot
+      }),
+
+      // 14. Auto-Glossary & Character Extractor Modal
+      h(AutoGlossaryModal, {
+        isOpen: (typeof props.autoGlossaryModalOpen !== 'undefined') ? props.autoGlossaryModalOpen : props.isOpen,
+        onClose: props.onCloseAutoGlossaryModal || (() => {
+          if (typeof props.setAutoGlossaryModalOpen === 'function') props.setAutoGlossaryModalOpen(false);
+          if (typeof props.setAutoGlossaryTargetNovel === 'function') props.setAutoGlossaryTargetNovel(null);
+        }),
+        autoGlossaryTargetNovel: props.autoGlossaryTargetNovel,
+        chapters: props.chapters,
+        activeNovelRecord: props.activeNovelRecord,
+        autoGlossaryChapterCount: props.autoGlossaryChapterCount,
+        setAutoGlossaryChapterCount: props.setAutoGlossaryChapterCount,
+        isExtractingGlossary: props.isExtractingGlossary,
+        handleExtractGlossary: props.handleExtractGlossary,
+        extractedTerms: props.extractedTerms,
+        setExtractedTerms: props.setExtractedTerms,
+        handleApplyExtractedTerms: props.handleApplyExtractedTerms
+      }),
+
+      // 15. Name Consistency Verifier Modal
+      h(NameConsistencyModal, {
+        isOpen: (typeof props.consistencyModalOpen !== 'undefined') ? props.consistencyModalOpen : props.isOpen,
+        onClose: props.onCloseConsistencyModal || (() => props.setConsistencyModalOpen?.(false)),
+        consistencyAuditResults: props.consistencyAuditResults,
+        handleBatchFixDrift: props.handleBatchFixDrift,
+        handleRunConsistencyCheck: props.handleRunConsistencyCheck,
+        isAuditingConsistency: props.isAuditingConsistency
+      }),
+
+      // 16. Google Drive Configuration Modal
+      h(GdriveConfigModal, {
+        isOpen: (typeof props.gdriveConfigModalOpen !== 'undefined') ? props.gdriveConfigModalOpen : props.isOpen,
+        onClose: props.onCloseGdriveConfigModal || (() => props.setGdriveConfigModalOpen?.(false)),
+        gdriveClientId: props.gdriveClientId,
+        setGdriveClientId: props.setGdriveClientId,
+        gdriveManualToken: props.gdriveManualToken,
+        setGdriveManualToken: props.setGdriveManualToken,
+        setGdriveConnected: props.setGdriveConnected,
+        testGoogleDriveConnection: props.testGoogleDriveConnection
+      }),
+
+      // 17. SwiftAudio Player
+      h(SwiftAudioPlayer, {
+        audioPlayerState: props.audioPlayerState,
+        amoledMode: props.amoledMode,
+        isFullPlayerOpen: props.isFullPlayerOpen,
+        setIsFullPlayerOpen: props.setIsFullPlayerOpen,
+        isPlayerFullscreen: props.isPlayerFullscreen,
+        setIsPlayerFullscreen: props.setIsPlayerFullscreen,
+        isAudiobookInLibrary: props.isAudiobookInLibrary,
+        saveAudiobookToLibrary: props.saveAudiobookToLibrary,
+        removeAudiobookFromLibrary: props.removeAudiobookFromLibrary,
+        handleOpenAudioDownload: props.handleOpenAudioDownload,
+        downloadingTrackId: props.downloadingTrackId,
+        setDownloadingTrackId: props.setDownloadingTrackId,
+        audioDownloadModal: props.audioDownloadModal,
+        setAudioDownloadModal: props.setAudioDownloadModal,
+        getNovelFolderOptions: props.getNovelFolderOptions,
+        handleExecuteAudioBatchDownload: props.handleExecuteAudioBatchDownload
+      }),
+
+      // 18. Novel Rename Modal
+      h(NovelRenameModal, {
+        novel: props.renameModalNovel,
+        onClose: props.onCloseRenameModal || (() => props.setRenameModalNovel?.(null)),
+        value: props.newNovelTitleInput,
+        setValue: props.setNewNovelTitleInput,
+        onSave: props.onSaveNovelRename || ((novel, val) => {
+          if (typeof props.handleSaveNovelRename === 'function') props.handleSaveNovelRename(novel, val);
+          if (typeof props.setRenameModalNovel === 'function') props.setRenameModalNovel(null);
+        })
+      }),
+
+      // 19. Source Extensions Modal
+      h(SourceExtensionsModal, {
+        isOpen: (typeof props.sourcePluginsModalOpen !== 'undefined') ? props.sourcePluginsModalOpen : props.isOpen,
+        onClose: props.onCloseSourcePluginsModal || (() => props.setSourcePluginsModalOpen?.(false)),
+        pluginSelectedTab: props.pluginSelectedTab,
+        setPluginSelectedTab: props.setPluginSelectedTab,
+        pluginCatalog: props.pluginCatalog,
+        isCatalogLoading: props.isCatalogLoading,
+        pluginSearchQuery: props.pluginSearchQuery,
+        setPluginSearchQuery: props.setPluginSearchQuery,
+        pluginSelectedLangFilter: props.pluginSelectedLangFilter,
+        setPluginSelectedLangFilter: props.setPluginSelectedLangFilter,
+        installingPluginId: props.installingPluginId,
+        handleUninstallPlugin: props.handleUninstallPlugin,
+        handleInstallPlugin: props.handleInstallPlugin,
+        customPluginUrl: props.customPluginUrl,
+        setCustomPluginUrl: props.setCustomPluginUrl,
+        handleInstallCustomPluginUrl: props.handleInstallCustomPluginUrl
+      }),
+
+      // 20. Cost & Time Estimator Modal
+      h(CostEstimatorModal, {
+        isOpen: (typeof props.costEstimatorModalOpen !== 'undefined') ? props.costEstimatorModalOpen : props.isOpen,
+        costEstimatorData: props.costEstimatorData,
+        onClose: props.onCloseCostEstimatorModal || (() => props.setCostEstimatorModalOpen?.(false)),
+        onProceed: props.onProceedCostEstimator || (() => {
+          if (typeof props.setCostEstimatorModalOpen === 'function') props.setCostEstimatorModalOpen(false);
+          if (typeof props.handleStartTranslation === 'function') props.handleStartTranslation();
+        })
+      }),
+
+      // 21. EPUB Studio Preview Modal
+      h('div', { dangerouslySetInnerHTML: { __html: (typeof window !== 'undefined' ? window.modalHtml : '') || (typeof modalHtml !== 'undefined' ? modalHtml : (props.modalHtml || '')) } })
+    );
+  }
+
+  if (typeof window !== 'undefined') {
+    window.AppModalsContainer = AppModalsContainer;
+  }
+
   return {
     DiagnosticsLogsModal,
     BulkApiKeyImportModal,
@@ -3361,6 +3690,7 @@
     ExportToolsSheet,
     ConfirmDialog,
     DownloadSuccessModal,
-    EpubPackagingProgressDock
+    EpubPackagingProgressDock,
+    AppModalsContainer
   };
 }));
