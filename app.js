@@ -136,7 +136,7 @@
     // ═══════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════
-    let VERSION = '8.17.82';
+    let VERSION = '8.17.83';
     const MAX_PAYLOAD = 12000;
     const PROMPT_OVERHEAD = 800;
     const MAX_HISTORY = 20;
@@ -1736,68 +1736,41 @@
       useEffect(() => { localStorage.setItem('epubJustifyText', String(epubJustifyText)); }, [epubJustifyText]);
 
       const getEpubOptions = (extraOpts = {}) => {
-        const activeNovel = (typeof activeNovelView !== 'undefined' && activeNovelView) ? activeNovelView : ((activeCrawlSession?.chapters?.length >= (webImportData?.chapters?.length || 0)) ? activeCrawlSession : (webImportData || activeCrawlSession));
-        let coverCandidate = (extraOpts && (extraOpts.coverUrl || extraOpts.cover)) || (typeof currentDocCover !== 'undefined' && currentDocCover) || activeNovel?.cover || (typeof activeCrawlSession !== 'undefined' ? activeCrawlSession?.cover : '') || (typeof activeNovelRecord !== 'undefined' ? activeNovelRecord?.cover : '') || (typeof coverImage !== 'undefined' ? coverImage : '') || '';
-
-        if (!coverCandidate && typeof window !== 'undefined' && window.currentDocCover) {
-          coverCandidate = window.currentDocCover;
-        }
-        if (!coverCandidate && typeof localStorage !== 'undefined') {
-          coverCandidate = localStorage.getItem('gemini_current_doc_cover') || '';
-        }
-        if (!coverCandidate && typeof webImportHistory !== 'undefined' && Array.isArray(webImportHistory)) {
-          const searchTitle = extraOpts?.novelId || extraOpts?.title || (typeof fileName !== 'undefined' ? fileName : '') || (typeof currentDocTitle !== 'undefined' ? currentDocTitle : '');
-          if (searchTitle) {
-            const cleanST = String(searchTitle).replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-            const matchedMeta = webImportHistory.find(n => {
-              const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-              return nt && (nt === cleanST || cleanST.includes(nt) || nt.includes(cleanST)) && n.cover;
-            });
-            if (matchedMeta?.cover) coverCandidate = matchedMeta.cover;
-          }
-        }
-
-        const cleanExtra = { ...extraOpts };
-        if (!cleanExtra.coverUrl) delete cleanExtra.coverUrl;
-        if (!cleanExtra.cover) delete cleanExtra.cover;
-
-        return {
-          includeImages: (epubIncludeImages !== false) && (scrapeImages !== false),
-          dropCaps: epubDropCaps,
-          smartQuotes: epubSmartQuotes,
-          cleanWebArtifacts: epubCleanWebArtifacts,
-          fontTheme: epubFontTheme,
-          justifyText: epubJustifyText,
-          fixedFilename: epubFixedFilename !== false,
-          ...cleanExtra,
-          coverUrl: cleanExtra.coverUrl || coverCandidate
-        };
+        const fn = (window.EpubEngine && window.EpubEngine.getEpubOptions) || window.getEpubOptions;
+        return fn ? fn(extraOpts, {
+          activeNovelView,
+          activeCrawlSession,
+          webImportData,
+          activeNovelRecord,
+          currentDocCover,
+          coverImage,
+          fileName,
+          currentDocTitle,
+          webImportHistory,
+          epubIncludeImages,
+          scrapeImages,
+          epubDropCaps,
+          epubSmartQuotes,
+          epubCleanWebArtifacts,
+          epubFontTheme,
+          epubJustifyText,
+          epubFixedFilename
+        }) : { ...extraOpts };
       };
 
       const getEpubFileName = (title, chapterCount = 0, isPartial = false) => {
-        const cleanName = (typeof sanitizeFilename === 'function' ? sanitizeFilename(title) : String(title || 'Novel')).replace(/\s+/g, ' ').trim();
-        if (epubFixedFilename !== false || !isPartial) {
-          return `${cleanName}.epub`;
-        }
-        return `${cleanName} (Ch1-${chapterCount}).epub`;
+        const fn = (window.EpubEngine && window.EpubEngine.getEpubFileName) || window.getEpubFileName;
+        return fn ? fn(title, chapterCount, isPartial, epubFixedFilename) : `${title || 'Novel'}.epub`;
       };
 
       const cleanBookTitle = (t, fallbackChs = []) => {
-        let s = String(t || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-        if (!s || s === 'Web Novel' || s === 'Lnori Series' || s === 'Lnori Book' || s === 'Novel') {
-          const firstCh = fallbackChs?.[0]?.title || '';
-          const m = firstCh.match(/^(?:Volume\s*\d+\s*[-–:]\s*)?([^–—:\n]+)/i);
-          if (m && m[1] && m[1].length > 2 && !/^(cover|part|chapter)/i.test(m[1].trim())) {
-            s = m[1].trim();
-          }
-        }
-        return s || 'Web Novel';
+        const fn = (window.EpubEngine && window.EpubEngine.cleanBookTitle) || window.cleanBookTitle;
+        return fn ? fn(t, fallbackChs) : (t || 'Web Novel');
       };
 
       const cleanBookAuthor = (a) => {
-        let s = String(a || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-        if (!s || s === 'Author' || s === 'Unknown' || s === 'Lnori Author') return 'Author';
-        return s;
+        const fn = (window.EpubEngine && window.EpubEngine.cleanBookAuthor) || window.cleanBookAuthor;
+        return fn ? fn(a) : (a || '');
       };
 
       // ══════════════════════════════════════════════════════════════════
@@ -1821,82 +1794,17 @@
 
       const updateNovelFolderRecord = async (novel, treeUri, displayPath) => {
         if (!window.MoonReaderEngine) return;
-        await window.MoonReaderEngine.updateNovelFolderRecord(novel, treeUri, displayPath, {
-          onUpdateHistory: ({ novelId, normTitle, novel: n }) => {
-            setWebImportHistory(prev => {
-              const list = prev || [];
-              const exists = list.some(item => (novelId && item.id === novelId) || (normTitle && (item.title || '').trim().toLowerCase() === normTitle));
-              if (exists) {
-                return list.map(item => {
-                  if ((novelId && item.id === novelId) || (normTitle && (item.title || '').trim().toLowerCase() === normTitle)) {
-                    return { ...item, folderTreeUri: treeUri, folderPath: displayPath };
-                  }
-                  return item;
-                });
-              }
-              if (typeof n === 'object' && n) {
-                return [{ ...n, folderTreeUri: treeUri, folderPath: displayPath }, ...list];
-              }
-              return list;
-            });
-          },
-          onUpdateActiveCrawlSession: ({ novelId, normTitle }) => {
-            setActiveCrawlSession(prev => {
-              if (!prev) return prev;
-              const matchId = novelId && prev.id === novelId;
-              const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
-              if (matchId || matchTitle || !novelId) {
-                const updated = { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
-                try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(updated)); } catch(e) {}
-                return updated;
-              }
-              return prev;
-            });
-          },
-          onUpdateWebImportData: ({ novelId, normTitle }) => {
-            setWebImportData(prev => {
-              if (!prev) return prev;
-              const matchId = novelId && prev.id === novelId;
-              const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
-              if (matchId || matchTitle || !novelId) {
-                return { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
-              }
-              return prev;
-            });
-          },
-          onUpdateActiveNovelRecord: ({ novelId, normTitle }) => {
-            if (typeof setActiveNovelRecord === 'function') {
-              setActiveNovelRecord(prev => {
-                if (!prev) return prev;
-                const matchId = novelId && prev.id === novelId;
-                const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
-                if (matchId || matchTitle || !novelId) {
-                  return { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
-                }
-                return prev;
-              });
-            }
-          }
+        return await window.MoonReaderEngine.bindNovelFolder(novel, treeUri, displayPath, {
+          setWebImportHistory,
+          setActiveCrawlSession,
+          setWebImportData,
+          setActiveNovelRecord
         });
       };
 
       const handleSetNovelFolder = async (novel) => {
-        if (!novel) return;
-        try {
-          if (!window.MoonReaderEngine) return;
-          const res = await window.MoonReaderEngine.chooseNovelFolder(novel, {
-            onUpdateHistory: ({ novelId, normTitle }) => {
-              setWebImportHistory(prev => (prev || []).map(item => (item.id === novelId || (item.title || '').trim().toLowerCase() === normTitle) ? { ...item, folderTreeUri: res.treeUri, folderPath: res.displayPath } : item));
-            }
-          });
-          if (res) {
-            toast(`📁 Saved folder path for "${novel.title}" (${res.displayPath})! Future EPUBs will overwrite here.`, 'success');
-          }
-        } catch (e) {
-          if (e.message && !e.message.toLowerCase().includes('cancel')) {
-            toast('Folder setup: ' + e.message, 'error');
-          }
-        }
+        if (!window.MoonReaderEngine) return;
+        return await window.MoonReaderEngine.handleSetNovelFolder(novel, { toast, setWebImportHistory });
       };
 
       const syncOpdsCatalogToNative = useCallback((novelsList) => {
@@ -1912,20 +1820,14 @@
       }, [webImportHistory, syncOpdsCatalogToNative]);
 
       const toggleOpdsServer = async () => {
-        try {
-          if (!window.MoonReaderEngine) return;
-          const res = await window.MoonReaderEngine.toggleOpdsServer(opdsRunning, webImportHistory);
-          setOpdsRunning(res.running);
-          if (res.running) {
-            if (res.localUrl) setOpdsUrl(res.localUrl);
-            if (res.wifiUrl) setOpdsWifiUrl(res.wifiUrl);
-            toast('Moon+ Reader OPDS Feed online! 📡 (' + (res.localUrl || 'port 8080') + ')', 'success');
-          } else {
-            toast('Moon+ Reader OPDS Feed stopped.', 'info');
-          }
-        } catch (e) {
-          toast('OPDS Error: ' + e.message, 'error');
-        }
+        if (!window.MoonReaderEngine) return;
+        return await window.MoonReaderEngine.toggleOpdsServerUI(opdsRunning, {
+          toast,
+          setOpdsRunning,
+          setOpdsUrl,
+          setOpdsWifiUrl,
+          webImportHistory
+        });
       };
 
       // ── SWIFTAUDIO HANDLERS ──

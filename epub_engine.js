@@ -1770,10 +1770,137 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
       return updatedBlob;
     };
 
-  window.updateOriginalEpubNavigation = updateOriginalEpubNavigation;
-  window.generateEpubFromChapters = generateEpubFromChapters;
-  window.appendChaptersToExistingEpub = appendChaptersToExistingEpub;
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { updateOriginalEpubNavigation, generateEpubFromChapters, appendChaptersToExistingEpub };
-  }
+    /**
+     * Sanitizes book titles, stripping branding and falling back to chapter inspection
+     */
+    const cleanBookTitle = (t, fallbackChs = []) => {
+      let s = String(t || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+      if (!s || s === 'Web Novel' || s === 'Lnori Series' || s === 'Lnori Book' || s === 'Novel') {
+        const firstCh = fallbackChs?.[0]?.title || '';
+        const m = firstCh.match(/^(?:Volume\s*\d+\s*[-–:]\s*)?([^–—:\n]+)/i);
+        if (m && m[1] && m[1].length > 2 && !/^(cover|part|chapter)/i.test(m[1].trim())) {
+          s = m[1].trim();
+        }
+      }
+      return s || 'Web Novel';
+    };
+
+    /**
+     * Sanitizes author names, stripping branding and returning clean author string or empty
+     */
+    const cleanBookAuthor = (a) => {
+      let s = String(a || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+      if (!s || s === 'Author' || s === 'Unknown' || s === 'Lnori Author' || /^(author|unknown|lnori author)$/i.test(s)) return '';
+      return s;
+    };
+
+    /**
+     * Constructs standardized EPUB file names with chapter range and fixed naming support
+     */
+    const getEpubFileName = (title, chapterCount = 0, isPartial = false, fixedFilename = true) => {
+      const sanitizeFn = (typeof window !== 'undefined' && window.sanitizeFilename) || (typeof sanitizeFilename === 'function' ? sanitizeFilename : null);
+      const cleanName = (sanitizeFn ? sanitizeFn(title) : String(title || 'Novel')).replace(/\s+/g, ' ').trim();
+      if (fixedFilename !== false || !isPartial) {
+        return `${cleanName}.epub`;
+      }
+      return `${cleanName} (Ch1-${chapterCount}).epub`;
+    };
+
+    /**
+     * Resolves cohesive EPUB packaging options and cover candidate from state and storage
+     */
+    const getEpubOptions = (extraOpts = {}, state = {}) => {
+      const activeNovel = state.activeNovelView || ((state.activeCrawlSession?.chapters?.length >= (state.webImportData?.chapters?.length || 0)) ? state.activeCrawlSession : (state.webImportData || state.activeCrawlSession));
+      let coverCandidate = (extraOpts && (extraOpts.coverUrl || extraOpts.cover))
+        || state.currentDocCover
+        || activeNovel?.cover
+        || state.activeCrawlSession?.cover
+        || state.activeNovelRecord?.cover
+        || state.coverImage
+        || '';
+
+      if (!coverCandidate && typeof window !== 'undefined' && window.currentDocCover) {
+        coverCandidate = window.currentDocCover;
+      }
+      if (!coverCandidate && typeof localStorage !== 'undefined') {
+        try {
+          coverCandidate = localStorage.getItem('gemini_current_doc_cover') || '';
+        } catch (_) {}
+      }
+      const historyList = (state && Array.isArray(state.webImportHistory))
+        ? state.webImportHistory
+        : (typeof localStorage !== 'undefined' ? (() => { try { return JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]'); } catch (_) { return []; } })() : []);
+
+      if (!coverCandidate && Array.isArray(historyList) && historyList.length > 0) {
+        const searchTitle = extraOpts?.novelId || extraOpts?.title || state.fileName || state.currentDocTitle || '';
+        if (searchTitle) {
+          const cleanST = String(searchTitle).replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+          const matchedMeta = historyList.find(n => {
+            const nt = String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+            return nt && (nt === cleanST || cleanST.includes(nt) || nt.includes(cleanST)) && n.cover;
+          });
+          if (matchedMeta?.cover) coverCandidate = matchedMeta.cover;
+        }
+      }
+
+      const getPref = (key, fallback) => {
+        if (typeof localStorage !== 'undefined') {
+          try {
+            const val = localStorage.getItem(key);
+            if (val !== null) return val;
+          } catch (_) {}
+        }
+        return fallback;
+      };
+
+      const includeImages = state.epubIncludeImages !== undefined
+        ? ((state.epubIncludeImages !== false) && (state.scrapeImages !== false))
+        : (getPref('epubIncludeImages', 'true') !== 'false' && getPref('scrapeImages', 'true') !== 'false');
+
+      const dropCaps = state.epubDropCaps !== undefined ? !!state.epubDropCaps : (getPref('epubDropCaps', 'true') !== 'false');
+      const smartQuotes = state.epubSmartQuotes !== undefined ? !!state.epubSmartQuotes : (getPref('epubSmartQuotes', 'true') !== 'false');
+      const cleanWebArtifacts = state.epubCleanWebArtifacts !== undefined ? !!state.epubCleanWebArtifacts : (getPref('epubCleanWebArtifacts', 'true') !== 'false');
+      const fontTheme = state.epubFontTheme !== undefined ? state.epubFontTheme : getPref('epubFontTheme', 'literata');
+      const justifyText = state.epubJustifyText !== undefined ? !!state.epubJustifyText : (getPref('epubJustifyText', 'true') !== 'false');
+      const fixedFilename = state.epubFixedFilename !== undefined ? (state.epubFixedFilename !== false) : (getPref('epubFixedFilename', 'true') !== 'false');
+
+      const cleanExtra = { ...extraOpts };
+      if (!cleanExtra.coverUrl) delete cleanExtra.coverUrl;
+      if (!cleanExtra.cover) delete cleanExtra.cover;
+
+      return {
+        includeImages,
+        dropCaps,
+        smartQuotes,
+        cleanWebArtifacts,
+        fontTheme,
+        justifyText,
+        fixedFilename,
+        ...cleanExtra,
+        coverUrl: cleanExtra.coverUrl || coverCandidate
+      };
+    };
+
+    window.cleanBookTitle = cleanBookTitle;
+    window.cleanBookAuthor = cleanBookAuthor;
+    window.getEpubFileName = getEpubFileName;
+    window.getEpubOptions = getEpubOptions;
+    window.updateOriginalEpubNavigation = updateOriginalEpubNavigation;
+    window.generateEpubFromChapters = generateEpubFromChapters;
+    window.appendChaptersToExistingEpub = appendChaptersToExistingEpub;
+
+    const EpubEngine = {
+      cleanBookTitle,
+      cleanBookAuthor,
+      getEpubFileName,
+      getEpubOptions,
+      generateEpubFromChapters,
+      appendChaptersToExistingEpub,
+      updateOriginalEpubNavigation
+    };
+    window.EpubEngine = EpubEngine;
+
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports = EpubEngine;
+    }
 })(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));

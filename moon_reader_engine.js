@@ -136,6 +136,103 @@
     },
 
     /**
+     * Coordinates novel folder binding across state setters and storage
+     */
+    async bindNovelFolder(novel, treeUri, displayPath, stateSetters = {}) {
+      const { setWebImportHistory, setActiveCrawlSession, setWebImportData, setActiveNovelRecord } = stateSetters || {};
+      return await this.updateNovelFolderRecord(novel, treeUri, displayPath, {
+        onUpdateHistory: ({ novelId, normTitle, novel: n }) => {
+          if (typeof setWebImportHistory === 'function') {
+            setWebImportHistory(prev => {
+              const list = prev || [];
+              const exists = list.some(item => (novelId && item.id === novelId) || (normTitle && (item.title || '').trim().toLowerCase() === normTitle));
+              if (exists) {
+                return list.map(item => {
+                  if ((novelId && item.id === novelId) || (normTitle && (item.title || '').trim().toLowerCase() === normTitle)) {
+                    return { ...item, folderTreeUri: treeUri, folderPath: displayPath };
+                  }
+                  return item;
+                });
+              }
+              if (typeof n === 'object' && n) {
+                return [{ ...n, folderTreeUri: treeUri, folderPath: displayPath }, ...list];
+              }
+              return list;
+            });
+          }
+        },
+        onUpdateActiveCrawlSession: ({ novelId, normTitle }) => {
+          if (typeof setActiveCrawlSession === 'function') {
+            setActiveCrawlSession(prev => {
+              if (!prev) return prev;
+              const matchId = novelId && prev.id === novelId;
+              const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
+              if (matchId || matchTitle || !novelId) {
+                const updated = { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
+                try { localStorage.setItem('gemini_active_crawl_session', JSON.stringify(updated)); } catch(e) {}
+                return updated;
+              }
+              return prev;
+            });
+          }
+        },
+        onUpdateWebImportData: ({ novelId, normTitle }) => {
+          if (typeof setWebImportData === 'function') {
+            setWebImportData(prev => {
+              if (!prev) return prev;
+              const matchId = novelId && prev.id === novelId;
+              const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
+              if (matchId || matchTitle || !novelId) {
+                return { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
+              }
+              return prev;
+            });
+          }
+        },
+        onUpdateActiveNovelRecord: ({ novelId, normTitle }) => {
+          if (typeof setActiveNovelRecord === 'function') {
+            setActiveNovelRecord(prev => {
+              if (!prev) return prev;
+              const matchId = novelId && prev.id === novelId;
+              const matchTitle = normTitle && (prev.title || '').trim().toLowerCase() === normTitle;
+              if (matchId || matchTitle || !novelId) {
+                return { ...prev, folderTreeUri: treeUri, folderPath: displayPath };
+              }
+              return prev;
+            });
+          }
+        }
+      });
+    },
+
+    /**
+     * Coordinates folder selection dialog, storage, and UI toast feedback
+     */
+    async handleSetNovelFolder(novel, { toast, setWebImportHistory } = {}) {
+      if (!novel) return null;
+      try {
+        const res = await this.chooseNovelFolder(novel, {
+          onUpdateHistory: ({ novelId, normTitle }) => {
+            if (typeof setWebImportHistory === 'function') {
+              setWebImportHistory(prev => (prev || []).map(item => (item.id === novelId || (item.title || '').trim().toLowerCase() === normTitle) ? { ...item, folderTreeUri: res.treeUri, folderPath: res.displayPath } : item));
+            }
+          }
+        });
+        if (res && typeof toast === 'function') {
+          toast(`📁 Saved folder path for "${novel.title}" (${res.displayPath})! Future EPUBs will overwrite here.`, 'success');
+        }
+        return res;
+      } catch (e) {
+        if (e.message && !e.message.toLowerCase().includes('cancel')) {
+          if (typeof toast === 'function') {
+            toast('Folder setup: ' + e.message, 'error');
+          }
+        }
+        return null;
+      }
+    },
+
+    /**
      * Formats an OPDS 1.2 Atom Feed XML from an array of novel records
      */
     generateOpdsFeedXml(novels) {
@@ -208,6 +305,33 @@
         };
       }
       throw new Error('Could not start OPDS server on device.');
+    },
+
+    /**
+     * UI coordinator for toggling OPDS server with toast notifications and state setters
+     */
+    async toggleOpdsServerUI(opdsRunning, { toast, setOpdsRunning, setOpdsUrl, setOpdsWifiUrl, webImportHistory } = {}) {
+      try {
+        const res = await this.toggleOpdsServer(opdsRunning, webImportHistory);
+        if (typeof setOpdsRunning === 'function') setOpdsRunning(res.running);
+        if (res.running) {
+          if (res.localUrl && typeof setOpdsUrl === 'function') setOpdsUrl(res.localUrl);
+          if (res.wifiUrl && typeof setOpdsWifiUrl === 'function') setOpdsWifiUrl(res.wifiUrl);
+          if (typeof toast === 'function') {
+            toast('Moon+ Reader OPDS Feed online! 📡 (' + (res.localUrl || 'port 8080') + ')', 'success');
+          }
+        } else {
+          if (typeof toast === 'function') {
+            toast('Moon+ Reader OPDS Feed stopped.', 'info');
+          }
+        }
+        return res;
+      } catch (e) {
+        if (typeof toast === 'function') {
+          toast('OPDS Error: ' + (e.message || e), 'error');
+        }
+        throw e;
+      }
     },
 
     /**
@@ -588,4 +712,10 @@
 
   window.MoonReaderEngine = MoonReaderEngine;
   window.getNovelFolderOptions = MoonReaderEngine.getNovelFolderOptions;
+  window.bindNovelFolder = MoonReaderEngine.bindNovelFolder.bind(MoonReaderEngine);
+  window.handleSetNovelFolder = MoonReaderEngine.handleSetNovelFolder.bind(MoonReaderEngine);
+  window.toggleOpdsServerUI = MoonReaderEngine.toggleOpdsServerUI.bind(MoonReaderEngine);
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = MoonReaderEngine;
+  }
 })(typeof window !== 'undefined' ? window : this);
