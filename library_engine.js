@@ -686,9 +686,38 @@
       targetItem.sourceUrl = sourceUrl;
 
       const isLnori = /lnori\.(?:org|com)/i.test(sourceUrl);
-      const existingRaw = (targetItem.rawChapters && targetItem.rawChapters.length > 0)
+      let existingRaw = (targetItem.rawChapters && targetItem.rawChapters.length > 0)
         ? targetItem.rawChapters
-        : (targetItem.chapters || []);
+        : (targetItem.chapters && targetItem.chapters.length > 0 ? targetItem.chapters : []);
+
+      // CRITICAL FIX: If existingRaw is empty but we have an epubBlob or chapterList,
+      // recover existing chapters so we don't re-download everything from scratch
+      if (existingRaw.length === 0 && targetItem.epubBlob) {
+        try {
+          const readEpubFn = (typeof window !== 'undefined') ? (window.readEpub || (window.MoonReaderEngine && window.MoonReaderEngine.readEpub)) : null;
+          if (typeof readEpubFn === 'function') {
+            const epubMeta = await readEpubFn(targetItem.epubBlob);
+            if (epubMeta && epubMeta.chapters && epubMeta.chapters.length > 0) {
+              existingRaw = epubMeta.chapters;
+              console.log('[LibraryEngine] Recovered ' + existingRaw.length + ' existing chapters from stored EPUB for incremental update.');
+            }
+          }
+        } catch (epubErr) {
+          console.warn('[LibraryEngine] Could not parse stored epubBlob to recover chapters:', epubErr);
+        }
+      }
+      if (existingRaw.length === 0 && targetItem.chapterList && targetItem.chapterList.length > 0 && targetItem.chapterCount > 0) {
+        // Use chapterList length as prevCount reference so the crawler starts after existing chapters
+        // Create lightweight placeholder entries so crawlChapterPool can match by URL and skip them
+        existingRaw = targetItem.chapterList.slice(0, targetItem.chapterCount).map((cl, i) => ({
+          url: cl.url || '',
+          title: cl.title || ('Chapter ' + (i + 1)),
+          text: '[Previously downloaded]',
+          isPlaceholder: true
+        }));
+        console.log('[LibraryEngine] Built ' + existingRaw.length + ' placeholder chapters from chapterList for incremental update.');
+      }
+
       const prevCount = existingRaw.length;
       const badge = options.badge || (callbacks.getBadge && callbacks.getBadge(novelItem.id)) || null;
 
