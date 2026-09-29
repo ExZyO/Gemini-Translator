@@ -18,7 +18,7 @@ function copyRecursive(src, dest) {
     for (const entry of entries) {
         const srcPath = path.join(src, entry.name);
         const destPath = path.join(dest, entry.name);
-        if (entry.name === 'node_modules' || entry.name === 'android' || entry.name === 'ios' || entry.name === 'www' || entry.name === '.git' || entry.name === 'screenshots') continue;
+        if (entry.name === 'node_modules' || entry.name === 'android' || entry.name === 'ios' || entry.name === 'www' || entry.name === '.git' || entry.name === 'screenshots' || entry.name === 'Other' || entry.name === 'scratch' || entry.name === 'dist' || entry.name === 'logs') continue;
         if (entry.isDirectory()) {
             copyRecursive(srcPath, destPath);
         } else if (entry.isFile()) {

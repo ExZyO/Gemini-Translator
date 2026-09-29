@@ -370,9 +370,12 @@
       // 9. Root Level -> Double-tap within 2s to exit app
       const now = Date.now();
       if (now - lastBackPress < 2000) {
-        if (global.Capacitor?.Plugins?.App?.exitApp) {
+        if (global.NativeBridge?.exitApp) {
+          global.NativeBridge.exitApp();
+        } else if (global.Capacitor?.Plugins?.App?.exitApp) {
           global.Capacitor.Plugins.App.exitApp();
         }
+        return false;
       } else {
         lastBackPress = now;
         const showToast = actions.toast || global.toast;
@@ -383,9 +386,14 @@
             window.dispatchEvent(new CustomEvent('app-toast', { detail: { msg: 'Press back again to exit', type: 'info' } }));
           } catch (_) {}
         }
+        return true;
       }
-      return true;
     };
+
+    NavigationEngine.handleHardwareBack = handleAppBack;
+    if (typeof global !== 'undefined') {
+      global.handleHardwareBack = handleAppBack;
+    }
 
     if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.App) {
       const res = window.Capacitor.Plugins.App.addListener('backButton', function () {
@@ -404,6 +412,12 @@
       if (removeListener && typeof removeListener.remove === 'function') {
         removeListener.remove();
         removeListener = null;
+      }
+      if (NavigationEngine.handleHardwareBack === handleAppBack) {
+        delete NavigationEngine.handleHardwareBack;
+      }
+      if (typeof global !== 'undefined' && global.handleHardwareBack === handleAppBack) {
+        delete global.handleHardwareBack;
       }
     };
     cleanup.handleAppBack = handleAppBack;

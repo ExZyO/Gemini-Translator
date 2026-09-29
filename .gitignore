@@ -30,3 +30,7 @@ telemetry_live*.log
 dist/
 *.pt
 scratch/
+Other/
+GEMINI.md
+AGENTS.md
+*.keystore

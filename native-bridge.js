@@ -1039,6 +1039,25 @@
                 }
             }
             throw new Error('Could not download binary file across network.');
+        },
+
+        exitApp: async () => {
+            const bridge = getBridge();
+            if (bridge && typeof bridge.exitApp === 'function') {
+                try {
+                    await bridge.exitApp();
+                    return;
+                } catch (_) {}
+            }
+            if (window.Capacitor?.Plugins?.App?.exitApp) {
+                try {
+                    window.Capacitor.Plugins.App.exitApp();
+                    return;
+                } catch (_) {}
+            }
+            try {
+                window.close();
+            } catch (_) {}
         }
     };
 

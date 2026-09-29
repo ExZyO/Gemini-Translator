@@ -51,6 +51,59 @@ public class MainActivity extends BridgeActivity {
                 requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
             }
         }
+
+        // Centralized Hardware & Edge-Swipe Back Button Interceptor
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                try {
+                    if (bridge != null && bridge.getWebView() != null) {
+                        bridge.getWebView().evaluateJavascript(
+                            "(function() {" +
+                            "  if (window.NavigationEngine && typeof window.NavigationEngine.handleHardwareBack === 'function') {" +
+                            "    return window.NavigationEngine.handleHardwareBack() ? 'true' : 'false';" +
+                            "  }" +
+                            "  return 'false';" +
+                            "})()",
+                            value -> {
+                                if (value == null || "\"false\"".equals(value) || "false".equals(value) || "null".equals(value)) {
+                                    runOnUiThread(() -> {
+                                        setEnabled(false);
+                                        MainActivity.this.finish();
+                                    });
+                                }
+                            }
+                        );
+                        return;
+                    }
+                } catch (Exception e) {
+                    android.util.Log.w("GeminiTranslator", "Back button intercept error: " + e.getMessage());
+                }
+                setEnabled(false);
+                MainActivity.this.finish();
+            }
+        });
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().evaluateJavascript(
+                "(function() {" +
+                "  if (window.NavigationEngine && typeof window.NavigationEngine.handleHardwareBack === 'function') {" +
+                "    return window.NavigationEngine.handleHardwareBack() ? 'true' : 'false';" +
+                "  }" +
+                "  return 'false';" +
+                "})()",
+                value -> {
+                    if (value == null || "\"false\"".equals(value) || "false".equals(value) || "null".equals(value)) {
+                        runOnUiThread(() -> MainActivity.super.onBackPressed());
+                    }
+                }
+            );
+            return;
+        }
+        super.onBackPressed();
     }
 
     @Override

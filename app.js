@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.17.97';
+        let VERSION = '8.17.98';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1057,6 +1057,17 @@
       // Storage Diagnostics & Maintenance
       const [storageDiag, setStorageDiag] = useState({ usedMB: 0, quotaMB: 0, pct: 0, available: false });
       const [storageLoading, setStorageLoading] = useState(false);
+      const [sheetOpen, setSheetOpen] = useState(false);
+      const [glossaryEditorOpen, setGlossaryEditorOpen] = useState(false);
+      const [logsModalOpen, setLogsModalOpen] = useState(false);
+      const [glossaryCardOpen, setGlossaryCardOpen] = useState(() => localStorage.getItem('glossaryCardOpen') !== 'false');
+      const [bulkKeyModalOpen, setBulkKeyModalOpen] = useState(false);
+      const [keyHealth, setKeyHealth] = useState({});
+      const [testingKeys, setTestingKeys] = useState(false);
+      const [bulkKeyText, setBulkKeyText] = useState('');
+      const [showLiveLogs, setShowLiveLogs] = useState(() => localStorage.getItem('showLiveLogs') === 'true');
+      const logsContainerRef = useRef(null);
+      const [liveLogs, setLiveLogs] = useState(() => window.AppLogger ? [...window.AppLogger.logs] : []);
 
       const refreshStorageDiag = useCallback(async () => {
         setStorageLoading(true);
@@ -1333,50 +1344,78 @@
       }, [activeTab, studioSubTab]);
 
       // ── Centralized Android Hardware & Edge-Swipe Back Button Handler ──
+      const backActionsRef = useRef({});
+      backActionsRef.current = {
+        closeActiveModal: () => {
+          // 1. Export Tools Sheet
+          if (sheetOpen) { setSheetOpen(false); return true; }
+          // 2. Diagnostics & Telemetry Logs Modal
+          if (logsModalOpen) { setLogsModalOpen(false); return true; }
+          // 3. Bulk API Key Import Modal
+          if (bulkKeyModalOpen) { setBulkKeyModalOpen(false); return true; }
+          // 4. Glossary Full-Screen Editor Modal
+          if (glossaryEditorOpen) { setGlossaryEditorOpen(false); return true; }
+          // 5. Confirm Dialog
+          if (showModal) { setShowModal(false); if (modalCallback) setModalCallback(null); return true; }
+          // 6. EPUB Packaging Progress Dock
+          if (epubPackagingModal) { setEpubPackagingModal(null); return true; }
+          // 7. Download Success Modal
+          if (downloadSuccessModal) { setDownloadSuccessModal(null); return true; }
+          // 8. Moon+ Reader Modal
+          if (readerOpen) { setReaderOpen(false); return true; }
+          // 9. Library Novel Action Sheet
+          if (activeBookMenuNovel) { setActiveBookMenuNovel(null); return true; }
+          // 10. Ongoing EPUB Continuation Modal
+          if (ongoingEpubModal && ongoingEpubModal.isOpen) {
+            if (!ongoingEpubModal.isFetching) setOngoingEpubModal(null);
+            return true;
+          }
+          // 11. QA Health Audit Modal
+          if (qaModalOpen) { setQaModalOpen(false); return true; }
+          // 12. Translation Diff & Revision History Modal
+          if (diffModalOpen) { setDiffModalOpen(false); return true; }
+          // 13. Auto-Glossary Modal
+          if (autoGlossaryModalOpen) {
+            setAutoGlossaryModalOpen(false);
+            if (typeof setAutoGlossaryTargetNovel === 'function') setAutoGlossaryTargetNovel(null);
+            return true;
+          }
+          // 14. Name Consistency Verifier Modal
+          if (consistencyModalOpen) { setConsistencyModalOpen(false); return true; }
+          // 15. Google Drive Configuration Modal
+          if (gdriveConfigModalOpen) { setGdriveConfigModalOpen(false); return true; }
+          // 16. Audio Download Modal
+          if (audioDownloadModal) { setAudioDownloadModal(null); return true; }
+          // 17. SwiftAudio Full Player
+          if (isFullPlayerOpen) { setIsFullPlayerOpen(false); return true; }
+          // 18. Novel Rename Modal
+          if (renameModalNovel) { setRenameModalNovel(null); return true; }
+          // 19. Source Extensions / Plugins Modal
+          if (sourcePluginsModalOpen) { setSourcePluginsModalOpen(false); return true; }
+          // 20. Cost & Time Estimator Modal
+          if (costEstimatorModalOpen) { setCostEstimatorModalOpen(false); return true; }
+          // 21. Library Novel View
+          if (activeNovelView) { setActiveNovelView(null); return true; }
+          return false;
+        },
+        popTab: () => {
+          if (activeTab !== 'history') {
+            setActiveTab('history');
+            localStorage.setItem('activeTab', 'history');
+            return true;
+          }
+          return false;
+        },
+        toast
+      };
+
       useEffect(() => {
         return (window.NavigationEngine || NavigationEngine).initBackButtonHandler({
-          closeActiveModal: () => {
-            if (ongoingEpubModal && ongoingEpubModal.isOpen) {
-              if (!ongoingEpubModal.isFetching) setOngoingEpubModal(null);
-              return true;
-            }
-            if (readerOpen) {
-              setReaderOpen(false);
-              return true;
-            }
-            if (activeNovelView) {
-              setActiveNovelView(null);
-              return true;
-            }
-            if (audioDownloadModal) {
-              setAudioDownloadModal(null);
-              return true;
-            }
-            if (costEstimatorModalOpen) {
-              setCostEstimatorModalOpen(false);
-              return true;
-            }
-            if (epubPackagingModal) {
-              setEpubPackagingModal(null);
-              return true;
-            }
-            if (typeof renameModalNovel !== 'undefined' && renameModalNovel) {
-              setRenameModalNovel(null);
-              return true;
-            }
-            return false;
-          },
-          popTab: () => {
-            if (activeTab === 'studio' || activeTab === 'web_importer' || activeTab === 'settings') {
-              setActiveTab('history');
-              localStorage.setItem('activeTab', 'history');
-              return true;
-            }
-            return false;
-          },
-          toast
+          closeActiveModal: () => backActionsRef.current?.closeActiveModal?.(),
+          popTab: () => backActionsRef.current?.popTab?.(),
+          toast: (msg, type) => backActionsRef.current?.toast?.(msg, type)
         });
-      }, [ongoingEpubModal, readerOpen, activeNovelView, audioDownloadModal, costEstimatorModalOpen, epubPackagingModal, typeof renameModalNovel !== 'undefined' ? renameModalNovel : null, activeTab]);
+      }, []);
 
       useEffect(() => { document.documentElement.classList.add('dark'); localStorage.setItem('darkMode', 'true'); }, []);
       useEffect(() => { localStorage.setItem('enableStreaming', String(enableStreaming)) }, [enableStreaming]);
@@ -2078,19 +2117,8 @@
       // ═══════════════════════════════════
       // TWO LIGHTS RENDER (Phase 1)
       // ═══════════════════════════════════
-      const [sheetOpen, setSheetOpen] = useState(false);
-      const [glossaryEditorOpen, setGlossaryEditorOpen] = useState(false);
-      const [logsModalOpen, setLogsModalOpen] = useState(false);
-      const [glossaryCardOpen, setGlossaryCardOpen] = useState(() => localStorage.getItem('glossaryCardOpen') !== 'false');
       useEffect(() => { localStorage.setItem('glossaryCardOpen', String(glossaryCardOpen)); }, [glossaryCardOpen]);
-      const [bulkKeyModalOpen, setBulkKeyModalOpen] = useState(false);
-      const [keyHealth, setKeyHealth] = useState({});
-      const [testingKeys, setTestingKeys] = useState(false);
-      const [bulkKeyText, setBulkKeyText] = useState('');
-      const [showLiveLogs, setShowLiveLogs] = useState(() => localStorage.getItem('showLiveLogs') === 'true');
       useEffect(() => { localStorage.setItem('showLiveLogs', String(showLiveLogs)); }, [showLiveLogs]);
-      const logsContainerRef = useRef(null);
-      const [liveLogs, setLiveLogs] = useState(() => window.AppLogger ? [...window.AppLogger.logs] : []);
       useEffect(() => {
         if ((!logsModalOpen && !showLiveLogs) || !window.AppLogger) return;
         setLiveLogs([...window.AppLogger.logs]);

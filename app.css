@@ -680,3 +680,65 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 @media (prefers-reduced-motion: reduce) {
   .version-chip .dot { animation: none; }
 }
+
+/* ── Mobile Native Bottom Sheets & Android Touch Optimization ── */
+@keyframes sheetSlideUp {
+  from { transform: translateY(100%); opacity: 0.85; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+  .modal-box {
+    max-width: 100%;
+    width: 100%;
+    border-radius: 22px 22px 0 0;
+    max-height: 85vh;
+    animation: sheetSlideUp 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.85);
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+  .modal-hd {
+    padding: 16px 20px 12px;
+  }
+  .gloss-overlay {
+    align-items: flex-end;
+    justify-content: flex-end;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .gloss-box {
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 22px 22px 0 0 !important;
+    animation: sheetSlideUp 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: 88vh !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+  .sheet {
+    animation: sheetSlideUp 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    padding-bottom: max(32px, env(safe-area-inset-bottom, 24px));
+    border-radius: 22px 22px 0 0;
+  }
+  .confirm-box {
+    border-radius: 18px;
+    animation: sheetSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  /* Native touch feedback on mobile buttons and rows */
+  .chip-act:active, .mini-btn:active, .sheet-row:active, .book-card:active, .nav-item:active, .icon-btn:active {
+    transform: scale(0.97);
+    transition: transform 0.08s ease;
+  }
+}
+

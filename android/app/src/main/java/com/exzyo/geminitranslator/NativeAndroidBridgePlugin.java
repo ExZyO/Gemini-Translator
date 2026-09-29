@@ -224,6 +224,21 @@ public class NativeAndroidBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void exitApp(PluginCall call) {
+        try {
+            Activity activity = getActivity();
+            if (activity != null) {
+                activity.runOnUiThread(() -> {
+                    activity.finish();
+                });
+            }
+            if (call != null) call.resolve();
+        } catch (Exception e) {
+            if (call != null) call.reject("Failed to exit app: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void showProgressNotification(PluginCall call) {
         try {
             ensureNotificationChannel();
