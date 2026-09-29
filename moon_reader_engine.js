@@ -430,6 +430,8 @@
         totalOnlineCount,
         file,
         originalZip,
+        originalFileName,
+        originalTitle,
         folderOptions
       } = config;
 
@@ -516,7 +518,9 @@
       // 4. Save to target folder or downloads
       const isInc = totalOnlineCount ? mergedChapters.length < totalOnlineCount : false;
       const getFileNameFn = window.getEpubFileName || ((t, c, inc) => `${t || 'Novel'}.epub`);
-      const outFileName = getFileNameFn(title, mergedChapters.length, isInc);
+      // Retain exact original filename if linked/known to ensure Moon+ Reader Pro in-place continuity
+      const originalName = originalFileName || file?.name;
+      const outFileName = originalName || getFileNameFn(title, mergedChapters.length, isInc);
       const folderOpts = folderOptions || this.getNovelFolderOptions({ id: uuid, title, sourceUrl });
 
       if (typeof window.saveUniversalBlob === 'function') {
@@ -569,6 +573,8 @@
         const modalState = {
           isOpen: true,
           file,
+          originalFileName: file.name,
+          originalTitle: epub.title || file.name.replace(/\.epub$/i, ''),
           title: cleanTitle,
           searchQuery: cleanTitle,
           author: epub.author || 'Author',
@@ -664,6 +670,8 @@
         const modalState = {
           isOpen: true,
           file: full.epubBlob || null,
+          originalFileName: full.fileName || (full.title ? `${full.title}.epub` : 'Novel.epub'),
+          originalTitle: epubMeta?.title || full.title || 'Novel',
           title: cleanTitle,
           searchQuery: cleanTitle,
           author: epubMeta?.author || full.author || 'Author',
@@ -707,6 +715,117 @@
         }
         return null;
       }
+    },
+
+    /**
+     * Inspects a Moon+ Reader Pro .mrexpt backup file content
+     * Returns metadata about the original book title, path, and entries
+     */
+    inspectMrexpt(content) {
+      if (!content || typeof content !== 'string') return null;
+      const lines = content.split(/\r?\n/);
+      let entryCount = 0;
+      let oldTitle = '';
+      let oldFilePath = '';
+      let inEntry = false;
+      let entryLineIdx = 0;
+      const sampleHighlights = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === '#') {
+          entryCount++;
+          inEntry = true;
+          entryLineIdx = 0;
+          continue;
+        }
+        if (inEntry) {
+          if (entryLineIdx === 1 && !oldTitle) {
+            oldTitle = line.trim();
+          } else if (entryLineIdx === 2 && !oldFilePath) {
+            oldFilePath = line.trim();
+          } else if (entryLineIdx === 12) {
+            if (line.trim() && sampleHighlights.length < 5) {
+              sampleHighlights.push(line.trim());
+            }
+          }
+          entryLineIdx++;
+        }
+      }
+
+      return {
+        entryCount,
+        oldTitle,
+        oldFilePath,
+        sampleHighlights
+      };
+    },
+
+    /**
+     * Migrates a Moon+ Reader Pro .mrexpt backup file content to match a new book title and/or file path.
+     * Preserves 100% of bookmark coordinates, notes, colors, offsets, and timestamps.
+     */
+    migrateMrexpt(content, { newTitle, newFilePath } = {}) {
+      if (!content || typeof content !== 'string') return '';
+      const lines = content.split(/\r?\n/);
+      const out = [];
+      let inEntry = false;
+      let entryLineIdx = 0;
+
+      let resolvedFilePath = (newFilePath || '').trim().replace(/\\/g, '/');
+
+      // If resolvedFilePath is just a file name (no slash), find existing directory prefix from file
+      if (resolvedFilePath && !resolvedFilePath.includes('/')) {
+        let existingDir = '';
+        let scanInEntry = false;
+        let scanIdx = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].trim() === '#') {
+            scanInEntry = true;
+            scanIdx = 0;
+            continue;
+          }
+          if (scanInEntry) {
+            if (scanIdx === 2) {
+              const p = lines[i].trim().replace(/\\/g, '/');
+              if (p.includes('/')) {
+                existingDir = p.substring(0, p.lastIndexOf('/') + 1);
+              }
+              break;
+            }
+            scanIdx++;
+          }
+        }
+        if (existingDir) {
+          resolvedFilePath = existingDir + resolvedFilePath;
+        }
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === '#') {
+          inEntry = true;
+          entryLineIdx = 0;
+          out.push(line);
+          continue;
+        }
+        if (inEntry) {
+          if (entryLineIdx === 1 && newTitle && newTitle.trim()) {
+            out.push(newTitle.trim());
+          } else if (entryLineIdx === 2 && resolvedFilePath) {
+            out.push(resolvedFilePath);
+          } else if (entryLineIdx === 3 && resolvedFilePath) {
+            out.push(resolvedFilePath.toLowerCase());
+          } else {
+            out.push(line);
+          }
+          entryLineIdx++;
+        } else {
+          out.push(line);
+        }
+      }
+
+      return out.join('\n');
     },
 
     /**
@@ -905,6 +1024,7 @@
               isIncomplete: isInc,
               isEpub: true,
               epubBlob,
+              fileName: result?.outFileName || (ongoingEpubModal.originalFileName || `${title}.epub`),
               folderOptions: folderOpts,
               folderPath: folderOpts?.folderPath || '',
               folderTreeUri: folderOpts?.treeUri || ''
@@ -934,6 +1054,8 @@
   window.bindNovelFolder = MoonReaderEngine.bindNovelFolder.bind(MoonReaderEngine);
   window.handleSetNovelFolder = MoonReaderEngine.handleSetNovelFolder.bind(MoonReaderEngine);
   window.toggleOpdsServerUI = MoonReaderEngine.toggleOpdsServerUI.bind(MoonReaderEngine);
+  window.inspectMrexpt = MoonReaderEngine.inspectMrexpt.bind(MoonReaderEngine);
+  window.migrateMrexpt = MoonReaderEngine.migrateMrexpt.bind(MoonReaderEngine);
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = MoonReaderEngine;
   }

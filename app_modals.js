@@ -1606,7 +1606,7 @@
                 if (!f.name.toLowerCase().endsWith('.epub')) {
                   return toast('Please select a valid .epub file.', 'warning');
                 }
-                setOngoingEpubModal(prev => prev ? { ...prev, file: f } : null);
+                setOngoingEpubModal(prev => prev ? { ...prev, file: f, originalFileName: f.name } : null);
                 toast(`Linked "${f.name}"! Original photos and styling will be preserved.`, 'success');
               }
             })
@@ -1978,6 +1978,246 @@
           ),
           h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.5, background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: 8 } },
             `💡 Chapters 1 to ${Math.max(0, (ongoingEpubModal.startChapter || 1) - 1)} in your EPUB will be kept completely untouched with identical internal filenames, preserving 100% of your Moon+ Reader bookmarks, highlights, and notes.`
+          )
+        ),
+
+        // 3b. Moon+ Reader Pro Backup (.mrexpt) Helper & Fixer Card
+        h('div', {
+          style: {
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px solid var(--hairline)',
+            borderRadius: 16,
+            padding: '16px 18px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12
+          }
+        },
+          h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+              h('span', { style: { fontSize: 18 } }, '🔖'),
+              h('div', null,
+                h('div', { style: { fontSize: 13.5, fontWeight: 700, color: 'var(--paper)' } }, 'Moon+ Reader Backup (.mrexpt) Fixer'),
+                h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } }, 'Restore your bookmarks & highlights into the updated EPUB')
+              )
+            ),
+            h('button', {
+              type: 'button',
+              style: {
+                background: 'rgba(99, 102, 241, 0.1)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                color: 'var(--accent, #6366f1)',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: '5px 12px',
+                borderRadius: 8
+              },
+              onClick: () => {
+                setOngoingEpubModal(prev => {
+                  if (!prev) return null;
+                  return { ...prev, showMrexptFixer: !prev.showMrexptFixer };
+                });
+              }
+            }, ongoingEpubModal.showMrexptFixer ? 'Hide' : (ongoingEpubModal.mrexptData ? 'View Fixer' : 'Open Fixer'))
+          ),
+
+          (ongoingEpubModal.showMrexptFixer || ongoingEpubModal.mrexptData) && h('div', {
+            style: {
+              borderTop: '1px solid var(--hairline)',
+              paddingTop: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12
+            }
+          },
+            h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.4 } },
+              'If Moon+ Reader says ',
+              h('b', { style: { color: '#f87171' } }, '"failed, not the same book"'),
+              ', it is because Moon+ Reader checks the exact filename and title recorded in the backup. Upload your ',
+              h('code', { style: { background: 'rgba(255,255,255,0.06)', padding: '1px 4px', borderRadius: 4 } }, '.mrexpt'),
+              ' file below to match it to this updated book in 1 tap.'
+            ),
+
+            !ongoingEpubModal.mrexptData ? h('label', {
+              className: 'mini-btn',
+              style: {
+                background: 'rgba(99, 102, 241, 0.12)',
+                border: '1px dashed var(--accent, #6366f1)',
+                color: 'var(--paper)',
+                padding: '12px 16px',
+                borderRadius: 12,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                textAlign: 'center',
+                minHeight: 44
+              }
+            },
+              '📎 Select .mrexpt Backup File to Fix',
+              h('input', {
+                type: 'file',
+                accept: '.mrexpt,text/plain',
+                style: { display: 'none' },
+                onChange: (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const reader = new FileReader();
+                  reader.onload = (evt) => {
+                    const text = evt.target.result;
+                    const inspectFn = window.MoonReaderEngine?.inspectMrexpt;
+                    const info = inspectFn ? inspectFn(text) : null;
+                    const targetTitle = ongoingEpubModal.originalTitle || ongoingEpubModal.title || info?.oldTitle || '';
+                    const defaultFileName = ongoingEpubModal.originalFileName || ongoingEpubModal.file?.name || `${ongoingEpubModal.title || 'Novel'}.epub`;
+                    const defaultPath = (ongoingEpubModal.folderOptions?.folderPath ? (ongoingEpubModal.folderOptions.folderPath.replace(/\/?$/, '/') + defaultFileName) : '') || info?.oldFilePath || defaultFileName;
+                    setOngoingEpubModal(prev => prev ? {
+                      ...prev,
+                      showMrexptFixer: true,
+                      mrexptData: {
+                        fileName: f.name,
+                        rawText: text,
+                        info,
+                        targetTitle,
+                        targetPath: defaultPath,
+                        isDone: false
+                      }
+                    } : null);
+                    if (typeof toast === 'function') {
+                      toast(`Loaded backup "${f.name}" with ${info?.entryCount || 0} entries!`, 'info');
+                    }
+                  };
+                  reader.readAsText(f);
+                }
+              })
+            ) : h('div', {
+              style: {
+                background: 'rgba(255, 255, 255, 0.03)',
+                borderRadius: 12,
+                padding: '14px 16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                border: '1px solid var(--hairline)'
+              }
+            },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                h('div', { style: { fontSize: 12.5, fontWeight: 700, color: '#10b981' } },
+                  `✓ Found ${ongoingEpubModal.mrexptData.info?.entryCount || 0} bookmarks & highlights`
+                ),
+                h('button', {
+                  type: 'button',
+                  style: { background: 'transparent', border: 'none', color: 'var(--slate)', fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' },
+                  onClick: () => setOngoingEpubModal(prev => prev ? { ...prev, mrexptData: null } : null)
+                }, 'Change File')
+              ),
+              ongoingEpubModal.mrexptData.info?.oldTitle && h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } },
+                'Original title in backup: ', h('span', { style: { color: 'var(--paper)', fontWeight: 600 } }, ongoingEpubModal.mrexptData.info.oldTitle)
+              ),
+              ongoingEpubModal.mrexptData.info?.oldFilePath && h('div', { style: { fontSize: 11, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                'Original path in backup: ', h('span', { style: { color: 'var(--paper)', fontFamily: 'monospace' } }, ongoingEpubModal.mrexptData.info.oldFilePath)
+              ),
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+                h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--slate)' } }, 'Target Book Title (in Moon+ Reader):'),
+                h('input', {
+                  type: 'text',
+                  className: 'mini-input',
+                  style: { height: 38, borderRadius: 8, fontSize: 13 },
+                  value: ongoingEpubModal.mrexptData.targetTitle || '',
+                  onChange: (e) => {
+                    const val = e.target.value;
+                    setOngoingEpubModal(prev => prev ? {
+                      ...prev,
+                      mrexptData: { ...prev.mrexptData, targetTitle: val }
+                    } : null);
+                  }
+                })
+              ),
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+                h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--slate)' } }, 'Target EPUB File Name or Full Path:'),
+                h('input', {
+                  type: 'text',
+                  className: 'mini-input',
+                  style: { height: 38, borderRadius: 8, fontSize: 13 },
+                  value: ongoingEpubModal.mrexptData.targetPath || '',
+                  onChange: (e) => {
+                    const val = e.target.value;
+                    setOngoingEpubModal(prev => prev ? {
+                      ...prev,
+                      mrexptData: { ...prev.mrexptData, targetPath: val }
+                    } : null);
+                  }
+                }),
+                h('span', { style: { fontSize: 11, color: 'var(--slate)' } },
+                  '💡 Entering just the filename (e.g. MyBook.epub) keeps your original device folder automatically.'
+                )
+              ),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: {
+                  background: 'linear-gradient(90deg, #10b981, #059669)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: 13.5,
+                  padding: '10px 16px',
+                  borderRadius: 10,
+                  border: 'none',
+                  cursor: 'pointer',
+                  marginTop: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  minHeight: 44,
+                  boxShadow: '0 3px 10px rgba(16, 185, 129, 0.3)'
+                },
+                onClick: () => {
+                  const migrateFn = window.MoonReaderEngine?.migrateMrexpt;
+                  if (!migrateFn) {
+                    if (typeof toast === 'function') toast('Migration engine not loaded.', 'error');
+                    return;
+                  }
+                  const updatedText = migrateFn(ongoingEpubModal.mrexptData.rawText, {
+                    newTitle: ongoingEpubModal.mrexptData.targetTitle,
+                    newFilePath: ongoingEpubModal.mrexptData.targetPath
+                  });
+                  const blob = new Blob([updatedText], { type: 'text/plain;charset=utf-8' });
+                  const baseName = (ongoingEpubModal.mrexptData.fileName || 'backup.mrexpt').replace(/\.mrexpt$/i, '');
+                  const downloadName = `${baseName}_fixed.mrexpt`;
+                  if (typeof window.saveUniversalBlob === 'function') {
+                    window.saveUniversalBlob(blob, downloadName, 'text/plain');
+                  } else {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = downloadName;
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+                  }
+                  setOngoingEpubModal(prev => prev ? {
+                    ...prev,
+                    mrexptData: { ...prev.mrexptData, isDone: true }
+                  } : null);
+                  if (typeof toast === 'function') {
+                    toast(`Downloaded "${downloadName}"! Import this into Moon+ Reader Pro.`, 'success');
+                  }
+                }
+              }, '⚡ Download Fixed .mrexpt File'),
+              ongoingEpubModal.mrexptData.isDone && h('div', {
+                style: {
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  color: '#10b981',
+                  fontSize: 12,
+                  lineHeight: 1.4
+                }
+              }, '✓ Ready! In Moon+ Reader Pro, open your updated EPUB → tap Bookmarks → Options → Restore → select the newly downloaded fixed file.')
+            )
           )
         ),
 
