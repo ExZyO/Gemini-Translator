@@ -487,6 +487,32 @@
       }
     },
 
+    async saveTrashNovel(novel) {
+      if (!novel || !novel.id) return false;
+      try {
+        if (novelDB) {
+          await novelDB.trash.put(novel);
+          notifyChange('saveTrashNovel', novel);
+          return true;
+        }
+      } catch (err) {
+        console.warn('[db_engine] Dexie saveTrashNovel fallback to native:', err);
+      }
+      try {
+        const db = await getNativeDB();
+        if (!db) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction('trash', 'readwrite');
+          const store = tx.objectStore('trash');
+          store.put(novel);
+          tx.oncomplete = () => { notifyChange('saveTrashNovel', novel); resolve(true); };
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) {
+        return false;
+      }
+    },
+
     async clearAll() {
       try {
         if (novelDB) {
@@ -618,6 +644,107 @@
       } catch (e) {
         return false;
       }
+    },
+
+    async getAllActiveTranslations() {
+      try {
+        if (novelDB) {
+          return await novelDB.active_translations.toArray();
+        }
+      } catch (err) {
+        console.warn('[db_engine] Dexie getAllActiveTranslations fallback to native:', err);
+      }
+      try {
+        const db = await getNativeDB();
+        if (!db) return [];
+        return new Promise((resolve) => {
+          const tx = db.transaction('active_translations', 'readonly');
+          const store = tx.objectStore('active_translations');
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+      } catch (e) {
+        return [];
+      }
+    },
+
+    async getAllTranslationMemory() {
+      try {
+        if (novelDB && novelDB.translation_memory) {
+          return await novelDB.translation_memory.toArray();
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('translation_memory')) return [];
+        return new Promise((resolve) => {
+          const tx = db.transaction('translation_memory', 'readonly');
+          const req = tx.objectStore('translation_memory').getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+      } catch (e) { return []; }
+    },
+
+    async saveTranslationMemoryBatch(items) {
+      if (!Array.isArray(items) || items.length === 0) return true;
+      try {
+        if (novelDB && novelDB.translation_memory) {
+          await novelDB.translation_memory.bulkPut(items);
+          return true;
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('translation_memory')) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction('translation_memory', 'readwrite');
+          const store = tx.objectStore('translation_memory');
+          items.forEach(it => store.put(it));
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) { return false; }
+    },
+
+    async getAllTranslationSnapshots() {
+      try {
+        if (novelDB && novelDB.translation_snapshots) {
+          return await novelDB.translation_snapshots.toArray();
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('translation_snapshots')) return [];
+        return new Promise((resolve) => {
+          const tx = db.transaction('translation_snapshots', 'readonly');
+          const req = tx.objectStore('translation_snapshots').getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+      } catch (e) { return []; }
+    },
+
+    async saveTranslationSnapshotsBatch(items) {
+      if (!Array.isArray(items) || items.length === 0) return true;
+      try {
+        if (novelDB && novelDB.translation_snapshots) {
+          await novelDB.translation_snapshots.bulkPut(items);
+          return true;
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('translation_snapshots')) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction('translation_snapshots', 'readwrite');
+          const store = tx.objectStore('translation_snapshots');
+          items.forEach(it => store.put(it));
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) { return false; }
     },
 
     // 5. Subscription Helper for Reactive State

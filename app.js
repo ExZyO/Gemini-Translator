@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.17.96';
+        let VERSION = '8.17.97';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1018,7 +1018,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8296);
+      const [appVersionCode, setAppVersionCode] = useState(8297);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [installingPluginId, setInstallingPluginId] = useState(null);
@@ -1765,7 +1765,14 @@
         setUseCustomModel, setCustomDeepseekModel, setUseCustomDeepseekModel, setEpubDropCaps,
         setEpubSmartQuotes, setEpubCleanWebArtifacts, setEpubFontTheme, setEpubJustifyText,
         setEpubIncludeImages, setScrapeImages, setReaderTheme, setReaderFont, setReaderFontSize,
-        setWebImportHistory, setApiKeysByProvider, setActiveKeyIds, setLibreUrl
+        setWebImportHistory, setApiKeysByProvider, setActiveKeyIds, setLibreUrl,
+        setDarkMode, setAmoledMode, setDeviceWakeLock, setDownloadedOnly, setIncognitoMode,
+        setSavedAudiobooks, setGenderLocks, setCulturalFootnotesEnabled, setHealthAuditEnabled,
+        setQaProofreaderEnabled, setCjkLeakCheckEnabled, setAntiMtlGateEnabled, setTranslationMemoryEnabled,
+        setSnapshotsEnabled, setCloudProvider, setWebdavUrl, setWebdavUser, setWebdavPath,
+        setWebdavAutoSync, setWebdavPass, setActiveTab, setInputBoxHeight, setOutputBoxHeight,
+        setInstructionsBoxHeight, setGlossaryBoxHeight, setShowLiveLogs, loadTrashCount,
+        setActiveSession, setSavedTranslationSession, setIsTranslationPaused, setInputText
       }) || {};
 
       const getBackupAppState = () => (window.BackupEngine?.Controller || BackupEngine?.Controller)?.buildBackupState({
@@ -1775,7 +1782,13 @@
         customModel, useCustomModel, customDeepseekModel, useCustomDeepseekModel,
         defaultGlossaryName, smartGlossary, epubDropCaps, epubSmartQuotes, epubCleanWebArtifacts,
         epubFontTheme, epubJustifyText, epubIncludeImages, scrapeImages, readerTheme,
-        readerFont, readerFontSize, apiKeysByProvider, activeKeyIds, libreUrl
+        readerFont, readerFontSize, apiKeysByProvider, activeKeyIds, libreUrl,
+        darkMode, amoledMode, deviceWakeLock, downloadedOnly, incognitoMode,
+        savedAudiobooks, genderLocks, culturalFootnotesEnabled, healthAuditEnabled,
+        qaProofreaderEnabled, cjkLeakCheckEnabled, antiMtlGateEnabled, translationMemoryEnabled,
+        snapshotsEnabled, cloudProvider, webdavUrl, webdavUser, webdavPath,
+        webdavAutoSync, webdavPass, activeTab, inputBoxHeight, outputBoxHeight,
+        instructionsBoxHeight, glossaryBoxHeight, showLiveLogs, inputText
       }) || {};
 
       const generateBackupPayload = async (shouldIncludeKeys = false) => {

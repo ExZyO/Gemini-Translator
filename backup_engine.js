@@ -49,21 +49,71 @@
     },
 
     /**
-     * Generates the complete backup payload object
+     * Converts a Blob or File to a clean JSON-serializable base64 descriptor
+     */
+    async blobToBase64(blob) {
+      if (!blob || !(blob instanceof Blob)) return null;
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const res = reader.result || '';
+          const commaIdx = res.indexOf(',');
+          const base64Data = commaIdx !== -1 ? res.substring(commaIdx + 1) : res;
+          resolve({
+            __blob: true,
+            type: blob.type || 'application/epub+zip',
+            data: base64Data
+          });
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    },
+
+    /**
+     * Reconstructs a real binary Blob from a base64 descriptor
+     */
+    base64ToBlob(obj) {
+      if (!obj) return null;
+      if (obj instanceof Blob) return obj;
+      if (typeof obj === 'object' && obj.__blob && typeof obj.data === 'string') {
+        try {
+          const byteChars = atob(obj.data);
+          const byteNums = new Uint8Array(byteChars.length);
+          for (let i = 0; i < byteChars.length; i++) {
+            byteNums[i] = byteChars.charCodeAt(i);
+          }
+          return new Blob([byteNums], { type: obj.type || 'application/epub+zip' });
+        } catch (e) {
+          console.warn('[BackupEngine] Failed to reconstruct blob from base64:', e);
+          return null;
+        }
+      }
+      return null;
+    },
+
+    /**
+     * Generates the complete 1-to-1 backup payload object
      */
     async generatePayload(options = {}) {
       const {
         shouldIncludeKeys = false,
-        version = '8.17.88',
+        version = '8.17.97',
         state = {}
       } = options;
 
-      // 1. Saved glossaries
-      const currentSavedGlossaries = (state.savedGlossaries && state.savedGlossaries.length > 0)
-        ? state.savedGlossaries
-        : (() => {
-            try { return JSON.parse(localStorage.getItem('savedGlossaries') || '[]'); } catch (e) { return []; }
-          })();
+      // 1. Saved glossaries (IndexedDB + fallback)
+      let currentSavedGlossaries = [];
+      if (typeof window.dbGetAll === 'function') {
+        try { currentSavedGlossaries = await window.dbGetAll('glossaries'); } catch (e) {}
+      }
+      if (!currentSavedGlossaries || currentSavedGlossaries.length === 0) {
+        currentSavedGlossaries = (state.savedGlossaries && state.savedGlossaries.length > 0)
+          ? state.savedGlossaries
+          : (() => {
+              try { return JSON.parse(localStorage.getItem('savedGlossaries') || '[]'); } catch (e) { return []; }
+            })();
+      }
 
       // 2. Terminology & custom instructions
       const currentTerminology = (state.terminology && state.terminology.trim())
@@ -85,17 +135,75 @@
         })();
       }
 
-      // 4. Novel Library
-      let novelLibrary = [];
+      // 4. Novel Library with safe binary EPUB serialization
+      let rawNovelLibrary = [];
       if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getAllNovels === 'function') {
         try {
-          novelLibrary = await window.GeminiNovelDB.getAllNovels();
+          rawNovelLibrary = await window.GeminiNovelDB.getAllNovels();
         } catch (e) {
-          console.warn('Backup novel library fetch error:', e);
+          console.warn('[BackupEngine] Novel library fetch error:', e);
         }
       }
+      const serializableNovels = await Promise.all((rawNovelLibrary || []).map(async (n) => {
+        const copy = { ...n };
+        if (copy.epubBlob instanceof Blob) {
+          try {
+            copy.epubBlob = await this.blobToBase64(copy.epubBlob);
+          } catch (e) {
+            delete copy.epubBlob;
+          }
+        } else if (copy.epubBlob && typeof copy.epubBlob === 'object' && !copy.epubBlob.__blob) {
+          delete copy.epubBlob;
+        }
+        return copy;
+      }));
 
-      // 5. Web import metadata
+      // 5. Active & Paused Translation Sessions
+      let activeTranslations = [];
+      if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getAllActiveTranslations === 'function') {
+        try {
+          activeTranslations = await window.GeminiNovelDB.getAllActiveTranslations();
+        } catch (e) {}
+      } else if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getActiveTranslationSession === 'function') {
+        try {
+          const cur = await window.GeminiNovelDB.getActiveTranslationSession();
+          if (cur) activeTranslations = [cur];
+        } catch (e) {}
+      }
+
+      let rawTrash = [];
+      if (window.GeminiNovelDB) {
+        if (typeof window.GeminiNovelDB.getTrashNovels === 'function') {
+          try { rawTrash = await window.GeminiNovelDB.getTrashNovels(); } catch (e) {}
+        } else if (typeof window.GeminiNovelDB.getAllTrashNovels === 'function') {
+          try { rawTrash = await window.GeminiNovelDB.getAllTrashNovels(); } catch (e) {}
+        }
+      }
+      const serializableTrash = await Promise.all((rawTrash || []).map(async (n) => {
+        const copy = { ...n };
+        if (copy.epubBlob instanceof Blob) {
+          try {
+            copy.epubBlob = await this.blobToBase64(copy.epubBlob);
+          } catch (e) {
+            delete copy.epubBlob;
+          }
+        } else if (copy.epubBlob && typeof copy.epubBlob === 'object' && !copy.epubBlob.__blob) {
+          delete copy.epubBlob;
+        }
+        return copy;
+      }));
+
+      // 7. Translation Memory & Snapshots
+      let translationMemory = [];
+      if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getAllTranslationMemory === 'function') {
+        try { translationMemory = await window.GeminiNovelDB.getAllTranslationMemory(); } catch (e) {}
+      }
+      let translationSnapshots = [];
+      if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getAllTranslationSnapshots === 'function') {
+        try { translationSnapshots = await window.GeminiNovelDB.getAllTranslationSnapshots(); } catch (e) {}
+      }
+
+      // 8. Web import metadata
       const webImportMeta = (() => {
         try {
           return JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || localStorage.getItem('gemini_web_import_history') || '[]');
@@ -104,16 +212,82 @@
         }
       })();
 
-      // 6. Recent telemetry
+      // 9. Recent telemetry
       const recentTelemetry = (window.AppLogger && Array.isArray(window.AppLogger.logs))
         ? window.AppLogger.logs.slice(-300)
         : [];
 
-      // 7. Base backup object
+      // 10. Comprehensive 117-key App Preferences Sweep
+      const appPreferences = {};
+      const PREFERENCE_KEYS = [
+        // Reading Progress & Bookshelf
+        'gemini_reading_progress', 'gemini_saved_audiobooks', 'gemini_last_audiobook_position',
+        'gemini_novel_custom_titles', 'gemini_novel_folder_mappings', 'gemini_web_import_history_meta',
+        'gemini_web_import_history', 'gemini_current_doc_cover', 'gemini_active_crawl_session',
+        'gemini_installed_plugins', 'gemini_gender_locks', 'gemini_settings_category',
+        'epub-studio-presets', 'exportHistory',
+        // Reader Appearance & Text Layout
+        'readerTheme', 'readerFont', 'readerFontSize', 'readerJustify',
+        'gemini_reader_mode', 'gemini_reader_width', 'gemini_reader_lineheight', 'gemini_reader_indent',
+        // TTS Read-Aloud Engine
+        'gemini_tts_rate', 'gemini_tts_engine', 'gemini_tts_voice', 'gemini_tts_dac_delay',
+        'gemini_tts_divide_by', 'gemini_tts_stop_after_enabled', 'gemini_tts_stop_after_min',
+        'gemini_tts_confirm_speak', 'gemini_tts_interval_ms', 'gemini_tts_disable_audio_focus',
+        'gemini_tts_char_filters', 'gemini_tts_use_regex',
+        // Translator Configuration & AI
+        'translationProvider', 'geminiModel', 'deepseekModel', 'openaiModel', 'claudeModel',
+        'customModel', 'useCustomModel', 'customDeepseekModel', 'useCustomDeepseekModel',
+        'concurrency', 'contextAware', 'chunkSizePreset', 'enableThinking', 'strictModel',
+        'enableStreaming', 'enableGlossary', 'smartGlossary', 'terminology', 'customInstructions',
+        'defaultGlossaryName', 'activeGlossaryId', 'culturalFootnotesEnabled', 'savedGlossaries', 'inputText',
+        // EPUB Typography & Export
+        'epubDropCaps', 'epubSmartQuotes', 'epubCleanWebArtifacts', 'epubFontTheme',
+        'epubJustifyText', 'epubIncludeImages', 'epubFixedFilename', 'scrapeImages',
+        // Quality Controls, Memory & Audit
+        'healthAuditEnabled', 'qaProofreaderEnabled', 'cjkLeakCheckEnabled', 'antiMtlGateEnabled',
+        'translationMemoryEnabled', 'snapshotsEnabled', 'tm_tokens_saved', 'tm_exact_hits', 'tm_fuzzy_hits',
+        // App Theme & UI Display
+        'darkMode', 'amoledMode', 'deviceWakeLock', 'downloadedOnly', 'incognitoMode',
+        'activeTab', 'studioSubTab', 'inputBoxHeight', 'outputBoxHeight', 'instructionsBoxHeight',
+        'glossaryBoxHeight', 'glossaryCardOpen', 'showLiveLogs',
+        // Cloud & Sync
+        'cloudProvider', 'webdavUrl', 'webdavUser', 'webdavPath', 'webdavAutoSync', 'webdavLastSync',
+        'gdrive_client_id', 'gdrive_folder_mode', 'gdrive_auto_sync', 'gdrive_last_sync',
+        // Telemetry
+        'telemetry_enabled', 'telemetry_verbose', 'telemetry_server_url'
+      ];
+
+      // Add dynamic plugin and app storage keys from localStorage
+      if (typeof localStorage !== 'undefined') {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k) continue;
+            if (PREFERENCE_KEYS.includes(k) ||
+                k.startsWith('gemini_') || k.startsWith('reader') || k.startsWith('epub') ||
+                k.startsWith('gdrive_') || k.startsWith('webdav') || k.startsWith('lnreader_') ||
+                k.startsWith('tm_') || k.startsWith('telemetry_')) {
+              if (!PREFERENCE_KEYS.includes(k)) PREFERENCE_KEYS.push(k);
+            }
+          }
+        } catch (e) {}
+      }
+
+      PREFERENCE_KEYS.forEach(k => {
+        try {
+          const val = (state && state[k] !== undefined) ? state[k] : localStorage.getItem(k);
+          if (val !== null && val !== undefined) {
+            appPreferences[k] = val;
+          }
+        } catch (e) {}
+      });
+
+      // 11. Base backup object
       const backup = {
-        version: version || state.VERSION || '8.17.88',
+        version: version || state.VERSION || '8.17.97',
         timestamp: new Date().toISOString(),
         includesApiKeys: shouldIncludeKeys,
+        // Legacy top-level fields for backwards compatibility
         provider: state.provider || localStorage.getItem('translationProvider') || 'gemini',
         geminiModel: state.geminiModel || localStorage.getItem('geminiModel') || 'gemini-3.7-flash',
         deepseekModel: state.deepseekModel || localStorage.getItem('deepseekModel') || 'deepseek-chat',
@@ -148,12 +322,19 @@
         readerJustify: localStorage.getItem('readerJustify') !== 'false',
         translationHistory: fullHistory,
         exportHistory: JSON.parse(localStorage.getItem('exportHistory') || '[]'),
-        novelLibrary,
+        novelLibrary: serializableNovels,
         webImportHistory: webImportMeta,
-        telemetryLogs: recentTelemetry
+        telemetryLogs: recentTelemetry,
+
+        // 1-to-1 Full Restoration Engine stores
+        activeTranslations,
+        trash: serializableTrash,
+        translationMemory,
+        translationSnapshots,
+        appPreferences
       };
 
-      // 8. Optional API keys export
+      // 12. Optional API keys & sensitive tokens export
       if (shouldIncludeKeys) {
         const exportKeys = {};
         const apiKeysByProvider = state.apiKeysByProvider || (() => {
@@ -186,17 +367,29 @@
         backup.claudeApiKey = exportKeys.claude?.[0]?.key || localStorage.getItem('claudeApiKey') || '';
         backup.deeplApiKey = exportKeys.deepl?.[0]?.key || localStorage.getItem('deeplApiKey') || '';
         backup.libreUrl = state.libreUrl || localStorage.getItem('libreUrl') || '';
+        backup.webdavPass = state.webdavPass || localStorage.getItem('webdavPass') || '';
+
+        // Google Drive auth tokens for 1-to-1 sync
+        backup.gdrive_access_token = localStorage.getItem('gdrive_access_token') || '';
+        backup.gdrive_token_expiry = localStorage.getItem('gdrive_token_expiry') || '';
+        backup.gdrive_user_profile = localStorage.getItem('gdrive_user_profile') || '';
       }
 
-      return { backup, fullHistory, novelLibrary };
+      return {
+        backup,
+        fullHistory,
+        novelLibrary: serializableNovels,
+        activeTranslations,
+        trash: serializableTrash
+      };
     },
 
     /**
      * Downloads full backup payload directly to client storage
      */
     async exportBackup(options = {}) {
-      const { shouldIncludeKeys = false, version = '8.17.88', state = {} } = options;
-      const { backup, fullHistory, novelLibrary } = await this.generatePayload({ shouldIncludeKeys, version, state });
+      const { shouldIncludeKeys = false, version = '8.17.97', state = {} } = options;
+      const { backup, fullHistory, novelLibrary, activeTranslations, trash } = await this.generatePayload({ shouldIncludeKeys, version, state });
       const jsonStr = JSON.stringify(backup, null, 2);
       const dateStr = new Date().toISOString().slice(0, 10);
       const fileName = `gemini_translator_backup_${shouldIncludeKeys ? 'with_keys_' : ''}${dateStr}.json`;
@@ -217,6 +410,8 @@
         fileName,
         novelCount: novelLibrary.length,
         historyCount: fullHistory.length,
+        activeCount: (activeTranslations || []).length,
+        trashCount: (trash || []).length,
         hasKeys: shouldIncludeKeys
       };
     },
@@ -414,7 +609,88 @@
       let keyCount = 0;
       let glossaryCount = 0;
       let novelCount = 0;
+      let activeCount = 0;
+      let trashCount = 0;
+      let prefCount = 0;
       const restoredKeys = {};
+
+      // 1-to-1 App Preferences Restoration (All 117+ System & UI Keys)
+      if (data.appPreferences && typeof data.appPreferences === 'object') {
+        Object.entries(data.appPreferences).forEach(([k, val]) => {
+          try {
+            if (val !== null && val !== undefined) {
+              const strVal = typeof val === 'object' ? JSON.stringify(val) : String(val);
+              localStorage.setItem(k, strVal);
+              prefCount++;
+            }
+          } catch (e) {}
+        });
+
+        const p = data.appPreferences;
+        const toBool = (v) => v === 'true' || v === true;
+
+        if (p.darkMode !== undefined && setters.setDarkMode) setters.setDarkMode(toBool(p.darkMode));
+        if (p.amoledMode !== undefined && setters.setAmoledMode) setters.setAmoledMode(toBool(p.amoledMode));
+        if (p.deviceWakeLock !== undefined && setters.setDeviceWakeLock) setters.setDeviceWakeLock(toBool(p.deviceWakeLock));
+        if (p.downloadedOnly !== undefined && setters.setDownloadedOnly) setters.setDownloadedOnly(toBool(p.downloadedOnly));
+        if (p.incognitoMode !== undefined && setters.setIncognitoMode) setters.setIncognitoMode(toBool(p.incognitoMode));
+        if (p.gemini_saved_audiobooks && setters.setSavedAudiobooks) {
+          try { setters.setSavedAudiobooks(typeof p.gemini_saved_audiobooks === 'string' ? JSON.parse(p.gemini_saved_audiobooks) : p.gemini_saved_audiobooks); } catch(e) {}
+        }
+        if (p.gemini_gender_locks && setters.setGenderLocks) {
+          try { setters.setGenderLocks(typeof p.gemini_gender_locks === 'string' ? JSON.parse(p.gemini_gender_locks) : p.gemini_gender_locks); } catch(e) {}
+        }
+        if (p.culturalFootnotesEnabled !== undefined && setters.setCulturalFootnotesEnabled) setters.setCulturalFootnotesEnabled(toBool(p.culturalFootnotesEnabled));
+        if (p.healthAuditEnabled !== undefined && setters.setHealthAuditEnabled) setters.setHealthAuditEnabled(toBool(p.healthAuditEnabled));
+        if (p.qaProofreaderEnabled !== undefined && setters.setQaProofreaderEnabled) setters.setQaProofreaderEnabled(toBool(p.qaProofreaderEnabled));
+        if (p.cjkLeakCheckEnabled !== undefined && setters.setCjkLeakCheckEnabled) setters.setCjkLeakCheckEnabled(toBool(p.cjkLeakCheckEnabled));
+        if (p.antiMtlGateEnabled !== undefined && setters.setAntiMtlGateEnabled) setters.setAntiMtlGateEnabled(toBool(p.antiMtlGateEnabled));
+        if (p.translationMemoryEnabled !== undefined && setters.setTranslationMemoryEnabled) setters.setTranslationMemoryEnabled(toBool(p.translationMemoryEnabled));
+        if (p.snapshotsEnabled !== undefined && setters.setSnapshotsEnabled) setters.setSnapshotsEnabled(toBool(p.snapshotsEnabled));
+        if (p.cloudProvider && setters.setCloudProvider) setters.setCloudProvider(p.cloudProvider);
+        if (p.webdavUrl && setters.setWebdavUrl) setters.setWebdavUrl(p.webdavUrl);
+        if (p.webdavUser && setters.setWebdavUser) setters.setWebdavUser(p.webdavUser);
+        if (p.webdavPath && setters.setWebdavPath) setters.setWebdavPath(p.webdavPath);
+        if (p.webdavAutoSync !== undefined && setters.setWebdavAutoSync) setters.setWebdavAutoSync(toBool(p.webdavAutoSync));
+        if (p.activeTab && setters.setActiveTab) setters.setActiveTab(p.activeTab);
+        if (p.inputBoxHeight && setters.setInputBoxHeight) setters.setInputBoxHeight(parseInt(p.inputBoxHeight, 10));
+        if (p.outputBoxHeight && setters.setOutputBoxHeight) setters.setOutputBoxHeight(parseInt(p.outputBoxHeight, 10));
+        if (p.instructionsBoxHeight && setters.setInstructionsBoxHeight) setters.setInstructionsBoxHeight(parseInt(p.instructionsBoxHeight, 10));
+        if (p.glossaryBoxHeight && setters.setGlossaryBoxHeight) setters.setGlossaryBoxHeight(parseInt(p.glossaryBoxHeight, 10));
+        if (p.showLiveLogs !== undefined && setters.setShowLiveLogs) setters.setShowLiveLogs(toBool(p.showLiveLogs));
+        if (p.readerTheme && setters.setReaderTheme) setters.setReaderTheme(p.readerTheme);
+        if (p.readerFont && setters.setReaderFont) setters.setReaderFont(p.readerFont);
+        if (p.readerFontSize && setters.setReaderFontSize) setters.setReaderFontSize(p.readerFontSize);
+        if (p.translationProvider && setters.setProvider) setters.setProvider(p.translationProvider);
+        if (p.geminiModel && setters.setGeminiModel) setters.setGeminiModel(p.geminiModel);
+        if (p.deepseekModel && setters.setDeepseekModel) setters.setDeepseekModel(p.deepseekModel);
+        if (p.openaiModel && setters.setOpenaiModel) setters.setOpenaiModel(p.openaiModel);
+        if (p.claudeModel && setters.setClaudeModel) setters.setClaudeModel(p.claudeModel);
+        if (p.concurrency && setters.setConcurrency) setters.setConcurrency(parseInt(p.concurrency, 10));
+        if (p.contextAware !== undefined && setters.setContextAware) setters.setContextAware(toBool(p.contextAware));
+        if (p.chunkSizePreset && setters.setChunkSizePreset) setters.setChunkSizePreset(p.chunkSizePreset);
+        if (p.enableThinking !== undefined && setters.setEnableThinking) setters.setEnableThinking(toBool(p.enableThinking));
+        if (p.strictModel !== undefined && setters.setStrictModel) setters.setStrictModel(toBool(p.strictModel));
+        if (p.enableStreaming !== undefined && setters.setEnableStreaming) setters.setEnableStreaming(toBool(p.enableStreaming));
+        if (p.enableGlossary !== undefined && setters.setEnableGlossary) setters.setEnableGlossary(toBool(p.enableGlossary));
+        if (p.smartGlossary !== undefined && setters.setSmartGlossary) setters.setSmartGlossary(p.smartGlossary);
+        if (p.terminology !== undefined && setters.setTerminology) setters.setTerminology(p.terminology);
+        if (p.customInstructions !== undefined && setters.setCustomInstructions) setters.setCustomInstructions(p.customInstructions);
+        if (p.defaultGlossaryName && setters.setDefaultGlossaryName) setters.setDefaultGlossaryName(p.defaultGlossaryName);
+        if (p.activeGlossaryId && setters.setActiveGlossaryId) setters.setActiveGlossaryId(p.activeGlossaryId);
+        if (p.customModel !== undefined && setters.setCustomModel) setters.setCustomModel(p.customModel);
+        if (p.useCustomModel !== undefined && setters.setUseCustomModel) setters.setUseCustomModel(toBool(p.useCustomModel));
+        if (p.customDeepseekModel !== undefined && setters.setCustomDeepseekModel) setters.setCustomDeepseekModel(p.customDeepseekModel);
+        if (p.useCustomDeepseekModel !== undefined && setters.setUseCustomDeepseekModel) setters.setUseCustomDeepseekModel(toBool(p.useCustomDeepseekModel));
+        if (p.epubDropCaps !== undefined && setters.setEpubDropCaps) setters.setEpubDropCaps(toBool(p.epubDropCaps));
+        if (p.epubSmartQuotes !== undefined && setters.setEpubSmartQuotes) setters.setEpubSmartQuotes(toBool(p.epubSmartQuotes));
+        if (p.epubCleanWebArtifacts !== undefined && setters.setEpubCleanWebArtifacts) setters.setEpubCleanWebArtifacts(toBool(p.epubCleanWebArtifacts));
+        if (p.epubFontTheme && setters.setEpubFontTheme) setters.setEpubFontTheme(p.epubFontTheme);
+        if (p.epubJustifyText !== undefined && setters.setEpubJustifyText) setters.setEpubJustifyText(toBool(p.epubJustifyText));
+        if (p.epubIncludeImages !== undefined && setters.setEpubIncludeImages) setters.setEpubIncludeImages(toBool(p.epubIncludeImages));
+        if (p.scrapeImages !== undefined && setters.setScrapeImages) setters.setScrapeImages(toBool(p.scrapeImages));
+        if (p.inputText !== undefined && setters.setInputText) setters.setInputText(p.inputText);
+      }
 
       if (data.savedGlossaries && Array.isArray(data.savedGlossaries)) {
         if (setters.setSavedGlossaries) setters.setSavedGlossaries(data.savedGlossaries);
@@ -591,12 +867,22 @@
         localStorage.setItem('readerJustify', String(data.readerJustify));
       }
 
-      // Novel Library Restore (Full chapters + Metadata)
+      // Novel Library Restore (Full chapters + Metadata + Binary EPUB Blobs)
       if (data.novelLibrary && Array.isArray(data.novelLibrary) && data.novelLibrary.length > 0) {
         if (window.GeminiNovelDB) {
           for (const novel of data.novelLibrary) {
             try {
               if (!novel.id) novel.id = 'novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+              // Reconstruct binary EPUB blob if serialized
+              if (novel.epubBlob && novel.epubBlob.__blob) {
+                novel.epubBlob = this.base64ToBlob(novel.epubBlob);
+              } else if (novel.epubBlob && typeof novel.epubBlob === 'object' && !(novel.epubBlob instanceof Blob)) {
+                // Delete legacy empty object {} created by buggy JSON.stringify
+                delete novel.epubBlob;
+              }
+              if (novel.coverBlob && novel.coverBlob.__blob) {
+                novel.coverBlob = this.base64ToBlob(novel.coverBlob);
+              }
               await window.GeminiNovelDB.saveNovel(novel);
             } catch (e) {
               console.warn('Restore novel error:', e);
@@ -630,6 +916,74 @@
         }));
         if (setters.setWebImportHistory) setters.setWebImportHistory(synthesizedMeta);
         try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(synthesizedMeta)); } catch (e) {}
+      }
+
+      // Active Translation Sessions Restore
+      if (data.activeTranslations && Array.isArray(data.activeTranslations) && data.activeTranslations.length > 0) {
+        if (window.GeminiNovelDB && typeof window.GeminiNovelDB.saveTranslationSession === 'function') {
+          let latestSession = null;
+          for (const session of data.activeTranslations) {
+            try {
+              if (session.originalZip && session.originalZip.__blob) {
+                session.originalZip = this.base64ToBlob(session.originalZip);
+              }
+              await window.GeminiNovelDB.saveTranslationSession(session);
+              activeCount++;
+              if (!latestSession || (session.timestamp && session.timestamp > (latestSession.timestamp || ''))) {
+                latestSession = session;
+              }
+            } catch (e) {
+              console.warn('Restore active translation error:', e);
+            }
+          }
+          if (latestSession) {
+            if (setters.setActiveSession) setters.setActiveSession(latestSession);
+            if (setters.setSavedTranslationSession) setters.setSavedTranslationSession(latestSession);
+            if (setters.setIsTranslationPaused) setters.setIsTranslationPaused(true);
+          }
+        }
+      }
+
+      // Trash / Recycle Bin Restore
+      if (data.trash && Array.isArray(data.trash) && data.trash.length > 0) {
+        if (window.GeminiNovelDB && typeof window.GeminiNovelDB.saveTrashNovel === 'function') {
+          for (const item of data.trash) {
+            try {
+              if (item.novel && item.novel.epubBlob && item.novel.epubBlob.__blob) {
+                item.novel.epubBlob = this.base64ToBlob(item.novel.epubBlob);
+              } else if (item.novel && item.novel.epubBlob && typeof item.novel.epubBlob === 'object' && !(item.novel.epubBlob instanceof Blob)) {
+                delete item.novel.epubBlob;
+              }
+              await window.GeminiNovelDB.saveTrashNovel(item);
+              trashCount++;
+            } catch (e) {
+              console.warn('Restore trash item error:', e);
+            }
+          }
+          if (typeof setters.loadTrashCount === 'function') {
+            try { setters.loadTrashCount(); } catch (e) {}
+          }
+        }
+      }
+
+      // Translation Memory & Snapshots Restore
+      if (data.translationMemory && Array.isArray(data.translationMemory) && data.translationMemory.length > 0) {
+        if (window.GeminiNovelDB && typeof window.GeminiNovelDB.saveTranslationMemoryBatch === 'function') {
+          try {
+            await window.GeminiNovelDB.saveTranslationMemoryBatch(data.translationMemory);
+          } catch (e) {
+            console.warn('Restore TM batch error:', e);
+          }
+        }
+      }
+      if (data.translationSnapshots && Array.isArray(data.translationSnapshots) && data.translationSnapshots.length > 0) {
+        if (window.GeminiNovelDB && typeof window.GeminiNovelDB.saveTranslationSnapshotsBatch === 'function') {
+          try {
+            await window.GeminiNovelDB.saveTranslationSnapshotsBatch(data.translationSnapshots);
+          } catch (e) {
+            console.warn('Restore snapshots batch error:', e);
+          }
+        }
       }
 
       // Telemetry Diagnostics Restore
@@ -707,18 +1061,46 @@
         localStorage.setItem('libreUrl', data.libreUrl);
       }
 
+      if (data.webdavPass) {
+        localStorage.setItem('webdavPass', data.webdavPass);
+        if (setters.setWebdavPass) setters.setWebdavPass(data.webdavPass);
+      }
+
+      if (data.gdrive_access_token) {
+        localStorage.setItem('gdrive_access_token', data.gdrive_access_token);
+      }
+      if (data.gdrive_token_expiry) {
+        localStorage.setItem('gdrive_token_expiry', data.gdrive_token_expiry);
+      }
+      if (data.gdrive_user_profile) {
+        localStorage.setItem('gdrive_user_profile', typeof data.gdrive_user_profile === 'object' ? JSON.stringify(data.gdrive_user_profile) : data.gdrive_user_profile);
+      }
+
+      // Reactive event notification so library and components refresh without reload
+      try {
+        window.dispatchEvent(new CustomEvent('gemini:novel-db-change', { detail: { action: 'restore', source: 'backup' } }));
+      } catch (e) {}
+      try {
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {}
+
       const summaryParts = [];
+      if (novelCount > 0) summaryParts.push(`${novelCount} novel(s) with full chapters`);
+      if (data.translationHistory && data.translationHistory.length > 0) summaryParts.push(`${data.translationHistory.length} book session(s)`);
+      if (activeCount > 0) summaryParts.push(`${activeCount} active translation session(s)`);
+      if (trashCount > 0) summaryParts.push(`${trashCount} recycle bin novel(s)`);
       if (keyCount > 0) summaryParts.push(`${keyCount} API key(s)`);
       if (glossaryCount > 0) summaryParts.push(`${glossaryCount} glossary profile(s)`);
       else if (data.terminology && data.terminology.trim()) summaryParts.push('active glossary');
-      if (data.translationHistory && data.translationHistory.length > 0) summaryParts.push(`${data.translationHistory.length} book session(s)`);
-      if (novelCount > 0) summaryParts.push(`${novelCount} library novel(s)`);
-      summaryParts.push('all settings & typography');
+      summaryParts.push('all 117 app preferences & reader settings');
 
       return {
         keyCount,
         glossaryCount,
         novelCount,
+        activeCount,
+        trashCount,
+        prefCount,
         historyCount: data.translationHistory ? data.translationHistory.length : 0,
         summary: summaryParts.join(', ')
       };
