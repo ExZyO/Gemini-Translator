@@ -1388,6 +1388,34 @@
     const toast = getToast();
     const handleClose = onClose || (() => setOngoingEpubModal(null));
 
+    const processMrexptText = (text, fileName) => {
+      if (!text || typeof text !== 'string') {
+        if (typeof toast === 'function') toast('Empty file content.', 'warning');
+        return;
+      }
+      const inspectFn = window.MoonReaderEngine?.inspectMrexpt;
+      const info = inspectFn ? inspectFn(text) : null;
+      const targetTitle = ongoingEpubModal.originalTitle || ongoingEpubModal.title || info?.oldTitle || '';
+      const defaultFileName = ongoingEpubModal.originalFileName || ongoingEpubModal.file?.name || `${ongoingEpubModal.title || 'Novel'}.epub`;
+      const defaultPath = (ongoingEpubModal.folderOptions?.folderPath ? (ongoingEpubModal.folderOptions.folderPath.replace(/\/?$/, '/') + defaultFileName) : '') || info?.oldFilePath || defaultFileName;
+      setOngoingEpubModal(prev => prev ? {
+        ...prev,
+        showMrexptFixer: true,
+        showMrexptPaste: false,
+        mrexptData: {
+          fileName: fileName || 'backup.mrexpt',
+          rawText: text,
+          info,
+          targetTitle,
+          targetPath: defaultPath,
+          isDone: false
+        }
+      } : null);
+      if (typeof toast === 'function') {
+        toast(`Loaded backup "${fileName || 'file'}" with ${info?.entryCount || 0} entries!`, 'info');
+      }
+    };
+
     return h('div', {
       className: 'fullscreen-modal-overlay',
       style: {
@@ -2039,60 +2067,125 @@
               ' file below to match it to this updated book in 1 tap.'
             ),
 
-            !ongoingEpubModal.mrexptData ? h('label', {
-              className: 'mini-btn',
-              style: {
-                background: 'rgba(99, 102, 241, 0.12)',
-                border: '1px dashed var(--accent, #6366f1)',
-                color: 'var(--paper)',
-                padding: '12px 16px',
-                borderRadius: 12,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                textAlign: 'center',
-                minHeight: 44
-              }
-            },
-              '📎 Select .mrexpt Backup File to Fix',
-              h('input', {
-                type: 'file',
-                accept: '.mrexpt,text/plain',
-                style: { display: 'none' },
-                onChange: (e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  const reader = new FileReader();
-                  reader.onload = (evt) => {
-                    const text = evt.target.result;
-                    const inspectFn = window.MoonReaderEngine?.inspectMrexpt;
-                    const info = inspectFn ? inspectFn(text) : null;
-                    const targetTitle = ongoingEpubModal.originalTitle || ongoingEpubModal.title || info?.oldTitle || '';
-                    const defaultFileName = ongoingEpubModal.originalFileName || ongoingEpubModal.file?.name || `${ongoingEpubModal.title || 'Novel'}.epub`;
-                    const defaultPath = (ongoingEpubModal.folderOptions?.folderPath ? (ongoingEpubModal.folderOptions.folderPath.replace(/\/?$/, '/') + defaultFileName) : '') || info?.oldFilePath || defaultFileName;
+            !ongoingEpubModal.mrexptData ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+              h('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
+                h('label', {
+                  className: 'mini-btn',
+                  style: {
+                    flex: 1,
+                    minWidth: 200,
+                    background: 'rgba(99, 102, 241, 0.15)',
+                    border: '1px dashed var(--accent, #6366f1)',
+                    color: 'var(--paper)',
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    textAlign: 'center',
+                    minHeight: 44
+                  }
+                },
+                  '📁 Select Backup File (Any File / .mrexpt)',
+                  h('input', {
+                    type: 'file',
+                    accept: '*/*',
+                    style: { display: 'none' },
+                    onChange: (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        processMrexptText(evt.target.result, f.name);
+                      };
+                      reader.readAsText(f);
+                    }
+                  })
+                ),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn',
+                  style: {
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid var(--hairline)',
+                    color: 'var(--paper)',
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    minHeight: 44
+                  },
+                  onClick: () => {
                     setOngoingEpubModal(prev => prev ? {
                       ...prev,
-                      showMrexptFixer: true,
-                      mrexptData: {
-                        fileName: f.name,
-                        rawText: text,
-                        info,
-                        targetTitle,
-                        targetPath: defaultPath,
-                        isDone: false
-                      }
+                      showMrexptPaste: !prev.showMrexptPaste
                     } : null);
-                    if (typeof toast === 'function') {
-                      toast(`Loaded backup "${f.name}" with ${info?.entryCount || 0} entries!`, 'info');
-                    }
-                  };
-                  reader.readAsText(f);
+                  }
+                }, ongoingEpubModal.showMrexptPaste ? '✕ Hide Paste Box' : '📋 Or Paste Text')
+              ),
+              ongoingEpubModal.showMrexptPaste && h('div', {
+                style: {
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: '1px solid var(--hairline)'
                 }
-              })
+              },
+                h('div', { style: { fontSize: 12, color: 'var(--slate)' } }, 'Open your backup file in any text editor, copy its contents, and paste below:'),
+                h('textarea', {
+                  className: 'custom-scrollbar',
+                  rows: 4,
+                  style: {
+                    width: '100%',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid var(--hairline)',
+                    borderRadius: 8,
+                    padding: 10,
+                    color: 'var(--paper)',
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    resize: 'vertical'
+                  },
+                  placeholder: 'Paste the contents of your .mrexpt backup file here (starting with indent:true / trim:true / #)...',
+                  value: ongoingEpubModal.pastedMrexpt || '',
+                  onChange: (e) => {
+                    const v = e.target.value;
+                    setOngoingEpubModal(prev => prev ? { ...prev, pastedMrexpt: v } : null);
+                  }
+                }),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn',
+                  style: {
+                    background: 'var(--accent, #6366f1)',
+                    color: '#fff',
+                    fontWeight: 600,
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    border: 'none',
+                    cursor: 'pointer',
+                    alignSelf: 'flex-start'
+                  },
+                  disabled: !ongoingEpubModal.pastedMrexpt?.trim(),
+                  onClick: () => {
+                    const text = (ongoingEpubModal.pastedMrexpt || '').trim();
+                    if (!text) return toast('Please paste your .mrexpt text first.', 'warning');
+                    processMrexptText(text, 'backup.mrexpt');
+                  }
+                }, '⚡ Parse & Fix Pasted Text')
+              )
             ) : h('div', {
               style: {
                 background: 'rgba(255, 255, 255, 0.03)',
