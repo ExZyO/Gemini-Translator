@@ -57,6 +57,7 @@
       handleStartFetch,
       handlePauseFetch,
       handleCancelFetch,
+      handleResetImportTab,
       dismissCrawlSession,
       handleSearchNovels,
       handleSwiftAudioSearch,
@@ -705,32 +706,62 @@
                           }, isSwiftAudioSearching ? 'Searching…' : '🔍 Search Audiobooks')
                         )
                       ) : (
-                        h('div', { style: { display: 'grid', gridTemplateColumns: (!webImportUrl.trim() || !/^https?:\/\//i.test(webImportUrl.trim())) ? '1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
-                          (!webImportUrl.trim() || !/^https?:\/\//i.test(webImportUrl.trim())) ? (
-                            h('button', {
-                              type: 'button',
-                              className: 'primary',
-                              style: { background: 'linear-gradient(90deg, #6366f1, #3b82f6)', width: '100%', fontWeight: 700 },
-                              disabled: !webImportUrl.trim() || isSearchingNovels,
-                              onClick: () => handleSearchNovels(webImportUrl)
-                            }, isSearchingNovels ? 'Searching Supported Sources…' : '🔍 Search Web Novels')
-                          ) : (
-                            h(React.Fragment, null,
+                        h(React.Fragment, null,
+                          h('div', { style: { display: 'grid', gridTemplateColumns: (!webImportUrl.trim() || !/^https?:\/\//i.test(webImportUrl.trim())) ? '1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
+                            isLnoriUrl ? (
+                              h(React.Fragment, null,
+                                h('button', {
+                                  type: 'button',
+                                  className: 'primary',
+                                  style: { background: 'linear-gradient(90deg, #6366f1, #10b981)', fontWeight: 700 },
+                                  disabled: !webImportUrl.trim(),
+                                  onClick: () => handleLnoriDirectEpubDownload(webImportUrl)
+                                }, '⚡ 1-Click Download Clean EPUB'),
+                                h('button', {
+                                  type: 'button',
+                                  className: 'primary ghost',
+                                  style: { fontWeight: 600 },
+                                  disabled: !webImportUrl.trim(),
+                                  onClick: () => handleStartFetch(false)
+                                }, '⤓ Scrape Chapters')
+                              )
+                            ) : (!webImportUrl.trim() || !/^https?:\/\//i.test(webImportUrl.trim())) ? (
                               h('button', {
                                 type: 'button',
                                 className: 'primary',
-                                style: { fontWeight: 700 },
-                                disabled: !webImportUrl.trim(),
-                                onClick: () => handleStartFetch(false)
-                              }, '⤓ Fetch Novel URL'),
-                              h('button', {
-                                type: 'button',
-                                className: 'primary ghost',
-                                style: { fontWeight: 600 },
+                                style: { background: 'linear-gradient(90deg, #6366f1, #3b82f6)', width: '100%', fontWeight: 700 },
                                 disabled: !webImportUrl.trim() || isSearchingNovels,
                                 onClick: () => handleSearchNovels(webImportUrl)
-                              }, isSearchingNovels ? 'Searching…' : '🔍 Search Title')
+                              }, isSearchingNovels ? 'Searching Supported Sources…' : '🔍 Search Web Novels')
+                            ) : (
+                              h(React.Fragment, null,
+                                h('button', {
+                                  type: 'button',
+                                  className: 'primary',
+                                  style: { fontWeight: 700 },
+                                  disabled: !webImportUrl.trim(),
+                                  onClick: () => handleStartFetch(false)
+                                }, '⤓ Fetch Novel URL'),
+                                h('button', {
+                                  type: 'button',
+                                  className: 'primary ghost',
+                                  style: { fontWeight: 600 },
+                                  disabled: !webImportUrl.trim() || isSearchingNovels,
+                                  onClick: () => handleSearchNovels(webImportUrl)
+                                }, isSearchingNovels ? 'Searching…' : '🔍 Search Title')
+                              )
                             )
+                          ),
+                          (activeNovelView || webImportUrl.trim() || (novelSearchResults && novelSearchResults.length > 0)) && !isFetchingUrl && h('div', {
+                            style: { display: 'flex', justifyContent: 'flex-end', marginTop: 4, marginBottom: 2 }
+                          },
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn ghost',
+                              style: { fontSize: 11, padding: '2px 8px', color: 'var(--slate)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 },
+                              onClick: handleResetImportTab,
+                              title: 'Reset import view and start fresh with another novel'
+                            }, '↺ Reset Tab')
                           )
                         )
                       )
@@ -794,16 +825,25 @@
                 activeNovelView && h('div', { className: 'book-card' },
                   h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
                     h('div', { className: 't', style: { margin: 0, flex: 1 } }, activeNovelView.customTitle || getCustomTitle(activeNovelView) || activeNovelView.title || 'Untitled Web Novel'),
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn secondary',
-                      style: { fontSize: '11px', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap', fontWeight: 600 },
-                      title: 'Rename this novel',
-                      onClick: () => {
-                        setRenameModalNovel(activeNovelView);
-                        setNewNovelTitleInput(activeNovelView.customTitle || getCustomTitle(activeNovelView) || activeNovelView.title || '');
-                      }
-                    }, '✏️ Rename')
+                    h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn secondary',
+                        style: { fontSize: '11px', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap', fontWeight: 600 },
+                        title: 'Rename this novel',
+                        onClick: () => {
+                          setRenameModalNovel(activeNovelView);
+                          setNewNovelTitleInput(activeNovelView.customTitle || getCustomTitle(activeNovelView) || activeNovelView.title || '');
+                        }
+                      }, '✏️ Rename'),
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: { fontSize: '11px', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--slate)' },
+                        title: 'Reset view and start a new import or search',
+                        onClick: handleResetImportTab
+                      }, '✨ New Import')
+                    )
                   ),
                   h('div', { className: 'm' }, `By ${activeNovelView.author || 'Unknown'} · ${(activeNovelView.chapters || []).length} chapter(s) · ${(activeNovelView.chapters || []).reduce((a, c) => a + ((c.text || c.content || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
                   isLnoriNovel && h('div', {
@@ -940,12 +980,12 @@
                   )
                 ),
                 activeNovelView && activeNovelView.chapters && activeNovelView.chapters.length > 0 && (() => {
-                  const chs = activeNovelView.chapters;
+                  const sortedChs = [...activeNovelView.chapters].sort((a, b) => (a.idx !== undefined && b.idx !== undefined) ? (a.idx - b.idx) : 0);
                   const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s:–—,-]*(.*)$/i;
                   const volumeGroups = [];
-                  let curGroup = null;
+                  const groupMap = new Map();
 
-                  chs.forEach((ch, globalIdx) => {
+                  sortedChs.forEach((ch, globalIdx) => {
                     const title = ch?.title || '';
                     const explicitVol = ch?.volume || ch?.arc;
                     let volName = null;
@@ -969,17 +1009,22 @@
                     // Clean any dangling punctuation (commas, dashes, colons) from title
                     cleanTitle = (cleanTitle || title).replace(/^[\s:–—,.-]+/, '').trim() || title;
 
-                    if (!curGroup || (volName && curGroup.volName !== volName)) {
-                      curGroup = {
-                        volKey: volName ? `vol_${volName.replace(/\s+/g, '_')}` : `group_${volumeGroups.length + 1}`,
-                        volName: volName || (volumeGroups.length === 0 ? 'Prologue / General' : 'Extra / Other'),
+                    const effectiveVolName = volName || (groupMap.size === 0 ? 'Prologue / General' : 'Extra / Other');
+                    const volKey = volName ? `vol_${volName.replace(/\s+/g, '_')}` : `group_${effectiveVolName.replace(/\s+/g, '_')}`;
+
+                    let targetGroup = groupMap.get(volKey);
+                    if (!targetGroup) {
+                      targetGroup = {
+                        volKey,
+                        volName: effectiveVolName,
                         hasRealVolume: Boolean(volName),
                         items: []
                       };
-                      volumeGroups.push(curGroup);
+                      groupMap.set(volKey, targetGroup);
+                      volumeGroups.push(targetGroup);
                     }
 
-                    curGroup.items.push({
+                    targetGroup.items.push({
                       chapter: ch,
                       globalIdx,
                       cleanTitle: cleanTitle || title,

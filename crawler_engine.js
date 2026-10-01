@@ -170,7 +170,7 @@
             author: stats.author || targetSession?.author || 'Unknown',
             summary: stats.summary || targetSession?.summary || '',
             cover: stats.cover || targetSession?.cover || '',
-            chapters: allChapters,
+            chapters: [...allChapters].sort((a, b) => (a.idx !== undefined && b.idx !== undefined) ? (a.idx - b.idx) : 0),
             chapterList: stats.chapterList || targetSession?.chapterList || [],
             completedCount: allChapters.length,
             totalChapterCount: currentTotal,
@@ -215,7 +215,7 @@
       if (ctrl?.isPaused) {
         callbacks.setIsFetchingPaused?.(true);
         callbacks.setIsFetchingUrl?.(false);
-        const finalSession = latestSessionSnapshot || (data?.chapters ? { ...targetSession, chapters: data.chapters } : null);
+        const finalSession = latestSessionSnapshot || (data?.chapters ? { ...targetSession, chapters: [...data.chapters].sort((a, b) => (a.idx !== undefined && b.idx !== undefined) ? (a.idx - b.idx) : 0) } : null);
         if (finalSession) {
           callbacks.setActiveCrawlSession?.(finalSession);
           callbacks.setWebImportData?.(finalSession);
@@ -909,8 +909,14 @@
         options = {},
         callbacks = {}
       } = params;
+      const effectiveUrl = overrideUrl || targetUrl;
+      if (!isResume && effectiveUrl && /lnori\.org\/(?:novel|series|book)\//i.test(effectiveUrl) && params.forceScrape !== true) {
+        if (typeof directEpubDownload === 'function') {
+          return directEpubDownload({ url: effectiveUrl, callbacks, options });
+        }
+      }
       return startCrawl({
-        targetUrl: overrideUrl || targetUrl,
+        targetUrl: effectiveUrl,
         isResume,
         resumeSessionData,
         autoExportEpub,

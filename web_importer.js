@@ -646,6 +646,10 @@
             return { blocked: true, type: 'proxy_dead', label: 'CORS Proxy Error / Redirect' };
         }
 
+        if (lower.includes('play.google.com') || lower.includes('gamesappsbookskids') || lower.includes('not yet media ltd') || lower.includes('com.royalroad.app')) {
+            return { blocked: true, type: 'app_store_redirect', label: 'App Store Redirect Trap' };
+        }
+
         return { blocked: false, type: null };
     }
 
@@ -905,30 +909,33 @@
             this.failureStreak = 0;
             this.successStreak++;
 
-            // If cruising smoothly with fast latency (<1500ms) for 2+ chapters, smoothly recover toward base speed
-            if (this.successStreak >= 2 && this.currentDelayMs > this.baseDelayMs) {
-                this.currentDelayMs = Math.max(this.baseDelayMs, Math.round(this.currentDelayMs * 0.6));
-                this.successStreak = 0;
+            // If cruising smoothly with fast latency, rapidly recover toward base speed
+            if (this.currentDelayMs > this.baseDelayMs) {
+                this.currentDelayMs = Math.max(this.baseDelayMs, Math.round(this.currentDelayMs * 0.5));
+                if (this.currentDelayMs <= this.baseDelayMs + 20) {
+                    this.currentDelayMs = this.baseDelayMs;
+                }
             }
         }
 
         recordThrottle(reason = 'rate_limit', errStatus = 429) {
+            const reasonStr = String(reason || '').toLowerCase();
+            const isGenuineRateLimit = errStatus === 429 || errStatus === 1015 || reasonStr.includes('1015') || reasonStr.includes('rate limit') || reasonStr.includes('too many requests') || reasonStr.includes('status 429');
+            if (!isGenuineRateLimit) return; // Do not throttle global pacing for transient network hiccups or 500 retries
+
             this.failureStreak++;
             this.successStreak = 0;
-            if (errStatus === 429 || errStatus === 1015 || String(reason).includes('rate limit')) {
-                this.currentDelayMs = Math.min(6000, Math.max(1200, this.currentDelayMs * 2 + 500));
-            } else {
-                this.currentDelayMs = Math.min(4000, Math.max(500, this.currentDelayMs * 1.5 + 250));
-            }
+            this.currentDelayMs = Math.min(5000, Math.max(1000, this.currentDelayMs * 1.8 + 400));
         }
 
         getPacingDelay() {
+            if (this.currentDelayMs <= 15) return 0;
             const jitter = (Math.random() - 0.5) * 0.25 * this.currentDelayMs;
             return Math.max(0, Math.round(this.currentDelayMs + jitter));
         }
 
         isThrottled() {
-            return this.currentDelayMs > this.baseDelayMs * 1.5;
+            return this.currentDelayMs >= 400 && this.currentDelayMs > this.baseDelayMs * 1.5;
         }
     }
 
@@ -1098,7 +1105,9 @@
                         if (speedCtrl.isThrottled()) {
                             progressCb?.(`🚦 Adaptive speed control active (${currentDelay}ms pacing)... (${completedIndices.size}/${chapterList.length} ch done)`);
                         }
-                        await new Promise(r => setTimeout(r, currentDelay));
+                        if (currentDelay > 15) {
+                            await new Promise(r => setTimeout(r, currentDelay));
+                        }
                         if (ctrl.isPaused || ctrl.isCancelled) break;
 
                         const reqStart = Date.now();
@@ -1118,11 +1127,10 @@
                         }
                     } catch (fetchErr) {
                         const errMsg = String(fetchErr?.message || '').toLowerCase();
-                        if (errMsg.includes('1015') || errMsg.includes('rate limit') || errMsg.includes('429')) {
+                        if (errMsg.includes('1015') || errMsg.includes('rate limit') || errMsg.includes('429') || errMsg.includes('too many requests')) {
                             rateLimitDetected = true;
                             speedCtrl.recordThrottle(errMsg, 429);
                         } else {
-                            speedCtrl.recordThrottle(errMsg, 500);
                             if (attempts < 4) {
                                 const backoffDelay = Math.min(8000, (1000 * Math.pow(2, attempts - 1)) + (Math.random() * 500));
                                 await new Promise(r => setTimeout(r, backoffDelay));
@@ -1872,7 +1880,10 @@
                 for (const m of rMatches) {
                     let rHref = m[1].replace(/\/$/, '') + '/';
                     const rText = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
-                    if (rHref.includes('remonwater.wordpress.com/20') && !seenHref.has(rHref) && rText.length > 3) {
+                    const isJunkRemon = rHref.includes('#') || rHref.includes('/tag/') || rHref.includes('/category/') || rHref.includes('share=') ||
+                                       /^(?:\d+\s+comments?|\d+\s+[a-z]+\s+\d+|share\s+on|like\s+this)/i.test(rText) ||
+                                       !/(?:chapter|ch\.?|part|prologue|epilogue|interlude|fragment|section|beginning|reif)/i.test(rText);
+                    if (rHref.includes('remonwater.wordpress.com/20') && !seenHref.has(rHref) && !isJunkRemon && rText.length > 4) {
                         seenHref.add(rHref);
                         allLinks.push({
                             href: rHref,
@@ -1916,8 +1927,20 @@
                 byArc.get(ch.arc).push(ch);
             }
 
+            const arcOrderWeight = (arcName) => {
+                const m = String(arcName || '').match(/Arc\s*(\d+)/i);
+                if (m) return parseInt(m[1], 10);
+                if (/EX/i.test(arcName)) return 100;
+                if (/Short\s*Stories/i.test(arcName)) return 110;
+                if (/Side\s*Content/i.test(arcName)) return 120;
+                if (/IF\s*Stories/i.test(arcName)) return 130;
+                return 999;
+            };
+
+            const sortedArcKeys = [...byArc.keys()].sort((a, b) => arcOrderWeight(a) - arcOrderWeight(b));
             const sortedChapters = [];
-            for (const [arcName, arcChapters] of byArc.entries()) {
+            for (const arcName of sortedArcKeys) {
+                const arcChapters = byArc.get(arcName) || [];
                 arcChapters.sort((a, b) => getWctSortKey(a) - getWctSortKey(b));
                 sortedChapters.push(...arcChapters);
             }
@@ -2007,6 +2030,10 @@
                     contentHtml = cMatch ? cMatch[1] : html;
                 }
                 const txt = cleanWitchCultChapter(contentHtml);
+                const words = (txt || '').trim().split(/\s+/).filter(Boolean).length;
+                if (words < 25 && /(?:announcement|coming soon|will be translated|tba|placeholder|page not found)/i.test(txt)) {
+                    return null;
+                }
                 return { title: item.title, text: txt, arc: item.arc, volume: item.volume };
             },
             12,
@@ -2128,6 +2155,61 @@
             const txt = t.textContent?.trim();
             if (txt) tags.push(txt);
         });
+
+        // Fast-path: Single chapter URL ingestion
+        const isSingleChapterUrl = url.includes('/chapter/');
+        const chapterContentEl = doc.querySelector('.chapter-inner, .chapter-content');
+        if (isSingleChapterUrl && chapterContentEl) {
+            chapterContentEl.querySelectorAll('[style*="display: none"], [style*="display:none"], [style*="opacity: 0"], [style*="opacity:0"], [style*="font-size: 0"], .hidden, .d-none').forEach(el => el.remove());
+
+            const authorNotes = Array.from(doc.querySelectorAll('.author-note-portlet'));
+            let topNoteHtml = '';
+            let bottomNoteHtml = '';
+            if (authorNotes.length > 0) {
+                authorNotes.forEach(an => {
+                    const noteBody = an.querySelector('.author-note, .portlet-body');
+                    if (!noteBody) return;
+                    const isBefore = (chapterContentEl.compareDocumentPosition(an) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
+                    const noteCleaned = cleanChapterHtmlWithImages(noteBody.innerHTML || noteBody.textContent || '', url);
+                    if (noteCleaned) {
+                        const formattedNote = '\n\n> **Author\'s Note:**\n> ' + noteCleaned.split('\n').join('\n> ') + '\n\n';
+                        if (isBefore) topNoteHtml += formattedNote;
+                        else bottomNoteHtml += formattedNote;
+                    }
+                });
+            }
+
+            let txt = cleanChapterHtmlWithImages(chapterContentEl.innerHTML || chapterContentEl.textContent || '', url);
+            if (topNoteHtml) txt = topNoteHtml.trim() + '\n\n' + txt;
+            if (bottomNoteHtml) txt = txt + '\n\n' + bottomNoteHtml.trim();
+
+            const trapCleaner = (typeof window !== 'undefined' && window.stripInvisibleTrapsAndWatermarks) ? window.stripInvisibleTrapsAndWatermarks : (typeof stripInvisibleTrapsAndWatermarks === 'function' ? stripInvisibleTrapsAndWatermarks : null);
+            if (typeof trapCleaner === 'function') txt = trapCleaner(txt);
+
+            const chTitle = doc.querySelector('h1')?.textContent?.trim() || 'Chapter 1';
+            const fictionEl = doc.querySelector('h2 a[href*="/fiction/"], .fic-header h2 a, a[href*="/fiction/"]:not([href*="/chapter/"])');
+            const novelTitle = fictionEl?.textContent?.trim() || title;
+
+            const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+            if (typeof stripFn === 'function' && chTitle) {
+                txt = stripFn(txt, chTitle);
+            }
+
+            const chObj = { title: chTitle, text: txt, url, words: txt.split(/\s+/).filter(Boolean).length };
+            progressCb?.(`Loaded RoyalRoad chapter: ${chTitle}!`, 100);
+            return {
+                title: novelTitle,
+                author,
+                summary,
+                cover,
+                tags,
+                chapters: [chObj],
+                chapterList: [{ url, title: chTitle }],
+                totalChapterCount: 1,
+                isEpub: false,
+                sourceUrl: url
+            };
+        }
 
         const chapterLinks = [];
         const seenUrls = new Set();
@@ -5180,7 +5262,7 @@
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = {
-            WebNovelImporter,
+            WebNovelImporter: window.WebNovelImporter,
             ChameleonExtractor,
             AdaptiveSpeedController,
             cleanChapterHtmlWithImages

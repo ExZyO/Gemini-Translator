@@ -99,15 +99,9 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private static final int NOTIFICATION_ID = 1001;
     private static final int COMPLETE_NOTIFICATION_ID = 1002;
     private static final int AUDIO_NOTIFICATION_ID = 8888;
-    private static final String DEFAULT_UA = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36";
+    private static final String DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
     private String getDefaultUserAgent() {
-        try {
-            if (getContext() != null) {
-                String ua = WebSettings.getDefaultUserAgent(getContext());
-                if (ua != null && !ua.isEmpty()) return ua;
-            }
-        } catch (Throwable ignored) {}
         return DEFAULT_UA;
     }
 
@@ -2023,6 +2017,11 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         if (loc != null && !loc.isEmpty()) {
                             if (!loc.startsWith("http")) {
                                 loc = new URL(url, loc).toString();
+                            }
+                            String locLower = loc.toLowerCase();
+                            if (locLower.contains("play.google.com") || locLower.contains("market://") || locLower.contains("apps.apple.com") || locLower.contains("/store/apps")) {
+                                conn.disconnect();
+                                break;
                             }
                             currentUrl = loc.replace("[", "%5B").replace("]", "%5D").replace(" ", "%20");
                             conn.disconnect();
