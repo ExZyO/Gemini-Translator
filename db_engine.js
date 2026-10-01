@@ -747,6 +747,37 @@
       } catch (e) { return false; }
     },
 
+    // 6. Permanent Storage API (Exempt from Android/Browser Eviction)
+    async requestPersistentStorage() {
+      if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+        try {
+          const isPersisted = await navigator.storage.persisted();
+          if (isPersisted) {
+            console.log('🛡️ [db_engine] Storage is already persistent (eviction-proof).');
+            return true;
+          }
+          const granted = await navigator.storage.persist();
+          console.log(`🛡️ [db_engine] Persistent storage request result: ${granted ? 'GRANTED' : 'DENIED'}`);
+          return granted;
+        } catch (e) {
+          console.warn('⚠️ [db_engine] Could not request persistent storage:', e);
+          return false;
+        }
+      }
+      return false;
+    },
+
+    async isStoragePersisted() {
+      if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persisted) {
+        try {
+          return await navigator.storage.persisted();
+        } catch (_) {
+          return false;
+        }
+      }
+      return false;
+    },
+
     // 5. Subscription Helper for Reactive State
     subscribe(callback) {
       if (typeof window === 'undefined' || typeof callback !== 'function') return () => {};
@@ -757,6 +788,11 @@
   };
 
   global.GeminiNovelDB = GeminiNovelDB;
+
+  // Auto-request permanent durable storage on initialization
+  if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+    GeminiNovelDB.requestPersistentStorage().catch(() => {});
+  }
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = { GeminiNovelDB, novelDB, appDB };

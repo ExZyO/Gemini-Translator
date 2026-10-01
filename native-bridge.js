@@ -856,6 +856,11 @@
                 console.warn('KeepAlive start error:', e);
             }
             try {
+                if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+                    navigator.storage.persist().catch(() => {});
+                }
+            } catch (_) {}
+            try {
                 const bridge = getBridge();
                 if (bridge && bridge.acquireWakeLock) {
                     await bridge.acquireWakeLock({ title, message });
@@ -881,6 +886,28 @@
             } catch (e) {
                 console.warn('Native WakeLock Release Bridge:', e);
             }
+        },
+
+        requestPersistentStorage: async () => {
+            if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+                try {
+                    const isPersisted = await navigator.storage.persisted();
+                    if (isPersisted) return true;
+                    return await navigator.storage.persist();
+                } catch (e) {
+                    console.warn('Storage persistence request error:', e);
+                }
+            }
+            return false;
+        },
+
+        isStoragePersisted: async () => {
+            if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persisted) {
+                try {
+                    return await navigator.storage.persisted();
+                } catch (_) {}
+            }
+            return false;
         },
 
         isBatteryOptimizationIgnored: async () => {

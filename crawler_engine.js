@@ -93,9 +93,27 @@
     if (!session) return;
     try {
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('gemini_active_crawl_session', JSON.stringify(session));
+        // Strip heavy chapter prose when saving to localStorage to prevent QuotaExceededError
+        const lightweight = {
+          ...session,
+          chapters: (session.chapters || []).map(c => ({
+            idx: c.idx,
+            title: c.title,
+            url: c.url,
+            arc: c.arc,
+            volume: c.volume
+          }))
+        };
+        localStorage.setItem('gemini_active_crawl_session', JSON.stringify(lightweight));
       }
     } catch (e) {}
+
+    // Authoritative Single Source of Truth: Guarantee complete chapters are committed to GeminiNovelDB (IndexedDB)
+    if (typeof window !== 'undefined' && window.GeminiNovelDB && typeof window.GeminiNovelDB.saveNovel === 'function') {
+      window.GeminiNovelDB.saveNovel(session).catch((err) => {
+        console.warn('[crawler_engine] Error committing crawl progress to GeminiNovelDB:', err);
+      });
+    }
 
     if (typeof callbacks?.saveNovelToHistory === 'function') {
       callbacks.saveNovelToHistory(session);
@@ -414,11 +432,14 @@
     if (coverUrl && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(coverUrl)) {
       coverUrl = coverUrl.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
     }
+    if (coverUrl && /https?:\/\/cdn\.lnori\.com\/cover\/(\d+)\.webp/i.test(coverUrl)) {
+      coverUrl = coverUrl.replace(/https?:\/\/cdn\.lnori\.com\/cover\/(\d+)\.webp/i, 'https://cdn.lnori.com/series/$1.jpg');
+    }
     if (!coverUrl && novelData.sourceUrl) {
       const bookIdMatch = novelData.sourceUrl.match(/\/book\/(\d+)/i);
       const seriesIdMatch = novelData.sourceUrl.match(/\/series\/(\d+)/i);
       if (bookIdMatch) coverUrl = `https://cdn.lnori.com/volume/${bookIdMatch[1]}.jpg`;
-      else if (seriesIdMatch) coverUrl = `https://cdn.lnori.com/cover/${seriesIdMatch[1]}.webp`;
+      else if (seriesIdMatch) coverUrl = `https://cdn.lnori.com/series/${seriesIdMatch[1]}.jpg`;
     }
 
     try {

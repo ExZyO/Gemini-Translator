@@ -830,8 +830,9 @@ hr {
                 } catch(_) {}
               }
 
-              // Strategy 3: Dedicated High-Speed Image CDN & Proxy Pool (Strict 3.5s per proxy)
-              if (!buffer || buffer.byteLength < 500) {
+              // Strategy 3: Dedicated High-Speed Image CDN & Proxy Pool (Strict 3.5s per proxy, skipped if host is known unreachable and thHash exists)
+              const isUnreachableHost = downloadUrl.includes('img.lnori.');
+              if ((!buffer || buffer.byteLength < 500) && (!isUnreachableHost || !thHash)) {
                 const cleanNoProto = downloadUrl.replace(/^https?:\/\//i, '');
                 const proxies = [
                   () => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`,
@@ -1674,7 +1675,7 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
         // Process any illustrations inside the chapter text
         const mdImgMatches = Array.from(bodyContent.matchAll(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/gi));
         for (const m of mdImgMatches) {
-          const imgUrl = m[1];
+          const imgUrl = m[2] || m[1];
           const imgObj = await fetchImageBytes(imgUrl);
           if (imgObj) {
             const imgFileName = `img_cont_${chNum}_${imageCounter}.${imgObj.ext}`;

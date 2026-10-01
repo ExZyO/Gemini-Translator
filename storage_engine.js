@@ -473,7 +473,7 @@ const GeminiNovelDB = {
     window.dbPut = dbPut;
     window.dbDelete = dbDelete;
     window.dbClear = dbClear;
-    window.GeminiNovelDB = GeminiNovelDB;
+    window.GeminiNovelDB = window.GeminiNovelDB || GeminiNovelDB;
   }
 
   return {
@@ -484,6 +484,6 @@ const GeminiNovelDB = {
     dbPut,
     dbDelete,
     dbClear,
-    GeminiNovelDB
+    GeminiNovelDB: (typeof window !== 'undefined' && window.GeminiNovelDB) ? window.GeminiNovelDB : GeminiNovelDB
   };
 }));

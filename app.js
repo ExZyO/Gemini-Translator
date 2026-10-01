@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.18.10';
+        let VERSION = '8.18.11';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2254,6 +2254,8 @@
       useEffect(() => {
         try {
           window.NativeBridge?.requestNotificationPermission?.();
+          window.NativeBridge?.requestPersistentStorage?.();
+          window.GeminiNovelDB?.requestPersistentStorage?.();
         } catch (e) {}
       }, []);
 

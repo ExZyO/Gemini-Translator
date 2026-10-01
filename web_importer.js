@@ -2296,10 +2296,10 @@
 
                 return { title: item.title, text: txt };
             },
-            2,
+            options.concurrency || 4,
             progressCb,
             { title, author, summary, cover, chapterList: chapterLinks },
-            { delayMs: 300 }
+            { delayMs: options.delayMs !== undefined ? options.delayMs : 120 }
         );
 
         if (activeCrawlController?.tocOnly) {
@@ -2784,10 +2784,10 @@
                 const chTitle = chDoc.querySelector('.chapter-title')?.textContent?.trim() || item.title;
                 return { title: chTitle, text: cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '') };
             },
-            3,
+            options.concurrency || 5,
             progressCb,
             { title, author, summary, cover, chapterList: chapterLinks },
-            { delayMs: 250 }
+            { delayMs: options.delayMs !== undefined ? options.delayMs : 100 }
         );
 
         if (activeCrawlController?.tocOnly) {
