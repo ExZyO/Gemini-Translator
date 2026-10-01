@@ -3278,7 +3278,15 @@
 
         try {
             function parseChaptersFromBookHtml(bookHtml, bookPageUrl, volIndex = null) {
-            const bDoc = new DOMParser().parseFromString(bookHtml, 'text/html');
+            if (!bookHtml || typeof bookHtml !== 'string') return [];
+            let bDoc = null;
+            try {
+                bDoc = new DOMParser().parseFromString(bookHtml, 'text/html');
+            } catch (dpErr) {
+                console.warn('DOMParser failed on bookHtml:', dpErr);
+                return [];
+            }
+            if (!bDoc || !bDoc.body) return [];
             
             // 1. Primary Strategy: Check Lnori Table of Contents navigation (<nav class="toc-view" ...> <a href="#pageXX">)
             const tocAnchors = Array.from(bDoc.querySelectorAll('nav.toc-view a[href*="#page"], nav a[href*="#page"], #toc-list a[href*="#page"]'));
@@ -3426,6 +3434,9 @@
             progressCb?.('Ingesting entire Lnori book volume...', 25);
             window.AppLogger?.log('info', 'Lnori', `Fetching Lnori URL: ${url}`);
             const html = await fetchHtml(url, { headers: { 'Referer': origin + '/' } });
+            if (!html || typeof html !== 'string') {
+                throw new Error('Failed to fetch book content from Lnori. Remote server returned empty response.');
+            }
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
             const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.replace(/\s*[-|]\s*Lnori\s*$/i, '').trim() ||
@@ -3485,6 +3496,9 @@
             // Series page (/series/{id}/{slug})
             progressCb?.('Reading Lnori series volume index...', 20);
             const html = await fetchHtml(url, { headers: { 'Referer': origin + '/' } });
+            if (!html || typeof html !== 'string') {
+                throw new Error('Failed to fetch series index from Lnori. Remote server returned empty response.');
+            }
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
             let title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.replace(/\s*[-|]\s*Lnori\s*$/i, '').trim() ||
@@ -3579,26 +3593,33 @@
 
                 try {
                     const bHtml = await fetchHtml(bItem.url, { headers: { 'Referer': url } });
-                    if (volNum === 1 || !author || author === 'Lnori Author' || author === 'Author' || author === 'Unknown') {
-                        try {
-                            const vDoc = new DOMParser().parseFromString(bHtml, 'text/html');
-                            const vAuthor = vDoc.querySelector('meta[name="author"]')?.getAttribute('content')?.trim() ||
-                                            vDoc.querySelector('.author')?.textContent?.trim();
-                            if (vAuthor && vAuthor !== 'Lnori Author') author = vAuthor;
-                            if (!title || title === 'Lnori Series' || title === 'Web Novel') {
-                                const vTitle = vDoc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
-                                                vDoc.querySelector('title')?.textContent?.replace(/\s*[-|]\s*Lnori\s*$/i, '') || '';
-                                const cleanVTitle = vTitle.replace(/:\s*Volume\s*\d+.*$/i, '').replace(/:\s*Vol\.\s*\d+.*$/i, '').trim();
-                                if (cleanVTitle) title = cleanVTitle;
-                            }
-                        } catch (_) {}
+                    if (bHtml && typeof bHtml === 'string') {
+                        if (volNum === 1 || !author || author === 'Lnori Author' || author === 'Author' || author === 'Unknown') {
+                            try {
+                                const vDoc = new DOMParser().parseFromString(bHtml, 'text/html');
+                                const vAuthor = vDoc.querySelector('meta[name="author"]')?.getAttribute('content')?.trim() ||
+                                                vDoc.querySelector('.author')?.textContent?.trim();
+                                if (vAuthor && vAuthor !== 'Lnori Author') author = vAuthor;
+                                if (!title || title === 'Lnori Series' || title === 'Web Novel') {
+                                    const vTitle = vDoc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
+                                                    vDoc.querySelector('title')?.textContent?.replace(/\s*[-|]\s*Lnori\s*$/i, '') || '';
+                                    const cleanVTitle = vTitle.replace(/:\s*Volume\s*\d+.*$/i, '').replace(/:\s*Vol\.\s*\d+.*$/i, '').trim();
+                                    if (cleanVTitle) title = cleanVTitle;
+                                }
+                            } catch (_) {}
+                        }
+                        const volChapters = parseChaptersFromBookHtml(bHtml, bItem.url, volNum);
+                        if (volChapters.length > 0) {
+                            allChapters = allChapters.concat(volChapters);
+                            window.sendTelemetry?.('CHAPTER_OK', `Saved Lnori Volume ${volNum}/${bookUrls.length}: ${bItem.title} (+${volChapters.length} chapters, ${allChapters.length} total)`);
+                        }
                     }
-                    const volChapters = parseChaptersFromBookHtml(bHtml, bItem.url, volNum);
-                    allChapters = allChapters.concat(volChapters);
-                    window.sendTelemetry?.('CHAPTER_OK', `Saved Lnori Volume ${volNum}/${bookUrls.length}: ${bItem.title} (+${volChapters.length} chapters, ${allChapters.length} total)`);
                 } catch (bErr) {
                     console.warn(`Failed to fetch Lnori volume ${bItem.url}:`, bErr);
                 }
+
+                // Breathing room for Garbage Collection on mobile WebView between heavy volumes
+                await new Promise(r => setTimeout(r, 150));
 
                 // Fire onChapterDone callback after each volume so React UI updates live and persists to IndexedDB
                 if (options.onChapterDone) {

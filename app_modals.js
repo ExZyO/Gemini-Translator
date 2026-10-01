@@ -3792,6 +3792,135 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // 18B. TOAST ITEM (Touch & Pointer Swipe to Dismiss / Swipe Down to Dismiss All)
+  // ─────────────────────────────────────────────────────────────────────────
+  function ToastItem(props) {
+    const { toast, onDismiss, onDismissAll } = props;
+    const h = getH();
+    const elRef = (typeof React !== 'undefined' && React.useRef) ? React.useRef(null) : { current: null };
+    const gestureRef = (typeof React !== 'undefined' && React.useRef)
+      ? React.useRef({ startX: 0, startY: 0, deltaX: 0, deltaY: 0, swiping: false })
+      : { current: { startX: 0, startY: 0, deltaX: 0, deltaY: 0, swiping: false } };
+
+    const handlePointerDown = (e) => {
+      if (e.target && e.target.closest && e.target.closest('button')) return;
+      const g = gestureRef.current;
+      g.startX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      g.startY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      g.deltaX = 0;
+      g.deltaY = 0;
+      g.swiping = true;
+      if (elRef.current) {
+        elRef.current.style.transition = 'none';
+        if (typeof elRef.current.setPointerCapture === 'function' && e.pointerId !== undefined) {
+          try { elRef.current.setPointerCapture(e.pointerId); } catch (_) {}
+        }
+      }
+    };
+
+    const handlePointerMove = (e) => {
+      const g = gestureRef.current;
+      if (!g.swiping || !elRef.current) return;
+      const curX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      const curY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      g.deltaX = curX - g.startX;
+      g.deltaY = curY - g.startY;
+
+      // Downward swipe (gesture to clear all toasts)
+      if (g.deltaY > 10 && Math.abs(g.deltaY) > Math.abs(g.deltaX) * 1.1) {
+        elRef.current.style.transform = `translateY(${g.deltaY}px)`;
+        elRef.current.style.opacity = String(Math.max(0.08, 1 - g.deltaY / 160));
+      } else {
+        // Horizontal swipe (gesture to dismiss individual toast)
+        elRef.current.style.transform = `translateX(${g.deltaX}px)`;
+        elRef.current.style.opacity = String(Math.max(0.08, 1 - Math.abs(g.deltaX) / 200));
+      }
+    };
+
+    const handlePointerEnd = (e) => {
+      const g = gestureRef.current;
+      if (!g.swiping || !elRef.current) return;
+      g.swiping = false;
+
+      // Downward swipe -> Dismiss ALL toasts
+      if (g.deltaY > 45 && Math.abs(g.deltaY) > Math.abs(g.deltaX)) {
+        elRef.current.style.transition = 'transform 0.18s ease-out, opacity 0.18s ease-out';
+        elRef.current.style.transform = 'translateY(120px)';
+        elRef.current.style.opacity = '0';
+        setTimeout(() => {
+          if (typeof onDismissAll === 'function') onDismissAll();
+        }, 160);
+        return;
+      }
+
+      // Horizontal swipe -> Dismiss this single toast
+      if (Math.abs(g.deltaX) > 55) {
+        elRef.current.style.transition = 'transform 0.18s ease-out, opacity 0.18s ease-out';
+        elRef.current.style.transform = `translateX(${g.deltaX > 0 ? 350 : -350}px)`;
+        elRef.current.style.opacity = '0';
+        setTimeout(() => {
+          if (typeof onDismiss === 'function') onDismiss(toast.id);
+        }, 160);
+        return;
+      }
+
+      // Snap back if threshold was not reached
+      elRef.current.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+      elRef.current.style.transform = 'translate(0px, 0px)';
+      elRef.current.style.opacity = '1';
+    };
+
+    return h('div', {
+      key: toast.id,
+      ref: elRef,
+      className: `toast ${toast.type || 'success'}`,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 10,
+        textAlign: 'left'
+      },
+      onPointerDown: handlePointerDown,
+      onPointerMove: handlePointerMove,
+      onPointerUp: handlePointerEnd,
+      onPointerCancel: handlePointerEnd
+    },
+      h('span', { style: { flex: 1, pointerEvents: 'none' } }, toast.msg),
+      toast.action && h('button', {
+        type: 'button',
+        className: 'mini-btn',
+        style: {
+          background: '#ffffff',
+          color: '#111827',
+          padding: '4px 10px',
+          fontSize: 12,
+          fontWeight: 800,
+          borderRadius: 6,
+          cursor: 'pointer',
+          border: 'none',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+          flexShrink: 0
+        },
+        onClick: (e) => {
+          e.stopPropagation();
+          if (typeof toast.action.onClick === 'function') toast.action.onClick();
+          if (typeof onDismiss === 'function') onDismiss(toast.id);
+        }
+      }, toast.action.label || 'Undo'),
+      h('button', {
+        type: 'button',
+        className: 'toast-dismiss-btn',
+        title: 'Dismiss toast',
+        onClick: (e) => {
+          e.stopPropagation();
+          if (typeof onDismiss === 'function') onDismiss(toast.id);
+        }
+      }, '✕')
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // 19. APP MODALS CONTAINER (Consolidated Root Modal Container)
   // ─────────────────────────────────────────────────────────────────────────
   function AppModalsContainer(props) {
@@ -3854,36 +3983,30 @@
         setSmartGlossary: props.setSmartGlossary
       }),
 
-      // 5. Toasts
-      h('div', { className: 'toast-wrap' },
-        (props.toasts || []).map(t => h('div', {
+      // 5. Toasts (Swipe-to-Dismiss individual toasts & Swipe Down to Clear All)
+      (props.toasts && props.toasts.length > 0) && h('div', { className: 'toast-wrap' },
+        props.toasts.length > 1 && h('button', {
+          type: 'button',
+          className: 'toast-dismiss-all-pill',
+          onClick: (e) => {
+            e.stopPropagation();
+            if (typeof props.setToasts === 'function') props.setToasts([]);
+          }
+        }, `✕ Swipe down or tap to clear all (${props.toasts.length})`),
+        props.toasts.map(t => h(ToastItem, {
           key: t.id,
-          className: `toast ${t.type || 'success'}`,
-          style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textAlign: 'left' }
-        },
-          h('span', { style: { flex: 1 } }, t.msg),
-          t.action && h('button', {
-            type: 'button',
-            className: 'mini-btn',
-            style: {
-              background: '#ffffff',
-              color: '#111827',
-              padding: '4px 10px',
-              fontSize: 12,
-              fontWeight: 800,
-              borderRadius: 6,
-              cursor: 'pointer',
-              border: 'none',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-              flexShrink: 0
-            },
-            onClick: (e) => {
-              e.stopPropagation();
-              if (typeof t.action.onClick === 'function') t.action.onClick();
-              if (typeof props.setToasts === 'function') props.setToasts(p => p.filter(item => item.id !== t.id));
+          toast: t,
+          onDismiss: (id) => {
+            if (typeof props.setToasts === 'function') {
+              props.setToasts(p => p.filter(item => item.id !== id));
             }
-          }, t.action.label || 'Undo')
-        ))
+          },
+          onDismissAll: () => {
+            if (typeof props.setToasts === 'function') {
+              props.setToasts([]);
+            }
+          }
+        }))
       ),
 
       // 6. Confirm Dialog

@@ -89,7 +89,7 @@
     return isPartial ? `${clean}_incomplete_${count}chs.epub` : `${clean}_${count}chs.epub`;
   }
 
-  function safeFlushCrawlPersistence(session, options, callbacks) {
+  function safeFlushCrawlPersistence(session, options, callbacks, isFinal = false) {
     if (!session) return;
     try {
       if (typeof localStorage !== 'undefined') {
@@ -115,12 +115,14 @@
       });
     }
 
-    if (typeof callbacks?.saveNovelToHistory === 'function') {
-      callbacks.saveNovelToHistory(session);
-    } else if (typeof options?.saveNovelToHistory === 'function') {
-      options.saveNovelToHistory(session);
-    } else if (typeof window !== 'undefined' && window.LibraryEngine?.saveNovelToHistory) {
-      window.LibraryEngine.saveNovelToHistory(session);
+    if (isFinal) {
+      if (typeof callbacks?.saveNovelToHistory === 'function') {
+        callbacks.saveNovelToHistory(session);
+      } else if (typeof options?.saveNovelToHistory === 'function') {
+        options.saveNovelToHistory(session);
+      } else if (typeof window !== 'undefined' && window.LibraryEngine?.saveNovelToHistory) {
+        window.LibraryEngine.saveNovelToHistory(session);
+      }
     }
   }
 
@@ -155,7 +157,7 @@
     let pendingSaveTimer = null;
     let latestSessionSnapshot = null;
 
-    const flushSession = (sess) => safeFlushCrawlPersistence(sess, options, callbacks);
+    const flushSession = (sess, isFinal = false) => safeFlushCrawlPersistence(sess, options, callbacks, isFinal);
 
     try {
       if (!window.WebNovelImporter || typeof window.WebNovelImporter.importUrl !== 'function') {
@@ -200,9 +202,9 @@
           };
           latestSessionSnapshot = sessionObj;
 
-          // Smooth 1.5s throttled persistence to IndexedDB & localStorage so UI stays 60fps
+          // Smooth 2.5s throttled persistence to IndexedDB & localStorage so UI stays 60fps
           const now = Date.now();
-          if (now - lastPersistTime > 1500) {
+          if (now - lastPersistTime > 2500) {
             lastPersistTime = now;
             callbacks.setActiveCrawlSession?.(sessionObj);
             callbacks.setWebImportData?.(sessionObj);
@@ -215,7 +217,7 @@
                 callbacks.setWebImportData?.(latestSessionSnapshot);
                 flushSession(latestSessionSnapshot);
               }
-            }, 1200);
+            }, 1800);
           }
 
           callbacks.setWebImportStatus?.(`Chapter ${stats.current || stats.completedCount || allChapters.length}/${currentTotal}: ${(newChapterObj.title || '').substring(0, 32)}…`);
@@ -237,7 +239,7 @@
         if (finalSession) {
           callbacks.setActiveCrawlSession?.(finalSession);
           callbacks.setWebImportData?.(finalSession);
-          flushSession(finalSession);
+          flushSession(finalSession, true);
         }
         if (ctrl.circuitBreakerTripped) {
           callbacks.setWebImportError?.({
@@ -287,7 +289,7 @@
         data.isIncomplete = !isActuallyFinished;
         data.totalChapterCount = totalExpected || data.chapters.length;
         callbacks.setWebImportData?.(data);
-        flushSession(data);
+        flushSession(data, true);
 
         if (isActuallyFinished) {
           try {
@@ -483,8 +485,8 @@
   /**
    * 1-Click clean EPUB direct downloader
    */
-  async function directEpubDownload({ targetUrl, webImportUrl, currentData, history, options = {}, callbacks = {} } = {}) {
-    const url = (targetUrl || webImportUrl || options.webImportUrl || '').trim();
+  async function directEpubDownload({ targetUrl, url: urlParam, webImportUrl, currentData, history, options = {}, callbacks = {} } = {}) {
+    const url = (targetUrl || urlParam || webImportUrl || options.webImportUrl || '').trim();
     if (!url) {
       safeToast(callbacks, 'Please enter an Lnori URL', 'warning');
       return;
@@ -532,9 +534,6 @@
     }
 
     safeToast(callbacks, 'Starting 1-click download for clean Lnori EPUB…', 'info');
-    if (typeof callbacks.handleStartFetch === 'function') {
-      return callbacks.handleStartFetch(false, null, true, url);
-    }
     return startCrawl({
       targetUrl: url,
       isResume: false,
@@ -964,11 +963,6 @@
         callbacks = {}
       } = params;
       const effectiveUrl = overrideUrl || targetUrl;
-      if (!isResume && effectiveUrl && /lnori\.(?:org|com)\/(?:novel|series|book)\//i.test(effectiveUrl) && params.forceScrape !== true) {
-        if (typeof directEpubDownload === 'function') {
-          return directEpubDownload({ url: effectiveUrl, callbacks, options });
-        }
-      }
       return startCrawl({
         targetUrl: effectiveUrl,
         isResume,
