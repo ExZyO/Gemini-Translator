@@ -4931,69 +4931,98 @@
         });
     }
 
-    async function searchNovels(query, source = 'all') {
+    async function searchNovels(query, source = 'all', onPartialResults = null) {
         if (!query || !query.trim()) return [];
         const cleanQ = query.trim();
         const src = (source || 'all').replace(/[\s\-_]+/g, '').toLowerCase();
 
-        const withTimeout = (p, ms = 4500) => Promise.race([
+        const withTimeout = (p, ms = 12000) => Promise.race([
             p,
             new Promise(resolve => setTimeout(() => resolve([]), ms))
         ]);
 
         const runners = [];
+        let aggregated = [];
+        const seenUrls = new Set();
+
+        const sortResults = (list) => {
+            const qLower = cleanQ.toLowerCase();
+            list.sort((a, b) => {
+                const aTitle = (a.title || '').toLowerCase();
+                const bTitle = (b.title || '').toLowerCase();
+                const aExact = aTitle === qLower ? 3 : (aTitle.startsWith(qLower) ? 2 : (aTitle.includes(qLower) ? 1 : 0));
+                const bExact = bTitle === qLower ? 3 : (bTitle.startsWith(qLower) ? 2 : (bTitle.includes(qLower) ? 1 : 0));
+                if (bExact !== aExact) return bExact - aExact;
+                const aCover = a.cover ? 1 : 0;
+                const bCover = b.cover ? 1 : 0;
+                return bCover - aCover;
+            });
+        };
+
+        const emitPartial = () => {
+            if (typeof onPartialResults === 'function') {
+                try {
+                    const copy = [...aggregated];
+                    sortResults(copy);
+                    onPartialResults(copy);
+                } catch (_) {}
+            }
+        };
+
+        const registerRunner = (p) => {
+            const wrapped = p.then(items => {
+                if (Array.isArray(items) && items.length > 0) {
+                    let added = false;
+                    for (const item of items) {
+                        const u = (item.url || '').replace(/\/$/, '');
+                        if (u && !seenUrls.has(u)) {
+                            seenUrls.add(u);
+                            aggregated.push(item);
+                            added = true;
+                        }
+                    }
+                    if (added) {
+                        emitPartial();
+                    }
+                }
+                return items;
+            }).catch(() => []);
+            runners.push(withTimeout(wrapped, 12000));
+        };
+
         if (src === 'all' || src === 'novelbuddy') {
-            runners.push(withTimeout(searchNovelBuddy(cleanQ).catch(() => [])));
+            registerRunner(searchNovelBuddy(cleanQ));
         }
         if (src === 'all' || src === 'royalroad') {
-            runners.push(withTimeout(searchRoyalRoad(cleanQ).catch(() => [])));
+            registerRunner(searchRoyalRoad(cleanQ));
         }
         if (src === 'all' || src === 'novelfull') {
-            runners.push(withTimeout(searchNovelFull(cleanQ).catch(() => [])));
+            registerRunner(searchNovelFull(cleanQ));
         }
         if (src === 'all' || src === 'novelbin') {
-            runners.push(withTimeout(searchNovelBin(cleanQ).catch(() => [])));
+            registerRunner(searchNovelBin(cleanQ));
         }
         if (src === 'all' || src === 'novelpub') {
-            runners.push(withTimeout(searchNovelPub(cleanQ).catch(() => [])));
+            registerRunner(searchNovelPub(cleanQ));
         }
         if (src === 'all' || src === 'freewebnovel') {
-            runners.push(withTimeout(searchFreeWebNovel(cleanQ).catch(() => [])));
+            registerRunner(searchFreeWebNovel(cleanQ));
         }
         if (src === 'all' || src === 'boxnovel') {
-            runners.push(withTimeout(searchBoxNovel(cleanQ).catch(() => [])));
+            registerRunner(searchBoxNovel(cleanQ));
         }
         if (src === 'all' || src === 'readnovelfull') {
-            runners.push(withTimeout(searchReadNovelFull(cleanQ).catch(() => [])));
+            registerRunner(searchReadNovelFull(cleanQ));
         }
         if (src === 'all' || src === 'novelfire') {
-            runners.push(withTimeout(searchNovelFire(cleanQ).catch(() => [])));
+            registerRunner(searchNovelFire(cleanQ));
         }
         if (src === 'all' || src === 'lnori') {
-            runners.push(withTimeout(searchLnori(cleanQ).catch(() => [])));
+            registerRunner(searchLnori(cleanQ));
         }
 
-        const settled = await Promise.allSettled(runners);
-        let aggregated = [];
-        for (const s of settled) {
-            if (s.status === 'fulfilled' && Array.isArray(s.value)) {
-                aggregated = aggregated.concat(s.value);
-            }
-        }
-
-        // Smart ranking: exact title match or prefix first, then covers prioritized
-        const qLower = cleanQ.toLowerCase();
-        aggregated.sort((a, b) => {
-            const aTitle = (a.title || '').toLowerCase();
-            const bTitle = (b.title || '').toLowerCase();
-            const aExact = aTitle === qLower ? 3 : (aTitle.startsWith(qLower) ? 2 : (aTitle.includes(qLower) ? 1 : 0));
-            const bExact = bTitle === qLower ? 3 : (bTitle.startsWith(qLower) ? 2 : (bTitle.includes(qLower) ? 1 : 0));
-            if (bExact !== aExact) return bExact - aExact;
-            const aCover = a.cover ? 1 : 0;
-            const bCover = b.cover ? 1 : 0;
-            return bCover - aCover;
-        });
-
+        await Promise.allSettled(runners);
+        sortResults(aggregated);
         return aggregated;
     }
 

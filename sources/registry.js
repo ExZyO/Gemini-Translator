@@ -251,45 +251,60 @@
     /**
      * Search novels across all registered sources supporting search
      * @param {string} query
+     * @param {function} [onPartial]
      * @returns {Promise<Array<{ name: string, path: string, url: string, cover: string, source: string, sourceId: string }>>}
      */
-    async searchAll(query) {
+    async searchAll(query, onPartial = null) {
       const searches = [];
+      const withTimeout = (p, ms = 12000) => Promise.race([
+        p,
+        new Promise(resolve => setTimeout(() => resolve([]), ms))
+      ]);
+
       for (const plugin of this.plugins.values()) {
         if (typeof plugin.search === 'function') {
-          searches.push(
-            plugin.search(query).then(results => 
-              (results || []).map(r => {
-                const rawTitle = (r.title || r.name || '').trim();
-                let cleanTitle = rawTitle;
-                if (!cleanTitle || cleanTitle.toLowerCase() === 'untitled' || cleanTitle.toLowerCase() === 'untitled novel') {
-                  const pathOrUrl = r.url || r.path || '';
-                  if (pathOrUrl) {
-                    const slug = pathOrUrl.replace(/^https?:\/\/[^\/]+/i, '').replace(/^\/|\/$/g, '').split('/').pop() || '';
-                    if (slug && !slug.includes('?') && !slug.includes('=')) {
-                      cleanTitle = slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
-                    }
+          const runSearch = plugin.search(query).then(results => {
+            const mapped = (results || []).map(r => {
+              const rawTitle = (r.title || r.name || '').trim();
+              let cleanTitle = rawTitle;
+              if (!cleanTitle || cleanTitle.toLowerCase() === 'untitled' || cleanTitle.toLowerCase() === 'untitled novel') {
+                const pathOrUrl = r.url || r.path || '';
+                if (pathOrUrl) {
+                  const slug = pathOrUrl.replace(/^https?:\/\/[^\/]+/i, '').replace(/^\/|\/$/g, '').split('/').pop() || '';
+                  if (slug && !slug.includes('?') && !slug.includes('=')) {
+                    cleanTitle = slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
                   }
                 }
-                if (!cleanTitle) cleanTitle = 'Web Novel';
-                return {
-                  ...r,
-                  title: cleanTitle,
-                  name: cleanTitle,
-                  url: r.url || r.path || '',
-                  source: r.source || plugin.name,
-                  sourceId: plugin.id
-                };
-              })
-            ).catch(err => {
-              console.warn(`[SourceRegistry] Search failed on ${plugin.name}:`, err.message);
-              return [];
-            })
-          );
+              }
+              if (!cleanTitle) cleanTitle = 'Web Novel';
+              return {
+                ...r,
+                title: cleanTitle,
+                name: cleanTitle,
+                url: r.url || r.path || '',
+                source: r.source || plugin.name,
+                sourceId: plugin.id
+              };
+            });
+            if (mapped.length > 0 && typeof onPartial === 'function') {
+              try { onPartial(mapped); } catch (_) {}
+            }
+            return mapped;
+          }).catch(err => {
+            console.warn(`[SourceRegistry] Search failed on ${plugin.name}:`, err.message);
+            return [];
+          });
+          searches.push(withTimeout(runSearch, 12000));
         }
       }
-      const nested = await Promise.all(searches);
-      return nested.flat();
+      const nested = await Promise.allSettled(searches);
+      const allResults = [];
+      for (const s of nested) {
+        if (s.status === 'fulfilled' && Array.isArray(s.value)) {
+          allResults.push(...s.value);
+        }
+      }
+      return allResults;
     }
 
     /**
@@ -375,7 +390,7 @@
   SourceRegistry.loadPluginById = (id) => defaultRegistry.loadPluginById(id);
   SourceRegistry.loadPluginFromUrl = (url, meta) => defaultRegistry.loadPluginFromUrl(url, meta);
   SourceRegistry.fetchCatalog = () => defaultRegistry.fetchCatalog();
-  SourceRegistry.searchAll = (query) => defaultRegistry.searchAll(query);
+  SourceRegistry.searchAll = (query, onPartial) => defaultRegistry.searchAll(query, onPartial);
   SourceRegistry.searchPlugin = (id, query) => defaultRegistry.searchPlugin(id, query);
   SourceRegistry.defaultRegistry = defaultRegistry;
 

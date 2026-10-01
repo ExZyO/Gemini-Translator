@@ -620,11 +620,59 @@
     try {
       const q = target.replace(/^https?:\/\/[^\/]+\/(?:search|fictions\/search)\?[^=]+=/i, '');
 
-      // Search scraper and plugins in parallel
+      let unifiedResults = [];
+      const existingUrls = new Set();
+
+      const emitUnified = () => {
+        const copy = [...unifiedResults];
+        const qLower = (q || target).toLowerCase();
+        copy.sort((a, b) => {
+          const aTitle = (a.title || '').toLowerCase();
+          const bTitle = (b.title || '').toLowerCase();
+          const aExact = aTitle === qLower ? 3 : (aTitle.startsWith(qLower) ? 2 : (aTitle.includes(qLower) ? 1 : 0));
+          const bExact = bTitle === qLower ? 3 : (bTitle.startsWith(qLower) ? 2 : (bTitle.includes(qLower) ? 1 : 0));
+          if (bExact !== aExact) return bExact - aExact;
+          const aCover = a.cover ? 1 : 0;
+          const bCover = b.cover ? 1 : 0;
+          return bCover - aCover;
+        });
+        callbacks?.onResults?.(copy);
+      };
+
+      const addItems = (items) => {
+        if (!Array.isArray(items) || items.length === 0) return;
+        let added = false;
+        for (const p of items) {
+          const pUrl = (p.url || p.path || '').replace(/\/$/, '');
+          if (pUrl && !existingUrls.has(pUrl)) {
+            existingUrls.add(pUrl);
+            unifiedResults.push({
+              id: p.id || pUrl,
+              title: p.title || p.name || 'Untitled Novel',
+              author: p.author || '',
+              url: p.url || p.path,
+              cover: p.cover || '',
+              summary: p.summary || '',
+              chapters: p.chapters || '',
+              rating: p.rating || '',
+              status: p.status || '',
+              source: p.source || 'Source Plugin'
+            });
+            added = true;
+          }
+        }
+        if (added) {
+          emitUnified();
+        }
+      };
+
+      // Search scraper and plugins in parallel, streaming partial results
       const scraperPromise = (async () => {
         if (typeof window !== 'undefined' && window.WebNovelImporter?.searchNovels && sourceOverride !== 'plugins_only') {
           try {
-            return await window.WebNovelImporter.searchNovels(q || target, sourceOverride || 'all');
+            return await window.WebNovelImporter.searchNovels(q || target, sourceOverride || 'all', (partial) => {
+              addItems(partial);
+            });
           } catch (sErr) {
             console.warn('[searchNovels] Scraper search error:', sErr);
           }
@@ -642,7 +690,9 @@
                 return await reg.searchPlugin(sourceOverride, q || target);
               }
             } else if (typeof reg.searchAll === 'function') {
-              return await reg.searchAll(q || target);
+              return await reg.searchAll(q || target, (partial) => {
+                addItems(partial);
+              });
             }
           } catch (pErr) {
             console.warn('[searchNovels] Plugin search failed:', pErr);
@@ -653,51 +703,32 @@
 
       const [scraperResults, rawPluginResults] = await Promise.all([scraperPromise, pluginPromise]);
 
-      let results = Array.isArray(scraperResults) ? [...scraperResults] : [];
-
-      if (Array.isArray(rawPluginResults) && rawPluginResults.length > 0) {
-        const existingUrls = new Set(results.map(r => (r.url || '').replace(/\/$/, '')));
-        for (const p of rawPluginResults) {
-          const pUrl = (p.url || p.path || '').replace(/\/$/, '');
-          if (pUrl && !existingUrls.has(pUrl)) {
-            existingUrls.add(pUrl);
-            results.push({
-              id: p.id || pUrl,
-              title: p.title || p.name || 'Untitled Novel',
-              author: p.author || '',
-              url: p.url || p.path,
-              cover: p.cover || '',
-              summary: p.summary || '',
-              chapters: p.chapters || '',
-              rating: p.rating || '',
-              status: p.status || '',
-              source: p.source || 'Source Plugin'
-            });
-          }
-        }
-      }
+      addItems(scraperResults);
+      addItems(rawPluginResults);
 
       // If a specific source was requested but yielded 0 results, fall back to searching all sources
-      if (results.length === 0 && sourceOverride !== 'all' && sourceOverride !== 'plugins_only') {
+      if (unifiedResults.length === 0 && sourceOverride !== 'all' && sourceOverride !== 'plugins_only') {
         try {
           if (typeof window !== 'undefined' && window.WebNovelImporter?.searchNovels) {
-            const fallbackResults = await window.WebNovelImporter.searchNovels(q || target, 'all');
+            const fallbackResults = await window.WebNovelImporter.searchNovels(q || target, 'all', (partial) => {
+              addItems(partial);
+            });
             if (Array.isArray(fallbackResults) && fallbackResults.length > 0) {
-              results = fallbackResults;
+              addItems(fallbackResults);
               callbacks?.onFilterFallback?.('all');
-              safeToast(callbacks, `No results on ${sourceOverride}, but found ${results.length} across other sources!`, 'info');
+              safeToast(callbacks, `No results on ${sourceOverride}, but found ${unifiedResults.length} across other sources!`, 'info');
             }
           }
         } catch (_) {}
       }
 
-      callbacks?.onResults?.(results);
-      if (results.length === 0) {
+      emitUnified();
+      if (unifiedResults.length === 0) {
         safeToast(callbacks, `No novels found matching "${target}". Try different keywords or browse installed plugins!`, 'info');
       } else {
-        safeToast(callbacks, `Found ${results.length} novels across supported sources & plugins!`, 'success');
+        safeToast(callbacks, `Found ${unifiedResults.length} novels across supported sources & plugins!`, 'success');
       }
-      return results;
+      return unifiedResults;
     } catch (e) {
       callbacks?.onError?.(e);
       safeToast(callbacks, 'Novel search error: ' + (e?.message || e), 'error');

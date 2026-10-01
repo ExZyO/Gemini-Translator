@@ -1,9 +1,9 @@
 {
-  "version": "8.18.08",
-  "versionCode": 8308,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.08/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.08/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.08",
+  "version": "8.18.09",
+  "versionCode": 8309,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.09/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.09/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.09",
   "releaseDate": "2026-10-01",
-  "releaseNotes": "v8.18.08: Fix chs ReferenceError in chapter list, instant source plugin catalog caching, 4.5s fast search timeout, and dual lnori domain matching."
+  "releaseNotes": "v8.18.09: Progressive streaming search results across web sources & plugins, generous 12s timeout so zero extensions are dropped, and real-time novel card rendering."
 }
