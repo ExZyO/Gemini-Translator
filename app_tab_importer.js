@@ -981,6 +981,7 @@
                 ),
                 activeNovelView && activeNovelView.chapters && activeNovelView.chapters.length > 0 && (() => {
                   const sortedChs = [...activeNovelView.chapters].sort((a, b) => (a.idx !== undefined && b.idx !== undefined) ? (a.idx - b.idx) : 0);
+                  const chs = sortedChs;
                   const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s:–—,-]*(.*)$/i;
                   const volumeGroups = [];
                   const groupMap = new Map();

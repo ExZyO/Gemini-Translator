@@ -910,7 +910,7 @@
         callbacks = {}
       } = params;
       const effectiveUrl = overrideUrl || targetUrl;
-      if (!isResume && effectiveUrl && /lnori\.org\/(?:novel|series|book)\//i.test(effectiveUrl) && params.forceScrape !== true) {
+      if (!isResume && effectiveUrl && /lnori\.(?:org|com)\/(?:novel|series|book)\//i.test(effectiveUrl) && params.forceScrape !== true) {
         if (typeof directEpubDownload === 'function') {
           return directEpubDownload({ url: effectiveUrl, callbacks, options });
         }

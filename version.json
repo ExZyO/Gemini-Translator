@@ -1,9 +1,9 @@
 {
-  "version": "8.18.07",
-  "versionCode": 8307,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.07/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.07/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.07",
+  "version": "8.18.08",
+  "versionCode": 8308,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.08/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.08/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.08",
   "releaseDate": "2026-10-01",
-  "releaseNotes": "v8.18.07: Resilient multi-mirror APK updater with automatic fallback mirrors, CDN propagation retries, and duplicate toast prefix cleanup."
+  "releaseNotes": "v8.18.08: Fix chs ReferenceError in chapter list, instant source plugin catalog caching, 4.5s fast search timeout, and dual lnori domain matching."
 }

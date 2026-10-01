@@ -157,10 +157,29 @@
     }
 
     /**
-     * Fetch the official catalog of 278 LNReader community plugins
+     * Fetch the official catalog of 278 LNReader community plugins with localStorage caching
      * @returns {Promise<Array<{ id: string, name: string, site: string, lang: string, version: string, url: string, iconUrl: string }>>}
      */
     async fetchCatalog() {
+      // Check localStorage cache first for instantaneous modal load (<10ms)
+      try {
+        const cached = typeof localStorage !== 'undefined' && localStorage.getItem('gemini_plugin_catalog_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Trigger silent background refresh
+            setTimeout(() => {
+              this._fetchRemoteCatalog().catch(() => {});
+            }, 200);
+            return parsed;
+          }
+        }
+      } catch (_) {}
+
+      return await this._fetchRemoteCatalog();
+    }
+
+    async _fetchRemoteCatalog() {
       const catalogUrl = 'https://raw.githubusercontent.com/lnreader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.json';
       const fetchFn = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
       let raw = '';
@@ -170,7 +189,11 @@
         const res = await fetch(catalogUrl);
         raw = await res.text();
       }
-      return JSON.parse(raw);
+      const data = JSON.parse(raw);
+      if (Array.isArray(data) && data.length > 0 && typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('gemini_plugin_catalog_cache', JSON.stringify(data)); } catch (_) {}
+      }
+      return data;
     }
 
     /**

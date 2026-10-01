@@ -4936,36 +4936,41 @@
         const cleanQ = query.trim();
         const src = (source || 'all').replace(/[\s\-_]+/g, '').toLowerCase();
 
+        const withTimeout = (p, ms = 4500) => Promise.race([
+            p,
+            new Promise(resolve => setTimeout(() => resolve([]), ms))
+        ]);
+
         const runners = [];
         if (src === 'all' || src === 'novelbuddy') {
-            runners.push(searchNovelBuddy(cleanQ).catch(() => []));
+            runners.push(withTimeout(searchNovelBuddy(cleanQ).catch(() => [])));
         }
         if (src === 'all' || src === 'royalroad') {
-            runners.push(searchRoyalRoad(cleanQ).catch(() => []));
+            runners.push(withTimeout(searchRoyalRoad(cleanQ).catch(() => [])));
         }
         if (src === 'all' || src === 'novelfull') {
-            runners.push(searchNovelFull(cleanQ).catch(() => []));
+            runners.push(withTimeout(searchNovelFull(cleanQ).catch(() => [])));
         }
         if (src === 'all' || src === 'novelbin') {
-            runners.push(searchNovelBin(cleanQ).catch(() => []));
+            runners.push(withTimeout(searchNovelBin(cleanQ).catch(() => [])));
         }
         if (src === 'all' || src === 'novelpub') {
-            runners.push(searchNovelPub(cleanQ).catch(() => []));
+            runners.push(withTimeout(searchNovelPub(cleanQ).catch(() => [])));
         }
         if (src === 'all' || src === 'freewebnovel') {
-            runners.push(searchFreeWebNovel(cleanQ).catch(() => []));
+            runners.push(withTimeout(searchFreeWebNovel(cleanQ).catch(() => [])));
         }
         if (src === 'all' || src === 'boxnovel') {
-            runners.push(searchBoxNovel(cleanQ).catch(() => []));
+            runners.push(withTimeout(searchBoxNovel(cleanQ).catch(() => [])));
         }
         if (src === 'all' || src === 'readnovelfull') {
-            runners.push(searchReadNovelFull(cleanQ).catch(() => []));
+            runners.push(withTimeout(searchReadNovelFull(cleanQ).catch(() => [])));
         }
         if (src === 'all' || src === 'novelfire') {
-            runners.push(searchNovelFire(cleanQ).catch(() => []));
+            runners.push(withTimeout(searchNovelFire(cleanQ).catch(() => [])));
         }
         if (src === 'all' || src === 'lnori') {
-            runners.push(searchLnori(cleanQ).catch(() => []));
+            runners.push(withTimeout(searchLnori(cleanQ).catch(() => [])));
         }
 
         const settled = await Promise.allSettled(runners);
