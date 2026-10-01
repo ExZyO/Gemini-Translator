@@ -2912,6 +2912,9 @@ public class NativeAndroidBridgePlugin extends Plugin {
             boolean isFirst = call.getBoolean("isFirst", false);
             boolean isLast = call.getBoolean("isLast", false);
             String mimeType = call.getString("mimeType", "application/epub+zip");
+            if (fileName != null && fileName.toLowerCase().endsWith(".mrexpt")) {
+                mimeType = "application/octet-stream";
+            }
             boolean openChooser = call.getBoolean("openChooser", false);
 
             String subDir = call.getString("subDir", "");
@@ -3099,6 +3102,9 @@ public class NativeAndroidBridgePlugin extends Plugin {
             String fileName = call.getString("fileName", "translated_book.epub");
             String base64Data = call.getString("base64", "");
             String mimeType = call.getString("mimeType", "application/epub+zip");
+            if (fileName != null && fileName.toLowerCase().endsWith(".mrexpt")) {
+                mimeType = "application/octet-stream";
+            }
 
             if (base64Data == null || base64Data.isEmpty()) {
                 call.reject("No file data provided");

@@ -2389,11 +2389,15 @@
                     newTitle: ongoingEpubModal.mrexptData.targetTitle,
                     newFilePath: ongoingEpubModal.mrexptData.targetPath
                   });
-                  const blob = new Blob([updatedText], { type: 'text/plain;charset=utf-8' });
-                  const baseName = (ongoingEpubModal.mrexptData.fileName || 'backup.mrexpt').replace(/\.mrexpt$/i, '');
-                  const downloadName = `${baseName}_fixed.mrexpt`;
+                  const blob = new Blob([updatedText], { type: 'application/octet-stream' });
+                  let rawName = (ongoingEpubModal.mrexptData.fileName || 'backup.mrexpt').trim();
+                  // Clean up any double extensions (.txt) or _fixed suffix so it saves exactly as .mrexpt
+                  let downloadName = rawName.replace(/\.txt$/i, '').replace(/_fixed(?=\.mrexpt|$)/i, '');
+                  if (!/\.mrexpt$/i.test(downloadName)) {
+                    downloadName = `${downloadName}.mrexpt`;
+                  }
                   if (typeof window.saveUniversalBlob === 'function') {
-                    window.saveUniversalBlob(blob, downloadName, 'text/plain');
+                    window.saveUniversalBlob(blob, downloadName, 'application/octet-stream');
                   } else {
                     const a = document.createElement('a');
                     a.href = URL.createObjectURL(blob);
@@ -2409,7 +2413,7 @@
                     toast(`Downloaded "${downloadName}"! Import this into Moon+ Reader Pro.`, 'success');
                   }
                 }
-              }, '⚡ Download Fixed .mrexpt File'),
+              }, '⚡ Download .mrexpt File'),
               ongoingEpubModal.mrexptData.isDone && h('div', {
                 style: {
                   padding: '8px 12px',
