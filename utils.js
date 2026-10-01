@@ -1,4 +1,7 @@
 (function() {
+    if (typeof window === 'undefined' && typeof global !== 'undefined') {
+        global.window = global;
+    }
 
 function escapeXml(unsafe) {
     if (unsafe === null || unsafe === undefined) return '';
@@ -1078,6 +1081,265 @@ window.normalizeTitleKey = normalizeTitleKey;
 window.copyText = copyText;
 window.generateJobId = generateJobId;
 
+// ═══════════════════════════════════════
+// THUMBHASH DECODER & RESILIENT IMAGE FALLBACKS
+// ═══════════════════════════════════════
+const thumbHashToBytes = (str) => {
+    if (!str || typeof str !== 'string') return new Uint8Array(0);
+    const normalized = str.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = (4 - (normalized.length % 4)) % 4;
+    const binStr = (typeof atob === 'function')
+        ? atob(normalized + "=".repeat(pad))
+        : (typeof Buffer !== 'undefined' ? Buffer.from(normalized + "=".repeat(pad), 'base64').toString('binary') : '');
+    const bytes = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+    return bytes;
+};
+
+const thumbHashToRgba = (bytes) => {
+    if (!bytes || bytes.length < 5) return { width: 0, height: 0, rgba: new Uint8Array(0) };
+    const { PI, min, max, cos, round } = Math;
+    const c = bytes[0] | bytes[1] << 8 | bytes[2] << 16;
+    const l = bytes[3] | bytes[4] << 8;
+    const s = (c & 63) / 63;
+    const f = ((c >> 6) & 63) / 31.5 - 1;
+    const u = ((c >> 12) & 63) / 31.5 - 1;
+    const h = ((c >> 18) & 31) / 31;
+    const d = c >> 23;
+    const g = ((l >> 3) & 63) / 63;
+    const i = ((l >> 9) & 63) / 63;
+    const m = l >> 15;
+    const y = max(3, m ? (d ? 5 : 7) : (7 & l));
+    const b = max(3, m ? (7 & l) : (d ? 5 : 7));
+    const A = d ? (15 & bytes[5]) / 15 : 1;
+    const p = (bytes[5] >> 4) / 15;
+    const w = d ? 6 : 5;
+    let D = 0;
+    const coeff = (nX, nY, scale) => {
+        const out = [];
+        for (let ay = 0; ay < nY; ay++) {
+            for (let ax = ay ? 0 : 1; ax * nY < nX * (nY - ay); ax++) {
+                out.push(((bytes[w + (D >> 1)] >> ((1 & D++) << 2) & 15) / 7.5 - 1) * scale);
+            }
+        }
+        return out;
+    };
+    const L = coeff(y, b, h);
+    const T = coeff(3, 3, 1.25 * g);
+    const k = coeff(3, 3, 1.25 * i);
+    const v = d && coeff(5, 5, p);
+    const ratio = y / b;
+    const I = round(ratio > 1 ? 32 : 32 * ratio);
+    const R = round(ratio > 1 ? 32 / ratio : 32);
+    const rgba = new Uint8Array(I * R * 4);
+    const nLX = max(y, d ? 5 : 3);
+    const nLY = max(b, d ? 5 : 3);
+    const fx = new Float32Array(I * nLX);
+    const fy = new Float32Array(R * nLY);
+    for (let x = 0; x < I; x++) {
+        const ox = x * nLX;
+        const px = PI / I * (x + 0.5);
+        for (let j = 0; j < nLX; j++) fx[ox + j] = cos(px * j);
+    }
+    for (let yPos = 0; yPos < R; yPos++) {
+        const oy = yPos * nLY;
+        const py = PI / R * (yPos + 0.5);
+        for (let j = 0; j < nLY; j++) fy[oy + j] = cos(py * j);
+    }
+    for (let yPos = 0, px = 0; yPos < R; yPos++) {
+        const fyRow = yPos * nLY;
+        for (let x = 0; x < I; x++, px += 4) {
+            const fxRow = x * nLX;
+            let lr = s, lg = f, lb = u, la = A;
+            for (let j = 0, idx = 0; j < b; j++) {
+                const fyVal = 2 * fy[fyRow + j];
+                for (let kx = j ? 0 : 1; kx * b < y * (b - j); kx++, idx++) {
+                    lr += L[idx] * fx[fxRow + kx] * fyVal;
+                }
+            }
+            for (let j = 0, idx = 0; j < 3; j++) {
+                const fyVal = 2 * fy[fyRow + j];
+                for (let kx = j ? 0 : 1; kx < 3 - j; kx++, idx++) {
+                    const fxVal = fx[fxRow + kx] * fyVal;
+                    lg += T[idx] * fxVal;
+                    lb += k[idx] * fxVal;
+                }
+            }
+            if (d) {
+                for (let j = 0, idx = 0; j < 5; j++) {
+                    const fyVal = 2 * fy[fyRow + j];
+                    for (let kx = j ? 0 : 1; kx < 5 - j; kx++, idx++) {
+                        la += v[idx] * fx[fxRow + kx] * fyVal;
+                    }
+                }
+            }
+            const bCh = lr - (2 / 3) * lg;
+            const rCh = (3 * lr - bCh + lb) / 2;
+            const gCh = rCh - lb;
+            rgba[px] = max(0, 255 * min(1, rCh));
+            rgba[px + 1] = max(0, 255 * min(1, gCh));
+            rgba[px + 2] = max(0, 255 * min(1, bCh));
+            rgba[px + 3] = max(0, 255 * min(1, la));
+        }
+    }
+    return { width: I, height: R, rgba };
+};
+
+const rgbaToBmp = (width, height, rgba) => {
+    if (!rgba || width <= 0 || height <= 0) return null;
+    const rowSize = Math.floor((24 * width + 31) / 32) * 4;
+    const pixelArraySize = rowSize * height;
+    const fileSize = 54 + pixelArraySize;
+    const buf = new Uint8Array(fileSize);
+    const view = new DataView(buf.buffer);
+
+    // Bitmap file header (14 bytes)
+    buf[0] = 0x42; // 'B'
+    buf[1] = 0x4D; // 'M'
+    view.setUint32(2, fileSize, true);
+    view.setUint32(10, 54, true); // Offset to image bits
+
+    // DIB header (BITMAPINFOHEADER - 40 bytes)
+    view.setUint32(14, 40, true);
+    view.setInt32(18, width, true);
+    view.setInt32(22, height, true);
+    view.setUint16(26, 1, true);
+    view.setUint16(28, 24, true); // 24 bits per pixel (BGR)
+    view.setUint32(30, 0, true);
+    view.setUint32(34, pixelArraySize, true);
+
+    for (let y = 0; y < height; y++) {
+        const srcY = height - 1 - y;
+        const rowOffset = 54 + y * rowSize;
+        for (let x = 0; x < width; x++) {
+            const srcIdx = (srcY * width + x) * 4;
+            const dstIdx = rowOffset + x * 3;
+            buf[dstIdx] = rgba[srcIdx + 2];     // B
+            buf[dstIdx + 1] = rgba[srcIdx + 1]; // G
+            buf[dstIdx + 2] = rgba[srcIdx];     // R
+        }
+    }
+    return buf;
+};
+
+const decodeThumbHashToBuffer = (hash) => {
+    if (!hash || typeof hash !== 'string') return null;
+    try {
+        const bytes = thumbHashToBytes(hash);
+        const { width, height, rgba } = thumbHashToRgba(bytes);
+        if (!rgba || width <= 0 || height <= 0) return null;
+
+        // Browser canvas check
+        if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    const imgData = ctx.createImageData(width, height);
+                    imgData.data.set(rgba);
+                    ctx.putImageData(imgData, 0, 0);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const b64 = dataUrl.split(',')[1];
+                    if (b64) {
+                        const binStr = (typeof atob === 'function')
+                            ? atob(b64)
+                            : (typeof Buffer !== 'undefined' ? Buffer.from(b64, 'base64').toString('binary') : '');
+                        const ab = new ArrayBuffer(binStr.length);
+                        const u8 = new Uint8Array(ab);
+                        for (let i = 0; i < binStr.length; i++) u8[i] = binStr.charCodeAt(i);
+                        return { ext: 'png', mime: 'image/png', buffer: ab, dataUrl };
+                    }
+                }
+            } catch (_) {}
+        }
+
+        // Standalone pure ArrayBuffer BMP
+        const bmp = rgbaToBmp(width, height, rgba);
+        if (bmp) {
+            return { ext: 'bmp', mime: 'image/bmp', buffer: bmp.buffer };
+        }
+    } catch (_) {}
+    return null;
+};
+
+const thumbHashToDataUrl = (hash) => {
+    if (!hash) return '';
+    const decoded = decodeThumbHashToBuffer(hash);
+    if (decoded && decoded.dataUrl) return decoded.dataUrl;
+    if (decoded && decoded.buffer) {
+        const bytes = new Uint8Array(decoded.buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const b64 = (typeof btoa === 'function')
+            ? btoa(binary)
+            : (typeof Buffer !== 'undefined' ? Buffer.from(binary, 'binary').toString('base64') : '');
+        return `data:${decoded.mime};base64,${b64}`;
+    }
+    return '';
+};
+
+const stripInvisibleTrapsAndWatermarks = (textOrHtml) => {
+    if (!textOrHtml || typeof textOrHtml !== 'string') return '';
+    let str = textOrHtml;
+
+    // 1. Remove Zero-Width and Hidden Unicode Characters
+    str = str.replace(/[\u200B-\u200D\uFEFF\u2060\u00AD\u200E\u200F\u202A-\u202E\u2066-\u2069\u180E]/g, '');
+
+    // 2. Strip Invisible Honeypot and Anti-Scraper DOM Elements (matching browser rendering)
+    const invisibleCssPattern = /style=["'][^"']*(?:display:\s*none|visibility:\s*hidden|opacity:\s*0(?:\.0+)?(?!\d)|font-size:\s*0(?:px|pt|em|rem)?(?!\d)|font-size:\s*0?\.\d+px|line-height:\s*0(?:px)?|height:\s*0(?:px)?|max-height:\s*0(?:px)?|width:\s*0(?:px)?|max-width:\s*0(?:px)?|color:\s*(?:transparent|rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)|rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*0\s*\))|position:\s*absolute;\s*(?:left|top|right|bottom):\s*-\d{3,}px|(?:left|top|right|bottom):\s*-\d{4,}px|text-indent:\s*-\d{3,}px|clip:\s*rect\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)|clip-path:\s*inset\(\s*(?:50%|100%)\s*\)|transform:\s*scale\(\s*0\s*\))[^"']*["']/i;
+    str = str.replace(new RegExp('<([a-z0-9]+)\\b[^>]*?' + invisibleCssPattern.source + '[^>]*?>[\\s\\S]*?<\\/\\1>', 'gi'), '');
+
+    // 3. Strip Elements with Anti-Copy Decoy Classes or Attributes
+    str = str.replace(/<([a-z0-9]+)\b[^>]*?class=["'][^"']*\b(?:sr-only|screen-reader-text|visually-hidden|anti-copy|decoy-text|hidden-text)\b[^"']*["'][^>]*?>[\s\S]*?<\/\1>/gi, '');
+    str = str.replace(/<([a-z0-9]+)\b[^>]*?aria-hidden=["']true["'][^>]*?>[\s\S]*?<\/\1>/gi, (match) => {
+        if (/<p\b|<span\b/i.test(match) && match.length > 25) return '';
+        return match;
+    });
+
+    // 4. Strip Known Anti-Scraper Honeypot Paragraphs & Aggregator Stolen Content Warnings
+    const watermarkKeywords = [
+        /(?:This\s+story\s+has\s+been\s+(?:unlawfully\s+)?(?:stolen|taken|lifted|copied)|This\s+novel\s+is\s+published\s+on\s+Royal\s+Road|Report\s+any\s+appearances\s+on\s+Amazon|Support\s+the\s+author\s+by\s+reading\s+on\s+Royal\s+Road|If\s+you\s+(?:find|encounter|are\s+reading)\s+this\s+story\s+on\s+Amazon|unlawfully\s+lifted\s+without\s+the\s+author's\s+consent)/i,
+        /(?:Visit\s+[a-z0-9.-]+\s+for\s+(?:the\s+)?earliest|Read\s+(?:light\s+)?novel\s+at\s+[a-z0-9.-]+|Read\s+latest\s+chapters\s+at\s+[a-z0-9.-]+|Original\s+source:\s+[a-z0-9.-]+)/i,
+        /(?:If\s+you\s+find\s+any\s+errors\s*\([^)]*broken\s+links[^)]*\)|Please\s+let\s+us\s+know\s+about\s+it\s+so\s+that\s+we\s+can\s+fix\s+it)/i,
+        /(?:Please\s+support\s+(?:the\s+)?translator\s+on\s+(?:Patreon|Ko-fi|PayPal)|Become\s+a\s+patron\s+to\s+read\s+advance\s+chapters)/i,
+        /^\s*(?:Previous\s+Chapter\s*\|\s*Next\s+Chapter|Prev\s*\|\s*Next|<<\s*Previous\s*\|\s*Next\s*>>)\s*$/i
+    ];
+    str = str.replace(/<([a-z0-9]+)\b[^>]*>([\s\S]*?)<\/\1>/gi, (match, tag, inner) => {
+        if (['p', 'div', 'span', 'blockquote', 'section'].includes(tag.toLowerCase())) {
+            const textOnly = inner.replace(/<[^>]+>/g, '').trim();
+            for (const kw of watermarkKeywords) {
+                if (kw.test(textOnly)) return '';
+            }
+        }
+        return match;
+    });
+
+    // 5. Normalization of Obfuscated Cyrillic Lookalikes (Homoglyph replacement inside Latin words)
+    const cyrillicToLatinMap = {
+        '\u0430': 'a', '\u0435': 'e', '\u043E': 'o', '\u0440': 'p', '\u0441': 'c', '\u0443': 'y', '\u0445': 'x', '\u0456': 'i',
+        '\u0410': 'A', '\u0412': 'B', '\u0415': 'E', '\u041A': 'K', '\u041C': 'M', '\u041D': 'H', '\u041E': 'O', '\u0420': 'P',
+        '\u0421': 'C', '\u0422': 'T', '\u0425': 'X'
+    };
+    const cyrillicChars = Object.keys(cyrillicToLatinMap).join('');
+    const homoglyphRegex = new RegExp('([a-zA-Z])([' + cyrillicChars + '])|([' + cyrillicChars + '])([a-zA-Z])', 'g');
+    str = str.replace(homoglyphRegex, (match, p1, p2, p3, p4) => {
+        if (p1 && p2) return p1 + (cyrillicToLatinMap[p2] || p2);
+        if (p3 && p4) return (cyrillicToLatinMap[p3] || p3) + p4;
+        return match;
+    });
+
+    return str;
+};
+
+window.thumbHashToBytes = thumbHashToBytes;
+window.thumbHashToRgba = thumbHashToRgba;
+window.rgbaToBmp = rgbaToBmp;
+window.decodeThumbHashToBuffer = decodeThumbHashToBuffer;
+window.thumbHashToDataUrl = thumbHashToDataUrl;
+window.stripInvisibleTrapsAndWatermarks = stripInvisibleTrapsAndWatermarks;
+
 window.fetchRetry = fetchRetry;
 window.batchParallel = batchParallel;
 window.CHUNK_PAYLOAD_MAP = CHUNK_PAYLOAD_MAP;
@@ -1136,7 +1398,13 @@ if (typeof module !== 'undefined' && module.exports) {
         splitChunks,
         initAppWorker,
         callWorker,
-        InfoTooltip
+        InfoTooltip,
+        thumbHashToBytes,
+        thumbHashToRgba,
+        rgbaToBmp,
+        decodeThumbHashToBuffer,
+        thumbHashToDataUrl,
+        stripInvisibleTrapsAndWatermarks
     };
 }
 })();

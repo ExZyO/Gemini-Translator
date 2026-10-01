@@ -1008,7 +1008,9 @@
               isNewer,
               latestVersion: latestTag,
               currentVersion: 'v' + [cMaj, cMin, cPat].join('.'),
-              apkUrl: discoveredApk || `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`,
+              apkUrl: (discoveredApk && discoveredApk.includes(latestTag))
+                ? discoveredApk
+                : `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`,
               releasePage: `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`
             };
           }

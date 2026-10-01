@@ -267,7 +267,9 @@
                 else if (rMajor === cMajor && rMinor === cMinor && rPatch > cPatch) isNewer = true;
 
                 const latestTag = 'v' + [rMajor, rMinor, rPatch].join('.');
-                const targetApkUrl = discoveredApkUrl || `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`;
+                const targetApkUrl = (discoveredApkUrl && discoveredApkUrl.includes(latestTag))
+                    ? discoveredApkUrl
+                    : `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`;
                 const targetReleasePage = `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`;
 
                 return {

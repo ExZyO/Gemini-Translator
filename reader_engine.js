@@ -1941,6 +1941,16 @@
 
     const renderParagraphNode = (el, pIdx, isPaginated, mCounterObj) => {
       if (el.type === 'image') {
+        const thMatch = (el.src || '').match(/[#?]th=([A-Za-z0-9_-]+)/i);
+        const thHash = thMatch ? thMatch[1] : null;
+        let displaySrc = el.src || '';
+        if (/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i.test(displaySrc)) {
+          displaySrc = displaySrc.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
+        }
+        if (displaySrc.includes('#th=')) {
+          displaySrc = displaySrc.split('#th=')[0];
+        }
+
         return h('div', {
           key: el.id,
           id: el.id,
@@ -1951,12 +1961,35 @@
             breakInside: 'avoid',
             pageBreakInside: 'avoid'
           },
-          onClick: () => setLightboxImg(el.src)
+          onClick: (e) => {
+            const currentImg = e.currentTarget.querySelector('img');
+            setLightboxImg(currentImg?.src || displaySrc);
+          }
         },
           h('img', {
-            src: el.src,
+            src: displaySrc,
             alt: el.alt,
             loading: 'lazy',
+            onError: (e) => {
+              if (thHash && !e.target.dataset.thumbhashLoaded) {
+                e.target.dataset.thumbhashLoaded = '1';
+                try {
+                  const dataUrlFn = (typeof window !== 'undefined' && window.thumbHashToDataUrl) ? window.thumbHashToDataUrl : (typeof thumbHashToDataUrl === 'function' ? thumbHashToDataUrl : null);
+                  if (dataUrlFn) {
+                    const dataUrl = dataUrlFn(thHash);
+                    if (dataUrl) {
+                      e.target.src = dataUrl;
+                      return;
+                    }
+                  }
+                } catch (_) {}
+              }
+              if (!e.target.dataset.lnoriFallback && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(el.src)) {
+                e.target.dataset.lnoriFallback = '1';
+                const cdnUrl = el.src.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
+                e.target.src = cdnUrl;
+              }
+            },
             style: {
               maxWidth: '100%',
               maxHeight: isPaginated ? 'calc(100vh - 180px)' : '80vh',
@@ -3830,7 +3863,23 @@
         className: 'reader-v2-lightbox',
         onClick: () => setLightboxImg(null)
       },
-        h('img', { src: lightboxImg, alt: 'High Resolution Illustration' })
+        h('img', {
+          src: lightboxImg,
+          alt: 'High Resolution Illustration',
+          onError: (e) => {
+            const thMatch = (lightboxImg || '').match(/[#?]th=([A-Za-z0-9_-]+)/i);
+            if (thMatch && !e.target.dataset.thumbhashLoaded) {
+              e.target.dataset.thumbhashLoaded = '1';
+              try {
+                const dataUrlFn = (typeof window !== 'undefined' && window.thumbHashToDataUrl) ? window.thumbHashToDataUrl : (typeof thumbHashToDataUrl === 'function' ? thumbHashToDataUrl : null);
+                if (dataUrlFn) {
+                  const dataUrl = dataUrlFn(thMatch[1]);
+                  if (dataUrl) e.target.src = dataUrl;
+                }
+              } catch (_) {}
+            }
+          }
+        })
       ),
 
       // ── FLOATING CULTURAL FOOTNOTE CARD (§5.10) ──

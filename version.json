@@ -1,9 +1,9 @@
 {
-  "version": "8.17.66",
-  "versionCode": 8306,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.66/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.17.66/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.17.66",
-  "releaseDate": "2026-09-24",
-  "releaseNotes": "v8.17.66: Hotfix. Removed stray handleCoverFileSelect shorthand prop from TabTranslate call in app.js, fixing the runtime tab crash error."
+  "version": "8.18.05",
+  "versionCode": 8305,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.05/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.05/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.05",
+  "releaseDate": "2026-10-01",
+  "releaseNotes": "v8.18.05: Chameleon Content Extraction, Invisible Trap & Watermark Stripping, Adaptive Courtesy Crawling Speed Control, and in-app APK updater URL validation fix."
 }

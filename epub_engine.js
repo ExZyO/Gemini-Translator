@@ -644,13 +644,19 @@ hr {
               }
             }
           }
-          const htmlMatches = contentStr.matchAll(/<img\s+[^>]*src=["'](https?:\/\/[^"']+)["']/gi);
+          const htmlMatches = contentStr.matchAll(/<img\s+([^>]*?)>/gi);
           for (const imgMatch of htmlMatches) {
-            if (imgMatch && imgMatch[1]) {
-              let u = imgMatch[1].trim()
+            const inner = imgMatch[1] || '';
+            const srcM = inner.match(/src=["'](https?:\/\/[^"']+)["']/i);
+            if (srcM && srcM[1]) {
+              let u = srcM[1].trim()
                 .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
                 .replace(/\s+/g, '')
                 .replace(/\.jppg$/i, '.jpg');
+              const thM = inner.match(/\bth=["']([^"']+)["']/i);
+              if (thM && !u.includes('#th=') && !u.includes('?th=')) {
+                u += '#th=' + thM[1];
+              }
               if (!u.includes('avatar') && !u.includes('emoji') && !u.includes('gravatar') &&
                   !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
                   !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
@@ -733,10 +739,21 @@ hr {
             let detectedMime = null;
             const AC = typeof AbortController !== 'undefined' ? AbortController : (typeof window !== 'undefined' ? window.AbortController : null);
 
+            const thMatch = (url || '').match(/[#?]th=([A-Za-z0-9_-]+)/i);
+            const thHash = thMatch ? thMatch[1] : null;
+
+            let downloadUrl = url || '';
+            if (/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i.test(downloadUrl)) {
+              downloadUrl = downloadUrl.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
+            }
+            if (downloadUrl.includes('#th=')) {
+              downloadUrl = downloadUrl.split('#th=')[0];
+            }
+
             // Directly decode base64 data URIs without network fetch
-            if (url && url.startsWith('data:')) {
+            if (downloadUrl && downloadUrl.startsWith('data:')) {
               try {
-                const parts = url.split(',');
+                const parts = downloadUrl.split(',');
                 const mimeMatch = parts[0].match(/:(.*?);/);
                 detectedMime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
                 const b64 = parts[1];
@@ -754,6 +771,7 @@ hr {
             const sniffMime = (buf) => {
               if (!buf || buf.byteLength < 12) return null;
               const bytes = new Uint8Array(buf.slice(0, 16));
+              if (bytes[0] === 0x42 && bytes[1] === 0x4D) return { ext: 'bmp', mime: 'image/bmp' };
               if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return { ext: 'png', mime: 'image/png' };
               if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return { ext: 'jpg', mime: 'image/jpeg' };
               if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return { ext: 'gif', mime: 'image/gif' };
@@ -766,12 +784,12 @@ hr {
 
             let referer = 'https://lnori.com/';
             try {
-              if (url.includes('pximg.net') || url.includes('pixiv.re')) {
+              if (downloadUrl.includes('pximg.net') || downloadUrl.includes('pixiv.re')) {
                 referer = 'https://www.pixiv.net/';
-              } else if (url.includes('witchculttranslation.com')) {
+              } else if (downloadUrl.includes('witchculttranslation.com')) {
                 referer = 'https://witchculttranslation.com/';
               } else {
-                const parsedUrl = new URL(url);
+                const parsedUrl = new URL(downloadUrl);
                 referer = parsedUrl.origin + '/';
               }
             } catch(_) {}
@@ -787,7 +805,7 @@ hr {
               if (window.NativeBridge && window.NativeBridge.downloadBinary) {
                 try {
                   buffer = await Promise.race([
-                    window.NativeBridge.downloadBinary(url, { referer }),
+                    window.NativeBridge.downloadBinary(downloadUrl, { referer }),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
                   ]);
                 } catch(_) {}
@@ -799,7 +817,7 @@ hr {
                   const ctrl = AC ? new AC() : null;
                   const t = ctrl ? setTimeout(() => ctrl.abort(), 3500) : null;
                   const fetchOpts = { signal: ctrl ? ctrl.signal : undefined };
-                  const res = await fetch(url, fetchOpts);
+                  const res = await fetch(downloadUrl, fetchOpts);
                   if (t) clearTimeout(t);
                   if (res.ok) {
                     const ct = res.headers.get('content-type') || '';
@@ -811,11 +829,11 @@ hr {
 
               // Strategy 3: Dedicated High-Speed Image CDN & Proxy Pool (Strict 3.5s per proxy)
               if (!buffer || buffer.byteLength < 500) {
-                const cleanNoProto = url.replace(/^https?:\/\//i, '');
+                const cleanNoProto = downloadUrl.replace(/^https?:\/\//i, '');
                 const proxies = [
                   () => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`,
-                  () => `https://corsproxy.org/?url=${encodeURIComponent(url)}`,
-                  () => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+                  () => `https://corsproxy.org/?url=${encodeURIComponent(downloadUrl)}`,
+                  () => `https://api.allorigins.win/raw?url=${encodeURIComponent(downloadUrl)}`
                 ];
                 for (const getProxyUrl of proxies) {
                   if (buffer && buffer.byteLength > 500) break;
@@ -838,7 +856,21 @@ hr {
               }
             }
 
-            if (buffer && buffer.byteLength > 500) {
+            // Strategy 4: High-fidelity ThumbHash decoding fallback if network was blocked/unavailable
+            if ((!buffer || buffer.byteLength < 500) && thHash) {
+              try {
+                const decodeFn = (typeof window !== 'undefined' && window.decodeThumbHashToBuffer) ? window.decodeThumbHashToBuffer : (typeof decodeThumbHashToBuffer === 'function' ? decodeThumbHashToBuffer : null);
+                if (decodeFn) {
+                  const decoded = decodeFn(thHash);
+                  if (decoded && decoded.buffer && decoded.buffer.byteLength > 50) {
+                    buffer = decoded.buffer;
+                    detectedMime = decoded.mime || 'image/png';
+                  }
+                }
+              } catch (_) {}
+            }
+
+            if (buffer && buffer.byteLength > 50) {
               imgSeq++;
               const sniffed = sniffMime(buffer);
               let ext = 'jpg';
@@ -848,13 +880,13 @@ hr {
                 mime = sniffed.mime;
               } else if (detectedMime) {
                 mime = detectedMime;
-                ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : (mime.includes('gif') ? 'gif' : (mime.includes('avif') ? 'avif' : 'jpg')));
+                ext = mime.includes('png') ? 'png' : (mime.includes('bmp') ? 'bmp' : (mime.includes('webp') ? 'webp' : (mime.includes('gif') ? 'gif' : (mime.includes('avif') ? 'avif' : 'jpg'))));
               } else {
-                ext = url.includes('.png') ? 'png' : (url.includes('.webp') ? 'webp' : (url.includes('.gif') ? 'gif' : (url.includes('.avif') ? 'avif' : 'jpg')));
-                mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : (ext === 'avif' ? 'image/avif' : 'image/jpeg')));
+                ext = downloadUrl.includes('.png') ? 'png' : (downloadUrl.includes('.bmp') ? 'bmp' : (downloadUrl.includes('.webp') ? 'webp' : (downloadUrl.includes('.gif') ? 'gif' : (downloadUrl.includes('.avif') ? 'avif' : 'jpg'))));
+                mime = ext === 'png' ? 'image/png' : (ext === 'bmp' ? 'image/bmp' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : (ext === 'avif' ? 'image/avif' : 'image/jpeg'))));
               }
 
-              const isCoverImg = coverUrl && (url === coverUrl || url.split('?')[0] === coverUrl.split('?')[0]);
+              const isCoverImg = coverUrl && (url === coverUrl || downloadUrl === coverUrl || url.split('?')[0] === coverUrl.split('?')[0]);
               const imgFilename = isCoverImg ? `cover.${ext}` : `img_${imgSeq}.${ext}`;
               const manifestId = isCoverImg ? 'cover-image' : `img_${imgSeq}`;
               imgFolder.file(imgFilename, buffer, { compression: 'STORE' });
@@ -865,11 +897,16 @@ hr {
               }
               const entry = { localHref: `images/${imgFilename}`, manifestId, mime, ext };
               imageCache.set(url, entry);
+              imageCache.set(downloadUrl, entry);
               try {
                 imageCache.set(encodeURI(url), entry);
                 imageCache.set(decodeURI(url), entry);
                 imageCache.set(url.split('?')[0], entry);
+                imageCache.set(url.split('#')[0], entry);
+                imageCache.set(downloadUrl.split('?')[0], entry);
+                imageCache.set(downloadUrl.split('#')[0], entry);
                 imageCache.set(url.replace(/^https?:\/\//i, '//'), entry);
+                imageCache.set(downloadUrl.replace(/^https?:\/\//i, '//'), entry);
               } catch(_) {}
             }
 
@@ -1115,7 +1152,8 @@ hr {
 
                 const cached = imageCache.get(imgUrl) || imageCache.get(rawImgUrl) ||
                                imageCache.get(encodeURI(imgUrl)) || imageCache.get(decodeURI(imgUrl)) ||
-                               imageCache.get(imgUrl.split('?')[0]);
+                               imageCache.get(imgUrl.split('?')[0]) || imageCache.get(imgUrl.split('#')[0]) ||
+                               imageCache.get(imgUrl.split(/[#?]/)[0]);
                 if (cached) {
                   return `<div class="illustration-wrap"><img src="${cached.localHref}" alt="${escapeXml(altText)}" class="illustration"/></div>`;
                 }
@@ -1140,7 +1178,8 @@ hr {
                   .replace(/\.jppg$/i, '.jpg');
                 const cached = imageCache.get(cleanUrl) || imageCache.get(srcUrl) ||
                                imageCache.get(encodeURI(cleanUrl)) || imageCache.get(decodeURI(cleanUrl)) ||
-                               imageCache.get(cleanUrl.split('?')[0]);
+                               imageCache.get(cleanUrl.split('?')[0]) || imageCache.get(cleanUrl.split('#')[0]) ||
+                               imageCache.get(cleanUrl.split(/[#?]/)[0]);
                 if (cached) {
                   return `<div class="illustration-wrap"><img src="${cached.localHref}" alt="Illustration" class="illustration"/></div>`;
                 }
@@ -1582,17 +1621,39 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
       const fetchImageBytes = async (imgUrl) => {
         try {
           let targetUrl = imgUrl;
-          if (!targetUrl.startsWith('http')) return null;
-          let res = await fetch(targetUrl).catch(() => null);
-          if (!res || !res.ok) {
-            const proxy = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
-            res = await fetch(proxy).catch(() => null);
+          const thMatch = (targetUrl || '').match(/[#?]th=([A-Za-z0-9_-]+)/i);
+          const thHash = thMatch ? thMatch[1] : null;
+
+          if (/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i.test(targetUrl)) {
+            targetUrl = targetUrl.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
           }
-          if (res && res.ok) {
-            const buf = await res.arrayBuffer();
-            const ct = res.headers.get('content-type') || '';
-            const ext = ct.includes('png') ? 'png' : (ct.includes('webp') ? 'webp' : (ct.includes('gif') ? 'gif' : 'jpg'));
-            return { data: new Uint8Array(buf), ext, mime: ct || 'image/jpeg' };
+          if (targetUrl.includes('#th=')) {
+            targetUrl = targetUrl.split('#th=')[0];
+          }
+
+          if (targetUrl.startsWith('http')) {
+            let res = await fetch(targetUrl).catch(() => null);
+            if (!res || !res.ok) {
+              const proxy = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+              res = await fetch(proxy).catch(() => null);
+            }
+            if (res && res.ok) {
+              const buf = await res.arrayBuffer();
+              const ct = res.headers.get('content-type') || '';
+              const ext = ct.includes('png') ? 'png' : (ct.includes('webp') ? 'webp' : (ct.includes('gif') ? 'gif' : 'jpg'));
+              return { data: new Uint8Array(buf), ext, mime: ct || 'image/jpeg' };
+            }
+          }
+
+          // Fallback: ThumbHash decoding
+          if (thHash) {
+            const decodeFn = (typeof window !== 'undefined' && window.decodeThumbHashToBuffer) ? window.decodeThumbHashToBuffer : (typeof decodeThumbHashToBuffer === 'function' ? decodeThumbHashToBuffer : null);
+            if (decodeFn) {
+              const decoded = decodeFn(thHash);
+              if (decoded && decoded.buffer && decoded.buffer.byteLength > 50) {
+                return { data: new Uint8Array(decoded.buffer), ext: decoded.ext || 'png', mime: decoded.mime || 'image/png' };
+              }
+            }
           }
         } catch(e) {}
         return null;
@@ -1608,7 +1669,7 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
         let bodyContent = ch.content || ch.text || '';
 
         // Process any illustrations inside the chapter text
-        const mdImgMatches = Array.from(bodyContent.matchAll(/!\[Illustration\]\((https?:\/\/[^\s\)]+)\)/gi));
+        const mdImgMatches = Array.from(bodyContent.matchAll(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/gi));
         for (const m of mdImgMatches) {
           const imgUrl = m[1];
           const imgObj = await fetchImageBytes(imgUrl);

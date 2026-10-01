@@ -4,6 +4,9 @@
 // NovelFull, Madara WP Novels, Blogspot, 69shu/Biquge, Tumblr & Universal
 // ══════════════════════════════════════════════════════════════════════════
 (function() {
+    if (typeof window === 'undefined' && typeof global !== 'undefined') {
+        global.window = global;
+    }
 
     function decodeHtmlEntities(text) {
         if (!text) return '';
@@ -117,6 +120,8 @@
             best = best.replace(/_\d+\.(jpg|png|webp|gif)/i, '_1280.$1');
         } else if (best.includes('royalroad') && best.includes('/covers-full/')) {
             best = best.replace(/\/covers-full\//i, '/covers-large/');
+        } else if (/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i.test(best)) {
+            best = best.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
         }
 
         return best.trim();
@@ -155,6 +160,13 @@
     // ══════════════════════════════════════════════════════════════════════
     function cleanChapterHtmlWithImages(html, baseUrl) {
         if (!html) return '';
+
+        const trapCleaner = (typeof window !== 'undefined' && window.stripInvisibleTrapsAndWatermarks) 
+            ? window.stripInvisibleTrapsAndWatermarks 
+            : (typeof stripInvisibleTrapsAndWatermarks === 'function' ? stripInvisibleTrapsAndWatermarks : null);
+        if (trapCleaner) {
+            html = trapCleaner(html);
+        }
 
         if (typeof window !== 'undefined' && window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {
             try {
@@ -215,7 +227,14 @@
                     imgUrl = imgUrl.replace(/\.jppg$/i, '.jpg');
                 }
                 if (imgUrl && (imgUrl.startsWith('http://') || imgUrl.startsWith('https://') || imgUrl.startsWith('data:image/'))) {
-                    return '\n\n![Illustration](' + imgUrl.trim() + ')\n\n';
+                    let finalUrl = imgUrl.trim();
+                    const thMatch = (inner || '').match(/\bth=["']([^"']+)["']/i);
+                    const altMatch = (inner || '').match(/\balt=["']([^"']+)["']/i);
+                    const altText = altMatch ? altMatch[1].trim() : 'Illustration';
+                    if (thMatch && !finalUrl.includes('data:image/') && !finalUrl.includes('#th=') && !finalUrl.includes('?th=')) {
+                        finalUrl += '#th=' + thMatch[1];
+                    }
+                    return '\n\n![' + altText + '](' + finalUrl + ')\n\n';
                 }
             }
             return match;
@@ -223,9 +242,15 @@
 
         // 2. Preserve remaining direct <img> tags
         processed = processed.replace(/<img\b[^>]*>/gi, (match) => {
-            const bestUrl = getBestImageUrl(match, baseUrl);
+            let bestUrl = getBestImageUrl(match, baseUrl);
+            const thMatch = match.match(/\bth=["']([^"']+)["']/i);
+            const altMatch = match.match(/\balt=["']([^"']+)["']/i);
+            const altText = altMatch ? altMatch[1].trim() : 'Illustration';
             if (bestUrl && (bestUrl.startsWith('http://') || bestUrl.startsWith('https://') || bestUrl.startsWith('data:image/'))) {
-                return '\n\n![Illustration](' + bestUrl + ')\n\n';
+                if (thMatch && !bestUrl.includes('data:image/') && !bestUrl.includes('#th=') && !bestUrl.includes('?th=')) {
+                    bestUrl += '#th=' + thMatch[1];
+                }
+                return '\n\n![' + altText + '](' + bestUrl + ')\n\n';
             }
             return '';
         });
@@ -345,11 +370,12 @@
                 .replace(/&nbsp;/g, ' ');
         }
 
-        return decoded
+        const cleanedFinal = decoded
             .replace(/[ \t]+/g, ' ')
             .replace(/\n\s+\n/g, '\n\n')
             .replace(/\n{3,}/g, '\n\n')
             .trim();
+        return trapCleaner ? trapCleaner(cleanedFinal) : cleanedFinal;
     }
 
     if (typeof window !== 'undefined') {
@@ -374,6 +400,182 @@
                 .replace(/&apos;/g, "'")
                 .replace(/&nbsp;/g, ' ');
         };
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // 2.5 "CHAMELEON" ADAPTIVE CONTENT EXTRACTION ENGINE
+    // ══════════════════════════════════════════════════════════════════════
+    const ChameleonExtractor = {
+        scoreElement: function(el) {
+            if (!el || el.nodeType !== 1) return -9999;
+            const tagName = el.tagName.toLowerCase();
+            if (['script', 'style', 'nav', 'header', 'footer', 'aside', 'noscript', 'iframe', 'svg', 'form'].includes(tagName)) {
+                return -9999;
+            }
+
+            let score = 0;
+            const text = el.textContent || '';
+            const cleanText = text.trim();
+            if (cleanText.length < 50) return -100;
+
+            // 1. Paragraph density and length
+            const paragraphs = el.querySelectorAll ? el.querySelectorAll('p') : [];
+            let validPCount = 0;
+            paragraphs.forEach(p => {
+                const pLen = (p.textContent || '').trim().length;
+                if (pLen > 25) {
+                    validPCount++;
+                    score += Math.min(25, Math.round(pLen / 20));
+                }
+            });
+            score += validPCount * 15;
+
+            // 2. Line break handling if paragraph tags are absent
+            if (validPCount === 0 && el.querySelectorAll) {
+                const brCount = el.querySelectorAll('br').length;
+                if (brCount >= 5 && cleanText.length > 200) {
+                    score += Math.min(150, brCount * 10);
+                }
+            }
+
+            // 3. Text to HTML ratio
+            const htmlLen = (el.innerHTML || '').length || 1;
+            const textLen = cleanText.length;
+            const ratio = textLen / htmlLen;
+            score += Math.round(ratio * 50);
+
+            // 4. Anchor penalty (if more than 25% of text is links)
+            const links = el.querySelectorAll ? el.querySelectorAll('a') : [];
+            let linkTextLen = 0;
+            links.forEach(a => { linkTextLen += (a.textContent || '').length; });
+            const linkRatio = textLen > 0 ? (linkTextLen / textLen) : 0;
+            if (linkRatio > 0.25) {
+                score -= Math.round(linkRatio * 400);
+            }
+
+            // 5. Positive class/id indicators
+            const idAndClass = `${el.id || ''} ${el.className || ''}`.toLowerCase();
+            if (/\b(?:chapter|entry-content|post-content|read-content|chapter-content|text-content|article-content|novel-content|story-content|read-container|content-body|body-content|ep-content|c-content|fr-view)\b/i.test(idAndClass)) {
+                score += 200;
+            }
+            if (/\b(?:content|reading|chapter|prose|reader)\b/i.test(idAndClass)) {
+                score += 80;
+            }
+
+            // 6. Negative class/id indicators
+            if (/\b(?:comment|reply|footer|header|nav|menu|sidebar|widget|ad|ads|advertisement|social|share|recommend|related|author-box|login|signup)\b/i.test(idAndClass)) {
+                score -= 250;
+            }
+
+            return score;
+        },
+
+        findBestContentNode: function(docOrHtml) {
+            let doc = docOrHtml;
+            if (typeof docOrHtml === 'string') {
+                if (typeof DOMParser !== 'undefined') {
+                    doc = new DOMParser().parseFromString(docOrHtml, 'text/html');
+                } else {
+                    return null;
+                }
+            }
+            if (!doc || !doc.body) return null;
+
+            // Clone to avoid mutating original
+            let workingBody;
+            try {
+                workingBody = doc.body.cloneNode(true);
+            } catch (_) {
+                workingBody = doc.body;
+            }
+
+            // Strip non-content junk
+            try {
+                workingBody.querySelectorAll('script, style, noscript, iframe, svg, nav, footer, header, form, .ad, .ads, .sidebar, .comments, #comments').forEach(el => el.remove());
+            } catch (_) {}
+
+            const candidates = workingBody.querySelectorAll(
+                'article, main, section, div, [id*="content"], [class*="content"], [id*="chapter"], [class*="chapter"], [id*="novel"], [class*="novel"], [id*="story"], [class*="story"], [id*="post"], [class*="post"], [id*="entry"], [class*="entry"], [id*="read"], [class*="read"]'
+            );
+
+            let bestNode = null;
+            let bestScore = -9999;
+
+            candidates.forEach(el => {
+                const s = ChameleonExtractor.scoreElement(el);
+                if (s > bestScore) {
+                    bestScore = s;
+                    bestNode = el;
+                }
+            });
+
+            // Tighten to highest scoring descendant if child retains >= 85% score
+            if (bestNode && bestNode.children) {
+                let candidateChild = null;
+                for (let i = 0; i < bestNode.children.length; i++) {
+                    const ch = bestNode.children[i];
+                    const chScore = ChameleonExtractor.scoreElement(ch);
+                    if (chScore > 100 && chScore >= bestScore * 0.85) {
+                        candidateChild = ch;
+                        break;
+                    }
+                }
+                if (candidateChild) {
+                    bestNode = candidateChild;
+                }
+            }
+
+            if (!bestNode || bestScore < 60) {
+                bestNode = workingBody.querySelector('article, main, .post-content, .entry-content, #content, .content') || workingBody;
+            }
+
+            return bestNode;
+        },
+
+        extractArticle: function(docOrHtml, baseUrl = '') {
+            let doc = docOrHtml;
+            if (typeof docOrHtml === 'string') {
+                if (typeof DOMParser !== 'undefined') {
+                    doc = new DOMParser().parseFromString(docOrHtml, 'text/html');
+                } else {
+                    return { title: '', text: docOrHtml, html: docOrHtml, score: 0 };
+                }
+            }
+            if (!doc) return { title: '', text: '', html: '', score: 0 };
+
+            // Extract title candidate
+            let title = '';
+            const titleEl = doc.querySelector('h1.entry-title, h1.chapter-title, h1.post-title, h1, h2.chapter-title, h2.entry-title, title');
+            if (titleEl) {
+                title = (titleEl.textContent || '').trim();
+                title = title.replace(/\s*[-|–—]\s*(?:Read\s+Novel\s+Online|Novel\s+Updates|WuxiaWorld|Lightnovel|Webnovel).*$/i, '').trim();
+            }
+
+            const bestNode = ChameleonExtractor.findBestContentNode(doc);
+            if (!bestNode) {
+                return { title, text: '', html: '', score: 0 };
+            }
+
+            const rawHtml = bestNode.innerHTML || bestNode.textContent || '';
+            let cleanedText = cleanChapterHtmlWithImages(rawHtml, baseUrl);
+
+            const trapCleaner = (typeof window !== 'undefined' && window.stripInvisibleTrapsAndWatermarks) ? window.stripInvisibleTrapsAndWatermarks : (typeof stripInvisibleTrapsAndWatermarks === 'function' ? stripInvisibleTrapsAndWatermarks : null);
+            if (typeof trapCleaner === 'function') {
+                cleanedText = trapCleaner(cleanedText);
+            }
+
+            const score = ChameleonExtractor.scoreElement(bestNode);
+            return {
+                title,
+                text: cleanedText,
+                html: rawHtml,
+                score
+            };
+        }
+    };
+
+    if (typeof window !== 'undefined') {
+        window.ChameleonExtractor = ChameleonExtractor;
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -683,6 +885,58 @@
     }
 
     // ══════════════════════════════════════════════════════════════════════
+    // 3.5 ADAPTIVE SPEED CONTROLLER (COURTESY CRAWLING & LATENCY PACING)
+    // ══════════════════════════════════════════════════════════════════════
+    class AdaptiveSpeedController {
+        constructor(baseConcurrency = 4, baseDelayMs = 100) {
+            this.baseConcurrency = Math.max(1, baseConcurrency);
+            this.currentConcurrency = this.baseConcurrency;
+            this.baseDelayMs = Math.max(0, baseDelayMs);
+            this.currentDelayMs = this.baseDelayMs;
+            this.successStreak = 0;
+            this.failureStreak = 0;
+            this.latencies = [];
+            this.isBackingOff = false;
+        }
+
+        recordSuccess(latencyMs = 200) {
+            this.latencies.push(latencyMs);
+            if (this.latencies.length > 10) this.latencies.shift();
+            this.failureStreak = 0;
+            this.successStreak++;
+
+            // If cruising smoothly with fast latency (<1500ms) for 2+ chapters, smoothly recover toward base speed
+            if (this.successStreak >= 2 && this.currentDelayMs > this.baseDelayMs) {
+                this.currentDelayMs = Math.max(this.baseDelayMs, Math.round(this.currentDelayMs * 0.6));
+                this.successStreak = 0;
+            }
+        }
+
+        recordThrottle(reason = 'rate_limit', errStatus = 429) {
+            this.failureStreak++;
+            this.successStreak = 0;
+            if (errStatus === 429 || errStatus === 1015 || String(reason).includes('rate limit')) {
+                this.currentDelayMs = Math.min(6000, Math.max(1200, this.currentDelayMs * 2 + 500));
+            } else {
+                this.currentDelayMs = Math.min(4000, Math.max(500, this.currentDelayMs * 1.5 + 250));
+            }
+        }
+
+        getPacingDelay() {
+            const jitter = (Math.random() - 0.5) * 0.25 * this.currentDelayMs;
+            return Math.max(0, Math.round(this.currentDelayMs + jitter));
+        }
+
+        isThrottled() {
+            return this.currentDelayMs > this.baseDelayMs * 1.5;
+        }
+    }
+
+    if (typeof window !== 'undefined') {
+        window.AdaptiveSpeedController = AdaptiveSpeedController;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
     // 4. PARALLEL WORKER POOL ENGINE (LNCRAWL STREAMING & RESUMABLE SESSIONS)
     // ══════════════════════════════════════════════════════════════════════
     let activeCrawlController = null;
@@ -796,7 +1050,8 @@
             }
         }
 
-        const interRequestDelay = poolOptions.delayMs !== undefined ? poolOptions.delayMs : 100;
+        const baseDelay = poolOptions.delayMs !== undefined ? poolOptions.delayMs : 100;
+        const speedCtrl = new AdaptiveSpeedController(concurrency, baseDelay);
         let totalWordsEstimate = chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)), 0);
         let totalImagesCount = chapters.reduce((acc, c) => acc + ((c.text && c.text.match(/!\[Illustration\]/g)) || []).length, 0);
         let wakeLockObj = null;
@@ -813,7 +1068,7 @@
         let isBackingOff = false;
         let consecutiveFailures = 0;
 
-        window.sendTelemetry?.('CRAWL', `Starting ingestion pool (${concurrency} workers, ${interRequestDelay}ms delay) for ${hasRange ? `${targetChapterCount} chapters (Ch. ${rangeStart + 1}–${rangeEnd + 1})` : `${chapterList.length} chapters`}: ${meta?.title || 'Novel'}`);
+        window.sendTelemetry?.('CRAWL', `Starting ingestion pool (${concurrency} workers, ${baseDelay}ms base delay) for ${hasRange ? `${targetChapterCount} chapters (Ch. ${rangeStart + 1}–${rangeEnd + 1})` : `${chapterList.length} chapters`}: ${meta?.title || 'Novel'}`);
 
         const worker = async () => {
             while (pendingQueue.length > 0) {
@@ -838,10 +1093,15 @@
                 while (attempts < 4 && !chData && !ctrl.isPaused && !ctrl.isCancelled) {
                     attempts++;
                     try {
-                        // Polite inter-request pacing
-                        await new Promise(r => setTimeout(r, interRequestDelay));
+                        // Polite adaptive inter-request pacing
+                        const currentDelay = speedCtrl.getPacingDelay();
+                        if (speedCtrl.isThrottled()) {
+                            progressCb?.(`🚦 Adaptive speed control active (${currentDelay}ms pacing)... (${completedIndices.size}/${chapterList.length} ch done)`);
+                        }
+                        await new Promise(r => setTimeout(r, currentDelay));
                         if (ctrl.isPaused || ctrl.isCancelled) break;
 
+                        const reqStart = Date.now();
                         chData = await extractContentFn(item, currentIndex);
                         if (ctrl.isPaused || ctrl.isCancelled) break;
 
@@ -850,16 +1110,23 @@
                             const sample = chData.text.slice(0, 350).toLowerCase();
                             if (sample.includes('error 1015') || (sample.includes('rate limit') && sample.includes('cloudflare'))) {
                                 rateLimitDetected = true;
+                                speedCtrl.recordThrottle('cloudflare_1015', 1015);
                                 chData = null;
+                            } else {
+                                speedCtrl.recordSuccess(Date.now() - reqStart);
                             }
                         }
                     } catch (fetchErr) {
                         const errMsg = String(fetchErr?.message || '').toLowerCase();
                         if (errMsg.includes('1015') || errMsg.includes('rate limit') || errMsg.includes('429')) {
                             rateLimitDetected = true;
-                        } else if (attempts < 4) {
-                            const backoffDelay = Math.min(8000, (1000 * Math.pow(2, attempts - 1)) + (Math.random() * 500));
-                            await new Promise(r => setTimeout(r, backoffDelay));
+                            speedCtrl.recordThrottle(errMsg, 429);
+                        } else {
+                            speedCtrl.recordThrottle(errMsg, 500);
+                            if (attempts < 4) {
+                                const backoffDelay = Math.min(8000, (1000 * Math.pow(2, attempts - 1)) + (Math.random() * 500));
+                                await new Promise(r => setTimeout(r, backoffDelay));
+                            }
                         }
                     }
 
@@ -882,6 +1149,10 @@
 
                 if (chData && (chData.text || chData.content)) {
                     let chapterText = chData.text || chData.content || '';
+                    const trapCleaner = (typeof window !== 'undefined' && window.stripInvisibleTrapsAndWatermarks) ? window.stripInvisibleTrapsAndWatermarks : (typeof stripInvisibleTrapsAndWatermarks === 'function' ? stripInvisibleTrapsAndWatermarks : null);
+                    if (typeof trapCleaner === 'function') {
+                        chapterText = trapCleaner(chapterText);
+                    }
                     const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
                     const chTitle = chData.title || item.title || `Chapter ${currentIndex + 1}`;
                     if (typeof stripFn === 'function' && chTitle) {
@@ -2955,7 +3226,7 @@
                     }
 
                     const cleaned = cleanChapterHtmlWithImages(combinedHtml, bookPageUrl);
-                    if (cleaned.length > 5 || /!\[Illustration\]/i.test(cleaned)) {
+                    if (cleaned.length > 5 || /!\[.*?\]\(/i.test(cleaned)) {
                         let finalTitle = currentToc.title;
                         if (volIndex !== null) {
                             finalTitle = `Volume ${volIndex} - ${finalTitle}`;
@@ -3023,7 +3294,7 @@
                 }
                 if (volIndex !== null) chTitle = `Volume ${volIndex} - ${chTitle}`;
                 const cleaned = cleanChapterHtmlWithImages(sec.innerHTML, bookPageUrl);
-                if (cleaned.length > 15 || /!\[Illustration\]/i.test(cleaned)) {
+                if (cleaned.length > 15 || /!\[.*?\]\(/i.test(cleaned)) {
                     extracted.push({
                         title: chTitle,
                         text: cleaned,
@@ -3050,10 +3321,17 @@
                            doc.querySelector('.author')?.textContent?.trim() || 'Lnori Author';
             const summary = doc.querySelector('meta[name="description"]')?.getAttribute('content') || 'Imported from Lnori';
             const tags = ['Lnori', 'Light Novel', 'Illustrated', 'English'];
-            const cover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
-                          doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
-                          doc.querySelector('link[rel="image_src"]')?.getAttribute('href') ||
-                          doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i]')?.getAttribute('src') || '';
+            const bookId = (url.match(/\/book\/(\d+)/i) || [])[1] || '';
+            const seriesId = (url.match(/\/series\/(\d+)/i) || [])[1] || '';
+            let cover = (bookId ? `https://cdn.lnori.com/volume/${bookId}.jpg` : '') ||
+                        (seriesId ? `https://cdn.lnori.com/cover/${seriesId}.webp` : '') ||
+                        doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+                        doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
+                        doc.querySelector('link[rel="image_src"]')?.getAttribute('href') ||
+                        doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i]')?.getAttribute('src') || '';
+            if (cover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(cover)) {
+                cover = cover.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
+            }
 
             const bookChapters = parseChaptersFromBookHtml(html, url);
             if (activeCrawlController?.tocOnly) {
@@ -3116,11 +3394,22 @@
 
             if (bookUrls.length === 0) throw new Error('No readable volumes found for this Lnori series.');
 
+            const seriesId = (url.match(/\/series\/(\d+)/i) || [])[1] || '';
+            let seriesCover = (seriesId ? `https://cdn.lnori.com/cover/${seriesId}.webp` : '') ||
+                              doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+                              doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
+                              doc.querySelector('link[rel="image_src"]')?.getAttribute('href') ||
+                              doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i]')?.getAttribute('src') || '';
+            if (seriesCover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(seriesCover)) {
+                seriesCover = seriesCover.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
+            }
+
             if (activeCrawlController?.tocOnly) {
                 progressCb?.(` Found ${bookUrls.length} volumes in Lnori series.`, 100);
                 return {
                     title,
                     author,
+                    cover: seriesCover,
                     summary,
                     tags,
                     chapters: [],
@@ -3224,9 +3513,13 @@
 
             const totalWords = allChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
             progressCb?.(` Loaded ${allChapters.length} chapters across ${bookUrls.length} Lnori volumes (~${totalWords.toLocaleString()} words)!`, 100);
-            const cover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+            let cover = seriesCover ||
+                          doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
                           doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
                           doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i]')?.getAttribute('src') || '';
+            if (cover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(cover)) {
+                cover = cover.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
+            }
 
             return {
                 title,
@@ -3562,7 +3855,22 @@
                         }
                     }
 
-                    // Fallback to CSS selectors if Readability returned empty or failed
+                    // Fallback to ChameleonExtractor if Readability returned empty or sparse prose
+                    if (!chapterText || chapterText.length < 50) {
+                        try {
+                            const chamResult = ChameleonExtractor.extractArticle(chDoc, item.url);
+                            if (chamResult && chamResult.text && chamResult.text.length > 50) {
+                                chapterText = chamResult.text;
+                                if (!chapterTitle || chapterTitle === item.title) {
+                                    chapterTitle = chamResult.title || chapterTitle;
+                                }
+                            }
+                        } catch (chamErr) {
+                            console.warn('[ChameleonExtractor] Chapter fallback failed:', chamErr);
+                        }
+                    }
+
+                    // Final fallback to CSS selectors if still sparse
                     if (!chapterText || chapterText.length < 30) {
                         chDoc.querySelectorAll('script, style, nav, footer, header, .ads').forEach(el => el.remove());
                         const el = chDoc.querySelector('article, main, .post-content, .entry-content, #content, .content') || chDoc.body;
@@ -3585,6 +3893,19 @@
         let text = '';
         if (parsedMeta && parsedMeta.content) {
             text = cleanChapterHtmlWithImages(parsedMeta.content);
+        }
+        if (!text || text.length < 50) {
+            try {
+                const chamResult = ChameleonExtractor.extractArticle(doc, url);
+                if (chamResult && chamResult.text && chamResult.text.length > 50) {
+                    text = chamResult.text;
+                    if (!title || title === 'Web Novel' || title === 'Web Article') {
+                        title = chamResult.title || title;
+                    }
+                }
+            } catch (chamErr) {
+                console.warn('[ChameleonExtractor] Single article fallback failed:', chamErr);
+            }
         }
         if (!text || text.length < 30) {
             const articleEl = doc.querySelector('article, main, .post-content, .entry-content, #content, .content, .post') || doc.body;
@@ -4856,6 +5177,15 @@
             }
         }
     };
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = {
+            WebNovelImporter,
+            ChameleonExtractor,
+            AdaptiveSpeedController,
+            cleanChapterHtmlWithImages
+        };
+    }
 
     console.log(" LightNovel-Crawler Multi-Source Ingestion Engine Active!");
 })();
