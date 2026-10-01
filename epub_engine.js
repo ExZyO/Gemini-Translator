@@ -377,7 +377,9 @@
 
       let wakeLockObj = null;
       try {
-        window.NativeBridge?.acquireWakeLock?.();
+        if (window.NativeBridge?.acquireWakeLock) {
+          await window.NativeBridge.acquireWakeLock('Packaging EPUB', `Compiling "${bookTitle}" with illustrations...`);
+        }
         if (typeof navigator !== 'undefined' && navigator.wakeLock) {
           try { wakeLockObj = await navigator.wakeLock.request('screen'); } catch(e) {}
         }
@@ -830,20 +832,19 @@ hr {
                 } catch(_) {}
               }
 
-              // Strategy 3: Dedicated High-Speed Image CDN & Proxy Pool (Strict 3.5s per proxy, skipped if host is known unreachable and thHash exists)
-              const isUnreachableHost = downloadUrl.includes('img.lnori.');
-              if ((!buffer || buffer.byteLength < 500) && (!isUnreachableHost || !thHash)) {
+              // Strategy 3: Dedicated High-Speed Image CDN & Proxy Pool (Prioritizes corsproxy.org for Cloudflare-shielded hosts like img.lnori.com)
+              if (!buffer || buffer.byteLength < 500) {
                 const cleanNoProto = downloadUrl.replace(/^https?:\/\//i, '');
                 const proxies = [
-                  () => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`,
                   () => `https://corsproxy.org/?url=${encodeURIComponent(downloadUrl)}`,
+                  () => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`,
                   () => `https://api.allorigins.win/raw?url=${encodeURIComponent(downloadUrl)}`
                 ];
                 for (const getProxyUrl of proxies) {
                   if (buffer && buffer.byteLength > 500) break;
                   try {
                     const ctrl = AC ? new AC() : null;
-                    const t = ctrl ? setTimeout(() => ctrl.abort(), 3500) : null;
+                    const t = ctrl ? setTimeout(() => ctrl.abort(), 4500) : null;
                     const res = await fetch(getProxyUrl(), { signal: ctrl ? ctrl.signal : undefined });
                     if (t) clearTimeout(t);
                     if (res.ok) {

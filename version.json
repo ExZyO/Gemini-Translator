@@ -1,9 +1,9 @@
 {
-  "version": "8.18.13",
-  "versionCode": 8313,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.13/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.13/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.13",
+  "version": "8.18.14",
+  "versionCode": 8314,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.14/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.14/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.14",
   "releaseDate": "2026-10-02",
-  "releaseNotes": "v8.18.13: Resolved Lnori fetch loop crash, added swipe-to-dismiss gesture for individual toasts and vertical swipe/button to dismiss all toasts."
+  "releaseNotes": "v8.18.14: Guaranteed unstoppable background EPUB packaging with continuous audio keepalive and WebView visibility override."
 }

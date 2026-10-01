@@ -114,6 +114,7 @@ public class MainActivity extends BridgeActivity {
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.getWebView().onResume();
                 bridge.getWebView().resumeTimers();
+                bridge.getWebView().dispatchWindowVisibilityChanged(android.view.View.VISIBLE);
             }
         } catch (Exception ignored) {}
     }
@@ -126,6 +127,7 @@ public class MainActivity extends BridgeActivity {
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.getWebView().onResume();
                 bridge.getWebView().resumeTimers();
+                bridge.getWebView().dispatchWindowVisibilityChanged(android.view.View.VISIBLE);
             }
         } catch (Exception ignored) {}
     }

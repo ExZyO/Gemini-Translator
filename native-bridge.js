@@ -30,8 +30,31 @@
                     this._audioEl.setAttribute('playsinline', 'true');
                     this._audioEl.setAttribute('loop', 'true');
                     this._audioEl.volume = 0.001; // Inaudible volume to bypass zero-gain heuristics
-                    // 1-sample silent 44.1kHz PCM WAV
-                    this._audioEl.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+                    // Continuous 1-second silent 8kHz 8-bit mono WAV (8044 bytes) to keep Android media server alive
+                    if (!this._silentWavUrl && typeof Blob !== 'undefined' && typeof URL !== 'undefined') {
+                        try {
+                            const sampleRate = 8000;
+                            const numSamples = sampleRate; // 1 second
+                            const buf = new ArrayBuffer(44 + numSamples);
+                            const dv = new DataView(buf);
+                            dv.setUint32(0, 0x52494646, false); // "RIFF"
+                            dv.setUint32(4, 36 + numSamples, true);
+                            dv.setUint32(8, 0x57415645, false); // "WAVE"
+                            dv.setUint32(12, 0x666d7420, false); // "fmt "
+                            dv.setUint32(16, 16, true);
+                            dv.setUint16(20, 1, true); // PCM
+                            dv.setUint16(22, 1, true); // Mono
+                            dv.setUint32(24, sampleRate, true);
+                            dv.setUint32(28, sampleRate, true);
+                            dv.setUint16(32, 1, true);
+                            dv.setUint16(34, 8, true); // 8-bit
+                            dv.setUint32(36, 0x64617461, false); // "data"
+                            dv.setUint32(40, numSamples, true);
+                            new Uint8Array(buf, 44).fill(128); // 128 = silence in 8-bit PCM
+                            this._silentWavUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+                        } catch (_) {}
+                    }
+                    this._audioEl.src = this._silentWavUrl || 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
                 }
                 const playPromise = this._audioEl.play();
                 if (playPromise !== undefined) {
@@ -1060,8 +1083,8 @@
             const isImg = /\.(jpg|jpeg|png|webp|gif|avif)/i.test(url);
             const cleanNoProto = url.replace(/^https?:\/\//i, '');
             const proxies = [
-                ...(isImg ? [(u) => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`] : []),
                 (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
+                ...(isImg ? [(u) => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`] : []),
                 (u) => u,
                 (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u)
             ];
