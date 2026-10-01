@@ -1406,13 +1406,41 @@
           fileName: fileName || 'backup.mrexpt',
           rawText: text,
           info,
+          targetBookId: info?.bookId || '',
           targetTitle,
           targetPath: defaultPath,
+          autoMatched: false,
           isDone: false
         }
       } : null);
       if (typeof toast === 'function') {
         toast(`Loaded backup "${fileName || 'file'}" with ${info?.entryCount || 0} entries!`, 'info');
+      }
+    };
+
+    const processSampleMrexpt = (text, fileName) => {
+      if (!text || typeof text !== 'string') return;
+      const extractFn = window.MoonReaderEngine?.extractTemplateFromMrexpt;
+      const sample = extractFn ? extractFn(text) : null;
+      if (!sample || (!sample.bookId && !sample.title)) {
+        if (typeof toast === 'function') toast('Could not detect target book info from sample file.', 'warning');
+        return;
+      }
+      setOngoingEpubModal(prev => {
+        if (!prev || !prev.mrexptData) return prev;
+        return {
+          ...prev,
+          mrexptData: {
+            ...prev.mrexptData,
+            targetBookId: sample.bookId || prev.mrexptData.targetBookId,
+            targetTitle: sample.title || prev.mrexptData.targetTitle,
+            targetPath: sample.filePath || prev.mrexptData.targetPath,
+            autoMatched: true
+          }
+        };
+      });
+      if (typeof toast === 'function') {
+        toast(`Auto-matched target book! ID: ${sample.bookId || 'detected'}, Title: ${sample.title || 'detected'}`, 'success');
       }
     };
 
@@ -2213,6 +2241,88 @@
               ongoingEpubModal.mrexptData.info?.oldFilePath && h('div', { style: { fontSize: 11, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
                 'Original path in backup: ', h('span', { style: { color: 'var(--paper)', fontFamily: 'monospace' } }, ongoingEpubModal.mrexptData.info.oldFilePath)
               ),
+              ongoingEpubModal.mrexptData.info?.bookId && h('div', { style: { fontSize: 11, color: 'var(--slate)' } },
+                'Original Moon+ Reader Book ID: ', h('span', { style: { color: 'var(--accent, #6366f1)', fontWeight: 700, fontFamily: 'monospace' } }, ongoingEpubModal.mrexptData.info.bookId)
+              ),
+
+              // Auto-Match from 1-Bookmark Sample Card
+              h('div', {
+                style: {
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  marginTop: 2
+                }
+              },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 } },
+                  h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--paper)' } },
+                    '⚡ Auto-Match Target Book (1-Tap Setup)'
+                  ),
+                  ongoingEpubModal.mrexptData.autoMatched && h('span', {
+                    style: { fontSize: 11, color: '#10b981', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: 999 }
+                  }, `✓ Matched ID: ${ongoingEpubModal.mrexptData.targetBookId}`)
+                ),
+                h('div', { style: { fontSize: 11.5, color: 'var(--slate)', lineHeight: 1.4 } },
+                  'In Moon+ Reader, open your updated book, create 1 bookmark, and tap Export. Pick that tiny file here to instantly auto-fill the target ID, Title, and Path:'
+                ),
+                h('label', {
+                  className: 'mini-btn',
+                  style: {
+                    background: 'rgba(99, 102, 241, 0.2)',
+                    border: '1px dashed var(--accent, #6366f1)',
+                    color: 'var(--paper)',
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6
+                  }
+                },
+                  '📄 Pick 1-Bookmark Sample Export',
+                  h('input', {
+                    type: 'file',
+                    accept: '*/*',
+                    style: { display: 'none' },
+                    onChange: (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        processSampleMrexpt(evt.target.result, f.name);
+                      };
+                      reader.readAsText(f);
+                    }
+                  })
+                )
+              ),
+
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+                h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--slate)' } }, 'Target Moon+ Reader Book ID:'),
+                h('input', {
+                  type: 'text',
+                  className: 'mini-input',
+                  style: { height: 38, borderRadius: 8, fontSize: 13, fontFamily: 'monospace' },
+                  value: ongoingEpubModal.mrexptData.targetBookId || '',
+                  onChange: (e) => {
+                    const val = e.target.value;
+                    setOngoingEpubModal(prev => prev ? {
+                      ...prev,
+                      mrexptData: { ...prev.mrexptData, targetBookId: val }
+                    } : null);
+                  }
+                }),
+                h('span', { style: { fontSize: 11, color: 'var(--slate)' } },
+                  '💡 Moon+ Reader database ID. Keep as original if replacing the file on device, or use the ID from a sample export.'
+                )
+              ),
               h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
                 h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--slate)' } }, 'Target Book Title (in Moon+ Reader):'),
                 h('input', {
@@ -2275,6 +2385,7 @@
                     return;
                   }
                   const updatedText = migrateFn(ongoingEpubModal.mrexptData.rawText, {
+                    newBookId: ongoingEpubModal.mrexptData.targetBookId,
                     newTitle: ongoingEpubModal.mrexptData.targetTitle,
                     newFilePath: ongoingEpubModal.mrexptData.targetPath
                   });

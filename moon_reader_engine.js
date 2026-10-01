@@ -725,6 +725,7 @@
       if (!content || typeof content !== 'string') return null;
       const lines = content.split(/\r?\n/);
       let entryCount = 0;
+      let bookId = '';
       let oldTitle = '';
       let oldFilePath = '';
       let inEntry = false;
@@ -737,6 +738,12 @@
           entryCount++;
           inEntry = true;
           entryLineIdx = 0;
+          continue;
+        }
+        if (!inEntry) {
+          if (i === 0 && line.trim()) {
+            bookId = line.trim();
+          }
           continue;
         }
         if (inEntry) {
@@ -755,6 +762,7 @@
 
       return {
         entryCount,
+        bookId,
         oldTitle,
         oldFilePath,
         sampleHighlights
@@ -762,15 +770,30 @@
     },
 
     /**
-     * Migrates a Moon+ Reader Pro .mrexpt backup file content to match a new book title and/or file path.
+     * Extracts target book ID, title, and file path from a 1-bookmark sample export
+     */
+    extractTemplateFromMrexpt(content) {
+      if (!content || typeof content !== 'string') return null;
+      const inspected = this.inspectMrexpt(content);
+      if (!inspected) return null;
+      return {
+        bookId: inspected.bookId || '',
+        title: inspected.oldTitle || '',
+        filePath: inspected.oldFilePath || ''
+      };
+    },
+
+    /**
+     * Migrates a Moon+ Reader Pro .mrexpt backup file content to match a new book title, book ID, and/or file path.
      * Preserves 100% of bookmark coordinates, notes, colors, offsets, and timestamps.
      */
-    migrateMrexpt(content, { newTitle, newFilePath } = {}) {
+    migrateMrexpt(content, { newBookId, newTitle, newFilePath } = {}) {
       if (!content || typeof content !== 'string') return '';
       const lines = content.split(/\r?\n/);
       const out = [];
       let inEntry = false;
       let entryLineIdx = 0;
+      let headerProcessed = false;
 
       let resolvedFilePath = (newFilePath || '').trim().replace(/\\/g, '/');
 
@@ -807,6 +830,15 @@
           inEntry = true;
           entryLineIdx = 0;
           out.push(line);
+          continue;
+        }
+        if (!inEntry) {
+          if (!headerProcessed && i === 0 && newBookId) {
+            out.push(String(newBookId).trim());
+            headerProcessed = true;
+          } else {
+            out.push(line);
+          }
           continue;
         }
         if (inEntry) {
@@ -1055,6 +1087,7 @@
   window.handleSetNovelFolder = MoonReaderEngine.handleSetNovelFolder.bind(MoonReaderEngine);
   window.toggleOpdsServerUI = MoonReaderEngine.toggleOpdsServerUI.bind(MoonReaderEngine);
   window.inspectMrexpt = MoonReaderEngine.inspectMrexpt.bind(MoonReaderEngine);
+  window.extractTemplateFromMrexpt = MoonReaderEngine.extractTemplateFromMrexpt.bind(MoonReaderEngine);
   window.migrateMrexpt = MoonReaderEngine.migrateMrexpt.bind(MoonReaderEngine);
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = MoonReaderEngine;
