@@ -746,6 +746,9 @@ hr {
             if (/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i.test(downloadUrl)) {
               downloadUrl = downloadUrl.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
             }
+            if (/https?:\/\/cdn\.lnori\.com\/cover\/(\d+)\.webp/i.test(downloadUrl)) {
+              downloadUrl = downloadUrl.replace(/https?:\/\/cdn\.lnori\.com\/cover\/(\d+)\.webp/i, 'https://cdn.lnori.com/series/$1.jpg');
+            }
             if (downloadUrl.includes('#th=')) {
               downloadUrl = downloadUrl.split('#th=')[0];
             }

@@ -3405,12 +3405,13 @@
             const tags = ['Lnori', 'Light Novel', 'Illustrated', 'English'];
             const bookId = (url.match(/\/book\/(\d+)/i) || [])[1] || '';
             const seriesId = (url.match(/\/series\/(\d+)/i) || [])[1] || '';
-            let cover = (bookId ? `https://cdn.lnori.com/volume/${bookId}.jpg` : '') ||
-                        (seriesId ? `https://cdn.lnori.com/cover/${seriesId}.webp` : '') ||
-                        doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+            let cover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
                         doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
-                        doc.querySelector('link[rel="image_src"]')?.getAttribute('href') ||
-                        doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i]')?.getAttribute('src') || '';
+                        (bookId ? `https://cdn.lnori.com/volume/${bookId}.jpg` : '') ||
+                        (seriesId ? `https://cdn.lnori.com/series/${seriesId}.jpg` : '') ||
+                        doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i], img[src*="/cover/"]')?.getAttribute('src') ||
+                        doc.querySelector('link[rel="image_src"]')?.getAttribute('href') || '';
+            if (cover && cover.startsWith('/')) cover = 'https://lnori.com' + cover;
             if (cover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(cover)) {
                 cover = cover.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
             }
@@ -3477,11 +3478,12 @@
             if (bookUrls.length === 0) throw new Error('No readable volumes found for this Lnori series.');
 
             const seriesId = (url.match(/\/series\/(\d+)/i) || [])[1] || '';
-            let seriesCover = (seriesId ? `https://cdn.lnori.com/cover/${seriesId}.webp` : '') ||
-                              doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+            let seriesCover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
                               doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
-                              doc.querySelector('link[rel="image_src"]')?.getAttribute('href') ||
-                              doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i]')?.getAttribute('src') || '';
+                              (seriesId ? `https://cdn.lnori.com/series/${seriesId}.jpg` : '') ||
+                              doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i], img[src*="/cover/"]')?.getAttribute('src') ||
+                              doc.querySelector('link[rel="image_src"]')?.getAttribute('href') || '';
+            if (seriesCover && seriesCover.startsWith('/')) seriesCover = 'https://lnori.com' + seriesCover;
             if (seriesCover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(seriesCover)) {
                 seriesCover = seriesCover.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
             }
@@ -3598,7 +3600,8 @@
             let cover = seriesCover ||
                           doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
                           doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
-                          doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i]')?.getAttribute('src') || '';
+                          doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i], img[src*="/cover/"]')?.getAttribute('src') || '';
+            if (cover && cover.startsWith('/')) cover = 'https://lnori.com' + cover;
             if (cover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(cover)) {
                 cover = cover.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
             }

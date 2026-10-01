@@ -1,9 +1,9 @@
 {
-  "version": "8.18.09",
-  "versionCode": 8309,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.09/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.09/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.09",
+  "version": "8.18.10",
+  "versionCode": 8310,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.10/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.10/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.10",
   "releaseDate": "2026-10-01",
-  "releaseNotes": "v8.18.09: Progressive streaming search results across web sources & plugins, generous 12s timeout so zero extensions are dropped, and real-time novel card rendering."
+  "releaseNotes": "v8.18.10: Fix Lnori real cover extraction from og:image and CDN, eliminate synthetic cover fallbacks, map Lnori image assets, and update roadmap."
 }
