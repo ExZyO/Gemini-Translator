@@ -684,6 +684,39 @@
             timeoutMs
         });
 
+        // 0. Direct Fetch Fast-Path (Instant sub-second resolution for CORS-enabled APIs and direct network environments)
+        try {
+            if (!controller.signal.aborted) {
+                const directCtrl = new AbortController();
+                const directTimer = setTimeout(() => directCtrl.abort(), 2800);
+                const directOpts = {
+                    signal: directCtrl.signal,
+                    headers: options.headers || {},
+                    method: options.method || 'GET'
+                };
+                if (options.body) directOpts.body = options.body;
+                const directRes = await fetch(url, directOpts);
+                clearTimeout(directTimer);
+                if (directRes.ok) {
+                    const text = await directRes.text();
+                    const blockCheck = detectBlockOrChallenge(text);
+                    if (!blockCheck.blocked) {
+                        clearTimeout(timer);
+                        if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
+                        const latency = Date.now() - startTime;
+                        window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched directly in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
+                            url,
+                            context,
+                            tier: 'DirectFetch',
+                            latencyMs: latency,
+                            charCount: text.length
+                        });
+                        return text;
+                    }
+                }
+            }
+        } catch (_) {}
+
         // 1. Android Native Bridge (Zero CORS / Full Chromium Engine)
         if (window.NativeBridge && window.NativeBridge.fetchNative) {
             try {
@@ -786,7 +819,6 @@
 
         // 3. Tiered Public Proxy Failover Pool (Fast sub-second proxies prioritized)
         const proxyPool = [
-            { name: 'cors.eu.org', getUrl: (u) => `https://cors.eu.org/${u}` },
             { name: 'allorigins.win', getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` }
         ];
 
@@ -797,7 +829,7 @@
             let onParentAbort = null;
             try {
                 const proxyCtrl = new AbortController();
-                proxyTimer = setTimeout(() => proxyCtrl.abort(), 7000);
+                proxyTimer = setTimeout(() => proxyCtrl.abort(), 4500);
 
                 onParentAbort = () => {
                     clearTimeout(proxyTimer);
@@ -4274,13 +4306,27 @@
         // 1. Direct Official High-Speed JSON API Query
         try {
             const apiUrl = `https://api.novelbuddy.me/titles/search?q=${cleanQ}`;
-            const apiRes = await fetchHtml(apiUrl, {
-                context: 'NovelBuddy API Search',
-                headers: {
-                    'Referer': 'https://novelbuddy.me/',
-                    'Accept': 'application/json, text/plain, */*'
+            let apiRes = null;
+            try {
+                const directRes = await fetch(apiUrl, {
+                    headers: { 'Accept': 'application/json, text/plain, */*' },
+                    signal: AbortSignal.timeout(3500)
+                });
+                if (directRes.ok) {
+                    apiRes = await directRes.text();
                 }
-            });
+            } catch (_) {}
+
+            if (!apiRes) {
+                apiRes = await fetchHtml(apiUrl, {
+                    context: 'NovelBuddy API Search',
+                    headers: {
+                        'Referer': 'https://novelbuddy.com/',
+                        'Accept': 'application/json, text/plain, */*'
+                    }
+                });
+            }
+
             if (apiRes) {
                 let json = null;
                 try {
@@ -4290,11 +4336,11 @@
                 const items = json?.data?.items || json?.items || [];
                 for (const it of items) {
                     if (!it.name || !it.url) continue;
-                    const fullUrl = it.url.startsWith('http') ? it.url : `https://novelbuddy.me${it.url}`;
+                    const fullUrl = it.url.startsWith('http') ? it.url : `https://novelbuddy.com${it.url}`;
                     if (seenUrls.has(fullUrl)) continue;
                     seenUrls.add(fullUrl);
 
-                    const authorStr = Array.isArray(it.authors) ? it.authors.map(a => a.name || a).filter(Boolean).join(', ') : (it.author || 'NovelBuddy Author');
+                    const authorStr = Array.isArray(it.authors) ? it.authors.map(a => a.name || a).filter(Boolean).join(', ') : (it.author || it.alt_name || 'NovelBuddy Author');
                     const chStr = it.stats?.chapters_count ? `${it.stats.chapters_count} chapters` : (it.displayChapters || (it.stats?.chaptersCount ? `${it.stats.chaptersCount} chapters` : ''));
                     const ratingStr = it.rating ? `${it.rating} ★` : (it.rating_avg ? `${it.rating_avg} ★` : '');
 
@@ -4322,10 +4368,10 @@
 
         // 2. Fallback: SSR HTML / __NEXT_DATA__
         try {
-            const url = `https://novelbuddy.me/search?q=${cleanQ}`;
+            const url = `https://novelbuddy.com/search?q=${cleanQ}`;
             const html = await fetchHtml(url, {
                 context: 'NovelBuddy Web Search',
-                headers: { 'Referer': 'https://novelbuddy.me/' }
+                headers: { 'Referer': 'https://novelbuddy.com/' }
             });
             if (html) {
                 const nextMatch = html.match(/<script\s+id=["']__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/i);
@@ -4334,7 +4380,7 @@
                     const items = data.props?.pageProps?.ssrItems || [];
                     for (const it of items) {
                         if (!it.name || !it.url) continue;
-                        const fullUrl = it.url.startsWith('http') ? it.url : `https://novelbuddy.me${it.url}`;
+                        const fullUrl = it.url.startsWith('http') ? it.url : `https://novelbuddy.com${it.url}`;
                         if (seenUrls.has(fullUrl)) continue;
                         seenUrls.add(fullUrl);
 
@@ -4939,7 +4985,7 @@
         const cleanQ = query.trim();
         const src = (source || 'all').replace(/[\s\-_]+/g, '').toLowerCase();
 
-        const withTimeout = (p, ms = 12000) => Promise.race([
+        const withTimeout = (p, ms = 18000) => Promise.race([
             p,
             new Promise(resolve => setTimeout(() => resolve([]), ms))
         ]);

@@ -313,15 +313,17 @@
                     onClick: () => ongoingEpubInputRef.current?.click(),
                     title: 'Upload an existing EPUB to auto-search sources and fetch new chapters'
                   }, '⚡ Continue EPUB'),
-                  ['👑 Re:Zero (WCT)', 'Lnori', 'SwiftAudio', 'NovelBuddy', 'RoyalRoad', 'NovelFire', 'NovelBin', 'AO3', 'Pixiv', 'Syosetu'].map(s => {
+                  ['🌐 All', 'Lnori', 'NovelBuddy', 'NovelFire', 'RoyalRoad', 'NovelBin', '👑 Re:Zero (WCT)', 'SwiftAudio', 'AO3', 'Pixiv', 'Syosetu'].map(s => {
+                    const isAllChip = s === '🌐 All';
                     const isRezeroChip = s === '👑 Re:Zero (WCT)';
                     const isSwiftChip = s === 'SwiftAudio';
                     const isLnoriChip = s === 'Lnori';
                     const isRezeroActive = isRezeroChip && isWitchCultUrl;
                     const isSwiftActive = isSwiftChip && isSwiftAudioDetected;
                     const isLnoriActive = isLnoriChip && novelSearchFilter === 'Lnori';
+                    const isAllActive = isAllChip && (!novelSearchFilter || novelSearchFilter === 'all') && !isSwiftAudioDetected && !isWitchCultUrl;
                     const isFilterActive = (novelSearchFilter || '').toLowerCase() === s.toLowerCase();
-                    const isChipActive = isRezeroActive || isSwiftActive || isLnoriActive || isFilterActive;
+                    const isChipActive = isAllActive || isRezeroActive || isSwiftActive || isLnoriActive || isFilterActive;
                     return h('span', {
                       key: s,
                       className: `src-chip ${isChipActive ? 'accent' : ''}`,
@@ -329,11 +331,25 @@
                         ? { borderColor: 'rgba(168, 85, 247, 0.6)', color: '#c084fc', background: 'rgba(168, 85, 247, 0.15)', fontWeight: 700, cursor: 'pointer' }
                         : (isSwiftActive
                             ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' }
-                            : (isLnoriActive || isFilterActive
+                            : (isAllActive || isLnoriActive || isFilterActive
                                 ? { borderColor: 'rgba(99, 102, 241, 0.6)', color: 'var(--iris)', background: 'rgba(99, 102, 241, 0.15)', fontWeight: 700, cursor: 'pointer' }
                                 : { cursor: 'pointer' })),
                       onClick: () => {
-                        if (isRezeroChip) {
+                        if (isChipActive && !isAllChip) {
+                          setNovelSearchFilter('all');
+                          setIsSwiftAudioMode(false);
+                          toast('🌐 Reset to search across all supported sources.', 'info');
+                          return;
+                        }
+                        if (isAllChip) {
+                          setNovelSearchFilter('all');
+                          setIsSwiftAudioMode(false);
+                          if (webImportUrl && !/^https?:\/\//i.test(webImportUrl.trim())) {
+                            handleSearchNovels(webImportUrl, 'all');
+                          } else {
+                            toast('🌐 Searching across all novel sources and plugins!', 'info');
+                          }
+                        } else if (isRezeroChip) {
                           setIsSwiftAudioMode(false);
                           setWebImportUrl('https://witchculttranslation.com/table-of-content/');
                           toast('👑 Re:Zero (Witch Cult Translations) selected! Ready to ingest or update.', 'info');
@@ -376,12 +392,12 @@
                           }
                         }
                       }
-                    }, isSwiftChip ? '🎧 SwiftAudio' : (s === 'NovelBuddy' ? '✨ NovelBuddy' : (s === 'Lnori' ? '📖 Lnori' : s)));
+                    }, isAllChip ? '🌐 All' : (isSwiftChip ? '🎧 SwiftAudio' : (s === 'NovelBuddy' ? '✨ NovelBuddy' : (s === 'Lnori' ? '📖 Lnori' : s))));
                   })),
                 h('input', {
                   className: 'url-input',
                   type: 'text',
-                  placeholder: isSwiftAudioDetected ? 'Type audiobook title (e.g. Shadow Slave, Harry Potter) or paste link…' : 'Type novel title to search (e.g. Horror Game Developer, Shadow Slave) or paste novel URL…',
+                  placeholder: isSwiftAudioDetected ? 'Type audiobook title (e.g. Example Novel, Classic Story) or paste link…' : 'Type novel title to search (e.g. Example Novel, Fantasy Series) or paste novel URL…',
                   value: webImportUrl,
                   onChange: (e) => {
                     setWebImportUrl(e.target.value);
@@ -395,7 +411,7 @@
                       } else if (/^https?:\/\//i.test((webImportUrl || '').trim())) {
                         handleStartFetch(false);
                       } else if ((webImportUrl || '').trim()) {
-                        handleSearchNovels(webImportUrl);
+                        handleSearchNovels(webImportUrl, novelSearchFilter || 'all');
                       }
                     }
                   }
@@ -731,7 +747,7 @@
                                 className: 'primary',
                                 style: { background: 'linear-gradient(90deg, #6366f1, #3b82f6)', width: '100%', fontWeight: 700 },
                                 disabled: !webImportUrl.trim() || isSearchingNovels,
-                                onClick: () => handleSearchNovels(webImportUrl)
+                                onClick: () => handleSearchNovels(webImportUrl, novelSearchFilter || 'all')
                               }, isSearchingNovels ? 'Searching Supported Sources…' : '🔍 Search Web Novels')
                             ) : (
                               h(React.Fragment, null,
@@ -747,7 +763,7 @@
                                   className: 'primary ghost',
                                   style: { fontWeight: 600 },
                                   disabled: !webImportUrl.trim() || isSearchingNovels,
-                                  onClick: () => handleSearchNovels(webImportUrl)
+                                  onClick: () => handleSearchNovels(webImportUrl, novelSearchFilter || 'all')
                                 }, isSearchingNovels ? 'Searching…' : '🔍 Search Title')
                               )
                             )

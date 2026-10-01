@@ -728,6 +728,7 @@
       addItems(rawPluginResults);
 
       // If a specific source was requested but yielded 0 results, fall back to searching all sources
+      let fallbackShown = false;
       if (unifiedResults.length === 0 && sourceOverride !== 'all' && sourceOverride !== 'plugins_only') {
         try {
           if (typeof window !== 'undefined' && window.WebNovelImporter?.searchNovels) {
@@ -738,6 +739,7 @@
               addItems(fallbackResults);
               callbacks?.onFilterFallback?.('all');
               safeToast(callbacks, `No results on ${sourceOverride}, but found ${unifiedResults.length} across other sources!`, 'info');
+              fallbackShown = true;
             }
           }
         } catch (_) {}
@@ -746,7 +748,7 @@
       emitUnified();
       if (unifiedResults.length === 0) {
         safeToast(callbacks, `No novels found matching "${target}". Try different keywords or browse installed plugins!`, 'info');
-      } else {
+      } else if (!fallbackShown) {
         safeToast(callbacks, `Found ${unifiedResults.length} novels across supported sources & plugins!`, 'success');
       }
       return unifiedResults;

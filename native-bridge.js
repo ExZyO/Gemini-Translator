@@ -302,15 +302,25 @@
             } catch (e) {
                 console.warn('Native fetch bridge error:', e);
             }
+            // Fast direct fetch check first (for CORS-enabled sources or direct network environments)
+            try {
+                const directRes = await fetch(url, { signal: AbortSignal.timeout(3000), ...(options || {}) });
+                if (directRes.ok) {
+                    const text = await directRes.text();
+                    if (!text.includes('Error 1015') && !text.includes('401 Unauthorized') && text.length >= 80) {
+                        return { success: true, status: directRes.status || 200, data: text };
+                    }
+                }
+            } catch (_) {}
+
             // Local direct proxy check + prioritized fast public proxies
             const proxies = [
                 (u) => `http://127.0.0.1:9090/proxy?url=${encodeURIComponent(u)}`,
-                (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-                (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+                (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
             ];
             for (const pFn of proxies) {
                 try {
-                    const res = await fetch(pFn(url), { signal: AbortSignal.timeout(4000) });
+                    const res = await fetch(pFn(url), { signal: AbortSignal.timeout(4500) });
                     if (res.ok) {
                         const text = await res.text();
                         if (!text.includes('Error 1015') && !text.includes('401 Unauthorized') && text.length >= 80) {
