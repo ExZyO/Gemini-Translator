@@ -1,9 +1,9 @@
 {
-  "version": "8.18.06",
-  "versionCode": 8306,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.06/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.06/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.06",
+  "version": "8.18.07",
+  "versionCode": 8307,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.07/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.07/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.07",
   "releaseDate": "2026-10-01",
-  "releaseNotes": "v8.18.06: Full-blast adaptive speed control, Reset Tab button, Royal Road single-chapter extraction, Re:Zero WCT Arc chronological sorting, and Lnori 1-Click clean EPUB priority."
+  "releaseNotes": "v8.18.07: Resilient multi-mirror APK updater with automatic fallback mirrors, CDN propagation retries, and duplicate toast prefix cleanup."
 }

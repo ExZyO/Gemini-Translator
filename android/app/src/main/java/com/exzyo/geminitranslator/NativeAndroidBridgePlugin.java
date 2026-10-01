@@ -19,6 +19,7 @@ import android.speech.tts.Voice;
 import java.util.Locale;
 import java.util.Set;
 import java.util.List;
+import java.util.ArrayList;
 import android.content.Intent;
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
@@ -1824,72 +1825,100 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     updateNotification("Gemini Translator Updater", "Downloading update...", 0, true);
                     if (tempFile.exists()) tempFile.delete();
 
-                    URL url = new URL(downloadUrl);
-                    HttpURLConnection conn = null;
-                    int redirects = 0;
-                    int status = 0;
+                    List<String> candidateUrls = new ArrayList<>();
+                    if (downloadUrl != null && !downloadUrl.trim().isEmpty()) {
+                        candidateUrls.add(downloadUrl.trim());
+                        if (downloadUrl.contains("/download/") && downloadUrl.endsWith("GeminiTranslator.apk")) {
+                            candidateUrls.add(downloadUrl.replace("GeminiTranslator.apk", "app-release.apk"));
+                        }
+                    }
+                    candidateUrls.add("https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk");
+                    candidateUrls.add("https://github.com/ExZyO/Gemini-Translator/releases/latest/download/app-release.apk");
 
-                    while (redirects < 10) {
-                        conn = (HttpURLConnection) url.openConnection();
-                        conn.setInstanceFollowRedirects(false);
-                        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) GeminiTranslator/8.6");
-                        conn.setRequestProperty("Accept", "application/octet-stream, application/vnd.android.package-archive, */*");
-                        conn.setConnectTimeout(20000);
-                        conn.setReadTimeout(35000);
-                        conn.connect();
+                    boolean downloadSuccess = false;
+                    String lastError = null;
 
-                        status = conn.getResponseCode();
-                        if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM ||
-                            status == 307 || status == 308 || status == 302 || status == 301) {
-                            String newUrl = conn.getHeaderField("Location");
-                            conn.disconnect();
-                            if (newUrl == null || newUrl.isEmpty()) {
-                                throw new java.io.IOException("Update server redirected without Location header");
+                    for (String candidateUrlStr : candidateUrls) {
+                        for (int attempt = 0; attempt < 2; attempt++) {
+                            if (tempFile.exists()) tempFile.delete();
+                            HttpURLConnection conn = null;
+                            try {
+                                URL url = new URL(candidateUrlStr);
+                                int redirects = 0;
+
+                                while (redirects < 10) {
+                                    conn = (HttpURLConnection) url.openConnection();
+                                    conn.setInstanceFollowRedirects(false);
+                                    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) GeminiTranslator/8.6");
+                                    conn.setRequestProperty("Accept", "application/octet-stream, application/vnd.android.package-archive, */*");
+                                    conn.setConnectTimeout(20000);
+                                    conn.setReadTimeout(35000);
+                                    conn.connect();
+
+                                    int status = conn.getResponseCode();
+                                    if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM ||
+                                        status == 307 || status == 308 || status == 302 || status == 301) {
+                                        String newUrl = conn.getHeaderField("Location");
+                                        conn.disconnect();
+                                        if (newUrl == null || newUrl.isEmpty()) {
+                                            throw new java.io.IOException("Update server redirected without Location header");
+                                        }
+                                        url = new URL(url, newUrl);
+                                        redirects++;
+                                    } else if (status >= 200 && status < 300) {
+                                        break;
+                                    } else {
+                                        conn.disconnect();
+                                        throw new java.io.IOException("HTTP " + status);
+                                    }
+                                }
+
+                                int totalLength = conn.getContentLength();
+                                try (InputStream in = new BufferedInputStream(conn.getInputStream());
+                                     OutputStream out = new FileOutputStream(tempFile)) {
+                                    byte[] buf = new byte[8192];
+                                    int count;
+                                    long total = 0;
+                                    long lastNotifTime = 0;
+                                    while ((count = in.read(buf)) != -1) {
+                                        total += count;
+                                        out.write(buf, 0, count);
+                                        long now = System.currentTimeMillis();
+                                        if (totalLength > 0 && now - lastNotifTime > 500) {
+                                            int progress = (int) ((total * 100) / totalLength);
+                                            updateNotification("Gemini Translator Updater", "Downloading update (" + progress + "%)...", progress, true);
+                                            lastNotifTime = now;
+                                        }
+                                    }
+                                    out.flush();
+                                }
+                                conn.disconnect();
+
+                                if (tempFile.length() > 2000000) {
+                                    PackageInfo info = pm.getPackageArchiveInfo(tempFile.getAbsolutePath(), 0);
+                                    if (info != null && info.packageName != null) {
+                                        downloadSuccess = true;
+                                        break;
+                                    }
+                                }
+                            } catch (Exception e) {
+                                lastError = e.getMessage();
+                                Log.w(TAG, "Update candidate failed (" + candidateUrlStr + ", attempt " + attempt + "): " + lastError);
+                                if (attempt == 0 && (lastError != null && (lastError.contains("404") || lastError.contains("503")))) {
+                                    try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
+                                }
+                            } finally {
+                                if (conn != null) {
+                                    try { conn.disconnect(); } catch (Exception ignored) {}
+                                }
                             }
-                            url = new URL(url, newUrl);
-                            redirects++;
-                        } else if (status >= 200 && status < 300) {
-                            break;
-                        } else {
-                            conn.disconnect();
-                            throw new java.io.IOException("Update download returned HTTP " + status);
                         }
+                        if (downloadSuccess) break;
                     }
 
-                    int totalLength = conn.getContentLength();
-                    InputStream in = new BufferedInputStream(conn.getInputStream());
-                    OutputStream out = new FileOutputStream(tempFile);
-
-                    byte[] buf = new byte[8192];
-                    int count;
-                    long total = 0;
-                    long lastNotifTime = 0;
-                    while ((count = in.read(buf)) != -1) {
-                        total += count;
-                        out.write(buf, 0, count);
-                        long now = System.currentTimeMillis();
-                        if (totalLength > 0 && now - lastNotifTime > 500) {
-                            int progress = (int) ((total * 100) / totalLength);
-                            updateNotification("Gemini Translator Updater", "Downloading update (" + progress + "%)...", progress, true);
-                            lastNotifTime = now;
-                        }
-                    }
-
-                    out.flush();
-                    out.close();
-                    in.close();
-                    conn.disconnect();
-
-                    if (tempFile.length() < 2000000) {
-                        tempFile.delete();
-                        throw new java.io.IOException("Downloaded update APK file is incomplete (" + tempFile.length() + " bytes).");
-                    }
-
-                    // Validate downloaded APK package integrity
-                    PackageInfo info = pm.getPackageArchiveInfo(tempFile.getAbsolutePath(), 0);
-                    if (info == null || info.packageName == null) {
-                        tempFile.delete();
-                        throw new java.io.IOException("Downloaded update APK file failed integrity check.");
+                    if (!downloadSuccess) {
+                        if (tempFile.exists()) tempFile.delete();
+                        throw new java.io.IOException(lastError != null ? lastError : "Could not download a valid update APK from available mirrors.");
                     }
 
                     if (targetFile.exists()) targetFile.delete();
@@ -1953,7 +1982,12 @@ public class NativeAndroidBridgePlugin extends Plugin {
             } catch (Exception e) {
                 Log.e(TAG, "APK Auto-install error: " + e.getMessage(), e);
                 updateNotification("Gemini Translator Updater", "Update failed: " + e.getMessage(), 0, false);
-                call.reject("Failed to install update: " + e.getMessage());
+                String msg = e.getMessage() != null ? e.getMessage() : "Unknown error";
+                if (msg.startsWith("Failed to install update: ")) {
+                    call.reject(msg);
+                } else {
+                    call.reject("Failed to install update: " + msg);
+                }
             }
         }).start();
     }

@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.18.06';
+        let VERSION = '8.18.07';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2417,7 +2417,7 @@
                   className: 'mini-btn ghost',
                   title: 'Download APK directly using your device browser',
                   onClick: () => {
-                    const apkUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
+                    const apkUrl = availableUpdate?.releasePage || availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest";
                     window.AppLogger?.log('info', 'Updater', 'Opening browser download: ' + apkUrl);
                     window.open(apkUrl, '_blank');
                   }

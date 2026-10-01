@@ -1057,12 +1057,13 @@
         if (typeof callbacks.onSuccess === 'function') callbacks.onSuccess(installResult);
       } catch (err) {
         console.error('Update error:', err);
-        const updateError = err?.message || String(err);
+        let updateError = err?.message || String(err);
+        updateError = updateError.replace(/^(?:Failed to install update:\s*)+/i, '');
         if (/unknown apps|allow from this source/i.test(updateError)) {
           if (typeof callbacks.toast === 'function') callbacks.toast('Permission required: Please enable "Allow from this source" in Settings, then tap Update again.', 'warning', 7000);
         } else {
-          if (typeof callbacks.toast === 'function') callbacks.toast('Failed to install update: ' + updateError + '. Opening browser download...', 'error', 5000);
-          const fallbackUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
+          if (typeof callbacks.toast === 'function') callbacks.toast('Failed to install update: ' + updateError + '. Opening releases page...', 'error', 5000);
+          const fallbackUrl = availableUpdate?.releasePage || availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest";
           if (typeof window !== 'undefined' && typeof window.open === 'function') {
             window.open(fallbackUrl, '_blank');
           }
