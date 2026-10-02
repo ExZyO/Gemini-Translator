@@ -1096,7 +1096,7 @@ const thumbHashToBytes = (str) => {
     return bytes;
 };
 
-const thumbHashToRgba = (bytes) => {
+const thumbHashToRgba = (bytes, maxDim = 600) => {
     if (!bytes || bytes.length < 5) return { width: 0, height: 0, rgba: new Uint8Array(0) };
     const { PI, min, max, cos, round } = Math;
     const c = bytes[0] | bytes[1] << 8 | bytes[2] << 16;
@@ -1129,8 +1129,8 @@ const thumbHashToRgba = (bytes) => {
     const k = coeff(3, 3, 1.25 * i);
     const v = d && coeff(5, 5, p);
     const ratio = y / b;
-    const I = round(ratio > 1 ? 32 : 32 * ratio);
-    const R = round(ratio > 1 ? 32 / ratio : 32);
+    const I = round(ratio > 1 ? maxDim : maxDim * ratio);
+    const R = round(ratio > 1 ? maxDim / ratio : maxDim);
     const rgba = new Uint8Array(I * R * 4);
     const nLX = max(y, d ? 5 : 3);
     const nLY = max(b, d ? 5 : 3);
@@ -1287,11 +1287,11 @@ const rgbaToPng = (width, height, rgba) => {
     }
 };
 
-const decodeThumbHashToBuffer = (hash) => {
+const decodeThumbHashToBuffer = (hash, maxDim = 600) => {
     if (!hash || typeof hash !== 'string') return null;
     try {
         const bytes = thumbHashToBytes(hash);
-        const { width, height, rgba } = thumbHashToRgba(bytes);
+        const { width, height, rgba } = thumbHashToRgba(bytes, maxDim);
         if (!rgba || width <= 0 || height <= 0) return null;
 
         // Browser canvas check

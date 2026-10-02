@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.18.15';
+        let VERSION = '8.18.16';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1027,9 +1027,17 @@
           .then(r => r.json())
           .then(d => {
             if (d && d.version) {
-              VERSION = d.version;
-              setAppVersion(d.version);
-              if (d.versionCode) setAppVersionCode(d.versionCode);
+              const parseV = v => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+              const [dMaj = 0, dMin = 0, dPat = 0] = parseV(d.version);
+              const [cMaj = 0, cMin = 0, cPat = 0] = parseV(VERSION);
+              const isHigher = (dMaj > cMaj) || (dMaj === cMaj && dMin > cMin) || (dMaj === cMaj && dMin === cMin && dPat > cPat);
+              if (isHigher) {
+                VERSION = d.version;
+                setAppVersion(d.version);
+              }
+              if (d.versionCode && d.versionCode > appVersionCode) {
+                setAppVersionCode(d.versionCode);
+              }
             }
           })
           .catch(() => {});

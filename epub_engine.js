@@ -490,7 +490,7 @@
           if (fileOpts.compression === 'STORE' || fileOpts.level === 0) {
             fflateFiles[fullPath] = [u8, { level: 0 }];
           } else {
-            fflateFiles[fullPath] = [u8, { level: fileOpts.level || 6 }];
+            fflateFiles[fullPath] = [u8, { level: fileOpts.level || 2 }];
           }
         } else {
           const opts = {};
@@ -520,7 +520,7 @@
           if (useFflate) {
             onProgressCb?.('Compressing EPUB archive with high-speed fflate…', 85, getElapsedStr());
             window.NativeBridge?.showProgressNotification?.('Compiling EPUB', `Compressing with fflate • ${getElapsedStr()}`, 85, true);
-            const zipped = fflateLib.zipSync(fflateFiles, { level: 6 });
+            const zipped = fflateLib.zipSync(fflateFiles, { level: 2 });
             onProgressCb?.('EPUB Packaging Complete!', 100, getElapsedStr());
             return new Blob([zipped], { type: 'application/epub+zip' });
           } else {
@@ -1122,12 +1122,28 @@ hr {
               }
             }
 
-            // Strategy 4: High-fidelity ThumbHash decoding fallback if network was blocked/unavailable
+            // Strategy 3.5: If Lnori JPG failed, attempt direct AVIF download (Lnori Cloudflare edge often caches .avif)
+            if ((!buffer || buffer.byteLength < 500) && downloadUrl.includes('img.lnori.com') && downloadUrl.endsWith('.jpg')) {
+              try {
+                const avifUrl = downloadUrl.slice(0, -4) + '.avif';
+                const res = await fetch(avifUrl);
+                if (res.ok) {
+                  const b = await res.arrayBuffer();
+                  const sniffed = sniffMime(b);
+                  if (sniffed) {
+                    buffer = b;
+                    detectedMime = sniffed.mime;
+                  }
+                }
+              } catch (_) {}
+            }
+
+            // Strategy 4: High-fidelity Full-Size ThumbHash decoding fallback (renders at 650px full reading resolution)
             if ((!buffer || buffer.byteLength < 500) && thHash) {
               try {
                 const decodeFn = (typeof window !== 'undefined' && window.decodeThumbHashToBuffer) ? window.decodeThumbHashToBuffer : (typeof decodeThumbHashToBuffer === 'function' ? decodeThumbHashToBuffer : null);
                 if (decodeFn) {
-                  const decoded = decodeFn(thHash);
+                  const decoded = decodeFn(thHash, 650);
                   if (decoded && decoded.buffer && decoded.buffer.byteLength > 50) {
                     buffer = decoded.buffer;
                     detectedMime = decoded.mime || 'image/png';
@@ -1198,7 +1214,7 @@ hr {
             }
           };
 
-          const concurrency = 12;
+          const concurrency = 24;
           const imgQueue = [...imgUrlList];
           const pool = Array.from({ length: Math.min(concurrency, imgUrlList.length) }, async () => {
             while (imgQueue.length > 0) {
