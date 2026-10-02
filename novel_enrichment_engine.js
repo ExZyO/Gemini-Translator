@@ -1332,7 +1332,7 @@
       }
 
       if (volNum && typeof window !== 'undefined' && window.HIGH_RES_ILLUSTRATION_REGISTRY) {
-        const coverMirror = window.HIGH_RES_ILLUSTRATION_REGISTRY[`vol${volNum}-1`];
+        const coverMirror = window.HIGH_RES_ILLUSTRATION_REGISTRY[`vol${volNum}-cover`] || window.HIGH_RES_ILLUSTRATION_REGISTRY[`vol${volNum}-1`];
         if (coverMirror && (!full.cover || full.cover.includes('img.lnori.com'))) {
           full.cover = coverMirror;
           novelRecord.cover = coverMirror;

@@ -807,10 +807,11 @@ th {
   page-break-before: auto;
 }
 .illustration {
+  width: 100%;
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 0 auto;
+  margin: 1.5em auto;
   border-radius: 4px;
 }
 
@@ -2081,7 +2082,7 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
     h1.chapter-title { font-size: 1.5em; margin-bottom: 1.2em; text-align: center; }
     p { margin-bottom: 1em; text-indent: 1.5em; }
     div.illustration { text-align: center; margin: 1.5em 0; }
-    div.illustration img { max-width: 100%; height: auto; border-radius: 4px; }
+    div.illustration img { width: 100%; max-width: 100%; height: auto; border-radius: 4px; display: block; margin: 0 auto; }
   </style>
 </head>
 <body>

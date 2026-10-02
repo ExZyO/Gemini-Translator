@@ -2012,8 +2012,11 @@
               }
             },
             style: {
+              width: '100%',
               maxWidth: '100%',
+              height: 'auto',
               maxHeight: isPaginated ? 'calc(100vh - 180px)' : '80vh',
+              objectFit: 'contain',
               borderRadius: 8,
               boxShadow: '0 4px 20px rgba(0,0,0,0.25)'
             }
