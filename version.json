@@ -1,9 +1,9 @@
 {
-  "version": "8.18.21",
-  "versionCode": 8321,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.21/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.21/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.21",
+  "version": "8.18.22",
+  "versionCode": 8322,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.22/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.22/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.22",
   "releaseDate": "2026-10-02",
-  "releaseNotes": "v8.18.21: Ensure 100% full serialization for all novels and binary EPUB blobs in backups without cutoff, and prepare modularization roadmap for files exceeding line ceiling."
+  "releaseNotes": "v8.18.22: Modularize app_modals.js by extracting OngoingEpubContinuationModal and SwiftAudioPlayer into dedicated sub-modules, shrinking app_modals.js under 2,500 lines."
 }
