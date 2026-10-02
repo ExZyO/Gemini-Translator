@@ -1,9 +1,9 @@
 {
-  "version": "8.18.16",
-  "versionCode": 8316,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.16/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.16/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.16",
+  "version": "8.18.17",
+  "versionCode": 8317,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.17/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.17/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.17",
   "releaseDate": "2026-10-02",
-  "releaseNotes": "v8.18.16: High-fidelity illustration rendering, accelerated EPUB packaging with level 2 fast compression, and permanent update loop protection."
+  "releaseNotes": "v8.18.17: Fixed reader TTS playback rate scaling on Android and Web, debounced speech scrubbing, and enhanced high-resolution illustration rendering."
 }

@@ -2206,6 +2206,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     data.put("errorCode", errorCode);
                     notifyListeners("nativeTtsError", data);
                 }
+
+                @Override
+                public void onStop(String utteranceId, boolean isInterrupted) {
+                    JSObject data = new JSObject();
+                    data.put("utteranceId", utteranceId);
+                    data.put("event", "stop");
+                    data.put("isInterrupted", isInterrupted);
+                    notifyListeners("nativeTtsStop", data);
+                }
             });
         }
     }
@@ -2859,15 +2868,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                         android.os.Bundle params = new android.os.Bundle();
                         params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
-                        // Explicitly populate speed params so all engines (SherpaTTS, Google, Samsung) receive it directly
-                        params.putString("rate", Integer.toString((int) (rate * 100)));
-                        params.putFloat("rate", rate);
+                        // Standard Android TTS speech rate is an Integer (rate * 100) under KEY_PARAM_RATE ("rate").
+                        // Do NOT put a Float under "rate" as it causes ClassCastException inside the TTS service, resetting speed to 100 (1.0x).
+                        params.putInt(TextToSpeech.Engine.KEY_PARAM_RATE, (int) (rate * 100));
                         params.putFloat("speechRate", rate);
                         res = nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId);
                     } else {
                         java.util.HashMap<String, String> params = new java.util.HashMap<>();
                         params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
-                        params.put("rate", Integer.toString((int) (rate * 100)));
+                        params.put(TextToSpeech.Engine.KEY_PARAM_RATE, Integer.toString((int) (rate * 100)));
                         res = nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params);
                     }
 

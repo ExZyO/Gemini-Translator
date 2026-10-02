@@ -1241,6 +1241,7 @@
       return saved ? (parseFloat(saved) || 1.0) : 1.0;
     });
     const ttsRateRef = useRef(ttsRate);
+    const rateRestartTimerRef = useRef(null);
     const speakSentenceRef = useRef(null);
     const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
     const activeSentenceIdxRef = useRef(-1);
@@ -1382,20 +1383,28 @@
         window.NativeBridge.setTtsSpeed(cleanR);
       }
 
-      // If speech is actively playing, immediately restart current sentence at the new speed
+      // If speech is actively playing, debounced restart of current sentence at the new speed
       if (ttsActiveRef.current && !ttsPausedRef.current) {
-        const curIdx = activeSentenceIdxRef.current;
-        if (window.NativeBridge?.stopNativeSpeech) {
-          window.NativeBridge.stopNativeSpeech();
+        if (rateRestartTimerRef.current) {
+          clearTimeout(rateRestartTimerRef.current);
+          rateRestartTimerRef.current = null;
         }
-        if (typeof window !== 'undefined' && window.speechSynthesis) {
-          window.speechSynthesis.cancel();
-        }
-        setTimeout(() => {
-          if (ttsActiveRef.current && !ttsPausedRef.current && curIdx >= 0) {
-            speakSentenceRef.current?.(curIdx);
+        rateRestartTimerRef.current = setTimeout(() => {
+          if (ttsActiveRef.current && !ttsPausedRef.current) {
+            const curIdx = activeSentenceIdxRef.current;
+            if (window.NativeBridge?.stopNativeSpeech) {
+              window.NativeBridge.stopNativeSpeech();
+            }
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
+              window.speechSynthesis.cancel();
+            }
+            setTimeout(() => {
+              if (ttsActiveRef.current && !ttsPausedRef.current && curIdx >= 0) {
+                speakSentenceRef.current?.(curIdx);
+              }
+            }, 60);
           }
-        }, 60);
+        }, 120);
       }
     }, []);
 
@@ -2664,6 +2673,7 @@
             step: '0.05',
             value: ttsRate,
             style: { flex: 1, minWidth: 50, accentColor: 'var(--r-accent)', height: 4, cursor: 'pointer' },
+            onInput: (e) => handleRateChange(parseFloat(e.target.value)),
             onChange: (e) => handleRateChange(parseFloat(e.target.value))
           }),
           h('button', {
@@ -3112,6 +3122,7 @@
                 step: '0.05',
                 value: ttsRate,
                 style: { width: '100%', accentColor: 'var(--r-accent)' },
+                onInput: (e) => handleRateChange(parseFloat(e.target.value)),
                 onChange: (e) => handleRateChange(parseFloat(e.target.value))
               })
             ),
@@ -3378,6 +3389,7 @@
               step: '0.05',
               value: ttsRate,
               style: { width: '100%', accentColor: 'var(--r-accent)', height: 5, cursor: 'pointer' },
+              onInput: (e) => handleRateChange(parseFloat(e.target.value)),
               onChange: (e) => handleRateChange(parseFloat(e.target.value))
             })
           ),

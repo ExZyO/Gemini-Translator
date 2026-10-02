@@ -187,6 +187,7 @@
     }
 
     window.BackgroundKeepAlive = new BackgroundKeepAliveEngine();
+    let activeTtsCleanup = null;
 
     window.NativeBridge = {
         installApk: async (url = "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk") => {
@@ -380,12 +381,19 @@
                     const delayMs = typeof options.delayMs === 'number' ? options.delayMs : 200;
                     const utteranceId = options.utteranceId || ('utt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
 
-                    let startSub = null, doneSub = null, errSub = null;
+                    let startSub = null, doneSub = null, errSub = null, stopSub = null;
                     const cleanup = () => {
                         try { startSub?.remove?.(); } catch(e) {}
                         try { doneSub?.remove?.(); } catch(e) {}
                         try { errSub?.remove?.(); } catch(e) {}
+                        try { stopSub?.remove?.(); } catch(e) {}
+                        if (activeTtsCleanup === cleanup) activeTtsCleanup = null;
                     };
+
+                    if (activeTtsCleanup) {
+                        try { activeTtsCleanup(); } catch(e) {}
+                    }
+                    activeTtsCleanup = cleanup;
 
                     if (bridge.addListener) {
                         if (options.onStart) {
@@ -407,6 +415,12 @@
                                 options.onError?.(data);
                             }
                         });
+                        stopSub = await bridge.addListener('nativeTtsStop', (data) => {
+                            if (data && data.utteranceId === utteranceId) {
+                                cleanup();
+                                options.onStop?.(data);
+                            }
+                        });
                     }
 
                     const res = await bridge.speakNativeTts({ text, rate, pitch, lang, voiceName, delayMs, utteranceId });
@@ -420,6 +434,10 @@
 
         stopNativeSpeech: async () => {
             try {
+                if (activeTtsCleanup) {
+                    try { activeTtsCleanup(); } catch(e) {}
+                    activeTtsCleanup = null;
+                }
                 const bridge = getBridge();
                 if (bridge && bridge.stopNativeTts) {
                     await bridge.stopNativeTts();
@@ -433,6 +451,10 @@
 
         pauseNativeSpeech: async () => {
             try {
+                if (activeTtsCleanup) {
+                    try { activeTtsCleanup(); } catch(e) {}
+                    activeTtsCleanup = null;
+                }
                 const bridge = getBridge();
                 if (bridge && bridge.pauseNativeTts) {
                     await bridge.pauseNativeTts();

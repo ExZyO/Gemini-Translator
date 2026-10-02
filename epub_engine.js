@@ -1948,11 +1948,11 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
             }
           }
 
-          // Fallback: ThumbHash decoding
+          // Fallback: ThumbHash decoding (renders at 650px full reading resolution)
           if (thHash) {
             const decodeFn = (typeof window !== 'undefined' && window.decodeThumbHashToBuffer) ? window.decodeThumbHashToBuffer : (typeof decodeThumbHashToBuffer === 'function' ? decodeThumbHashToBuffer : null);
             if (decodeFn) {
-              const decoded = decodeFn(thHash);
+              const decoded = decodeFn(thHash, 650);
               if (decoded && decoded.buffer && decoded.buffer.byteLength > 50) {
                 return { data: new Uint8Array(decoded.buffer), ext: decoded.ext || 'png', mime: decoded.mime || 'image/png' };
               }
