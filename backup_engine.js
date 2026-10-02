@@ -148,13 +148,7 @@
         const copy = { ...n };
         if (copy.epubBlob instanceof Blob) {
           try {
-            // Guard: Only serialize cached binary EPUBs under 25MB to prevent memory exhaustion in JSON payloads.
-            // 100% of book content, text, chapters, and illustrations remain fully preserved in copy.chapters!
-            if (copy.epubBlob.size <= 25 * 1024 * 1024) {
-              copy.epubBlob = await this.blobToBase64(copy.epubBlob);
-            } else {
-              delete copy.epubBlob;
-            }
+            copy.epubBlob = await this.blobToBase64(copy.epubBlob);
           } catch (e) {
             delete copy.epubBlob;
           }
@@ -189,11 +183,7 @@
         const copy = { ...n };
         if (copy.epubBlob instanceof Blob) {
           try {
-            if (copy.epubBlob.size <= 25 * 1024 * 1024) {
-              copy.epubBlob = await this.blobToBase64(copy.epubBlob);
-            } else {
-              delete copy.epubBlob;
-            }
+            copy.epubBlob = await this.blobToBase64(copy.epubBlob);
           } catch (e) {
             delete copy.epubBlob;
           }
