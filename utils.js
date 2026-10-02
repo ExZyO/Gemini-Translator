@@ -1222,6 +1222,71 @@ const rgbaToBmp = (width, height, rgba) => {
     return buf;
 };
 
+const rgbaToPng = (width, height, rgba) => {
+    if (!rgba || width <= 0 || height <= 0) return null;
+    const fflateLib = (typeof window !== 'undefined' && window.fflate) ? window.fflate : (typeof globalThis !== 'undefined' && globalThis.fflate ? globalThis.fflate : null);
+    if (!fflateLib || typeof fflateLib.deflateSync !== 'function') return null;
+
+    try {
+        const crcTable = new Uint32Array(256);
+        for (let n = 0; n < 256; n++) {
+            let c = n;
+            for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+            crcTable[n] = c;
+        }
+        const crc32 = (buf, offset, length) => {
+            let c = 0xFFFFFFFF;
+            for (let i = offset; i < offset + length; i++) {
+                c = crcTable[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+            }
+            return (c ^ 0xFFFFFFFF) >>> 0;
+        };
+
+        const lineSize = 1 + width * 4;
+        const rawData = new Uint8Array(lineSize * height);
+        for (let y = 0; y < height; y++) {
+            const rawOffset = y * lineSize;
+            rawData[rawOffset] = 0;
+            const rgbaOffset = y * width * 4;
+            rawData.set(rgba.subarray(rgbaOffset, rgbaOffset + width * 4), rawOffset + 1);
+        }
+
+        const idatData = fflateLib.deflateSync(rawData, { level: 6 });
+        const totalLen = 8 + 25 + (12 + idatData.length) + 12;
+        const png = new Uint8Array(totalLen);
+        const view = new DataView(png.buffer);
+
+        png.set([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], 0);
+
+        let pos = 8;
+        view.setUint32(pos, 13);
+        png.set([0x49, 0x48, 0x44, 0x52], pos + 4);
+        view.setUint32(pos + 8, width);
+        view.setUint32(pos + 12, height);
+        png[pos + 16] = 8;
+        png[pos + 17] = 6;
+        png[pos + 18] = 0;
+        png[pos + 19] = 0;
+        png[pos + 20] = 0;
+        view.setUint32(pos + 21, crc32(png, pos + 4, 17));
+        pos += 25;
+
+        view.setUint32(pos, idatData.length);
+        png.set([0x49, 0x44, 0x41, 0x54], pos + 4);
+        png.set(idatData, pos + 8);
+        view.setUint32(pos + 8 + idatData.length, crc32(png, pos + 4, 4 + idatData.length));
+        pos += 12 + idatData.length;
+
+        view.setUint32(pos, 0);
+        png.set([0x49, 0x45, 0x4E, 0x44], pos + 4);
+        view.setUint32(pos + 8, crc32(png, pos + 4, 4));
+
+        return png;
+    } catch (_) {
+        return null;
+    }
+};
+
 const decodeThumbHashToBuffer = (hash) => {
     if (!hash || typeof hash !== 'string') return null;
     try {
@@ -1255,7 +1320,13 @@ const decodeThumbHashToBuffer = (hash) => {
             } catch (_) {}
         }
 
-        // Standalone pure ArrayBuffer BMP
+        // Pure JS standard PNG fallback (100% compliant with EPUB readers)
+        const png = rgbaToPng(width, height, rgba);
+        if (png) {
+            return { ext: 'png', mime: 'image/png', buffer: png.buffer };
+        }
+
+        // Standalone pure ArrayBuffer BMP fallback
         const bmp = rgbaToBmp(width, height, rgba);
         if (bmp) {
             return { ext: 'bmp', mime: 'image/bmp', buffer: bmp.buffer };
@@ -1336,6 +1407,7 @@ const stripInvisibleTrapsAndWatermarks = (textOrHtml) => {
 window.thumbHashToBytes = thumbHashToBytes;
 window.thumbHashToRgba = thumbHashToRgba;
 window.rgbaToBmp = rgbaToBmp;
+window.rgbaToPng = rgbaToPng;
 window.decodeThumbHashToBuffer = decodeThumbHashToBuffer;
 window.thumbHashToDataUrl = thumbHashToDataUrl;
 window.stripInvisibleTrapsAndWatermarks = stripInvisibleTrapsAndWatermarks;
@@ -1402,6 +1474,7 @@ if (typeof module !== 'undefined' && module.exports) {
         thumbHashToBytes,
         thumbHashToRgba,
         rgbaToBmp,
+        rgbaToPng,
         decodeThumbHashToBuffer,
         thumbHashToDataUrl,
         stripInvisibleTrapsAndWatermarks

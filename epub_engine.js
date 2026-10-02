@@ -47,6 +47,236 @@
     };
     if (typeof window !== 'undefined') window.decodeHtmlEntities = decodeHtmlEntities;
 
+    const LNORI_HASH_REGISTRY = {
+  "13125-01": "aAgGDQhF5ElrOPWXlIaId3Rwugjn",
+  "13125-02": "NxgGDQRzeL95B2Z4iIKHR6l4j4r3",
+  "13125-03": "MAgOBQB2iGl4B3fIhoaXhwAAAAAA",
+  "13125-04": "KggKBQBwV8NXZ1tlerdnigAAAAAA",
+  "13125-05": "NAgGBQDRev94hhRnuaqXlQAAAAAA",
+  "13125-06": "IQgSBQCbmG-Ih2dXmYO5eAAAAAAA",
+  "13125-07": "KwgSBQADaGCUaZeZd3mIaAAAAAAA",
+  "13125-08": "NAgKBQCKZoCIR3ZXiIR3iAAAAAAA",
+  "13125-09": "LwgOBQBPeSiZN5ZndnVYeAAAAAAA",
+  "13125-10": "LwgGBQAHbbGqZqtlhFjItwAAAAAA",
+  "13125-11": "JxoGJQL2e3mqVZY6pGWZqChwZvfE",
+  "13125-12": "aucFDQQ9ec6KKJdfZm-39wuM5JBm",
+  "13125-13": "ZTgGDYL2KJqHaGhzp2iHdvB3HZv2",
+  "13125-14": "oSgGHYYfEndHZEi5h8tItI9_xvlZ",
+  "14057-01": "ZRgGHQrReS16d6snuXv3dFdwiga4",
+  "14057-02": "NwgGBQKUd6-HCHd3d4SHV6h_jsv3",
+  "14057-03": "KQgWBQB5ho-IZ4aYd4hohwAAAAAA",
+  "14057-04": "JQgSBQCfmmmo12dXiGZ4iAAAAAAA",
+  "14057-05": "IAgOBQCvyp9zqYlneXiIlwAAAAAA",
+  "14057-06": "JwgOBQACd7h4WKm6mJRndgAAAAAA",
+  "14057-07": "KAgKBQAyWwV36mdWeHeJlgAAAAAA",
+  "14057-08": "LAgOBQCZiF9pV5hYZ3qHqQAAAAAA",
+  "14057-09": "MAgKBQBwqql7J4Vol6hXlQAAAAAA",
+  "14057-10": "KggKBQCflm6sg5xWpXh3lwAAAAAA",
+  "14057-11": "MwgGBQD4pulIuXbHdmiHZgAAAAAA",
+  "14057-12": "MAgKBQC4qKBrSYuZmXaGuAAAAAAA",
+  "14057-13": "JxgGDQRFWG17Sfu8h1d3qA9I9oGl",
+  "14057-14": "6igGDYKqmKlrmHdwtpt2UgWkKQ2N",
+  "14057-15": "6DcGHYSI9amLt3uFiWaXefWLJ393",
+  "14057-16": "5cYFFYSVb0S4enh0d3aFVZdykCkG",
+  "15087-01": "6zcGDQhhx3iJ98-5inimdTyIvwbY",
+  "15087-02": "NhgGDQSDeL94CHaId4SHV5iJn1r2",
+  "15087-03": "MggOBQBgZpiJqHhXh4iYdwAAAAAA",
+  "15087-04": "MQgKBQARraNmpYeUxJ-7yAAAAAAA",
+  "15087-05": "KggSBQAyl4B2GHZ4qYd4dwAAAAAA",
+  "15087-06": "KQgOBQA0iWB2eIlnaIqXhwAAAAAA",
+  "15087-07": "MQgKBQCUlEhDSZmXl59m9QAAAAAA",
+  "15087-08": "MwgKBQCqto9pmGe3d3SoRwAAAAAA",
+  "15087-09": "NggGBQAWqkCGanx3WVeadwAAAAAA",
+  "15087-10": "MggGBQAXVGRqxrT5a12lpgAAAAAA",
+  "15087-11": "KQgOBQCvmXGYeYdYh3d4qAAAAAAA",
+  "15087-12": "awgGFQJ-2UuH-XfWdG6YaWZgiPfq",
+  "15087-13": "oygKDQJrmH-HGJVXenVph7E3YAui",
+  "15087-14": "nPcJDQIIeLZ3aIZmmId2ZgqF1dCq",
+  "15087-15": "JxgGBYKfKK1qvYuLaouGeKf-Bbir",
+  "15087-16": "HfcJDYKfnUW6qnlkZ3dniM6f9eqr",
+  "15732-01": "aikGDQThWq54aZ7klY73ee8iywnl",
+  "15732-02": "dxgGFQSUZ66ICGeHd4KXR5tQn1r3",
+  "15732-03": "NggKBQCXlXCHSHdod4N4dwAAAAAA",
+  "15732-04": "MAgKBQCmlWyI-3lpmHmmWAAAAAAA",
+  "15732-05": "LwgKBQBhS7uMiHWFqZ-HaAAAAAAA",
+  "15732-06": "LQgKBQCHeDCYR4aqhXenhgAAAAAA",
+  "15732-07": "MQgGBQBQq-5zlZmKh95ISQAAAAAA",
+  "15732-08": "KwgKBQBydGB5OYQGlmM3ZwAAAAAA",
+  "15732-09": "NQgKBQCneY9oV4h4ZotZ1wAAAAAA",
+  "15732-10": "qSgKFQiJmX-HeIiZlnd4d6xa4NkF",
+  "15732-11": "aBgGDYIfUbctd4uwaoNmfflY9WzI",
+  "15732-12": "algGDQQKiaypqN1Hpnm4iqoKBAmX",
+  "15732-13": "aQgKDQJ2d253CHeYd3e4dzsGdTBh",
+  "15732-14": "6ycKDYIg9ZVtlqh2moeGlQCYwr1w",
+  "17294-01": "nwcKFQaqmHhq-Ie2d3h4iKdPnSj1",
+  "17294-02": "NxgGDQSVd56HB2eId4KHR7ePi5r4",
+  "17294-03": "MwgGBQCWkl449XY6hLgt1gAAAAAA",
+  "17294-04": "KwgKBQCFdmCY6pilWGkVeAAAAAAA",
+  "17294-05": "HQgSBQDHWY95Z6c4d2e3hwAAAAAA",
+  "17294-06": "LQgKBQCEYra4-khauXm7dwAAAAAA",
+  "17294-07": "LggKBQCJlqpYaaX2mXdofAAAAAAA",
+  "17294-08": "NAgGBQDSv62ZebKsdVwmqgAAAAAA",
+  "17294-09": "MQgGBQDqdVxvaHqph4TnlgAAAAAA",
+  "17294-10": "LwgGBQCtnJOaSI5k9ko7hQAAAAAA",
+  "17294-11": "IggWBQCwd3eHh4d4h4eHiAAAAAAA",
+  "17294-12": "nRgKHQafiVuYB5d3e3eXh_ptWv_G",
+  "17294-13": "mygKBQJWdp9oWZiWWYenpzoCO_OE",
+  "17294-14": "nxgGFQRtSE-H54R3o2i4RdxSnwq2",
+  "17294-15": "HSgKFQJxiV-GR3g4iWd5eXBnKgXW",
+  "17294-16": "4WkKHQYMeqt2l3k3h4RZeJqQeAYn",
+  "17294-17": "GAgGFYJpyjg_lnhsdzeohY-O-saq",
+  "18847-01": "pgcGDQTspbaVynVZrceYCnj4Z2X2",
+  "18847-02": "NQgGBQD4lVmotnd6eJjnyAAAAAAA",
+  "18847-03": "LQgKBQDQbYuNliR3ppZ2pwAAAAAA",
+  "18847-04": "JQgSBQBcdn-YaJSpl3doiAAAAAAA",
+  "18847-05": "MAgKBQAMTYeaOXZXd1h6hAAAAAAA",
+  "18847-06": "MggGBQBs4KCpx9mW2pNmlQAAAAAA",
+  "18847-07": "mwcKDQKKhp9meZl3mYY3SEGgDVKG",
+  "18847-08": "2AcKDYIyd4pvd4iIiIh4iNOvjP-d",
+  "18847-09": "YygKDQAjRsVVV5cHiniHRZX_2CL5",
+  "18847-10": "ohgKDQJqjXeICKqXaaWYeXSgMgkL",
+  "18847-11": "4AcGDYJUlUu6a1RQuFqFtwncMmOP",
+  "18847-12": "OBgGDQSUiJ6IB1d3h4CGR5Wvebv4",
+  "22287-01": "KAgGDQjGdrtkWojaddaITyVgeQS2",
+  "22287-02": "OBgGDQKUd56ICGeId4F3R4avasr5",
+  "22287-03": "LAgKBQBdt_CVJGXKd5uHlgAAAAAA",
+  "22287-04": "KggOBQB5R5ClhzZ2mIh3eAAAAAAA",
+  "22287-05": "NAgKBQCodm-WV5e3aJWKlwAAAAAA",
+  "22287-06": "MggGBQD_WG5zW3mJh6W4ZQAAAAAA",
+  "22287-07": "MwgGBQDs8oVa2HjXZ3hXtwAAAAAA",
+  "22287-08": "KwgSBQCel2-GeHind2iHhwAAAAAA",
+  "22287-09": "MQgKBQBgdzKGh4U4hoV4pgAAAAAA",
+  "22287-10": "KQgKDQJql3ZaCKOGeYS1OJSPz_uu",
+  "22287-11": "JggGDYRbLmwGZls1h8mbkt991vtK",
+  "22287-12": "3xcGFQavh4ODitzHp3Z2p0BDBBJl",
+  "22287-13": "4gcGFQTIl76r5VQKd1XKWb-H-Xq1",
+  "22287-14": "3hcGFYhQTuxyYDasR3mop59p-pl2",
+  "25403-01": "HQgKDQRuqFlX-KZmh3Z3KAYwggXG",
+  "25403-02": "NxgGDQR0d66JCFeHd4KHR3h4j5r4",
+  "25403-03": "KwgOBQCOmZCIKZh4aFiZZgAAAAAA",
+  "25403-04": "LAgGBQA1jJQvHKcXRK6ZogAAAAAA",
+  "25403-05": "LggGBQA1qGm2anaqoH2qXAAAAAAA",
+  "25403-06": "KggSBQB3WoCVSHeJd3ZYZwAAAAAA",
+  "25403-07": "KwgKBQADiEyst5iVenZYhwAAAAAA",
+  "25403-08": "LggKBQA2OaC3QWnJiYXGuQAAAAAA",
+  "25403-09": "JQgOBQCmrZ9YWIqEmXd3igAAAAAA",
+  "25403-10": "MggOBQCVq59pdIdoh4iGhwAAAAAA",
+  "25403-11": "IhkKFQRKl2-Haad4aoV5mYBaA8gX",
+  "25403-12": "JQgOFQJ3aK-IV3iohod4d7CZ4OsF",
+  "25403-13": "4xgKHQJwpHeol3i3iHW52VChOAZa",
+  "25403-14": "4SgKDYJmuJl_d4mKeZd4hwxsjATI",
+  "25403-15": "XzkGFYgQRTuFyLmGioaYpyePafd6",
+  "28526-01": "aOgFFQj6dHtblofXaYUqiZ9eqvqI",
+  "28526-02": "OBgGDQSld56HB2d3iHCWSIh0j3r3",
+  "28526-03": "KggSBQBgZ3N5WHhoiZdYaAAAAAAA",
+  "28526-04": "KQgOBQBDam1XZ3T2drdniAAAAAAA",
+  "28526-05": "MAgSBQBQt3lnZnaJd1V1eAAAAAAA",
+  "28526-06": "LQgOBQCQqrqZiGiGd2aWSgAAAAAA",
+  "28526-07": "LggKBQD6x1yo1lmFd6qHRQAAAAAA",
+  "28526-08": "OAgGBQDRl3na-mmXR6mJqQAAAAAA",
+  "28526-09": "JQgKBQBdYgSXGXxodIV5dgAAAAAA",
+  "28526-10": "IwgKBQABihxmCGoXe4VqJwAAAAAA",
+  "28526-11": "GwgOFQJzWH94Z5q2aWh4iIlv69WA",
+  "28526-12": "HBgKDQIkhH9mJ5iJZoZoeTefJfdG",
+  "28526-13": "2TgGBQQ3prKqmGbIhqC5d4e6gMgH",
+  "28526-14": "ZccFFYIjlEdViKlvpnVnhL91wz9o",
+  "28526-15": "3RgKDYL7ybaPqId5dXW2md1Qj0jg",
+  "31225-01": "pSgGDQbZRl9q6la2mZmptwJCagXW",
+  "31225-02": "NRgKBQSFd5-ICGeXiIOXZ5eLj4r4",
+  "31225-03": "IwgKBQC9eT1FVluIuW-IpwAAAAAA",
+  "31225-04": "IQgKBQBniEbkdGb6anN4lAAAAAAA",
+  "31225-05": "KggOBQAwmLhqtniGdnuWeAAAAAAA",
+  "31225-06": "KwgKBQCqa6BV6ZbHZEG7SQAAAAAA",
+  "31225-07": "NAgKBQCIaZyXqHZXeH8olgAAAAAA",
+  "31225-08": "LwgKBQB15SCYBIcVe4RIWQAAAAAA",
+  "31225-09": "LAgKBQDGha9oqFtJh3dZ6AAAAAAA",
+  "31225-10": "KwgGBQDb2B-L68n8U8KC5wAAAAAA",
+  "31225-11": "LAgGBQAZyvExsnr6dkMclwAAAAAA",
+  "31225-12": "3jgKDQK1gX-LuGk1eYxXl3a_afZt",
+  "31225-13": "HwkKJQZ_aW2XmHi2h1loeNwKv_qh",
+  "31225-14": "FkkGFQYXWYd1CMZGiHmGaTagZAeJ",
+  "31225-15": "4TgKDYS0Yna_RmaaaJl3iD4gyQWz",
+  "31225-16": "XRgKHYa_8Is5fGhEyalWeK9M-fuW",
+  "31948-01": "JPgFHQjusr-F2UeJSnzoSHafZfho",
+  "31948-02": "NxgGDQSUd56ICGd3h4KHV7l4j4v3",
+  "31948-03": "KwgKBQBSdmB0iGNSc74mRwAAAAAA",
+  "31948-04": "LwgKBQDfe1hOl3emh2uXuQAAAAAA",
+  "31948-05": "MAgKBQDLXOV59zhUdql3iAAAAAAA",
+  "31948-06": "HQgSBQCPiHipd6o3hZeXaAAAAAAA",
+  "31948-07": "JQgOBQAzl4-JV5iJWJqYVwAAAAAA",
+  "31948-08": "IAgOBQBXiHB2N0rEumaIdgAAAAAA",
+  "31948-09": "FggKBQDPeCtkR5pZiHqGdwAAAAAA",
+  "31948-10": "LQgSBQCfZKalSJhnmHd4iAAAAAAA",
+  "31948-11": "2EgGFQSIA6106UmXZaamZ3iA-QWI",
+  "31948-12": "2hcGDYI2-6_DR2ShhWdkaHlpQHBa",
+  "31948-13": "FxgKFQaXd392J4dYh5d3d3WAUQd5",
+  "31948-14": "mTgOFQT5l2dmJ4dod4dXmO2a8O4q",
+  "31948-15": "5xgOFYTPhMJNl4aKiIaIeG-M87UZ",
+  "35943-01": "4RgKFQjbfElb9qenZofHlm9imwGm",
+  "35943-02": "OBgGDQSUeK2IB1d3h4GGR6tUf6r4",
+  "35943-03": "LAgKBQAJdpJ0Mzp4apuoqAAAAAAA",
+  "35943-04": "LQgKBQAUqI95l6iodql3hwAAAAAA",
+  "35943-05": "LQgOBQBraWCIZ4aHiJeIiAAAAAAA",
+  "35943-06": "KAgOBQCfyJlmmXiXd4eZRwAAAAAA",
+  "35943-07": "KwgOBQC_4mmKk2aJd4d3iAAAAAAA",
+  "35943-08": "GQgOBQC-jY1n-XZIl3SIdwAAAAAA",
+  "35943-09": "IggOBQBfW4SZR4iHh3V3ZwAAAAAA",
+  "35943-10": "KQgOBQB_W1h72HeYl2a5qAAAAAAA",
+  "35943-11": "LwgOBQBtt0-IlXmol1hYeQAAAAAA",
+  "35943-12": "XvgJHQafqpmbSKlXmHfXiFuApwOn",
+  "35943-13": "WxgKFQQsy593qIhmZmgFV55v8toG",
+  "35943-14": "IjkGFQJ5pZt2BWiYl2k7li2Y0FAp",
+  "35943-15": "VBgGDQLpdR-KxmoYi5OHqp857HWw",
+  "35943-16": "3RcOFQSllp9pyYmHaYinh8xf9LsF",
+  "35943-17": "mCgKHYLbl3ZPhog4hYh0eaVvWP-4",
+  "37838-01": "5xgKDQbPhIpleYdWp4bJR99eagXo",
+  "37838-02": "I-gFFQYVd5F4ycjzxn27pldwmfk4",
+  "37838-03": "n-cJDQJyVhuIN5plZmkISdaNb-74",
+  "37838-04": "J3oKFQhpqV9216qHiGVVeHBwLgWK",
+  "37838-05": "FygOFYKbdom_d4ebeIl5iaWPFu9W",
+  "37838-06": "DwgGFYJgA9inBpikV0t5ZWO_xPFf",
+  "37838-07": "OBgGDQSld42HGFhnd4CXN6pkf5r4",
+  "37838-08": "MQgKBQCpeIBoeHi3aZqoaAAAAAAA",
+  "37838-09": "JAgSBQCvpGqIhoeoaoiHhwAAAAAA",
+  "37838-10": "KggSBQCXZnCIOYd3mHZneAAAAAAA",
+  "37838-11": "HwgOBQCYhp-YOKdXiHh2iQAAAAAA",
+  "37838-12": "MwgGBQC_mXFcuJhWuVjY1gAAAAAA",
+  "37838-13": "KAgOBQC0gY-tVph6dZmXiQAAAAAA",
+  "39862-01": "qCgGFQTGtuBMeKqDWFZ1StfPikv4",
+  "39862-02": "eBgGDQSld52HCGhod4CXN5pij3r3",
+  "39862-03": "LQgGBQDajwho6mhnt2x0uwAAAAAA",
+  "39862-04": "IAgOBQAMenB0WnZYdIh6aQAAAAAA",
+  "39862-05": "KQgKBQB_5B-Jh3dafHrJuAAAAAAA",
+  "39862-06": "LwgOBQCAloVYhohmdomYiAAAAAAA",
+  "39862-07": "LggaBQBnaICGR3dIh3Z4eAAAAAAA",
+  "39862-08": "LQgOBQCciLOlCal2lneZWAAAAAAA",
+  "39862-09": "MAgKBQBIpmmH-LcJiGtoNwAAAAAA",
+  "39862-10": "KAgOBQDZaD9nx1yGmIiHhwAAAAAA",
+  "39862-11": "IAgGBQD1qA2lyVj6VOnHiwAAAAAA",
+  "39862-12": "mygODQKGaG-YeYiIhWhoio9L8LWH",
+  "39862-13": "4AcKDYQHQoeDfIiDhqqIiTVfK_KX",
+  "39862-14": "pigOFQa6l3eY93hHiYSIiLp5r5r3",
+  "39862-15": "YRgKDQKnao-kyIeKiHt3x3h3gPUo",
+  "39862-16": "XAgKFYJPZ6hLtmtwaYiWRY9cBvDH",
+  "41629-01": "YAgKLQpPl3hqmKjHSpmmWLt_lPpX",
+  "41629-02": "KggOBQC8mm12Z5hFl29neQAAAAAA",
+  "41629-03": "LAgOBQB3h692CHvGe3FXiQAAAAAA",
+  "41629-04": "JggKBQB5hW_XiG5km41niQAAAAAA",
+  "41629-05": "NAgKBQCn0Ido95l6Zlh2iQAAAAAA",
+  "41629-06": "IggaBQC7hn9nd4d4eIiHhwAAAAAA",
+  "41629-07": "MAgKBQBJqpCHFng4aHhp5wAAAAAA",
+  "41629-08": "IwgOBQAwlo2nWIlnp3hZeAAAAAAA",
+  "41629-09": "MAgSBQBGaXClOFdZZ3iHiAAAAAAA",
+  "41629-10": "digGFQaEd5-ICHeHd4OHV5tQn1r3",
+  "41629-11": "YygGFYIwt0qpKZm6qViEjAOLCBNK",
+  "41629-12": "3gcODQTNo593qmWIaXiYePiMD4q3",
+  "41629-13": "IxgOFQLGho-GZndoiImIh9ifqf6a",
+  "41629-14": "WDgGFQTdh09leHZomZdoiM8-p_yU",
+  "41629-15": "4AcKDQLXd5-ZN5i1eJSXp0J_N_E1",
+  "41629-16": "mlkKLQY1mI-Hl3iXd3mnp0B2B1Zo"
+};
+    if (typeof window !== 'undefined') window.LNORI_HASH_REGISTRY = LNORI_HASH_REGISTRY;
+
 
     const updateOriginalEpubNavigation = async (zip, translatedChapters) => {
       if (!zip || !Array.isArray(translatedChapters) || typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') return;
@@ -742,9 +972,37 @@ hr {
             const AC = typeof AbortController !== 'undefined' ? AbortController : (typeof window !== 'undefined' ? window.AbortController : null);
 
             const thMatch = (url || '').match(/[#?]th=([A-Za-z0-9_-]+)/i);
-            const thHash = thMatch ? thMatch[1] : null;
+            let thHash = thMatch ? thMatch[1] : null;
 
             let downloadUrl = url || '';
+            if (!thHash) {
+              const regMatch = downloadUrl.match(/(?:img|cdn)\.lnori\.(?:com|org)\/(\d+)-(\d+)\./i);
+              if (regMatch) {
+                const regKey = `${regMatch[1]}-${regMatch[2]}`;
+                thHash = (window.LNORI_HASH_REGISTRY && window.LNORI_HASH_REGISTRY[regKey]) || (typeof LNORI_HASH_REGISTRY !== 'undefined' ? LNORI_HASH_REGISTRY[regKey] : null);
+              }
+            }
+
+            // Persistent multi-compile cache check
+            if (!window._geminiIllustrationCache) window._geminiIllustrationCache = new Map();
+            const memCache = window._geminiIllustrationCache;
+            const cachedMem = memCache.get(url) || memCache.get(downloadUrl);
+            if (cachedMem && cachedMem.buffer) {
+              buffer = cachedMem.buffer;
+              detectedMime = cachedMem.mime;
+            }
+
+            if (!buffer && typeof caches !== 'undefined' && caches.open) {
+              try {
+                const cStore = await caches.open('gemini-novel-illustrations-v1');
+                const cachedRes = await cStore.match(downloadUrl);
+                if (cachedRes && cachedRes.ok) {
+                  const b = await cachedRes.arrayBuffer();
+                  buffer = b;
+                  detectedMime = cachedRes.headers.get('content-type') || 'image/jpeg';
+                }
+              } catch (_) {}
+            }
             if (/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i.test(downloadUrl)) {
               downloadUrl = downloadUrl.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
             }
@@ -851,8 +1109,11 @@ hr {
                       const ct = res.headers.get('content-type') || '';
                       if (ct.includes('image/')) detectedMime = ct.split(';')[0].trim();
                       const b = await res.arrayBuffer();
-                      if (b && b.byteLength > 500) {
+                      // Validate magic bytes to strictly reject HTML error pages disguised as 200 OK
+                      const sniffed = sniffMime(b);
+                      if (sniffed) {
                         buffer = b;
+                        detectedMime = sniffed.mime;
                         break;
                       }
                     }
@@ -902,6 +1163,19 @@ hr {
               }
               const entry = { localHref: `images/${imgFilename}`, manifestId, mime, ext };
               imageCache.set(url, entry);
+              if (buffer) {
+                memCache.set(url, { buffer, mime, ext });
+                memCache.set(downloadUrl, { buffer, mime, ext });
+                try {
+                  if (typeof caches !== 'undefined' && caches.open) {
+                    caches.open('gemini-novel-illustrations-v1').then(cStore => {
+                      const blob = new Blob([buffer], { type: mime });
+                      const res = new Response(blob, { headers: { 'content-type': mime } });
+                      cStore.put(new Request(downloadUrl), res).catch(() => {});
+                    }).catch(() => {});
+                  }
+                } catch (_) {}
+              }
               imageCache.set(downloadUrl, entry);
               try {
                 imageCache.set(encodeURI(url), entry);
@@ -924,7 +1198,7 @@ hr {
             }
           };
 
-          const concurrency = 4;
+          const concurrency = 12;
           const imgQueue = [...imgUrlList];
           const pool = Array.from({ length: Math.min(concurrency, imgUrlList.length) }, async () => {
             while (imgQueue.length > 0) {
@@ -1647,6 +1921,14 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
               const ct = res.headers.get('content-type') || '';
               const ext = ct.includes('png') ? 'png' : (ct.includes('webp') ? 'webp' : (ct.includes('gif') ? 'gif' : 'jpg'));
               return { data: new Uint8Array(buf), ext, mime: ct || 'image/jpeg' };
+            }
+          }
+
+          if (!thHash) {
+            const regMatch = (targetUrl || '').match(/(?:img|cdn)\.lnori\.(?:com|org)\/(\d+)-(\d+)\./i);
+            if (regMatch) {
+              const regKey = `${regMatch[1]}-${regMatch[2]}`;
+              thHash = (window.LNORI_HASH_REGISTRY && window.LNORI_HASH_REGISTRY[regKey]) || (typeof LNORI_HASH_REGISTRY !== 'undefined' ? LNORI_HASH_REGISTRY[regKey] : null);
             }
           }
 

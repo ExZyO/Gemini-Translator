@@ -176,7 +176,7 @@
                         'a', 'blockquote', 'hr', 'div', 'span', 'ruby', 'rt', 'rp',
                         'table', 'thead', 'tbody', 'tr', 'th', 'td', 'caption', 'code', 'pre', 's', 'del', 'strike', 'sub', 'sup'
                     ],
-                    ALLOWED_ATTR: ['src', 'href', 'alt', 'title', 'class', 'style', 'data-src', 'data-original', 'data-url', 'data-orig-file', 'data-large-file', 'srcset', 'data-lazy-src', 'data-actualsrc']
+                    ALLOWED_ATTR: ['src', 'href', 'alt', 'title', 'class', 'style', 'data-src', 'data-original', 'data-url', 'data-orig-file', 'data-large-file', 'srcset', 'data-lazy-src', 'data-actualsrc', 'th', 'data-th', 'width', 'height']
                 });
             } catch (_) {}
         }
@@ -228,7 +228,7 @@
                 }
                 if (imgUrl && (imgUrl.startsWith('http://') || imgUrl.startsWith('https://') || imgUrl.startsWith('data:image/'))) {
                     let finalUrl = imgUrl.trim();
-                    const thMatch = (inner || '').match(/\bth=["']([^"']+)["']/i);
+                    const thMatch = (inner || '').match(/\b(?:data-)?th=["']([^"']+)["']/i);
                     const altMatch = (inner || '').match(/\balt=["']([^"']+)["']/i);
                     const altText = altMatch ? altMatch[1].trim() : 'Illustration';
                     if (thMatch && !finalUrl.includes('data:image/') && !finalUrl.includes('#th=') && !finalUrl.includes('?th=')) {
@@ -243,7 +243,7 @@
         // 2. Preserve remaining direct <img> tags
         processed = processed.replace(/<img\b[^>]*>/gi, (match) => {
             let bestUrl = getBestImageUrl(match, baseUrl);
-            const thMatch = match.match(/\bth=["']([^"']+)["']/i);
+            const thMatch = match.match(/\b(?:data-)?th=["']([^"']+)["']/i);
             const altMatch = match.match(/\balt=["']([^"']+)["']/i);
             const altText = altMatch ? altMatch[1].trim() : 'Illustration';
             if (bestUrl && (bestUrl.startsWith('http://') || bestUrl.startsWith('https://') || bestUrl.startsWith('data:image/'))) {
