@@ -1138,6 +1138,29 @@ hr {
               } catch (_) {}
             }
 
+            // Strategy 3.6: High-Resolution Illustration Mirror (Retrieves sharp original artwork)
+            if ((!buffer || buffer.byteLength < 500)) {
+              const highResUrl = (typeof window !== 'undefined' && window.getHighResIllustration) 
+                ? window.getHighResIllustration(downloadUrl) 
+                : null;
+              if (highResUrl) {
+                try {
+                  const ctrl = AC ? new AC() : null;
+                  const t = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
+                  const res = await fetch(highResUrl, { signal: ctrl ? ctrl.signal : undefined });
+                  if (t) clearTimeout(t);
+                  if (res.ok) {
+                    const b = await res.arrayBuffer();
+                    const sniffed = sniffMime(b);
+                    if (sniffed) {
+                      buffer = b;
+                      detectedMime = sniffed.mime;
+                    }
+                  }
+                } catch (_) {}
+              }
+            }
+
             // Strategy 4: High-fidelity Full-Size ThumbHash decoding fallback (renders at 650px full reading resolution)
             if ((!buffer || buffer.byteLength < 500) && thHash) {
               try {
@@ -1945,6 +1968,19 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
             if (regMatch) {
               const regKey = `${regMatch[1]}-${regMatch[2]}`;
               thHash = (window.LNORI_HASH_REGISTRY && window.LNORI_HASH_REGISTRY[regKey]) || (typeof LNORI_HASH_REGISTRY !== 'undefined' ? LNORI_HASH_REGISTRY[regKey] : null);
+            }
+          }
+
+          const highResUrl = (typeof window !== 'undefined' && window.getHighResIllustration) 
+            ? window.getHighResIllustration(targetUrl) 
+            : null;
+          if (highResUrl) {
+            let res = await fetch(highResUrl).catch(() => null);
+            if (res && res.ok) {
+              const buf = await res.arrayBuffer();
+              const ct = res.headers.get('content-type') || 'image/webp';
+              const ext = ct.includes('png') ? 'png' : (ct.includes('webp') ? 'webp' : 'jpg');
+              return { data: new Uint8Array(buf), ext, mime: ct };
             }
           }
 

@@ -124,6 +124,11 @@
             best = best.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
         }
 
+        if (typeof window !== 'undefined' && window.getHighResIllustration) {
+            const highRes = window.getHighResIllustration(best);
+            if (highRes) best = highRes;
+        }
+
         return best.trim();
     }
 

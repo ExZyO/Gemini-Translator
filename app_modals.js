@@ -1252,6 +1252,7 @@
       handleOpenNovelHealthModal,
       handleOpenDiffModal,
       handleEnrichNovelMetadata,
+      handleUpgradeNovelIllustrations,
       handleSplitNovelIntoArcs,
       confirmAction,
       deleteNovelFromHistory
@@ -1352,6 +1353,9 @@
           }),
           menuRow('🏷️', 'Enrich Metadata (AniList)', 'Fetch high-res cover, synopsis, and genres', () => {
             if (handleEnrichNovelMetadata) handleEnrichNovelMetadata(item);
+          }),
+          menuRow('🖼️', 'Upgrade Illustrations', 'Replace blurry placeholders with crisp, full-resolution sharp artwork', () => {
+            if (handleUpgradeNovelIllustrations) handleUpgradeNovelIllustrations(item);
           }),
           menuRow('✂️', 'Split into Story Arcs', 'Divide large multi-volume novel into separate books', () => {
             if (handleSplitNovelIntoArcs) handleSplitNovelIntoArcs(item);
@@ -4077,6 +4081,7 @@
         handleOpenNovelHealthModal: props.handleOpenNovelHealthModal,
         handleOpenDiffModal: props.handleOpenDiffModal,
         handleEnrichNovelMetadata: props.handleEnrichNovelMetadata,
+        handleUpgradeNovelIllustrations: props.handleUpgradeNovelIllustrations,
         handleSplitNovelIntoArcs: props.handleSplitNovelIntoArcs,
         confirmAction: props.confirmAction,
         deleteNovelFromHistory: props.deleteNovelFromHistory

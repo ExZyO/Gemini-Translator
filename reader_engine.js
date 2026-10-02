@@ -1959,6 +1959,10 @@
         if (displaySrc.includes('#th=')) {
           displaySrc = displaySrc.split('#th=')[0];
         }
+        if (typeof window !== 'undefined' && window.getHighResIllustration) {
+          const highRes = window.getHighResIllustration(displaySrc);
+          if (highRes) displaySrc = highRes;
+        }
 
         return h('div', {
           key: el.id,
@@ -1980,6 +1984,14 @@
             alt: el.alt,
             loading: 'lazy',
             onError: (e) => {
+              if (!e.target.dataset.highResTried) {
+                e.target.dataset.highResTried = '1';
+                const highRes = (typeof window !== 'undefined' && window.getHighResIllustration) ? window.getHighResIllustration(el.src) : null;
+                if (highRes && e.target.src !== highRes) {
+                  e.target.src = highRes;
+                  return;
+                }
+              }
               if (thHash && !e.target.dataset.thumbhashLoaded) {
                 e.target.dataset.thumbhashLoaded = '1';
                 try {
@@ -3879,6 +3891,14 @@
           src: lightboxImg,
           alt: 'High Resolution Illustration',
           onError: (e) => {
+            if (!e.target.dataset.highResTried) {
+              e.target.dataset.highResTried = '1';
+              const highRes = (typeof window !== 'undefined' && window.getHighResIllustration) ? window.getHighResIllustration(lightboxImg) : null;
+              if (highRes && e.target.src !== highRes) {
+                e.target.src = highRes;
+                return;
+              }
+            }
             const thMatch = (lightboxImg || '').match(/[#?]th=([A-Za-z0-9_-]+)/i);
             if (thMatch && !e.target.dataset.thumbhashLoaded) {
               e.target.dataset.thumbhashLoaded = '1';

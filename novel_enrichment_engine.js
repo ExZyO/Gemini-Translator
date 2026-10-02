@@ -1264,6 +1264,126 @@
         console.warn('Auto-split mounting warning:', splitErr);
         if (typeof toast === 'function') toast(`Switched to EPUB Studio with "${full.title || 'Novel'}"!`, 'info');
       }
+    },
+
+    async upgradeIllustrations(novelRecord, options = {}) {
+      const {
+        loadFullNovel: loadFullNovelFn,
+        getEpubOptions,
+        exportCleanLnoriEpub,
+        saveUniversalBlob,
+        setWebImportHistory,
+        toast: toastFn
+      } = options;
+      const toast = toastFn || (typeof window !== 'undefined' && window.__toast) || console.log;
+      if (!novelRecord) {
+        toast('No novel selected for illustration upgrade.', 'warning');
+        return;
+      }
+      toast(`🖼️ Scanning "${novelRecord.title || 'Novel'}" for illustrations to upgrade…`, 'info');
+
+      const loader = typeof loadFullNovelFn === 'function' ? loadFullNovelFn : ((typeof window !== 'undefined' && window.LibraryEngine?.Controller?.loadFullNovel) || null);
+      const full = loader ? await loader(novelRecord) : novelRecord;
+      if (!full) {
+        toast('Novel data not found in local database.', 'error');
+        return;
+      }
+
+      const title = full.title || novelRecord.title || '';
+      const volMatch = title.match(/(?:volume|vol\.?|v)\s*(\d+)/i) || title.match(/\((\d+)\)/);
+      const volNum = volMatch ? parseInt(volMatch[1], 10) : null;
+
+      const chs = (full.translatedChapters && full.translatedChapters.length > 0)
+        ? full.translatedChapters
+        : (full.chapters || full.rawChapters || []);
+
+      let upgradedCount = 0;
+      const getHighRes = (typeof window !== 'undefined' && window.getHighResIllustration) ? window.getHighResIllustration : null;
+
+      if (getHighRes) {
+        for (const ch of chs) {
+          if (!ch.content) continue;
+          let changed = false;
+
+          const newHtml = ch.content.replace(/<img\b([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi, (match, prefix, src, suffix) => {
+            const highRes = getHighRes(src, volNum);
+            if (highRes && highRes !== src) {
+              upgradedCount++;
+              changed = true;
+              return `<img${prefix}src="${highRes}"${suffix.replace(/\b(?:data-)?th=["'][^"']*["']/gi, '')}>`;
+            }
+            return match;
+          });
+
+          const newMd = newHtml.replace(/!\[([^\]]*)\]\(([^)]+)\)/gi, (match, alt, url) => {
+            const highRes = getHighRes(url, volNum);
+            if (highRes && highRes !== url) {
+              upgradedCount++;
+              changed = true;
+              return `![${alt || 'Illustration'}](${highRes})`;
+            }
+            return match;
+          });
+
+          if (changed) {
+            ch.content = newMd;
+          }
+        }
+      }
+
+      if (volNum && typeof window !== 'undefined' && window.HIGH_RES_ILLUSTRATION_REGISTRY) {
+        const coverMirror = window.HIGH_RES_ILLUSTRATION_REGISTRY[`vol${volNum}-1`];
+        if (coverMirror && (!full.cover || full.cover.includes('img.lnori.com'))) {
+          full.cover = coverMirror;
+          novelRecord.cover = coverMirror;
+        }
+      }
+
+      if (typeof window !== 'undefined' && window.GeminiNovelDB && typeof window.GeminiNovelDB.saveNovel === 'function') {
+        try {
+          await window.GeminiNovelDB.saveNovel(full);
+        } catch (dbErr) {
+          console.warn('GeminiNovelDB save warning:', dbErr);
+        }
+      }
+
+      if (typeof setWebImportHistory === 'function') {
+        setWebImportHistory(prev => prev.map(b => b.id === full.id ? { ...b, cover: full.cover || b.cover } : b));
+      }
+
+      if (upgradedCount > 0) {
+        toast(`✨ Upgraded ${upgradedCount} illustrations to crisp high resolution! Packaging EPUB…`, 'success');
+      } else {
+        toast('Illustrations verified. Packaging EPUB with high-resolution mirrors…', 'info');
+      }
+
+      try {
+        const exporter = exportCleanLnoriEpub || (typeof window !== 'undefined' && window.WebNovelCrawlerEngine?.exportCleanLnoriEpub);
+        if (typeof exporter === 'function') {
+          await exporter(full, {
+            cleanBookTitle: (typeof window !== 'undefined' && window.cleanBookTitle) ? window.cleanBookTitle : null,
+            cleanBookAuthor: (typeof window !== 'undefined' && window.cleanBookAuthor) ? window.cleanBookAuthor : null,
+            getEpubOptions,
+            getEpubFileName: (typeof window !== 'undefined' && window.getEpubFileName) ? window.getEpubFileName : null,
+            saveUniversalBlob: saveUniversalBlob || (typeof window !== 'undefined' && window.saveUniversalBlob),
+            generateEpubFromChapters: (typeof window !== 'undefined' && window.generateEpubFromChapters) ? window.generateEpubFromChapters : null
+          }, {
+            setEpubPackagingModal: options.setEpubPackagingModal,
+            toast
+          });
+          toast(`🎉 "${full.title || 'Novel'}" successfully upgraded with sharp artwork and saved!`, 'success');
+        } else if (typeof window !== 'undefined' && window.generateEpubFromChapters) {
+          const cleanTitle = (typeof window.cleanText === 'function') ? window.cleanText(full.title) : full.title;
+          const epubBlob = await window.generateEpubFromChapters(chs, cleanTitle, full.author || 'Author', full.cover, { includeImages: true });
+          if (epubBlob && typeof window.saveUniversalBlob === 'function') {
+            await window.saveUniversalBlob(epubBlob, `${cleanTitle}.epub`);
+            toast(`🎉 "${full.title || 'Novel'}" saved to downloads!`, 'success');
+          }
+        }
+      } catch (expErr) {
+        console.warn('Upgrade illustrations EPUB export warning:', expErr);
+        toast(`Repaired illustrations in library: ${expErr?.message || expErr}`, 'info');
+      }
     }
   };
 

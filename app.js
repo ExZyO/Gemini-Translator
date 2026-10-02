@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.18.17';
+        let VERSION = '8.18.18';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1223,6 +1223,9 @@
 
       // --- AniList Metadata Enrichment Handlers (§7.4) ---
       const handleEnrichNovelMetadata = (novel) => window.NovelEnrichmentEngine?.Controller?.enrichMetadata(novel, { setWebImportHistory, setActiveNovelView, activeNovelView, toast, confirm: confirmAction });
+
+      // --- Upgrade Novel Illustrations Handler ---
+      const handleUpgradeNovelIllustrations = (novel) => window.NovelEnrichmentEngine?.Controller?.upgradeIllustrations(novel, { loadFullNovel, getEpubOptions, exportCleanLnoriEpub, saveUniversalBlob, setWebImportHistory, setEpubPackagingModal, toast });
 
       // --- Split Novel into Arcs Handler (§7.3) ---
       const handleSplitNovelIntoArcs = (novel) => window.NovelEnrichmentEngine?.Controller?.splitIntoArcs(novel, { loadFullNovel, setActiveTab, setStudioSubTab, toast, cleanBookTitle, cleanBookAuthor, generateEpubFromChapters, sanitizeFilename });
@@ -2498,7 +2501,7 @@
           setNewNovelTitleInput, getCustomTitle, loadFullNovel, setActiveTab, setStudioSubTab,
           handleCheckNovelUpdate, handleOpenContinuationForNovel, handleOpenAutoGlossary,
           toggleNovelSavedSpace, handleSetNovelFolder, handleOpenNovelHealthModal,
-          handleEnrichNovelMetadata, handleSplitNovelIntoArcs, confirmAction, deleteNovelFromHistory,
+          handleEnrichNovelMetadata, handleUpgradeNovelIllustrations, handleSplitNovelIntoArcs, confirmAction, deleteNovelFromHistory,
 
           // Ongoing EPUB Continuation Modal
           ongoingEpubModal, setOngoingEpubModal, updateNovelFolderRecord, handleScanContinuationToc,

@@ -2868,15 +2868,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                         android.os.Bundle params = new android.os.Bundle();
                         params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
-                        // Standard Android TTS speech rate is an Integer (rate * 100) under KEY_PARAM_RATE ("rate").
+                        // Standard Android TTS speech rate is an Integer (rate * 100) under parameter "rate".
                         // Do NOT put a Float under "rate" as it causes ClassCastException inside the TTS service, resetting speed to 100 (1.0x).
-                        params.putInt(TextToSpeech.Engine.KEY_PARAM_RATE, (int) (rate * 100));
+                        params.putInt("rate", (int) (rate * 100));
                         params.putFloat("speechRate", rate);
                         res = nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId);
                     } else {
                         java.util.HashMap<String, String> params = new java.util.HashMap<>();
                         params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
-                        params.put(TextToSpeech.Engine.KEY_PARAM_RATE, Integer.toString((int) (rate * 100)));
+                        params.put("rate", Integer.toString((int) (rate * 100)));
                         res = nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params);
                     }
 
