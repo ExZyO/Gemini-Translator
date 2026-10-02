@@ -1,9 +1,9 @@
 {
-  "version": "8.18.26",
-  "versionCode": 8326,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.26/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.26/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.26",
+  "version": "8.18.27",
+  "versionCode": 8327,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.27/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.27/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.27",
   "releaseDate": "2026-10-02",
-  "releaseNotes": "v8.18.26: Fully modularize reader_engine.js into reader_styles.js and reader_ui_modals.js, and split glossary presets into base and extended modules. 100% of codebase now strictly under the 3,000 line ceiling."
+  "releaseNotes": "v8.18.27: Fix infinite recursion in modal proxies and ensure pristine launch stability on browser and Android."
 }

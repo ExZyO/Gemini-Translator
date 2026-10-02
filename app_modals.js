@@ -1375,16 +1375,18 @@
   // ─────────────────────────────────────────────────────────────────────────
   // 12. ONGOING EPUB CONTINUATION & MOON+ READER CONTINUITY FULL-SCREEN VIEW
   // ─────────────────────────────────────────────────────────────────────────
+  const RealOngoingEpubContinuationModal = (typeof window !== 'undefined' && window.OngoingEpubContinuationModal) ? window.OngoingEpubContinuationModal : null;
   function OngoingEpubContinuationModal(props) {
-    const Component = (typeof window !== 'undefined' && window.OngoingEpubContinuationModal) || null;
+    const Component = RealOngoingEpubContinuationModal || (typeof window !== 'undefined' && window.OngoingEpubContinuationModal && window.OngoingEpubContinuationModal !== OngoingEpubContinuationModal ? window.OngoingEpubContinuationModal : null);
     return Component ? Component(props) : null;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   // 13. SWIFTAUDIO PLAYER (MINI-PLAYER, FULL PLAYER, BACKGROUND PROGRESS, DOWNLOAD MODAL)
   // ─────────────────────────────────────────────────────────────────────────
+  const RealSwiftAudioPlayer = (typeof window !== 'undefined' && window.SwiftAudioPlayer) ? window.SwiftAudioPlayer : null;
   function SwiftAudioPlayer(props) {
-    const Component = (typeof window !== 'undefined' && window.SwiftAudioPlayer) || null;
+    const Component = RealSwiftAudioPlayer || (typeof window !== 'undefined' && window.SwiftAudioPlayer && window.SwiftAudioPlayer !== SwiftAudioPlayer ? window.SwiftAudioPlayer : null);
     return Component ? Component(props) : null;
   }
 
@@ -2424,8 +2426,8 @@
     NovelRenameModal,
     CostEstimatorModal,
     LibraryNovelActionSheet,
-    OngoingEpubContinuationModal,
-    SwiftAudioPlayer,
+    OngoingEpubContinuationModal: RealOngoingEpubContinuationModal || OngoingEpubContinuationModal,
+    SwiftAudioPlayer: RealSwiftAudioPlayer || SwiftAudioPlayer,
     SourceExtensionsModal,
     ExportToolsSheet,
     ConfirmDialog,
