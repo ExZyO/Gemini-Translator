@@ -1,9 +1,9 @@
 {
-  "version": "8.18.25",
-  "versionCode": 8325,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.25/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.25/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.25",
+  "version": "8.18.26",
+  "versionCode": 8326,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.26/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.26/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.26",
   "releaseDate": "2026-10-02",
-  "releaseNotes": "v8.18.25: Fully modularize epub_editor.js into epub_editor_packer.js and epub_editor_tools.js, crushing epub_editor down from 5,230 to 2,423 lines."
+  "releaseNotes": "v8.18.26: Fully modularize reader_engine.js into reader_styles.js and reader_ui_modals.js, and split glossary presets into base and extended modules. 100% of codebase now strictly under the 3,000 line ceiling."
 }
