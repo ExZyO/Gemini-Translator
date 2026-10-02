@@ -1,9 +1,9 @@
 {
-  "version": "8.18.19",
-  "versionCode": 8319,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.19/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.19/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.19",
+  "version": "8.18.20",
+  "versionCode": 8320,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.20/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.20/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.20",
   "releaseDate": "2026-10-02",
-  "releaseNotes": "v8.18.19: Complete high-resolution illustration mirror registry for all 15 volumes, color inserts mapping, and responsive full-width rendering."
+  "releaseNotes": "v8.18.20: Add binary EPUB backup size ceiling to protect against memory exhaustion on overly large libraries, and verify universal file handling."
 }
