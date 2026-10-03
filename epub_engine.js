@@ -277,6 +277,187 @@
 };
     if (typeof window !== 'undefined') window.LNORI_HASH_REGISTRY = LNORI_HASH_REGISTRY;
 
+    const smartFormat = (raw, useSmartQuotes = true) => {
+      let s = escapeXml(raw);
+      s = s.replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '');
+      s = s.replace(/\*{4,}/g, '**');
+      if (s.startsWith('**') && !s.slice(2).includes('**')) s = s.slice(2);
+      if (s.endsWith('**') && !s.slice(0, -2).includes('**')) s = s.slice(0, -2);
+      if (s.startsWith('*') && !s.slice(1).includes('*')) s = s.slice(1);
+      if (s.endsWith('*') && !s.slice(0, -1).includes('*')) s = s.slice(0, -1);
+
+      // Clean stray ASCII prompt markers inside or preceding bold/italic: **&gt; -> ** or &gt;** -> **
+      s = s.replace(/^(\*{1,2}|_{1,2})&gt;\s*/, '$1');
+      s = s.replace(/^&gt;\s*(\*{1,2}|_{1,2})/, '$1');
+
+      if (useSmartQuotes) {
+        // Smart quotes: "..." -> curly double quotes
+        s = s.replace(/&quot;([^&]*?)&quot;/g, '\u201c$1\u201d');
+        // Straight double quotes fallback
+        s = s.replace(/"([^"]*?)"/g, '\u201c$1\u201d');
+        // Smart single quotes / apostrophes
+        s = s.replace(/(\w)&apos;(\w)/g, '$1\u2019$2'); // it's, don't
+        s = s.replace(/&apos;([^&]*?)&apos;/g, '\u2018$1\u2019');
+      }
+      // Normalize dashes: -- or --- to em-dash
+      s = s.replace(/---?/g, '\u2014');
+      // Normalize triple dots to proper ellipsis
+      s = s.replace(/\.{3,}/g, '\u2026');
+
+      // 1. Triple bold-italic: ***text*** or ___text___
+      s = s.replace(/\*\*\*([^\n]+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      s = s.replace(/___([^\n]+?)___/g, '<strong><em>$1</em></strong>');
+
+      // 2. Bold: **text** or __text__ (supports nested italics)
+      s = s.replace(/\*\*([^\n]+?)\*\*/g, '<strong>$1</strong>');
+      s = s.replace(/__([^\n]+?)__/g, '<strong>$1</strong>');
+
+      // 3. Italic: *text* or _text_ (single, not inside words)
+      s = s.replace(/(?<!\w)\*([^*\n]+?)\*(?!\w)/g, '<em>$1</em>');
+      s = s.replace(/(?<!\w)_([^_\n]+?)_(?!\w)/g, '<em>$1</em>');
+
+      // 4. Strikethrough: ~~text~~
+      s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+      // 5. Inline code: `text`
+      s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+      return s.trim();
+    };
+
+    const formatChapterBodyToHtml = (bodyContent, options = {}) => {
+      if (!bodyContent) return '';
+      const useSmartQuotes = options.useSmartQuotes !== false;
+      const chTitle = options.chapterTitle || '';
+
+      // Normalize if bodyContent came with pre-existing HTML paragraph or break tags
+      let normalized = String(bodyContent)
+        .replace(/<br\s*[\/]?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<\/div>/gi, '\n\n')
+        .replace(/<p\b[^>]*>/gi, '')
+        .replace(/<div\b[^>]*>/gi, '');
+
+      const rawLines = normalized.split(/\r?\n/);
+      const bodyHtml = [];
+      const seenHeadings = new Set();
+      const chapterTitleKey = chTitle.replace(/\s+/g, ' ').trim().toLowerCase();
+      let hasEncounteredParagraph = false;
+
+      for (let li = 0; li < rawLines.length; li++) {
+        let trimmed = rawLines[li].trim();
+        if (!trimmed) continue;
+
+        // Clean any leading/trailing whitespace, tabs, or non-breaking spaces
+        trimmed = trimmed.replace(/^[\s\u00A0\u3000]+/, '').replace(/[\s\u00A0\u3000]+$/, '');
+        if (!trimmed) continue;
+
+        // Suppress prompt template placeholder leaks anywhere in chapter
+        if (/\[(?:number|\d+|name|title)\]/i.test(trimmed) || /^#*\s*chapter\s*\[/i.test(trimmed) || /---\s*page\s*end\s*---/i.test(trimmed)) {
+          continue;
+        }
+
+        // Centered elements [center]...[/center] or <center>...</center>
+        const centerMatch = trimmed.match(/^(?:\[center\]|<center>|<p\s+class="text-center">)([\s\S]*?)(?:\[\/center\]|<\/center>|<\/p>)?$/i)
+                         || trimmed.match(/^([\s\S]*?)\[\/center\]$/i);
+        if (centerMatch) {
+          const inner = (centerMatch[1] || '').replace(/\[\/?center\]/gi, '').trim();
+          bodyHtml.push(`<p class="text-center">${smartFormat(inner, useSmartQuotes)}</p>`);
+          hasEncounteredParagraph = true;
+          continue;
+        }
+
+        // Right-aligned elements [right]...[/right]
+        const rightMatch = trimmed.match(/^(?:\[right\]|<p\s+class="text-right">)([\s\S]*?)(?:\[\/right\]|<\/p>)?$/i)
+                        || trimmed.match(/^([\s\S]*?)\[\/right\]$/i);
+        if (rightMatch) {
+          const inner = (rightMatch[1] || '').replace(/\[\/?right\]/gi, '').trim();
+          bodyHtml.push(`<p class="text-right">${smartFormat(inner, useSmartQuotes)}</p>`);
+          hasEncounteredParagraph = true;
+          continue;
+        }
+
+        // Markdown headings
+        const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+        if (headingMatch) {
+          const headingText = headingMatch[2].trim();
+          const headingKey = headingText.replace(/\s+/g, ' ').toLowerCase();
+          if (headingKey === chapterTitleKey || seenHeadings.has(headingKey)) continue;
+
+          seenHeadings.add(headingKey);
+          const headingLevel = headingMatch[1].length <= 2 ? 2 : 3;
+          bodyHtml.push('<h' + headingLevel + '>' + smartFormat(headingText, useSmartQuotes) + '</h' + headingLevel + '>');
+          continue;
+        }
+
+        // Illustrations (already processed to <div class="illustration">...</div> in appendChaptersToExistingEpub)
+        if (trimmed.startsWith('<div class="illustration"') || trimmed.startsWith('<div class="illustration-wrap"')) {
+          bodyHtml.push(trimmed);
+          continue;
+        }
+
+        // Scene break dividers: ***, ---, ===, ~~~, * * *, ◆◆◆, ✦✦✦, etc.
+        if (/^(?:\*\s*\*\s*\*|\*{3,}|\.{3,}|\u2026{2,}|\u2014{2,}|-{3,}|={3,}|~{3,}|#\s*#\s*#|(?:◆\s*){2,}|(?:◇\s*){2,}|(?:✦\s*){2,}|(?:★\s*){2,}|(?:☆\s*){2,}|(?:•\s*){3,}|(?:·\s*){3,})$/.test(trimmed) || trimmed === '---' || trimmed === '***' || trimmed === '___') {
+          bodyHtml.push('<hr/>');
+          continue;
+        }
+
+        // Tables: markdown table rows | col | col |
+        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+          hasEncounteredParagraph = true;
+          const tableLines = [trimmed];
+          while (li + 1 < rawLines.length && rawLines[li + 1].trim().startsWith('|') && rawLines[li + 1].trim().endsWith('|')) {
+            li++;
+            tableLines.push(rawLines[li].trim());
+          }
+          const rows = tableLines.filter(l => !/^[\|\s\-:]+$/.test(l));
+          if (rows.length > 0) {
+            let tHtml = '<div class="table-wrap"><table>';
+            rows.forEach((r, rIdx) => {
+              const cells = r.slice(1, -1).split('|').map(c => c.trim());
+              const tag = rIdx === 0 ? 'th' : 'td';
+              tHtml += '<tr>' + cells.map(c => `<${tag}>${smartFormat(c, useSmartQuotes)}</${tag}>`).join('') + '</tr>';
+            });
+            tHtml += '</table></div>';
+            bodyHtml.push(tHtml);
+            continue;
+          }
+        }
+
+        // Author Note Blockquote
+        if (trimmed.startsWith('> **Author\'s Note:**') || trimmed.startsWith('> Author\'s Note:') || trimmed.startsWith('&gt; **Author\'s Note:**') || trimmed.startsWith('&gt; Author\'s Note:')) {
+          hasEncounteredParagraph = true;
+          const bqLines = [trimmed.replace(/^(?:>|&gt;)\s*/, '')];
+          while (li + 1 < rawLines.length && (rawLines[li + 1].trim().startsWith('>') || rawLines[li + 1].trim().startsWith('&gt;'))) {
+            li++;
+            bqLines.push(rawLines[li].trim().replace(/^(?:>|&gt;)\s*/, ''));
+          }
+          bodyHtml.push('<blockquote class="author-note">' + bqLines.map(l => `<p>${smartFormat(l, useSmartQuotes)}</p>`).join('\n') + '</blockquote>');
+          continue;
+        }
+
+        // Blockquote / Stat Screen lines starting with > or &gt;
+        if (trimmed.startsWith('>') || trimmed.startsWith('&gt;')) {
+          hasEncounteredParagraph = true;
+          const bqLines = [trimmed.replace(/^(?:>|&gt;)\s*/, '').trim()];
+          while (li + 1 < rawLines.length && (rawLines[li + 1].trim().startsWith('>') || rawLines[li + 1].trim().startsWith('&gt;'))) {
+            li++;
+            bqLines.push(rawLines[li].trim().replace(/^(?:>|&gt;)\s*/, '').trim());
+          }
+          bodyHtml.push('<blockquote>\n' + bqLines.map(l => `<p>${smartFormat(l, useSmartQuotes)}</p>`).join('\n') + '\n</blockquote>');
+          continue;
+        }
+
+        // Normal paragraph with smart formatting
+        bodyHtml.push(`<p>${smartFormat(trimmed, useSmartQuotes)}</p>`);
+        hasEncounteredParagraph = true;
+      }
+
+      return bodyHtml.join('\n');
+    };
+    if (typeof window !== 'undefined') {
+      window.smartFormat = smartFormat;
+      window.formatChapterBodyToHtml = formatChapterBodyToHtml;
+    }
+
 
     const updateOriginalEpubNavigation = async (zip, translatedChapters) => {
       if (!zip || !Array.isArray(translatedChapters) || typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') return;
@@ -2057,19 +2238,12 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
           }
         }
 
-        let formattedHtml = '';
-        if (bodyContent.includes('<p>') || bodyContent.includes('<div>')) {
-          formattedHtml = bodyContent;
-        } else {
-          formattedHtml = bodyContent
-            .split(/\r?\n\r?\n+/)
-            .map(p => p.trim())
-            .filter(Boolean)
-            .map(p => `<p>${escapeXml(p).replace(/\n/g, '<br/>')}</p>`)
-            .join('\n');
-        }
-
         const chTitle = ch.title || `Chapter ${chNum}`;
+        const formattedHtml = formatChapterBodyToHtml(bodyContent, {
+          useSmartQuotes: true,
+          chapterTitle: chTitle
+        });
+
         const xhtml = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en">
@@ -2078,11 +2252,40 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
   <title>${escapeXml(chTitle)}</title>
   ${cssLinkHtml}
   <style type="text/css">
-    body { font-family: sans-serif; line-height: 1.6; margin: 5%; }
-    h1.chapter-title { font-size: 1.5em; margin-bottom: 1.2em; text-align: center; }
-    p { margin-bottom: 1em; text-indent: 1.5em; }
+    body { font-family: "Literata", "Georgia", serif, sans-serif; line-height: 1.85; margin: 5%; color: #1a1a1a; }
+    h1.chapter-title { font-size: 1.5em; margin-bottom: 1.2em; text-align: center; font-weight: 700; }
+    p { margin-top: 0; margin-bottom: 1.15em; line-height: 1.85; text-indent: 0; }
+    p.text-center { text-align: center; text-indent: 0; }
+    p.text-right { text-align: right; text-indent: 0; }
+    em, i { font-style: italic; }
+    strong, b { font-weight: 700; }
+    del, s { text-decoration: line-through; }
+    code { font-family: monospace; font-size: 0.9em; background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 3px; }
+    blockquote {
+      margin: 1.5em 1em;
+      padding: 0.8em 1.2em;
+      border-left: 3px solid #cbd5e1;
+      font-style: italic;
+      color: #475569;
+      background-color: #f8fafc;
+      border-radius: 4px;
+      page-break-inside: avoid;
+    }
+    blockquote p { text-indent: 0 !important; margin-bottom: 0.5em !important; font-style: normal; }
+    blockquote p:last-child { margin-bottom: 0 !important; }
+    hr { border: none; border-top: 1px solid #cbd5e1; margin: 2em auto; width: 35%; text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.95em; }
+    th, td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; }
+    th { background-color: #f1f5f9; font-weight: 700; }
     div.illustration { text-align: center; margin: 1.5em 0; }
     div.illustration img { width: 100%; max-width: 100%; height: auto; border-radius: 4px; display: block; margin: 0 auto; }
+    @media (prefers-color-scheme: dark) {
+      body { color: #e2e8f0; background-color: #0f172a; }
+      blockquote { border-left-color: #475569; color: #94a3b8; background-color: #1e293b; }
+      th, td { border-color: #334155; }
+      th { background-color: #1e293b; }
+      hr { border-top-color: #475569; }
+    }
   </style>
 </head>
 <body>
@@ -2303,6 +2506,8 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
       cleanBookAuthor,
       getEpubFileName,
       getEpubOptions,
+      smartFormat,
+      formatChapterBodyToHtml,
       generateEpubFromChapters,
       appendChaptersToExistingEpub,
       updateOriginalEpubNavigation

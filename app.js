@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.18.35';
+    let VERSION = '8.18.36';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -398,7 +398,8 @@
           return window.MoonReaderEngine.Continuation.handleExecuteContinuation({ ongoingEpubModal }, {
             toast,
             setOngoingEpubModal,
-            saveNovelToHistory
+            saveNovelToHistory,
+            setDownloadSuccessModal
           });
         }
       };

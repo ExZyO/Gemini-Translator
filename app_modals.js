@@ -1822,13 +1822,72 @@
 
     if (!downloadSuccessModal) return null;
     const h = getH();
+    const isEpub = (downloadSuccessModal.fileName || '').toLowerCase().endsWith('.epub');
+    const isContinuation = !!downloadSuccessModal.isContinuation;
+
+    const handleOpenInReader = async () => {
+      try {
+        if (window.NativeBridge && window.NativeBridge.openWithReader) {
+          const opened = await window.NativeBridge.openWithReader(downloadSuccessModal.fileName, downloadSuccessModal.path || '');
+          if (opened) {
+            setDownloadSuccessModal(null);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Reader open error:', e);
+      }
+      if (typeof window.toast === 'function') {
+        window.toast('Opening in Moon+ Reader…', 'info');
+      }
+      setDownloadSuccessModal(null);
+    };
 
     return h('div', { className: 'confirm-backdrop', style: { zIndex: 126 }, onClick: () => setDownloadSuccessModal(null) },
-      h('div', { className: 'confirm-box', onClick: (e) => e.stopPropagation() },
-        h('p', null, 'File Saved Successfully!'),
-        h('p', { style: { fontSize: 12, color: 'var(--slate)', textAlign: 'center', wordBreak: 'break-all', marginBottom: 14, fontWeight: 500 } }, downloadSuccessModal.fileName),
-        h('div', { className: 'confirm-actions' },
-          h('button', { type: 'button', className: 'mini-btn', onClick: () => setDownloadSuccessModal(null) }, 'OK')
+      h('div', { className: 'confirm-box', style: { maxWidth: 440, width: '92%' }, onClick: (e) => e.stopPropagation() },
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 } },
+          h('span', { style: { fontSize: 24 } }, isContinuation ? '📚' : '🎉'),
+          h('h3', { style: { margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-color, #f1f5f9)' } },
+            isContinuation ? 'EPUB Updated Successfully!' : 'File Saved Successfully!'
+          )
+        ),
+        isContinuation && downloadSuccessModal.newChaptersCount ? h('p', {
+          style: { fontSize: 13, color: 'var(--primary-color, #818cf8)', textAlign: 'center', fontWeight: 600, margin: '4px 0 8px' }
+        }, `Appended ${downloadSuccessModal.newChaptersCount} new chapters (Total: ${downloadSuccessModal.totalChaptersCount || 'Updated'})`) : null,
+        h('p', { style: { fontSize: 12, color: 'var(--slate, #94a3b8)', textAlign: 'center', wordBreak: 'break-all', marginBottom: isContinuation ? 12 : 16, fontWeight: 500 } }, downloadSuccessModal.fileName),
+        isContinuation ? h('div', {
+          style: {
+            background: 'rgba(99, 102, 241, 0.08)',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            borderRadius: 8,
+            padding: '10px 12px',
+            marginBottom: 16,
+            textAlign: 'left',
+            fontSize: 12,
+            lineHeight: 1.5,
+            color: 'var(--text-secondary, #cbd5e1)'
+          }
+        },
+          h('strong', { style: { color: 'var(--primary-color, #a5b4fc)', display: 'block', marginBottom: 4 } }, '💡 Moon+ Reader Pro Shelf Note:'),
+          'Moon+ Reader caches book chapters in its shelf database. Tapping ',
+          h('strong', null, 'Open in Moon+ Reader'),
+          ' below sends a direct system intent that immediately tells Moon+ Reader to scan the updated file and display all new chapters on your shelf.'
+        ) : null,
+        h('div', { className: 'confirm-actions', style: { display: 'flex', flexDirection: isEpub ? 'column' : 'row', gap: 8 } },
+          isEpub && h('button', {
+            type: 'button',
+            className: 'mini-btn primary',
+            style: { width: '100%', padding: '10px 14px', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+            onClick: handleOpenInReader
+          },
+            h('span', null, '📖 Open in Moon+ Reader')
+          ),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: isEpub ? { width: '100%', padding: '8px 14px' } : {},
+            onClick: () => setDownloadSuccessModal(null)
+          }, isEpub ? 'Done' : 'OK')
         )
       )
     );

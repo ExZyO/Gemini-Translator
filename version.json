@@ -1,9 +1,9 @@
 {
-  "version": "8.18.35",
-  "versionCode": 8335,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.35/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.35/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.35",
+  "version": "8.18.36",
+  "versionCode": 8336,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.36/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.36/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.36",
   "releaseDate": "2026-10-03",
-  "releaseNotes": "v8.18.35: Fix crawl controller poisoning after cancelled fetch, ensuring subsequent searches and tab resets run smoothly."
+  "releaseNotes": "v8.18.36: Fix formatting in continued EPUB chapters and add 1-tap Moon Reader refresh."
 }

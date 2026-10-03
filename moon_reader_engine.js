@@ -1063,6 +1063,18 @@
             });
           }
 
+          const finalFileName = result?.outFileName || (ongoingEpubModal.originalFileName || `${title}.epub`);
+          const modalSetter = callbacks.setDownloadSuccessModal || (typeof window !== 'undefined' ? window.__setDownloadModal : null);
+          if (typeof modalSetter === 'function') {
+            modalSetter({
+              fileName: finalFileName,
+              title,
+              newChaptersCount: newFetchedCount,
+              totalChaptersCount,
+              isContinuation: true
+            });
+          }
+
           if (typeof toast === 'function') {
             toast(`Updated "${title}"! Appended ${newFetchedCount} new chapters. Book ID and styling preserved for Moon+ Reader Pro!`, 'success');
           }
