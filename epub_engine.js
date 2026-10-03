@@ -628,11 +628,7 @@
       if (!canonicalBookTitle || /table\s*of\s*contents?/i.test(canonicalBookTitle)) {
         canonicalBookTitle = options.novelTitle || options.bookTitle || '';
         if (!canonicalBookTitle || /table\s*of\s*contents?/i.test(canonicalBookTitle)) {
-          if (chaptersList && chaptersList.some(c => /witch\s*cult|re:zero|arc\s*\d/i.test(c.title || c.arc || ''))) {
-            canonicalBookTitle = 'Re:Zero Starting Life in Another World — Web Novel Complete Edition';
-          } else {
-            canonicalBookTitle = 'Web Novel';
-          }
+          canonicalBookTitle = 'Web Novel Complete Edition';
         }
       }
       canonicalBookTitle = canonicalBookTitle.replace(/\s*[\-\|–—]\s*(?:Witch\s*Cult\s*Translations|Translation\s*Chicken|Eminent\s*Translations).*$/i, '').trim();
@@ -640,11 +636,7 @@
 
       let canonicalAuthor = String(bookAuthor || '').trim();
       if (!canonicalAuthor || canonicalAuthor.toLowerCase() === 'author' || /witch\s*cult/i.test(canonicalAuthor)) {
-        if (/re:zero/i.test(bookTitle) || (chaptersList && chaptersList.some(c => /re:zero|witch\s*cult/i.test(c.title || c.arc || '')))) {
-          canonicalAuthor = 'Tappei Nagatsuki';
-        } else {
-          canonicalAuthor = canonicalAuthor || 'Author';
-        }
+        canonicalAuthor = 'Web Author';
       }
       bookAuthor = canonicalAuthor;
 
@@ -1495,6 +1487,8 @@ hr {
           const chId = `chapter_${idx + 1}`;
           const chFilename = `${chId}.xhtml`;
           let chTitle = ch.title ? decodeHtmlEntities(ch.title).trim() : `Chapter ${idx + 1}`;
+          const cleanFn = (typeof cleanChapterTitle === 'function') ? cleanChapterTitle : ((typeof window !== 'undefined' && window.cleanChapterTitle) ? window.cleanChapterTitle : null);
+          if (cleanFn) chTitle = cleanFn(chTitle);
           chTitle = chTitle.replace(/\s*(?:\||–|—|-)\s*Witch\s*Cult\s*Translations/gi, '').trim();
           chTitle = chTitle.replace(/\s*\((?:Originally\s+translated\s+by\s+TranslationChicken|Translation\s*Chicken)\)/gi, '').trim();
           chTitle = chTitle.replace(/^Re:Zero(?:\s*\(WN\))?\s*[-–—:|]?\s*/i, '').trim();
@@ -2238,7 +2232,9 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
           }
         }
 
-        const chTitle = ch.title || `Chapter ${chNum}`;
+        const cleanFn = (typeof cleanChapterTitle === 'function') ? cleanChapterTitle : ((typeof window !== 'undefined' && window.cleanChapterTitle) ? window.cleanChapterTitle : null);
+        const rawChTitle = ch.title || `Chapter ${chNum}`;
+        const chTitle = cleanFn ? cleanFn(rawChTitle) : rawChTitle;
         const formattedHtml = formatChapterBodyToHtml(bodyContent, {
           useSmartQuotes: true,
           chapterTitle: chTitle
@@ -2352,6 +2348,26 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
       }
 
       // 6. Save modified navigation and OPF back into the zip
+      // Update OPF modification timestamps so reader apps (Moon+ Reader, Calibre) invalidate cache
+      const metadataEl = opfDoc.querySelector('metadata');
+      if (metadataEl) {
+        const nowIso = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+        let modMeta = metadataEl.querySelector('meta[property="dcterms:modified"]');
+        if (!modMeta) {
+          modMeta = opfDoc.createElement('meta');
+          modMeta.setAttribute('property', 'dcterms:modified');
+          metadataEl.appendChild(modMeta);
+        }
+        modMeta.textContent = nowIso;
+
+        let dateMeta = metadataEl.querySelector('dc\\:date, date');
+        if (!dateMeta) {
+          dateMeta = opfDoc.createElement('dc:date');
+          metadataEl.appendChild(dateMeta);
+        }
+        dateMeta.textContent = nowIso;
+      }
+
       const serializer = new XMLSerializer();
       zip.file(opfPath, serializer.serializeToString(opfDoc));
 
@@ -2382,8 +2398,8 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
      * Sanitizes book titles, stripping branding and falling back to chapter inspection
      */
     const cleanBookTitle = (t, fallbackChs = []) => {
-      let s = String(t || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-      if (!s || s === 'Web Novel' || s === 'Lnori Series' || s === 'Lnori Book' || s === 'Novel') {
+      let s = String(t || '').replace(/\s*[-|–—:•~]\s*(?:Novel\s*Fire(?:\.net)?|Novelfire(?:\.net)?|Lnori|Novel\s*Buddy|Lightnovelpub|Royal\s*Road)\s*$/i, '').trim();
+      if (!s || s === 'Web Novel' || s === 'Lnori Series' || s === 'Lnori Book' || s === 'Novel' || s === 'NovelFire Novel') {
         const firstCh = fallbackChs?.[0]?.title || '';
         const m = firstCh.match(/^(?:Volume\s*\d+\s*[-–:]\s*)?([^–—:\n]+)/i);
         if (m && m[1] && m[1].length > 2 && !/^(cover|part|chapter)/i.test(m[1].trim())) {
@@ -2397,7 +2413,7 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
      * Sanitizes author names, stripping branding and returning clean author string or empty
      */
     const cleanBookAuthor = (a) => {
-      let s = String(a || '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+      let s = String(a || '').replace(/\s*[-|–—:•~]\s*(?:Novel\s*Fire(?:\.net)?|Novelfire(?:\.net)?|Lnori)\s*$/i, '').trim();
       if (!s || s === 'Author' || s === 'Unknown' || s === 'Lnori Author' || /^(author|unknown|lnori author)$/i.test(s)) return '';
       return s;
     };
@@ -2504,6 +2520,7 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
     const EpubEngine = {
       cleanBookTitle,
       cleanBookAuthor,
+      cleanChapterTitle: (typeof window !== 'undefined' && window.cleanChapterTitle) || (t => t),
       getEpubFileName,
       getEpubOptions,
       smartFormat,

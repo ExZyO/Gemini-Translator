@@ -215,6 +215,31 @@ async function applyCleanTitlesToZip(newZip, newOpfDoc, survivingChapters, split
             } catch (e) { console.warn('Failed to rewrite nav.xhtml:', e); }
         }
     }
+
+    // 4. Update OPF modification timestamp (dcterms:modified and dc:date) so reader apps (Moon+ Reader) refresh cache
+    try {
+        const metadataEl = newOpfDoc.querySelector('metadata');
+        if (metadataEl) {
+            const nowIso = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+            let modMeta = metadataEl.querySelector('meta[property="dcterms:modified"]');
+            if (!modMeta) {
+                modMeta = newOpfDoc.createElement('meta');
+                modMeta.setAttribute('property', 'dcterms:modified');
+                metadataEl.appendChild(modMeta);
+            }
+            modMeta.textContent = nowIso;
+
+            let dateMeta = metadataEl.querySelector('dc\\:date, date');
+            if (!dateMeta) {
+                dateMeta = newOpfDoc.createElement('dc:date');
+                metadataEl.appendChild(dateMeta);
+            }
+            dateMeta.textContent = nowIso;
+        }
+        if (typeof splitOpfPath === 'string' && splitOpfPath && newZip.files[splitOpfPath]) {
+            newZip.file(splitOpfPath, serializer.serializeToString(newOpfDoc));
+        }
+    } catch (e) { console.warn('Failed to update OPF modification date in zip:', e); }
 }
 
 

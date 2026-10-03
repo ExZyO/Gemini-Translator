@@ -3058,14 +3058,22 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         try {
+                            String targetRelativePath = Environment.DIRECTORY_DOWNLOADS + "/" + relativeSubDir;
+                            try {
+                                String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " +
+                                                   MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ?";
+                                String[] selectionArgs = new String[]{fileName, targetRelativePath + "%"};
+                                context.getContentResolver().delete(MediaStore.Downloads.EXTERNAL_CONTENT_URI, selection, selectionArgs);
+                            } catch (Exception ignoredDelete) {}
+
                             ContentValues values = new ContentValues();
                             values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
                             values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
-                            values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + relativeSubDir);
+                            values.put(MediaStore.MediaColumns.RELATIVE_PATH, targetRelativePath);
                             values.put(MediaStore.MediaColumns.IS_PENDING, 1);
                             Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
                             if (uri != null) {
-                                try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = context.getContentResolver().openOutputStream(uri)) {
+                                try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = context.getContentResolver().openOutputStream(uri, "wt")) {
                                     byte[] buf = new byte[65536];
                                     int len;
                                     while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
@@ -3075,6 +3083,14 @@ public class NativeAndroidBridgePlugin extends Plugin {
                                 values.put(MediaStore.MediaColumns.IS_PENDING, 0);
                                 context.getContentResolver().update(uri, values, null, null);
                                 mediaStoreSaved = true;
+
+                                try {
+                                    File pubDownloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), relativeSubDir);
+                                    File dest = new File(pubDownloads, fileName);
+                                    if (dest.exists()) {
+                                        MediaScannerConnection.scanFile(context, new String[]{dest.getAbsolutePath()}, new String[]{mimeType}, null);
+                                    }
+                                } catch (Exception ignoredScan) {}
                             }
                         } catch (Exception msErr) {
                             Log.w(TAG, "Chunked MediaStore save fallback: " + msErr.getMessage());
@@ -3161,15 +3177,23 @@ public class NativeAndroidBridgePlugin extends Plugin {
             // 1. Android 10+ (API 29+) Scoped Storage via MediaStore
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 try {
+                    String targetRelativePath = Environment.DIRECTORY_DOWNLOADS + "/GeminiTranslator";
+                    try {
+                        String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " +
+                                           MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ?";
+                        String[] selectionArgs = new String[]{fileName, targetRelativePath + "%"};
+                        context.getContentResolver().delete(MediaStore.Downloads.EXTERNAL_CONTENT_URI, selection, selectionArgs);
+                    } catch (Exception ignoredDelete) {}
+
                     ContentValues values = new ContentValues();
                     values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
                     values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
-                    values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/GeminiTranslator");
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH, targetRelativePath);
                     values.put(MediaStore.MediaColumns.IS_PENDING, 1);
 
                     Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
                     if (uri != null) {
-                        OutputStream os = context.getContentResolver().openOutputStream(uri);
+                        OutputStream os = context.getContentResolver().openOutputStream(uri, "wt");
                         if (os != null) {
                             os.write(bytes);
                             os.flush();
@@ -3182,6 +3206,14 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
                         mediaStoreSaved = true;
                         Log.d(TAG, " Saved file via MediaStore to: " + savedPath);
+
+                        try {
+                            File pubDownloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "GeminiTranslator");
+                            File dest = new File(pubDownloads, fileName);
+                            if (dest.exists()) {
+                                MediaScannerConnection.scanFile(context, new String[]{dest.getAbsolutePath()}, new String[]{mimeType}, null);
+                            }
+                        } catch (Exception ignoredScan) {}
                     }
                 } catch (Exception msErr) {
                     Log.w(TAG, "MediaStore save fallback: " + msErr.getMessage());

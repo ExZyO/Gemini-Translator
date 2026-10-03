@@ -671,6 +671,38 @@ const cleanTranslatedTitle = t => {
         .trim();
 };
 
+const cleanChapterTitle = (t, novelTitle = '') => {
+    if (!t) return '';
+    let s = String(t).trim();
+    // 1. Strip website branding suffixes (e.g., " - Novel Fire", " - Novelfire", " [Novel Fire]", etc.)
+    const brandingRegex = /(?:[\(\[]\s*(?:Novel\s*Fire|Novelfire|Novel\s*Buddy|Novelbuddy|Light\s*Novel\s*Pub|Lightnovelpub|Wuxia\s*World|Wuxiaworld|Royal\s*Road|Royalroad|Lnori)\s*[\)\]]|\s*[-|–—:•~]\s*(?:Novel\s*Fire(?:\.net)?|Novelfire(?:\.net)?|Novel\s*Buddy(?:\.com)?|Novelbuddy(?:\.com)?|Light\s*Novel\s*Pub|Lightnovelpub|Lightnovelworld|Wuxia\s*World|Wuxiaworld|Royal\s*Road|Royalroad|Lnori(?:\.com)?|Read\s+Novel\s+Online|Read\s+Free\s+Novel|Free\s+Web\s+Novel|All\s*Novel\s*Updates)(?:\s*[-|–—:•~].*)?)$/i;
+    s = s.replace(brandingRegex, '').trim();
+    s = s.replace(/\s*[-|–—:•~]\s*$/, '').trim();
+
+    // 2. Strip novel title prefix if provided
+    if (novelTitle) {
+        const cleanNovel = String(novelTitle).replace(brandingRegex, '').trim();
+        if (cleanNovel && cleanNovel.length > 2) {
+            const escaped = cleanNovel.replace(/[\^$*+?.()|[\]{}\\]/g, '\\$&');
+            const prefixRegex = new RegExp('^' + escaped + '\\s*[-–—:|~]\\s*', 'i');
+            s = s.replace(prefixRegex, '').trim();
+        }
+    }
+
+    // 3. Strip generic novel name prefix before Chapter / Episode / Part / Volume / Prologue / Epilogue
+    // e.g. "Example Novel - Chapter 221..." -> "Chapter 221..."
+    const genericPrefix = /^.+?\s*[-–—:|~]\s*((?:Chapter|Ch\.?|Episode|Ep\.?|Part|Volume|Vol\.?|Book|Act|Prologue|Epilogue|Interlude|Side\s*Story)\b.*)$/i;
+    const m = s.match(genericPrefix);
+    if (m && m[1]) {
+        // Protect "Volume X - Chapter Y" from losing the Volume component
+        if (!/^(?:Volume|Vol\.?|Book)\s*\d+/i.test(s)) {
+            s = m[1].trim();
+        }
+    }
+
+    return s;
+};
+
 const normalizeTitleKey = t => cleanTranslatedTitle(t).toLowerCase();
 
 const copyText = async t => {
@@ -1077,6 +1109,7 @@ window.charCount = charCount;
 window.genId = genId;
 window.cleanText = cleanText;
 window.cleanTranslatedTitle = cleanTranslatedTitle;
+window.cleanChapterTitle = cleanChapterTitle;
 window.normalizeTitleKey = normalizeTitleKey;
 window.copyText = copyText;
 window.generateJobId = generateJobId;
@@ -1461,6 +1494,7 @@ if (typeof module !== 'undefined' && module.exports) {
         genId,
         cleanText,
         cleanTranslatedTitle,
+        cleanChapterTitle,
         normalizeTitleKey,
         copyText,
         generateJobId,

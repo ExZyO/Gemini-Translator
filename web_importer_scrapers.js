@@ -1416,7 +1416,9 @@
         let html = await fetchNf(bookUrl);
 
         const doc = new DOMParser().parseFromString(html, 'text/html');
-        const title = doc.querySelector('h1.novel-title, h1, .book-title')?.textContent?.trim() || 'NovelFire Novel';
+        const rawTitle = doc.querySelector('h1.novel-title, h1, .book-title')?.textContent?.trim() || 'NovelFire Novel';
+        const cleanBookFn = (typeof cleanBookTitle === 'function') ? cleanBookTitle : ((typeof window !== 'undefined' && window.cleanBookTitle) ? window.cleanBookTitle : (t => String(t || '').replace(/\s*[-|–—:•~]\s*(?:Novel\s*Fire|Novelfire).*$/i, '').trim()));
+        const title = cleanBookFn(rawTitle) || 'NovelFire Novel';
         const author = doc.querySelector('span[itemprop="author"], .author a, a[href*="/author/"]')?.textContent?.trim() || 'Author';
         const summary = doc.querySelector('.description, .summary, .synopsis, #tab-description')?.textContent?.trim() || '';
         const cover = extractPageCover(doc, origin);
@@ -1499,7 +1501,9 @@
                         const href = a.getAttribute('href');
                         if (!href) continue;
                         const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
-                        const chTitle = a.getAttribute('title') || a.querySelector('.chapter-title')?.textContent?.trim() || a.textContent?.trim();
+                        const rawChTitle = a.getAttribute('title') || a.querySelector('.chapter-title')?.textContent?.trim() || a.textContent?.trim();
+                        const cleanChFn = (typeof cleanChapterTitle === 'function') ? cleanChapterTitle : ((typeof window !== 'undefined' && window.cleanChapterTitle) ? window.cleanChapterTitle : ((t, n) => String(t || '').replace(/\s*[-|–—:•~]\s*(?:Novel\s*Fire|Novelfire).*$/i, '').trim()));
+                        const chTitle = cleanChFn(rawChTitle, title);
                         if (hasRange) {
                             const numM = fullUrl.match(/\/chapter-(\d+(?:\.\d+)?)/i) || (chTitle || '').match(/(?:chapter|ch\.?)\s*(\d+(?:\.\d+)?)/i);
                             const num = numM ? Math.round(parseFloat(numM[1])) : null;
@@ -1567,7 +1571,9 @@
                     contentEl.firstElementChild.remove();
                 }
 
-                let chTitle = chDoc.querySelector('.chapter-title, h1.chapter-title, h1')?.textContent?.trim() || item.title;
+                const cleanChFn = (typeof cleanChapterTitle === 'function') ? cleanChapterTitle : ((typeof window !== 'undefined' && window.cleanChapterTitle) ? window.cleanChapterTitle : ((t, n) => String(t || '').replace(/\s*[-|–—:•~]\s*(?:Novel\s*Fire|Novelfire).*$/i, '').trim()));
+                let rawChTitle = chDoc.querySelector('.chapter-title, h1.chapter-title, h1')?.textContent?.trim() || item.title;
+                let chTitle = cleanChFn(rawChTitle, title);
                 let cleanedText = cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '');
                 let words = cleanedText.split(/\s+/).filter(Boolean).length;
                 let rawClean = cleanedText.replace(/<[^>]+>/g, '').trim();
@@ -1577,7 +1583,7 @@
                         const chamResult = ChameleonExtractor.extractArticle(chDoc, item.url);
                         if (chamResult && chamResult.text && chamResult.text.length > 50) {
                             cleanedText = chamResult.text;
-                            if (chamResult.title) chTitle = chamResult.title;
+                            if (chamResult.title) chTitle = cleanChFn(chamResult.title, title);
                             words = cleanedText.split(/\s+/).filter(Boolean).length;
                             rawClean = cleanedText.replace(/<[^>]+>/g, '').trim();
                         }

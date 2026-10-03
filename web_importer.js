@@ -553,7 +553,12 @@
             const titleEl = doc.querySelector('h1.entry-title, h1.chapter-title, h1.post-title, h1, h2.chapter-title, h2.entry-title, title');
             if (titleEl) {
                 title = (titleEl.textContent || '').trim();
-                title = title.replace(/\s*[-|–—]\s*(?:Read\s+Novel\s+Online|Novel\s+Updates|WuxiaWorld|Lightnovel|Webnovel).*$/i, '').trim();
+                const cleanFn = (typeof cleanChapterTitle === 'function') ? cleanChapterTitle : ((typeof window !== 'undefined' && window.cleanChapterTitle) ? window.cleanChapterTitle : null);
+                if (cleanFn) {
+                    title = cleanFn(title);
+                } else {
+                    title = title.replace(/\s*[-|–—:•~]\s*(?:Novel\s*Fire|Novelfire|Read\s+Novel\s+Online|Novel\s+Updates|WuxiaWorld|Lightnovel|Webnovel).*$/i, '').trim();
+                }
             }
 
             const bestNode = ChameleonExtractor.findBestContentNode(doc);
@@ -604,25 +609,31 @@
         if (text.length < 80) return { blocked: true, type: 'empty_or_short' };
 
         // 2. Legitimate content bypass: If the page has rich novel content, chapter body, or SSR data, it is NOT a challenge
-        if (text.length > 3500 && (
-            lower.includes('__next_data__') ||
-            lower.includes('initialmanga') ||
+        const hasChapterContent = lower.includes('d-chapter-content') ||
+            lower.includes('chapter-container') ||
+            lower.includes('class="chapter-title"') ||
             lower.includes('class="chapter-content"') ||
             lower.includes('class="content-inner"') ||
+            lower.includes('class="content-body"') ||
             lower.includes('class="reading-content"') ||
-            lower.includes('class="book-item"') ||
-            lower.includes('class="book-info"') ||
-            lower.includes('class="novel-item"') ||
             lower.includes('class="entry-content"') ||
             lower.includes('class="chapter-body"') ||
+            lower.includes('class="novel-info"') ||
+            lower.includes('class="book-info"') ||
             lower.includes('id="chapter-article"') ||
+            lower.includes('id="chapter-container"') ||
             lower.includes('id="content"') ||
             lower.includes('id="chapter-content"') ||
-            lower.includes('class="site-header"') ||
+            lower.includes('id="chr-content"') ||
+            lower.includes('class="chr-c"') ||
+            lower.includes('__next_data__') ||
             lower.includes('novel_honbun') ||
             lower.includes('p-novel__body') ||
-            lower.includes('widget-episodebody')
-        )) {
+            lower.includes('widget-episodebody') ||
+            lower.includes('chapter-list') ||
+            lower.includes('list-chapter');
+
+        if (hasChapterContent && !lower.includes('<title>just a moment...</title>') && !lower.includes('<title>attention required! | cloudflare</title>')) {
             return { blocked: false, type: null };
         }
 
@@ -631,15 +642,15 @@
             return { blocked: true, type: 'rate_limit', label: 'Cloudflare 1015 / 429 Rate Limit' };
         }
 
-        // Genuine Cloudflare challenge pages: title "Just a moment...", Cloudflare attention required, or challenge platform scripts on short pages
-        if (lower.includes('<title>just a moment...</title>') ||
+        // Genuine Cloudflare challenge pages: title "Just a moment...", Cloudflare attention required, or challenge platform scripts on short pages without chapter text
+        if (!hasChapterContent && (
+            lower.includes('<title>just a moment...</title>') ||
             lower.includes('<title>attention required! | cloudflare</title>') ||
             lower.includes('attention required! | cloudflare') ||
             lower.includes('cf-browser-verification') ||
             lower.includes('shields are up!') ||
-            (text.length < 5000 && (lower.includes('challenges.cloudflare.com/turnstile') || lower.includes('cf-turnstile') || lower.includes('cf_chl_'))) ||
-            (text.length < 5000 && lower.includes('/cdn-cgi/challenge-platform') && !lower.includes('id="content"'))
-        ) {
+            (text.length < 3500 && (lower.includes('challenges.cloudflare.com/turnstile') || lower.includes('cf-turnstile-wrapper') || lower.includes('cf_chl_')))
+        )) {
             return { blocked: true, type: 'turnstile', label: 'Cloudflare Turnstile Verification' };
         }
 
@@ -1011,17 +1022,16 @@
 
             this.failureStreak++;
             this.successStreak = 0;
-            this.currentDelayMs = Math.min(500, Math.max(200, this.currentDelayMs + 100));
+            this.currentDelayMs = Math.min(250, Math.max(120, this.currentDelayMs + 40));
         }
 
         getPacingDelay() {
             if (this.currentDelayMs <= 15) return 0;
-            const jitter = (Math.random() - 0.5) * 0.25 * this.currentDelayMs;
-            return Math.max(0, Math.round(this.currentDelayMs + jitter));
+            return this.currentDelayMs;
         }
 
         isThrottled() {
-            return this.currentDelayMs >= 350 && this.currentDelayMs > this.baseDelayMs * 1.5;
+            return false;
         }
     }
 
@@ -1268,7 +1278,10 @@
                         chapterText = trapCleaner(chapterText);
                     }
                     const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
-                    const chTitle = chData.title || item.title || `Chapter ${currentIndex + 1}`;
+                    const cleanFn = (typeof cleanChapterTitle === 'function') ? cleanChapterTitle : ((typeof window !== 'undefined' && window.cleanChapterTitle) ? window.cleanChapterTitle : null);
+                    const rawChTitle = chData.title || item.title || `Chapter ${currentIndex + 1}`;
+                    const novelTitle = ctrl.novelMeta?.title || meta?.title || '';
+                    const chTitle = cleanFn ? cleanFn(rawChTitle, novelTitle) : rawChTitle;
                     if (typeof stripFn === 'function' && chTitle) {
                         chapterText = stripFn(chapterText, chTitle, chData.originalTitle);
                     }

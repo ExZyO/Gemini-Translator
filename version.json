@@ -1,9 +1,9 @@
 {
-  "version": "8.18.39",
-  "versionCode": 8339,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.39/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.39/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.39",
+  "version": "8.18.40",
+  "versionCode": 8340,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.40/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.40/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.40",
   "releaseDate": "2026-10-03",
-  "releaseNotes": "v8.18.39: Restore native bridge priority for NovelFire, fix Cloudflare cookie alignment, and prevent crawler stalling."
+  "releaseNotes": "v8.18.40: Strip website branding suffixes from chapter titles and TOC, and enhance title sanitization across web novel continuation."
 }

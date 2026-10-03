@@ -341,53 +341,76 @@
       const cleanQuery = (query || '').trim();
       if (!cleanQuery) return [];
       const results = [];
-
-      // 1. Built-in scrapers
-      if (window.WebNovelImporter?.searchNovels) {
-        try {
-          const scraperResults = await window.WebNovelImporter.searchNovels(cleanQuery, 'all');
-          if (Array.isArray(scraperResults)) results.push(...scraperResults);
-        } catch (e) {
-          console.warn('[MoonReaderEngine] Scraper search error:', e);
-        }
-      }
-
-      // 2. Installed source plugins (278+ extensions)
-      const reg = window.sourceRegistry || window.SourceRegistry;
-      if (reg && typeof reg.searchAll === 'function') {
-        try {
-          const pluginResults = await reg.searchAll(cleanQuery);
-          if (Array.isArray(pluginResults)) {
-            for (const p of pluginResults) {
-              const pUrl = (p.url || p.path || '').replace(/\/$/, '');
-              results.push({
-                id: p.id || pUrl,
-                title: p.title || p.name || cleanQuery,
-                author: p.author || '',
-                url: p.url || p.path,
-                cover: p.cover || '',
-                summary: p.summary || '',
-                chapters: p.chapters || '',
-                source: p.source || 'Extension Plugin'
-              });
-            }
-          }
-        } catch (e) {
-          console.warn('[MoonReaderEngine] Plugin search error:', e);
-        }
-      }
-
-      // Deduplicate by normalized URL
       const seenUrls = new Set();
-      const deduped = [];
-      for (const r of results) {
-        const u = (r.url || r.path || '').replace(/\/$/, '');
-        if (u && !seenUrls.has(u)) {
-          seenUrls.add(u);
-          deduped.push(r);
+
+      const addItems = (items) => {
+        if (!Array.isArray(items)) return;
+        for (const p of items) {
+          const u = (p.url || p.path || '').replace(/\/$/, '');
+          if (u && !seenUrls.has(u)) {
+            seenUrls.add(u);
+            results.push({
+              id: p.id || u,
+              title: p.title || p.name || cleanQuery,
+              author: p.author || '',
+              url: p.url || p.path,
+              cover: p.cover || '',
+              summary: p.summary || '',
+              chapters: p.chapters || '',
+              source: p.source || 'Online Source'
+            });
+          }
         }
-      }
-      return deduped;
+      };
+
+      // 1. Run built-in scrapers and installed source plugins in parallel with fast 5s timeouts
+      const scraperPromise = (async () => {
+        if (window.WebNovelImporter?.searchNovels) {
+          try {
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Scraper timeout')), 5000));
+            const scraperResults = await Promise.race([
+              window.WebNovelImporter.searchNovels(cleanQuery, 'all'),
+              timeoutPromise
+            ]);
+            addItems(scraperResults);
+          } catch (e) {
+            console.warn('[MoonReaderEngine] Scraper search error or timeout:', e);
+          }
+        }
+      })();
+
+      const pluginPromise = (async () => {
+        const reg = window.sourceRegistry || window.SourceRegistry;
+        if (reg && typeof reg.searchAll === 'function') {
+          try {
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Plugin timeout')), 5000));
+            const pluginResults = await Promise.race([
+              reg.searchAll(cleanQuery),
+              timeoutPromise
+            ]);
+            addItems(pluginResults);
+          } catch (e) {
+            console.warn('[MoonReaderEngine] Plugin search error or timeout:', e);
+          }
+        }
+      })();
+
+      await Promise.allSettled([scraperPromise, pluginPromise]);
+
+      // 2. Rank exact title matches and entries with covers first
+      const qLower = cleanQuery.toLowerCase();
+      results.sort((a, b) => {
+        const aTitle = (a.title || '').toLowerCase();
+        const bTitle = (b.title || '').toLowerCase();
+        const aExact = aTitle === qLower ? 3 : (aTitle.startsWith(qLower) ? 2 : (aTitle.includes(qLower) ? 1 : 0));
+        const bExact = bTitle === qLower ? 3 : (bTitle.startsWith(qLower) ? 2 : (bTitle.includes(qLower) ? 1 : 0));
+        if (bExact !== aExact) return bExact - aExact;
+        const aCover = a.cover ? 1 : 0;
+        const bCover = b.cover ? 1 : 0;
+        return bCover - aCover;
+      });
+
+      return results;
     },
 
     /**
@@ -477,9 +500,10 @@
       // 2. Merge original chapters with newly fetched chapters
       const keepCount = Math.min(chapters.length, Math.max(0, start - 1));
       const originalKeep = chapters.slice(0, keepCount);
+      const cleanChFn = (typeof cleanChapterTitle === 'function') ? cleanChapterTitle : ((typeof window !== 'undefined' && window.cleanChapterTitle) ? window.cleanChapterTitle : ((t, n) => String(t || '').replace(/\s*[-|–—:•~]\s*(?:Novel\s*Fire|Novelfire).*$/i, '').trim()));
       const mergedChapters = [
-        ...originalKeep.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })),
-        ...newFetchedChapters.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content }))
+        ...originalKeep.map(c => ({ title: cleanChFn(c.title, title), text: c.text || c.content, content: c.text || c.content })),
+        ...newFetchedChapters.map(c => ({ title: cleanChFn(c.title, title), text: c.text || c.content, content: c.text || c.content }))
       ];
 
       if (callbacks.onProgress) {
