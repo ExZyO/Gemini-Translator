@@ -618,7 +618,28 @@
                       },
                       onClick: handleOpenSourcePluginsModal,
                       title: 'Manage built-in source plugins and browse 278 LNReader community plugins'
-                    }, '🔌 Plugins')
+                    }, '🔌 Plugins'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: {
+                        padding: '6px 11px',
+                        borderRadius: 999,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        cursor: 'pointer',
+                        color: '#f87171',
+                        border: '1px solid rgba(239, 68, 68, 0.35)'
+                      },
+                      onClick: () => {
+                        setImportCategoryTab('wn');
+                        handleResetImportTab();
+                      },
+                      title: 'Reset Web Importer tab to clean state'
+                    }, '✕ Reset Tab')
                   )
                 ),
                 h('input', {
@@ -655,6 +676,83 @@
                     }
                   }
                 }),
+                h('div', {
+                  className: 'curated-lib-row',
+                  style: {
+                    display: 'flex',
+                    gap: 6,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    marginTop: 6,
+                    marginBottom: 6
+                  }
+                },
+                  h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 600, marginRight: 2 } }, 'Curated EPUBs:'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    style: { fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(16, 185, 129, 0.35)', color: '#34d399' },
+                    onClick: () => {
+                      setImportCategoryTab('books');
+                      setIsBookSearchMode(true);
+                      setBookSearchFilter('standardebooks');
+                      if (webImportUrl.trim()) handleSearchBooks(webImportUrl.trim());
+                      else toast('✨ Standard Ebooks mode: search curated, beautifully typeset public domain editions.', 'info');
+                    },
+                    title: 'Search Standard Ebooks for typography-grade curated EPUBs'
+                  }, '✨ Standard Ebooks'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    style: { fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(59, 130, 246, 0.35)', color: '#60a5fa' },
+                    onClick: () => {
+                      setImportCategoryTab('books');
+                      setIsBookSearchMode(true);
+                      setBookSearchFilter('gutenberg');
+                      if (webImportUrl.trim()) handleSearchBooks(webImportUrl.trim());
+                      else toast('🏛️ Project Gutenberg: search 70,000+ curated classical books.', 'info');
+                    },
+                    title: 'Search Project Gutenberg for 70,000+ free EPUB classics'
+                  }, '🏛️ Gutenberg (70k+)'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    style: { fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(168, 85, 247, 0.35)', color: '#c084fc' },
+                    onClick: () => {
+                      setImportCategoryTab('ln');
+                      setIsBookSearchMode(false);
+                      setIsSwiftAudioMode(false);
+                      setNovelSearchFilter('Lnori');
+                      if (webImportUrl.trim()) handleSearchNovels(webImportUrl.trim(), 'Lnori');
+                      else toast('📖 Lnori: 1-click clean EPUB download for light novels.', 'info');
+                    },
+                    title: 'Search Lnori for 1-click clean Light Novel EPUBs'
+                  }, '📖 Lnori LNs'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    style: { fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(245, 158, 11, 0.35)', color: '#fbbf24' },
+                    onClick: () => {
+                      const q = (webImportUrl || '').trim();
+                      const targetUrl = q ? `https://oceanofpdf.com/?s=${encodeURIComponent(q)}` : 'https://oceanofpdf.com/';
+                      window.open(targetUrl, '_blank');
+                      toast(q ? `Opening OceanOfPDF EPUB search for "${q}"…` : 'Opening OceanOfPDF library in browser…', 'info');
+                    },
+                    title: 'Search OceanOfPDF for 1-click curated EPUB downloads'
+                  }, '🌊 OceanOfPDF Mirror'),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    style: { fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(236, 72, 153, 0.35)', color: '#f472b6' },
+                    onClick: () => {
+                      const q = (webImportUrl || '').trim();
+                      const targetUrl = q ? `https://annas-archive.org/search?q=${encodeURIComponent(q)}&ext=epub` : 'https://annas-archive.org/';
+                      window.open(targetUrl, '_blank');
+                      toast(q ? `Opening Anna's Archive EPUB search for "${q}"…` : 'Opening Anna\'s Archive in browser…', 'info');
+                    },
+                    title: "Search Anna's Archive for complete community EPUB editions"
+                  }, "🌐 Anna's Archive")
+                ),
 
                 // Lnori Detection Card & Direct 1-Click EPUB Button
                 isLnoriUrl && !isFetchingUrl && h('div', {
@@ -1032,7 +1130,10 @@
                               type: 'button',
                               className: 'mini-btn ghost',
                               style: { fontSize: 11, padding: '2px 8px', color: 'var(--slate)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 },
-                              onClick: handleResetImportTab,
+                              onClick: () => {
+                                setImportCategoryTab('wn');
+                                handleResetImportTab();
+                              },
                               title: 'Reset import view and start fresh with another novel'
                             }, '↺ Reset Tab')
                           )
@@ -1114,7 +1215,10 @@
                         className: 'mini-btn ghost',
                         style: { fontSize: '11px', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--slate)' },
                         title: 'Reset view and start a new import or search',
-                        onClick: handleResetImportTab
+                        onClick: () => {
+                          setImportCategoryTab('wn');
+                          handleResetImportTab();
+                        }
                       }, '✨ New Import')
                     )
                   ),

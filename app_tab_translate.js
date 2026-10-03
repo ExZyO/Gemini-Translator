@@ -31,6 +31,7 @@
       tgtLang = 'English',
       setTgtLang = function() {},
       handleSwapLanguages = function() {},
+      handleResetTranslateTab = function() {},
       chunkSizePreset = 'turbo',
       concurrency = 2,
       inputText = '',
@@ -266,7 +267,24 @@
               h('div', { className: 'meta', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 } },
                 h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
                   h('span', { className: 'chip' }, `${concurrency} streams`),
-                  h('span', { className: 'chip' }, `${(chunkSizePreset || 'turbo').toUpperCase()}`)
+                  h('span', { className: 'chip' }, `${(chunkSizePreset || 'turbo').toUpperCase()}`),
+                  (inputText || assembledText || (chapters && chapters.length > 0) || savedTranslationSession || activeSessionRef?.current) && h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    disabled: isTranslating,
+                    onClick: handleResetTranslateTab,
+                    title: 'Reset Translate tab and clear current text, chapters, and active sessions',
+                    style: {
+                      borderColor: 'rgba(239, 68, 68, 0.35)',
+                      color: '#f87171',
+                      background: 'rgba(239, 68, 68, 0.08)',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      fontSize: 11
+                    }
+                  }, '✕ Reset Tab')
                 ),
                 h('div', {
                   className: 'chip-act',

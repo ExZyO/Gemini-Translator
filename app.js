@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.18.33';
+        let VERSION = '8.18.34';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1953,17 +1953,96 @@
         setWebImportUrl('');
         setWebImportData(null);
         setActiveCrawlSession(null);
+        setActiveNovelRecord(null);
         setWebImportStatus('');
         setWebImportError(null);
         setNovelSearchResults([]);
         setSwiftAudioResults([]);
+        setBookSearchResults([]);
+        setIsBookSearchMode(false);
         setIsSwiftAudioMode(false);
+        setNovelSearchFilter('all');
         setIsSearchingNovels(false);
-        toast('Import tab reset. Ready for a new novel!', 'info');
+        setIsSearchingBooks(false);
+        toast('Web Importer tab reset to clean state.', 'info');
       };
 
       // --- Modal ---
       const confirmAction = (msg, cb) => { setModalMessage(msg); setModalCallback(() => () => { cb(); setShowModal(false) }); setShowModal(true) };
+
+      // --- Tab Reset Coordinators ---
+      const handleResetTranslateTab = () => {
+        const doReset = () => {
+          if (isTranslating) {
+            handlePauseTranslation();
+          }
+          setInputText('');
+          setAssembledText('');
+          setChapters([]);
+          setTranslatedChapters([]);
+          setCurrentDocTitle('');
+          setFileName('');
+          setCurrentDocCover(null);
+          setCurrentFileHash('');
+          setActiveNovelRecord(null);
+          if (activeSessionRef) activeSessionRef.current = null;
+          setActiveSession(null);
+          setSavedTranslationSession(null);
+          setIsTranslationPaused(false);
+          try {
+            localStorage.removeItem('inputText');
+            localStorage.removeItem('currentDocTitle');
+            localStorage.removeItem('currentFileHash');
+          } catch (_) {}
+          toast('Translate tab reset to clean state.', 'info');
+        };
+        if (inputText || assembledText || (chapters && chapters.length > 0)) {
+          confirmAction('Reset Translate tab and clear all current text and chapters?', doReset);
+        } else {
+          doReset();
+        }
+      };
+
+      const handleResetSettings = () => {
+        confirmAction('Restore all settings to recommended defaults? Your API keys and saved library will NOT be erased.', () => {
+          setProvider('gemini');
+          setGeminiModel('gemini-2.5-flash');
+          setDeepseekModel('deepseek-chat');
+          setEnableStreaming(true);
+          setEnableThinking(false);
+          setStrictModel(false);
+          setConcurrency(2);
+          setContextAware(true);
+          setChunkSizePreset('turbo');
+          setHealthAuditEnabled(true);
+          setQaProofreaderEnabled(false);
+          setCjkLeakCheckEnabled(true);
+          setAntiMtlGateEnabled(true);
+          setTranslationMemoryEnabled(true);
+          setSnapshotsEnabled(true);
+          setCulturalFootnotesEnabled(false);
+          setAmoledMode(false);
+          setDeviceWakeLock(true);
+          setEpubDropCaps(true);
+          setEpubSmartQuotes(true);
+          setEpubCleanWebArtifacts(true);
+          setEpubFontTheme('standard');
+          setEpubJustifyText(true);
+          setEpubIncludeImages(true);
+          setEpubFixedFilename(true);
+          try {
+            localStorage.setItem('provider', 'gemini');
+            localStorage.setItem('geminiModel', 'gemini-2.5-flash');
+            localStorage.setItem('chunkSizePreset', 'turbo');
+            localStorage.setItem('concurrency', '2');
+            localStorage.setItem('enableStreaming', 'true');
+            localStorage.setItem('contextAware', 'true');
+            localStorage.setItem('deviceWakeLock', 'true');
+            localStorage.setItem('amoledMode', 'false');
+          } catch (_) {}
+          toast('Settings restored to recommended defaults.', 'success');
+        });
+      };
 
       // --- History (IndexedDB Unlimited Storage + LocalStorage Fallback) ---
       const addToHistory = async (src, tgt, prov, input, output, stats = null) => {
@@ -2352,7 +2431,7 @@
       const appTabProps = {
         activeTab,
         // Tab 1: Translation
-        error, setError, srcLang, setSrcLang, tgtLang, setTgtLang, handleSwapLanguages,
+        error, setError, srcLang, setSrcLang, tgtLang, setTgtLang, handleSwapLanguages, handleResetTranslateTab,
         chunkSizePreset, concurrency, inputText, setInputText, handleInputChange,
         inputCharCount, inputTokenCount, inputRef, fileInputRef, uploadingFile, processFile,
         onDragOver, onDragLeave, onDrop, isDragOver, handlePasteFromClipboard, inputBoxHeight,
@@ -2442,7 +2521,7 @@
         toggleOpdsServer, telemetryEnabled, setTelemetryEnabled, telemetryVerbose, setTelemetryVerbose,
         telemetryServerUrl, setTelemetryServerUrl, telemetryTesting, telemetryStatus,
         telemetryStatusMsg, handleTestTelemetryConnection, handleClearTelemetryServer,
-        handleInstallPWA, DEFAULT_GEMINI_MODELS, DEFAULT_DEEPSEEK_MODELS
+        handleResetSettings, handleInstallPWA, DEFAULT_GEMINI_MODELS, DEFAULT_DEEPSEEK_MODELS
       };
 
       return h(React.Fragment, null,

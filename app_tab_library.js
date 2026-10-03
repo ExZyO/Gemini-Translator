@@ -145,7 +145,29 @@
                     },
                     title: 'Input an existing EPUB to auto-search sources and continue fetching',
                     onClick: () => ongoingEpubInputRef.current?.click()
-                  }, '⚡ Continue Ongoing EPUB')
+                  }, '⚡ Continue Ongoing EPUB'),
+                  (libQuery || libTab !== 'all') && h('button', {
+                    type: 'button',
+                    className: 'mini-btn ghost',
+                    style: {
+                      color: '#f87171',
+                      borderColor: 'rgba(239, 68, 68, 0.35)',
+                      padding: '7px 14px',
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      cursor: 'pointer'
+                    },
+                    title: 'Reset library search and filter back to All Books',
+                    onClick: () => {
+                      setLibQuery('');
+                      setLibTab('all');
+                      toast('Library view reset to All Books.', 'info');
+                    }
+                  }, '✕ Reset View')
                 ),
                 h('input', {
                   type: 'file',

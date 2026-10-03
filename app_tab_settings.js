@@ -26,6 +26,7 @@
       appVersion,
       appVersionCode,
       checkForAppUpdate,
+      handleResetSettings = function() {},
       downloadedOnly,
       setDownloadedOnly,
       incognitoMode,
@@ -205,12 +206,21 @@
                         h('div', { style: { fontSize: 10.5, color: 'var(--slate)' } }, `v${appVersion} (Build ${appVersionCode || 8228}) · Pure AMOLED Black`)
                       )
                     ),
-                    h('button', {
-                      type: 'button',
-                      className: 'chip-act',
-                      style: { fontSize: 10.5, padding: '3px 8px' },
-                      onClick: () => checkForAppUpdate(true)
-                    }, '🔄 Updates')
+                    h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+                      h('button', {
+                        type: 'button',
+                        className: 'chip-act',
+                        style: { fontSize: 10.5, padding: '3px 8px', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.35)' },
+                        onClick: handleResetSettings,
+                        title: 'Restore settings to recommended defaults (keeps API keys and library safe)'
+                      }, '↺ Reset Settings'),
+                      h('button', {
+                        type: 'button',
+                        className: 'chip-act',
+                        style: { fontSize: 10.5, padding: '3px 8px' },
+                        onClick: () => checkForAppUpdate(true)
+                      }, '🔄 Updates')
+                    )
                   ),
                   h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
                     h('div', {
