@@ -44,6 +44,16 @@
       setIsSwiftAudioMode,
       isSwiftAudioSearching,
       setIsSwiftAudioSearching,
+      bookSearchResults,
+      setBookSearchResults,
+      isBookSearchMode,
+      setIsBookSearchMode,
+      isSearchingBooks,
+      setIsSearchingBooks,
+      bookSearchFilter,
+      setBookSearchFilter,
+      handleSearchBooks,
+      handleDownloadBookEpub,
       collapsedVolumes,
       setCollapsedVolumes,
       isAiSorting,
@@ -313,53 +323,71 @@
                     onClick: () => ongoingEpubInputRef.current?.click(),
                     title: 'Upload an existing EPUB to auto-search sources and fetch new chapters'
                   }, '⚡ Continue EPUB'),
-                  ['🌐 All', 'Lnori', 'NovelBuddy', 'NovelFire', 'RoyalRoad', 'NovelBin', '👑 Re:Zero (WCT)', 'SwiftAudio', 'AO3', 'Pixiv', 'Syosetu'].map(s => {
+                  ['🌐 All', '📚 Books', 'Lnori', 'NovelBuddy', 'NovelFire', 'RoyalRoad', 'NovelBin', '👑 Re:Zero (WCT)', 'SwiftAudio', 'AO3', 'Pixiv', 'Syosetu'].map(s => {
                     const isAllChip = s === '🌐 All';
+                    const isBookChip = s === '📚 Books';
                     const isRezeroChip = s === '👑 Re:Zero (WCT)';
                     const isSwiftChip = s === 'SwiftAudio';
                     const isLnoriChip = s === 'Lnori';
+                    const isBookActive = isBookChip && isBookSearchMode;
                     const isRezeroActive = isRezeroChip && isWitchCultUrl;
                     const isSwiftActive = isSwiftChip && isSwiftAudioDetected;
                     const isLnoriActive = isLnoriChip && novelSearchFilter === 'Lnori';
-                    const isAllActive = isAllChip && (!novelSearchFilter || novelSearchFilter === 'all') && !isSwiftAudioDetected && !isWitchCultUrl;
-                    const isFilterActive = (novelSearchFilter || '').toLowerCase() === s.toLowerCase();
-                    const isChipActive = isAllActive || isRezeroActive || isSwiftActive || isLnoriActive || isFilterActive;
+                    const isAllActive = isAllChip && (!novelSearchFilter || novelSearchFilter === 'all') && !isSwiftAudioDetected && !isWitchCultUrl && !isBookSearchMode;
+                    const isFilterActive = (novelSearchFilter || '').toLowerCase() === s.toLowerCase() && !isBookSearchMode;
+                    const isChipActive = isAllActive || isBookActive || isRezeroActive || isSwiftActive || isLnoriActive || isFilterActive;
                     return h('span', {
                       key: s,
                       className: `src-chip ${isChipActive ? 'accent' : ''}`,
-                      style: isRezeroActive
-                        ? { borderColor: 'rgba(168, 85, 247, 0.6)', color: '#c084fc', background: 'rgba(168, 85, 247, 0.15)', fontWeight: 700, cursor: 'pointer' }
-                        : (isSwiftActive
-                            ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' }
-                            : (isAllActive || isLnoriActive || isFilterActive
-                                ? { borderColor: 'rgba(99, 102, 241, 0.6)', color: 'var(--iris)', background: 'rgba(99, 102, 241, 0.15)', fontWeight: 700, cursor: 'pointer' }
-                                : { cursor: 'pointer' })),
+                      style: isBookActive
+                        ? { borderColor: 'rgba(16, 185, 129, 0.6)', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', fontWeight: 700, cursor: 'pointer' }
+                        : (isRezeroActive
+                            ? { borderColor: 'rgba(168, 85, 247, 0.6)', color: '#c084fc', background: 'rgba(168, 85, 247, 0.15)', fontWeight: 700, cursor: 'pointer' }
+                            : (isSwiftActive
+                                ? { borderColor: 'rgba(236, 72, 153, 0.5)', color: '#ec4899', fontWeight: 600, cursor: 'pointer' }
+                                : (isAllActive || isLnoriActive || isFilterActive
+                                    ? { borderColor: 'rgba(99, 102, 241, 0.6)', color: 'var(--iris)', background: 'rgba(99, 102, 241, 0.15)', fontWeight: 700, cursor: 'pointer' }
+                                    : { cursor: 'pointer' }))),
                       onClick: () => {
                         if (isChipActive && !isAllChip) {
                           setNovelSearchFilter('all');
                           setIsSwiftAudioMode(false);
+                          setIsBookSearchMode(false);
                           toast('🌐 Reset to search across all supported sources.', 'info');
                           return;
                         }
                         if (isAllChip) {
                           setNovelSearchFilter('all');
                           setIsSwiftAudioMode(false);
+                          setIsBookSearchMode(false);
                           if (webImportUrl && !/^https?:\/\//i.test(webImportUrl.trim())) {
                             handleSearchNovels(webImportUrl, 'all');
                           } else {
                             toast('🌐 Searching across all novel sources and plugins!', 'info');
                           }
+                        } else if (isBookChip) {
+                          setIsBookSearchMode(true);
+                          setIsSwiftAudioMode(false);
+                          setNovelSearchFilter('all');
+                          if (webImportUrl && !/^https?:\/\//i.test(webImportUrl.trim())) {
+                            handleSearchBooks(webImportUrl);
+                          } else {
+                            toast('📚 Books mode selected! Type any book title or author to search.', 'info');
+                          }
                         } else if (isRezeroChip) {
+                          setIsBookSearchMode(false);
                           setIsSwiftAudioMode(false);
                           setWebImportUrl('https://witchculttranslation.com/table-of-content/');
                           toast('👑 Re:Zero (Witch Cult Translations) selected! Ready to ingest or update.', 'info');
                         } else if (isSwiftChip) {
+                          setIsBookSearchMode(false);
                           setIsSwiftAudioMode(true);
                           if (!webImportUrl || webImportUrl === 'https://swiftaudiobooks.com/') {
                             setWebImportUrl('');
                           }
                           toast('SwiftAudiobooks selected! Type any book title or paste link.', 'info');
                         } else if (isLnoriChip) {
+                          setIsBookSearchMode(false);
                           setIsSwiftAudioMode(false);
                           setNovelSearchFilter('Lnori');
                           if (webImportUrl && !/^https?:\/\//i.test(webImportUrl.trim())) {
@@ -368,6 +396,7 @@
                             toast('📖 Lnori selected! Type a title or keyword to search the light novel catalog.', 'info');
                           }
                         } else {
+                          setIsBookSearchMode(false);
                           setIsSwiftAudioMode(false);
                           if (['NovelBuddy', 'RoyalRoad', 'NovelFire'].includes(s)) {
                             setNovelSearchFilter(s);
@@ -392,12 +421,12 @@
                           }
                         }
                       }
-                    }, isAllChip ? '🌐 All' : (isSwiftChip ? '🎧 SwiftAudio' : (s === 'NovelBuddy' ? '✨ NovelBuddy' : (s === 'Lnori' ? '📖 Lnori' : s))));
+                    }, isAllChip ? '🌐 All' : (isBookChip ? '📚 Books' : (isSwiftChip ? '🎧 SwiftAudio' : (s === 'NovelBuddy' ? '✨ NovelBuddy' : (s === 'Lnori' ? '📖 Lnori' : s)))));
                   })),
                 h('input', {
                   className: 'url-input',
                   type: 'text',
-                  placeholder: isSwiftAudioDetected ? 'Type audiobook title (e.g. Example Novel, Classic Story) or paste link…' : 'Type novel title to search (e.g. Example Novel, Fantasy Series) or paste novel URL…',
+                  placeholder: isBookSearchMode ? 'Type book title or author to search (e.g. Dune, Frankenstein, Pride and Prejudice)…' : (isSwiftAudioDetected ? 'Type audiobook title (e.g. Example Novel, Classic Story) or paste link…' : 'Type novel title to search (e.g. Example Novel, Fantasy Series) or paste novel URL…'),
                   value: webImportUrl,
                   onChange: (e) => {
                     setWebImportUrl(e.target.value);
@@ -406,7 +435,9 @@
                   onKeyDown: (e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      if (isSwiftAudioDetected) {
+                      if (isBookSearchMode) {
+                        handleSearchBooks(webImportUrl);
+                      } else if (isSwiftAudioDetected) {
                         handleSwiftAudioSearch(webImportUrl);
                       } else if (/^https?:\/\//i.test((webImportUrl || '').trim())) {
                         handleStartFetch(false);
@@ -711,7 +742,17 @@
                 ) : !isFetchingUrl ? (
                   h(React.Fragment, null,
                     isSpecificSwiftAudioBook ? null : (
-                      isSwiftAudioDetected ? (
+                      isBookSearchMode ? (
+                        h('div', { style: { display: 'grid', gridTemplateColumns: '1fr', gap: 6, margin: '6px 0' } },
+                          h('button', {
+                            type: 'button',
+                            className: 'primary',
+                            style: { background: 'linear-gradient(90deg, #10b981, #6366f1)', width: '100%', fontWeight: 700 },
+                            disabled: !webImportUrl.trim() || isSearchingBooks,
+                            onClick: () => handleSearchBooks(webImportUrl)
+                          }, isSearchingBooks ? 'Searching Book Catalogs…' : '🔍 Search Books (Gutenberg, Standard Ebooks, LibGen, Open Library)')
+                        )
+                      ) : isSwiftAudioDetected ? (
                         h('div', { style: { display: 'grid', gridTemplateColumns: '1fr', gap: 6, margin: '6px 0' } },
                           h('button', {
                             type: 'button',
@@ -1476,6 +1517,163 @@
                         )
                       )
                     ))
+                  )
+                ),
+
+                // Ebook & Published Book Search Results Grid / List
+                bookSearchResults && bookSearchResults.length > 0 && h('div', { style: { margin: '14px 0 16px' } },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--paper)' } },
+                      h('span', null, '📚 Book Search Results'),
+                      h('span', { className: 'badge', style: { fontSize: 10.5, background: 'rgba(16, 185, 129, 0.2)', color: '#10b981' } }, `${bookSearchResults.length}`)
+                    ),
+                    h('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: { fontSize: 10.5, padding: '2px 8px' },
+                        onClick: () => setBookSearchResults([])
+                      }, '✕ Clear')
+                    )
+                  ),
+                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 12 } },
+                    bookSearchResults.map((item, idx) => h('div', {
+                      key: item.id || idx,
+                      className: 'card',
+                      style: {
+                        padding: 12,
+                        display: 'flex',
+                        gap: 12,
+                        alignItems: 'flex-start',
+                        background: 'var(--card-bg)',
+                        border: '1px solid var(--hairline)',
+                        borderRadius: 8
+                      }
+                    },
+                      h('div', {
+                        style: {
+                          width: 68,
+                          height: 98,
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          flexShrink: 0,
+                          position: 'relative',
+                          background: 'var(--panel)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }
+                      },
+                        item.cover ? h('img', {
+                          src: item.cover,
+                          alt: 'Cover',
+                          referrerPolicy: 'no-referrer',
+                          onError: (e) => {
+                            e.target.style.display = 'none';
+                            if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                          },
+                          style: { width: '100%', height: '100%', objectFit: 'cover' }
+                        }) : null,
+                        h('div', {
+                          style: {
+                            display: item.cover ? 'none' : 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '100%',
+                            height: '100%',
+                            fontSize: 26
+                          }
+                        }, '📖')
+                      ),
+
+                      h('div', { style: { flex: 1, minWidth: 0 } },
+                        h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
+                        h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, item.authors ? `by ${item.authors}` : ''),
+                        h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 } },
+                          h('span', { className: 'chip', style: { fontSize: 10, padding: '1px 6px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' } }, item.sourceBadge || item.source),
+                          item.formatBadge && h('span', { className: 'chip', style: { fontSize: 10, padding: '1px 6px', color: 'var(--accent, #6366f1)', borderColor: 'rgba(99, 102, 241, 0.4)' } }, item.formatBadge),
+                          item.year && h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, item.year)
+                        ),
+                        item.summary && h('div', { style: { fontSize: 10.5, color: 'var(--paper-dim)', lineHeight: 1.3, marginBottom: 8 } }, item.summary),
+                        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                          item.directEpub ? h('button', {
+                            type: 'button',
+                            className: 'mini-btn',
+                            style: { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
+                            onClick: () => handleDownloadBookEpub(item)
+                          }, '📥 Download & Open') : null,
+                          item.epubUrl && h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                            onClick: () => window.open(item.epubUrl, '_blank')
+                          }, '💾 Save EPUB'),
+                          item.downloadUrl && !item.directEpub ? h('button', {
+                            type: 'button',
+                            className: 'mini-btn',
+                            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
+                            onClick: () => handleDownloadBookEpub(item)
+                          }, '📥 Download') : null,
+                          item.downloadUrl && h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                            onClick: () => window.open(item.downloadUrl, '_blank')
+                          }, '🌐 Mirror'),
+                          item.workUrl && h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                            onClick: () => window.open(item.workUrl, '_blank')
+                          }, '📖 Open Library'),
+                          item.iaUrl && h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                            onClick: () => window.open(item.iaUrl, '_blank')
+                          }, '🏛️ Archive')
+                        )
+                      )
+                    ))
+                  ),
+                  // Anna's Archive & OceanOfPDF 1-Tap Exploration Footer Card
+                  h('div', {
+                    style: {
+                      marginTop: 12,
+                      padding: '10px 14px',
+                      background: 'rgba(99, 102, 241, 0.08)',
+                      border: '1px dashed rgba(99, 102, 241, 0.3)',
+                      borderRadius: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 8
+                    }
+                  },
+                    h('div', { style: { fontSize: 11.5, color: 'var(--paper-dim)' } },
+                      'Looking for more published editions, comics or PDFs? Explore other mirrors directly:'
+                    ),
+                    h('div', { style: { display: 'flex', gap: 8 } },
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: { fontSize: 11, color: 'var(--iris)', borderColor: 'rgba(99, 102, 241, 0.4)' },
+                        onClick: () => {
+                          const u = window.BookSearchEngine?.getAnnasArchiveSearchUrl(webImportUrl) || `https://annas-archive.li/search?q=${encodeURIComponent(webImportUrl || '')}&ext=epub`;
+                          window.open(u, '_blank');
+                        }
+                      }, '🔍 Anna\'s Archive ↗'),
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: { fontSize: 11, color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' },
+                        onClick: () => {
+                          const u = window.BookSearchEngine?.getOceanOfPdfSearchUrl(webImportUrl) || `https://oceanofpdf.com/?s=${encodeURIComponent(webImportUrl || '')}`;
+                          window.open(u, '_blank');
+                        }
+                      }, '📄 OceanOfPDF ↗')
+                    )
                   )
                 ),
 

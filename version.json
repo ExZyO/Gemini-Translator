@@ -1,9 +1,9 @@
 {
-  "version": "8.18.27",
-  "versionCode": 8327,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.27/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.27/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.27",
-  "releaseDate": "2026-10-02",
-  "releaseNotes": "v8.18.27: Fix infinite recursion in modal proxies and ensure pristine launch stability on browser and Android."
+  "version": "8.18.28",
+  "versionCode": 8328,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.28/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.28/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.28",
+  "releaseDate": "2026-10-03",
+  "releaseNotes": "v8.18.28: Add multi-source ebook and published book search engine with Project Gutenberg, Standard Ebooks, LibGen, Open Library, and 1-tap EPUB ingestion."
 }

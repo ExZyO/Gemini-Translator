@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.18.27';
+        let VERSION = '8.18.28';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -182,6 +182,12 @@
       const [isPlayerFullscreen, setIsPlayerFullscreen] = useState(false);
       const [downloadingTrackId, setDownloadingTrackId] = useState(null);
       const [audioDownloadModal, setAudioDownloadModal] = useState(null);
+
+      // --- Ebook & Published Book Search State ---
+      const [bookSearchResults, setBookSearchResults] = useState([]);
+      const [isBookSearchMode, setIsBookSearchMode] = useState(false);
+      const [isSearchingBooks, setIsSearchingBooks] = useState(false);
+      const [bookSearchFilter, setBookSearchFilter] = useState('all');
 
       // --- Saved Audiobooks Library State ---
       const [savedAudiobooks, setSavedAudiobooks] = useState(() => {
@@ -720,6 +726,30 @@
 
       // ── SWIFTAUDIO HANDLERS ──
       const handleSwiftAudioSearch = (queryOrUrl) => window.SwiftAudioEngine?.Controller?.handleSwiftAudioSearch(queryOrUrl, { webImportUrl, toast, setIsSwiftAudioSearching, setWebImportStatus, setActiveAudiobook, setSwiftAudioResults });
+
+      // ── BOOK SEARCH HANDLER ──
+      const handleSearchBooks = (query, filter = 'all') => {
+        const target = (query || webImportUrl || '').trim();
+        if (!target) return toast('Please enter a book title or author to search.', 'warning');
+        setIsSearchingBooks(true);
+        setWebImportStatus('Searching Project Gutenberg, Standard Ebooks, LibGen & Open Library…');
+        return window.BookSearchEngine?.searchBooks(target, filter, {
+          onPartialResults: (partial) => setBookSearchResults(partial)
+        }).then(results => {
+          setBookSearchResults(results || []);
+          if (!results || results.length === 0) {
+            toast('No matching books found. Try a different title or explore Anna\'s Archive.', 'info');
+          } else {
+            toast(`Found ${results.length} book results!`, 'success');
+          }
+        }).catch(err => {
+          console.error('[handleSearchBooks] Error:', err);
+          toast(`Book search failed: ${err.message || err}`, 'error');
+        }).finally(() => {
+          setIsSearchingBooks(false);
+          setWebImportStatus('');
+        });
+      };
 
       // ── NOVEL SEARCH HANDLER ──
       const handleSearchNovels = (queryOrUrl, sourceOverride = 'all') => {
@@ -2111,6 +2141,13 @@
       const handlePasteFromClipboard = () => window.DocumentParser?.Controller?.handlePaste({ onPasted: text => { setInputText(text); setChapters([]); localStorage.setItem('inputText', text); }, toast });
       const handleAutoDetectSplit = () => window.DocumentParser?.Controller?.handleAutoSplit(inputText, { onSplit: chapters => setChapters(chapters), toast });
       const handleSwapLanguages = () => window.DocumentParser?.Controller?.handleSwap(srcLang, tgtLang, { onSwapped: (newSrc, newTgt) => { setSrcLang(newSrc); setTgtLang(newTgt); }, toast });
+      const handleDownloadBookEpub = (book) => window.BookSearchEngine?.loadBookIntoApp(book, {
+        toast,
+        setWebImportStatus,
+        processFile,
+        saveNovelToHistory,
+        setActiveTab
+      });
 
       // --- Download Handlers (Delegated to ExportEngine.Controller) ---
       const isGenericTitle = t => window.ExportEngine ? window.ExportEngine.isGenericTitle(t) : (!t || t.trim() === '' || /^translated\s*(document|file)?$/i.test(t.trim()));
@@ -2338,6 +2375,9 @@
         isSearchingNovels, isSearchResultsCollapsed, setIsSearchResultsCollapsed,
         swiftAudioResults, setSwiftAudioResults, isSwiftAudioMode, setIsSwiftAudioMode,
         isSwiftAudioSearching, setIsSwiftAudioSearching, collapsedVolumes, setCollapsedVolumes,
+        bookSearchResults, setBookSearchResults, isBookSearchMode, setIsBookSearchMode,
+        isSearchingBooks, setIsSearchingBooks, bookSearchFilter, setBookSearchFilter,
+        handleSearchBooks, handleDownloadBookEpub,
         isAiSorting, epubPackagingModal, setEpubPackagingModal, epubIncludeImages, setEpubIncludeImages,
         scrapeImages, setScrapeImages, handleStartFetch, handlePauseFetch, handleCancelFetch,
         handleResetImportTab, dismissCrawlSession, handleSearchNovels, handleSwiftAudioSearch, handleOpenSourcePluginsModal,
