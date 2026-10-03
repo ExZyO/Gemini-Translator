@@ -717,47 +717,22 @@
         // Anti-redirect desktop headers for NovelFire and similar sites that return mobile redirect traps:
         const isNovelFire = (typeof url === 'string') && url.includes('novelfire.');
         if (isNovelFire) {
-            const desktopUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
-            options.headers = Object.assign({
-                'User-Agent': desktopUa,
-                'Referer': 'https://novelfire.net/'
-            }, options.headers || {});
+            const isNative = typeof window !== 'undefined' && window.NativeBridge && window.NativeBridge.fetchNative;
+            if (!isNative) {
+                const desktopUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+                options.headers = Object.assign({
+                    'User-Agent': desktopUa,
+                    'Referer': 'https://novelfire.net/'
+                }, options.headers || {});
+            } else {
+                options.headers = Object.assign({
+                    'Referer': 'https://novelfire.net/'
+                }, options.headers || {});
+                if (options.headers && options.headers['User-Agent']) delete options.headers['User-Agent'];
+            }
         }
 
-        // 0. Direct Fetch Fast-Path (Instant sub-second resolution for CORS-enabled APIs and direct network environments)
-        try {
-            if (!controller.signal.aborted && !isUserAborted()) {
-                const directCtrl = new AbortController();
-                const directTimer = setTimeout(() => directCtrl.abort(), 2800);
-                const directOpts = {
-                    signal: directCtrl.signal,
-                    headers: options.headers || {},
-                    method: options.method || 'GET'
-                };
-                if (options.body) directOpts.body = options.body;
-                const directRes = await fetch(url, directOpts);
-                clearTimeout(directTimer);
-                if (directRes.ok) {
-                    const text = await directRes.text();
-                    const blockCheck = detectBlockOrChallenge(text);
-                    if (!blockCheck.blocked) {
-                        clearTimeout(timer);
-                        if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
-                        const latency = Date.now() - startTime;
-                        window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched directly in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
-                            url,
-                            context,
-                            tier: 'DirectFetch',
-                            latencyMs: latency,
-                            charCount: text.length
-                        });
-                        return text;
-                    }
-                }
-            }
-        } catch (_) {}
-
-        // 1. Android Native Bridge (Zero CORS / Full Chromium Engine)
+        // 1. Android Native Bridge (Zero CORS / Full Chromium Engine) - Always Tier 1 on Android App
         if (window.NativeBridge && window.NativeBridge.fetchNative) {
             try {
                 if (isUserAborted()) {
@@ -799,6 +774,41 @@
                 console.warn('NativeBridge fetch error, fallback to proxy:', e);
                 window.sendTelemetry?.('FETCH_WARN', `[${context}] NativeBridge failed, falling back to local proxy: ${e.message}`, { url, context, error: e.message });
             }
+        }
+
+        // 2. Direct Fetch Fast-Path (For browser/desktop where Native Bridge is absent)
+        if (!window.NativeBridge?.fetchNative) {
+            try {
+                if (!controller.signal.aborted && !isUserAborted()) {
+                    const directCtrl = new AbortController();
+                    const directTimer = setTimeout(() => directCtrl.abort(), 2800);
+                    const directOpts = {
+                        signal: directCtrl.signal,
+                        headers: options.headers || {},
+                        method: options.method || 'GET'
+                    };
+                    if (options.body) directOpts.body = options.body;
+                    const directRes = await fetch(url, directOpts);
+                    clearTimeout(directTimer);
+                    if (directRes.ok) {
+                        const text = await directRes.text();
+                        const blockCheck = detectBlockOrChallenge(text);
+                        if (!blockCheck.blocked) {
+                            clearTimeout(timer);
+                            if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
+                            const latency = Date.now() - startTime;
+                            window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched directly in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
+                                url,
+                                context,
+                                tier: 'DirectFetch',
+                                latencyMs: latency,
+                                charCount: text.length
+                            });
+                            return text;
+                        }
+                    }
+                }
+            } catch (_) {}
         }
 
         // 2. High-Speed Local Direct-Socket Proxy (lncrawl Parity on Desktop)
@@ -1001,7 +1011,7 @@
 
             this.failureStreak++;
             this.successStreak = 0;
-            this.currentDelayMs = Math.min(5000, Math.max(1000, this.currentDelayMs * 1.8 + 400));
+            this.currentDelayMs = Math.min(500, Math.max(200, this.currentDelayMs + 100));
         }
 
         getPacingDelay() {
@@ -1011,7 +1021,7 @@
         }
 
         isThrottled() {
-            return this.currentDelayMs >= 400 && this.currentDelayMs > this.baseDelayMs * 1.5;
+            return this.currentDelayMs >= 350 && this.currentDelayMs > this.baseDelayMs * 1.5;
         }
     }
 
@@ -1229,7 +1239,7 @@
                             speedCtrl.recordThrottle(errMsg, 429);
                         } else {
                             if (attempts < 4) {
-                                const backoffDelay = Math.min(8000, (1000 * Math.pow(2, attempts - 1)) + (Math.random() * 500));
+                                const backoffDelay = Math.min(2500, (500 * Math.pow(2, attempts - 1)) + (Math.random() * 200));
                                 await new Promise(r => setTimeout(r, backoffDelay));
                             }
                         }
@@ -1238,12 +1248,12 @@
                     if (rateLimitDetected && !ctrl.isPaused && !ctrl.isCancelled) {
                         rateLimitDetected = false;
                         isBackingOff = true;
-                        const cooldownSec = Math.min(20, 6 + (attempts * 4));
+                        const cooldownSec = Math.min(4, 2 + attempts);
                         console.warn(`[Cloudflare Rate Limit 1015] detected on chapter ${currentIndex + 1}. Cooling down ${cooldownSec}s...`);
                         window.sendTelemetry?.('CLOUDFLARE_1015', `Cloudflare 1015 rate limit on Ch ${currentIndex + 1}. Cooldown: ${cooldownSec}s...`);
                         for (let c = cooldownSec; c > 0; c--) {
                             if (ctrl.isPaused || ctrl.isCancelled) break;
-                            progressCb?.(`⏳ Cloudflare rate limit (1015) cooldown: resuming in ${c}s... (${completedIndices.size}/${chapterList.length} ch done)`);
+                            progressCb?.(`⏳ Rate limit cooldown: resuming in ${c}s... (${completedIndices.size}/${chapterList.length} ch done)`);
                             await new Promise(r => setTimeout(r, 1000));
                         }
                         isBackingOff = false;
@@ -1311,7 +1321,7 @@
                     const retries = (chapterRetryCounts.get(currentIndex) || 0) + 1;
                     chapterRetryCounts.set(currentIndex, retries);
                     if (retries <= 3) {
-                        const retryBackoff = Math.min(6000, (1000 * Math.pow(2, retries - 1)) + (Math.random() * 500));
+                        const retryBackoff = Math.min(2500, (600 * Math.pow(2, retries - 1)) + (Math.random() * 200));
                         console.warn(`Chapter ${currentIndex + 1} incomplete/rate-limited; retry ${retries}/3 in ${Math.round(retryBackoff)}ms.`);
                         window.sendTelemetry?.('CHAPTER_RETRY', `Ch ${currentIndex + 1} retry ${retries}/3 in ${Math.round(retryBackoff)}ms.`);
                         pendingQueue.push(currentIndex);

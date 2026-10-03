@@ -1388,28 +1388,32 @@
     async function crawlNovelFire(url, progressCb, options = {}) {
         progressCb?.('Connecting to NovelFire...', 15);
         const origin = new URL(url).origin;
-        const desktopUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
-        const nfHeaders = { 'Referer': 'https://novelfire.net/', 'User-Agent': desktopUa };
+        const isNative = typeof window !== 'undefined' && window.NativeBridge && window.NativeBridge.fetchNative;
+        const nfHeaders = isNative ? { 'Referer': 'https://novelfire.net/' } : {
+            'Referer': 'https://novelfire.net/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+        };
         const bookUrl = url.trim().replace(/\/chapter[-/].*$/i, '').replace(/\/chapters$/i, '');
 
         const fetchNf = async (targetUrl) => {
+            let resHtml = null;
             try {
-                return await fetchHtml(targetUrl, { headers: nfHeaders });
+                resHtml = await fetchHtml(targetUrl, { headers: nfHeaders });
             } catch (err) {
                 if (window.NativeBridge?.resolveCloudflare) {
                     const cf = await window.NativeBridge.resolveCloudflare(targetUrl);
                     if (cf?.html && !isBlockOrChallenge(cf.html)) return cf.html;
                 }
-                await new Promise(r => setTimeout(r, 3500));
-                return await fetchHtml(targetUrl, { headers: nfHeaders });
+                throw err;
             }
+            if (resHtml && isBlockOrChallenge(resHtml) && window.NativeBridge?.resolveCloudflare) {
+                const cf = await window.NativeBridge.resolveCloudflare(targetUrl);
+                if (cf?.html && !isBlockOrChallenge(cf.html)) return cf.html;
+            }
+            return resHtml;
         };
 
         let html = await fetchNf(bookUrl);
-        if (html && isBlockOrChallenge(html) && window.NativeBridge?.resolveCloudflare) {
-            const cf = await window.NativeBridge.resolveCloudflare(bookUrl);
-            if (cf?.html && !isBlockOrChallenge(cf.html)) html = cf.html;
-        }
 
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const title = doc.querySelector('h1.novel-title, h1, .book-title')?.textContent?.trim() || 'NovelFire Novel';
@@ -1541,13 +1545,20 @@
         }
 
         progressCb?.(`Found ${chapterLinks.length} chapters on NovelFire! Fetching chapters...`, 30);
-        const concurrency = Math.min(options.concurrency || 2, 3);
-        const delayMs = Math.max(options.delayMs !== undefined ? options.delayMs : 450, 400);
+        const concurrency = Math.min(options.concurrency || 3, 4);
+        const delayMs = options.delayMs !== undefined ? options.delayMs : 150;
 
         const { chapters, totalWords } = await crawlChapterPool(
             chapterLinks,
             async (item) => {
-                const chHtml = await fetchNf(item.url);
+                let chHtml = await fetchNf(item.url);
+                if (chHtml && isBlockOrChallenge(chHtml) && window.NativeBridge?.resolveCloudflare) {
+                    const cfRes = await window.NativeBridge.resolveCloudflare(item.url);
+                    if (cfRes?.html && !isBlockOrChallenge(cfRes.html)) {
+                        chHtml = cfRes.html;
+                    }
+                }
+
                 const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
                 const contentEl = chDoc.querySelector('.d-chapter-content, #chapter-container, #chapter-article, div#content, .chapter-content, #chr-content, .chr-c') || chDoc.body;
                 
@@ -1556,10 +1567,24 @@
                     contentEl.firstElementChild.remove();
                 }
 
-                const chTitle = chDoc.querySelector('.chapter-title, h1.chapter-title, h1')?.textContent?.trim() || item.title;
-                const cleanedText = cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '');
-                const words = cleanedText.split(/\s+/).filter(Boolean).length;
-                const rawClean = cleanedText.replace(/<[^>]+>/g, '').trim();
+                let chTitle = chDoc.querySelector('.chapter-title, h1.chapter-title, h1')?.textContent?.trim() || item.title;
+                let cleanedText = cleanChapterHtmlWithImages(contentEl.innerHTML || contentEl.textContent || '');
+                let words = cleanedText.split(/\s+/).filter(Boolean).length;
+                let rawClean = cleanedText.replace(/<[^>]+>/g, '').trim();
+
+                if ((words < 5 || rawClean.length < 35) && ChameleonExtractor) {
+                    try {
+                        const chamResult = ChameleonExtractor.extractArticle(chDoc, item.url);
+                        if (chamResult && chamResult.text && chamResult.text.length > 50) {
+                            cleanedText = chamResult.text;
+                            if (chamResult.title) chTitle = chamResult.title;
+                            words = cleanedText.split(/\s+/).filter(Boolean).length;
+                            rawClean = cleanedText.replace(/<[^>]+>/g, '').trim();
+                        }
+                    } catch (chamErr) {
+                        console.warn('[NovelFire] Chameleon fallback error:', chamErr);
+                    }
+                }
 
                 if (words < 5 || rawClean.length < 35) {
                     throw new Error(`NovelFire chapter ${item.title || ''} returned empty/truncated body (${words}w, ${rawClean.length}c)`);
