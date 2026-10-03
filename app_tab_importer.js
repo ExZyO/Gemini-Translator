@@ -233,6 +233,7 @@
       setBookSearchFilter,
       handleSearchBooks,
       handleDownloadBookEpub,
+      handleSaveBookEpub,
       collapsedVolumes,
       setCollapsedVolumes,
       isAiSorting,
@@ -1600,6 +1601,12 @@
                                 handleStartFetch(false, null, false, item.url);
                               }
                             }, '📥 Fetch Novel'),
+                            (item.source === 'Lnori' || /lnori\.(?:org|com)/i.test(item.url)) && h('button', {
+                              type: 'button',
+                              className: 'mini-btn',
+                              style: { background: 'linear-gradient(90deg, #6366f1, #10b981)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
+                              onClick: () => handleLnoriDirectEpubDownload(item.url)
+                            }, '⚡ 1-Click EPUB'),
                             h('button', {
                               type: 'button',
                               className: 'mini-btn ghost',
@@ -1808,18 +1815,24 @@
                             style: { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
                             onClick: () => handleDownloadBookEpub(item)
                           }, '📥 Download & Open') : null,
-                          item.epubUrl && h('button', {
+                          (item.epubUrl || item.directEpub) && h('button', {
                             type: 'button',
                             className: 'mini-btn ghost',
-                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                            onClick: () => window.open(item.epubUrl, '_blank')
+                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' },
+                            onClick: () => handleSaveBookEpub(item)
                           }, '💾 Save EPUB'),
                           item.downloadUrl && !item.directEpub ? h('button', {
                             type: 'button',
                             className: 'mini-btn',
                             style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
                             onClick: () => handleDownloadBookEpub(item)
-                          }, '📥 Download') : null,
+                          }, '📥 Download & Open') : null,
+                          item.downloadUrl && !item.directEpub && h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                            onClick: () => handleSaveBookEpub(item)
+                          }, '💾 Save Book'),
                           item.downloadUrl && h('button', {
                             type: 'button',
                             className: 'mini-btn ghost',

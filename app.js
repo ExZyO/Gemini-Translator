@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.18.29';
+        let VERSION = '8.18.30';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2146,7 +2146,15 @@
         setWebImportStatus,
         processFile,
         saveNovelToHistory,
+        saveUniversalBlob,
+        getNovelFolderOptions,
         setActiveTab
+      });
+      const handleSaveBookEpub = (book) => window.BookSearchEngine?.saveBookEpub(book, {
+        toast,
+        setWebImportStatus,
+        saveUniversalBlob,
+        getNovelFolderOptions
       });
 
       // --- Download Handlers (Delegated to ExportEngine.Controller) ---
@@ -2377,7 +2385,7 @@
         isSwiftAudioSearching, setIsSwiftAudioSearching, collapsedVolumes, setCollapsedVolumes,
         bookSearchResults, setBookSearchResults, isBookSearchMode, setIsBookSearchMode,
         isSearchingBooks, setIsSearchingBooks, bookSearchFilter, setBookSearchFilter,
-        handleSearchBooks, handleDownloadBookEpub,
+        handleSearchBooks, handleDownloadBookEpub, handleSaveBookEpub,
         isAiSorting, epubPackagingModal, setEpubPackagingModal, epubIncludeImages, setEpubIncludeImages,
         scrapeImages, setScrapeImages, handleStartFetch, handlePauseFetch, handleCancelFetch,
         handleResetImportTab, dismissCrawlSession, handleSearchNovels, handleSwiftAudioSearch, handleOpenSourcePluginsModal,

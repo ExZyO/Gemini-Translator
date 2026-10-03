@@ -30,13 +30,28 @@
 
   // Multi-tier resilient fetch for shadow libraries and external mirrors
   async function fetchExternal(url, options = {}) {
-    const timeoutMs = options.timeout || 12000;
+    const timeoutMs = options.timeout || 15000;
     const signal = options.signal;
+
+    // 0. Native Android Bridge (Zero CORS restrictions on mobile)
+    if (typeof window !== 'undefined' && window.NativeBridge) {
+      if (options.asBuffer && window.NativeBridge.downloadBinary) {
+        try {
+          const buf = await window.NativeBridge.downloadBinary(url, { timeout: timeoutMs });
+          if (buf && buf.byteLength > 500) return buf;
+        } catch (_) {}
+      } else if (!options.asBuffer && window.NativeBridge.fetchNative) {
+        try {
+          const txt = await window.NativeBridge.fetchNative(url, { timeout: timeoutMs });
+          if (txt && txt.length > 50) return txt;
+        } catch (_) {}
+      }
+    }
 
     // 1. Direct fetch fast-path
     try {
       const directCtrl = new AbortController();
-      const directTimer = setTimeout(() => directCtrl.abort(), 3500);
+      const directTimer = setTimeout(() => directCtrl.abort(), 4000);
       const res = await fetch(url, {
         headers: options.headers || { 'User-Agent': 'Mozilla/5.0' },
         signal: signal || directCtrl.signal
@@ -59,10 +74,11 @@
       } catch (_) {}
     }
 
-    // 3. Multi-tier proxy fallbacks
+    // 3. Multi-tier proxy fallbacks (for browser environments)
     const proxies = [
       (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
       (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+      (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
       (u) => `https://cors.eu.org/${u}`
     ];
 
@@ -71,7 +87,7 @@
       try {
         const proxyUrl = pFn(url);
         const pCtrl = new AbortController();
-        const pTimer = setTimeout(() => pCtrl.abort(), 8000);
+        const pTimer = setTimeout(() => pCtrl.abort(), 10000);
         const pRes = await fetch(proxyUrl, {
           signal: signal || pCtrl.signal
         });
@@ -427,21 +443,59 @@
     return { file, blob, fileName, isEpub: ext === 'epub' };
   }
 
+  async function saveBookEpub(book, actions = {}, callbacks = {}) {
+    try {
+      actions.toast?.(`📥 Downloading "${book.title}"…`, 'info');
+      const { blob, fileName } = await downloadBookFile(book, {
+        onProgress: (p) => {
+          if (actions.setWebImportStatus) actions.setWebImportStatus(p.status);
+        }
+      });
+
+      const saveBlobFn = actions.saveUniversalBlob || (typeof window !== 'undefined' ? window.saveUniversalBlob : null);
+      if (typeof saveBlobFn === 'function') {
+        const folderOpts = (typeof actions.getNovelFolderOptions === 'function') ? actions.getNovelFolderOptions(book) : {};
+        await saveBlobFn(blob, fileName, 'application/epub+zip', false, folderOpts);
+        actions.toast?.(`💾 Saved "${fileName}" to device!`, 'success');
+      } else {
+        throw new Error('File saver is not available on this device.');
+      }
+
+      callbacks.onSuccess?.({ fileName });
+    } catch (err) {
+      console.error('[BookSearchEngine] Save book error:', err);
+      actions.toast?.(`Failed to save EPUB: ${err.message || err}`, 'error');
+      callbacks.onError?.(err);
+    }
+  }
+
   async function loadBookIntoApp(book, actions = {}, callbacks = {}) {
     try {
-      actions.toast?.('📥 Downloading book…', 'info');
+      actions.toast?.(`📥 Downloading "${book.title}"…`, 'info');
       const { file, blob, fileName, isEpub } = await downloadBookFile(book, {
         onProgress: (p) => {
           if (actions.setWebImportStatus) actions.setWebImportStatus(p.status);
         }
       });
 
+      // 1. Save directly to user's device Downloads / Moon Reader folder
+      const saveBlobFn = actions.saveUniversalBlob || (typeof window !== 'undefined' ? window.saveUniversalBlob : null);
+      if (typeof saveBlobFn === 'function') {
+        try {
+          const folderOpts = (typeof actions.getNovelFolderOptions === 'function') ? actions.getNovelFolderOptions(book) : {};
+          await saveBlobFn(blob, fileName, 'application/epub+zip', false, folderOpts);
+        } catch (saveErr) {
+          console.warn('[BookSearchEngine] Save blob notice:', saveErr);
+        }
+      }
+
+      // 2. Unpack chapters into the reader & translator
       if (actions.processFile) {
         actions.toast?.('📖 Unpacking book chapters and artwork…', 'info');
         await actions.processFile(file);
       }
 
-      // If user provided saveNovelToHistory
+      // 3. Register to history & database
       if (actions.saveNovelToHistory) {
         actions.saveNovelToHistory({
           title: book.title,
@@ -452,7 +506,7 @@
         });
       }
 
-      actions.toast?.(`🎉 "${book.title}" ready! Opening reader…`, 'success');
+      actions.toast?.(`🎉 "${book.title}" ready! Saved to device & opened in app.`, 'success');
 
       if (actions.setActiveTab) {
         actions.setActiveTab('text');
@@ -476,6 +530,7 @@
     searchLibgen,
     searchBooks,
     downloadBookFile,
+    saveBookEpub,
     loadBookIntoApp,
     getAnnasArchiveSearchUrl: (q) => `https://annas-archive.li/search?q=${encodeURIComponent(q || '')}&ext=epub`,
     getOceanOfPdfSearchUrl: (q) => `https://oceanofpdf.com/?s=${encodeURIComponent(q || '')}`

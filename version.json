@@ -1,9 +1,9 @@
 {
-  "version": "8.18.29",
-  "versionCode": 8329,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.29/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.29/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.29",
+  "version": "8.18.30",
+  "versionCode": 8330,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.30/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.30/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.30",
   "releaseDate": "2026-10-03",
-  "releaseNotes": "v8.18.29: Add category tabs for LNs, WNs, Audiobooks, and Books, responsive Sources info sheet, and direct download prioritization."
+  "releaseNotes": "v8.18.30: Direct in-app EPUB file downloading to device storage for Books (Gutenberg, Standard Ebooks, LibGen) and 1-click Light Novels."
 }
