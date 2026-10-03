@@ -230,7 +230,7 @@
           cover: cover,
           source: 'Open Library',
           sourceBadge: '📖 Open Library',
-          formatBadge: doc.has_fulltext ? '📖 Open Library / IA' : 'ℹ️ Library Record',
+          formatBadge: 'ℹ️ Web Catalog',
           directEpub: false,
           workUrl: workUrl,
           iaUrl: iaUrl,

@@ -1,9 +1,9 @@
 {
-  "version": "8.18.28",
-  "versionCode": 8328,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.28/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.28/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.28",
+  "version": "8.18.29",
+  "versionCode": 8329,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.29/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.29/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.29",
   "releaseDate": "2026-10-03",
-  "releaseNotes": "v8.18.28: Add multi-source ebook and published book search engine with Project Gutenberg, Standard Ebooks, LibGen, Open Library, and 1-tap EPUB ingestion."
+  "releaseNotes": "v8.18.29: Add category tabs for LNs, WNs, Audiobooks, and Books, responsive Sources info sheet, and direct download prioritization."
 }
