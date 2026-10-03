@@ -298,6 +298,7 @@
     } = props || {};
 
     const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
+    const [booksDownloadableOnly, setBooksDownloadableOnly] = useState(true);
     const [importCategoryTab, setImportCategoryTab] = useState(() => {
       if (isBookSearchMode) return 'books';
       if (isSwiftAudioMode) return 'audio';
@@ -1734,161 +1735,312 @@
                 ),
 
                 // Ebook & Published Book Search Results Grid / List
-                bookSearchResults && bookSearchResults.length > 0 && h('div', { style: { margin: '14px 0 16px' } },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--paper)' } },
-                      h('span', null, '📚 Book Search Results'),
-                      h('span', { className: 'badge', style: { fontSize: 10.5, background: 'rgba(16, 185, 129, 0.2)', color: '#10b981' } }, `${bookSearchResults.length}`)
+                bookSearchResults && bookSearchResults.length > 0 && (() => {
+                  const displayedBooks = (bookSearchResults || []).filter(item => {
+                    if (!booksDownloadableOnly) return true;
+                    return Boolean(item.directEpub || item.epubUrl || item.downloadUrl);
+                  });
+
+                  return h('div', { style: { margin: '14px 0 16px' } },
+                    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 } },
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--paper)' } },
+                        h('span', null, '📚 Book Search Results'),
+                        h('span', { className: 'badge', style: { fontSize: 10.5, background: 'rgba(16, 185, 129, 0.2)', color: '#10b981' } }, `${displayedBooks.length}`),
+                        bookSearchResults.length !== displayedBooks.length ? h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 500 } }, `(${bookSearchResults.length} total)`) : null
+                      ),
+                      h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                        h('label', {
+                          style: {
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            color: booksDownloadableOnly ? '#10b981' : 'var(--slate)',
+                            background: booksDownloadableOnly ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            border: `1px solid ${booksDownloadableOnly ? 'rgba(16, 185, 129, 0.3)' : 'var(--hairline)'}`
+                          }
+                        },
+                          h('input', {
+                            type: 'checkbox',
+                            checked: booksDownloadableOnly,
+                            onChange: (e) => setBooksDownloadableOnly(e.target.checked),
+                            style: { cursor: 'pointer', accentColor: '#10b981' }
+                          }),
+                          '⚡ Direct Downloads Only'
+                        ),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { fontSize: 10.5, padding: '2px 8px' },
+                          onClick: () => setBookSearchResults([])
+                        }, '✕ Clear')
+                      )
                     ),
-                    h('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
-                      h('button', {
-                        type: 'button',
-                        className: 'mini-btn ghost',
-                        style: { fontSize: 10.5, padding: '2px 8px' },
-                        onClick: () => setBookSearchResults([])
-                      }, '✕ Clear')
-                    )
-                  ),
-                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 12 } },
-                    bookSearchResults.map((item, idx) => h('div', {
-                      key: item.id || idx,
-                      className: 'card',
+                    displayedBooks.length === 0 ? h('div', {
                       style: {
-                        padding: 12,
-                        display: 'flex',
-                        gap: 12,
-                        alignItems: 'flex-start',
+                        padding: '16px',
+                        textAlign: 'center',
+                        color: 'var(--paper-dim)',
                         background: 'var(--card-bg)',
-                        border: '1px solid var(--hairline)',
-                        borderRadius: 8
+                        border: '1px dashed var(--hairline)',
+                        borderRadius: 8,
+                        fontSize: 12
                       }
                     },
-                      h('div', {
-                        style: {
-                          width: 68,
-                          height: 98,
-                          borderRadius: 6,
-                          overflow: 'hidden',
-                          flexShrink: 0,
-                          position: 'relative',
-                          background: 'var(--panel)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }
-                      },
-                        item.cover ? h('img', {
-                          src: item.cover,
-                          alt: 'Cover',
-                          referrerPolicy: 'no-referrer',
-                          onError: (e) => {
-                            e.target.style.display = 'none';
-                            if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                          },
-                          style: { width: '100%', height: '100%', objectFit: 'cover' }
-                        }) : null,
-                        h('div', {
-                          style: {
-                            display: item.cover ? 'none' : 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '100%',
-                            height: '100%',
-                            fontSize: 26
-                          }
-                        }, '📖')
-                      ),
+                      'No direct download files found with filter active. ',
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: { fontSize: 11, marginLeft: 6, color: 'var(--iris)' },
+                        onClick: () => setBooksDownloadableOnly(false)
+                      }, 'Show all catalog records')
+                    ) : h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 12 } },
+                      displayedBooks.map((item, idx) => {
+                        const isEpub = item.format === 'EPUB' || (item.formatBadge && item.formatBadge.includes('EPUB'));
+                        const isPdf = item.format === 'PDF' || (item.formatBadge && item.formatBadge.includes('PDF'));
+                        const isCatalog = item.format === 'CATALOG' || (item.formatBadge && item.formatBadge.includes('Catalog'));
 
-                      h('div', { style: { flex: 1, minWidth: 0 } },
-                        h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
-                        h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, item.authors ? `by ${item.authors}` : ''),
-                        h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 } },
-                          h('span', { className: 'chip', style: { fontSize: 10, padding: '1px 6px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' } }, item.sourceBadge || item.source),
-                          item.formatBadge && h('span', { className: 'chip', style: { fontSize: 10, padding: '1px 6px', color: 'var(--accent, #6366f1)', borderColor: 'rgba(99, 102, 241, 0.4)' } }, item.formatBadge),
-                          item.year && h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, item.year)
-                        ),
-                        item.summary && h('div', { style: { fontSize: 10.5, color: 'var(--paper-dim)', lineHeight: 1.3, marginBottom: 8 } }, item.summary),
-                        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                          item.directEpub ? h('button', {
-                            type: 'button',
-                            className: 'mini-btn',
-                            style: { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
-                            onClick: () => handleDownloadBookEpub(item)
-                          }, '📥 Download & Open') : null,
-                          (item.epubUrl || item.directEpub) && h('button', {
-                            type: 'button',
-                            className: 'mini-btn ghost',
-                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' },
-                            onClick: () => handleSaveBookEpub(item)
-                          }, '💾 Save EPUB'),
-                          item.downloadUrl && !item.directEpub ? h('button', {
-                            type: 'button',
-                            className: 'mini-btn',
-                            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
-                            onClick: () => handleDownloadBookEpub(item)
-                          }, '📥 Download & Open') : null,
-                          item.downloadUrl && !item.directEpub && h('button', {
-                            type: 'button',
-                            className: 'mini-btn ghost',
-                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                            onClick: () => handleSaveBookEpub(item)
-                          }, '💾 Save Book'),
-                          item.downloadUrl && h('button', {
-                            type: 'button',
-                            className: 'mini-btn ghost',
-                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                            onClick: () => window.open(item.downloadUrl, '_blank')
-                          }, '🌐 Mirror ↗'),
-                          (!item.directEpub && !item.downloadUrl && (item.iaUrl || item.workUrl)) ? h('button', {
-                            type: 'button',
-                            className: 'mini-btn ghost',
-                            style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: 'var(--accent, #6366f1)', borderColor: 'rgba(99, 102, 241, 0.4)' },
-                            onClick: () => window.open(item.iaUrl || item.workUrl, '_blank')
-                          }, item.iaUrl ? '🏛️ Internet Archive Record ↗' : '📖 Open Library Catalog ↗') : null
-                        )
-                      )
-                    ))
-                  ),
-                  // Anna's Archive & OceanOfPDF 1-Tap Exploration Footer Card
-                  h('div', {
-                    style: {
-                      marginTop: 12,
-                      padding: '10px 14px',
-                      background: 'rgba(99, 102, 241, 0.08)',
-                      border: '1px dashed rgba(99, 102, 241, 0.3)',
-                      borderRadius: 8,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: 8
-                    }
-                  },
-                    h('div', { style: { fontSize: 11.5, color: 'var(--paper-dim)' } },
-                      'Looking for more published editions, comics or PDFs? Explore other mirrors directly:'
+                        return h('div', {
+                          key: item.id || idx,
+                          className: 'card',
+                          style: {
+                            padding: 12,
+                            display: 'flex',
+                            gap: 12,
+                            alignItems: 'flex-start',
+                            background: 'var(--card-bg)',
+                            border: '1px solid var(--hairline)',
+                            borderRadius: 8
+                          }
+                        },
+                          h('div', {
+                            style: {
+                              width: 68,
+                              height: 98,
+                              borderRadius: 6,
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                              position: 'relative',
+                              background: 'var(--panel)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }
+                          },
+                            item.cover ? h('img', {
+                              src: item.cover,
+                              alt: 'Cover',
+                              referrerPolicy: 'no-referrer',
+                              onError: (e) => {
+                                e.target.style.display = 'none';
+                                if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                              },
+                              style: { width: '100%', height: '100%', objectFit: 'cover' }
+                            }) : null,
+                            h('div', {
+                              style: {
+                                display: item.cover ? 'none' : 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '100%',
+                                height: '100%',
+                                fontSize: 26
+                              }
+                            }, isPdf ? '📄' : '📖')
+                          ),
+
+                          h('div', { style: { flex: 1, minWidth: 0 } },
+                            h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
+                            h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, item.authors ? `by ${item.authors}` : ''),
+                            h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 } },
+                              h('span', { className: 'chip', style: { fontSize: 10, padding: '1px 6px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' } }, item.sourceBadge || item.source),
+                              isEpub ? h('span', {
+                                className: 'chip',
+                                style: {
+                                  fontSize: 10.5,
+                                  fontWeight: 700,
+                                  padding: '1px 8px',
+                                  color: '#10b981',
+                                  background: 'rgba(16, 185, 129, 0.12)',
+                                  borderColor: 'rgba(16, 185, 129, 0.5)'
+                                }
+                              }, '⚡ EPUB') : null,
+                              isPdf ? h('span', {
+                                className: 'chip',
+                                style: {
+                                  fontSize: 10.5,
+                                  fontWeight: 700,
+                                  padding: '1px 8px',
+                                  color: '#f59e0b',
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  borderColor: 'rgba(245, 158, 11, 0.5)'
+                                }
+                              }, '📄 PDF') : null,
+                              (!isEpub && !isPdf && !isCatalog && item.formatBadge) ? h('span', {
+                                className: 'chip',
+                                style: {
+                                  fontSize: 10.5,
+                                  fontWeight: 700,
+                                  padding: '1px 8px',
+                                  color: '#8b5cf6',
+                                  background: 'rgba(139, 92, 246, 0.12)',
+                                  borderColor: 'rgba(139, 92, 246, 0.5)'
+                                }
+                              }, item.formatBadge) : null,
+                              isCatalog ? h('span', {
+                                className: 'chip',
+                                style: {
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  padding: '1px 7px',
+                                  color: '#94a3b8',
+                                  background: 'rgba(148, 163, 184, 0.12)',
+                                  borderColor: 'rgba(148, 163, 184, 0.35)'
+                                }
+                              }, 'ℹ️ Catalog Record (Borrow / View Only)') : null,
+                              item.year && h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, item.year)
+                            ),
+                            item.summary && h('div', { style: { fontSize: 10.5, color: 'var(--paper-dim)', lineHeight: 1.3, marginBottom: 8 } }, item.summary),
+                            h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                              // 1. EPUB Download & Open / Save
+                              isEpub && (item.directEpub || item.epubUrl || item.downloadUrl) ? [
+                                h('button', {
+                                  type: 'button',
+                                  className: 'mini-btn',
+                                  style: { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
+                                  onClick: () => handleDownloadBookEpub(item)
+                                }, '📥 Download & Open EPUB'),
+                                h('button', {
+                                  type: 'button',
+                                  className: 'mini-btn ghost',
+                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 8px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' },
+                                  onClick: () => handleSaveBookEpub(item)
+                                }, '💾 Save EPUB')
+                              ] : null,
+
+                              // 2. PDF Download & Open / Save
+                              isPdf && (item.downloadUrl || item.epubUrl) ? [
+                                h('button', {
+                                  type: 'button',
+                                  className: 'mini-btn',
+                                  style: { background: 'linear-gradient(90deg, #f59e0b, #d97706)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
+                                  onClick: () => handleDownloadBookEpub(item)
+                                }, '📥 Download & Open PDF'),
+                                h('button', {
+                                  type: 'button',
+                                  className: 'mini-btn ghost',
+                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 8px', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' },
+                                  onClick: () => handleSaveBookEpub(item)
+                                }, '💾 Save PDF')
+                              ] : null,
+
+                              // 3. Other formats (MOBI, AZW3, etc.)
+                              (!isEpub && !isPdf && !isCatalog && item.downloadUrl) ? [
+                                h('button', {
+                                  type: 'button',
+                                  className: 'mini-btn',
+                                  style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
+                                  onClick: () => handleDownloadBookEpub(item)
+                                }, `📥 Download & Open ${item.format || ''}`),
+                                h('button', {
+                                  type: 'button',
+                                  className: 'mini-btn ghost',
+                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                                  onClick: () => handleSaveBookEpub(item)
+                                }, `💾 Save ${item.format || 'Book'}`)
+                              ] : null,
+
+                              // 4. External Mirror link
+                              item.downloadUrl && h('button', {
+                                type: 'button',
+                                className: 'mini-btn ghost',
+                                style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
+                                onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.downloadUrl, '_blank')
+                              }, '🌐 Mirror ↗'),
+
+                              // 5. Catalog-only records
+                              (!item.directEpub && !item.downloadUrl && !item.epubUrl && (item.iaUrl || item.workUrl)) ? [
+                                item.iaUrl ? h('button', {
+                                  type: 'button',
+                                  className: 'mini-btn ghost',
+                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: 'var(--accent, #6366f1)', borderColor: 'rgba(99, 102, 241, 0.4)' },
+                                  onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.iaUrl, '_blank')
+                                }, '🏛️ Borrow on Internet Archive ↗') : null,
+                                item.workUrl ? h('button', {
+                                  type: 'button',
+                                  className: 'mini-btn ghost',
+                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: 'var(--accent, #6366f1)', borderColor: 'rgba(99, 102, 241, 0.4)' },
+                                  onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.workUrl, '_blank')
+                                }, '📖 View on Open Library ↗') : null
+                              ] : null
+                            )
+                          )
+                        );
+                      })
                     ),
-                    h('div', { style: { display: 'flex', gap: 8 } },
-                      h('button', {
-                        type: 'button',
-                        className: 'mini-btn ghost',
-                        style: { fontSize: 11, color: 'var(--iris)', borderColor: 'rgba(99, 102, 241, 0.4)' },
-                        onClick: () => {
-                          const u = window.BookSearchEngine?.getAnnasArchiveSearchUrl(webImportUrl) || `https://annas-archive.li/search?q=${encodeURIComponent(webImportUrl || '')}&ext=epub`;
-                          window.open(u, '_blank');
-                        }
-                      }, '🔍 Anna\'s Archive ↗'),
-                      h('button', {
-                        type: 'button',
-                        className: 'mini-btn ghost',
-                        style: { fontSize: 11, color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' },
-                        onClick: () => {
-                          const u = window.BookSearchEngine?.getOceanOfPdfSearchUrl(webImportUrl) || `https://oceanofpdf.com/?s=${encodeURIComponent(webImportUrl || '')}`;
-                          window.open(u, '_blank');
-                        }
-                      }, '📄 OceanOfPDF ↗')
+                    // Anna's Archive & OceanOfPDF 1-Tap Exploration Footer Card
+                    h('div', {
+                      style: {
+                        marginTop: 14,
+                        padding: '12px 14px',
+                        background: 'rgba(99, 102, 241, 0.08)',
+                        border: '1px dashed rgba(99, 102, 241, 0.3)',
+                        borderRadius: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 10
+                      }
+                    },
+                      h('div', { style: { fontSize: 11.5, color: 'var(--paper-dim)' } },
+                        'Looking for more editions, comics, or PDFs? Search external shadow mirrors:'
+                      ),
+                      h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { fontSize: 11, color: 'var(--iris)', borderColor: 'rgba(99, 102, 241, 0.4)' },
+                          onClick: () => {
+                            const u = window.BookSearchEngine?.getAnnasArchiveSearchUrl(webImportUrl) || `https://annas-archive.gl/search?q=${encodeURIComponent(webImportUrl || '')}`;
+                            (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
+                          }
+                        }, '🔍 Anna\'s Archive (.gl) ↗'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { fontSize: 11, color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' },
+                          onClick: () => {
+                            const u = window.BookSearchEngine?.getAnnasArchivePkSearchUrl(webImportUrl) || `https://annas-archive.pk/search?q=${encodeURIComponent(webImportUrl || '')}`;
+                            (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
+                          }
+                        }, '🔍 Anna\'s (.pk mirror) ↗'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { fontSize: 11, color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' },
+                          onClick: () => {
+                            const u = window.BookSearchEngine?.getOceanOfPdfSearchUrl(webImportUrl) || `https://oceanofpdf.site/?s=${encodeURIComponent(webImportUrl || '')}`;
+                            (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
+                          }
+                        }, '📄 OceanOfPDF (.site) ↗'),
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          style: { fontSize: 11, color: '#ec4899', borderColor: 'rgba(236, 72, 153, 0.4)' },
+                          onClick: () => {
+                            const u = window.BookSearchEngine?.getZLibrarySearchUrl(webImportUrl) || `https://singlelogin.re/s/${encodeURIComponent(webImportUrl || '')}`;
+                            (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
+                          }
+                        }, '📚 Z-Library ↗')
+                      )
                     )
-                  )
-                ),
+                  );
+                })(),
 
                 sourcesModalOpen && h(SourcesInfoModal, {
                   isOpen: sourcesModalOpen,

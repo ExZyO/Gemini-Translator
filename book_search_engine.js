@@ -119,6 +119,12 @@
 
       for (const b of (data.results || [])) {
         const epubUrl = b.formats['application/epub+zip'] || b.formats['application/epub'] || '';
+        const pdfUrl = b.formats['application/pdf'] || '';
+        const isEpub = Boolean(epubUrl);
+        const isPdf = !isEpub && Boolean(pdfUrl);
+        const format = isEpub ? 'EPUB' : (isPdf ? 'PDF' : 'TXT');
+        const formatBadge = isEpub ? '⚡ EPUB' : (isPdf ? '📄 PDF' : '📄 Text');
+
         const authorNames = (b.authors || []).map(a => {
           if (!a.name) return '';
           return a.name.includes(',') ? a.name.split(',').reverse().join(' ').trim() : a.name.trim();
@@ -133,11 +139,13 @@
           authors: authorNames,
           year: yearLabel,
           cover: b.formats['image/jpeg'] || '',
-          epubUrl: epubUrl,
+          epubUrl: epubUrl || pdfUrl,
+          downloadUrl: epubUrl || pdfUrl,
+          format: format,
+          formatBadge: formatBadge,
           source: 'Project Gutenberg',
           sourceBadge: '🏛️ Gutenberg',
-          formatBadge: epubUrl ? '⚡ Instant EPUB' : 'HTML / Text',
-          directEpub: Boolean(epubUrl),
+          directEpub: isEpub,
           downloads: b.download_count || 0,
           summary: (b.subjects || []).slice(0, 3).join(' • ') || 'Classic literature preserved in the public domain.'
         });
@@ -200,9 +208,11 @@
           year: 'Standard Ebooks Edition',
           cover: coverUrl,
           epubUrl: epubUrl,
+          downloadUrl: epubUrl,
+          format: 'EPUB',
+          formatBadge: '⚡ EPUB',
           source: 'Standard Ebooks',
           sourceBadge: '✨ Standard Ebooks',
-          formatBadge: '⚡ Instant EPUB',
           directEpub: Boolean(epubUrl),
           summary: summary
         });
@@ -237,6 +247,8 @@
         const workUrl = doc.key ? `https://openlibrary.org${doc.key}` : '';
         const iaKey = doc.ia && doc.ia[0] ? doc.ia[0] : '';
         const iaUrl = iaKey ? `https://archive.org/details/${iaKey}` : '';
+        const hasFulltext = Boolean(doc.has_fulltext && iaKey);
+        const directEpubUrl = hasFulltext ? `https://archive.org/download/${iaKey}/${iaKey}.epub` : '';
 
         results.push({
           id: `ol_${(doc.key || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
@@ -246,11 +258,16 @@
           cover: cover,
           source: 'Open Library',
           sourceBadge: '📖 Open Library',
-          formatBadge: 'ℹ️ Web Catalog',
-          directEpub: false,
+          format: hasFulltext ? 'EPUB' : 'CATALOG',
+          formatBadge: hasFulltext ? '⚡ EPUB' : 'ℹ️ Catalog Record (Borrow / View Only)',
+          directEpub: Boolean(directEpubUrl),
+          epubUrl: directEpubUrl,
+          downloadUrl: directEpubUrl,
           workUrl: workUrl,
           iaUrl: iaUrl,
-          summary: doc.edition_count ? `${doc.edition_count} recorded editions across world libraries.` : 'Catalog record on Open Library.'
+          summary: hasFulltext
+            ? 'Open access digital edition with instant EPUB download.'
+            : (doc.edition_count ? `${doc.edition_count} recorded editions across world libraries (borrowable/catalog).` : 'Catalog record on Open Library.')
         });
       }
       return results;
@@ -302,6 +319,10 @@
         const size = cleanTds[6] || '';
         const ext = (cleanTds[7] || 'epub').toLowerCase();
         const isEpub = ext === 'epub';
+        const isPdf = ext === 'pdf';
+        const isMobi = ext === 'mobi';
+        const isAzw3 = ext === 'azw3';
+        const formatBadge = isEpub ? '⚡ EPUB' : (isPdf ? '📄 PDF' : (isMobi ? '📖 MOBI' : (isAzw3 ? '📱 AZW3' : ext.toUpperCase())));
 
         results.push({
           id: `libgen_${md5}`,
@@ -312,7 +333,7 @@
           language: language,
           size: size,
           format: ext.toUpperCase(),
-          formatBadge: isEpub ? '⚡ EPUB' : ext.toUpperCase(),
+          formatBadge: formatBadge,
           source: 'LibGen',
           sourceBadge: '📚 LibGen',
           directEpub: isEpub,
@@ -385,8 +406,12 @@
 
     await Promise.allSettled(promises);
 
-    // Sort: Instant EPUB downloadables at top, then LibGen, then Catalog records
+    // Sort: Downloadable books first, then direct EPUBs, then catalog records
     results.sort((a, b) => {
+      const aDown = Boolean(a.directEpub || a.epubUrl || a.downloadUrl);
+      const bDown = Boolean(b.directEpub || b.epubUrl || b.downloadUrl);
+      if (aDown && !bDown) return -1;
+      if (!aDown && bDown) return 1;
       if (a.directEpub && !b.directEpub) return -1;
       if (!a.directEpub && b.directEpub) return 1;
       if (a.sourceBadge?.includes('Gutenberg') && !b.sourceBadge?.includes('Gutenberg')) return -1;
@@ -433,7 +458,7 @@
     const safeTitle = (book.title || 'Book').replace(/[/\\?%*:|"<>]/g, '_').trim();
     const ext = (book.format || 'epub').toLowerCase();
     const fileName = `${safeTitle}.${ext}`;
-    const mime = ext === 'pdf' ? 'application/pdf' : 'application/epub+zip';
+    const mime = ext === 'pdf' ? 'application/pdf' : (ext === 'mobi' ? 'application/x-mobipocket-ebook' : 'application/epub+zip');
 
     const blob = new Blob([arrayBuf], { type: mime });
     const file = new File([blob], fileName, { type: mime });
@@ -445,8 +470,9 @@
 
   async function saveBookEpub(book, actions = {}, callbacks = {}) {
     try {
-      actions.toast?.(`📥 Downloading "${book.title}"…`, 'info');
-      const { blob, fileName } = await downloadBookFile(book, {
+      const formatLabel = (book.format || 'EPUB').toUpperCase();
+      actions.toast?.(`📥 Downloading ${formatLabel}: "${book.title}"…`, 'info');
+      const { blob, fileName, isEpub } = await downloadBookFile(book, {
         onProgress: (p) => {
           if (actions.setWebImportStatus) actions.setWebImportStatus(p.status);
         }
@@ -455,7 +481,8 @@
       const saveBlobFn = actions.saveUniversalBlob || (typeof window !== 'undefined' ? window.saveUniversalBlob : null);
       if (typeof saveBlobFn === 'function') {
         const folderOpts = (typeof actions.getNovelFolderOptions === 'function') ? actions.getNovelFolderOptions(book) : {};
-        await saveBlobFn(blob, fileName, 'application/epub+zip', false, folderOpts);
+        const mime = isEpub ? 'application/epub+zip' : (fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+        await saveBlobFn(blob, fileName, mime, false, folderOpts);
         actions.toast?.(`💾 Saved "${fileName}" to device!`, 'success');
       } else {
         throw new Error('File saver is not available on this device.');
@@ -464,14 +491,15 @@
       callbacks.onSuccess?.({ fileName });
     } catch (err) {
       console.error('[BookSearchEngine] Save book error:', err);
-      actions.toast?.(`Failed to save EPUB: ${err.message || err}`, 'error');
+      actions.toast?.(`Failed to save: ${err.message || err}`, 'error');
       callbacks.onError?.(err);
     }
   }
 
   async function loadBookIntoApp(book, actions = {}, callbacks = {}) {
     try {
-      actions.toast?.(`📥 Downloading "${book.title}"…`, 'info');
+      const formatLabel = (book.format || 'EPUB').toUpperCase();
+      actions.toast?.(`📥 Downloading ${formatLabel}: "${book.title}"…`, 'info');
       const { file, blob, fileName, isEpub } = await downloadBookFile(book, {
         onProgress: (p) => {
           if (actions.setWebImportStatus) actions.setWebImportStatus(p.status);
@@ -483,7 +511,8 @@
       if (typeof saveBlobFn === 'function') {
         try {
           const folderOpts = (typeof actions.getNovelFolderOptions === 'function') ? actions.getNovelFolderOptions(book) : {};
-          await saveBlobFn(blob, fileName, 'application/epub+zip', false, folderOpts);
+          const mime = isEpub ? 'application/epub+zip' : (fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+          await saveBlobFn(blob, fileName, mime, false, folderOpts);
         } catch (saveErr) {
           console.warn('[BookSearchEngine] Save blob notice:', saveErr);
         }
@@ -491,7 +520,7 @@
 
       // 2. Unpack chapters into the reader & translator
       if (actions.processFile) {
-        actions.toast?.('📖 Unpacking book chapters and artwork…', 'info');
+        actions.toast?.(`📖 Unpacking ${formatLabel} chapters and artwork…`, 'info');
         await actions.processFile(file);
       }
 
@@ -520,6 +549,29 @@
     }
   }
 
+  function openExternalUrl(url) {
+    if (!url) return;
+    try {
+      if (typeof window !== 'undefined' && window.NativeBridge?.openExternalUrl) {
+        window.NativeBridge.openExternalUrl(url);
+        return;
+      }
+    } catch (_) {}
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        try { a.remove(); } catch (_) {}
+      }, 300);
+    } catch (_) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // 7. PUBLIC INTERFACE
   // ══════════════════════════════════════════════════════════════════════
@@ -532,7 +584,10 @@
     downloadBookFile,
     saveBookEpub,
     loadBookIntoApp,
-    getAnnasArchiveSearchUrl: (q) => `https://annas-archive.li/search?q=${encodeURIComponent(q || '')}&ext=epub`,
-    getOceanOfPdfSearchUrl: (q) => `https://oceanofpdf.com/?s=${encodeURIComponent(q || '')}`
+    openExternalUrl,
+    getAnnasArchiveSearchUrl: (q) => `https://annas-archive.gl/search?q=${encodeURIComponent(q || '')}`,
+    getAnnasArchivePkSearchUrl: (q) => `https://annas-archive.pk/search?q=${encodeURIComponent(q || '')}`,
+    getOceanOfPdfSearchUrl: (q) => `https://oceanofpdf.site/?s=${encodeURIComponent(q || '')}`,
+    getZLibrarySearchUrl: (q) => `https://singlelogin.re/s/${encodeURIComponent(q || '')}`
   };
 }));
