@@ -193,7 +193,7 @@ function parseChapterTitleComponents(str) {
     if (typeof decodeHtmlEntities === 'function') s = decodeHtmlEntities(s);
 
     // Strip BBCode tags (opening and closing: [center], [/center], [b], [/b], etc.)
-    s = s.replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '');
+    s = s.replace(/\[\/?(?:b|i|u|s|center|right|left)\]|\[\/?(?:color|size|font|align)(?:=[^\]]*)?\]/gi, '');
     // Strip HTML tags: <center>, </center>, <p...>, </p>, <b>, </b>, etc.
     s = s.replace(/<\/?[a-z0-9]+[^>]*>/gi, '');
     // Strip leading markdown headings: ###

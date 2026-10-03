@@ -270,7 +270,14 @@
         // 4. Preserve Scene Break Dividers (<hr> and decorative symbol dividers)
         processed = processed
             .replace(/<hr\b[^>]*>/gi, '\n\n---\n\n')
-            .replace(/<p\b[^>]*>\s*(?:(?:\*\s*){3,}|\*{3,}|(?:-\s*){3,}|-{3,}|(?:=\s*){3,}|={3,}|(?:~\s*){3,}|~{3,}|(?:◆\s*){2,}|(?:◇\s*){2,}|(?:✦\s*){2,}|(?:★\s*){2,}|(?:☆\s*){2,}|(?:•\s*){3,}|(?:·\s*){3,}|#\s*#\s*#)\s*<\/p>/gi, '\n\n---\n\n');
+            .replace(/<(?:p|div|center|h[1-6])\b[^>]*>([\s\S]*?)<\/(?:p|div|center|h[1-6])>/gi, (m, inner) => {
+                const stripped = inner.replace(/<[^>]+>/g, '').trim();
+                if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(stripped) || stripped === '---' || stripped === '***' || stripped === '___' || stripped === '===') {
+                    return '\n\n---\n\n';
+                }
+                return m;
+            })
+            .replace(/<(?:strong|b|em|i)\b[^>]*>\s*(?:(?:\*[\s\u00A0]*){2,}|(?:-[\s\u00A0]*){2,}|(?:_[\s\u00A0]*){2,})\s*<\/(?:strong|b|em|i)>/gi, (m) => m.replace(/<[^>]+>/g, ''));
 
         // 5. Preserve Alignment (Center & Right)
         processed = processed
@@ -330,6 +337,7 @@
                 const parts = inner.split(/<br\s*[\/]?>/gi);
                 return parts.map(p => {
                     const cleanP = p.replace(/^(&gt;|>)\s*/, '').trim();
+                    if (/^(?:(?:\*[\s\u00A0]*){2,}|(?:-[\s\u00A0]*){2,}|(?:_[\s\u00A0]*){2,})$/.test(cleanP)) return cleanP;
                     return cleanP ? `**${cleanP}**` : '';
                 }).join('<br>');
             })
@@ -337,6 +345,7 @@
                 const parts = inner.split(/<br\s*[\/]?>/gi);
                 return parts.map(p => {
                     const cleanP = p.replace(/^(&gt;|>)\s*/, '').trim();
+                    if (/^(?:(?:\*[\s\u00A0]*){2,}|(?:-[\s\u00A0]*){2,}|(?:_[\s\u00A0]*){2,})$/.test(cleanP)) return cleanP;
                     return cleanP ? `*${cleanP}*` : '';
                 }).join('<br>');
             })

@@ -279,7 +279,7 @@
 
     const smartFormat = (raw, useSmartQuotes = true) => {
       let s = escapeXml(raw);
-      s = s.replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '');
+      s = s.replace(/\[\/?(?:b|i|u|s|center|right|left)\]|\[\/?(?:color|size|font|align)(?:=[^\]]*)?\]/gi, '');
       s = s.replace(/\*{4,}/g, '**');
       if (s.startsWith('**') && !s.slice(2).includes('**')) s = s.slice(2);
       if (s.endsWith('**') && !s.slice(0, -2).includes('**')) s = s.slice(0, -2);
@@ -351,7 +351,9 @@
         if (!trimmed) continue;
 
         // Suppress prompt template placeholder leaks anywhere in chapter
-        if (/\[(?:number|\d+|name|title)\]/i.test(trimmed) || /^#*\s*chapter\s*\[/i.test(trimmed) || /---\s*page\s*end\s*---/i.test(trimmed)) {
+        if (/^(?:#*\s*chapter\s*\[(?:number|\d+)\][\s:–—-]*(?:\[title\])?|#*\s*\[(?:number|name|title)\]|\[(?:number|name|title)\])$/i.test(trimmed)
+            || /^#*\s*chapter\s*\[/i.test(trimmed)
+            || /---\s*page\s*end\s*---/i.test(trimmed)) {
           continue;
         }
 
@@ -360,8 +362,12 @@
                          || trimmed.match(/^([\s\S]*?)\[\/center\]$/i);
         if (centerMatch) {
           const inner = (centerMatch[1] || '').replace(/\[\/?center\]/gi, '').trim();
-          bodyHtml.push(`<p class="text-center">${smartFormat(inner, useSmartQuotes)}</p>`);
-          hasEncounteredParagraph = true;
+          if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
+            bodyHtml.push('<hr/>');
+          } else {
+            bodyHtml.push(`<p class="text-center">${smartFormat(inner, useSmartQuotes)}</p>`);
+            hasEncounteredParagraph = true;
+          }
           continue;
         }
 
@@ -370,8 +376,12 @@
                         || trimmed.match(/^([\s\S]*?)\[\/right\]$/i);
         if (rightMatch) {
           const inner = (rightMatch[1] || '').replace(/\[\/?right\]/gi, '').trim();
-          bodyHtml.push(`<p class="text-right">${smartFormat(inner, useSmartQuotes)}</p>`);
-          hasEncounteredParagraph = true;
+          if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
+            bodyHtml.push('<hr/>');
+          } else {
+            bodyHtml.push(`<p class="text-right">${smartFormat(inner, useSmartQuotes)}</p>`);
+            hasEncounteredParagraph = true;
+          }
           continue;
         }
 
@@ -395,7 +405,7 @@
         }
 
         // Scene break dividers: ***, ---, ===, ~~~, * * *, ◆◆◆, ✦✦✦, etc.
-        if (/^(?:\*\s*\*\s*\*|\*{3,}|\.{3,}|\u2026{2,}|\u2014{2,}|-{3,}|={3,}|~{3,}|#\s*#\s*#|(?:◆\s*){2,}|(?:◇\s*){2,}|(?:✦\s*){2,}|(?:★\s*){2,}|(?:☆\s*){2,}|(?:•\s*){3,}|(?:·\s*){3,})$/.test(trimmed) || trimmed === '---' || trimmed === '***' || trimmed === '___') {
+        if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(trimmed) || trimmed === '---' || trimmed === '***' || trimmed === '___' || trimmed === '===') {
           bodyHtml.push('<hr/>');
           continue;
         }
@@ -1512,7 +1522,7 @@ hr {
           // Smart typographic formatter
           const smartFormat = (raw) => {
             let s = escapeXml(raw);
-            s = s.replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '');
+            s = s.replace(/\[\/?(?:b|i|u|s|center|right|left)\]|\[\/?(?:color|size|font|align)(?:=[^\]]*)?\]/gi, '');
             s = s.replace(/\*{4,}/g, '**');
             if (s.startsWith('**') && !s.slice(2).includes('**')) s = s.slice(2);
             if (s.endsWith('**') && !s.slice(0, -2).includes('**')) s = s.slice(0, -2);
@@ -1562,7 +1572,9 @@ hr {
             if (!trimmed) continue;
 
             // Suppress prompt template placeholder leaks anywhere in chapter
-            if (/\[(?:number|\d+|name|title)\]/i.test(trimmed) || /^#*\s*chapter\s*\[/i.test(trimmed) || /---\s*page\s*end\s*---/i.test(trimmed)) {
+            if (/^(?:#*\s*chapter\s*\[(?:number|\d+)\][\s:–—-]*(?:\[title\])?|#*\s*\[(?:number|name|title)\]|\[(?:number|name|title)\])$/i.test(trimmed)
+                || /^#*\s*chapter\s*\[/i.test(trimmed)
+                || /---\s*page\s*end\s*---/i.test(trimmed)) {
               continue;
             }
 
@@ -1571,14 +1583,18 @@ hr {
                              || trimmed.match(/^([\s\S]*?)\[\/center\]$/i);
             if (centerMatch) {
               const inner = (centerMatch[1] || '').replace(/\[\/?center\]/gi, '').trim();
-              if (!hasEncounteredParagraph) {
-                const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
-                if (typeof checkTitleEcho === 'function' && checkTitleEcho(inner, chTitle, ch.originalTitle)) {
-                  continue; // Suppress duplicate centered title subheading!
+              if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
+                bodyHtml.push('<hr/>');
+              } else {
+                if (!hasEncounteredParagraph) {
+                  const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
+                  if (typeof checkTitleEcho === 'function' && checkTitleEcho(inner, chTitle, ch.originalTitle)) {
+                    continue; // Suppress duplicate centered title subheading!
+                  }
                 }
+                bodyHtml.push(`<p class="text-center">${smartFormat(inner)}</p>`);
+                hasEncounteredParagraph = true;
               }
-              bodyHtml.push(`<p class="text-center">${smartFormat(inner)}</p>`);
-              hasEncounteredParagraph = true;
               continue;
             }
 
@@ -1587,8 +1603,12 @@ hr {
                             || trimmed.match(/^([\s\S]*?)\[\/right\]$/i);
             if (rightMatch) {
               const inner = (rightMatch[1] || '').replace(/\[\/?right\]/gi, '').trim();
-              bodyHtml.push(`<p class="text-right">${smartFormat(inner)}</p>`);
-              hasEncounteredParagraph = true;
+              if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
+                bodyHtml.push('<hr/>');
+              } else {
+                bodyHtml.push(`<p class="text-right">${smartFormat(inner)}</p>`);
+                hasEncounteredParagraph = true;
+              }
               continue;
             }
 
@@ -1684,7 +1704,7 @@ hr {
             }
 
             // Scene break dividers: ***, ---, ===, ~~~, * * *, ◆◆◆, ✦✦✦, etc.
-            if (/^(?:\*\s*\*\s*\*|\*{3,}|\.{3,}|\u2026{2,}|\u2014{2,}|-{3,}|={3,}|~{3,}|#\s*#\s*#|(?:◆\s*){2,}|(?:◇\s*){2,}|(?:✦\s*){2,}|(?:★\s*){2,}|(?:☆\s*){2,}|(?:•\s*){3,}|(?:·\s*){3,})$/.test(trimmed) || trimmed === '---' || trimmed === '***' || trimmed === '___') {
+            if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(trimmed) || trimmed === '---' || trimmed === '***' || trimmed === '___' || trimmed === '===') {
               bodyHtml.push('<hr/>');
               continue;
             }

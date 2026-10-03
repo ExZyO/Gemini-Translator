@@ -517,8 +517,12 @@
               continue; // Suppress duplicate centered title subheading!
             }
           }
-          elems.push({ type: 'center', content: inner, id: `p_${elIdx++}` });
-          hasEncounteredParagraph = true;
+          if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
+            elems.push({ type: 'divider', id: `p_${elIdx++}` });
+          } else {
+            elems.push({ type: 'center', content: inner, id: `p_${elIdx++}` });
+            hasEncounteredParagraph = true;
+          }
           continue;
         }
 
@@ -527,13 +531,17 @@
                     || rawLine.match(/^([\s\S]*?)\[\/right\]$/i);
         if (rightM) {
           const inner = (rightM[1] || '').replace(/\[\/?right\]/gi, '').trim();
-          elems.push({ type: 'right', content: inner, id: `p_${elIdx++}` });
-          hasEncounteredParagraph = true;
+          if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
+            elems.push({ type: 'divider', id: `p_${elIdx++}` });
+          } else {
+            elems.push({ type: 'right', content: inner, id: `p_${elIdx++}` });
+            hasEncounteredParagraph = true;
+          }
           continue;
         }
 
         // 6. Scene break divider: ---, ***, ___, ◆◆◆, ✦✦✦, etc.
-        if (/^(?:\*\s*\*\s*\*|\*{3,}|\.{3,}|\u2026{2,}|\u2014{2,}|-{3,}|={3,}|~{3,}|#\s*#\s*#|(?:◆\s*){2,}|(?:◇\s*){2,}|(?:✦\s*){2,}|(?:★\s*){2,}|(?:☆\s*){2,}|(?:•\s*){3,}|(?:·\s*){3,})$/.test(rawLine) || rawLine === '---' || rawLine === '***' || rawLine === '___') {
+        if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(rawLine) || rawLine === '---' || rawLine === '***' || rawLine === '___' || rawLine === '===') {
           elems.push({ type: 'divider', id: `p_${elIdx++}` });
           continue;
         }
@@ -1155,7 +1163,7 @@
 
       // Strip markdown tags/asterisks and clean for natural speech
       const plainSpeechText = rawText
-        .replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '')
+        .replace(/\[\/?(?:b|i|u|s|center|right|left)\]|\[\/?(?:color|size|font|align)(?:=[^\]]*)?\]/gi, '')
         .replace(/(\*{1,3}|_{1,3}|~~|`)/g, '')
         .replace(/^(&gt;|>)\s*/g, '');
 
@@ -1433,6 +1441,7 @@
 
     const parseInlineMarkdown = (text, keyPrefix = 'md') => {
       if (!text || typeof text !== 'string') return text;
+      if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,})$/.test(text.trim())) return null;
       let s = text.replace(/^(\*{1,2}|_{1,2})(&gt;|>)\s*/, '$1')
                   .replace(/^(&gt;|>)\s*(\*{1,2}|_{1,2})/, '$1');
       const inlineRegex = /(`[^`]+`|\*\*\*[^\n]+?\*\*\*|___[^\n]+?___|\*\*[^\n]+?\*\*|__[^\n]+?__|(?<!\w)\*[^*\n]+?\*(?!\w)|(?<!\w)_[^_\n]+?_(?!\w)|~~[^~]+~~)/g;
@@ -1661,7 +1670,7 @@
         : (el.type === 'right' ? { textAlign: 'right', textIndent: 0 } : {});
 
       let rawText = (el.content || '')
-        .replace(/\[\/?(?:center|right|left|b|i|u|s|color|size|font|align)[^\]]*\]/gi, '')
+        .replace(/\[\/?(?:b|i|u|s|center|right|left)\]|\[\/?(?:color|size|font|align)(?:=[^\]]*)?\]/gi, '')
         .replace(/\*{4,}/g, '**');
       rawText = rawText.replace(/^(\*{1,2}|_{1,2})(&gt;|>)\s*/, '$1');
       rawText = rawText.replace(/^(&gt;|>)\s*(\*{1,2}|_{1,2})/, '$1');
