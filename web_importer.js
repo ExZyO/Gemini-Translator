@@ -663,11 +663,20 @@
     }
 
     async function fetchHtml(url, options = {}) {
-        const externalSignal = options.signal || (typeof activeCrawlController !== 'undefined' && activeCrawlController && (activeCrawlController.isCancelled || activeCrawlController.isPaused) ? activeCrawlController.abortController?.signal : null);
+        // Distinguish crawl chapter fetches from searches, metadata probes, and TOC checks:
+        // A request should only be aborted by activeCrawlController if:
+        // 1. It is explicitly part of a crawl (options.isCrawl === true), OR
+        // 2. It is not an explicit search/probe AND activeCrawlController is currently running a crawl.
+        const isSearchOrProbe = Boolean(
+            options.isSearch ||
+            (options.context && /search|catalog|probe|ping|check|audio/i.test(options.context))
+        );
+        const crawlCtrl = (!isSearchOrProbe && typeof activeCrawlController !== 'undefined') ? activeCrawlController : null;
+        const externalSignal = options.signal || (crawlCtrl && (crawlCtrl.isCancelled || crawlCtrl.isPaused) ? crawlCtrl.abortController?.signal : null);
         const isUserAborted = () => Boolean(
             (externalSignal && externalSignal.aborted) ||
             (options.signal && options.signal.aborted) ||
-            (typeof activeCrawlController !== 'undefined' && activeCrawlController && (activeCrawlController.isCancelled || activeCrawlController.isPaused))
+            (crawlCtrl && (crawlCtrl.isCancelled || crawlCtrl.isPaused))
         );
 
         if (isUserAborted()) {
@@ -994,6 +1003,14 @@
     // 4. PARALLEL WORKER POOL ENGINE (LNCRAWL STREAMING & RESUMABLE SESSIONS)
     // ══════════════════════════════════════════════════════════════════════
     let activeCrawlController = null;
+
+    function resetCrawlController() {
+        if (activeCrawlController) {
+            try { activeCrawlController.abortController?.abort(); } catch (e) {}
+            activeCrawlController = null;
+        }
+        return true;
+    }
 
     function createCrawlController(options = {}) {
         const abortController = new AbortController();
@@ -1710,10 +1727,17 @@
                 activeCrawlController.isCancelled = true;
                 try { activeCrawlController.abortController?.abort(); } catch(e) {}
                 try { window.NativeBridge?.releaseWakeLock?.(); } catch(e) {}
+                const oldCtrl = activeCrawlController;
+                setTimeout(() => {
+                    if (activeCrawlController === oldCtrl) {
+                        activeCrawlController = null;
+                    }
+                }, 400);
                 return true;
             }
             return false;
         },
+        resetCrawlController: () => resetCrawlController(),
         getActiveController: () => activeCrawlController,
         importUrl: async (url, progressCb, options = {}) => {
             if (!url || !url.trim()) throw new Error('Please enter a valid novel URL.');
@@ -1773,6 +1797,14 @@
             } finally {
                 if (options.tocOnly) {
                     try { window.NativeBridge?.releaseWakeLock?.(); } catch (e) {}
+                }
+                if (activeCrawlController && (activeCrawlController.isCancelled || !activeCrawlController.isPaused)) {
+                    const finishedCtrl = activeCrawlController;
+                    setTimeout(() => {
+                        if (activeCrawlController === finishedCtrl) {
+                            activeCrawlController = null;
+                        }
+                    }, 400);
                 }
             }
         },

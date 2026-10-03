@@ -1,9 +1,9 @@
 {
-  "version": "8.18.34",
-  "versionCode": 8334,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.34/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.34/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.34",
+  "version": "8.18.35",
+  "versionCode": 8335,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.35/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.35/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.35",
   "releaseDate": "2026-10-03",
-  "releaseNotes": "v8.18.34: Universal Tab Reset buttons across all tabs and Curated Direct EPUB Library integration."
+  "releaseNotes": "v8.18.35: Fix crawl controller poisoning after cancelled fetch, ensuring subsequent searches and tab resets run smoothly."
 }

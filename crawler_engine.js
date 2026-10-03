@@ -382,6 +382,7 @@
       const ctrl = window.WebNovelImporter?.getActiveController?.();
       if (!ctrl?.isPaused) {
         try { window.NativeBridge?.releaseWakeLock?.(); } catch (e) {}
+        try { window.WebNovelImporter?.resetCrawlController?.(); } catch (e) {}
       }
     }
   }
@@ -408,6 +409,7 @@
    */
   function cancelCrawl(callbacks = {}) {
     try { window.WebNovelImporter?.cancel?.(); } catch (e) {}
+    try { window.WebNovelImporter?.resetCrawlController?.(); } catch (e) {}
     try {
       window.NativeBridge?.clearProgressNotification?.(false);
       window.NativeBridge?.releaseWakeLock?.();
@@ -638,6 +640,7 @@
     safeToast(callbacks, 'Searching novel sources and installed plugins…', 'info');
 
     try {
+      try { window.WebNovelImporter?.resetCrawlController?.(); } catch (e) {}
       const q = target.replace(/^https?:\/\/[^\/]+\/(?:search|fictions\/search)\?[^=]+=/i, '');
 
       let unifiedResults = [];

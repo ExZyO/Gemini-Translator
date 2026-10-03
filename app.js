@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-        let VERSION = '8.18.34';
+    let VERSION = '8.18.35';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1950,6 +1950,9 @@
         if (isFetchingUrl) {
           handleCancelFetch();
         }
+        try { window.WebNovelImporter?.resetCrawlController?.(); } catch (e) {}
+        setIsFetchingUrl(false);
+        setIsFetchingPaused(false);
         setWebImportUrl('');
         setWebImportData(null);
         setActiveCrawlSession(null);

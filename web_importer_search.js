@@ -12,7 +12,7 @@
 }(typeof self !== 'undefined' ? self : this, function() {
   'use strict';
 
-  const fetchHtml = (url, opts) => (window.WebNovelImporter?.fetchHtml ? window.WebNovelImporter.fetchHtml(url, opts) : window.fetch(url, opts).then(r => r.text()));
+  const fetchHtml = (url, opts) => (window.WebNovelImporter?.fetchHtml ? window.WebNovelImporter.fetchHtml(url, { isSearch: true, isCrawl: false, ...opts }) : window.fetch(url, opts).then(r => r.text()));
 
     // ══════════════════════════════════════════════════════════════════════
     // MULTI-SOURCE WEB NOVEL SEARCH ENGINE (NovelBuddy, RoyalRoad, NovelFire, AO3)
