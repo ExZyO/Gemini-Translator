@@ -1095,10 +1095,23 @@
 
         const chapterRange = ctrl.chapterRange || poolOptions.chapterRange || null;
         const hasRange = !!(chapterRange && typeof chapterRange.start === 'number' && chapterRange.start > 0);
-        const rangeStart = hasRange ? Math.max(0, chapterRange.start - 1) : 0;
-        const rangeEnd = (hasRange && typeof chapterRange.end === 'number' && chapterRange.end > 0)
-            ? Math.min(chapterList.length - 1, chapterRange.end - 1)
-            : (chapterList.length - 1);
+        let rangeStart = 0;
+        let rangeEnd = chapterList.length - 1;
+        let isPreSliced = false;
+
+        if (hasRange) {
+            if ((chapterRange.start - 1) >= chapterList.length) {
+                console.log(`⚡ [Crawl Pool] Chapter list has ${chapterList.length} items for requested range ${chapterRange.start}–${chapterRange.end || 'end'} (pre-filtered). Processing all supplied items.`);
+                isPreSliced = true;
+                rangeStart = 0;
+                rangeEnd = chapterList.length - 1;
+            } else {
+                rangeStart = Math.max(0, chapterRange.start - 1);
+                rangeEnd = (typeof chapterRange.end === 'number' && chapterRange.end > 0)
+                    ? Math.min(chapterList.length - 1, chapterRange.end - 1)
+                    : (chapterList.length - 1);
+            }
+        }
         const targetChapterCount = Math.max(1, rangeEnd - rangeStart + 1);
 
         const chapters = [];
@@ -1258,7 +1271,7 @@
                         totalImagesCount += imgCount;
                         totalWordsEstimate += words;
                         const newChapterObj = {
-                            idx: currentIndex,
+                            idx: isPreSliced ? (chapterRange.start - 1 + currentIndex) : currentIndex,
                             url: item.url || '',
                             title: chTitle,
                             text: chapterText,
@@ -1381,7 +1394,7 @@
         }
 
         let finalChapters = chapters;
-        if (hasRange) {
+        if (hasRange && !isPreSliced) {
             finalChapters = chapters.filter(c => c.idx >= rangeStart && c.idx <= rangeEnd);
         }
         finalChapters.sort((a, b) => a.idx - b.idx);

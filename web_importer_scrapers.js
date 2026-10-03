@@ -1445,9 +1445,17 @@
         } else {
             const rangeOpt = options.chapterRange || activeCrawlController?.chapterRange || null;
             const hasRange = Boolean(rangeOpt && typeof rangeOpt.start === 'number' && rangeOpt.start > 0);
-            const startPage = hasRange ? Math.max(1, Math.ceil(rangeOpt.start / 100)) : 1;
+            const rangeStart = hasRange ? rangeOpt.start : 1;
+            const rangeEnd = (hasRange && typeof rangeOpt.end === 'number' && rangeOpt.end > 0) ? rangeOpt.end : (totalOnlineCount || 0);
+
+            const startPage = hasRange ? Math.max(1, Math.ceil(rangeStart / 100)) : 1;
             const maxPage = totalOnlineCount > 0 ? Math.ceil(totalOnlineCount / 100) : 999;
-            const endPage = (hasRange && rangeOpt.end > 0) ? Math.min(maxPage, Math.ceil(rangeOpt.end / 100)) : maxPage;
+            const endPage = (hasRange && rangeEnd > 0) ? Math.min(maxPage, Math.ceil(rangeEnd / 100)) : maxPage;
+
+            if (hasRange) {
+                const totalNeeded = Math.max(totalOnlineCount || 0, rangeEnd, 1);
+                chapterLinks = makeStubs(totalNeeded);
+            }
 
             const seenUrls = new Set();
             let pageNum = startPage;
@@ -1463,7 +1471,13 @@
 
                     if (!totalOnlineCount && chPageHtml) {
                         const m = chPageHtml.match(/href=["'][^"']*\/chapter-(\d+)["'][^>]*>Latest Release/i) || chPageHtml.match(/page=(\d+)[^>]*>Last<\/a>/i);
-                        if (m) totalOnlineCount = parseInt(m[1], 10);
+                        if (m) {
+                            totalOnlineCount = parseInt(m[1], 10);
+                            if (hasRange && totalOnlineCount > chapterLinks.length) {
+                                const extra = makeStubs(totalOnlineCount);
+                                for (let k = chapterLinks.length; k < extra.length; k++) chapterLinks.push(extra[k]);
+                            }
+                        }
                     }
 
                     if (isTocOnly && totalOnlineCount > 0) {
@@ -1479,13 +1493,20 @@
                     let pageFound = 0;
                     for (const a of aTags) {
                         const href = a.getAttribute('href');
-                        if (href && !seenUrls.has(href)) {
+                        if (!href) continue;
+                        const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
+                        const chTitle = a.getAttribute('title') || a.querySelector('.chapter-title')?.textContent?.trim() || a.textContent?.trim();
+                        if (hasRange) {
+                            const numM = fullUrl.match(/\/chapter-(\d+(?:\.\d+)?)/i) || (chTitle || '').match(/(?:chapter|ch\.?)\s*(\d+(?:\.\d+)?)/i);
+                            const num = numM ? Math.round(parseFloat(numM[1])) : null;
+                            if (num && num >= 1 && num <= chapterLinks.length) {
+                                chapterLinks[num - 1] = { url: fullUrl, title: chTitle };
+                            }
+                        } else if (!seenUrls.has(href)) {
                             seenUrls.add(href);
-                            const fullUrl = href.startsWith('http') ? href : new URL(href, origin).href;
-                            const chTitle = a.getAttribute('title') || a.querySelector('.chapter-title')?.textContent?.trim() || a.textContent?.trim();
                             chapterLinks.push({ url: fullUrl, title: chTitle });
-                            pageFound++;
                         }
+                        pageFound++;
                     }
 
                     if (pageFound === 0) break;
@@ -1502,8 +1523,8 @@
                 chapterLinks = [{ url: `${bookUrl}/chapter-1`, title: 'Chapter 1' }];
             }
 
-            // Natural ordering
-            if (chapterLinks.length > 2) {
+            // Natural ordering for non-ranged crawls
+            if (!hasRange && chapterLinks.length > 2) {
                 const getW = (it, idx) => {
                     const m = (it.title || '').match(/(?:chapter|ch\.?|ep\.?|part)\s*(\d+(?:\.\d+)?)/i) || (it.url || '').match(/\/chapter-(\d+(?:\.\d+)?)/i);
                     return m ? parseFloat(m[1]) : idx;

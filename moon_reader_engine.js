@@ -456,7 +456,8 @@
       if (callbacks.onProgress) callbacks.onProgress('Connecting to online source…', 5, '0s');
 
       // 1. Fetch only requested chapter range
-      const remoteResult = await window.WebNovelImporter.importUrl(sourceUrl, (msg, pct) => {
+      const baseSourceUrl = (sourceUrl || '').trim().replace(/\/chapter[-_/\d].*$/i, '').replace(/\/chapters\/?$/i, '');
+      const remoteResult = await window.WebNovelImporter.importUrl(baseSourceUrl || sourceUrl, (msg, pct) => {
         if (callbacks.onProgress) {
           callbacks.onProgress(msg || 'Downloading new chapters…', pct || 20, getElapsed());
         }
@@ -464,7 +465,11 @@
         chapterRange: { start, end }
       });
 
-      const newFetchedChapters = remoteResult?.chapters || [];
+      const newFetchedChapters = (remoteResult?.chapters && remoteResult.chapters.length > 0)
+        ? remoteResult.chapters
+        : ((remoteResult?.downloadedChapters && remoteResult.downloadedChapters.length > 0)
+          ? remoteResult.downloadedChapters
+          : (remoteResult?.rawChapters || []));
       if (newFetchedChapters.length === 0) {
         throw new Error('No new chapters could be retrieved from the source.');
       }
