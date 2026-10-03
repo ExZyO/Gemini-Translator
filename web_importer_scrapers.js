@@ -19,6 +19,41 @@
   const decodeHtmlEntities = (text) => (window.decodeHtmlEntities ? window.decodeHtmlEntities(text) : text);
   const ChameleonExtractor = (typeof window !== 'undefined' && window.ChameleonExtractor) ? window.ChameleonExtractor : (typeof window !== 'undefined' && window.WebNovelImporter?.ChameleonExtractor) ? window.WebNovelImporter.ChameleonExtractor : null;
   const AdaptiveSpeedController = (typeof window !== 'undefined' && window.AdaptiveSpeedController) ? window.AdaptiveSpeedController : (typeof window !== 'undefined' && window.WebNovelImporter?.AdaptiveSpeedController) ? window.WebNovelImporter.AdaptiveSpeedController : null;
+  const extractPageCover = (doc, baseUrl, customCover) => {
+    if (typeof window !== 'undefined') {
+      if (typeof window.extractPageCover === 'function') return window.extractPageCover(doc, baseUrl, customCover);
+      if (typeof window.WebNovelImporter?.extractPageCover === 'function') return window.WebNovelImporter.extractPageCover(doc, baseUrl, customCover);
+    }
+    return customCover || '';
+  };
+  const isBlockOrChallenge = (text) => {
+    if (typeof window !== 'undefined') {
+      if (typeof window.isBlockOrChallenge === 'function') return window.isBlockOrChallenge(text);
+      if (typeof window.WebNovelImporter?.isBlockOrChallenge === 'function') return window.WebNovelImporter.isBlockOrChallenge(text);
+    }
+    return false;
+  };
+  const detectBlockOrChallenge = (html) => {
+    if (typeof window !== 'undefined') {
+      if (typeof window.detectBlockOrChallenge === 'function') return window.detectBlockOrChallenge(html);
+      if (typeof window.WebNovelImporter?.detectBlockOrChallenge === 'function') return window.WebNovelImporter.detectBlockOrChallenge(html);
+    }
+    return { blocked: false, type: null };
+  };
+  const crawlChapterPool = (...args) => {
+    if (typeof window !== 'undefined') {
+      if (typeof window.crawlChapterPool === 'function') return window.crawlChapterPool(...args);
+      if (typeof window.WebNovelImporter?.crawlChapterPool === 'function') return window.WebNovelImporter.crawlChapterPool(...args);
+    }
+    throw new Error('crawlChapterPool engine not initialized');
+  };
+  const importEpubBuffer = (...args) => {
+    if (typeof window !== 'undefined') {
+      if (typeof window.importEpubBuffer === 'function') return window.importEpubBuffer(...args);
+      if (typeof window.WebNovelImporter?.importEpubBuffer === 'function') return window.WebNovelImporter.importEpubBuffer(...args);
+    }
+    throw new Error('importEpubBuffer engine not initialized');
+  };
 
   try {
     if (typeof window !== 'undefined' && !window.activeCrawlController) {

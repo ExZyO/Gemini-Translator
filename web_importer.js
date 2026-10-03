@@ -663,8 +663,14 @@
     }
 
     async function fetchHtml(url, options = {}) {
-        const externalSignal = options.signal || (typeof activeCrawlController !== 'undefined' && activeCrawlController?.abortController?.signal);
-        if (externalSignal?.aborted) {
+        const externalSignal = options.signal || (typeof activeCrawlController !== 'undefined' && activeCrawlController && (activeCrawlController.isCancelled || activeCrawlController.isPaused) ? activeCrawlController.abortController?.signal : null);
+        const isUserAborted = () => Boolean(
+            (externalSignal && externalSignal.aborted) ||
+            (options.signal && options.signal.aborted) ||
+            (typeof activeCrawlController !== 'undefined' && activeCrawlController && (activeCrawlController.isCancelled || activeCrawlController.isPaused))
+        );
+
+        if (isUserAborted()) {
             const abortErr = new Error('Fetch aborted by user');
             abortErr.name = 'AbortError';
             throw abortErr;
@@ -691,7 +697,7 @@
 
         // 0. Direct Fetch Fast-Path (Instant sub-second resolution for CORS-enabled APIs and direct network environments)
         try {
-            if (!controller.signal.aborted) {
+            if (!controller.signal.aborted && !isUserAborted()) {
                 const directCtrl = new AbortController();
                 const directTimer = setTimeout(() => directCtrl.abort(), 2800);
                 const directOpts = {
@@ -725,7 +731,7 @@
         // 1. Android Native Bridge (Zero CORS / Full Chromium Engine)
         if (window.NativeBridge && window.NativeBridge.fetchNative) {
             try {
-                if (controller.signal.aborted) {
+                if (isUserAborted()) {
                     const abortErr = new Error('Fetch aborted by user');
                     abortErr.name = 'AbortError';
                     throw abortErr;
@@ -754,7 +760,7 @@
                     }
                 }
             } catch (e) {
-                if (controller.signal.aborted || e.name === 'AbortError') {
+                if (isUserAborted()) {
                     clearTimeout(timer);
                     if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
                     const abortErr = new Error('Fetch aborted by user');
@@ -771,7 +777,7 @@
         const now = Date.now();
         if (localProxyState !== false || (now - lastLocalProxyCheck > 30000)) {
             try {
-                if (controller.signal.aborted) {
+                if (isUserAborted()) {
                     const abortErr = new Error('Fetch aborted by user');
                     abortErr.name = 'AbortError';
                     throw abortErr;
@@ -809,7 +815,7 @@
                     }
                 }
             } catch (localErr) {
-                if (controller.signal.aborted || localErr.name === 'AbortError') {
+                if (isUserAborted()) {
                     clearTimeout(timer);
                     if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
                     const abortErr = new Error('Fetch aborted by user');
@@ -824,17 +830,19 @@
 
         // 3. Tiered Public Proxy Failover Pool (Fast sub-second proxies prioritized)
         const proxyPool = [
+            { name: 'corsproxy.io', getUrl: (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
+            { name: 'corsproxy.org', getUrl: (u) => `https://corsproxy.org/?${encodeURIComponent(u)}` },
             { name: 'allorigins.win', getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` }
         ];
 
         for (let i = 0; i < proxyPool.length; i++) {
-            if (controller.signal.aborted) break;
+            if (isUserAborted()) break;
             const proxy = proxyPool[i];
             let proxyTimer = null;
             let onParentAbort = null;
             try {
                 const proxyCtrl = new AbortController();
-                proxyTimer = setTimeout(() => proxyCtrl.abort(), 4500);
+                proxyTimer = setTimeout(() => proxyCtrl.abort(), 5500);
 
                 onParentAbort = () => {
                     clearTimeout(proxyTimer);
@@ -861,6 +869,7 @@
                         continue;
                     }
                     clearTimeout(timer);
+                    if (onParentAbort) controller.signal.removeEventListener('abort', onParentAbort);
                     if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
                     const latency = Date.now() - startTime;
                     window.sendTelemetry?.('FETCH_OK', `[${context}] Fetched via ${proxy.name} in ${latency}ms (${text.length.toLocaleString()} chars): ${url}`, {
@@ -873,14 +882,15 @@
                     return text;
                 }
             } catch (proxyErr) {
-                if (controller.signal.aborted || proxyErr.name === 'AbortError') {
+                if (isUserAborted()) {
                     clearTimeout(timer);
+                    if (onParentAbort) controller.signal.removeEventListener('abort', onParentAbort);
                     if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
                     const abortErr = new Error('Fetch aborted by user');
                     abortErr.name = 'AbortError';
                     throw abortErr;
                 }
-                // Strict timeout switches immediately
+                // Timeout on this proxy, try next proxy
             } finally {
                 if (proxyTimer) clearTimeout(proxyTimer);
                 if (onParentAbort) controller.signal.removeEventListener('abort', onParentAbort);
@@ -889,7 +899,7 @@
 
         clearTimeout(timer);
         if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
-        if (controller.signal.aborted) {
+        if (isUserAborted()) {
             const abortErr = new Error('Fetch aborted by user');
             abortErr.name = 'AbortError';
             throw abortErr;
@@ -1679,6 +1689,10 @@
         detectType: detectUrlType,
         getBestImageUrl,
         cleanChapterHtmlWithImages,
+        extractPageCover,
+        isBlockOrChallenge,
+        detectBlockOrChallenge,
+        crawlChapterPool,
         searchNovels,
         searchNovelBin,
         searchLnori,
@@ -1877,6 +1891,16 @@
             }
         }
     };
+
+    if (typeof window !== 'undefined') {
+        window.extractPageCover = extractPageCover;
+        window.isBlockOrChallenge = isBlockOrChallenge;
+        window.detectBlockOrChallenge = detectBlockOrChallenge;
+        window.crawlChapterPool = crawlChapterPool;
+        window.cleanChapterHtmlWithImages = cleanChapterHtmlWithImages;
+        window.getBestImageUrl = getBestImageUrl;
+        window.importEpubBuffer = importEpubBuffer;
+    }
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = {

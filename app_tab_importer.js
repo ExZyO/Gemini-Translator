@@ -1954,26 +1954,38 @@
                                 }, `💾 Save ${item.format || 'Book'}`)
                               ] : null,
 
-                              // 4. External Mirror link
-                              item.downloadUrl && h('button', {
+                              // 4. External Mirror link (for direct downloadable sources like LibGen)
+                              (item.downloadUrl && !item.downloadUrl.includes('archive.org/download/')) ? h('button', {
                                 type: 'button',
                                 className: 'mini-btn ghost',
                                 style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
                                 onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.downloadUrl, '_blank')
-                              }, '🌐 Mirror ↗'),
+                              }, '🌐 Mirror ↗') : null,
 
-                              // 5. Catalog-only records
-                              (!item.directEpub && !item.downloadUrl && !item.epubUrl && (item.iaUrl || item.workUrl)) ? [
+                              // 5. Catalog & Borrowable Records (Internet Archive CDL + 1-tap Shadow Search)
+                              (!item.directEpub && !item.downloadUrl) ? [
                                 item.iaUrl ? h('button', {
                                   type: 'button',
                                   className: 'mini-btn ghost',
                                   style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: 'var(--accent, #6366f1)', borderColor: 'rgba(99, 102, 241, 0.4)' },
                                   onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.iaUrl, '_blank')
                                 }, '🏛️ Borrow on Internet Archive ↗') : null,
+                                item.annasUrl ? h('button', {
+                                  type: 'button',
+                                  className: 'mini-btn ghost',
+                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: 'var(--iris, #818cf8)', borderColor: 'rgba(129, 140, 248, 0.4)' },
+                                  onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.annasUrl, '_blank')
+                                }, '🔍 Find on Anna\'s Archive ↗') : null,
+                                item.oceanUrl ? h('button', {
+                                  type: 'button',
+                                  className: 'mini-btn ghost',
+                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' },
+                                  onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.oceanUrl, '_blank')
+                                }, '📄 Find on OceanOfPDF ↗') : null,
                                 item.workUrl ? h('button', {
                                   type: 'button',
                                   className: 'mini-btn ghost',
-                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: 'var(--accent, #6366f1)', borderColor: 'rgba(99, 102, 241, 0.4)' },
+                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: 'var(--slate)', borderColor: 'var(--hairline)' },
                                   onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.workUrl, '_blank')
                                 }, '📖 View on Open Library ↗') : null
                               ] : null
@@ -2006,7 +2018,8 @@
                           className: 'mini-btn ghost',
                           style: { fontSize: 11, color: 'var(--iris)', borderColor: 'rgba(99, 102, 241, 0.4)' },
                           onClick: () => {
-                            const u = window.BookSearchEngine?.getAnnasArchiveSearchUrl(webImportUrl) || `https://annas-archive.gl/search?q=${encodeURIComponent(webImportUrl || '')}`;
+                            const q = (webImportUrl || '').trim();
+                            const u = window.BookSearchEngine?.getAnnasArchiveSearchUrl(q);
                             (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
                           }
                         }, '🔍 Anna\'s Archive (.gl) ↗'),
@@ -2015,7 +2028,8 @@
                           className: 'mini-btn ghost',
                           style: { fontSize: 11, color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' },
                           onClick: () => {
-                            const u = window.BookSearchEngine?.getAnnasArchivePkSearchUrl(webImportUrl) || `https://annas-archive.pk/search?q=${encodeURIComponent(webImportUrl || '')}`;
+                            const q = (webImportUrl || '').trim();
+                            const u = window.BookSearchEngine?.getAnnasArchivePkSearchUrl(q);
                             (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
                           }
                         }, '🔍 Anna\'s (.pk mirror) ↗'),
@@ -2024,7 +2038,8 @@
                           className: 'mini-btn ghost',
                           style: { fontSize: 11, color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' },
                           onClick: () => {
-                            const u = window.BookSearchEngine?.getOceanOfPdfSearchUrl(webImportUrl) || `https://oceanofpdf.site/?s=${encodeURIComponent(webImportUrl || '')}`;
+                            const q = (webImportUrl || '').trim();
+                            const u = window.BookSearchEngine?.getOceanOfPdfSearchUrl(q);
                             (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
                           }
                         }, '📄 OceanOfPDF (.site) ↗'),
@@ -2033,7 +2048,8 @@
                           className: 'mini-btn ghost',
                           style: { fontSize: 11, color: '#ec4899', borderColor: 'rgba(236, 72, 153, 0.4)' },
                           onClick: () => {
-                            const u = window.BookSearchEngine?.getZLibrarySearchUrl(webImportUrl) || `https://singlelogin.re/s/${encodeURIComponent(webImportUrl || '')}`;
+                            const q = (webImportUrl || '').trim();
+                            const u = window.BookSearchEngine?.getZLibrarySearchUrl(q);
                             (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
                           }
                         }, '📚 Z-Library ↗')

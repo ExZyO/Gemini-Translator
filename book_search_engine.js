@@ -57,10 +57,17 @@
         signal: signal || directCtrl.signal
       });
       clearTimeout(directTimer);
+      if (res.status === 401 || res.status === 403) {
+        if (url.includes('archive.org/')) {
+          throw new Error('This edition is restricted to borrowing on Internet Archive (Controlled Digital Lending). Direct download is protected. Please use the Anna\'s Archive or OceanOfPDF mirror to download the EPUB.');
+        }
+      }
       if (res.ok) {
         return await (options.asBuffer ? res.arrayBuffer() : res.text());
       }
-    } catch (_) {}
+    } catch (directErr) {
+      if (directErr.message?.includes('restricted to borrowing')) throw directErr;
+    }
 
     // 2. Delegate to WebNovelImporter.fetchHtml if text requested
     if (!options.asBuffer && typeof window !== 'undefined' && window.WebNovelImporter?.fetchHtml) {
@@ -92,12 +99,22 @@
           signal: signal || pCtrl.signal
         });
         clearTimeout(pTimer);
+        if (pRes.status === 401 || pRes.status === 403) {
+          if (url.includes('archive.org/')) {
+            throw new Error('This edition is restricted to borrowing on Internet Archive (Controlled Digital Lending). Direct download is protected. Please use the Anna\'s Archive or OceanOfPDF mirror to download the EPUB.');
+          }
+        }
         if (pRes.ok) {
           return await (options.asBuffer ? pRes.arrayBuffer() : pRes.text());
         }
-      } catch (_) {}
+      } catch (pErr) {
+        if (pErr.message?.includes('restricted to borrowing')) throw pErr;
+      }
     }
 
+    if (url.includes('archive.org/')) {
+      throw new Error('This edition is restricted to borrowing on Internet Archive (Controlled Digital Lending). Please use the Anna\'s Archive or OceanOfPDF buttons to get this book.');
+    }
     throw new Error(`Unable to fetch book resource from ${url}`);
   }
 
@@ -230,7 +247,7 @@
   async function searchOpenLibrary(query, signal) {
     if (!query || !query.trim()) return [];
     const cleanQ = query.trim();
-    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(cleanQ)}&limit=12&fields=title,author_name,first_publish_year,cover_i,key,has_fulltext,ia,edition_count`;
+    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(cleanQ)}&limit=12&fields=title,author_name,first_publish_year,cover_i,key,has_fulltext,ia,edition_count,public_scan_b,availability`;
     try {
       const res = await fetch(url, {
         headers: { 'Accept': 'application/json' },
@@ -247,8 +264,14 @@
         const workUrl = doc.key ? `https://openlibrary.org${doc.key}` : '';
         const iaKey = doc.ia && doc.ia[0] ? doc.ia[0] : '';
         const iaUrl = iaKey ? `https://archive.org/details/${iaKey}` : '';
-        const hasFulltext = Boolean(doc.has_fulltext && iaKey);
-        const directEpubUrl = hasFulltext ? `https://archive.org/download/${iaKey}/${iaKey}.epub` : '';
+        
+        // Only unrestricted public scans can be downloaded directly from archive.org without 401 Unauthorized
+        const isPublicScan = Boolean(doc.public_scan_b && doc.availability?.status === 'open' && !doc.availability?.is_restricted);
+        const isBorrowable = Boolean(iaKey && !isPublicScan);
+        const directEpubUrl = isPublicScan ? `https://archive.org/download/${iaKey}/${iaKey}.epub` : '';
+        const authorQ = (doc.author_name && doc.author_name[0]) ? ` ${doc.author_name[0]}` : '';
+        const annasUrl = `https://annas-archive.gl/search?q=${encodeURIComponent(doc.title + authorQ)}`;
+        const oceanUrl = `https://oceanofpdf.site/?s=${encodeURIComponent(doc.title + authorQ)}`;
 
         results.push({
           id: `ol_${(doc.key || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
@@ -258,16 +281,21 @@
           cover: cover,
           source: 'Open Library',
           sourceBadge: '📖 Open Library',
-          format: hasFulltext ? 'EPUB' : 'CATALOG',
-          formatBadge: hasFulltext ? '⚡ EPUB' : 'ℹ️ Catalog Record (Borrow / View Only)',
+          format: isPublicScan ? 'EPUB' : 'CATALOG',
+          formatBadge: isPublicScan ? '⚡ EPUB' : (isBorrowable ? 'ℹ️ Borrowable Record (Archive.org)' : 'ℹ️ Catalog Record (Borrow / View Only)'),
           directEpub: Boolean(directEpubUrl),
           epubUrl: directEpubUrl,
           downloadUrl: directEpubUrl,
+          isBorrowable: isBorrowable,
+          annasUrl: annasUrl,
+          oceanUrl: oceanUrl,
           workUrl: workUrl,
           iaUrl: iaUrl,
-          summary: hasFulltext
-            ? 'Open access digital edition with instant EPUB download.'
-            : (doc.edition_count ? `${doc.edition_count} recorded editions across world libraries (borrowable/catalog).` : 'Catalog record on Open Library.')
+          summary: isPublicScan
+            ? 'Open access digital scan with direct in-app EPUB download.'
+            : (isBorrowable
+                ? 'Borrowable library loan on Internet Archive (Controlled Digital Lending). Use mirror buttons below to find downloadable EPUB/PDF.'
+                : (doc.edition_count ? `${doc.edition_count} recorded editions across world libraries (catalog).` : 'Catalog record on Open Library.'))
         });
       }
       return results;
@@ -585,9 +613,9 @@
     saveBookEpub,
     loadBookIntoApp,
     openExternalUrl,
-    getAnnasArchiveSearchUrl: (q) => `https://annas-archive.gl/search?q=${encodeURIComponent(q || '')}`,
-    getAnnasArchivePkSearchUrl: (q) => `https://annas-archive.pk/search?q=${encodeURIComponent(q || '')}`,
-    getOceanOfPdfSearchUrl: (q) => `https://oceanofpdf.site/?s=${encodeURIComponent(q || '')}`,
-    getZLibrarySearchUrl: (q) => `https://singlelogin.re/s/${encodeURIComponent(q || '')}`
+    getAnnasArchiveSearchUrl: (q) => (q && q.trim()) ? `https://annas-archive.gl/search?q=${encodeURIComponent(q.trim())}` : 'https://annas-archive.gl',
+    getAnnasArchivePkSearchUrl: (q) => (q && q.trim()) ? `https://annas-archive.pk/search?q=${encodeURIComponent(q.trim())}` : 'https://annas-archive.pk',
+    getOceanOfPdfSearchUrl: (q) => (q && q.trim()) ? `https://oceanofpdf.site/?s=${encodeURIComponent(q.trim())}` : 'https://oceanofpdf.site',
+    getZLibrarySearchUrl: (q) => (q && q.trim()) ? `https://singlelogin.re/s/${encodeURIComponent(q.trim())}` : 'https://singlelogin.re'
   };
 }));

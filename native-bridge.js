@@ -902,6 +902,32 @@
             return false;
         },
 
+        openExternalUrl: async (url) => {
+            if (!url) return false;
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.openExternalUrl) {
+                    await bridge.openExternalUrl({ url: url.trim() });
+                    return true;
+                }
+            } catch (e) {
+                console.warn('Native openExternalUrl Bridge:', e);
+            }
+            try {
+                const a = document.createElement('a');
+                a.href = url;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { try { a.remove(); } catch(_) {} }, 300);
+                return true;
+            } catch (_) {
+                window.open(url, '_blank', 'noopener,noreferrer');
+                return true;
+            }
+        },
+
         acquireWakeLock: async (title = "Gemini Translator Active", message = "Processing tasks in background...") => {
             try {
                 if (window.BackgroundKeepAlive) {

@@ -3390,6 +3390,27 @@ public class NativeAndroidBridgePlugin extends Plugin {
         }
     }
 
+    @PluginMethod
+    public void openExternalUrl(PluginCall call) {
+        try {
+            String url = call.getString("url");
+            if (url == null || url.trim().isEmpty()) {
+                call.reject("URL cannot be empty");
+                return;
+            }
+            Context context = getContext();
+            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url.trim()));
+            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(browserIntent);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open external URL: " + e.getMessage(), e);
+            call.reject("Failed to open external browser: " + e.getMessage());
+        }
+    }
+
     public static class OpdsServer {
         private ServerSocket serverSocket;
         private int port = 8080;
