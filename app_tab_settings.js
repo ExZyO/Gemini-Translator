@@ -562,8 +562,29 @@
                   const firstWithThisKey = allProvKeys.find(other => other.key && k.key && other.key.trim() === k.key.trim());
                   const isDuplicate = firstWithThisKey && firstWithThisKey.id !== k.id;
                   return h('div', { key: k.id, style: { padding: '6px 0', borderBottom: '1px solid rgba(36,39,48,.5)' } },
-                    h('div', { className: 'set-row' },
-                      h('input', { type: 'text', value: k.name || '', onChange: e => updateApiKey(provider, k.id, 'name', e.target.value), placeholder: 'Key profile name…', style: { background: 'transparent', border: 'none', color: 'var(--paper)', fontSize: 12, fontWeight: 600, flex: 1, minWidth: 0, outline: 'none' } }),
+                    h('div', { className: 'set-row', style: { gap: 8, alignItems: 'center' } },
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 140 } },
+                        h('span', { style: { fontSize: 13, opacity: 0.8 } }, '🏷️'),
+                        h('input', {
+                          type: 'text',
+                          value: k.name || '',
+                          onChange: e => updateApiKey(provider, k.id, 'name', e.target.value),
+                          placeholder: 'Profile name (e.g. Work, Key 1)…',
+                          title: 'Click to edit API key name / profile label',
+                          style: {
+                            background: 'rgba(255, 255, 255, 0.06)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            borderRadius: 6,
+                            padding: '4px 8px',
+                            color: 'var(--paper)',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            flex: 1,
+                            minWidth: 0,
+                            outline: 'none'
+                          }
+                        })
+                      ),
                       isActive
                         ? h('span', { className: 'badge' }, 'Active')
                         : h('button', { type: 'button', className: 'chip-act', onClick: () => setActiveKey(provider, k.id) }, 'Set Active'),

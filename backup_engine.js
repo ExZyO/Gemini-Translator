@@ -334,12 +334,13 @@
         appPreferences
       };
 
-      // 12. Optional API keys & sensitive tokens export
+      // 12. API key profiles & sensitive tokens export
+      const apiKeysByProvider = state.apiKeysByProvider || (() => {
+        try { return JSON.parse(localStorage.getItem('apiKeysByProvider') || '{}'); } catch(e) { return {}; }
+      })();
+
       if (shouldIncludeKeys) {
         const exportKeys = {};
-        const apiKeysByProvider = state.apiKeysByProvider || (() => {
-          try { return JSON.parse(localStorage.getItem('apiKeysByProvider') || '{}'); } catch(e) { return {}; }
-        })();
 
         ['gemini', 'deepseek', 'openai', 'claude', 'deepl', 'libre'].forEach(prov => {
           const legacyKey = localStorage.getItem(`${prov}ApiKey`) || (prov === 'gemini' ? (localStorage.getItem('apiKey') || '') : '');
@@ -373,6 +374,21 @@
         backup.gdrive_access_token = localStorage.getItem('gdrive_access_token') || '';
         backup.gdrive_token_expiry = localStorage.getItem('gdrive_token_expiry') || '';
         backup.gdrive_user_profile = localStorage.getItem('gdrive_user_profile') || '';
+      } else {
+        // Always export profile names and IDs (without sensitive key values) so named profiles survive restore
+        const safeKeys = {};
+        ['gemini', 'deepseek', 'openai', 'claude', 'deepl', 'libre'].forEach(prov => {
+          const profiles = (apiKeysByProvider && apiKeysByProvider[prov]) ? [...apiKeysByProvider[prov]] : [];
+          if (profiles.length > 0) {
+            safeKeys[prov] = profiles.map(p => ({ id: p.id || '', name: p.name || '', key: '' }));
+          }
+        });
+        if (Object.keys(safeKeys).length > 0) {
+          backup.apiKeysByProvider = safeKeys;
+          backup.activeKeyIds = state.activeKeyIds || (() => {
+            try { return JSON.parse(localStorage.getItem('activeKeyIds') || '{}'); } catch(e) { return {}; }
+          })();
+        }
       }
 
       return {
@@ -997,9 +1013,13 @@
         ['gemini', 'deepseek', 'openai', 'claude', 'deepl', 'libre'].forEach(prov => {
           const list = data.apiKeysByProvider[prov];
           if (Array.isArray(list) && list.length > 0) {
-            restoredKeys[prov] = list.filter(k => k && (k.key || typeof k === 'string')).map((k, idx) => {
+            restoredKeys[prov] = list.filter(k => k && (k.key || k.name || typeof k === 'string')).map((k, idx) => {
               if (typeof k === 'string') return { id: `${prov}-${Date.now()}-${idx}`, name: `${prov.toUpperCase()} Key ${idx + 1}`, key: k.trim() };
-              return k;
+              return {
+                id: k.id || `${prov}-${Date.now()}-${idx}`,
+                name: k.name || `${prov.toUpperCase()} Key ${idx + 1}`,
+                key: (k.key && typeof k.key === 'string') ? k.key.trim() : ''
+              };
             });
             restoredKeys[prov].forEach(k => {
               if (k.key && k.key.trim()) keyCount++;
@@ -1037,16 +1057,37 @@
       });
 
       if (Object.keys(restoredKeys).length > 0) {
+        const mergeIncomingWithDevice = (currentMap = {}) => {
+          const merged = { ...currentMap };
+          Object.keys(restoredKeys).forEach(prov => {
+            const incoming = restoredKeys[prov] || [];
+            const existing = currentMap[prov] || [];
+            merged[prov] = incoming.map((inK, idx) => {
+              // If incoming profile has empty key (e.g. key omitted from backup for security),
+              // preserve existing active key on device for matching ID or index
+              if (!inK.key) {
+                const match = existing.find(e => e.id === inK.id) || existing[idx];
+                if (match && match.key) {
+                  return { ...inK, key: match.key };
+                }
+              }
+              return inK;
+            });
+          });
+          return merged;
+        };
+
         if (setters.setApiKeysByProvider) {
           setters.setApiKeysByProvider(prev => {
-            const updated = { ...prev, ...restoredKeys };
+            const updated = mergeIncomingWithDevice(prev || {});
             localStorage.setItem('apiKeysByProvider', JSON.stringify(updated));
             return updated;
           });
         } else {
           try {
             const cur = JSON.parse(localStorage.getItem('apiKeysByProvider') || '{}');
-            localStorage.setItem('apiKeysByProvider', JSON.stringify({ ...cur, ...restoredKeys }));
+            const updated = mergeIncomingWithDevice(cur);
+            localStorage.setItem('apiKeysByProvider', JSON.stringify(updated));
           } catch(e) {}
         }
       }

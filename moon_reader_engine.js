@@ -497,9 +497,32 @@
         throw new Error('No new chapters could be retrieved from the source.');
       }
 
-      // 2. Merge original chapters with newly fetched chapters
-      const keepCount = Math.min(chapters.length, Math.max(0, start - 1));
-      const originalKeep = chapters.slice(0, keepCount);
+      // 2. Merge original chapters with newly fetched chapters based on story chapter numbers
+      let hasParsedNumbers = false;
+      const originalKeep = [];
+      for (let i = 0; i < chapters.length; i++) {
+        const ch = chapters[i];
+        const chTitle = ch.title || '';
+        const m = chTitle.match(/(?:chapter|ch\.?|ep\.?|episode|part)\s*(\d+(?:\.\d+)?)/i)
+               || chTitle.match(/第\s*(\d+)\s*[章话話集]/)
+               || chTitle.match(/^(\d+(?:\.\d+)?)\b/);
+        if (m) {
+          hasParsedNumbers = true;
+          const num = Math.floor(parseFloat(m[1]));
+          if (num < start) {
+            originalKeep.push(ch);
+          }
+        } else {
+          // Keep preface / front-matter without story chapter numbers if we haven't reached start count
+          if (originalKeep.length < start) {
+            originalKeep.push(ch);
+          }
+        }
+      }
+      if (!hasParsedNumbers) {
+        const keepCount = Math.min(chapters.length, Math.max(0, start - 1));
+        originalKeep.push(...chapters.slice(0, keepCount));
+      }
       const cleanChFn = (typeof cleanChapterTitle === 'function') ? cleanChapterTitle : ((typeof window !== 'undefined' && window.cleanChapterTitle) ? window.cleanChapterTitle : ((t, n) => String(t || '').replace(/\s*[-|–—:•~]\s*(?:Novel\s*Fire|Novelfire).*$/i, '').trim()));
       const mergedChapters = [
         ...originalKeep.map(c => ({ title: cleanChFn(c.title, title), text: c.text || c.content, content: c.text || c.content })),
@@ -570,6 +593,27 @@
     },
 
     /**
+     * Detects highest story chapter number from chapter titles
+     */
+    detectHighestChapterNumber(chapters = []) {
+      if (!Array.isArray(chapters) || chapters.length === 0) return 0;
+      let highest = 0;
+      for (let i = chapters.length - 1; i >= 0; i--) {
+        const title = chapters[i]?.title || '';
+        const m = title.match(/(?:chapter|ch\.?|ep\.?|episode|part)\s*(\d+(?:\.\d+)?)/i)
+               || title.match(/第\s*(\d+)\s*[章话話集]/)
+               || title.match(/^(\d+(?:\.\d+)?)\b/);
+        if (m) {
+          const num = Math.floor(parseFloat(m[1]));
+          if (num > highest && num < 100000) {
+            highest = num;
+          }
+        }
+      }
+      return highest;
+    },
+
+    /**
      * Inspects an ongoing EPUB file and constructs the continuation modal state
      */
     async inspectOngoingEpubFile(file, options = {}, callbacks = {}) {
@@ -598,6 +642,8 @@
 
         const cleanTitle = (epub.title || file.name.replace(/\.epub$/i, '')).replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
         const existingCount = epub.chapters.length;
+        const highestStoryChapter = this.detectHighestChapterNumber(epub.chapters);
+        const suggestedStart = (highestStoryChapter > 0 ? highestStoryChapter : existingCount) + 1;
         const detectedSource = epub.sourceUrl || '';
         const fOpts = this.getNovelFolderOptions({ id: epub.uuid, title: cleanTitle, sourceUrl: detectedSource });
 
@@ -613,6 +659,7 @@
           uuid: epub.uuid || '',
           chapters: epub.chapters,
           existingCount,
+          highestStoryChapter,
           sourceUrl: detectedSource,
           selectedSource: null,
           continuationSources: [],
@@ -623,8 +670,8 @@
           onlineToc: null,
           totalOnlineCount: 0,
           isScanningToc: false,
-          startChapter: existingCount + 1,
-          endChapter: existingCount + 1,
+          startChapter: suggestedStart,
+          endChapter: suggestedStart,
           isFetching: false,
           progress: { status: '', pct: 0, elapsed: '' }
         };
@@ -695,6 +742,8 @@
 
         const cleanTitle = (epubMeta?.title || full.title || 'Novel').replace(/\s*-\s*\d+\s*chs?$/i, '').trim();
         const existingCount = chs.length;
+        const highestStoryChapter = this.detectHighestChapterNumber(chs);
+        const suggestedStart = (highestStoryChapter > 0 ? highestStoryChapter : existingCount) + 1;
         const detectedSource = epubMeta?.sourceUrl || full.sourceUrl || full.url || '';
         const fOpts = this.getNovelFolderOptions(full || novelItem);
 
@@ -710,6 +759,7 @@
           uuid: epubMeta?.uuid || full.uuid || full.id || '',
           chapters: chs,
           existingCount,
+          highestStoryChapter,
           sourceUrl: detectedSource,
           selectedSource: null,
           continuationSources: [],
@@ -720,8 +770,8 @@
           onlineToc: null,
           totalOnlineCount: 0,
           isScanningToc: false,
-          startChapter: existingCount + 1,
-          endChapter: existingCount + 1,
+          startChapter: suggestedStart,
+          endChapter: suggestedStart,
           isFetching: false,
           progress: { status: '', pct: 0, elapsed: '' }
         };
@@ -966,7 +1016,7 @@
           if (typeof setOngoingEpubModal === 'function') {
             setOngoingEpubModal(prev => {
               if (!prev) return null;
-              const curExisting = prev.existingCount || existingCount || 0;
+              const curExisting = (prev.highestStoryChapter > 0 ? prev.highestStoryChapter : prev.existingCount) || existingCount || 0;
               const isUpToDate = curExisting >= totalOnlineCount;
               const start = isUpToDate ? totalOnlineCount : (curExisting + 1);
               return {
@@ -980,7 +1030,7 @@
             });
           }
           if (typeof toast === 'function') {
-            const curExisting = existingCount || 0;
+            const curExisting = (options.ongoingEpubModal?.highestStoryChapter > 0 ? options.ongoingEpubModal.highestStoryChapter : (options.ongoingEpubModal?.existingCount || existingCount)) || 0;
             if (curExisting >= totalOnlineCount) {
               toast(`Novel is already up to date! Found ${totalOnlineCount} online chapters.`, 'info');
             } else {

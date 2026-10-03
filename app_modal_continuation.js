@@ -214,7 +214,10 @@
                   fontWeight: 600,
                   border: '1px solid rgba(99, 102, 241, 0.3)'
                 }
-              }, `📚 ${ongoingEpubModal.existingCount || 0} chapters in EPUB`),
+              }, ongoingEpubModal.highestStoryChapter > 0
+                ? `📚 ${ongoingEpubModal.highestStoryChapter} chapters in EPUB (Next: Ch. ${ongoingEpubModal.startChapter || (ongoingEpubModal.highestStoryChapter + 1)})`
+                : `📚 ${ongoingEpubModal.existingCount || 0} chapters in EPUB`
+              ),
               h('span', {
                 style: {
                   fontSize: 11.5,

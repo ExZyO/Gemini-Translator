@@ -312,8 +312,8 @@
       s = s.replace(/\*\*([^\n]+?)\*\*/g, '<strong>$1</strong>');
       s = s.replace(/__([^\n]+?)__/g, '<strong>$1</strong>');
 
-      // 3. Italic: *text* or _text_ (single, not inside words)
-      s = s.replace(/(?<!\w)\*([^*\n]+?)\*(?!\w)/g, '<em>$1</em>');
+      // 3. Italic: *text* or _text_ (supports dialogue quotes, punctuation, and glued text)
+      s = s.replace(/\*([^*\n\s](?:[^*\n]*?[^*\n\s])?|\S)\*/g, '<em>$1</em>');
       s = s.replace(/(?<!\w)_([^_\n]+?)_(?!\w)/g, '<em>$1</em>');
 
       // 4. Strikethrough: ~~text~~
@@ -1555,8 +1555,8 @@ hr {
             s = s.replace(/\*\*([^\n]+?)\*\*/g, '<strong>$1</strong>');
             s = s.replace(/__([^\n]+?)__/g, '<strong>$1</strong>');
 
-            // 3. Italic: *text* or _text_ (single, not inside words)
-            s = s.replace(/(?<!\w)\*([^*\n]+?)\*(?!\w)/g, '<em>$1</em>');
+            // 3. Italic: *text* or _text_ (supports dialogue quotes, punctuation, and glued text)
+            s = s.replace(/\*([^*\n\s](?:[^*\n]*?[^*\n\s])?|\S)\*/g, '<em>$1</em>');
             s = s.replace(/(?<!\w)_([^_\n]+?)_(?!\w)/g, '<em>$1</em>');
 
             // 4. Strikethrough: ~~text~~

@@ -1,9 +1,9 @@
 {
-  "version": "8.18.41",
-  "versionCode": 8341,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.41/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.41/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.41",
-  "releaseDate": "2026-10-03",
-  "releaseNotes": "v8.18.41: Fix scene break asterisks formatting, prevent bold-wrapping dividers, and preserve LitRPG status/skill bracket content."
+  "version": "8.18.42",
+  "versionCode": 8342,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.42/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.42/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.42",
+  "releaseDate": "2026-10-04",
+  "releaseNotes": "v8.18.42: Fix continuation chapter skipping with preface pages, fix italic asterisks in translated prose, visible API key profile names with backup parity."
 }
