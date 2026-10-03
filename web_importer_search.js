@@ -720,7 +720,7 @@
         const cleanQ = query.trim();
         const src = (source || 'all').replace(/[\s\-_]+/g, '').toLowerCase();
 
-        const withTimeout = (p, ms = 18000) => Promise.race([
+        const withTimeout = (p, ms = 20000) => Promise.race([
             p,
             new Promise(resolve => setTimeout(() => resolve([]), ms))
         ]);
@@ -771,7 +771,7 @@
                 }
                 return items;
             }).catch(() => []);
-            runners.push(withTimeout(wrapped, 12000));
+            runners.push(withTimeout(wrapped, 20000));
         };
 
         if (src === 'all' || src === 'novelbuddy') {

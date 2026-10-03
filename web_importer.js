@@ -831,8 +831,8 @@
         // 3. Tiered Public Proxy Failover Pool (Fast sub-second proxies prioritized)
         const proxyPool = [
             { name: 'corsproxy.io', getUrl: (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
-            { name: 'corsproxy.org', getUrl: (u) => `https://corsproxy.org/?${encodeURIComponent(u)}` },
-            { name: 'allorigins.win', getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` }
+            { name: 'allorigins.win', getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+            { name: 'codetabs', getUrl: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
         ];
 
         for (let i = 0; i < proxyPool.length; i++) {
@@ -842,7 +842,7 @@
             let onParentAbort = null;
             try {
                 const proxyCtrl = new AbortController();
-                proxyTimer = setTimeout(() => proxyCtrl.abort(), 5500);
+                proxyTimer = setTimeout(() => proxyCtrl.abort(), 7500);
 
                 onParentAbort = () => {
                     clearTimeout(proxyTimer);

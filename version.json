@@ -1,9 +1,9 @@
 {
-  "version": "8.18.32",
-  "versionCode": 8332,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.32/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.32/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.32",
+  "version": "8.18.33",
+  "versionCode": 8333,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.33/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.33/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.33",
   "releaseDate": "2026-10-03",
-  "releaseNotes": "v8.18.32: Fix crawler helper scoping, abort signal state, and Open Library borrowable records."
+  "releaseNotes": "v8.18.33: NovelFire Cloudflare rate-limit protection and multi-source novel search optimization."
 }

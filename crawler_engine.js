@@ -736,8 +736,10 @@
             });
             if (Array.isArray(fallbackResults) && fallbackResults.length > 0) {
               addItems(fallbackResults);
+            }
+            if (unifiedResults.length > 0) {
               callbacks?.onFilterFallback?.('all');
-              safeToast(callbacks, `No results on ${sourceOverride}, but found ${unifiedResults.length} across other sources!`, 'info');
+              safeToast(callbacks, `No results on ${sourceOverride}, but found ${unifiedResults.length} across web novel sources!`, 'info');
               fallbackShown = true;
             }
           }

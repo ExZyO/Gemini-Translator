@@ -303,8 +303,16 @@
       if (isBookSearchMode) return 'books';
       if (isSwiftAudioMode) return 'audio';
       if (novelSearchFilter === 'Lnori') return 'ln';
-      return 'ln';
+      return 'wn';
     });
+
+    useEffect(() => {
+      if (novelSearchFilter === 'all' && importCategoryTab === 'ln') {
+        setImportCategoryTab('wn');
+      } else if (novelSearchFilter === 'Lnori' && importCategoryTab !== 'ln') {
+        setImportCategoryTab('ln');
+      }
+    }, [novelSearchFilter]);
 
     const isLnoriUrl = /lnori\.(?:org|com)\/(?:series|book)\//i.test(webImportUrl);
               const isWitchCultUrl = /witchculttranslation\.com|rezero/i.test(webImportUrl);
