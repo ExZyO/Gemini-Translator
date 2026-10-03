@@ -655,6 +655,16 @@
             return { blocked: true, type: 'app_store_redirect', label: 'App Store Redirect Trap' };
         }
 
+        if (text.length < 3500 && (
+            lower.includes('<title>loading...</title>') ||
+            lower.includes('<title>redirecting to') ||
+            lower.includes('window.location.href = "https://novelphoenix.com') ||
+            lower.includes('window.location.href = "https://readnovel.site') ||
+            (lower.includes('http-equiv="refresh"') && lower.includes('url='))
+        )) {
+            return { blocked: true, type: 'redirect_trap', label: 'Redirect / Loading Spinner Trap' };
+        }
+
         return { blocked: false, type: null };
     }
 
@@ -703,6 +713,16 @@
             context,
             timeoutMs
         });
+
+        // Anti-redirect desktop headers for NovelFire and similar sites that return mobile redirect traps:
+        const isNovelFire = (typeof url === 'string') && url.includes('novelfire.');
+        if (isNovelFire) {
+            const desktopUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+            options.headers = Object.assign({
+                'User-Agent': desktopUa,
+                'Referer': 'https://novelfire.net/'
+            }, options.headers || {});
+        }
 
         // 0. Direct Fetch Fast-Path (Instant sub-second resolution for CORS-enabled APIs and direct network environments)
         try {
@@ -1217,8 +1237,7 @@
                     }
                 }
 
-                if (ctrl.isPaused || ctrl.isCancelled) break;
-
+                let chapterSaved = false;
                 if (chData && (chData.text || chData.content)) {
                     let chapterText = chData.text || chData.content || '';
                     const trapCleaner = (typeof window !== 'undefined' && window.stripInvisibleTrapsAndWatermarks) ? window.stripInvisibleTrapsAndWatermarks : (typeof stripInvisibleTrapsAndWatermarks === 'function' ? stripInvisibleTrapsAndWatermarks : null);
@@ -1231,43 +1250,51 @@
                         chapterText = stripFn(chapterText, chTitle, chData.originalTitle);
                     }
                     const words = chapterText.split(/\s+/).filter(Boolean).length;
-                    const imgCount = (chapterText.match(/!\[Illustration\]/g) || []).length;
-                    totalImagesCount += imgCount;
-                    totalWordsEstimate += words;
-                    const newChapterObj = {
-                        idx: currentIndex,
-                        url: item.url || '',
-                        title: chTitle,
-                        text: chapterText,
-                        content: chapterText,
-                        words,
-                        arc: chData.arc || item.arc || '',
-                        volume: chData.volume || item.volume || ''
-                    };
-                    chapters.push(newChapterObj);
-                    completedIndices.add(currentIndex);
+                    const rawClean = chapterText.replace(/<[^>]+>/g, '').trim();
+                    if ((words < 5 || rawClean.length < 35) && !chData.isPlaceholder) {
+                        console.warn(`[Crawl Pool] Chapter ${currentIndex + 1} content rejected as empty/truncated (${words}w, ${rawClean.length}c). Triggering retry...`);
+                    } else {
+                        const imgCount = (chapterText.match(/!\[Illustration\]/g) || []).length;
+                        totalImagesCount += imgCount;
+                        totalWordsEstimate += words;
+                        const newChapterObj = {
+                            idx: currentIndex,
+                            url: item.url || '',
+                            title: chTitle,
+                            text: chapterText,
+                            content: chapterText,
+                            words,
+                            arc: chData.arc || item.arc || '',
+                            volume: chData.volume || item.volume || ''
+                        };
+                        chapters.push(newChapterObj);
+                        completedIndices.add(currentIndex);
 
-                    window.sendTelemetry?.('CHAPTER_OK', `Saved Ch ${currentIndex + 1}/${chapterList.length}: ${newChapterObj.title} (${words}w, ${completedIndices.size}/${targetChapterCount} done)`);
+                        window.sendTelemetry?.('CHAPTER_OK', `Saved Ch ${currentIndex + 1}/${chapterList.length}: ${newChapterObj.title} (${words}w, ${completedIndices.size}/${targetChapterCount} done)`);
 
-                    if (ctrl.onChapterDone && !ctrl.isPaused && !ctrl.isCancelled) {
-                        try {
-                            ctrl.onChapterDone(newChapterObj, chapters, {
-                                current: completedIndices.size,
-                                completedCount: completedIndices.size,
-                                total: targetChapterCount,
-                                totalCount: targetChapterCount,
-                                totalWords: totalWordsEstimate,
-                                chapterList: chapterList,
-                                title: ctrl.novelMeta?.title || meta?.title || '',
-                                author: ctrl.novelMeta?.author || meta?.author || '',
-                                summary: ctrl.novelMeta?.summary || meta?.summary || '',
-                                cover: ctrl.novelMeta?.cover || meta?.cover || ''
-                            });
-                        } catch (cbErr) {
-                            console.warn('onChapterDone callback error:', cbErr);
+                        if (ctrl.onChapterDone && !ctrl.isPaused && !ctrl.isCancelled) {
+                            try {
+                                ctrl.onChapterDone(newChapterObj, chapters, {
+                                    current: completedIndices.size,
+                                    completedCount: completedIndices.size,
+                                    total: targetChapterCount,
+                                    totalCount: targetChapterCount,
+                                    totalWords: totalWordsEstimate,
+                                    chapterList: chapterList,
+                                    title: ctrl.novelMeta?.title || meta?.title || '',
+                                    author: ctrl.novelMeta?.author || meta?.author || '',
+                                    summary: ctrl.novelMeta?.summary || meta?.summary || '',
+                                    cover: ctrl.novelMeta?.cover || meta?.cover || ''
+                                });
+                            } catch (cbErr) {
+                                console.warn('onChapterDone callback error:', cbErr);
+                            }
                         }
+                        chapterSaved = true;
                     }
-                } else if (!ctrl.isPaused && !ctrl.isCancelled) {
+                }
+                
+                if (!chapterSaved && !ctrl.isPaused && !ctrl.isCancelled) {
                     const retries = (chapterRetryCounts.get(currentIndex) || 0) + 1;
                     chapterRetryCounts.set(currentIndex, retries);
                     if (retries <= 3) {

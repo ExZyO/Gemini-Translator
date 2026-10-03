@@ -26,7 +26,11 @@
       const fetchHtml = (window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
       if (!fetchHtml) throw new Error('HTML fetcher not initialized');
 
-      const html = await fetchHtml(url, { headers: { 'Referer': 'https://novelfire.net/' } });
+      const desktopUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+      const nfHeaders = { 'Referer': 'https://novelfire.net/', 'User-Agent': desktopUa };
+      const bookUrl = url.trim().replace(/\/chapter[-/].*$/i, '').replace(/\/chapters$/i, '');
+
+      const html = await fetchHtml(bookUrl, { headers: nfHeaders });
       const doc = new DOMParser().parseFromString(html, 'text/html');
 
       const title = this.decodeHtml(doc.querySelector('h1.novel-title, h1, .book-title')?.textContent?.trim() || 'NovelFire Novel');
@@ -52,10 +56,28 @@
         });
       });
 
-      if (chapters.length === 0) {
+      // Total count check from .header-stats
+      const statsMatch = html.match(/(\d[\d,]*)\s*<\/(?:strong|b|span)>\s*<small>Chapters<\/small>/i) ||
+                         html.match(/(\d[\d,]*)\s*Chapters/i) ||
+                         html.match(/class=["']header-stats["'][\s\S]*?<strong>(\d[\d,]*)<\/strong>/i);
+      let totalCount = statsMatch ? parseInt(statsMatch[1].replace(/,/g, ''), 10) : 0;
+      if (!totalCount) {
+        const sEl = doc.querySelector('.header-stats strong, .novel-stats strong');
+        if (sEl && /^\d+$/.test(sEl.textContent.trim())) totalCount = parseInt(sEl.textContent.trim(), 10);
+      }
+
+      if (totalCount > chapters.length) {
+        for (let i = chapters.length + 1; i <= totalCount; i++) {
+          chapters.push({
+            title: `Chapter ${i}`,
+            url: `${bookUrl}/chapter-${i}`,
+            order: i
+          });
+        }
+      } else if (chapters.length === 0) {
         chapters.push({
           title: title || 'Chapter 1',
-          url: url,
+          url: `${bookUrl}/chapter-1`,
           order: 1
         });
       }
@@ -68,7 +90,7 @@
         summary,
         status: 'Ongoing',
         chapters,
-        sourceUrl: url
+        sourceUrl: bookUrl
       };
     }
 
@@ -76,17 +98,28 @@
       const fetchHtml = (window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
       if (!fetchHtml) throw new Error('HTML fetcher not initialized');
 
-      const html = await fetchHtml(chapterUrl, { headers: { 'Referer': 'https://novelfire.net/' } });
+      const desktopUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+      const nfHeaders = { 'Referer': 'https://novelfire.net/', 'User-Agent': desktopUa };
+
+      const html = await fetchHtml(chapterUrl, { headers: nfHeaders });
       const doc = new DOMParser().parseFromString(html, 'text/html');
 
       const title = this.decodeHtml(doc.querySelector('h1.chapter-title, h1, .chapter-name')?.textContent?.trim() || options.title || 'Chapter');
-      const contentEl = doc.querySelector('.chapter-content, #chapter-content, .content-inner') || doc.body;
+      const contentEl = doc.querySelector('.d-chapter-content, #chapter-container, #chapter-article, div#content, .chapter-content, #chapter-content, .content-inner') || doc.body;
 
-      // Strip ad banners, scripts, and promotional elements
-      contentEl.querySelectorAll('script, style, iframe, .ads, .ad-container, [id*="ad_"], .chapter-nav').forEach(el => el.remove());
+      // Strip ad banners, comments, scripts, and promotional elements
+      contentEl.querySelectorAll('script, style, iframe, .ads, .ad, .ad-container, [id*="ad_"], .chapter-nav, .cmt, .box-notice, .chapternav, .nf-ads, #chapter-nav').forEach(el => el.remove());
+      if (contentEl.firstElementChild && /^\s*chapter\s+\d+/i.test(contentEl.firstElementChild.textContent.trim())) {
+        contentEl.firstElementChild.remove();
+      }
 
       const cleanHtmlFn = (window.WebNovelImporter && window.WebNovelImporter.cleanChapterHtmlWithImages) || null;
       const content = cleanHtmlFn ? cleanHtmlFn(contentEl.innerHTML || contentEl.textContent || '') : (contentEl.textContent || '').trim();
+      const rawClean = content.replace(/<[^>]+>/g, '').trim();
+
+      if (rawClean.length < 35) {
+        throw new Error(`NovelFire chapter returned empty/truncated body (${rawClean.length}c)`);
+      }
 
       return {
         title,

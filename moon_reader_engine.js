@@ -394,10 +394,12 @@
      * Scans remote TOC to discover latest online chapter count
      */
     async scanContinuationToc(targetUrl) {
-      const cleanUrl = (targetUrl || '').trim();
+      let cleanUrl = (targetUrl || '').trim();
       if (!cleanUrl || !/^https?:\/\//i.test(cleanUrl)) {
         throw new Error('Please enter a valid web novel source URL.');
       }
+      // Normalize chapter URLs back to base novel URL for TOC inspection
+      cleanUrl = cleanUrl.replace(/\/chapter[-_/\d].*$/i, '').replace(/\/chapters\/?$/i, '');
       if (!window.WebNovelImporter?.importUrl) {
         throw new Error('Web Novel Importer is not loaded.');
       }
@@ -936,19 +938,25 @@
             setOngoingEpubModal(prev => {
               if (!prev) return null;
               const curExisting = prev.existingCount || existingCount || 0;
-              const start = curExisting + 1;
+              const isUpToDate = curExisting >= totalOnlineCount;
+              const start = isUpToDate ? totalOnlineCount : (curExisting + 1);
               return {
                 ...prev,
                 isScanningToc: false,
                 onlineToc: chapterList || [],
                 totalOnlineCount,
-                startChapter: Math.min(start, totalOnlineCount),
-                endChapter: totalOnlineCount
+                startChapter: Math.max(1, Math.min(start, totalOnlineCount)),
+                endChapter: Math.max(1, totalOnlineCount)
               };
             });
           }
           if (typeof toast === 'function') {
-            toast(`Discovered ${totalOnlineCount} chapters online! (Ready to fetch from Ch. ${(existingCount || 0) + 1})`, 'success');
+            const curExisting = existingCount || 0;
+            if (curExisting >= totalOnlineCount) {
+              toast(`Novel is already up to date! Found ${totalOnlineCount} online chapters.`, 'info');
+            } else {
+              toast(`Discovered ${totalOnlineCount} chapters online! (Ready to fetch from Ch. ${curExisting + 1})`, 'success');
+            }
           }
           return { totalOnlineCount, chapterList };
         } catch (err) {
