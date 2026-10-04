@@ -19,12 +19,17 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
     signingConfigs {
-        // Persistent signing key — same key every CI build so users can update without uninstalling
+        // Persistent signing key — credentials loaded from local keystore.properties (not tracked by git)
         release {
-            storeFile file("${rootProject.projectDir}/gemini-release.keystore")
-            storePassword "GeminiTranslator2026"
-            keyAlias "gemini-release"
-            keyPassword "GeminiTranslator2026"
+            def keystorePropsFile = file("${rootProject.projectDir}/keystore.properties")
+            if (keystorePropsFile.exists()) {
+                def keystoreProps = new Properties()
+                keystoreProps.load(new FileInputStream(keystorePropsFile))
+                storeFile file("${rootProject.projectDir}/${keystoreProps['storeFile']}")
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
         }
     }
     buildTypes {
