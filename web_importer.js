@@ -889,6 +889,7 @@
 
         // 3. Tiered Public Proxy Failover Pool (Fast sub-second proxies prioritized)
         const proxyPool = [
+            { name: 'corsproxy.org', getUrl: (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}` },
             { name: 'corsproxy.io', getUrl: (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
             { name: 'allorigins.win', getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
             { name: 'codetabs', getUrl: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }

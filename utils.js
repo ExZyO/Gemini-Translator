@@ -101,7 +101,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
         if (window.NativeBridge && window.NativeBridge.saveBlob) {
             const res = await window.NativeBridge.saveBlob(blob, fileName, mimeType, openChooser, options);
             const folderName = options?.folderPath || (options?.subDir ? options.subDir : 'Downloads');
-            if (window.__setDownloadModal) {
+            if (window.__setDownloadModal && !options?.suppressModal) {
                 window.__setDownloadModal({ fileName, path: res?.path || (folderName + '/' + fileName), mimeType });
             }
             if (typeof showToast === 'function') {

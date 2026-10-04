@@ -1843,7 +1843,7 @@
       setDownloadSuccessModal(null);
     };
 
-    return h('div', { className: 'confirm-backdrop', style: { zIndex: 126 }, onClick: () => setDownloadSuccessModal(null) },
+    return h('div', { className: 'confirm-backdrop', style: { zIndex: 10100 }, onClick: () => setDownloadSuccessModal(null) },
       h('div', { className: 'confirm-box', style: { maxWidth: 440, width: '92%' }, onClick: (e) => e.stopPropagation() },
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 } },
           h('span', { style: { fontSize: 24 } }, isContinuation ? '📚' : '🎉'),

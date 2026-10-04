@@ -1150,7 +1150,10 @@
               gap: 8
             },
             disabled: ongoingEpubModal.isFetching || !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isScanningToc,
-            onClick: handleExecuteContinuation
+            onClick: (e) => {
+              if (ongoingEpubModal.isFetching || ongoingEpubModal.isScanningToc) return;
+              if (handleExecuteContinuation) handleExecuteContinuation();
+            }
           }, ongoingEpubModal.isFetching ? '⏳ Fetching & Merging…' : `▶ Fetch Ch. ${ongoingEpubModal.startChapter}–${ongoingEpubModal.endChapter} & Update EPUB`)
         )
       )
