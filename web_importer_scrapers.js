@@ -1191,7 +1191,7 @@
         const doc = new DOMParser().parseFromString(html, 'text/html');
 
         const title = doc.querySelector('h3.title, .books .desc h3, .novel-title')?.textContent?.trim() || 'Novel';
-        const author = doc.querySelector('.info div:has(h3:contains("Author")) a, .author a, .info a[href*="/author/"]')?.textContent?.trim() || 'Author';
+        const author = (window.safeQuerySelector ? window.safeQuerySelector(doc, '.info div:has(h3:contains("Author")) a, .author a, .info a[href*="/author/"]') : doc.querySelector('.author a, .info a[href*="/author/"]'))?.textContent?.trim() || 'Author';
         const summary = doc.querySelector('.desc-text, #tab-description, .summary')?.textContent?.trim() || '';
         const cover = extractPageCover(doc, url);
 
@@ -1277,7 +1277,7 @@
         const title = doc.querySelector('meta[property="og:novel:novel_name"]')?.getAttribute('content')?.trim() ||
                       doc.querySelector('h3.title, .books .desc h3, .novel-title, h1')?.textContent?.trim() || 'NovelBin Novel';
         const author = doc.querySelector('meta[property="og:novel:author"]')?.getAttribute('content')?.trim() ||
-                       doc.querySelector('.info li:has(h3) a, .info a[href*="/author/"], .author a')?.textContent?.trim() || 'Author';
+                       (window.safeQuerySelector ? window.safeQuerySelector(doc, '.info li:has(h3) a, .info a[href*="/author/"], .author a') : doc.querySelector('.author a, .info a[href*="/author/"]'))?.textContent?.trim() || 'Author';
         const summary = doc.querySelector('.desc-text, #tab-description, .summary')?.textContent?.trim() || '';
         const cover = extractPageCover(doc, origin);
 

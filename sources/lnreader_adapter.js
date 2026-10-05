@@ -29,7 +29,7 @@
   /**
    * Helper to query DOM elements safely supporting jQuery/Cheerio pseudo-selectors like :contains("...")
    */
-  function safeQuerySelectorAll(root, selector) {
+  function legacyFallback(root, selector) {
     if (!root || !selector) return [];
     const trimmed = selector.trim();
 
@@ -70,6 +70,13 @@
     }
   }
 
+  function safeQuerySelectorAll(root, selector) {
+    if (typeof window !== 'undefined' && window.safeQuerySelectorAll) {
+      return window.safeQuerySelectorAll(root, selector);
+    }
+    return legacyFallback(root, selector);
+  }
+
   /**
    * Comprehensive Cheerio browser/DOM shim for LNReader plugins.
    * Maps Cheerio & jQuery traversal methods directly to native DOM manipulation.
@@ -89,6 +96,19 @@
           doc = document.implementation.createHTMLDocument('');
           doc.documentElement.innerHTML = html || '';
         }
+
+        const safeMatchesLocal = (el, sel) => {
+          if (!el || !sel) return false;
+          if (typeof window !== 'undefined' && window.safeMatches) {
+            return window.safeMatches(el, sel);
+          }
+          try {
+            const matchesFn = el.matches || el.webkitMatchesSelector || el.mozMatchesSelector || el.msMatchesSelector;
+            return matchesFn ? matchesFn.call(el, sel) : false;
+          } catch (_) {
+            return false;
+          }
+        };
 
         function wrapElements(elements) {
           const rawList = Array.isArray(elements) ? elements : (elements ? [elements] : []);
@@ -129,7 +149,7 @@
               if (el && el.children) {
                 for (let i = 0; i < el.children.length; i++) {
                   const child = el.children[i];
-                  if (!selector || (child.matches && child.matches(selector))) {
+                  if (!selector || safeMatchesLocal(child, selector)) {
                     kids.push(child);
                   }
                 }
@@ -142,7 +162,7 @@
             const parents = [];
             list.forEach(el => {
               const p = el.parentElement;
-              if (p && (!selector || (p.matches && p.matches(selector)))) {
+              if (p && (!selector || safeMatchesLocal(p, selector))) {
                 if (!parents.includes(p)) parents.push(p);
               }
             });
@@ -154,7 +174,7 @@
             list.forEach(el => {
               let cur = el.parentElement;
               while (cur && cur !== (doc && doc.body) && cur !== (doc && doc.documentElement)) {
-                if (!selector || (cur.matches && cur.matches(selector))) {
+                if (!selector || safeMatchesLocal(cur, selector)) {
                   if (!parents.includes(cur)) parents.push(cur);
                 }
                 cur = cur.parentElement;
@@ -166,10 +186,21 @@
           wrapper.closest = function(selector) {
             const matches = [];
             list.forEach(el => {
-              if (el && el.closest) {
-                const c = el.closest(selector);
-                if (c && !matches.includes(c)) matches.push(c);
+              if (!el) return;
+              let c = null;
+              try {
+                if (el.closest) c = el.closest(selector);
+              } catch (_) {
+                let cur = el;
+                while (cur && cur.nodeType === 1) {
+                  if (safeMatchesLocal(cur, selector)) {
+                    c = cur;
+                    break;
+                  }
+                  cur = cur.parentElement;
+                }
               }
+              if (c && !matches.includes(c)) matches.push(c);
             });
             return wrapElements(matches);
           };
@@ -178,7 +209,7 @@
             const nexts = [];
             list.forEach(el => {
               const n = el.nextElementSibling;
-              if (n && (!selector || (n.matches && n.matches(selector)))) {
+              if (n && (!selector || safeMatchesLocal(n, selector))) {
                 if (!nexts.includes(n)) nexts.push(n);
               }
             });
@@ -189,7 +220,7 @@
             const prevs = [];
             list.forEach(el => {
               const p = el.previousElementSibling;
-              if (p && (!selector || (p.matches && p.matches(selector)))) {
+              if (p && (!selector || safeMatchesLocal(p, selector))) {
                 if (!prevs.includes(p)) prevs.push(p);
               }
             });
@@ -216,7 +247,7 @@
               return wrapElements(passed);
             }
             if (typeof filterFnOrSelector === 'string') {
-              const passed = list.filter(el => el.matches && el.matches(filterFnOrSelector));
+              const passed = list.filter(el => safeMatchesLocal(el, filterFnOrSelector));
               return wrapElements(passed);
             }
             return wrapElements(list);
@@ -228,14 +259,14 @@
               return wrapElements(passed);
             }
             if (typeof filterFnOrSelector === 'string') {
-              const passed = list.filter(el => !el.matches || !el.matches(filterFnOrSelector));
+              const passed = list.filter(el => !safeMatchesLocal(el, filterFnOrSelector));
               return wrapElements(passed);
             }
             return wrapElements(list);
           };
 
           wrapper.is = function(selector) {
-            return list.some(el => el.matches && el.matches(selector));
+            return list.some(el => safeMatchesLocal(el, selector));
           };
 
           wrapper.hasClass = function(className) {

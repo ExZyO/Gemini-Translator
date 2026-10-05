@@ -1455,6 +1455,297 @@ window.callWorker = callWorker;
 
 window.InfoTooltip = InfoTooltip;
 
+// --- Central Safe DOM Query Helpers (Supports jQuery/Cheerio pseudos like :contains, :has, :eq) ---
+const _warnedSelectors = new Set();
+
+function splitTopLevelCommas(selector) {
+    const parts = [];
+    let current = '';
+    let parenDepth = 0;
+    let bracketDepth = 0;
+    let inQuote = null;
+
+    for (let i = 0; i < selector.length; i++) {
+        const char = selector[i];
+        if (inQuote) {
+            current += char;
+            if (char === inQuote && selector[i - 1] !== '\\') {
+                inQuote = null;
+            }
+        } else if (char === '"' || char === "'") {
+            inQuote = char;
+            current += char;
+        } else if (char === '(') {
+            parenDepth++;
+            current += char;
+        } else if (char === ')') {
+            if (parenDepth > 0) parenDepth--;
+            current += char;
+        } else if (char === '[') {
+            bracketDepth++;
+            current += char;
+        } else if (char === ']') {
+            if (bracketDepth > 0) bracketDepth--;
+            current += char;
+        } else if (char === ',' && parenDepth === 0 && bracketDepth === 0) {
+            if (current.trim()) parts.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    if (current.trim()) parts.push(current.trim());
+    return parts;
+}
+
+function findFirstNonNativePseudo(part) {
+    let parenDepth = 0;
+    let bracketDepth = 0;
+    let inQuote = null;
+
+    for (let i = 0; i < part.length; i++) {
+        const char = part[i];
+        if (inQuote) {
+            if (char === inQuote && part[i - 1] !== '\\') inQuote = null;
+            continue;
+        }
+        if (char === '"' || char === "'") {
+            inQuote = char;
+            continue;
+        }
+        if (char === '(') {
+            parenDepth++;
+            continue;
+        }
+        if (char === ')') {
+            if (parenDepth > 0) parenDepth--;
+            continue;
+        }
+        if (char === '[') {
+            bracketDepth++;
+            continue;
+        }
+        if (char === ']') {
+            if (bracketDepth > 0) bracketDepth--;
+            continue;
+        }
+
+        if (parenDepth === 0 && bracketDepth === 0 && char === ':') {
+            const sub = part.slice(i);
+            const containsMatch = sub.match(/^:contains\(/i);
+            const hasMatch = sub.match(/^:has\(/i);
+            const eqMatch = sub.match(/^:eq\(/i);
+            const gtMatch = sub.match(/^:gt\(/i);
+            const ltMatch = sub.match(/^:lt\(/i);
+            const firstMatch = sub.match(/^:first(?![a-zA-Z0-9_\-])/i);
+            const lastMatch = sub.match(/^:last(?![a-zA-Z0-9_\-])/i);
+
+            if (containsMatch || hasMatch || eqMatch || gtMatch || ltMatch) {
+                const pseudoType = containsMatch ? 'contains' :
+                                   hasMatch ? 'has' :
+                                   eqMatch ? 'eq' :
+                                   gtMatch ? 'gt' : 'lt';
+                const parenAt = i + (containsMatch ? 9 : (hasMatch ? 4 : 3));
+                let depth = 1;
+                let closeAt = -1;
+                let argQuote = null;
+                for (let j = parenAt + 1; j < part.length; j++) {
+                    const c = part[j];
+                    if (argQuote) {
+                        if (c === argQuote && part[j - 1] !== '\\') argQuote = null;
+                        continue;
+                    }
+                    if (c === '"' || c === "'") {
+                        argQuote = c;
+                        continue;
+                    }
+                    if (c === '(') depth++;
+                    else if (c === ')') {
+                        depth--;
+                        if (depth === 0) {
+                            closeAt = j;
+                            break;
+                        }
+                    }
+                }
+                if (closeAt !== -1) {
+                    const head = part.slice(0, i);
+                    let rawArg = part.slice(parenAt + 1, closeAt).trim();
+                    if ((rawArg.startsWith('"') && rawArg.endsWith('"')) ||
+                        (rawArg.startsWith("'") && rawArg.endsWith("'"))) {
+                        rawArg = rawArg.slice(1, -1);
+                    }
+                    const tail = part.slice(closeAt + 1);
+                    return { type: pseudoType, head, arg: rawArg, tail };
+                }
+            } else if (firstMatch || lastMatch) {
+                const pseudoType = firstMatch ? 'first' : 'last';
+                const len = firstMatch ? 6 : 5;
+                const head = part.slice(0, i);
+                let tail = part.slice(i + len);
+                if (tail.startsWith('()')) tail = tail.slice(2);
+                return { type: pseudoType, head, arg: pseudoType === 'first' ? '0' : '-1', tail };
+            }
+        }
+    }
+    return null;
+}
+
+function sortDocumentOrder(nodes) {
+    if (!nodes || nodes.length <= 1) return nodes;
+    const FOLLOWING = (typeof Node !== 'undefined' && Node.DOCUMENT_POSITION_FOLLOWING) || 4;
+    return nodes.slice().sort((a, b) => {
+        if (a === b) return 0;
+        if (!a.compareDocumentPosition) return 0;
+        const pos = a.compareDocumentPosition(b);
+        return (pos & FOLLOWING) ? -1 : 1;
+    });
+}
+
+function safeMatches(el, selector) {
+    if (!el || !selector || typeof selector !== 'string') return false;
+    try {
+        const matchesFn = el.matches || el.webkitMatchesSelector || el.mozMatchesSelector || el.msMatchesSelector;
+        if (matchesFn) {
+            return matchesFn.call(el, selector);
+        }
+    } catch (_) {}
+    try {
+        const root = el.ownerDocument || (el.getRootNode ? el.getRootNode() : null) || el;
+        if (root) {
+            return safeQuerySelectorAll(root, selector).includes(el);
+        }
+    } catch (_) {}
+    return false;
+}
+
+function evaluateSinglePart(root, part) {
+    if (!part || !part.trim()) return [];
+    const trimmed = part.trim();
+
+    const pseudo = findFirstNonNativePseudo(trimmed);
+    if (!pseudo) {
+        try {
+            return Array.from(root.querySelectorAll(trimmed));
+        } catch (_) {
+            return [];
+        }
+    }
+
+    const { type, head, arg, tail } = pseudo;
+
+    let base = [];
+    if (head && head.trim()) {
+        base = safeQuerySelectorAll(root, head.trim());
+    } else {
+        try {
+            base = Array.from(root.querySelectorAll('*'));
+        } catch (_) {
+            base = [];
+        }
+    }
+
+    let filtered = [];
+    if (type === 'contains') {
+        filtered = base.filter(el => (el.textContent || '').includes(arg));
+    } else if (type === 'has') {
+        filtered = base.filter(el => safeQuerySelectorAll(el, arg).length > 0);
+    } else if (type === 'eq' || type === 'first' || type === 'last') {
+        const n = parseInt(arg, 10) || 0;
+        const idx = n >= 0 ? n : base.length + n;
+        filtered = (idx >= 0 && idx < base.length) ? [base[idx]] : [];
+    } else if (type === 'gt') {
+        const n = parseInt(arg, 10) || 0;
+        filtered = base.slice(n + 1);
+    } else if (type === 'lt') {
+        const n = parseInt(arg, 10) || 0;
+        filtered = base.slice(0, Math.max(0, n));
+    } else {
+        filtered = base;
+    }
+
+    if (!tail || !tail.trim()) {
+        return filtered;
+    }
+
+    const trimmedTail = tail.trim();
+    if (/^\s+/.test(tail)) {
+        const results = [];
+        for (const el of filtered) {
+            const sub = safeQuerySelectorAll(el, trimmedTail);
+            for (const s of sub) {
+                if (!results.includes(s)) results.push(s);
+            }
+        }
+        return results;
+    } else if (tail.startsWith('>') || /^\s*>/.test(tail)) {
+        const childSel = trimmedTail.replace(/^>\s*/, '');
+        const results = [];
+        for (const el of filtered) {
+            let childMatches = [];
+            try {
+                childMatches = Array.from(el.querySelectorAll(':scope > ' + childSel));
+            } catch (_) {
+                if (el.children) {
+                    for (let c = 0; c < el.children.length; c++) {
+                        const child = el.children[c];
+                        if (safeMatches(child, childSel)) {
+                            childMatches.push(child);
+                        }
+                    }
+                }
+            }
+            for (const cm of childMatches) {
+                if (!results.includes(cm)) results.push(cm);
+            }
+        }
+        return results;
+    } else {
+        return filtered.filter(el => safeMatches(el, trimmedTail));
+    }
+}
+
+function safeQuerySelectorAll(root, selector) {
+    if (!root || !selector || typeof selector !== 'string') return [];
+    try {
+        const trimmed = selector.trim();
+        if (!trimmed) return [];
+
+        const parts = splitTopLevelCommas(trimmed);
+        if (parts.length > 1) {
+            const combined = [];
+            for (const part of parts) {
+                const res = evaluateSinglePart(root, part);
+                for (const el of res) {
+                    if (!combined.includes(el)) combined.push(el);
+                }
+            }
+            return sortDocumentOrder(combined);
+        } else {
+            return evaluateSinglePart(root, parts[0] || trimmed);
+        }
+    } catch (err) {
+        if (!_warnedSelectors.has(selector)) {
+            _warnedSelectors.add(selector);
+            try {
+                if (typeof window !== 'undefined' && window.AppLogger && typeof window.AppLogger.warn === 'function') {
+                    window.AppLogger.warn('[safeQuery] invalid selector: ' + selector, err);
+                }
+            } catch (_) {}
+        }
+        return [];
+    }
+}
+
+function safeQuerySelector(root, selector) {
+    const list = safeQuerySelectorAll(root, selector);
+    return list.length > 0 ? list[0] : null;
+}
+
+window.safeQuerySelectorAll = safeQuerySelectorAll;
+window.safeQuerySelector = safeQuerySelector;
+window.safeMatches = safeMatches;
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         escapeXml,
@@ -1511,7 +1802,10 @@ if (typeof module !== 'undefined' && module.exports) {
         rgbaToPng,
         decodeThumbHashToBuffer,
         thumbHashToDataUrl,
-        stripInvisibleTrapsAndWatermarks
+        stripInvisibleTrapsAndWatermarks,
+        safeQuerySelectorAll,
+        safeQuerySelector,
+        safeMatches
     };
 }
 })();
