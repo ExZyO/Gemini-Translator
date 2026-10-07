@@ -35,6 +35,14 @@
         translation_memory: 'id, sourceHash, sourceLang, targetLang, novelId, timestamp',
         translation_snapshots: 'id, novelId, chapterIdx, timestamp, model'
       });
+      novelDB.version(6).stores({
+        novels: 'id, title, status, sourceUrl, addedAt, deletedAt, timestamp',
+        active_translations: 'id, timestamp',
+        trash: 'id, deletedAt, timestamp',
+        translation_memory: 'id, sourceHash, sourceLang, targetLang, novelId, timestamp',
+        translation_snapshots: 'id, novelId, chapterIdx, timestamp, model',
+        site_recipes: 'id, updatedAt'
+      });
 
       // Wrap GeminiTranslatorDB:
       // Preserves existing v1 schema: history (id), glossaries (name), kv (key)
@@ -60,7 +68,7 @@
     if (!nativeDbPromise) {
       nativeDbPromise = new Promise((resolve) => {
         if (typeof indexedDB === 'undefined') return resolve(null);
-        const req = indexedDB.open('GeminiTranslatorNovelDB', 5);
+        const req = indexedDB.open('GeminiTranslatorNovelDB', 6);
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
           if (!db.objectStoreNames.contains('novels')) {
@@ -82,8 +90,17 @@
             snapStore.createIndex('novelId', 'novelId', { unique: false });
             snapStore.createIndex('chapterIdx', 'chapterIdx', { unique: false });
           }
+          if (!db.objectStoreNames.contains('site_recipes')) {
+            const recipeStore = db.createObjectStore('site_recipes', { keyPath: 'id' });
+            recipeStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+          }
         };
-        req.onsuccess = () => resolve(req.result);
+        req.onsuccess = () => {
+          if (req.result) {
+            req.result.onversionchange = () => { try { req.result.close(); } catch (_) {} };
+          }
+          resolve(req.result);
+        };
         req.onerror = () => { console.warn('[db_engine] Native IndexedDB open error:', req.error); resolve(null); };
       });
     }
@@ -742,6 +759,98 @@
           const store = tx.objectStore('translation_snapshots');
           items.forEach(it => store.put(it));
           tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) { return false; }
+    },
+
+    // 5b. Site Recipes Storage API (v6 Schema)
+    async getAllSiteRecipes() {
+      try {
+        if (novelDB && novelDB.site_recipes) {
+          return await novelDB.site_recipes.toArray();
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('site_recipes')) return [];
+        return new Promise((resolve) => {
+          const tx = db.transaction('site_recipes', 'readonly');
+          const req = tx.objectStore('site_recipes').getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+      } catch (e) { return []; }
+    },
+
+    async saveSiteRecipe(recipe) {
+      if (!recipe || !recipe.id) return false;
+      try {
+        if (novelDB && novelDB.site_recipes) {
+          await novelDB.site_recipes.put(recipe);
+          notifyChange('saveSiteRecipe', recipe);
+          return true;
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('site_recipes')) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction('site_recipes', 'readwrite');
+          tx.objectStore('site_recipes').put(recipe);
+          tx.oncomplete = () => {
+            notifyChange('saveSiteRecipe', recipe);
+            resolve(true);
+          };
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) { return false; }
+    },
+
+    async saveSiteRecipesBatch(items) {
+      if (!Array.isArray(items) || items.length === 0) return true;
+      try {
+        if (novelDB && novelDB.site_recipes) {
+          await novelDB.site_recipes.bulkPut(items);
+          notifyChange('saveSiteRecipesBatch', { count: items.length });
+          return true;
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('site_recipes')) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction('site_recipes', 'readwrite');
+          const store = tx.objectStore('site_recipes');
+          items.forEach(it => store.put(it));
+          tx.oncomplete = () => {
+            notifyChange('saveSiteRecipesBatch', { count: items.length });
+            resolve(true);
+          };
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) { return false; }
+    },
+
+    async deleteSiteRecipe(id) {
+      if (!id) return false;
+      try {
+        if (novelDB && novelDB.site_recipes) {
+          await novelDB.site_recipes.delete(id);
+          notifyChange('deleteSiteRecipe', { id });
+          return true;
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('site_recipes')) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction('site_recipes', 'readwrite');
+          tx.objectStore('site_recipes').delete(id);
+          tx.oncomplete = () => {
+            notifyChange('deleteSiteRecipe', { id });
+            resolve(true);
+          };
           tx.onerror = () => resolve(false);
         });
       } catch (e) { return false; }

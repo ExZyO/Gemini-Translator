@@ -1,9 +1,9 @@
 {
-  "version": "8.18.44",
-  "versionCode": 8344,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.44/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.44/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.44",
-  "releaseDate": "2026-10-05",
-  "releaseNotes": "v8.18.44: Universal safe selector engine preventing crashes from jQuery/Cheerio pseudo-selectors (:contains, :has, :eq) in web scrapers and community extensions."
+  "version": "8.18.45",
+  "versionCode": 8345,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.45/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.18.45/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.18.45",
+  "releaseDate": "2026-10-08",
+  "releaseNotes": "v8.18.45: Added Site Recipes engine foundation, database schema v6 with backup parity, and robust CI build signing fallback."
 }

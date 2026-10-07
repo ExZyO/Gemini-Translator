@@ -202,6 +202,10 @@
       if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getAllTranslationSnapshots === 'function') {
         try { translationSnapshots = await window.GeminiNovelDB.getAllTranslationSnapshots(); } catch (e) {}
       }
+      let siteRecipes = [];
+      if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getAllSiteRecipes === 'function') {
+        try { siteRecipes = await window.GeminiNovelDB.getAllSiteRecipes(); } catch (e) {}
+      }
 
       // 8. Web import metadata
       const webImportMeta = (() => {
@@ -331,6 +335,7 @@
         trash: serializableTrash,
         translationMemory,
         translationSnapshots,
+        siteRecipes,
         appPreferences
       };
 
@@ -998,6 +1003,38 @@
             await window.GeminiNovelDB.saveTranslationSnapshotsBatch(data.translationSnapshots);
           } catch (e) {
             console.warn('Restore snapshots batch error:', e);
+          }
+        }
+      }
+
+      // Site Recipes Restore (Rule 2.8 parity)
+      if (data.siteRecipes && Array.isArray(data.siteRecipes) && data.siteRecipes.length > 0) {
+        if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getAllSiteRecipes === 'function') {
+          try {
+            const RE = window.SiteRecipeEngine;
+            const validIncoming = data.siteRecipes
+              .map(r => (RE && typeof RE.withDefaults === 'function' ? RE.withDefaults(r) : r))
+              .filter(r => r && r.id && typeof r.id === 'string');
+
+            const existing = await window.GeminiNovelDB.getAllSiteRecipes() || [];
+            const existingMap = new Map(existing.map(r => [r.id, r]));
+
+            for (const inc of validIncoming) {
+              const prev = existingMap.get(inc.id);
+              if (!prev || (inc.updatedAt || 0) >= (prev.updatedAt || 0)) {
+                existingMap.set(inc.id, inc);
+              }
+            }
+
+            const merged = Array.from(existingMap.values());
+            if (typeof window.GeminiNovelDB.saveSiteRecipesBatch === 'function') {
+              await window.GeminiNovelDB.saveSiteRecipesBatch(merged);
+            }
+            if (RE && typeof RE.reload === 'function') {
+              await RE.reload();
+            }
+          } catch (e) {
+            console.warn('Restore site recipes error:', e);
           }
         }
       }

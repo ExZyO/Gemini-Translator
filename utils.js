@@ -499,6 +499,14 @@ const PROMPT_OVERHEAD = 800;
 const MAX_HISTORY = 20;
 const DEFAULT_CONCURRENCY = 3;
 
+// Site Recipe Constants
+const SITE_RECIPE_SHARE_PREFIX = 'GTRECIPE1:';
+const SITE_RECIPE_MAX_NEXT_HOPS = 5000;
+const SITE_RECIPE_MAX_TOC_PAGES = 200;
+const SITE_RECIPE_MAX_DELAY_MS = 10000;
+const SITE_RECIPE_MIN_CONTENT_CHARS = 35;
+const SITE_RECIPE_PREVIEW_CHARS = 1500;
+
 const LANGUAGES = [
     'Auto-detect', 'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
     'Chinese (Simplified)', 'Chinese (Traditional)', 'Japanese', 'Korean', 'Russian',
@@ -1099,6 +1107,13 @@ window.MAX_PAYLOAD = MAX_PAYLOAD;
 window.PROMPT_OVERHEAD = PROMPT_OVERHEAD;
 window.MAX_HISTORY = MAX_HISTORY;
 window.DEFAULT_CONCURRENCY = DEFAULT_CONCURRENCY;
+
+window.SITE_RECIPE_SHARE_PREFIX = SITE_RECIPE_SHARE_PREFIX;
+window.SITE_RECIPE_MAX_NEXT_HOPS = SITE_RECIPE_MAX_NEXT_HOPS;
+window.SITE_RECIPE_MAX_TOC_PAGES = SITE_RECIPE_MAX_TOC_PAGES;
+window.SITE_RECIPE_MAX_DELAY_MS = SITE_RECIPE_MAX_DELAY_MS;
+window.SITE_RECIPE_MIN_CONTENT_CHARS = SITE_RECIPE_MIN_CONTENT_CHARS;
+window.SITE_RECIPE_PREVIEW_CHARS = SITE_RECIPE_PREVIEW_CHARS;
 
 window.estimateTokens = estimateTokens;
 window.estimateCost = estimateCost;
@@ -1805,7 +1820,13 @@ if (typeof module !== 'undefined' && module.exports) {
         stripInvisibleTrapsAndWatermarks,
         safeQuerySelectorAll,
         safeQuerySelector,
-        safeMatches
+        safeMatches,
+        SITE_RECIPE_SHARE_PREFIX,
+        SITE_RECIPE_MAX_NEXT_HOPS,
+        SITE_RECIPE_MAX_TOC_PAGES,
+        SITE_RECIPE_MAX_DELAY_MS,
+        SITE_RECIPE_MIN_CONTENT_CHARS,
+        SITE_RECIPE_PREVIEW_CHARS
     };
 }
 })();
