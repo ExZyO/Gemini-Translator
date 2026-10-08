@@ -319,12 +319,35 @@
 
     const getSafeChapters = (obj) => {
       if (!obj) return [];
-      if (Array.isArray(obj.chapters)) return obj.chapters;
-      if (Array.isArray(obj.rawChapters)) return obj.rawChapters;
-      if (Array.isArray(obj.translatedChapters)) return obj.translatedChapters;
-      if (obj.chapters && typeof obj.chapters === 'object') {
-        return Object.values(obj.chapters).filter(c => c && typeof c === 'object');
+      const chs = Array.isArray(obj.chapters) ? obj.chapters : (obj.chapters && typeof obj.chapters === 'object' ? Object.values(obj.chapters).filter(c => c && typeof c === 'object') : []);
+      const rawChs = Array.isArray(obj.rawChapters) ? obj.rawChapters : [];
+      const transChs = Array.isArray(obj.translatedChapters) ? obj.translatedChapters : [];
+
+      const chsHasText = chs.some(c => c && ((c.text || c.content || '').length > 20));
+      const rawHasText = rawChs.some(c => c && ((c.text || c.content || '').length > 20));
+      const transHasText = transChs.some(c => c && ((c.text || c.content || '').length > 20));
+
+      if (rawHasText && (!chsHasText || rawChs.length >= chs.length)) {
+        return rawChs;
       }
+      if (transHasText && (!chsHasText || transChs.length >= chs.length)) {
+        return transChs;
+      }
+      if (chs.length > 0) {
+        if (rawChs.length > 0 && !chsHasText) {
+          return chs.map((c, i) => {
+            const match = rawChs[i] || rawChs.find(rc => rc.title === c.title || (rc.url && rc.url === c.url));
+            return {
+              ...c,
+              text: c.text || c.content || match?.text || match?.content || '',
+              content: c.content || c.text || match?.content || match?.text || ''
+            };
+          });
+        }
+        return chs;
+      }
+      if (rawChs.length > 0) return rawChs;
+      if (transChs.length > 0) return transChs;
       return [];
     };
 
@@ -1131,26 +1154,27 @@
                       className: 'mini-btn ghost',
                       style: { padding: '10px 4px', borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600, fontSize: 11 },
                       onClick: async () => {
-                        const chs = getSafeChapters(activeNovelView);
+                        const full = (typeof loadFullNovel === 'function' ? await loadFullNovel(activeNovelView) : null) || activeNovelView;
+                        const chs = getSafeChapters(full);
                         if (chs.length === 0) return toast('No chapters downloaded yet to export.', 'warning');
-                        const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeNovelView.title, chs) : (activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-                        const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+                        const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(full.title || activeNovelView.title, chs) : (full.title || activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+                        const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(full.author || activeNovelView.author) : (full.author || activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
-                          if (activeNovelView && activeNovelView.epubBlob && !activeNovelView.isEdited) {
-                            const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
+                          if (full && full.epubBlob && !full.isEdited && !activeNovelView?.isEdited) {
+                            const isInc = full.isIncomplete || (full.totalChapterCount && chs.length < full.totalChapterCount);
                             const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
-                            await saveUniversalBlob(activeNovelView.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
+                            await saveUniversalBlob(full.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(full || activeNovelView));
                             toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                             return;
                           }
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: activeNovelView?.cover || '' }) : { coverUrl: activeNovelView?.cover || '' };
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: full?.id || activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: full?.cover || activeNovelView?.cover || '' }) : { coverUrl: full?.cover || activeNovelView?.cover || '' };
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
-                          const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
+                          const isInc = full.isIncomplete || activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
                           const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
-                          await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
+                          await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(full || activeNovelView));
                           toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -1163,23 +1187,24 @@
                       type: 'button',
                       className: 'mini-btn',
                       style: { padding: '10px 4px', background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontWeight: 700, fontSize: 11 },
-                      onClick: () => {
-                        const chs = getSafeChapters(activeNovelView);
+                      onClick: async () => {
+                        const full = (typeof loadFullNovel === 'function' ? await loadFullNovel(activeNovelView) : null) || activeNovelView;
+                        const chs = getSafeChapters(full);
                         if (chs.length === 0) return toast('No chapters downloaded yet to read.', 'warning');
                         setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
                         setTranslatedChapters([]);
                         setAssembledText('');
-                        const novelKey = activeNovelView?.id || activeNovelView?.title || 'web_import_novel';
+                        const novelKey = full?.id || activeNovelView?.id || activeNovelView?.title || 'web_import_novel';
                         setReaderNovelId(novelKey);
-                        setReaderNovelTitle(activeNovelView?.title || 'Web Novel');
+                        setReaderNovelTitle(full?.title || activeNovelView?.title || 'Web Novel');
                         const savedProg = window.getReadingProgress ? window.getReadingProgress(novelKey) : null;
                         const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
                         setReaderChapterIdx(resumeIdx);
                         setReaderOpen(true);
                         if (savedProg && resumeIdx > 0) {
-                          toast(`Resuming "${activeNovelView?.title || 'Novel'}" at Chapter ${resumeIdx + 1}!`, 'success');
+                          toast(`Resuming "${full?.title || activeNovelView?.title || 'Novel'}" at Chapter ${resumeIdx + 1}!`, 'success');
                         } else {
-                          toast(`Reading "${activeNovelView?.title || 'Novel'}" (${chs.length} ch)!`, 'success');
+                          toast(`Reading "${full?.title || activeNovelView?.title || 'Novel'}" (${chs.length} ch)!`, 'success');
                         }
                       }
                     }, `📖 Read (${getSafeChapterCount(activeNovelView)})`),
@@ -1187,18 +1212,19 @@
                       type: 'button',
                       className: 'mini-btn ghost',
                       style: { padding: '10px 4px', fontWeight: 600, fontSize: 11 },
-                      onClick: () => {
-                        const chs = getSafeChapters(activeNovelView);
+                      onClick: async () => {
+                        const full = (typeof loadFullNovel === 'function' ? await loadFullNovel(activeNovelView) : null) || activeNovelView;
+                        const chs = getSafeChapters(full);
                         if (chs.length === 0) return toast('No chapters downloaded yet to send.', 'warning');
                         const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
                         setInputText(fullText);
                         setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
-                        setActiveNovelRecord(activeNovelView);
-                        setCurrentDocCover(activeNovelView?.cover || '');
-                        setFileName(activeNovelView.title || 'Web Novel');
-                        setCurrentDocTitle(activeNovelView.title || 'Web Novel');
+                        setActiveNovelRecord(full || activeNovelView);
+                        setCurrentDocCover(full?.cover || activeNovelView?.cover || '');
+                        setFileName(full?.title || activeNovelView.title || 'Web Novel');
+                        setCurrentDocTitle(full?.title || activeNovelView.title || 'Web Novel');
                         setActiveTab('text');
-                        toast(`Loaded "${activeNovelView.title || 'Novel'}" (${chs.length} ch) to Translator!`, 'info');
+                        toast(`Loaded "${full?.title || activeNovelView.title || 'Novel'}" (${chs.length} ch) to Translator!`, 'info');
                       }
                     }, `Send to Translate`),
                     h('button', {
@@ -1317,19 +1343,20 @@
                       className: 'mini-btn ghost',
                       style: { padding: '10px 6px', borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600, fontSize: 11 },
                       onClick: async () => {
-                        const chs = getSafeChapters(activeNovelView);
+                        const full = (typeof loadFullNovel === 'function' ? await loadFullNovel(activeNovelView) : null) || activeNovelView;
+                        const chs = getSafeChapters(full);
                         if (chs.length === 0) return toast('No chapters downloaded yet.', 'warning');
-                        const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeNovelView.title, chs) : (activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-                        const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+                        const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(full.title || activeNovelView.title, chs) : (full.title || activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+                        const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(full.author || activeNovelView.author) : (full.author || activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: activeNovelView?.cover || '' }) : { coverUrl: activeNovelView?.cover || '' };
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: full?.id || activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: full?.cover || activeNovelView?.cover || '' }) : { coverUrl: full?.cover || activeNovelView?.cover || '' };
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
-                          const isInc = activeNovelView?.isIncomplete || (activeNovelView?.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
+                          const isInc = full.isIncomplete || activeNovelView?.isIncomplete || (activeNovelView?.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
                           const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
-                          await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
+                          await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(full || activeNovelView));
                           toast(`EPUB (${chs.length} chapters) saved!`, 'success');
                         } catch (e) {
                           toast('EPUB export error: ' + e.message, 'error');
@@ -1417,39 +1444,40 @@
                       type: 'button',
                       className: 'mini-btn',
                       style: { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontWeight: 700, padding: '8px 14px' },
-                      onClick: () => {
-                        const chs = getSafeChapters(activeNovelView);
+                      onClick: async () => {
+                        const full = (typeof loadFullNovel === 'function' ? await loadFullNovel(activeNovelView) : null) || activeNovelView;
+                        const chs = getSafeChapters(full);
                         if (chs.length === 0) return toast('No chapters available to read.', 'warning');
                         setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
                         setTranslatedChapters([]);
                         setAssembledText('');
-                        const novelKey = activeNovelView?.id || activeNovelView?.title || 'web_import_novel';
+                        const novelKey = full?.id || activeNovelView?.id || activeNovelView?.title || 'web_import_novel';
                         setReaderNovelId(novelKey);
-                        setReaderNovelTitle(activeNovelView?.title || 'Web Novel');
+                        setReaderNovelTitle(full?.title || activeNovelView?.title || 'Web Novel');
                         const savedProg = window.getReadingProgress ? window.getReadingProgress(novelKey) : null;
                         const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
                         setReaderChapterIdx(resumeIdx);
                         setReaderOpen(true);
                         if (savedProg && resumeIdx > 0) {
-                          toast(`Resuming "${activeNovelView?.title || 'Novel'}" at Chapter ${resumeIdx + 1}!`, 'success');
+                          toast(`Resuming "${full?.title || activeNovelView?.title || 'Novel'}" at Chapter ${resumeIdx + 1}!`, 'success');
                         } else {
-                          toast(`Reading "${activeNovelView?.title || 'Novel'}" (${chs.length} ch)!`, 'success');
+                          toast(`Reading "${full?.title || activeNovelView?.title || 'Novel'}" (${chs.length} ch)!`, 'success');
                         }
                       }
                     }, `📖 Read (${getSafeChapterCount(activeNovelView)} Ch)`),
-                    h('button', { type: 'button', className: 'mini-btn', onClick: () => {
-
-                      const chs = getSafeChapters(activeNovelView);
+                    h('button', { type: 'button', className: 'mini-btn', onClick: async () => {
+                      const full = (typeof loadFullNovel === 'function' ? await loadFullNovel(activeNovelView) : null) || activeNovelView;
+                      const chs = getSafeChapters(full);
                       const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
                       setInputText(fullText);
                       setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
-                      setActiveNovelRecord(activeNovelView);
-                      setCurrentDocCover(activeNovelView?.cover || '');
-                      setFileName(activeNovelView.title || 'Web Novel');
-                      setCurrentDocTitle(activeNovelView.title || 'Web Novel');
-                      checkAndApplyNovelGlossary(activeNovelView);
+                      setActiveNovelRecord(full || activeNovelView);
+                      setCurrentDocCover(full?.cover || activeNovelView?.cover || '');
+                      setFileName(full?.title || activeNovelView.title || 'Web Novel');
+                      setCurrentDocTitle(full?.title || activeNovelView.title || 'Web Novel');
+                      checkAndApplyNovelGlossary(full || activeNovelView);
                       setActiveTab('text');
-                      toast(`Loaded "${activeNovelView.title || 'Novel'}" (${chs.length} ch) to Translator!`, 'info');
+                      toast(`Loaded "${full?.title || activeNovelView.title || 'Novel'}" (${chs.length} ch) to Translator!`, 'info');
                     } }, isLnoriNovel ? '🌐 Translate to Other Lang' : 'Send to Translator'),
                     h('button', {
                       type: 'button',

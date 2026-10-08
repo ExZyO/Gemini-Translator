@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.3';
+    let VERSION = '8.21.4';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -406,13 +406,27 @@
       };
 
       // Load persistent IndexedDB novels on mount, merging seamlessly with localStorage
-      // Load persistent IndexedDB novels on mount, merging seamlessly with localStorage
       useEffect(() => {
         window.LibraryEngine?.loadInitialNovels({
           onHistory: setWebImportHistory,
           loadTrashCount
         });
         window.SiteRecipeEngine?.init?.();
+
+        if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+          const sess = activeCrawlSession || webImportData;
+          if (sess && sess.id && Array.isArray(sess.chapters) && sess.chapters.length > 0 && !sess.chapters.some(c => c && (c.text || c.content))) {
+            window.GeminiNovelDB.getNovel(sess.id).then(full => {
+              if (full && (full.rawChapters?.length || full.chapters?.length)) {
+                const chs = full.rawChapters || full.chapters;
+                if (chs.some(c => c && (c.text || c.content))) {
+                  setActiveCrawlSession(prev => prev ? { ...prev, chapters: chs, rawChapters: chs } : null);
+                  setWebImportData(prev => prev ? { ...prev, chapters: chs, rawChapters: chs } : null);
+                }
+              }
+            }).catch(() => {});
+          }
+        }
       }, []);
 
       // Lazy cover art hydration from IndexedDB for any novels missing covers

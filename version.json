@@ -1,9 +1,9 @@
 {
-  "version": "8.21.3",
-  "versionCode": 8414,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.3/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.3/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.3",
+  "version": "8.21.4",
+  "versionCode": 8415,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.4/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.4/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.4",
   "releaseDate": "2026-10-08",
-  "releaseNotes": "v8.21.3: Fix Web Importer crash on non-array chapters, support sequential crawl when only first and latest chapter quick links are detected, expand novel TOC container discovery, and improve mobile button layout."
+  "releaseNotes": "v8.21.4: Fix Site Settings header and sticky action bar buttons, ensure full chapter prose is extracted and loaded during EPUB export and reading, prevent cover art leakage across crawled web novels, and add self-healing chapter prose recovery from database."
 }

@@ -323,11 +323,14 @@
           if (matchedAny?.cover) coverArt = matchedAny.cover;
         } catch(e) {}
       }
-      if (!coverArt && typeof window !== 'undefined' && window.currentDocCover) {
-        coverArt = window.currentDocCover;
-      }
-      if (!coverArt && typeof localStorage !== 'undefined') {
-        coverArt = localStorage.getItem('gemini_current_doc_cover') || '';
+      // Only inherit currentDocCover if this is explicitly a translated novel
+      if (!coverArt && isTranslated) {
+        if (typeof window !== 'undefined' && window.currentDocCover) {
+          coverArt = window.currentDocCover;
+        }
+        if (!coverArt && typeof localStorage !== 'undefined') {
+          coverArt = localStorage.getItem('gemini_current_doc_cover') || '';
+        }
       }
 
       const customTitle = novelData.customTitle || this.getCustomTitle(novelData.sourceUrl || novelData.url || novelId) || existingMeta?.customTitle;
@@ -378,6 +381,7 @@
         epubBlob: (novelData.isEdited || existingMeta?.isEdited) ? (novelData.epubBlob || undefined) : (novelData.epubBlob || existingMeta?.epubBlob || undefined),
         sourceUrl: detectedSourceUrl,
         chapterList: novelData.chapterList || [],
+        chapters: cleanChapters,
         rawChapters: cleanChapters,
         originalChapters: cleanOriginalChapters,
         originalText: novelData.originalText || '',
@@ -447,11 +451,29 @@
      */
     async loadFullNovel(meta) {
       if (!meta) return null;
+      const normalizeRecord = (rec) => {
+        if (!rec) return null;
+        const rawChs = rec.rawChapters || rec.chapters || rec.translatedChapters || [];
+        const chs = rec.chapters || rec.rawChapters || rec.translatedChapters || [];
+        const rawHasText = Array.isArray(rawChs) && rawChs.some(c => (c && (c.text || c.content)));
+        const chsHasText = Array.isArray(chs) && chs.some(c => (c && (c.text || c.content)));
+        const bestChapters = (rawHasText && (!chsHasText || rawChs.length >= chs.length))
+          ? rawChs
+          : (chsHasText ? chs : (rawChs.length >= chs.length ? rawChs : chs));
+        return {
+          ...rec,
+          chapters: bestChapters,
+          rawChapters: bestChapters
+        };
+      };
+
       // 1. Try IndexedDB by meta.id
       if (window.GeminiNovelDB && meta.id) {
         try {
           const full = await window.GeminiNovelDB.getNovel(meta.id);
-          if (full && (full.rawChapters?.length > 0 || full.chapters?.length > 0 || full.translatedChapters?.length > 0 || full.epubBlob)) return full;
+          if (full && (full.rawChapters?.length > 0 || full.chapters?.length > 0 || full.translatedChapters?.length > 0 || full.epubBlob)) {
+            return normalizeRecord(full);
+          }
         } catch(e) {}
       }
       // 2. Try IndexedDB by matching title or id across all stored records
@@ -460,20 +482,25 @@
           const all = await window.GeminiNovelDB.getAllNovels();
           const targetClean = normalizeTitleKey(meta.title);
           const match = (all || []).find(n => n.id === meta.id || n.title === meta.title || (n.title && normalizeTitleKey(n.title) === targetClean));
-          if (match && (match.rawChapters?.length > 0 || match.chapters?.length > 0 || match.translatedChapters?.length > 0 || match.epubBlob)) return match;
+          if (match && (match.rawChapters?.length > 0 || match.chapters?.length > 0 || match.translatedChapters?.length > 0 || match.epubBlob)) {
+            return normalizeRecord(match);
+          }
         } catch(e) {}
       }
-      // 3. Fallback: check if meta already contains rawChapters or chapters or epubBlob
-      if (meta.rawChapters?.length > 0 || meta.chapters?.length > 0 || meta.translatedChapters?.length > 0 || meta.epubBlob) return meta;
+      // 3. Fallback: check if meta already contains rawChapters or chapters with actual text, or epubBlob
+      if ((meta.rawChapters?.some(c => c && (c.text || c.content))) || (meta.chapters?.some(c => c && (c.text || c.content))) || meta.epubBlob) {
+        return normalizeRecord(meta);
+      }
       // 4. Fallback: check legacy localStorage storage
       try {
         const old = JSON.parse(localStorage.getItem('gemini_web_import_history') || '[]');
         const found = (old || []).find(n => n.id === (meta.id || '')) || (old || []).find(n => n.title === meta.title);
         if (found && (found.chapters?.length || found.rawChapters?.length || found.translatedChapters?.length)) {
-          return { title: found.title, author: found.author, rawChapters: found.chapters || found.rawChapters || found.translatedChapters, originalChapters: found.originalChapters || null };
+          const loadedChs = found.chapters || found.rawChapters || found.translatedChapters;
+          return normalizeRecord({ title: found.title, author: found.author, chapters: loadedChs, rawChapters: loadedChs, originalChapters: found.originalChapters || null });
         }
       } catch (e) {}
-      return null;
+      return meta.chapters?.length > 0 ? normalizeRecord(meta) : null;
     },
 
     /**

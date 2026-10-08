@@ -276,9 +276,9 @@
                     }, '🛡️ Captcha'),
                     h('button', {
                         type: 'button',
-                        className: 'px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors',
+                        className: 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-600 hover:border-slate-300 transition-colors shadow-sm cursor-pointer',
                         onClick: onClose
-                    }, 'Cancel'),
+                    }, '✕ Cancel'),
                     h('button', {
                         type: 'button',
                         className: 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-sm',
@@ -755,20 +755,25 @@
             // Header bar
             h('div', {
                 key: 'header',
-                className: 'h-16 px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0 shadow-md'
+                className: 'min-h-16 py-2 px-3 md:px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0 shadow-md gap-2'
             }, [
-                h('div', { className: 'flex items-center gap-3 truncate' }, [
+                h('div', { className: 'flex items-center gap-2.5 min-w-0 truncate' }, [
                     h('button', {
-                        className: 'p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors',
-                        onClick: handleClosePrompt
-                    }, '← Back'),
-                    h('div', { className: 'truncate' }, [
-                        h('h2', { className: 'text-base font-bold text-white truncate' }, 'Site Settings & Recipe'),
-                        h('p', { className: 'text-xs text-slate-400 font-mono truncate' }, recipe.id)
+                        type: 'button',
+                        className: 'px-3 py-1.5 rounded-xl border border-slate-600 hover:border-slate-300 bg-slate-800/90 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer shadow-sm',
+                        onClick: handleClosePrompt,
+                        title: 'Exit without saving'
+                    }, [
+                        renderIcon('x', 14, 'text-slate-400'),
+                        '✕ Exit'
+                    ]),
+                    h('div', { className: 'truncate min-w-0' }, [
+                        h('h2', { className: 'text-sm sm:text-base font-bold text-white truncate' }, 'Site Settings & Recipe'),
+                        h('p', { className: 'text-[11px] text-slate-400 font-mono truncate' }, recipe.id)
                     ])
                 ]),
-                h('div', { className: 'flex items-center gap-3' }, [
-                    h('label', { className: 'flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer' }, [
+                h('div', { className: 'flex items-center gap-2 shrink-0 ml-auto' }, [
+                    h('label', { className: 'hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-300 cursor-pointer mr-1' }, [
                         h('input', {
                             type: 'checkbox',
                             checked: recipe.enabled !== false,
@@ -778,9 +783,14 @@
                         'Enabled'
                     ]),
                     h('button', {
-                        className: 'px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors',
-                        onClick: handleSave
-                    }, '💾 Save')
+                        type: 'button',
+                        className: 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer',
+                        onClick: handleSave,
+                        title: 'Save settings and return'
+                    }, [
+                        renderIcon('check', 14, 'text-emerald-200'),
+                        '✓ Save & Exit'
+                    ])
                 ])
             ]),
 
@@ -1144,21 +1154,22 @@
                     h('div', { className: 'grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full' }, [
                         h('button', {
                             type: 'button',
-                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 transition-colors text-center text-xs font-medium cursor-pointer',
+                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 transition-colors text-center text-xs font-medium cursor-pointer',
                             onClick: () => RE.Controller.copyCode(recipe, toast)
                         }, '📋 Copy Code'),
                         h('button', {
                             type: 'button',
-                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 transition-colors text-center text-xs font-medium cursor-pointer',
+                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 transition-colors text-center text-xs font-medium cursor-pointer',
                             onClick: () => RE.Controller.exportFile(recipe, toast)
                         }, '💾 Export JSON'),
                         h('button', {
                             type: 'button',
-                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 transition-colors text-center text-xs font-medium cursor-pointer',
+                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 transition-colors text-center text-xs font-medium cursor-pointer',
                             onClick: handlePasteRecipeCode
                         }, '📋 Paste Code'),
                         h('label', {
-                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 cursor-pointer flex items-center justify-center transition-colors text-xs font-medium'
+                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 cursor-pointer flex items-center justify-center transition-colors text-xs font-medium',
+                            title: 'Import recipe JSON'
                         }, [
                             h('input', {
                                 type: 'file',
@@ -1185,8 +1196,44 @@
                 // Mobile Safe Clearance Spacer
                 h('div', {
                     key: 'safe-bottom-spacer',
-                    className: 'h-28 w-full shrink-0'
+                    className: 'h-16 w-full shrink-0'
                 })
+            ]),
+
+            // Sticky Bottom Action Bar (Always visible)
+            h('div', {
+                key: 'bottom-bar',
+                className: 'px-4 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3 shrink-0 shadow-2xl z-20'
+            }, [
+                h('button', {
+                    type: 'button',
+                    className: 'px-4 py-2.5 rounded-xl border border-slate-600 hover:border-slate-300 bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-slate-200 font-semibold text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer shadow-sm',
+                    onClick: handleClosePrompt,
+                    title: 'Exit without saving changes'
+                }, [
+                    renderIcon('x', 14, 'text-slate-400'),
+                    '✕ Exit'
+                ]),
+                h('div', { className: 'flex items-center gap-2.5' }, [
+                    h('label', { className: 'hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-300 cursor-pointer mr-1' }, [
+                        h('input', {
+                            type: 'checkbox',
+                            checked: recipe.enabled !== false,
+                            onChange: (e) => updateField('enabled', e.target.checked),
+                            className: 'rounded accent-emerald-500 w-4 h-4'
+                        }),
+                        'Enabled'
+                    ]),
+                    h('button', {
+                        type: 'button',
+                        className: 'px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-bold text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer shadow-lg',
+                        onClick: handleSave,
+                        title: 'Save all recipe settings and return'
+                    }, [
+                        renderIcon('check', 16, 'text-emerald-200'),
+                        '✓ Save Settings & Exit'
+                    ])
+                ])
             ]),
 
             // Sub-Inspector Modal Overlay

@@ -610,8 +610,26 @@
     if (r && r.chapter && r.chapter.contentSelector) {
       container = safeQuerySelector(doc, r.chapter.contentSelector);
     }
+    const COMMON_CONTENT_SELECTORS = [
+      'article', 'main', '.post-content', '.entry-content', '#content', '.content',
+      '.reading-content', '.chapter-content', '.chapter-c', '#chapter-content',
+      'div#content', 'div.content', '.text-content', '.ep-content', '.story-content',
+      '#chapter-c', '.chapter-body', '#chapter-body'
+    ];
+    if (!container || (container.textContent || '').trim().length < 30) {
+      for (const sel of COMMON_CONTENT_SELECTORS) {
+        const candidate = safeQuerySelector(doc, sel);
+        if (candidate && (candidate.textContent || '').trim().length >= 30) {
+          container = candidate;
+          break;
+        }
+      }
+    }
     if (!container && typeof window !== 'undefined' && window.ChameleonExtractor && typeof window.ChameleonExtractor.findBestContentNode === 'function') {
       container = window.ChameleonExtractor.findBestContentNode(doc);
+    }
+    if (!container || (container.textContent || '').trim().length < 30) {
+      container = doc.body;
     }
 
     if (!container) {
@@ -987,13 +1005,31 @@
       };
     }
 
-    const fallbackExtract = async (item) => {
+    const recipeExtract = async (item) => {
       const chHtml = await deps.fetchHtml(item.url);
-      if (typeof window !== 'undefined' && window.ChameleonExtractor && typeof window.ChameleonExtractor.extractArticle === 'function') {
-        const art = window.ChameleonExtractor.extractArticle(chHtml, item.url);
-        return { title: art.title || item.title, text: art.text || '' };
+      const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
+      const extracted = extractChapter(chDoc, r, item.url);
+      let text = extracted.text || '';
+      let title = extracted.title || item.title;
+
+      if (!text || text.length < 30) {
+        if (typeof window !== 'undefined' && window.ChameleonExtractor && typeof window.ChameleonExtractor.extractArticle === 'function') {
+          const art = window.ChameleonExtractor.extractArticle(chDoc, item.url);
+          if (art && art.text && art.text.length > text.length) {
+            text = art.text;
+            if (!title || title === item.title) title = art.title || title;
+          }
+        }
       }
-      return { title: item.title, text: chHtml };
+
+      if (!text || text.length < 30) {
+        const bodyEl = chDoc.querySelector('article, main, .post-content, .entry-content, #content, .content, .reading-content, .chapter-content, #chapter-content, .text-content, .ep-content') || chDoc.body;
+        if (bodyEl && typeof window !== 'undefined' && window.WebNovelImporter?.cleanChapterHtmlWithImages) {
+          text = window.WebNovelImporter.cleanChapterHtmlWithImages(bodyEl.innerHTML, item.url);
+        }
+      }
+
+      return { title: title || item.title, text: text || '' };
     };
 
     const poolDelay = (r.network && r.network.delayMs > 0) ? r.network.delayMs : 250;
@@ -1001,7 +1037,7 @@
 
     const crawledChapters = await deps.crawlChapterPool(
       links,
-      fallbackExtract,
+      recipeExtract,
       poolConcurrency,
       progressCb,
       meta,

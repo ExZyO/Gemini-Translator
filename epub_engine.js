@@ -751,7 +751,7 @@
         : ((typeof stripLeadingTitleFromContent === 'function') ? stripLeadingTitleFromContent : null);
       const exportChapters = (Array.isArray(chaptersList) ? chaptersList : []).map((ch, idx) => {
         const title = String(ch?.title || '').trim() || ('Chapter ' + (idx + 1));
-        let content = cleanFn(String(ch?.text ?? ch?.content ?? '').replace(/\r\n?/g, '\n')).trim();
+        let content = cleanFn(String(ch?.text ?? ch?.content ?? ch?.body ?? ch?.html ?? '').replace(/\r\n?/g, '\n')).trim();
         if (stripFn) {
           content = stripFn(content, title, ch?.originalTitle);
         }
@@ -761,6 +761,37 @@
           content
         };
       });
+
+      // Self-healing: If chapters lack content, attempt recovery from IndexedDB (GeminiNovelDB)
+      if (typeof window !== 'undefined' && window.GeminiNovelDB && exportChapters.some(c => !c.content || c.content.trim().length === 0)) {
+        try {
+          const novelId = options.novelId || options.id;
+          let dbRecord = null;
+          if (novelId) dbRecord = await window.GeminiNovelDB.getNovel(novelId);
+          if (!dbRecord && bookTitle) {
+            const all = await window.GeminiNovelDB.getAllNovels();
+            const cleanBT = (typeof window.normalizeTitleKey === 'function') ? window.normalizeTitleKey(bookTitle) : bookTitle.trim().toLowerCase();
+            dbRecord = (all || []).find(n => n.id === novelId || (n.title && ((typeof window.normalizeTitleKey === 'function' ? window.normalizeTitleKey(n.title) : n.title.trim().toLowerCase()) === cleanBT)));
+          }
+          if (dbRecord) {
+            const fullSource = dbRecord.rawChapters || dbRecord.chapters || dbRecord.translatedChapters || [];
+            if (fullSource.length > 0) {
+              exportChapters.forEach((ch, idx) => {
+                if (!ch.content || ch.content.trim().length === 0) {
+                  const match = fullSource[idx] || fullSource.find(rc => rc.title === ch.title || (rc.url && rc.url === ch.url));
+                  if (match && (match.text || match.content || match.body || match.html)) {
+                    let recovered = cleanFn(String(match.text ?? match.content ?? match.body ?? match.html ?? '').replace(/\r\n?/g, '\n')).trim();
+                    if (stripFn) recovered = stripFn(recovered, ch.title, match.originalTitle);
+                    ch.content = recovered;
+                  }
+                }
+              });
+            }
+          }
+        } catch (dbErr) {
+          console.warn('[epub_engine] Chapter content DB recovery fallback error:', dbErr);
+        }
+      }
       if (!exportChapters.length) throw new Error('No chapters to package');
       const safeLang = String(bookLang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en';
 
@@ -1087,14 +1118,31 @@ hr {
 
         // Scan for cover image across options, chapter front-matter, and local library persistence
         let coverUrl = (options.coverUrl || options.cover || options.coverImage || '').trim();
+        // Check first chapters for an illustration or cover image before falling back
+        if (!coverUrl) {
+          for (let i = 0; i < Math.min(5, exportChapters.length); i++) {
+            const ch = exportChapters[i];
+            const content = ch.content || ch.text || '';
+            const m = content.match(/!\[.*?\]\(((?:https?:\/\/|data:image\/)[^\s\)]+)\)/i) ||
+                      content.match(/<img[^>]+(?:src|data-src)=["']((?:https?:\/\/|data:image\/)[^"'\s>]+)["']/i);
+            if (m && m[1] && (/cover/i.test(ch.title || '') || i === 0)) {
+              coverUrl = m[1].trim();
+              break;
+            }
+          }
+        }
         if (!coverUrl && typeof window !== 'undefined') {
           try {
-            if (window.currentDocCover && typeof window.currentDocCover === 'string') {
-              coverUrl = window.currentDocCover.trim();
-            }
-            if (!coverUrl && typeof localStorage !== 'undefined') {
-              const saved = localStorage.getItem('gemini_current_doc_cover');
-              if (saved) coverUrl = saved.trim();
+            // Only use currentDocCover if this is explicitly a translation export or document title matches
+            const isTransDoc = options.isTranslation || (typeof window.currentDocTitle === 'string' && bookTitle && (typeof window.normalizeTitleKey === 'function' ? window.normalizeTitleKey(bookTitle) === window.normalizeTitleKey(window.currentDocTitle) : bookTitle.toLowerCase() === window.currentDocTitle.toLowerCase()));
+            if (isTransDoc) {
+              if (window.currentDocCover && typeof window.currentDocCover === 'string') {
+                coverUrl = window.currentDocCover.trim();
+              }
+              if (!coverUrl && typeof localStorage !== 'undefined') {
+                const saved = localStorage.getItem('gemini_current_doc_cover');
+                if (saved) coverUrl = saved.trim();
+              }
             }
             if (!coverUrl && typeof localStorage !== 'undefined' && bookTitle) {
               const metaRaw = localStorage.getItem('gemini_web_import_history_meta');
@@ -1107,24 +1155,12 @@ hr {
                   const nt = (typeof window !== 'undefined' && window.normalizeTitleKey)
                     ? window.normalizeTitleKey(n?.title)
                     : String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-                  return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;
+                  return nt && (nt === cleanBT) && n.cover;
                 });
                 if (matched?.cover) coverUrl = matched.cover.trim();
               }
             }
           } catch (_) {}
-        }
-        if (!coverUrl) {
-          for (let i = 0; i < Math.min(5, exportChapters.length); i++) {
-            const ch = exportChapters[i];
-            const content = ch.content || ch.text || '';
-            const m = content.match(/!\[.*?\]\(((?:https?:\/\/|data:image\/)[^\s\)]+)\)/i) ||
-                      content.match(/<img[^>]+(?:src|data-src)=["']((?:https?:\/\/|data:image\/)[^"'\s>]+)["']/i);
-            if (m && m[1] && (/cover/i.test(ch.title || '') || i === 0)) {
-              coverUrl = m[1].trim();
-              break;
-            }
-          }
         }
         if (coverUrl && coverUrl.includes('i.pximg.net')) {
           coverUrl = coverUrl.replace('i.pximg.net', 'i.pixiv.re');
@@ -2456,20 +2492,21 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
     const getEpubOptions = (extraOpts = {}, state = {}) => {
       const activeNovel = state.activeNovelView || ((state.activeCrawlSession?.chapters?.length >= (state.webImportData?.chapters?.length || 0)) ? state.activeCrawlSession : (state.webImportData || state.activeCrawlSession));
       let coverCandidate = (extraOpts && (extraOpts.coverUrl || extraOpts.cover))
-        || state.currentDocCover
         || activeNovel?.cover
         || state.activeCrawlSession?.cover
         || state.activeNovelRecord?.cover
-        || state.coverImage
+        || (extraOpts?.isTranslation ? state.currentDocCover : '')
         || '';
 
-      if (!coverCandidate && typeof window !== 'undefined' && window.currentDocCover) {
-        coverCandidate = window.currentDocCover;
-      }
-      if (!coverCandidate && typeof localStorage !== 'undefined') {
-        try {
-          coverCandidate = localStorage.getItem('gemini_current_doc_cover') || '';
-        } catch (_) {}
+      if (!coverCandidate && (extraOpts?.isTranslation || state.activeTab === 'text')) {
+        if (typeof window !== 'undefined' && window.currentDocCover) {
+          coverCandidate = window.currentDocCover;
+        }
+        if (!coverCandidate && typeof localStorage !== 'undefined') {
+          try {
+            coverCandidate = localStorage.getItem('gemini_current_doc_cover') || '';
+          } catch (_) {}
+        }
       }
       const historyList = (state && Array.isArray(state.webImportHistory))
         ? state.webImportHistory
@@ -2485,7 +2522,7 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
             const nt = (typeof window !== 'undefined' && window.normalizeTitleKey)
               ? window.normalizeTitleKey(n?.title)
               : String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-            return nt && (nt === cleanST || cleanST.includes(nt) || nt.includes(cleanST)) && n.cover;
+            return nt && (nt === cleanST) && n.cover;
           });
           if (matchedMeta?.cover) coverCandidate = matchedMeta.cover;
         }
