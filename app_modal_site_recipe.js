@@ -239,13 +239,30 @@
             }
         };
 
+        useEffect(() => {
+            const onKeyDown = (e) => {
+                if (e.key === 'Escape' || e.key === 'Esc') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onClose?.();
+                }
+            };
+            window.addEventListener('keydown', onKeyDown);
+            return () => window.removeEventListener('keydown', onKeyDown);
+        }, [onClose]);
+
         return h('div', {
             className: 'fixed inset-0 z-[10060] bg-black/80 flex flex-col backdrop-blur-sm animate-fade-in'
         }, [
             // Top Bar
             h('div', {
                 key: 'topbar',
-                className: 'min-h-14 py-2 px-3 md:px-4 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-white shrink-0 shadow-lg gap-2'
+                className: 'py-2.5 px-3 md:px-4 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-white shrink-0 shadow-lg gap-2',
+                style: {
+                    paddingTop: 'max(14px, env(safe-area-inset-top, 16px))',
+                    paddingLeft: 'max(12px, env(safe-area-inset-left, 12px))',
+                    paddingRight: 'max(12px, env(safe-area-inset-right, 12px))'
+                }
             }, [
                 h('div', { className: 'flex items-center gap-2 min-w-0 truncate' }, [
                     h('span', { className: 'text-amber-400 font-bold text-xs md:text-sm tracking-wide uppercase shrink-0' }, '👆 Inspector'),
@@ -601,11 +618,27 @@
 
         const handleClosePrompt = () => {
             if (isDirty) {
-                confirmAction?.('You have unsaved adjustments to this recipe. Discard and leave?', () => onClose?.());
+                if (typeof confirmAction === 'function') {
+                    confirmAction('You have unsaved adjustments to this recipe. Discard and leave?', () => onClose?.());
+                } else if (typeof window !== 'undefined' && window.confirm ? window.confirm('Discard unsaved adjustments and exit?') : true) {
+                    onClose?.();
+                }
             } else {
                 onClose?.();
             }
         };
+
+        useEffect(() => {
+            const onKeyDown = (e) => {
+                if (e.key === 'Escape' || e.key === 'Esc') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleClosePrompt();
+                }
+            };
+            window.addEventListener('keydown', onKeyDown);
+            return () => window.removeEventListener('keydown', onKeyDown);
+        }, [isDirty, onClose]);
 
         const toggleAdvanced = (val) => {
             setShowAdvanced(val);
@@ -755,16 +788,22 @@
             // Header bar
             h('div', {
                 key: 'header',
-                className: 'min-h-16 py-2 px-3 md:px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0 shadow-md gap-2'
+                className: 'py-2.5 px-3 md:px-5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between shrink-0 shadow-md gap-2.5 z-20',
+                style: {
+                    paddingTop: 'max(14px, env(safe-area-inset-top, 16px))',
+                    paddingBottom: '12px',
+                    paddingLeft: 'max(12px, env(safe-area-inset-left, 12px))',
+                    paddingRight: 'max(12px, env(safe-area-inset-right, 12px))'
+                }
             }, [
-                h('div', { className: 'flex items-center gap-2.5 min-w-0 truncate' }, [
+                h('div', { className: 'flex items-center gap-2.5 min-w-0 flex-1' }, [
                     h('button', {
                         type: 'button',
-                        className: 'px-3 py-1.5 rounded-xl border border-slate-600 hover:border-slate-300 bg-slate-800/90 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer shadow-sm',
+                        className: 'px-3.5 py-2 rounded-xl border border-slate-500 hover:border-slate-300 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-bold text-xs sm:text-sm transition-all shrink-0 flex items-center gap-1.5 cursor-pointer shadow-md',
                         onClick: handleClosePrompt,
                         title: 'Exit without saving'
                     }, [
-                        renderIcon('x', 14, 'text-slate-400'),
+                        renderIcon('x', 16, 'text-slate-300'),
                         '✕ Exit'
                     ]),
                     h('div', { className: 'truncate min-w-0' }, [
@@ -784,11 +823,11 @@
                     ]),
                     h('button', {
                         type: 'button',
-                        className: 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer',
+                        className: 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-md transition-all flex items-center gap-1.5 cursor-pointer',
                         onClick: handleSave,
                         title: 'Save settings and return'
                     }, [
-                        renderIcon('check', 14, 'text-emerald-200'),
+                        renderIcon('check', 16, 'text-emerald-200'),
                         '✓ Save & Exit'
                     ])
                 ])
@@ -797,8 +836,48 @@
             // Scrollable Content Body
             h('div', {
                 key: 'body',
-                className: 'flex-1 overflow-y-auto p-4 md:p-6 pb-36 md:pb-28 overscroll-contain space-y-5 max-w-4xl mx-auto w-full'
+                className: 'flex-1 overflow-y-auto px-4 md:px-6 overscroll-contain space-y-5 max-w-4xl mx-auto w-full',
+                style: {
+                    paddingTop: '16px',
+                    paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 24px))'
+                }
             }, [
+                // Top Scroll Clearance Spacer
+                h('div', {
+                    key: 'safe-top-spacer',
+                    className: 'h-1 w-full shrink-0'
+                }),
+
+                // Extra Inline Exit Bar for Mobile (Visible at the top of scrollable content)
+                h('div', {
+                    key: 'mobile-top-bar',
+                    className: 'sm:hidden flex items-center justify-between p-3 rounded-2xl bg-slate-900/90 border border-slate-700/80 shadow-md gap-2'
+                }, [
+                    h('div', { className: 'flex items-center gap-1.5 text-xs font-bold text-slate-200 truncate' }, [
+                        renderIcon('sliders', 14, 'text-emerald-400 shrink-0'),
+                        h('span', { className: 'truncate' }, recipe.name || recipe.id || 'Site Settings')
+                    ]),
+                    h('div', { className: 'flex items-center gap-2 shrink-0' }, [
+                        h('button', {
+                            type: 'button',
+                            className: 'px-3 py-1.5 rounded-xl border border-slate-500 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer',
+                            onClick: handleClosePrompt,
+                            title: 'Exit without saving'
+                        }, [
+                            renderIcon('x', 12, 'text-slate-300'),
+                            '✕ Exit'
+                        ]),
+                        h('button', {
+                            type: 'button',
+                            className: 'px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer shadow-sm',
+                            onClick: handleSave,
+                            title: 'Save settings & exit'
+                        }, [
+                            renderIcon('check', 12, 'text-emerald-100'),
+                            '✓ Save'
+                        ])
+                    ])
+                ]),
                 // Status Banner
                 h('div', {
                     key: 'banner',
@@ -1196,22 +1275,28 @@
                 // Mobile Safe Clearance Spacer
                 h('div', {
                     key: 'safe-bottom-spacer',
-                    className: 'h-16 w-full shrink-0'
+                    className: 'h-28 w-full shrink-0'
                 })
             ]),
 
             // Sticky Bottom Action Bar (Always visible)
             h('div', {
                 key: 'bottom-bar',
-                className: 'px-4 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3 shrink-0 shadow-2xl z-20'
+                className: 'px-4 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3 shrink-0 shadow-2xl z-20',
+                style: {
+                    paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
+                    paddingTop: '12px',
+                    paddingLeft: 'max(16px, env(safe-area-inset-left, 16px))',
+                    paddingRight: 'max(16px, env(safe-area-inset-right, 16px))'
+                }
             }, [
                 h('button', {
                     type: 'button',
-                    className: 'px-4 py-2.5 rounded-xl border border-slate-600 hover:border-slate-300 bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-slate-200 font-semibold text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer shadow-sm',
+                    className: 'px-4 py-2.5 rounded-xl border border-slate-500 hover:border-slate-300 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer shadow-md',
                     onClick: handleClosePrompt,
                     title: 'Exit without saving changes'
                 }, [
-                    renderIcon('x', 14, 'text-slate-400'),
+                    renderIcon('x', 16, 'text-slate-300'),
                     '✕ Exit'
                 ]),
                 h('div', { className: 'flex items-center gap-2.5' }, [

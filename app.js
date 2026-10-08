@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.4';
+    let VERSION = '8.21.5';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1414,6 +1414,8 @@
       const backActionsRef = useRef({});
       backActionsRef.current = {
         closeActiveModal: () => {
+          // 0. Site Recipe Editor Modal (Full-screen overlay)
+          if (siteRecipeEditor) { setSiteRecipeEditor(null); return true; }
           // 1. Export Tools Sheet
           if (sheetOpen) { setSheetOpen(false); return true; }
           // 2. Diagnostics & Telemetry Logs Modal
@@ -1463,8 +1465,6 @@
           if (costEstimatorModalOpen) { setCostEstimatorModalOpen(false); return true; }
           // 21. Library Novel View
           if (activeNovelView) { setActiveNovelView(null); return true; }
-          // 22. Site Recipe Editor Modal
-          if (siteRecipeEditor) { setSiteRecipeEditor(null); return true; }
           return false;
         },
         popTab: () => {
