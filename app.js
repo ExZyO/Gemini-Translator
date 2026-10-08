@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.18.45';
+    let VERSION = '8.19.0';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -44,7 +44,8 @@
       DEFAULT_GEMINI_MODELS, DEFAULT_DEEPSEEK_MODELS,
       LANGUAGES, TARGET_LANGUAGES, DEEPL_LANG_MAP, LIBRE_LANG_MAP,
       MAX_PAYLOAD, PROMPT_OVERHEAD, MAX_HISTORY, DEFAULT_CONCURRENCY,
-      MoonReaderModal, AppModalsContainer, AppTabsContainer
+      MoonReaderModal, AppModalsContainer, AppTabsContainer,
+      SiteRecipeEditor, SiteRecipeManagerCard
     } = window;
 
     const copyText = window.copyText;
@@ -104,8 +105,8 @@
         } catch(e) { return {}; }
       });
 
-
-
+      // --- Site Recipe Customization State ---
+      const [siteRecipeEditor, setSiteRecipeEditor] = useState(null);
 
       // --- Novel Health & QA Proofreader State (§5.9 + §7.1 + §7.5) ---
       const [healthAuditEnabled, setHealthAuditEnabled] = useState(() => localStorage.getItem('healthAuditEnabled') !== 'false');
@@ -411,6 +412,7 @@
           onHistory: setWebImportHistory,
           loadTrashCount
         });
+        window.SiteRecipeEngine?.init?.();
       }, []);
 
       // Lazy cover art hydration from IndexedDB for any novels missing covers
@@ -1049,7 +1051,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8300);
+      const [appVersionCode, setAppVersionCode] = useState(8400);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [installingPluginId, setInstallingPluginId] = useState(null);
@@ -1249,6 +1251,15 @@
       const handleSearchNovelsInPlugins = (q, src = 'all') => window.NovelEnrichmentEngine?.Controller?.searchPlugins(q, src, { setIsPluginNovelSearching, setPluginNovelSearchResults, setPluginNovelSearchSource, onSetWebImportUrl: setWebImportUrl, onProgress: setWebImportStatus, toast, onStartFetch: handleStartFetch });
       const handleCheckRezeroUpdates = () => window.NovelEnrichmentEngine?.Plugins?.checkRezeroUpdates({ webImportHistory, activeCrawlSession, chapters, activeNovelRecord, callbacks: { onSetWebImportUrl: setWebImportUrl, onProgress: setWebImportStatus, toast, onStartFetch: handleStartFetch } });
 
+      // --- Site Recipe Customization Handler ---
+      const openSiteRecipeEditor = (params) => {
+        if (window.SiteRecipeEngine?.Controller?.open) {
+          window.SiteRecipeEngine.Controller.open(params || {}, { setSiteRecipeEditor, toast });
+        } else {
+          setSiteRecipeEditor(params || { url: '' });
+        }
+      };
+
       // --- Cost & Time Estimator Handlers (§7.2) ---
       const handleOpenCostEstimator = () => window.NovelEnrichmentEngine?.Controller?.openCostEstimator({ chapters, inputText, glossaryTermCount, smartGlossary, genderLocks, setCostEstimatorData, setCostEstimatorModalOpen, toast });
 
@@ -1438,6 +1449,8 @@
           if (costEstimatorModalOpen) { setCostEstimatorModalOpen(false); return true; }
           // 21. Library Novel View
           if (activeNovelView) { setActiveNovelView(null); return true; }
+          // 22. Site Recipe Editor Modal
+          if (siteRecipeEditor) { setSiteRecipeEditor(null); return true; }
           return false;
         },
         popTab: () => {
@@ -2525,7 +2538,7 @@
         toggleOpdsServer, telemetryEnabled, setTelemetryEnabled, telemetryVerbose, setTelemetryVerbose,
         telemetryServerUrl, setTelemetryServerUrl, telemetryTesting, telemetryStatus,
         telemetryStatusMsg, handleTestTelemetryConnection, handleClearTelemetryServer,
-        handleResetSettings, handleInstallPWA, DEFAULT_GEMINI_MODELS, DEFAULT_DEEPSEEK_MODELS
+        handleResetSettings, handleInstallPWA, openSiteRecipeEditor, DEFAULT_GEMINI_MODELS, DEFAULT_DEEPSEEK_MODELS
       };
 
       return h(React.Fragment, null,
@@ -2681,6 +2694,9 @@
 
           // Cost Estimator Modal
           costEstimatorModalOpen, setCostEstimatorModalOpen, costEstimatorData, handleStartTranslation,
+
+          // Site Recipe Customizer Modal
+          siteRecipeEditor, setSiteRecipeEditor, openSiteRecipeEditor,
 
           // EPUB Studio Preview Modal
           modalHtml: window.modalHtml || (typeof modalHtml !== 'undefined' ? modalHtml : '')

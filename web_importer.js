@@ -721,6 +721,7 @@
         const startTime = Date.now();
         const context = options.context || options.why || 'General Crawl';
         let lastDetectedBlock = null;
+        let lastHttpStatus = 0;
 
         let onExternalAbort = null;
         if (externalSignal) {
@@ -764,6 +765,7 @@
                     window.NativeBridge.fetchNative(url, options),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Native fetch timed out')), timeoutMs))
                 ]);
+                if (res && (res.status || res.statusCode)) lastHttpStatus = res.status || res.statusCode;
                 if (res && res.data) {
                     const text = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
                     const blockCheck = detectBlockOrChallenge(text);
@@ -826,6 +828,8 @@
                             });
                             return text;
                         }
+                    } else {
+                        lastHttpStatus = directRes.status;
                     }
                 }
             } catch (_) {}
@@ -872,6 +876,8 @@
                         console.warn('[Local Proxy] Cloudflare challenge or block encountered, failing over to public proxy pool...');
                         window.sendTelemetry?.('FETCH_WARN', `[${context}] Local proxy hit Cloudflare challenge (${blockCheck.label}), failing over to public proxies`, { url, context });
                     }
+                } else {
+                    lastHttpStatus = localRes.status;
                 }
             } catch (localErr) {
                 if (isUserAborted()) {
@@ -940,6 +946,8 @@
                         charCount: text.length
                     });
                     return text;
+                } else {
+                    lastHttpStatus = res.status;
                 }
             } catch (proxyErr) {
                 if (isUserAborted()) {
@@ -986,6 +994,7 @@
         err.isCloudflare = isCloudflare;
         err.challengeType = challengeType;
         err.targetUrl = url;
+        err.httpStatus = lastHttpStatus || null;
         window.sendTelemetry?.('FETCH_FAIL', `[${context}] All network tiers failed for: ${url} (${Date.now() - startTime}ms total, reason: ${challengeType || 'exhausted'})`, {
             url,
             context,
@@ -1092,6 +1101,13 @@
             ctrl.novelMeta = { ...(ctrl.novelMeta || {}), ...meta };
         }
 
+        const siteRecipe = ctrl.siteRecipe || null;
+        const RE = (typeof window !== 'undefined') ? window.SiteRecipeEngine : null;
+        if (siteRecipe && RE) {
+            extractContentFn = RE.wrapExtractor(siteRecipe, extractContentFn, { fetchHtml });
+            if (siteRecipe.network && siteRecipe.network.delayMs > 0) concurrency = 1;
+        }
+
         // Fast-path: TOC-only check for updates
         if (ctrl.tocOnly) {
             progressCb?.(` Table of contents verified: ${chapterList.length} remote chapters found.`, 100);
@@ -1184,7 +1200,7 @@
             }
         }
 
-        const baseDelay = poolOptions.delayMs !== undefined ? poolOptions.delayMs : 100;
+        const baseDelay = (siteRecipe && siteRecipe.network && siteRecipe.network.delayMs > 0) ? siteRecipe.network.delayMs : (poolOptions.delayMs !== undefined ? poolOptions.delayMs : 100);
         const speedCtrl = new AdaptiveSpeedController(concurrency, baseDelay);
         let totalWordsEstimate = chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)), 0);
         let totalImagesCount = chapters.reduce((acc, c) => acc + ((c.text && c.text.match(/!\[Illustration\]/g)) || []).length, 0);
@@ -1223,6 +1239,7 @@
                 let attempts = 0;
                 let chData = null;
                 let rateLimitDetected = false;
+                let brokenSkip = false;
 
                 while (attempts < 4 && !chData && !ctrl.isPaused && !ctrl.isCancelled) {
                     attempts++;
@@ -1253,6 +1270,10 @@
                             }
                         }
                     } catch (fetchErr) {
+                        if (siteRecipe?.network?.skipBroken && (fetchErr?.httpStatus === 404 || fetchErr?.httpStatus === 410)) {
+                            brokenSkip = true;
+                            break;
+                        }
                         const errMsg = String(fetchErr?.message || '').toLowerCase();
                         if (errMsg.includes('1015') || errMsg.includes('rate limit') || errMsg.includes('429') || errMsg.includes('too many requests')) {
                             rateLimitDetected = true;
@@ -1286,6 +1307,9 @@
                     const trapCleaner = (typeof window !== 'undefined' && window.stripInvisibleTrapsAndWatermarks) ? window.stripInvisibleTrapsAndWatermarks : (typeof stripInvisibleTrapsAndWatermarks === 'function' ? stripInvisibleTrapsAndWatermarks : null);
                     if (typeof trapCleaner === 'function') {
                         chapterText = trapCleaner(chapterText);
+                    }
+                    if (siteRecipe && RE) {
+                        chapterText = RE.postProcessText(siteRecipe, chapterText);
                     }
                     const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
                     const cleanFn = (typeof cleanChapterTitle === 'function') ? cleanChapterTitle : ((typeof window !== 'undefined' && window.cleanChapterTitle) ? window.cleanChapterTitle : null);
@@ -1340,6 +1364,22 @@
                     }
                 }
                 
+                if (brokenSkip) {
+                    console.warn(`[SiteRecipe] Chapter ${currentIndex + 1} skipped (404/410 broken page).`);
+                    const placeholder = {
+                        idx: isPreSliced ? (chapterRange.start - 1 + currentIndex) : currentIndex,
+                        url: item.url || '',
+                        title: item.title || `Chapter ${currentIndex + 1}`,
+                        text: `<p>[Skipped: this chapter page no longer exists on the site]</p>`,
+                        content: `<p>[Skipped: this chapter page no longer exists on the site]</p>`,
+                        words: 10,
+                        isPlaceholder: true
+                    };
+                    chapters.push(placeholder);
+                    completedIndices.add(currentIndex);
+                    continue;
+                }
+
                 if (!chapterSaved && !ctrl.isPaused && !ctrl.isCancelled) {
                     const retries = (chapterRetryCounts.get(currentIndex) || 0) + 1;
                     chapterRetryCounts.set(currentIndex, retries);
@@ -1770,6 +1810,32 @@
         };
     }
 
+    async function dispatchBuiltin(type, url, progressCb, options) {
+        if (type === 'royalroad') return await crawlRoyalRoad(url, progressCb, options);
+        else if (type === 'novelfire') return await crawlNovelFire(url, progressCb, options);
+        else if (type === 'novelbuddy') return await crawlNovelBuddy(url, progressCb, options);
+        else if (type === 'lnori') return await crawlLnori(url, progressCb, options);
+        else if (type === 'wuxiabox') return await crawlWuxiaBox(url, progressCb, options);
+        else if (type === 'wtrlab') return await crawlWtrLab(url, progressCb, options);
+        else if (type === 'fucknovelpia') return await crawlFuckNovelPia(url, progressCb, options);
+        else if (type === 'novelbin') return await crawlNovelBin(url, progressCb, options);
+        else if (type === 'witchcult') return await crawlWitchCult(url, progressCb, options);
+        else if (type === 'ao3') return await crawlAO3(url, progressCb, options);
+        else if (type === 'syosetu') return await crawlSyosetu(url, progressCb, options);
+        else if (type === 'novelfull') return await crawlNovelFull(url, progressCb, options);
+        else if (type === 'lofter') return await crawlLofter(url, progressCb, options);
+        else if (type === 'pixiv') return await crawlPixiv(url, progressCb, options);
+        else {
+            const registeredPlugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
+            if (registeredPlugin && registeredPlugin.id !== 'universal') {
+                console.log(`⚡ [LNCrawl Engine] Routing to active source plugin: ${registeredPlugin.name} (${registeredPlugin.id})`);
+                return await crawlWithPlugin(registeredPlugin, url, progressCb, options);
+            } else {
+                return await crawlUniversal(url, progressCb, options);
+            }
+        }
+    }
+
     window.WebNovelImporter = {
         fetchHtml,
         importEpubBuffer,
@@ -1810,8 +1876,14 @@
             }
             return false;
         },
+        hasActiveCrawl: () => {
+            if (!activeCrawlController) return false;
+            if (!activeCrawlController.isCancelled && !activeCrawlController.isPaused && activeCrawlController.abortController) return true;
+            return false;
+        },
         resetCrawlController: () => resetCrawlController(),
         getActiveController: () => activeCrawlController,
+        dispatchBuiltin,
         importUrl: async (url, progressCb, options = {}) => {
             if (!url || !url.trim()) throw new Error('Please enter a valid novel URL.');
             createCrawlController(options);
@@ -1827,27 +1899,28 @@
             try {
                 window.telemetryLog?.('CRAWLER', `Initiating crawl for URL: ${url} (engine: ${type || 'auto'})`, { url, type, options });
                 let result;
-                if (type === 'royalroad') result = await crawlRoyalRoad(url, progressCb, options);
-                else if (type === 'novelfire') result = await crawlNovelFire(url, progressCb, options);
-                else if (type === 'novelbuddy') result = await crawlNovelBuddy(url, progressCb, options);
-                else if (type === 'lnori') result = await crawlLnori(url, progressCb, options);
-                else if (type === 'wuxiabox') result = await crawlWuxiaBox(url, progressCb, options);
-                else if (type === 'wtrlab') result = await crawlWtrLab(url, progressCb, options);
-                else if (type === 'fucknovelpia') result = await crawlFuckNovelPia(url, progressCb, options);
-                else if (type === 'novelbin') result = await crawlNovelBin(url, progressCb, options);
-                else if (type === 'witchcult') result = await crawlWitchCult(url, progressCb, options);
-                else if (type === 'ao3') result = await crawlAO3(url, progressCb, options);
-                else if (type === 'syosetu') result = await crawlSyosetu(url, progressCb, options);
-                else if (type === 'novelfull') result = await crawlNovelFull(url, progressCb, options);
-                else if (type === 'lofter') result = await crawlLofter(url, progressCb, options);
-                else if (type === 'pixiv') result = await crawlPixiv(url, progressCb, options);
-                else {
-                    const registeredPlugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
-                    if (registeredPlugin && registeredPlugin.id !== 'universal') {
-                        console.log(`⚡ [LNCrawl Engine] Routing to active source plugin: ${registeredPlugin.name} (${registeredPlugin.id})`);
-                        result = await crawlWithPlugin(registeredPlugin, url, progressCb, options);
-                    } else {
-                        result = await crawlUniversal(url, progressCb, options);
+                let recipe = null;
+                if (!options._skipRecipe && (typeof window !== 'undefined') && window.SiteRecipeEngine) {
+                    try {
+                        await window.SiteRecipeEngine.ready();
+                        recipe = window.SiteRecipeEngine.findForUrl(url);
+                    } catch (e) {
+                        recipe = null;
+                        window.AppLogger?.warn?.('[SiteRecipe] lookup failed', e);
+                    }
+                }
+                if (activeCrawlController) activeCrawlController.siteRecipe = recipe;
+                const RE = (typeof window !== 'undefined') ? window.SiteRecipeEngine : null;
+                if (recipe && RE && RE.hasBookTakeover(recipe)) {
+                    result = await RE.crawlWithRecipe(recipe, url, progressCb, options, {
+                        fetchHtml,
+                        crawlChapterPool,
+                        getController: () => activeCrawlController
+                    });
+                } else {
+                    result = await dispatchBuiltin(type, url, progressCb, options);
+                    if (recipe && result && RE && RE.hasMetaOverrides(recipe)) {
+                        result = await RE.overlayBookInfo(recipe, url, result, { fetchHtml });
                     }
                 }
 

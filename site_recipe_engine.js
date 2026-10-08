@@ -1258,15 +1258,21 @@
     async pasteCode(text, callbacks) {
       try {
         let raw = text;
-        if (!raw && navigator.clipboard) {
+        let cbs = callbacks;
+        if (typeof text === 'function' || (text && typeof text === 'object' && typeof text.toast === 'function')) {
+          cbs = typeof text === 'function' ? { toast: text } : text;
+          raw = null;
+        }
+        if (!raw && typeof navigator !== 'undefined' && navigator.clipboard) {
           raw = await navigator.clipboard.readText();
         }
         const recipe = decodeShareCode(raw);
-        if (callbacks?.onParsed) callbacks.onParsed(recipe);
-        if (callbacks?.toast) callbacks.toast(`Loaded recipe for ${recipe.name || recipe.id}!`, 'success');
+        if (cbs?.onParsed) cbs.onParsed(recipe);
+        if (cbs?.toast) cbs.toast(`Loaded recipe for ${recipe.name || recipe.id}!`, 'success');
         return recipe;
       } catch (err) {
-        if (callbacks?.toast) callbacks.toast(err.message, 'error');
+        const cbs = typeof callbacks === 'function' ? { toast: callbacks } : (typeof text === 'function' ? { toast: text } : callbacks);
+        if (cbs?.toast) cbs.toast(err.message, 'error');
         throw err;
       }
     },
@@ -1274,20 +1280,24 @@
     async exportFile(recipe, toast) {
       try {
         await exportFile(recipe);
-        if (typeof toast === 'function') toast(`Saved ${recipe.id}.gtrecipe.json! 💾`, 'success');
+        const tFn = typeof toast === 'function' ? toast : toast?.toast;
+        if (typeof tFn === 'function') tFn(`Saved ${recipe.id}.gtrecipe.json! 💾`, 'success');
       } catch (err) {
-        if (typeof toast === 'function') toast('Export failed: ' + err.message, 'error');
+        const tFn = typeof toast === 'function' ? toast : toast?.toast;
+        if (typeof tFn === 'function') tFn('Export failed: ' + err.message, 'error');
       }
     },
 
     async importFile(file, callbacks) {
       try {
         const recipe = await importFile(file);
-        if (callbacks?.onParsed) callbacks.onParsed(recipe);
-        if (callbacks?.toast) callbacks.toast(`Loaded recipe for ${recipe.name || recipe.id}!`, 'success');
+        const cbs = typeof callbacks === 'function' ? { toast: callbacks } : callbacks;
+        if (cbs?.onParsed) cbs.onParsed(recipe);
+        if (cbs?.toast) cbs.toast(`Loaded recipe for ${recipe.name || recipe.id}!`, 'success');
         return recipe;
       } catch (err) {
-        if (callbacks?.toast) callbacks.toast(err.message, 'error');
+        const cbs = typeof callbacks === 'function' ? { toast: callbacks } : callbacks;
+        if (cbs?.toast) cbs.toast(err.message, 'error');
         throw err;
       }
     }

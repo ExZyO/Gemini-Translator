@@ -300,6 +300,19 @@
           callbacks.setIsFetchingUrl?.(false);
           callbacks.setWebImportStatus?.('');
           callbacks.setWebImportError?.(null);
+          if (!data.isEpub && (window.WebNovelImporter?.detectType?.(resolvedUrl) === 'universal' || !window.WebNovelImporter?.detectType)) {
+            const hasRecipe = window.SiteRecipeEngine?.findForUrl ? !!window.SiteRecipeEngine.findForUrl(resolvedUrl) : false;
+            const foundCount = (data.chapterList?.length || data.chapters?.length || 0);
+            if (!hasRecipe && foundCount <= 1) {
+              callbacks.setWebImportError?.({
+                message: 'Only one chapter was found on this site. If that looks wrong, you can set this site up manually.',
+                targetUrl: resolvedUrl,
+                isLowQuality: true,
+                partialCount: data.chapters?.length || 0,
+                totalCount: 1
+              });
+            }
+          }
           safeToast(callbacks, `Imported "${data.title}" — ${data.chapters.length} chapters! 🎉`, 'success');
           try {
             window.NativeBridge?.clearProgressNotification?.(true);

@@ -252,6 +252,7 @@
       handleSearchNovels,
       handleSwiftAudioSearch,
       handleOpenSourcePluginsModal,
+      openSiteRecipeEditor,
       handleCheckRezeroUpdates,
       handleOpenAutoGlossary,
       handleLnoriDirectEpubDownload,
@@ -374,6 +375,19 @@
                         window.open(webImportError.targetUrl, '_blank');
                       }
                     }, '🌐 Open Source in Browser'),
+                    (webImportError.targetUrl || webImportUrl) && h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: { borderColor: 'rgba(234, 179, 8, 0.5)', color: '#eab308', fontWeight: 600 },
+                      onClick: () => {
+                        const targetUrl = webImportError.targetUrl || webImportUrl;
+                        if (typeof openSiteRecipeEditor === 'function') {
+                          openSiteRecipeEditor({ url: targetUrl });
+                        } else if (typeof window !== 'undefined' && window.SiteRecipeEngine?.Controller?.open) {
+                          window.SiteRecipeEngine.Controller.open({ url: targetUrl });
+                        }
+                      }
+                    }, '🛠️ Set up this site manually'),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
@@ -619,6 +633,31 @@
                       onClick: handleOpenSourcePluginsModal,
                       title: 'Manage built-in source plugins and browse 278 LNReader community plugins'
                     }, '🔌 Plugins'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: {
+                        padding: '6px 11px',
+                        borderRadius: 999,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        cursor: 'pointer',
+                        color: (webImportUrl && typeof window !== 'undefined' && window.SiteRecipeEngine?.findForUrl(webImportUrl)) ? '#10b981' : 'var(--accent, #6366f1)',
+                        border: (webImportUrl && typeof window !== 'undefined' && window.SiteRecipeEngine?.findForUrl(webImportUrl)) ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(99, 102, 241, 0.3)'
+                      },
+                      onClick: () => {
+                        const targetUrl = (webImportUrl || '').trim();
+                        if (typeof openSiteRecipeEditor === 'function') {
+                          openSiteRecipeEditor({ url: targetUrl });
+                        } else if (typeof window !== 'undefined' && window.SiteRecipeEngine?.Controller?.open) {
+                          window.SiteRecipeEngine.Controller.open({ url: targetUrl });
+                        }
+                      },
+                      title: 'Configure custom HTML extraction rules for this website'
+                    }, (webImportUrl && typeof window !== 'undefined' && window.SiteRecipeEngine?.findForUrl(webImportUrl)) ? '⚙️ Site settings ✓' : '⚙️ Site settings'),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',

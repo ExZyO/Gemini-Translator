@@ -1254,6 +1254,7 @@
       handleEnrichNovelMetadata,
       handleUpgradeNovelIllustrations,
       handleSplitNovelIntoArcs,
+      openSiteRecipeEditor,
       confirmAction,
       deleteNovelFromHistory
     } = props;
@@ -1331,6 +1332,16 @@
           }),
           menuRow('⚡', 'Continue Fetching Online', 'Fetch new chapters from web and append to this EPUB with same Book ID', () => {
             if (handleOpenContinuationForNovel) handleOpenContinuationForNovel(item);
+          }),
+          (item.sourceUrl || item.url) && /^https?:\/\//i.test(item.sourceUrl || item.url) && menuRow('🛠️', "Site Settings for Book's Website", 'Customize how chapters are extracted from this website', () => {
+            const u = item.sourceUrl || item.url;
+            if (typeof openSiteRecipeEditor === 'function') {
+              openSiteRecipeEditor({ url: u });
+            } else if (typeof props.openSiteRecipeEditor === 'function') {
+              props.openSiteRecipeEditor({ url: u });
+            } else if (typeof window !== 'undefined' && window.SiteRecipeEngine?.Controller?.open) {
+              window.SiteRecipeEngine.Controller.open({ url: u });
+            }
           }),
           menuRow('🧬', 'Auto-Build Glossary', 'Extract character cast and lore into a locked Smart Glossary', async () => {
             const full = loadFullNovel ? await loadFullNovel(item) : null;
@@ -2308,6 +2319,7 @@
         handleEnrichNovelMetadata: props.handleEnrichNovelMetadata,
         handleUpgradeNovelIllustrations: props.handleUpgradeNovelIllustrations,
         handleSplitNovelIntoArcs: props.handleSplitNovelIntoArcs,
+        openSiteRecipeEditor: props.openSiteRecipeEditor,
         confirmAction: props.confirmAction,
         deleteNovelFromHistory: props.deleteNovelFromHistory
       }),
@@ -2465,7 +2477,19 @@
       }),
 
       // 21. EPUB Studio Preview Modal
-      h('div', { dangerouslySetInnerHTML: { __html: (typeof window !== 'undefined' ? window.modalHtml : '') || (typeof modalHtml !== 'undefined' ? modalHtml : (props.modalHtml || '')) } })
+      h('div', { dangerouslySetInnerHTML: { __html: (typeof window !== 'undefined' ? window.modalHtml : '') || (typeof modalHtml !== 'undefined' ? modalHtml : (props.modalHtml || '')) } }),
+
+      // 22. Site Recipe Customizer Modal
+      Boolean(props.siteRecipeEditor && (typeof window !== 'undefined' && window.SiteRecipeEditor)) && h(window.SiteRecipeEditor, {
+        open: true,
+        url: props.siteRecipeEditor.url,
+        recipeId: props.siteRecipeEditor.recipeId,
+        onClose: () => {
+          if (typeof props.setSiteRecipeEditor === 'function') props.setSiteRecipeEditor(null);
+        },
+        toast,
+        confirmAction: props.confirmAction
+      })
     );
   }
 

@@ -175,17 +175,19 @@
       setLogsModalOpen,
       handleInstallPWA,
       confirmAction,
+      openSiteRecipeEditor,
       DEFAULT_GEMINI_MODELS,
       DEFAULT_DEEPSEEK_MODELS
     } = props;
 
-                  const SETTINGS_CATEGORIES = [
-                { id: 'engine', label: '🌐 Engine & Keys' },
-                { id: 'quality', label: '🩺 Quality & TM' },
-                { id: 'display', label: '🎨 Reader & Display' },
-                { id: 'backup', label: '💾 Backup & Storage' },
-                { id: 'all', label: '📋 All Settings' }
-              ];
+    const SETTINGS_CATEGORIES = [
+      { id: 'engine', label: '🌐 Engine & Keys' },
+      { id: 'sources', label: '📖 Sites & Sources' },
+      { id: 'quality', label: '🩺 Quality & TM' },
+      { id: 'display', label: '🎨 Reader & Display' },
+      { id: 'backup', label: '💾 Backup & Storage' },
+      { id: 'all', label: '📋 All Settings' }
+    ];
 
               return h(React.Fragment, null,
                 // Top Quick Status & Mihon-Style Toggles
@@ -696,6 +698,23 @@
                   );
                 })
               )
+            ),
+
+            // ═══ GROUP: SITES & SOURCES ═══
+            (settingsCategory === 'sources' || settingsCategory === 'all') && h(React.Fragment, null,
+              h('div', { className: 'sec-banner' },
+                h('div', { style: { display: 'flex', alignItems: 'center' } },
+                  h('span', { className: 'sec-tag' }, '//'),
+                  h('span', { className: 'sec-title' }, 'CUSTOM SITES & SCRAPING RECIPES')
+                )
+              ),
+              (typeof window !== 'undefined' && window.SiteRecipeManagerCard)
+                ? h(window.SiteRecipeManagerCard, {
+                    openSiteRecipeEditor: openSiteRecipeEditor || props.openSiteRecipeEditor,
+                    toast: props.toast || toast,
+                    confirmAction: props.confirmAction || confirmAction
+                  })
+                : null
             ),
 
             // ═══ GROUP 2: QUALITY & TM ═══
