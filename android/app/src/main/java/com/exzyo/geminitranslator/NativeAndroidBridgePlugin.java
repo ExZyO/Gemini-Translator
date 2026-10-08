@@ -1050,21 +1050,32 @@ public class NativeAndroidBridgePlugin extends Plugin {
         if (html.length() < 120) return true;
         String lower = html.toLowerCase();
 
-        // If the page contains real book or site content, it is NOT a challenge page
-        if (lower.contains("__next_data__") || lower.contains("chapter-content") || lower.contains("content-inner") ||
-            lower.contains("reading-content") || lower.contains("class=\"book-info\"") || lower.contains("class=\"book-item\"") ||
-            lower.contains("class=\"site-header\"") || (html.length() > 6000 && (lower.contains("<h1") || lower.contains("<main") || lower.contains("<article")))) {
+        // 1. Direct Cloudflare challenge / Turnstile signatures
+        if (lower.contains("cf-turnstile") || lower.contains("challenges.cloudflare.com") ||
+            lower.contains("challenge-platform") || lower.contains("cf-challenge") ||
+            lower.contains("cf_chl_") || lower.contains("turnstile") ||
+            lower.contains("<title>just a moment...</title>") ||
+            lower.contains("<title>attention required! | cloudflare</title>") ||
+            lower.contains("attention required! | cloudflare") ||
+            lower.contains("cf-browser-verification") ||
+            lower.contains("verify you are human") ||
+            lower.contains("checking your browser") ||
+            lower.contains("security service to protect against malicious bots") ||
+            lower.contains("performance and security by cloudflare") ||
+            lower.contains("enable javascript and cookies to continue") ||
+            lower.contains("shields are up!")) {
+            return true;
+        }
+
+        // 2. Legitimate content check (requires actual chapter or novel text indicators)
+        if (lower.contains("chapter-content") || lower.contains("reading-content") ||
+            lower.contains("class=\"chapter-title\"") || lower.contains("id=\"chapter-content\"") ||
+            lower.contains("d-chapter-content") || lower.contains("class=\"novel-info\"") ||
+            lower.contains("class=\"book-info\"") || lower.contains("__next_data__")) {
             return false;
         }
 
-        return lower.contains("<title>just a moment...</title>")
-            || lower.contains("<title>attention required! | cloudflare</title>")
-            || lower.contains("cf-browser-verification")
-            || lower.contains("security service to protect against malicious bots")
-            || lower.contains("performance and security by cloudflare")
-            || lower.contains("enable javascript and cookies to continue")
-            || lower.contains("cf_chl_")
-            || lower.contains("shields are up!");
+        return false;
     }
 
     @PluginMethod
@@ -1233,7 +1244,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
                                 Log.w(TAG, "HTML tokener parse fallback");
                             }
                             
-                            if (hasClearance || !isCloudflareChallengeHtml(cleanHtml)) {
+                            String lower = cleanHtml.toLowerCase();
+                            boolean isChallenge = isCloudflareChallengeHtml(cleanHtml);
+                            boolean hasRichContent = !isChallenge && (
+                                lower.contains("chapter-content") || lower.contains("reading-content") ||
+                                lower.contains("content-inner") || lower.contains("d-chapter-content") ||
+                                lower.contains("class=\"chapter-title\"") || lower.contains("id=\"chapter-content\"")
+                            );
+
+                            if (hasClearance || hasRichContent) {
                                 resolved[0] = true;
                                 try {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -1324,9 +1343,17 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             java.net.URI uri = new java.net.URI(currentUrl);
                             cookieUrl = uri.getScheme() + "://" + uri.getHost();
                         } catch (Exception ignored) {}
-                        String webViewCookies = cookieManager.getCookie(cookieUrl);
-                        if (webViewCookies != null && !webViewCookies.isEmpty()) {
-                            cookies = cookies.isEmpty() ? webViewCookies : cookies + "; " + webViewCookies;
+                        String hostCookies = cookieManager.getCookie(cookieUrl);
+                        String directCookies = cookieManager.getCookie(currentUrl);
+                        if (hostCookies != null && !hostCookies.isEmpty()) {
+                            cookies = hostCookies;
+                        }
+                        if (directCookies != null && !directCookies.isEmpty()) {
+                            if (cookies.isEmpty()) {
+                                cookies = directCookies;
+                            } else if (!cookies.contains(directCookies)) {
+                                cookies = cookies + "; " + directCookies;
+                            }
                         }
                     }
                 } catch (Throwable ignored) {}

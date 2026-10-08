@@ -89,52 +89,56 @@
                     setError('This website is protected by Cloudflare verification.');
                 }
 
-                // Extract element candidates for the clean List View fallback
-                try {
-                    const doc = new DOMParser().parseFromString(rawHtml, 'text/html');
-                    if (target === 'chapterLinks') {
-                        const links = Array.from(doc.querySelectorAll('a[href]'))
-                            .map(a => {
-                                const t = (a.textContent || '').trim();
-                                const h = a.getAttribute('href') || '';
-                                const sel = window.SitePicker?.uniqueSelector?.(a, doc) || 'a';
-                                return { title: t, href: h, selector: sel, rawEl: a };
-                            })
-                            .filter(l => l.title.length > 0 && l.title.length < 160 && !/^(javascript:|#|mailto:)/i.test(l.href));
-                        setParsedItems(links);
-                    } else if (target === 'content') {
-                        const candidates = [];
-                        const standardSelectors = ['#content', '.chapter-content', '.entry-content', '#chapter-content', '#story-text', 'article', '.content', '.text-content', '#text', '.chapter-text', '.reading-content'];
-                        for (const s of standardSelectors) {
-                            const el = doc.querySelector(s);
-                            if (el) {
-                                const t = (el.textContent || '').trim();
-                                const wc = t ? t.split(/\s+/).length : 0;
-                                if (wc > 30) {
-                                    candidates.push({ selector: s, words: wc, preview: t.slice(0, 180) });
+                const parseCandidateElements = (htmlText) => {
+                    try {
+                        const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+                        if (target === 'chapterLinks') {
+                            const links = Array.from(doc.querySelectorAll('a[href]'))
+                                .map(a => {
+                                    const t = (a.textContent || '').trim();
+                                    const h = a.getAttribute('href') || '';
+                                    const sel = window.SitePicker?.uniqueSelector?.(a, doc) || 'a';
+                                    return { title: t, href: h, selector: sel, rawEl: a };
+                                })
+                                .filter(l => l.title.length > 0 && l.title.length < 160 && !/^(javascript:|#|mailto:)/i.test(l.href));
+                            setParsedItems(links);
+                        } else if (target === 'content') {
+                            const candidates = [];
+                            const standardSelectors = ['#content', '.chapter-content', '.entry-content', '#chapter-content', '#story-text', 'article', '.content', '.text-content', '#text', '.chapter-text', '.reading-content'];
+                            for (const s of standardSelectors) {
+                                const el = doc.querySelector(s);
+                                if (el) {
+                                    const t = (el.textContent || '').trim();
+                                    const wc = t ? t.split(/\s+/).length : 0;
+                                    if (wc > 30) {
+                                        candidates.push({ selector: s, words: wc, preview: t.slice(0, 180) });
+                                    }
                                 }
                             }
-                        }
-                        if (candidates.length === 0) {
-                            const blocks = Array.from(doc.querySelectorAll('div, article, section, main, p'));
-                            for (const b of blocks) {
-                                const t = (b.textContent || '').trim();
-                                const wc = t ? t.split(/\s+/).length : 0;
-                                if (wc > 60) {
-                                    candidates.push({
-                                        selector: window.SitePicker?.uniqueSelector?.(b, doc) || b.tagName.toLowerCase(),
-                                        words: wc,
-                                        preview: t.slice(0, 180)
-                                    });
+                            if (candidates.length === 0) {
+                                const blocks = Array.from(doc.querySelectorAll('div, article, section, main, p'));
+                                for (const b of blocks) {
+                                    const t = (b.textContent || '').trim();
+                                    const wc = t ? t.split(/\s+/).length : 0;
+                                    if (wc > 60) {
+                                        candidates.push({
+                                            selector: window.SitePicker?.uniqueSelector?.(b, doc) || b.tagName.toLowerCase(),
+                                            words: wc,
+                                            preview: t.slice(0, 180)
+                                        });
+                                    }
                                 }
+                                candidates.sort((a, b) => b.words - a.words);
                             }
-                            candidates.sort((a, b) => b.words - a.words);
+                            setParsedItems(candidates.slice(0, 10));
                         }
-                        setParsedItems(candidates.slice(0, 10));
+                    } catch (parseErr) {
+                        console.warn('[SitePicker] Error parsing elements list:', parseErr);
                     }
-                } catch (parseErr) {
-                    console.warn('[SitePicker] Error parsing elements list:', parseErr);
-                }
+                };
+
+                // Extract element candidates for the clean List View fallback
+                parseCandidateElements(rawHtml);
 
                 const built = window.SitePicker?.buildPreviewDoc?.(rawHtml, url) || rawHtml;
                 setPreviewHtml(built);
@@ -184,8 +188,48 @@
                 try {
                     const res = await solver(url);
                     if (res?.success || res?.status === 'ok') {
-                        toast?.('Verification passed! Reloading preview...', 'success');
-                        loadPreview();
+                        if (res?.html && typeof res.html === 'string' && res.html.length > 300 && !/cf-turnstile|challenges\.cloudflare\.com|just a moment|<title>attention required/i.test(res.html)) {
+                            toast?.('Verification passed! Loaded page content.', 'success');
+                            setError(null);
+                            setLoading(false);
+                            try {
+                                const doc = new DOMParser().parseFromString(res.html, 'text/html');
+                                if (target === 'chapterLinks') {
+                                    const links = Array.from(doc.querySelectorAll('a[href]'))
+                                        .map(a => ({
+                                            title: (a.textContent || '').trim(),
+                                            href: a.getAttribute('href') || '',
+                                            selector: window.SitePicker?.uniqueSelector?.(a, doc) || 'a',
+                                            rawEl: a
+                                        }))
+                                        .filter(l => l.title.length > 0 && l.title.length < 160 && !/^(javascript:|#|mailto:)/i.test(l.href));
+                                    setParsedItems(links);
+                                } else if (target === 'content') {
+                                    const blocks = Array.from(doc.querySelectorAll('div, article, section, main, p'));
+                                    const candidates = [];
+                                    for (const b of blocks) {
+                                        const t = (b.textContent || '').trim();
+                                        const wc = t ? t.split(/\s+/).length : 0;
+                                        if (wc > 50) {
+                                            candidates.push({
+                                                selector: window.SitePicker?.uniqueSelector?.(b, doc) || b.tagName.toLowerCase(),
+                                                words: wc,
+                                                preview: t.slice(0, 180)
+                                            });
+                                        }
+                                    }
+                                    candidates.sort((a, b) => b.words - a.words);
+                                    setParsedItems(candidates.slice(0, 10));
+                                }
+                            } catch (_) {}
+                            const built = window.SitePicker?.buildPreviewDoc?.(res.html, url) || res.html;
+                            setPreviewHtml(built);
+                        } else {
+                            toast?.('Verification passed! Reloading preview...', 'success');
+                            setTimeout(() => {
+                                loadPreview();
+                            }, 500);
+                        }
                     }
                 } catch (e) {
                     toast?.('In-app browser: ' + e.message, 'warning');
