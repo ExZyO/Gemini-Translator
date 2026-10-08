@@ -804,7 +804,7 @@
     const chapterList = [];
     const seenUrls = new Set();
 
-    let startUrl = url;
+    let startUrl = (r.chapterUrl && r.chapterUrl !== url) ? r.chapterUrl : url;
     if (r.book && r.book.firstChapterSelector && bookDoc) {
       const el = safeQuerySelector(bookDoc, r.book.firstChapterSelector);
       if (el) {
@@ -1125,7 +1125,9 @@
     '.tab-content', '.box-list-chapter', '.item-list', '.novel-chapters',
     '.scroll-chapter', '.chapters-container', '.chapters-list',
     '[data-tab="chapters"]', '.manga-chapters-holder', '.listing-chapters_wrap',
-    '.eplist', '.ts-chl-collapsible-content', '.bixbox', '.ch-container', '.novel-toc'
+    '.eplist', '.ts-chl-collapsible-content', '.bixbox', '.ch-container', '.novel-toc',
+    'ul.ul-list5', '.ul-list5', '.m-newest1', '.m-newest2', '.m-chapters', '.m-chapter',
+    'ul.row-content-chapters', '.row-content-chapters', '.chapter_list', '.chapters_list', '.ul-list3'
   ];
 
   // Helper: evaluate text density of a container
@@ -1211,13 +1213,24 @@
       const isChapterLike = chapterPattern.test(t) || /(?:\/chapter|\/ch|\/read|\/ep)[-_/]?\d+/i.test(h) || /\/c\d+/i.test(h);
       if (isChapterLike) {
         let parent = a.parentElement;
-        if (parent) {
-          const pTag = parent.tagName ? parent.tagName.toLowerCase() : '';
-          if (pTag === 'li' || pTag === 'td' || pTag === 'span' || (parent.className && /\b(?:col|item|row|grid|ch-item)\b/i.test(parent.className))) {
+        while (parent && parent.parentElement && parent.tagName) {
+          const pTag = parent.tagName.toLowerCase();
+          if (pTag === 'span' || pTag === 'em' || pTag === 'strong' || pTag === 'b' || pTag === 'i' || pTag === 'p') {
+            parent = parent.parentElement;
+            continue;
+          }
+          if (pTag === 'li' || pTag === 'td' || (parent.className && /\b(?:col|item|row|grid|ch-item|chapter-item)\b/i.test(parent.className))) {
             if (parent.parentElement) {
               parent = parent.parentElement;
+              if (parent.tagName && /^(ul|ol|tbody|table|div)$/i.test(parent.tagName)) {
+                break;
+              }
+              continue;
             }
           }
+          break;
+        }
+        if (parent) {
           const list = parentGroups.get(parent) || [];
           list.push({ title: t, href: resolveUrl(h, pageUrl), el: a });
           parentGroups.set(parent, list);
@@ -1234,7 +1247,7 @@
       }
     }
 
-    if (bestGroup.length >= 3 && bestParent) {
+    if (bestGroup.length >= 2 && bestParent) {
       const containerSel = (typeof window !== 'undefined' && window.SitePicker && typeof window.SitePicker.uniqueSelector === 'function')
         ? window.SitePicker.uniqueSelector(bestParent, doc)
         : (bestParent.id ? '#' + bestParent.id : (bestParent.className ? '.' + String(bestParent.className).trim().split(/\s+/)[0] : bestParent.tagName.toLowerCase()));
@@ -1254,9 +1267,14 @@
       'a[rel="next"]',
       '.next-chapter',
       '#next_url',
+      'a#next_chap',
       '.btn-next',
+      'a.btn-next',
       '.next_page',
-      'a.next'
+      'a.next',
+      '.nav-next a',
+      '.next-chap',
+      '#nextchapter'
     ];
     for (const s of candidates) {
       const el = safeQuerySelector(doc, s);
@@ -1747,9 +1765,36 @@ Output valid raw JSON only, no markdown formatting.`;
       }
     }
 
+    const extractChNum = (str) => {
+      if (!str) return null;
+      const m = str.match(/(?:chapter|ch|ep|episode|vol|volume|第)\s*(\d+(?:\.\d+)?)/i) || str.match(/\b(\d+(?:\.\d+)?)\b/);
+      return m ? parseFloat(m[1]) : null;
+    };
+
+    let isQuickLinksOnly = false;
+    let ch1Url = '';
+    let ch2Url = '';
+
+    if (chapters && chapters.length === 2) {
+      const num0 = extractChNum(chapters[0].title) || extractChNum(chapters[0].href);
+      const num1 = extractChNum(chapters[1].title) || extractChNum(chapters[1].href);
+      if (num0 !== null && num1 !== null && Math.abs(num1 - num0) > 1) {
+        isQuickLinksOnly = true;
+        if (num0 <= num1) {
+          ch1Url = chapters[0].href;
+          ch2Url = chapters[1].href;
+        } else {
+          ch1Url = chapters[1].href;
+          ch2Url = chapters[0].href;
+        }
+      }
+    }
+
     const isReaderUrl = /[?&]chapter=\d+|\/chapter[-_/]?\d+/i.test(url);
-    const ch1Url = chapters[0]?.href || (isReaderUrl ? url : '');
-    const ch2Url = (chapters.length > 1) ? chapters[1]?.href : ch1Url;
+    if (!ch1Url) {
+      ch1Url = chapters[0]?.href || (isReaderUrl ? url : '');
+      ch2Url = (chapters.length > 1) ? chapters[1]?.href : ch1Url;
+    }
 
     return {
       overviewHtml,
@@ -1758,7 +1803,8 @@ Output valid raw JSON only, no markdown formatting.`;
       chapterLinkSelector,
       chapters,
       ch1Url,
-      ch2Url
+      ch2Url,
+      isQuickLinksOnly
     };
   };
 
@@ -1873,11 +1919,13 @@ Return valid raw JSON only:
     // Evaluate final extraction on Chapter 1
     const testEl = safeQuerySelector(doc1, contentSelector);
     const evalRes = evaluateContentContainer(testEl);
+    const nextLinkSelector = findNextChapterSelector(doc1);
 
     return {
       contentSelector,
       chapterTitleSelector,
       removeSelectors,
+      nextLinkSelector,
       ch1Words: evalRes.words,
       ch1Preview: evalRes.text.slice(0, 320)
     };
@@ -1950,6 +1998,7 @@ Return valid raw JSON only:
     }
 
     notify('saving_recipe', '💾 [4/4] Finalizing & saving custom recipe...');
+    const isSequentialNextMode = !!(overview.isQuickLinksOnly || overview.chapters.length < 2 || isDirectChapterUrl);
     const recipe = withDefaults({
       id: host,
       name: overview.bookInfo.title ? `${overview.bookInfo.title} (${host})` : host,
@@ -1960,7 +2009,7 @@ Return valid raw JSON only:
         book: cleanUrl,
         chapter: overview.ch1Url
       },
-      mode: (overview.chapters.length >= 2 ? 'list' : 'next'),
+      mode: isSequentialNextMode ? 'next' : 'list',
       book: {
         titleSelector: overview.bookInfo.title ? 'h1' : 'h1',
         authorSelector: overview.bookInfo.author ? '.author, .novel-author, span' : '',
@@ -1970,7 +2019,7 @@ Return valid raw JSON only:
       chapter: {
         titleSelector: chaptersInfo.chapterTitleSelector || 'h1',
         contentSelector: chaptersInfo.contentSelector || '#content',
-        nextLinkSelector: 'a[rel="next"]',
+        nextLinkSelector: chaptersInfo.nextLinkSelector || 'a[rel="next"]',
         removeSelectors: chaptersInfo.removeSelectors || ['.ads', 'header', 'footer']
       },
       network: {

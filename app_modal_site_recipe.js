@@ -245,29 +245,29 @@
             // Top Bar
             h('div', {
                 key: 'topbar',
-                className: 'h-14 px-3 md:px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-white shrink-0 shadow-lg gap-2'
+                className: 'min-h-14 py-2 px-3 md:px-4 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-white shrink-0 shadow-lg gap-2'
             }, [
-                h('div', { className: 'flex items-center gap-2 truncate' }, [
+                h('div', { className: 'flex items-center gap-2 min-w-0 truncate' }, [
                     h('span', { className: 'text-amber-400 font-bold text-xs md:text-sm tracking-wide uppercase shrink-0' }, '👆 Inspector'),
                     h('span', { className: 'text-slate-400 text-[11px] md:text-xs truncate hidden sm:inline' }, targetLabels[target] || 'Tap an element on the page')
                 ]),
 
                 // Center: View Mode Toggle (Visual Page vs Clean Elements List)
-                parsedItems.length > 0 && h('div', { className: 'flex rounded-xl bg-slate-800 p-0.5 border border-slate-700 text-xs shrink-0' }, [
+                parsedItems.length > 0 && h('div', { className: 'flex rounded-xl bg-slate-800 p-0.5 border border-slate-700 text-xs shrink-0 order-last sm:order-none w-full sm:w-auto justify-center' }, [
                     h('button', {
                         type: 'button',
-                        className: `px-2.5 py-1 rounded-lg transition-all text-xs ${viewMode === 'visual' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white'}`,
+                        className: `flex-1 sm:flex-initial px-2.5 py-1 rounded-lg transition-all text-xs ${viewMode === 'visual' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white'}`,
                         onClick: () => setViewMode('visual')
                     }, '🌐 Page View'),
                     h('button', {
                         type: 'button',
-                        className: `px-2.5 py-1 rounded-lg transition-all text-xs ${viewMode === 'list' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white'}`,
+                        className: `flex-1 sm:flex-initial px-2.5 py-1 rounded-lg transition-all text-xs ${viewMode === 'list' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white'}`,
                         onClick: () => setViewMode('list')
                     }, target === 'chapterLinks' ? `📑 Chapters (${parsedItems.length})` : `📖 Story Prose (${parsedItems.length})`)
                 ]),
 
                 // Right action buttons
-                h('div', { className: 'flex items-center gap-1.5 shrink-0' }, [
+                h('div', { className: 'flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0' }, [
                     h('button', {
                         type: 'button',
                         className: 'px-2 py-1 rounded-lg text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-colors hidden sm:inline-flex items-center gap-1',
@@ -836,11 +836,11 @@
                             ]),
                             h('p', { className: 'text-[11px] text-slate-300 leading-relaxed' }, 'Paste your novel link below, then tap here to let AI automatically detect all chapters and story text with zero setup.')
                         ]),
-                        h('div', { className: 'flex flex-wrap gap-2 shrink-0' }, [
+                        h('div', { className: 'flex flex-col sm:flex-row gap-2 w-full sm:w-auto shrink-0' }, [
                             h('button', {
                                 type: 'button',
                                 disabled: isAutoDetecting || isScouting,
-                                className: 'px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-semibold text-xs border border-slate-700 flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer',
+                                className: 'flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-semibold text-xs border border-slate-700 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer',
                                 onClick: handleAutoDetect
                             }, [
                                 isAutoDetecting ? renderIcon('refresh', 13, 'animate-spin') : renderIcon('sparkles', 13),
@@ -849,7 +849,7 @@
                             h('button', {
                                 type: 'button',
                                 disabled: isAutoDetecting || isScouting,
-                                className: 'px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95 text-white font-semibold text-xs shadow-md flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer',
+                                className: 'flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95 text-white font-semibold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer',
                                 onClick: handleRunScout
                             }, [
                                 isScouting ? renderIcon('refresh', 13, 'animate-spin') : renderIcon('sparkles', 13),
@@ -904,16 +904,16 @@
                                 onChange: (e) => updateField('bookUrl', e.target.value),
                                 onInput: (e) => updateField('bookUrl', e.target.value)
                             }),
-                            h('div', { className: 'flex items-center gap-2 shrink-0 self-end sm:self-auto' }, [
+                            h('div', { className: 'flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end' }, [
                                 h('button', {
                                     type: 'button',
-                                    className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-medium text-xs flex items-center gap-1 transition-colors cursor-pointer',
+                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-medium text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer',
                                     onClick: () => pasteToField('bookUrl'),
                                     title: 'Paste URL from clipboard'
                                 }, '📋 Paste'),
                                 h('button', {
                                     type: 'button',
-                                    className: 'px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs transition-colors cursor-pointer',
+                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs transition-colors cursor-pointer text-center',
                                     onClick: () => openPicker('chapterLinks', recipe.bookUrl || recipe.testUrls?.book)
                                 }, '👆 Inspect TOC')
                             ])
@@ -935,16 +935,16 @@
                                 onChange: (e) => updateField('chapterUrl', e.target.value),
                                 onInput: (e) => updateField('chapterUrl', e.target.value)
                             }),
-                            h('div', { className: 'flex items-center gap-2 shrink-0 self-end sm:self-auto' }, [
+                            h('div', { className: 'flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end' }, [
                                 h('button', {
                                     type: 'button',
-                                    className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-medium text-xs flex items-center gap-1 transition-colors cursor-pointer',
+                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-medium text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer',
                                     onClick: () => pasteToField('chapterUrl'),
                                     title: 'Paste URL from clipboard'
                                 }, '📋 Paste'),
                                 h('button', {
                                     type: 'button',
-                                    className: 'px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs transition-colors cursor-pointer',
+                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs transition-colors cursor-pointer text-center',
                                     onClick: () => openPicker('content', recipe.chapterUrl || recipe.testUrls?.chapter)
                                 }, '👆 Inspect Chapter')
                             ])

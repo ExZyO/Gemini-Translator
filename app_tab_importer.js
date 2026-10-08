@@ -317,6 +317,28 @@
       }
     }, [novelSearchFilter]);
 
+    const getSafeChapters = (obj) => {
+      if (!obj) return [];
+      if (Array.isArray(obj.chapters)) return obj.chapters;
+      if (Array.isArray(obj.rawChapters)) return obj.rawChapters;
+      if (Array.isArray(obj.translatedChapters)) return obj.translatedChapters;
+      if (obj.chapters && typeof obj.chapters === 'object') {
+        return Object.values(obj.chapters).filter(c => c && typeof c === 'object');
+      }
+      return [];
+    };
+
+    const getSafeChapterCount = (obj) => {
+      if (!obj) return 0;
+      const chs = getSafeChapters(obj);
+      if (chs.length > 0) return chs.length;
+      if (typeof obj.chapters === 'number') return obj.chapters;
+      if (typeof obj.totalChapterCount === 'number') return obj.totalChapterCount;
+      if (typeof obj.chapterCount === 'number') return obj.chapterCount;
+      if (Array.isArray(obj.chapterList)) return obj.chapterList.length;
+      return 0;
+    };
+
     const isLnoriUrl = /lnori\.(?:org|com)\/(?:series|book)\//i.test(webImportUrl);
               const isWitchCultUrl = /witchculttranslation\.com|rezero/i.test(webImportUrl);
               const isSwiftAudioDetected = isSwiftAudioMode || /swiftaudiobooks\.com|ipaudio7\.com/i.test(webImportUrl);
@@ -398,11 +420,11 @@
                   webImportError.partialCount > 0 && h('div', { style: { fontSize: 11, color: '#34d399', marginBottom: 8, fontWeight: 600 } },
                     `✨ ${webImportError.partialCount} chapter(s) were safely saved to your Library before the pause.`
                   ),
-                  h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                  h('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 } },
                     h('button', {
                       type: 'button',
                       className: 'mini-btn',
-                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '8px 14px', borderRadius: 8 },
                       onClick: () => {
                         setWebImportError(null);
                         handleStartFetch(true);
@@ -411,7 +433,7 @@
                     webImportError.targetUrl && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
-                      style: { borderColor: webImportError.isCloudflare ? 'rgba(234, 179, 8, 0.6)' : 'rgba(56, 189, 248, 0.4)', color: webImportError.isCloudflare ? '#facc15' : '#38bdf8', fontWeight: 600 },
+                      style: { borderColor: webImportError.isCloudflare ? 'rgba(234, 179, 8, 0.6)' : 'rgba(56, 189, 248, 0.4)', color: webImportError.isCloudflare ? '#facc15' : '#38bdf8', fontWeight: 600, padding: '8px 14px', borderRadius: 8 },
                       onClick: async () => {
                         const targetUrl = webImportError.targetUrl;
                         if (window.NativeBridge?.openInAppBrowser || window.NativeBridge?.resolveCloudflare) {
@@ -435,14 +457,14 @@
                     (webImportError.targetUrl || webImportUrl) && h('button', {
                       type: 'button',
                       className: 'mini-btn',
-                      style: { background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', color: '#fff', fontWeight: 700 },
+                      style: { background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', color: '#fff', fontWeight: 700, padding: '8px 14px', borderRadius: 8 },
                       disabled: isScoutingUrl,
                       onClick: handleAutoScoutSite
                     }, isScoutingUrl ? '🧭 Scouting...' : '✨ Auto-Scout & Learn Site'),
                     (webImportError.targetUrl || webImportUrl) && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
-                      style: { borderColor: 'rgba(234, 179, 8, 0.5)', color: '#eab308', fontWeight: 600 },
+                      style: { borderColor: 'rgba(234, 179, 8, 0.5)', color: '#eab308', fontWeight: 600, padding: '8px 14px', borderRadius: 8 },
                       onClick: () => {
                         const targetUrl = webImportError.targetUrl || webImportUrl;
                         if (typeof openSiteRecipeEditor === 'function') {
@@ -455,6 +477,7 @@
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
+                      style: { padding: '8px 14px', borderRadius: 8, color: 'var(--slate)' },
                       onClick: () => {
                         setActiveTab('text');
                         toast('Switched to Translate tab: paste text or upload EPUB directly.', 'info');
@@ -474,7 +497,7 @@
                 },
                   h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 } },
                     h('span', { style: { fontSize: 12, fontWeight: 600, color: '#eab308' } }, '⏸ Incomplete Crawl Session Detected'),
-                    h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, `${(activeCrawlSession.chapters || []).length} / ${activeCrawlSession.totalChapterCount || '?'} chapters`)
+                    h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, `${getSafeChapterCount(activeCrawlSession)} / ${activeCrawlSession.totalChapterCount || '?'} chapters`)
                   ),
                   h('div', { style: { fontSize: 12, fontWeight: 500, marginBottom: 8, color: 'var(--paper)' } }, activeCrawlSession.title || 'Untitled Web Novel'),
                   h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
@@ -490,7 +513,7 @@
                       className: 'mini-btn ghost',
                       style: { borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600 },
                       onClick: async () => {
-                        const chs = activeCrawlSession.chapters || [];
+                        const chs = getSafeChapters(activeCrawlSession);
                         if (chs.length === 0) return toast('No chapters available to download.', 'warning');
                         const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeCrawlSession.title, chs) : (activeCrawlSession.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeCrawlSession.author) : (activeCrawlSession.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
@@ -510,13 +533,13 @@
                           setEpubPackagingModal(null);
                         }
                       }
-                    }, `📥 Download EPUB (${(activeCrawlSession.chapters || []).length} Ch)`),
+                    }, `📥 Download EPUB (${getSafeChapterCount(activeCrawlSession)} Ch)`),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn',
                       style: { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontWeight: 700 },
                       onClick: () => {
-                        const chs = activeCrawlSession.chapters || [];
+                        const chs = getSafeChapters(activeCrawlSession);
                         if (chs.length === 0) return toast('No chapters downloaded yet to read.', 'warning');
                         setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
                         setTranslatedChapters([]);
@@ -534,13 +557,12 @@
                           toast(`Opening "${activeCrawlSession?.title || 'Novel'}" in reader!`, 'success');
                         }
                       }
-                    }, `📖 Read (${(activeCrawlSession.chapters || []).length} Ch)`),
+                    }, `📖 Read (${getSafeChapterCount(activeCrawlSession)} Ch)`),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
                       onClick: () => {
-
-                        const chs = activeCrawlSession.chapters || [];
+                        const chs = getSafeChapters(activeCrawlSession);
                         const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
                         setInputText(fullText);
                         setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
@@ -1109,7 +1131,7 @@
                       className: 'mini-btn ghost',
                       style: { padding: '10px 4px', borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600, fontSize: 11 },
                       onClick: async () => {
-                        const chs = activeNovelView?.chapters || [];
+                        const chs = getSafeChapters(activeNovelView);
                         if (chs.length === 0) return toast('No chapters downloaded yet to export.', 'warning');
                         const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeNovelView.title, chs) : (activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
@@ -1136,13 +1158,13 @@
                           setEpubPackagingModal(null);
                         }
                       }
-                    }, `📥 Download EPUB (${activeNovelView?.chapters?.length || 0})`),
+                    }, `📥 Download EPUB (${getSafeChapterCount(activeNovelView)})`),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn',
                       style: { padding: '10px 4px', background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontWeight: 700, fontSize: 11 },
                       onClick: () => {
-                        const chs = activeNovelView?.chapters || [];
+                        const chs = getSafeChapters(activeNovelView);
                         if (chs.length === 0) return toast('No chapters downloaded yet to read.', 'warning');
                         setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
                         setTranslatedChapters([]);
@@ -1160,14 +1182,13 @@
                           toast(`Reading "${activeNovelView?.title || 'Novel'}" (${chs.length} ch)!`, 'success');
                         }
                       }
-                    }, `📖 Read (${activeNovelView?.chapters?.length || 0})`),
+                    }, `📖 Read (${getSafeChapterCount(activeNovelView)})`),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
                       style: { padding: '10px 4px', fontWeight: 600, fontSize: 11 },
                       onClick: () => {
-
-                        const chs = activeNovelView?.chapters || [];
+                        const chs = getSafeChapters(activeNovelView);
                         if (chs.length === 0) return toast('No chapters downloaded yet to send.', 'warning');
                         const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
                         setInputText(fullText);
@@ -1284,19 +1305,19 @@
                     )
                   )
                 ) : (
-                  h('div', { style: { display: 'grid', gridTemplateColumns: (activeNovelView?.chapters?.length || 0) > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
+                  h('div', { style: { display: 'grid', gridTemplateColumns: getSafeChapterCount(activeNovelView) > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 6, margin: '6px 0' } },
                     h('button', {
                       type: 'button',
                       className: 'mini-btn',
                       style: { padding: '10px 8px', background: 'rgba(234, 179, 8, 0.2)', color: '#eab308', borderColor: 'rgba(234, 179, 8, 0.4)', fontWeight: 600 },
                       onClick: handlePauseFetch
                     }, '⏸ Pause Fetch'),
-                    (activeNovelView?.chapters?.length || 0) > 0 && h('button', {
+                    getSafeChapterCount(activeNovelView) > 0 && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
                       style: { padding: '10px 6px', borderColor: 'rgba(34, 197, 94, 0.4)', color: '#22c55e', fontWeight: 600, fontSize: 11 },
                       onClick: async () => {
-                        const chs = activeNovelView?.chapters || [];
+                        const chs = getSafeChapters(activeNovelView);
                         if (chs.length === 0) return toast('No chapters downloaded yet.', 'warning');
                         const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeNovelView.title, chs) : (activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
@@ -1316,7 +1337,7 @@
                           setEpubPackagingModal(null);
                         }
                       }
-                    }, `📥 EPUB (${activeNovelView.chapters.length} Ch)`),
+                    }, `📥 EPUB (${getSafeChapterCount(activeNovelView)} Ch)`),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn danger',
@@ -1335,7 +1356,7 @@
                   className: 'status-row',
                   style: { background: 'rgba(234, 179, 8, 0.1)', borderColor: 'rgba(234, 179, 8, 0.25)', color: '#eab308', borderRadius: 4, padding: '8px 12px' }
                 },
-                  h('span', null, `⏸ Ingestion paused. ${activeNovelView?.chapters?.length || 0} chapters saved. Click "Resume Fetch" to continue.`)
+                  h('span', null, `⏸ Ingestion paused. ${getSafeChapterCount(activeNovelView)} chapters saved. Click "Resume Fetch" to continue.`)
                 ),
 
                 activeNovelView && h('div', { className: 'book-card' },
@@ -1364,7 +1385,7 @@
                       }, '✨ New Import')
                     )
                   ),
-                  h('div', { className: 'm' }, `By ${activeNovelView.author || 'Unknown'} · ${(activeNovelView.chapters || []).length} chapter(s) · ${(activeNovelView.chapters || []).reduce((a, c) => a + ((c.text || c.content || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
+                  h('div', { className: 'm' }, `By ${activeNovelView.author || 'Unknown'} · ${getSafeChapterCount(activeNovelView)} chapter(s) · ${getSafeChapters(activeNovelView).reduce((a, c) => a + (((c && (c.text || c.content)) || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
                   isLnoriNovel && h('div', {
                     style: {
                       fontSize: '11.5px',
@@ -1390,14 +1411,14 @@
                       },
                       title: 'Directly download clean English EPUB with full illustrations, volume hierarchy, and cover art',
                       onClick: () => exportCleanLnoriEpub(activeNovelView)
-                    }, `⚡ Download Clean Lnori EPUB (${(activeNovelView.chapters || []).length} Ch)`),
+                    }, `⚡ Download Clean Lnori EPUB (${getSafeChapterCount(activeNovelView)} Ch)`),
                     h('button', {
 
                       type: 'button',
                       className: 'mini-btn',
                       style: { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontWeight: 700, padding: '8px 14px' },
                       onClick: () => {
-                        const chs = activeNovelView.chapters || [];
+                        const chs = getSafeChapters(activeNovelView);
                         if (chs.length === 0) return toast('No chapters available to read.', 'warning');
                         setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
                         setTranslatedChapters([]);
@@ -1415,10 +1436,10 @@
                           toast(`Reading "${activeNovelView?.title || 'Novel'}" (${chs.length} ch)!`, 'success');
                         }
                       }
-                    }, `📖 Read (${(activeNovelView.chapters || []).length} Ch)`),
+                    }, `📖 Read (${getSafeChapterCount(activeNovelView)} Ch)`),
                     h('button', { type: 'button', className: 'mini-btn', onClick: () => {
 
-                      const chs = activeNovelView.chapters || [];
+                      const chs = getSafeChapters(activeNovelView);
                       const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
                       setInputText(fullText);
                       setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
@@ -1468,7 +1489,7 @@
                       onClick: async () => {
                         try {
                           const full = (typeof loadFullNovel === 'function' ? await loadFullNovel(activeNovelView) : null) || activeNovelView;
-                          const chs = full.chapters || activeNovelView.chapters || [];
+                          const chs = getSafeChapters(full).length > 0 ? getSafeChapters(full) : getSafeChapters(activeNovelView);
                           if (!chs.length) return toast('No chapters available to download.', 'warning');
                           const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeNovelView.title, chs) : (activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                           const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
@@ -1493,13 +1514,13 @@
                           setEpubPackagingModal(null);
                         }
                       }
-                    }, (activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && (activeNovelView.chapters || []).length < activeNovelView.totalChapterCount))
-                      ? `📥 Download EPUB (${(activeNovelView.chapters || []).length} Ch — Incomplete)`
-                      : `📥 Download EPUB (${(activeNovelView.chapters || []).length} Ch)`)
+                    }, (activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && getSafeChapterCount(activeNovelView) < activeNovelView.totalChapterCount))
+                      ? `📥 Download EPUB (${getSafeChapterCount(activeNovelView)} Ch — Incomplete)`
+                      : `📥 Download EPUB (${getSafeChapterCount(activeNovelView)} Ch)`)
                   )
                 ),
-                activeNovelView && activeNovelView.chapters && activeNovelView.chapters.length > 0 && (() => {
-                  const sortedChs = [...activeNovelView.chapters].sort((a, b) => (a.idx !== undefined && b.idx !== undefined) ? (a.idx - b.idx) : 0);
+                activeNovelView && getSafeChapters(activeNovelView).length > 0 && (() => {
+                  const sortedChs = [...getSafeChapters(activeNovelView)].sort((a, b) => (a && b && a.idx !== undefined && b.idx !== undefined) ? (a.idx - b.idx) : 0);
                   const chs = sortedChs;
                   const volRegex = /^(?:\[\s*)?(Volume|Vol\.?|Book|Arc)\s*(\d+|[IVXLCDM]+)[\s:–—,-]*(.*)$/i;
                   const volumeGroups = [];

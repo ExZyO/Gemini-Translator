@@ -1,9 +1,9 @@
 {
-  "version": "8.21.2",
-  "versionCode": 8413,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.2/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.2/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.2",
+  "version": "8.21.3",
+  "versionCode": 8414,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.3/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.3/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.3",
   "releaseDate": "2026-10-08",
-  "releaseNotes": "v8.21.2: Fix Scout chapter list detection on list item and accordion sites, return live DOM HTML from in-app browser, auto-expand chapter accordions, and prevent false single-chapter scrapes."
+  "releaseNotes": "v8.21.3: Fix Web Importer crash on non-array chapters, support sequential crawl when only first and latest chapter quick links are detected, expand novel TOC container discovery, and improve mobile button layout."
 }
