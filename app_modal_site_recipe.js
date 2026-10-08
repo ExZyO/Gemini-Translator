@@ -436,6 +436,8 @@
         });
         const [testResult, setTestResult] = useState(null);
         const [isTesting, setIsTesting] = useState(false);
+        const [isAutoDetecting, setIsAutoDetecting] = useState(false);
+        const [autoDetectStats, setAutoDetectStats] = useState(null);
         const bookUrlInputRef = useRef(null);
         const chapterUrlInputRef = useRef(null);
 
@@ -638,6 +640,42 @@
             }
         };
 
+        const handleAutoDetect = async () => {
+            const targetUrl = (recipe.bookUrl && recipe.bookUrl.trim()) || (recipe.testUrls?.book && recipe.testUrls.book.trim()) || (recipe.chapterUrl && recipe.chapterUrl.trim()) || (recipe.testUrls?.chapter && recipe.testUrls.chapter.trim()) || url;
+            if (!targetUrl) {
+                toast?.('Please paste a novel link in the box above first.', 'warning');
+                return;
+            }
+            setIsAutoDetecting(true);
+            setAutoDetectStats(null);
+            try {
+                const res = await RE.Controller.autoDetect(targetUrl, {
+                    onStart: () => toast?.('⚡ AI scanning website structure & chapters...', 'info')
+                });
+                if (res && res.recipe) {
+                    setRecipe(prev => ({
+                        ...prev,
+                        ...res.recipe,
+                        id: prev.id || res.recipe.id,
+                        name: prev.name || res.recipe.name
+                    }));
+                    if (bookUrlInputRef.current && res.recipe.bookUrl) {
+                        bookUrlInputRef.current.value = res.recipe.bookUrl;
+                    }
+                    if (chapterUrlInputRef.current && res.recipe.chapterUrl) {
+                        chapterUrlInputRef.current.value = res.recipe.chapterUrl;
+                    }
+                    setIsDirty(true);
+                    setAutoDetectStats(res.stats);
+                    toast?.(`✓ Successfully auto-detected: ${res.stats?.chaptersCount || 0} chapters & story text!`, 'success');
+                }
+            } catch (err) {
+                toast?.(`Auto-detect: ${err.message}`, 'error');
+            } finally {
+                setIsAutoDetecting(false);
+            }
+        };
+
         const openPicker = (target, targetUrl, initialSelector) => {
             const pickUrl = targetUrl || recipe.chapterUrl || recipe.testUrls?.chapter || recipe.bookUrl || recipe.testUrls?.book || url;
             if (!pickUrl) {
@@ -716,9 +754,46 @@
                 // Card: Test Pages
                 h('div', {
                     key: 'card-urls',
-                    className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3'
+                    className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3.5'
                 }, [
-                    h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, '🔗 Test Pages'),
+                    h('div', { className: 'flex items-center justify-between' }, [
+                        h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, '🔗 Test Pages'),
+                        h('span', { className: 'text-[11px] text-slate-400' }, 'Paste a book or chapter link to begin')
+                    ]),
+
+                    // ⚡ AI Auto-Detect Banner & One-Tap Action
+                    h('div', {
+                        className: 'p-3.5 rounded-xl bg-gradient-to-r from-indigo-950/80 to-purple-950/80 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm'
+                    }, [
+                        h('div', { className: 'space-y-0.5' }, [
+                            h('div', { className: 'text-xs font-bold text-indigo-300 flex items-center gap-1.5' }, [
+                                renderIcon('sparkles', 14, 'text-amber-400 shrink-0'),
+                                '⚡ AI Smart Auto-Detect'
+                            ]),
+                            h('p', { className: 'text-[11px] text-slate-300 leading-relaxed' }, 'Paste your novel link below, then tap here to let AI automatically detect all chapters and story text with zero setup.')
+                        ]),
+                        h('button', {
+                            type: 'button',
+                            disabled: isAutoDetecting,
+                            className: 'px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95 text-white font-semibold text-xs shadow-md flex items-center justify-center gap-2 transition-all shrink-0 disabled:opacity-50 cursor-pointer',
+                            onClick: handleAutoDetect
+                        }, [
+                            isAutoDetecting ? renderIcon('refresh', 13, 'animate-spin') : renderIcon('sparkles', 13),
+                            isAutoDetecting ? 'AI Scanning...' : '⚡ Auto-Detect Recipe'
+                        ])
+                    ]),
+
+                    // Auto-Detect Stats Result Card
+                    autoDetectStats && h('div', {
+                        className: 'p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-200 flex items-center justify-between animate-fade-in'
+                    }, [
+                        h('div', { className: 'space-y-0.5 truncate' }, [
+                            h('p', { className: 'font-bold flex items-center gap-1 text-emerald-300' }, `✓ Discovered ${autoDetectStats.chaptersCount} chapters & story text (~${autoDetectStats.sampleWords?.toLocaleString()} words)`),
+                            autoDetectStats.firstChapterName && h('p', { className: 'text-[11px] text-emerald-400/80 truncate' }, `First chapter: "${autoDetectStats.firstChapterName}"`)
+                        ]),
+                        h('span', { className: 'px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-semibold text-[11px] shrink-0' }, 'Ready to Save')
+                    ]),
+
                     h('div', { className: 'space-y-2 text-xs' }, [
                         h('label', { className: 'text-slate-400 block' }, 'Book Overview / Table of Contents URL'),
                         h('div', { className: 'flex gap-2' }, [

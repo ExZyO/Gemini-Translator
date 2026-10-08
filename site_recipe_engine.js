@@ -1103,7 +1103,344 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════════════════
-  // 6. TESTING / PREVIEW ENGINE
+  // 6. AUTO-DETECTION ENGINE (SMART AI & HEURISTIC SCANNER)
+  // ══════════════════════════════════════════════════════════════════════════════════
+
+  async function autoDetectRecipe(targetUrl, options, deps) {
+    if (!targetUrl || typeof targetUrl !== 'string') {
+      throw new Error('Please provide a URL to auto-detect.');
+    }
+    const cleanUrl = targetUrl.trim();
+    const host = normalizeHost(cleanUrl);
+    if (!host) {
+      throw new Error('Invalid web address.');
+    }
+
+    const fetchHtmlFn = (deps && typeof deps.fetchHtml === 'function')
+      ? deps.fetchHtml
+      : async (u) => {
+          if (typeof window !== 'undefined' && window.WebNovelImporter && typeof window.WebNovelImporter.fetchHtml === 'function') {
+            return await window.WebNovelImporter.fetchHtml(u, { context: 'RecipeAutoDetect' });
+          }
+          if (typeof window !== 'undefined' && typeof window.fetchRetry === 'function') {
+            const resp = await window.fetchRetry(u);
+            return await resp.text();
+          }
+          const resp = await fetch(u);
+          return await resp.text();
+        };
+
+    const firstHtml = await fetchHtmlFn(cleanUrl);
+    if (!firstHtml || typeof firstHtml !== 'string' || firstHtml.trim().length < 80) {
+      throw new Error('Empty or invalid response from website.');
+    }
+
+    const firstDoc = new DOMParser().parseFromString(firstHtml, 'text/html');
+
+    // Standard high-probability content selectors
+    const standardContentSelectors = [
+      '#content', '.chapter-content', '.entry-content', '#chapter-content',
+      '#story-text', 'article', '.content', '.text-content', '#text',
+      '.chapter-text', '.reading-content', '#chr-content', '.chr-c',
+      '.post-content', '.reader-content', '.chapter-body', '#chapter_content'
+    ];
+
+    // Standard high-probability TOC containers
+    const standardTocContainers = [
+      '.chapter-list', '.list-chapter', '#chapters', '.volume-list',
+      '.catalog', '.toc', '.episodes', 'ul.chapters', '#chapter-list',
+      '.chapters', '.chapter-box', '.list-chapters', '.ch-list',
+      '#list-chapter', '.accordion-content', '.table-of-contents'
+    ];
+
+    // Helper: evaluate text density of a container
+    const evaluateContentContainer = (el) => {
+      if (!el) return { words: 0, text: '' };
+      const rawText = (el.textContent || '').trim();
+      const words = rawText ? rawText.split(/\s+/).length : 0;
+      return { words, text: rawText };
+    };
+
+    // Helper: detect chapter prose in a doc
+    const findBestChapterContentSelector = (doc) => {
+      for (const sel of standardContentSelectors) {
+        const el = safeQuerySelector(doc, sel);
+        if (el) {
+          const evalRes = evaluateContentContainer(el);
+          if (evalRes.words >= 80) {
+            return { selector: sel, words: evalRes.words, preview: evalRes.text.slice(0, 300) };
+          }
+        }
+      }
+
+      const candidateBlocks = safeQuerySelectorAll(doc, 'div, article, main, section');
+      let best = null;
+      let maxScore = 0;
+
+      for (const block of candidateBlocks) {
+        const tag = block.tagName.toLowerCase();
+        if (tag === 'nav' || tag === 'header' || tag === 'footer') continue;
+        const pCount = block.querySelectorAll('p').length;
+        if (pCount < 2) continue;
+
+        const text = (block.textContent || '').trim();
+        const words = text ? text.split(/\s+/).length : 0;
+        if (words < 120) continue;
+
+        const linkWords = Array.from(block.querySelectorAll('a')).map(a => a.textContent || '').join(' ').split(/\s+/).length;
+        const textDensity = words / Math.max(1, linkWords);
+
+        const score = words * Math.min(textDensity, 10);
+        if (score > maxScore) {
+          maxScore = score;
+          const sel = (typeof window !== 'undefined' && window.SitePicker && typeof window.SitePicker.uniqueSelector === 'function')
+            ? window.SitePicker.uniqueSelector(block, doc)
+            : (block.id ? '#' + block.id : (block.className ? '.' + block.className.split(/\s+/)[0] : 'article'));
+          best = { selector: sel, words, preview: text.slice(0, 300) };
+        }
+      }
+
+      return best || { selector: '#content', words: 0, preview: '' };
+    };
+
+    // Helper: detect chapter links in a doc
+    const findBestChapterLinks = (doc, pageUrl) => {
+      for (const containerSel of standardTocContainers) {
+        const container = safeQuerySelector(doc, containerSel);
+        if (container) {
+          const links = Array.from(container.querySelectorAll('a[href]'))
+            .map(a => ({
+              title: (a.textContent || '').trim(),
+              href: resolveUrl(a.getAttribute('href') || '', pageUrl)
+            }))
+            .filter(l => l.title.length > 0 && l.title.length < 160 && !/^(javascript:|#|mailto:)/i.test(l.href));
+          if (links.length >= 3) {
+            return {
+              selector: containerSel + ' a[href]',
+              links,
+              count: links.length
+            };
+          }
+        }
+      }
+
+      const allLinks = safeQuerySelectorAll(doc, 'a[href]');
+      const chapterPattern = /(?:chapter|ch|ep|episode|vol|volume|第)\s*\d+|\b\d+(?:[-.]\d+)?\b/i;
+
+      const parentGroups = new Map();
+      for (const a of allLinks) {
+        const t = (a.textContent || '').trim();
+        const h = a.getAttribute('href') || '';
+        if (!t || t.length > 160 || /^(javascript:|#|mailto:)/i.test(h)) continue;
+
+        const isChapterLike = chapterPattern.test(t) || /\/chapter[-_/]?\d+/i.test(h);
+        if (isChapterLike) {
+          const parent = a.parentElement;
+          if (parent) {
+            const list = parentGroups.get(parent) || [];
+            list.push({ title: t, href: resolveUrl(h, pageUrl), el: a });
+            parentGroups.set(parent, list);
+          }
+        }
+      }
+
+      let bestGroup = [];
+      let bestParent = null;
+      for (const [parent, list] of parentGroups.entries()) {
+        if (list.length > bestGroup.length) {
+          bestGroup = list;
+          bestParent = parent;
+        }
+      }
+
+      if (bestGroup.length >= 3 && bestParent) {
+        const grandParent = bestParent.parentElement || bestParent;
+        const containerSel = (typeof window !== 'undefined' && window.SitePicker && typeof window.SitePicker.uniqueSelector === 'function')
+          ? window.SitePicker.uniqueSelector(grandParent, doc)
+          : (grandParent.id ? '#' + grandParent.id : (grandParent.className ? '.' + grandParent.className.split(/\s+/)[0] : 'div'));
+        return {
+          selector: containerSel + ' a[href]',
+          links: bestGroup,
+          count: bestGroup.length
+        };
+      }
+
+      return null;
+    };
+
+    // Helper: detect Next Chapter link in chapter doc
+    const findNextChapterSelector = (doc) => {
+      const candidates = [
+        'a[rel="next"]',
+        '.next-chapter',
+        '#next_url',
+        '.btn-next',
+        '.next_page',
+        'a.next'
+      ];
+      for (const s of candidates) {
+        const el = safeQuerySelector(doc, s);
+        if (el) return s;
+      }
+      const allA = safeQuerySelectorAll(doc, 'a[href]');
+      for (const a of allA) {
+        const t = (a.textContent || '').trim();
+        if (NEXT_LINK_TEXT_RE.test(t)) {
+          return (typeof window !== 'undefined' && window.SitePicker)
+            ? window.SitePicker.uniqueSelector(a, doc)
+            : 'a[rel="next"]';
+        }
+      }
+      return 'a[rel="next"]';
+    };
+
+    // Helper: detect chapter title in chapter doc
+    const findChapterTitleSelector = (doc) => {
+      const candidates = [
+        'h1.chapter-title',
+        'h1.entry-title',
+        'h1.title',
+        '.chapter-name',
+        'h1',
+        'h2.chapter-title'
+      ];
+      for (const s of candidates) {
+        const el = safeQuerySelector(doc, s);
+        if (el && (el.textContent || '').trim()) return s;
+      }
+      return 'h1';
+    };
+
+    const detectedTOC = findBestChapterLinks(firstDoc, cleanUrl);
+    const detectedDirectContent = findBestChapterContentSelector(firstDoc);
+
+    const isTOC = detectedTOC && detectedTOC.links.length >= 3;
+    const isChapter = !isTOC && detectedDirectContent && detectedDirectContent.words >= 80;
+
+    let bookUrl = isTOC ? cleanUrl : '';
+    let chapterUrl = isChapter ? cleanUrl : '';
+    let chapterLinkSelector = '';
+    let contentSelector = '';
+    let titleSelector = 'h1';
+    let nextChapterSelector = 'a[rel="next"]';
+    let sampleWords = 0;
+    let chaptersCount = 0;
+    let firstChapterName = '';
+    let lastChapterName = '';
+
+    const bookInfo = genericBookInfo(firstDoc, cleanUrl);
+
+    if (isTOC) {
+      chapterLinkSelector = detectedTOC.selector;
+      chaptersCount = detectedTOC.count;
+      firstChapterName = detectedTOC.links[0]?.title || '';
+      lastChapterName = detectedTOC.links[detectedTOC.links.length - 1]?.title || '';
+
+      const sampleLink = detectedTOC.links[0]?.href;
+      if (sampleLink) {
+        chapterUrl = sampleLink;
+        try {
+          const sampleHtml = await fetchHtmlFn(sampleLink);
+          if (sampleHtml && sampleHtml.length > 200) {
+            const sampleDoc = new DOMParser().parseFromString(sampleHtml, 'text/html');
+            const chContent = findBestChapterContentSelector(sampleDoc);
+            if (chContent) {
+              contentSelector = chContent.selector;
+              sampleWords = chContent.words;
+            }
+            titleSelector = findChapterTitleSelector(sampleDoc);
+            nextChapterSelector = findNextChapterSelector(sampleDoc);
+          }
+        } catch (sampleErr) {
+          console.warn('[SiteRecipeEngine] Auto-detect sample chapter error:', sampleErr);
+        }
+      }
+    } else {
+      contentSelector = detectedDirectContent?.selector || '#content';
+      sampleWords = detectedDirectContent?.words || 0;
+      titleSelector = findChapterTitleSelector(firstDoc);
+      nextChapterSelector = findNextChapterSelector(firstDoc);
+
+      const allA = safeQuerySelectorAll(firstDoc, 'a[href]');
+      for (const a of allA) {
+        const t = (a.textContent || '').trim().toLowerCase();
+        const h = a.getAttribute('href') || '';
+        if (t.includes('index') || t.includes('toc') || t.includes('all chapters') || t.includes('contents') || t.includes('novel')) {
+          bookUrl = resolveUrl(h, cleanUrl);
+          break;
+        }
+      }
+
+      if (bookUrl) {
+        try {
+          const bHtml = await fetchHtmlFn(bookUrl);
+          if (bHtml) {
+            const bDoc = new DOMParser().parseFromString(bHtml, 'text/html');
+            const bTOC = findBestChapterLinks(bDoc, bookUrl);
+            if (bTOC) {
+              chapterLinkSelector = bTOC.selector;
+              chaptersCount = bTOC.count;
+              firstChapterName = bTOC.links[0]?.title || '';
+              lastChapterName = bTOC.links[bTOC.links.length - 1]?.title || '';
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (!contentSelector) contentSelector = '#content, .chapter-content, article';
+    if (!chapterLinkSelector && isTOC) chapterLinkSelector = detectedTOC?.selector || '.chapter-list a[href]';
+
+    const standardRemoveSelectors = [
+      '.ads', '.advertisement', '.ad-container', '.share-box',
+      '.social-share', '.watermark', 'script', 'style'
+    ];
+
+    const generatedRecipe = withDefaults({
+      id: host,
+      name: host,
+      mode: (chapterLinkSelector ? 'toc' : 'next'),
+      bookUrl: bookUrl || cleanUrl,
+      chapterUrl: chapterUrl || '',
+      book: {
+        titleSelector: 'h1',
+        authorSelector: '.author, [rel="author"]',
+        coverSelector: 'img.cover, .book-cover img',
+        summarySelector: '.description, .synopsis, #description',
+        chapterLinkSelector: chapterLinkSelector || '',
+        tocNextPageSelector: 'a[rel="next"]'
+      },
+      chapter: {
+        contentSelector: contentSelector,
+        titleSelector: titleSelector,
+        nextChapterSelector: nextChapterSelector,
+        removeSelectors: standardRemoveSelectors
+      },
+      cleanup: {
+        removeSelector: standardRemoveSelectors.join(', ')
+      }
+    });
+
+    return {
+      success: true,
+      recipe: generatedRecipe,
+      stats: {
+        isTOC,
+        isChapter,
+        chaptersCount,
+        sampleWords,
+        firstChapterName,
+        lastChapterName,
+        bookTitle: bookInfo.title || '',
+        author: bookInfo.author || '',
+        cover: bookInfo.cover || '',
+        summary: bookInfo.summary || ''
+      }
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════════
+  // 7. TESTING / PREVIEW ENGINE
   // ══════════════════════════════════════════════════════════════════════════════════
 
   async function testRecipe(r, urls, deps) {
@@ -1333,6 +1670,26 @@
         if (cbs?.toast) cbs.toast(err.message, 'error');
         throw err;
       }
+    },
+
+    async autoDetect(url, callbacks) {
+      try {
+        if (callbacks?.onStart) callbacks.onStart();
+        if (callbacks?.toast) callbacks.toast('⚡ AI scanning website layout & chapters...', 'info');
+
+        const fetchHtml = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml)
+          ? window.WebNovelImporter.fetchHtml
+          : null;
+
+        const result = await autoDetectRecipe(url, {}, { fetchHtml });
+        if (callbacks?.onSuccess) callbacks.onSuccess(result);
+        if (callbacks?.toast) callbacks.toast(`✓ Discovered ${result.stats?.chaptersCount || 0} chapters & story text!`, 'success');
+        return result;
+      } catch (err) {
+        if (callbacks?.onError) callbacks.onError(err);
+        if (callbacks?.toast) callbacks.toast('Auto-detect: ' + err.message, 'warning');
+        throw err;
+      }
     }
   };
 
@@ -1378,6 +1735,7 @@
     exportFile,
     importFile,
 
+    autoDetectRecipe,
     testRecipe,
     Controller
   };
