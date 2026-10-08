@@ -257,21 +257,22 @@
         const pasteToField = async (field) => {
             try {
                 let text = '';
-                if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
+                if (window.NativeBridge && typeof window.NativeBridge.getClipboardText === 'function') {
+                    text = await window.NativeBridge.getClipboardText();
+                } else if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
                     try { text = await navigator.clipboard.readText(); } catch (e) {}
-                }
-                if (!text && typeof window !== 'undefined' && window.prompt) {
-                    text = window.prompt('Paste URL:');
                 }
                 if (text && typeof text === 'string') {
                     text = text.trim();
                     if (text) {
                         updateField(field, text);
-                        toast?.('URL pasted! 📋', 'success');
+                        toast?.('Pasted link! 📋', 'success');
+                        return;
                     }
                 }
+                toast?.('Clipboard is empty. Copy a link first!', 'warning');
             } catch (err) {
-                toast?.('Could not paste: ' + err.message, 'error');
+                toast?.('Could not read clipboard: ' + err.message, 'error');
             }
         };
 
@@ -301,15 +302,20 @@
         const handlePasteRecipeCode = async () => {
             try {
                 let code = '';
-                if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
+                if (window.NativeBridge && typeof window.NativeBridge.getClipboardText === 'function') {
+                    code = await window.NativeBridge.getClipboardText();
+                } else if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
                     try { code = await navigator.clipboard.readText(); } catch (e) {}
                 }
-                if (!code && typeof window !== 'undefined' && window.prompt) {
-                    code = window.prompt('Paste Recipe JSON or Share Code:');
+                if (!code || typeof code !== 'string') {
+                    toast?.('Clipboard is empty. Copy a recipe code or JSON first!', 'warning');
+                    return;
                 }
-                if (!code || typeof code !== 'string') return;
                 code = code.trim();
-                if (!code) return;
+                if (!code) {
+                    toast?.('Clipboard is empty. Copy a recipe code or JSON first!', 'warning');
+                    return;
+                }
 
                 let imported = null;
                 if (code.startsWith('{')) {
@@ -459,6 +465,7 @@
                                 autoCapitalize: 'none',
                                 autoCorrect: 'off',
                                 spellCheck: false,
+                                style: { userSelect: 'text', WebkitUserSelect: 'text', WebkitTouchCallout: 'default' },
                                 className: 'flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-indigo-500 outline-none select-text cursor-text',
                                 placeholder: 'https://example.com/novel/title',
                                 value: recipe.bookUrl || '',
@@ -485,6 +492,7 @@
                                 autoCapitalize: 'none',
                                 autoCorrect: 'off',
                                 spellCheck: false,
+                                style: { userSelect: 'text', WebkitUserSelect: 'text', WebkitTouchCallout: 'default' },
                                 className: 'flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-indigo-500 outline-none select-text cursor-text',
                                 placeholder: 'https://example.com/novel/title/chapter-1',
                                 value: recipe.chapterUrl || '',

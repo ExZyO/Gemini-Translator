@@ -826,3 +826,10 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   }
 }
 
+/* Ensure all inputs and textareas natively allow selection, cursor positioning, and mobile long-press copy/paste callouts */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+}
+

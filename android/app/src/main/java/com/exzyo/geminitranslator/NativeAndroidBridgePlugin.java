@@ -21,6 +21,8 @@ import java.util.Set;
 import java.util.List;
 import java.util.ArrayList;
 import android.content.Intent;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 import android.net.Uri;
@@ -1063,6 +1065,51 @@ public class NativeAndroidBridgePlugin extends Plugin {
             || lower.contains("enable javascript and cookies to continue")
             || lower.contains("cf_chl_")
             || lower.contains("shields are up!");
+    }
+
+    @PluginMethod
+    public void getClipboardText(PluginCall call) {
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+        mainHandler.post(() -> {
+            try {
+                ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null && clipboard.hasPrimaryClip() && clipboard.getPrimaryClip().getItemCount() > 0) {
+                    CharSequence text = clipboard.getPrimaryClip().getItemAt(0).getText();
+                    JSObject ret = new JSObject();
+                    ret.put("value", text != null ? text.toString() : "");
+                    call.resolve(ret);
+                    return;
+                }
+                JSObject ret = new JSObject();
+                ret.put("value", "");
+                call.resolve(ret);
+            } catch (Exception e) {
+                Log.e(TAG, "Clipboard read error: " + e.getMessage());
+                JSObject ret = new JSObject();
+                ret.put("value", "");
+                call.resolve(ret);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void setClipboardText(PluginCall call) {
+        String text = call.getString("value", "");
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+        mainHandler.post(() -> {
+            try {
+                ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    ClipData clip = ClipData.newPlainText("text", text != null ? text : "");
+                    clipboard.setPrimaryClip(clip);
+                }
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                call.resolve(ret);
+            } catch (Exception e) {
+                call.reject("Clipboard write error: " + e.getMessage());
+            }
+        });
     }
 
     @PluginMethod

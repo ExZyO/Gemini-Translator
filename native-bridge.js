@@ -1054,6 +1054,46 @@
 
         
         // ══════════════════════════════════════════════════════════════════════
+        // NATIVE CLIPBOARD BRIDGE
+        // ══════════════════════════════════════════════════════════════════════
+        getClipboardText: async () => {
+            const bridge = getBridge();
+            if (bridge && bridge.getClipboardText) {
+                try {
+                    const res = await bridge.getClipboardText();
+                    if (res && typeof res.value === 'string') return res.value;
+                } catch (e) {
+                    console.warn('Native getClipboardText error:', e);
+                }
+            }
+            if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
+                try {
+                    return await navigator.clipboard.readText();
+                } catch (e) {}
+            }
+            return '';
+        },
+
+        setClipboardText: async (text) => {
+            const bridge = getBridge();
+            if (bridge && bridge.setClipboardText) {
+                try {
+                    await bridge.setClipboardText({ value: text || '' });
+                    return true;
+                } catch (e) {
+                    console.warn('Native setClipboardText error:', e);
+                }
+            }
+            if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+                try {
+                    await navigator.clipboard.writeText(text || '');
+                    return true;
+                } catch (e) {}
+            }
+            return false;
+        },
+
+        // ══════════════════════════════════════════════════════════════════════
         // TACHIYOMI / MIHON IN-APP CLOUDFLARE RESOLVER & IN-APP BROWSER BRIDGE
         // ══════════════════════════════════════════════════════════════════════
         resolveCloudflare: async (url) => {
