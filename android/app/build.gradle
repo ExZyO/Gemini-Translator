@@ -30,8 +30,30 @@ android {
                 keyAlias keystoreProps['keyAlias']
                 keyPassword keystoreProps['keyPassword']
             } else {
-                // CI or local environment without custom release keystore: fall back to debug signing so CI build succeeds
-                initWith(signingConfigs.debug)
+                // CI or environment without custom release keystore: ensure a valid fallback keystore exists so release build succeeds
+                def fallbackKeystore = file("${rootProject.buildDir}/ci-fallback.keystore")
+                if (!fallbackKeystore.exists()) {
+                    fallbackKeystore.parentFile.mkdirs()
+                    def keytoolCmd = [
+                        'keytool', '-genkeypair', '-alias', 'androiddebugkey',
+                        '-keypass', 'android', '-keystore', fallbackKeystore.absolutePath,
+                        '-storepass', 'android', '-dname', 'CN=Android Debug,O=Android,C=US',
+                        '-keyalg', 'RSA', '-keysize', '2048', '-validity', '10000'
+                    ]
+                    try {
+                        keytoolCmd.execute().waitFor()
+                    } catch (Exception e) {
+                        println "Notice: Could not auto-generate fallback keystore: ${e.message}"
+                    }
+                }
+                if (fallbackKeystore.exists()) {
+                    storeFile fallbackKeystore
+                    storePassword 'android'
+                    keyAlias 'androiddebugkey'
+                    keyPassword 'android'
+                } else {
+                    initWith(signingConfigs.debug)
+                }
             }
         }
     }
