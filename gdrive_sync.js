@@ -301,7 +301,18 @@
         }
 
         async uploadBackup(backupPayload) {
-            const jsonStr = typeof backupPayload === 'string' ? backupPayload : JSON.stringify(backupPayload, null, 2);
+            let jsonPayload;
+            if (typeof backupPayload === 'string' || backupPayload instanceof Blob) {
+                jsonPayload = backupPayload;
+            } else {
+                try {
+                    jsonPayload = JSON.stringify(backupPayload);
+                } catch (e) {
+                    jsonPayload = (window.BackupEngine && typeof window.BackupEngine.serializePayloadToBlob === 'function')
+                        ? window.BackupEngine.serializePayloadToBlob(backupPayload)
+                        : JSON.stringify(backupPayload);
+                }
+            }
             const existing = await this.findBackupFile();
             const isAppData = this.folderMode === 'appDataFolder';
 
@@ -319,14 +330,23 @@
             const delimiter = `\r\n--${boundary}\r\n`;
             const closeDelimiter = `\r\n--${boundary}--`;
 
-            const multipartRequestBody =
-                delimiter +
-                'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-                JSON.stringify(metadata) +
-                delimiter +
-                'Content-Type: application/json\r\n\r\n' +
-                jsonStr +
-                closeDelimiter;
+            const multipartRequestBody = (jsonPayload instanceof Blob)
+                ? new Blob([
+                    delimiter,
+                    'Content-Type: application/json; charset=UTF-8\r\n\r\n',
+                    JSON.stringify(metadata),
+                    delimiter,
+                    'Content-Type: application/json\r\n\r\n',
+                    jsonPayload,
+                    closeDelimiter
+                ], { type: `multipart/related; boundary=${boundary}` })
+                : (delimiter +
+                    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+                    JSON.stringify(metadata) +
+                    delimiter +
+                    'Content-Type: application/json\r\n\r\n' +
+                    jsonPayload +
+                    closeDelimiter);
 
             let url;
             let method;

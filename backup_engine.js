@@ -147,10 +147,15 @@
       const serializableNovels = await Promise.all((rawNovelLibrary || []).map(async (n) => {
         const copy = { ...n };
         if (copy.epubBlob instanceof Blob) {
-          try {
-            copy.epubBlob = await this.blobToBase64(copy.epubBlob);
-          } catch (e) {
+          if (copy.epubBlob.size > 20 * 1024 * 1024) {
+            console.warn('[BackupEngine] epubBlob exceeds 20MB, skipping binary blob in backup to protect memory:', copy.title);
             delete copy.epubBlob;
+          } else {
+            try {
+              copy.epubBlob = await this.blobToBase64(copy.epubBlob);
+            } catch (e) {
+              delete copy.epubBlob;
+            }
           }
         } else if (copy.epubBlob && typeof copy.epubBlob === 'object' && !copy.epubBlob.__blob) {
           delete copy.epubBlob;
@@ -182,10 +187,14 @@
       const serializableTrash = await Promise.all((rawTrash || []).map(async (n) => {
         const copy = { ...n };
         if (copy.epubBlob instanceof Blob) {
-          try {
-            copy.epubBlob = await this.blobToBase64(copy.epubBlob);
-          } catch (e) {
+          if (copy.epubBlob.size > 5 * 1024 * 1024) {
             delete copy.epubBlob;
+          } else {
+            try {
+              copy.epubBlob = await this.blobToBase64(copy.epubBlob);
+            } catch (e) {
+              delete copy.epubBlob;
+            }
           }
         } else if (copy.epubBlob && typeof copy.epubBlob === 'object' && !copy.epubBlob.__blob) {
           delete copy.epubBlob;
@@ -406,15 +415,80 @@
     },
 
     /**
+     * Serializes a massive backup payload into a Blob using chunked streaming
+     * to prevent V8 RangeError: Invalid string length
+     */
+    serializePayloadToBlob(backup) {
+      if (!backup || typeof backup !== 'object') {
+        return new Blob(['{}'], { type: 'application/json' });
+      }
+
+      // Fast path: try standard compact stringify first (without pretty-printing indentations)
+      try {
+        const compactJson = JSON.stringify(backup);
+        return new Blob([compactJson], { type: 'application/json' });
+      } catch (err) {
+        console.warn('[BackupEngine] Direct JSON.stringify reached string limit, streaming chunks into Blob:', err);
+      }
+
+      // Chunked streaming path: assemble parts array so V8 never allocates a single mega-string
+      const parts = ['{'];
+      const keys = Object.keys(backup);
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        if (i > 0) parts.push(',');
+        parts.push(JSON.stringify(key) + ':');
+        const val = backup[key];
+
+        if (Array.isArray(val)) {
+          parts.push('[');
+          for (let j = 0; j < val.length; j++) {
+            if (j > 0) parts.push(',');
+            try {
+              parts.push(JSON.stringify(val[j]));
+            } catch (itemErr) {
+              console.warn(`[BackupEngine] Failed to serialize array item ${j} in ${key}:`, itemErr);
+              try {
+                // If an individual record failed (e.g. huge blob), sanitize heavy fields and retry
+                const safeItem = { ...val[j] };
+                delete safeItem.epubBlob;
+                delete safeItem.coverBlob;
+                delete safeItem.originalZip;
+                parts.push(JSON.stringify(safeItem));
+              } catch (e2) {
+                parts.push('null');
+              }
+            }
+          }
+          parts.push(']');
+        } else if (val && typeof val === 'object') {
+          try {
+            parts.push(JSON.stringify(val));
+          } catch (objErr) {
+            console.warn(`[BackupEngine] Failed to serialize object property ${key}:`, objErr);
+            parts.push('{}');
+          }
+        } else {
+          try {
+            parts.push(JSON.stringify(val));
+          } catch (primErr) {
+            parts.push('null');
+          }
+        }
+      }
+      parts.push('}');
+      return new Blob(parts, { type: 'application/json' });
+    },
+
+    /**
      * Downloads full backup payload directly to client storage
      */
     async exportBackup(options = {}) {
-      const { shouldIncludeKeys = false, version = '8.17.97', state = {} } = options;
+      const { shouldIncludeKeys = false, version = '8.19.1', state = {} } = options;
       const { backup, fullHistory, novelLibrary, activeTranslations, trash } = await this.generatePayload({ shouldIncludeKeys, version, state });
-      const jsonStr = JSON.stringify(backup, null, 2);
+      const blob = this.serializePayloadToBlob(backup);
       const dateStr = new Date().toISOString().slice(0, 10);
       const fileName = `gemini_translator_backup_${shouldIncludeKeys ? 'with_keys_' : ''}${dateStr}.json`;
-      const blob = new Blob([jsonStr], { type: 'application/json' });
 
       if (typeof window.saveUniversalBlob === 'function') {
         await window.saveUniversalBlob(blob, fileName, 'application/json');
@@ -429,8 +503,8 @@
 
       return {
         fileName,
-        novelCount: novelLibrary.length,
-        historyCount: fullHistory.length,
+        novelCount: (novelLibrary || []).length,
+        historyCount: (fullHistory || []).length,
         activeCount: (activeTranslations || []).length,
         trashCount: (trash || []).length,
         hasKeys: shouldIncludeKeys
@@ -478,14 +552,19 @@
         headers['Authorization'] = 'Basic ' + btoa(`${user}:${pass}`);
       }
 
-      const backupJson = JSON.stringify(payload, null, 2);
+      let backupJson = '';
+      try {
+        backupJson = JSON.stringify(payload);
+      } catch (e) {
+        backupJson = this.serializePayloadToBlob(payload);
+      }
       const metaJson = JSON.stringify({
         version,
         lastSync: new Date().toISOString(),
         device: navigator.userAgent.includes('Android') ? 'Android' : 'Desktop/Web',
         novelCount: (payload.novelLibrary || []).length,
         glossaryCount: (payload.savedGlossaries || []).length
-      }, null, 2);
+      });
 
       // 1. Try MKCOL to ensure directory exists (safe to fail if exists)
       try {

@@ -1,9 +1,9 @@
 {
-  "version": "8.19.0",
-  "versionCode": 8400,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.0/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.0/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.19.0",
+  "version": "8.19.1",
+  "versionCode": 8401,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.1/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.1/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.19.1",
   "releaseDate": "2026-10-08",
-  "releaseNotes": "v8.19.0: Added Site Recipes system with tap-to-pick visual selector, per-site extraction rules, and settings manager."
+  "releaseNotes": "v8.19.1: Fix Android app update certificate signing and resolve backup export string length limit for large libraries."
 }
