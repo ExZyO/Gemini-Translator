@@ -1544,6 +1544,381 @@ Output valid raw JSON only, no markdown formatting.`;
   }
 
   // ══════════════════════════════════════════════════════════════════════════════════
+  // 6.5 AUTONOMOUS SITE SCOUT (2-TIER LIVE READER, DUAL-CHAPTER CROSS-CHECK & SPEED SENSOR)
+  // ══════════════════════════════════════════════════════════════════════════════════
+
+  const isSkeletonHtml = (html) => {
+    if (!html || typeof html !== 'string') return true;
+    const lower = html.toLowerCase();
+    if (lower.length < 280) return true;
+    
+    // Check known skeleton and loader phrases
+    const skeletonPhrases = [
+      'loading chapters',
+      'loading chapter',
+      'loading comments',
+      'failed to load content',
+      'loading novel',
+      'loading content',
+      'loading...',
+      'please wait while',
+      'class="skeleton',
+      'class="placeholder-glow',
+      'class="animate-pulse'
+    ];
+    for (const phrase of skeletonPhrases) {
+      if (lower.includes(phrase)) return true;
+    }
+
+    // Check for empty client-side SPA containers
+    if (lower.includes('id="__next"') || lower.includes('id="root"') || lower.includes('id="app"')) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const text = (doc.body?.textContent || '').trim();
+      const words = text ? text.split(/\s+/).length : 0;
+      const links = doc.querySelectorAll('a[href]').length;
+      if (words < 100 && links < 4) return true;
+    }
+    return false;
+  };
+
+  const fetchLiveHtml = async (url, options = {}, callbacks = {}) => {
+    const notify = callbacks?.onProgress || (() => {});
+    const cleanUrl = (url || '').trim();
+    if (!cleanUrl) throw new Error('Missing URL to fetch.');
+
+    // Tier 1: Fast direct fetch / multi-proxy
+    let html = '';
+    let fetchedVia = 'direct';
+    try {
+      if (typeof window !== 'undefined' && window.WebNovelImporter && typeof window.WebNovelImporter.fetchHtml === 'function') {
+        html = await window.WebNovelImporter.fetchHtml(cleanUrl, { context: 'Scout' });
+      } else if (typeof window !== 'undefined' && typeof window.fetchRetry === 'function') {
+        const resp = await window.fetchRetry(cleanUrl);
+        html = await resp.text();
+      } else {
+        const resp = await fetch(cleanUrl);
+        html = await resp.text();
+      }
+    } catch (tier1Err) {
+      console.warn('[SiteScout] Tier 1 direct fetch error:', tier1Err.message);
+    }
+
+    const skeleton = isSkeletonHtml(html);
+    if (html && !skeleton) {
+      return { html, mode: fetchedVia };
+    }
+
+    // Tier 2: In-App Browser Live DOM extraction
+    notify('waiting_browser', 'Opening In-App Browser to wait for live chapter list to load...');
+    if (typeof window !== 'undefined' && window.NativeBridge && (window.NativeBridge.openInAppBrowser || window.NativeBridge.resolveCloudflare)) {
+      try {
+        const browserFn = window.NativeBridge.openInAppBrowser || window.NativeBridge.resolveCloudflare;
+        const res = await browserFn(cleanUrl);
+        if (res && res.html && res.html.length > 200) {
+          return { html: res.html, mode: 'in_app_browser' };
+        }
+      } catch (browserErr) {
+        console.warn('[SiteScout] In-App Browser extraction notice:', browserErr.message);
+      }
+    }
+
+    if (html) {
+      return { html, mode: 'fallback_direct' };
+    }
+    throw new Error('Could not retrieve live HTML from website.');
+  };
+
+  const scoutOverview = async (url, options = {}, callbacks = {}) => {
+    const notify = callbacks?.onProgress || (() => {});
+    notify('reading_overview', '🔍 [1/4] Reading overview page & chapter list...');
+
+    const { html: overviewHtml } = await fetchLiveHtml(url, options, callbacks);
+    const doc = new DOMParser().parseFromString(overviewHtml, 'text/html');
+
+    // 1. Generic book metadata
+    const bookInfo = genericBookInfo(doc, url);
+
+    // 2. Locate chapter links
+    let detectedTOC = findBestChapterLinks(doc, url);
+    let chapterLinkSelector = detectedTOC ? detectedTOC.selector : '';
+    let chapters = detectedTOC ? detectedTOC.links : [];
+
+    // 3. AI analysis for overview
+    try {
+      const aiResult = await analyzeWithAiLlm(overviewHtml, 'Table of Contents');
+      if (aiResult) {
+        if (aiResult.chapterLinkSelector) {
+          const aiLinks = safeQuerySelectorAll(doc, aiResult.chapterLinkSelector);
+          if (aiLinks.length >= 2) {
+            chapterLinkSelector = aiResult.chapterLinkSelector;
+            chapters = Array.from(aiLinks).map(a => ({
+              title: (a.textContent || '').trim(),
+              href: resolveUrl(a.getAttribute('href') || '', url)
+            })).filter(l => l.title && !/^(javascript:|#)/i.test(l.href));
+          }
+        }
+        if (aiResult.titleSelector) {
+          const tEl = safeQuerySelector(doc, aiResult.titleSelector);
+          if (tEl && (tEl.textContent || '').trim()) bookInfo.title = tEl.textContent.trim();
+        }
+        if (aiResult.authorSelector) {
+          const aEl = safeQuerySelector(doc, aiResult.authorSelector);
+          if (aEl && (aEl.textContent || '').trim()) bookInfo.author = aEl.textContent.trim();
+        }
+        if (aiResult.coverSelector) {
+          const cEl = safeQuerySelector(doc, aiResult.coverSelector);
+          if (cEl) bookInfo.cover = resolveUrl(cEl.getAttribute('src') || '', url);
+        }
+      }
+    } catch (_) {}
+
+    // Check registered source plugin for supplementary details
+    const activePlugin = (typeof window !== 'undefined' && window.sourceRegistry && typeof window.sourceRegistry.findPlugin === 'function')
+      ? window.sourceRegistry.findPlugin(url)
+      : null;
+    if (activePlugin && activePlugin.id && activePlugin.id !== 'universal' && (!chapters || chapters.length === 0)) {
+      try {
+        const details = await activePlugin.getNovelDetails(url);
+        if (details && details.chapters && details.chapters.length > 0) {
+          chapters = details.chapters.map(c => ({ title: c.title, href: c.url }));
+          if (details.title) bookInfo.title = details.title;
+          if (details.author) bookInfo.author = details.author;
+          if (details.cover) bookInfo.cover = details.cover;
+        }
+      } catch (_) {}
+    }
+
+    const ch1Url = chapters[0]?.href || '';
+    const ch2Url = (chapters.length > 1) ? chapters[1]?.href : ch1Url;
+
+    return {
+      overviewHtml,
+      overviewDoc: doc,
+      bookInfo,
+      chapterLinkSelector,
+      chapters,
+      ch1Url,
+      ch2Url
+    };
+  };
+
+  const scoutChapters = async (ch1Url, ch2Url, options = {}, callbacks = {}) => {
+    const notify = callbacks?.onProgress || (() => {});
+    notify('analyzing_chapters', '📖 [2/4] Cross-analyzing Chapter 1 & Chapter 2 text...');
+
+    if (!ch1Url) {
+      return {
+        contentSelector: '#content, .reading-content, article',
+        chapterTitleSelector: 'h1',
+        removeSelectors: ['.ads', 'header', 'footer'],
+        ch1Words: 0,
+        ch1Preview: ''
+      };
+    }
+
+    const { html: ch1Html } = await fetchLiveHtml(ch1Url, options, callbacks);
+    const doc1 = new DOMParser().parseFromString(ch1Html, 'text/html');
+
+    let doc2 = null;
+    let ch2Html = '';
+    if (ch2Url && ch2Url !== ch1Url) {
+      try {
+        const res2 = await fetchLiveHtml(ch2Url, options, callbacks);
+        ch2Html = res2.html;
+        doc2 = new DOMParser().parseFromString(ch2Html, 'text/html');
+      } catch (_) {}
+    }
+
+    // Heuristic detection on Doc 1
+    const directContent1 = findBestChapterContentSelector(doc1);
+    let contentSelector = directContent1 ? directContent1.selector : '#content';
+    let chapterTitleSelector = findChapterTitleSelector(doc1) || 'h1';
+    let removeSelectors = ['.ads', '.watermark', 'header', 'footer'];
+
+    // Cross-verify with AI if available
+    try {
+      const callAi = (typeof window !== 'undefined' && window.GlossaryManagerEngine && typeof window.GlossaryManagerEngine.callAiAnalysis === 'function')
+        ? window.GlossaryManagerEngine.callAiAnalysis
+        : null;
+
+      if (callAi) {
+        const stripHtml = (h) => (h || '')
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+          .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '')
+          .slice(0, 10000);
+
+        const prompt = `CHAPTER 1 EXCERPT:\n${stripHtml(ch1Html)}\n\n` +
+          (ch2Html ? `CHAPTER 2 EXCERPT:\n${stripHtml(ch2Html)}` : '');
+
+        const sys = `You are an expert novel web scraping engineer.
+Compare the HTML from Chapter 1 and Chapter 2 of the same novel.
+The story text changes between chapters, whereas website layout, navigation buttons, and advertisements stay identical.
+Identify the CSS selector for the actual novel reading content, the chapter title selector, and recurring junk to remove.
+Return valid raw JSON only:
+{
+  "contentSelector": "CSS selector for the main chapter body text",
+  "chapterTitleSelector": "CSS selector for chapter title",
+  "removeSelectors": ["CSS selectors of recurring ads, next/prev navigation, or watermarks to clean"]
+}`;
+
+        const raw = await callAi(prompt, sys, {
+          modelOverride: options?.model || null,
+          providerOverride: options?.provider || null
+        });
+
+        if (raw) {
+          const cleanJson = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+          const parsed = JSON.parse(cleanJson);
+          if (parsed.contentSelector && safeQuerySelector(doc1, parsed.contentSelector)) {
+            contentSelector = parsed.contentSelector;
+          }
+          if (parsed.chapterTitleSelector && safeQuerySelector(doc1, parsed.chapterTitleSelector)) {
+            chapterTitleSelector = parsed.chapterTitleSelector;
+          }
+          if (Array.isArray(parsed.removeSelectors) && parsed.removeSelectors.length > 0) {
+            removeSelectors = parsed.removeSelectors;
+          }
+        }
+      }
+    } catch (aiErr) {
+      console.warn('[SiteScout] Dual-chapter AI cross-analysis note:', aiErr.message);
+    }
+
+    // Evaluate final extraction on Chapter 1
+    const testEl = safeQuerySelector(doc1, contentSelector);
+    const evalRes = evaluateContentContainer(testEl);
+
+    return {
+      contentSelector,
+      chapterTitleSelector,
+      removeSelectors,
+      ch1Words: evalRes.words,
+      ch1Preview: evalRes.text.slice(0, 320)
+    };
+  };
+
+  const measureOptimalSpeed = async (domain, sampleUrls = [], callbacks = {}) => {
+    const notify = callbacks?.onProgress || (() => {});
+    notify('measuring_speed', '⏱️ [3/4] Measuring server speed & safe crawl delay...');
+
+    let rtt = 500;
+    let isGuarded = false;
+
+    const probeUrl = sampleUrls[0] || `https://${domain}`;
+    try {
+      const start = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      const resp = await (typeof window !== 'undefined' && window.fetchRetry ? window.fetchRetry(probeUrl, { timeoutMs: 7000 }) : fetch(probeUrl));
+      const end = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      rtt = Math.max(50, Math.round(end - start));
+
+      const cfRay = resp.headers?.get('cf-ray');
+      const retryAfter = resp.headers?.get('retry-after');
+      const server = resp.headers?.get('server') || '';
+      if (cfRay || retryAfter || server.toLowerCase().includes('cloudflare') || resp.status === 429) {
+        isGuarded = true;
+      }
+    } catch (_) {
+      isGuarded = true;
+    }
+
+    let delayMs = 450;
+    if (isGuarded) {
+      delayMs = 1500;
+    } else if (rtt > 1000) {
+      delayMs = 1000;
+    } else if (rtt > 500) {
+      delayMs = 600;
+    } else {
+      delayMs = 350;
+    }
+
+    return {
+      rtt,
+      isGuarded,
+      rateLimitMs: delayMs,
+      delayMs
+    };
+  };
+
+  const scoutWebsite = async (url, options = {}, callbacks = {}) => {
+    const notify = callbacks?.onProgress || (() => {});
+    const cleanUrl = (url || '').trim();
+    if (!cleanUrl) throw new Error('Please enter a novel URL to scout.');
+
+    const host = normalizeHost(cleanUrl);
+    if (!host) throw new Error('Invalid URL.');
+
+    // 1. Scout overview & chapters
+    const overview = await scoutOverview(cleanUrl, options, callbacks);
+
+    // 2. Dual-chapter cross check
+    const chaptersInfo = await scoutChapters(overview.ch1Url, overview.ch2Url, options, callbacks);
+
+    // 3. Measure safe crawling speed
+    const speed = await measureOptimalSpeed(host, [cleanUrl, overview.ch1Url], callbacks);
+
+    // 4. Assemble polished recipe
+    notify('saving_recipe', '💾 [4/4] Finalizing & saving custom recipe...');
+    const recipe = withDefaults({
+      id: host,
+      name: overview.bookInfo.title ? `${overview.bookInfo.title} (${host})` : host,
+      domain: host,
+      book: {
+        titleSelector: overview.bookInfo.title ? 'h1' : 'h1',
+        authorSelector: overview.bookInfo.author ? '.author, .novel-author, span' : '',
+        coverSelector: overview.bookInfo.cover ? 'img' : '',
+        chapterListSelector: overview.chapterLinkSelector || 'a[href]'
+      },
+      chapter: {
+        titleSelector: chaptersInfo.chapterTitleSelector || 'h1',
+        contentSelector: chaptersInfo.contentSelector || '#content',
+        nextSelector: 'a[rel="next"]',
+        cleanSelectors: chaptersInfo.removeSelectors || ['.ads', 'header', 'footer']
+      },
+      network: {
+        delayMs: speed.rateLimitMs,
+        skipBroken: false
+      },
+      rateLimitMs: speed.rateLimitMs,
+      detectedViaScout: true
+    });
+
+    // 5. Save to database
+    await save(recipe);
+
+    const result = {
+      recipe,
+      bookInfo: overview.bookInfo,
+      stats: {
+        chaptersCount: overview.chapters.length,
+        sampleWords: chaptersInfo.ch1Words,
+        preview: chaptersInfo.ch1Preview,
+        ch1Url: overview.ch1Url,
+        ch2Url: overview.ch2Url,
+        safeDelayMs: speed.rateLimitMs,
+        rtt: speed.rtt,
+        isGuarded: speed.isGuarded,
+        aiEngine: 'AI Dual-Chapter Cross-Checker'
+      }
+    };
+
+    notify('done', `✓ Successfully scouted & saved recipe for ${host}!`);
+    if (callbacks?.onSuccess) callbacks.onSuccess(result);
+    if (callbacks?.toast) callbacks.toast(`✓ Scouted & saved recipe! (${overview.chapters.length} chapters, ${speed.rateLimitMs}ms delay)`, 'success');
+    return result;
+  };
+
+  const Scout = {
+    isSkeletonHtml,
+    fetchLiveHtml,
+    scoutOverview,
+    scoutChapters,
+    measureOptimalSpeed,
+    scoutWebsite
+  };
+
+  // ══════════════════════════════════════════════════════════════════════════════════
   // 7. TESTING / PREVIEW ENGINE
   // ══════════════════════════════════════════════════════════════════════════════════
 
@@ -1794,6 +2169,18 @@ Output valid raw JSON only, no markdown formatting.`;
         if (callbacks?.toast) callbacks.toast('Auto-detect: ' + err.message, 'warning');
         throw err;
       }
+    },
+
+    async scoutWebsite(url, callbacks) {
+      try {
+        if (callbacks?.onStart) callbacks.onStart();
+        const result = await scoutWebsite(url, {}, callbacks || {});
+        return result;
+      } catch (err) {
+        if (callbacks?.onError) callbacks.onError(err);
+        if (callbacks?.toast) callbacks.toast('Scout: ' + err.message, 'error');
+        throw err;
+      }
     }
   };
 
@@ -1841,6 +2228,8 @@ Output valid raw JSON only, no markdown formatting.`;
 
     autoDetectRecipe,
     testRecipe,
+    scoutWebsite,
+    Scout,
     Controller
   };
 

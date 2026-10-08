@@ -437,6 +437,8 @@
         const [testResult, setTestResult] = useState(null);
         const [isTesting, setIsTesting] = useState(false);
         const [isAutoDetecting, setIsAutoDetecting] = useState(false);
+        const [isScouting, setIsScouting] = useState(false);
+        const [scoutProgress, setScoutProgress] = useState('');
         const [autoDetectStats, setAutoDetectStats] = useState(null);
         const bookUrlInputRef = useRef(null);
         const chapterUrlInputRef = useRef(null);
@@ -682,6 +684,59 @@
             }
         };
 
+        const handleRunScout = async () => {
+            const currentBook = (bookUrlInputRef.current?.value || recipe.bookUrl || recipe.testUrls?.book || url || '').trim();
+            if (!currentBook) {
+                toast?.('Please paste a novel link in the box below first.', 'warning');
+                return;
+            }
+            setIsScouting(true);
+            setScoutProgress('Starting Scout...');
+            setAutoDetectStats(null);
+            try {
+                const res = await RE.Controller.scoutWebsite(currentBook, {
+                    onProgress: (stage, msg) => {
+                        setScoutProgress(msg);
+                        toast?.(msg, 'info');
+                    }
+                });
+                if (res && res.recipe) {
+                    const resolvedBookUrl = res.recipe.bookUrl || currentBook || '';
+                    const resolvedChapterUrl = res.recipe.chapterUrl || res.stats?.ch1Url || '';
+
+                    setRecipe(prev => ({
+                        ...prev,
+                        ...res.recipe,
+                        id: prev.id || res.recipe.id,
+                        name: prev.name || res.recipe.name,
+                        bookUrl: resolvedBookUrl,
+                        chapterUrl: resolvedChapterUrl,
+                        testUrls: {
+                            book: resolvedBookUrl,
+                            chapter: resolvedChapterUrl
+                        }
+                    }));
+                    if (bookUrlInputRef.current && resolvedBookUrl) {
+                        bookUrlInputRef.current.value = resolvedBookUrl;
+                    }
+                    if (chapterUrlInputRef.current && resolvedChapterUrl) {
+                        chapterUrlInputRef.current.value = resolvedChapterUrl;
+                    }
+                    setIsDirty(true);
+                    setAutoDetectStats({
+                        ...res.stats,
+                        isScout: true
+                    });
+                    toast?.(`✓ Autonomous Scout completed & recipe saved!`, 'success');
+                }
+            } catch (err) {
+                toast?.(`Scout failed: ${err.message}`, 'error');
+            } finally {
+                setIsScouting(false);
+                setScoutProgress('');
+            }
+        };
+
         const openPicker = (target, targetUrl, initialSelector) => {
             const pickUrl = targetUrl || recipe.chapterUrl || recipe.testUrls?.chapter || recipe.bookUrl || recipe.testUrls?.book || url;
             if (!pickUrl) {
@@ -778,26 +833,47 @@
                             ]),
                             h('p', { className: 'text-[11px] text-slate-300 leading-relaxed' }, 'Paste your novel link below, then tap here to let AI automatically detect all chapters and story text with zero setup.')
                         ]),
-                        h('button', {
-                            type: 'button',
-                            disabled: isAutoDetecting,
-                            className: 'px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95 text-white font-semibold text-xs shadow-md flex items-center justify-center gap-2 transition-all shrink-0 disabled:opacity-50 cursor-pointer',
-                            onClick: handleAutoDetect
-                        }, [
-                            isAutoDetecting ? renderIcon('refresh', 13, 'animate-spin') : renderIcon('sparkles', 13),
-                            isAutoDetecting ? 'AI Scanning...' : '⚡ Auto-Detect Recipe'
+                        h('div', { className: 'flex flex-wrap gap-2 shrink-0' }, [
+                            h('button', {
+                                type: 'button',
+                                disabled: isAutoDetecting || isScouting,
+                                className: 'px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-semibold text-xs border border-slate-700 flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer',
+                                onClick: handleAutoDetect
+                            }, [
+                                isAutoDetecting ? renderIcon('refresh', 13, 'animate-spin') : renderIcon('sparkles', 13),
+                                isAutoDetecting ? 'Scanning...' : '⚡ Quick Auto-Detect'
+                            ]),
+                            h('button', {
+                                type: 'button',
+                                disabled: isAutoDetecting || isScouting,
+                                className: 'px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95 text-white font-semibold text-xs shadow-md flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer',
+                                onClick: handleRunScout
+                            }, [
+                                isScouting ? renderIcon('refresh', 13, 'animate-spin') : renderIcon('sparkles', 13),
+                                isScouting ? (scoutProgress || 'Scouting...') : '✨ Autonomous Scout'
+                            ])
                         ])
                     ]),
 
-                    // Auto-Detect Stats Result Card
+                    // Auto-Detect & Scout Stats Result Card
                     autoDetectStats && h('div', {
-                        className: 'p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-200 flex items-center justify-between animate-fade-in'
+                        className: 'p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-200 space-y-2 animate-fade-in'
                     }, [
-                        h('div', { className: 'space-y-0.5 truncate' }, [
-                            h('p', { className: 'font-bold flex items-center gap-1 text-emerald-300' }, `✓ Analyzed via ${autoDetectStats.aiEngine || 'AI'}: ${autoDetectStats.chaptersCount} chapters (~${(autoDetectStats.sampleWords || 0).toLocaleString()} words)`),
-                            autoDetectStats.firstChapterName && h('p', { className: 'text-[11px] text-emerald-400/80 truncate' }, `First chapter: "${autoDetectStats.firstChapterName}"`)
+                        h('div', { className: 'flex items-center justify-between gap-2' }, [
+                            h('div', { className: 'space-y-0.5 truncate' }, [
+                                h('p', { className: 'font-bold flex items-center gap-1.5 text-emerald-300' }, [
+                                    renderIcon('check', 13, 'text-emerald-400 shrink-0'),
+                                    `Scouted via ${autoDetectStats.aiEngine || 'AI'}: ${autoDetectStats.chaptersCount} chapters (~${(autoDetectStats.sampleWords || 0).toLocaleString()} words)`
+                                ]),
+                                autoDetectStats.firstChapterName && h('p', { className: 'text-[11px] text-emerald-400/80 truncate' }, `First chapter: "${autoDetectStats.firstChapterName}"`)
+                            ]),
+                            autoDetectStats.safeDelayMs && h('span', {
+                                className: 'px-2 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-mono text-[10px] shrink-0'
+                            }, `⏱️ ${autoDetectStats.safeDelayMs}ms delay`)
                         ]),
-                        h('span', { className: 'px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-semibold text-[11px] shrink-0' }, 'Ready to Save')
+                        autoDetectStats.preview && h('div', {
+                            className: 'p-2 rounded-lg bg-black/40 border border-emerald-500/20 text-[11px] text-slate-300 font-mono line-clamp-2'
+                        }, `“${autoDetectStats.preview}…”`)
                     ]),
 
                     h('div', { className: 'space-y-2 text-xs' }, [

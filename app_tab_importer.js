@@ -300,6 +300,8 @@
 
     const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
     const [booksDownloadableOnly, setBooksDownloadableOnly] = useState(true);
+    const [isScoutingUrl, setIsScoutingUrl] = useState(false);
+    const [scoutStatusText, setScoutStatusText] = useState('');
     const [importCategoryTab, setImportCategoryTab] = useState(() => {
       if (isBookSearchMode) return 'books';
       if (isSwiftAudioMode) return 'audio';
@@ -327,6 +329,41 @@
                 (activeNovelView?.tags && activeNovelView.tags.some(t => /lnori/i.test(t))) ||
                 isLnoriUrl
               );
+
+              const handleAutoScoutSite = async () => {
+                const targetUrl = (webImportUrl || '').trim();
+                if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
+                  toast?.('Please paste a full website link (https://...) first.', 'warning');
+                  return;
+                }
+                const RE = typeof window !== 'undefined' ? window.SiteRecipeEngine : null;
+                if (!RE || !RE.Controller || typeof RE.Controller.scoutWebsite !== 'function') {
+                  toast?.('Site Scout engine not loaded.', 'error');
+                  return;
+                }
+                setIsScoutingUrl(true);
+                setScoutStatusText('Starting Scout...');
+                try {
+                  const res = await RE.Controller.scoutWebsite(targetUrl, {
+                    onProgress: (stage, msg) => {
+                      setScoutStatusText(msg);
+                      toast?.(msg, 'info');
+                    }
+                  });
+                  if (res && res.recipe) {
+                    toast?.(`✨ Site scouted & recipe saved! Loading chapters...`, 'success');
+                    setTimeout(() => {
+                      handleStartFetch(false);
+                    }, 600);
+                  }
+                } catch (err) {
+                  toast?.(`Scout: ${err.message}`, 'error');
+                } finally {
+                  setIsScoutingUrl(false);
+                  setScoutStatusText('');
+                }
+              };
+
               return h(React.Fragment, null,
                 // Actionable Cloudflare & Crawler Interruption Guidance Card
                 webImportError && h('div', {
@@ -391,6 +428,13 @@
                         }
                       }
                     }, webImportError.isCloudflare ? '🛡️ Solve Captcha (In-App Browser)' : '🌐 Open Source in Browser'),
+                    (webImportError.targetUrl || webImportUrl) && h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: { background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', color: '#fff', fontWeight: 700 },
+                      disabled: isScoutingUrl,
+                      onClick: handleAutoScoutSite
+                    }, isScoutingUrl ? '🧭 Scouting...' : '✨ Auto-Scout & Learn Site'),
                     (webImportError.targetUrl || webImportUrl) && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
@@ -674,6 +718,27 @@
                       },
                       title: 'Configure custom HTML extraction rules for this website'
                     }, (webImportUrl && typeof window !== 'undefined' && window.SiteRecipeEngine?.findForUrl(webImportUrl)) ? '⚙️ Site settings ✓' : '⚙️ Site settings'),
+                    (/^https?:\/\//i.test((webImportUrl || '').trim())) && h('button', {
+                      type: 'button',
+                      className: 'mini-btn',
+                      style: {
+                        padding: '6px 12px',
+                        borderRadius: 999,
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        cursor: 'pointer',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)'
+                      },
+                      disabled: isScoutingUrl,
+                      onClick: handleAutoScoutSite,
+                      title: 'Autonomously scout, learn, and save extraction rules for this website'
+                    }, isScoutingUrl ? (scoutStatusText || '🧭 Scouting...') : '✨ 1-Tap Auto-Scout'),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',

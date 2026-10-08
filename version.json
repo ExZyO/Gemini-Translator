@@ -1,9 +1,9 @@
 {
-  "version": "8.20.0",
-  "versionCode": 8410,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.20.0/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.20.0/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.20.0",
+  "version": "8.21.0",
+  "versionCode": 8411,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.0/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.0/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.0",
   "releaseDate": "2026-10-08",
-  "releaseNotes": "v8.20.0: Fix confirmation dialog crash and make Site Recipe delete button fully visible on mobile."
+  "releaseNotes": "v8.21.0: Add AI Site Scout with 2-tier live page reader, dual-chapter cross-checker, and adaptive crawling speed sensor."
 }
