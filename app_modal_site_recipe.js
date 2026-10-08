@@ -208,6 +208,8 @@
         });
         const [testResult, setTestResult] = useState(null);
         const [isTesting, setIsTesting] = useState(false);
+        const bookUrlInputRef = useRef(null);
+        const chapterUrlInputRef = useRef(null);
 
         useEffect(() => {
             if (!RE) return;
@@ -220,7 +222,13 @@
                 if (!loaded) loaded = RE.createBlank(url);
             }
             if (!loaded) loaded = RE.createBlank('example.com');
-            setRecipe(loaded);
+            const normalized = RE.withDefaults(loaded);
+            if (url && !normalized.bookUrl && !normalized.testUrls?.book) {
+                normalized.bookUrl = url;
+                if (!normalized.testUrls) normalized.testUrls = {};
+                normalized.testUrls.book = url;
+            }
+            setRecipe(normalized);
             setIsDirty(false);
             setTestResult(null);
         }, [recipeId, url]);
@@ -231,23 +239,36 @@
 
         const updateField = (path, value) => {
             setRecipe(prev => {
+                if (!prev) return prev;
                 const next = JSON.parse(JSON.stringify(prev));
                 const parts = path.split('.');
                 let curr = next;
                 for (let i = 0; i < parts.length - 1; i++) {
+                    if (!curr[parts[i]]) curr[parts[i]] = {};
                     curr = curr[parts[i]];
                 }
                 curr[parts[parts.length - 1]] = value;
-                return RE.withDefaults(next);
+                if (path === 'bookUrl') {
+                    if (!next.testUrls) next.testUrls = {};
+                    next.testUrls.book = value;
+                } else if (path === 'chapterUrl') {
+                    if (!next.testUrls) next.testUrls = {};
+                    next.testUrls.chapter = value;
+                } else if (path === 'chapter.removeSelector') {
+                    if (!next.chapter) next.chapter = {};
+                    next.chapter.removeSelectors = String(value || '').split(',').map(s => s.trim()).filter(Boolean);
+                }
+                return next;
             });
             setIsDirty(true);
         };
 
         const handleSave = async () => {
             try {
-                await RE.save(recipe);
+                const toSave = RE.withDefaults(recipe);
+                await RE.save(toSave);
                 setIsDirty(false);
-                toast?.(`Recipe for "${recipe.id}" saved successfully!`, 'success');
+                toast?.(`Recipe for "${toSave.id}" saved successfully!`, 'success');
                 onClose?.();
             } catch (err) {
                 toast?.(`Failed to save recipe: ${err.message}`, 'error');
@@ -258,13 +279,20 @@
             try {
                 let text = '';
                 if (window.NativeBridge && typeof window.NativeBridge.getClipboardText === 'function') {
-                    text = await window.NativeBridge.getClipboardText();
-                } else if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
+                    try { text = await window.NativeBridge.getClipboardText(); } catch (e) {}
+                }
+                if (!text && typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
                     try { text = await navigator.clipboard.readText(); } catch (e) {}
                 }
                 if (text && typeof text === 'string') {
                     text = text.trim();
                     if (text) {
+                        if (field === 'bookUrl' && bookUrlInputRef.current) {
+                            bookUrlInputRef.current.value = text;
+                        }
+                        if (field === 'chapterUrl' && chapterUrlInputRef.current) {
+                            chapterUrlInputRef.current.value = text;
+                        }
                         updateField(field, text);
                         toast?.('Pasted link! 📋', 'success');
                         return;
@@ -360,7 +388,14 @@
             setIsTesting(true);
             setTestResult(null);
             try {
-                const res = await RE.testRecipe(recipe);
+                const bUrl = recipe.bookUrl || recipe.testUrls?.book || '';
+                const cUrl = recipe.chapterUrl || recipe.testUrls?.chapter || '';
+                if (!bUrl && !cUrl) {
+                    toast?.('Please enter a Book Overview URL or Sample Chapter URL to test.', 'warning');
+                    setIsTesting(false);
+                    return;
+                }
+                const res = await RE.testRecipe(recipe, { bookUrl: bUrl, chapterUrl: cUrl });
                 setTestResult(res);
                 if (res.warnings?.length > 0) {
                     toast?.(`Test completed with ${res.warnings.length} warning(s).`, 'warning');
@@ -376,7 +411,7 @@
         };
 
         const openPicker = (target, targetUrl, initialSelector) => {
-            const pickUrl = targetUrl || recipe.chapterUrl || recipe.bookUrl || url;
+            const pickUrl = targetUrl || recipe.chapterUrl || recipe.testUrls?.chapter || recipe.bookUrl || recipe.testUrls?.book || url;
             if (!pickUrl) {
                 toast?.('Please enter a test URL in the card above before picking.', 'warning');
                 return;
@@ -460,7 +495,8 @@
                         h('label', { className: 'text-slate-400 block' }, 'Book Overview / Table of Contents URL'),
                         h('div', { className: 'flex gap-2' }, [
                             h('input', {
-                                type: 'url',
+                                ref: bookUrlInputRef,
+                                type: 'text',
                                 inputMode: 'url',
                                 autoCapitalize: 'none',
                                 autoCorrect: 'off',
@@ -468,8 +504,9 @@
                                 style: { userSelect: 'text', WebkitUserSelect: 'text', WebkitTouchCallout: 'default' },
                                 className: 'flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-indigo-500 outline-none select-text cursor-text',
                                 placeholder: 'https://example.com/novel/title',
-                                value: recipe.bookUrl || '',
-                                onChange: (e) => updateField('bookUrl', e.target.value)
+                                value: (recipe.bookUrl !== undefined && recipe.bookUrl !== null) ? recipe.bookUrl : (recipe.testUrls?.book || ''),
+                                onChange: (e) => updateField('bookUrl', e.target.value),
+                                onInput: (e) => updateField('bookUrl', e.target.value)
                             }),
                             h('button', {
                                 type: 'button',
@@ -480,14 +517,15 @@
                             h('button', {
                                 type: 'button',
                                 className: 'px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shrink-0 transition-colors',
-                                onClick: () => openPicker('chapterLinks', recipe.bookUrl)
+                                onClick: () => openPicker('chapterLinks', recipe.bookUrl || recipe.testUrls?.book)
                             }, '👆 Inspect TOC')
                         ]),
 
                         h('label', { className: 'text-slate-400 block pt-1' }, 'Sample Chapter URL'),
                         h('div', { className: 'flex gap-2' }, [
                             h('input', {
-                                type: 'url',
+                                ref: chapterUrlInputRef,
+                                type: 'text',
                                 inputMode: 'url',
                                 autoCapitalize: 'none',
                                 autoCorrect: 'off',
@@ -495,8 +533,9 @@
                                 style: { userSelect: 'text', WebkitUserSelect: 'text', WebkitTouchCallout: 'default' },
                                 className: 'flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-indigo-500 outline-none select-text cursor-text',
                                 placeholder: 'https://example.com/novel/title/chapter-1',
-                                value: recipe.chapterUrl || '',
-                                onChange: (e) => updateField('chapterUrl', e.target.value)
+                                value: (recipe.chapterUrl !== undefined && recipe.chapterUrl !== null) ? recipe.chapterUrl : (recipe.testUrls?.chapter || ''),
+                                onChange: (e) => updateField('chapterUrl', e.target.value),
+                                onInput: (e) => updateField('chapterUrl', e.target.value)
                             }),
                             h('button', {
                                 type: 'button',
@@ -507,17 +546,17 @@
                             h('button', {
                                 type: 'button',
                                 className: 'px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shrink-0 transition-colors',
-                                onClick: () => openPicker('content', recipe.chapterUrl)
+                                onClick: () => openPicker('content', recipe.chapterUrl || recipe.testUrls?.chapter)
                             }, '👆 Inspect Chapter')
                         ]),
 
-                        (recipe.bookUrl || recipe.chapterUrl) && h('div', { className: 'pt-2 flex items-center justify-between' }, [
+                        (recipe.bookUrl || recipe.chapterUrl || recipe.testUrls?.book || recipe.testUrls?.chapter) && h('div', { className: 'pt-2 flex items-center justify-between' }, [
                             h('span', { className: 'text-[11px] text-slate-400' }, 'Protected by Cloudflare / Captcha?'),
                             h('button', {
                                 type: 'button',
                                 className: 'px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-medium flex items-center gap-1.5 transition-colors',
                                 onClick: async () => {
-                                    const testUrl = recipe.chapterUrl || recipe.bookUrl;
+                                    const testUrl = recipe.chapterUrl || recipe.testUrls?.chapter || recipe.bookUrl || recipe.testUrls?.book;
                                     if (!testUrl) return;
                                     if (window.NativeBridge?.openInAppBrowser || window.NativeBridge?.resolveCloudflare) {
                                         toast?.('Opening in-app browser to pass verification...', 'info');
@@ -691,7 +730,7 @@
                         ]),
                         testResult.chapter && h('div', { className: 'border-t border-slate-800 pt-2 text-slate-400' }, [
                             h('p', { className: 'font-bold text-slate-200' }, `Chapter Preview: ${testResult.chapter.title || 'Chapter'}`),
-                            h('p', { className: 'text-[11px] text-slate-400' }, `Word count: ${testResult.chapter.wordCount} words`),
+                            h('p', { className: 'text-[11px] text-slate-400' }, `Word count: ${testResult.chapter.words || testResult.chapter.wordCount || 0} words`),
                             h('p', { className: 'text-[11px] font-mono text-slate-400 mt-1 line-clamp-3' }, testResult.chapter.preview)
                         ])
                     ])

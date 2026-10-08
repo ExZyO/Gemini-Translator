@@ -70,11 +70,6 @@
     const network = p.network && typeof p.network === 'object' ? p.network : {};
     const testUrls = p.testUrls && typeof p.testUrls === 'object' ? p.testUrls : {};
 
-    const rawRemoves = Array.isArray(chapter.removeSelectors) ? chapter.removeSelectors : [];
-    const cleanRemoves = rawRemoves
-      .map(s => (typeof s === 'string' ? s.trim() : ''))
-      .filter(Boolean);
-
     const rawReplacements = Array.isArray(cleanup.replacements) ? cleanup.replacements : [];
     const cleanReplacements = rawReplacements
       .filter(r => r && typeof r === 'object' && typeof r.find === 'string' && r.find.trim())
@@ -87,7 +82,22 @@
     const delayMs = parseInt(network.delayMs, 10);
     const clampedDelay = isNaN(delayMs) ? 0 : Math.max(0, Math.min(MAX_DELAY_MS, delayMs));
 
-    const id = normalizeHost(p.id || p.name || testUrls.book || testUrls.chapter || '');
+    const bookUrl = typeof p.bookUrl === 'string' ? p.bookUrl : (typeof testUrls.book === 'string' ? testUrls.book : '');
+    const chapterUrl = typeof p.chapterUrl === 'string' ? p.chapterUrl : (typeof testUrls.chapter === 'string' ? testUrls.chapter : '');
+
+    let rawRemoves = [];
+    if (Array.isArray(chapter.removeSelectors)) {
+      rawRemoves = chapter.removeSelectors;
+    } else if (typeof chapter.removeSelector === 'string') {
+      rawRemoves = chapter.removeSelector.split(',').map(s => s.trim());
+    } else if (typeof chapter.removeSelectors === 'string') {
+      rawRemoves = chapter.removeSelectors.split(',').map(s => s.trim());
+    }
+    const cleanRemoves = rawRemoves
+      .map(s => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean);
+
+    const id = normalizeHost(p.id || p.name || bookUrl || chapterUrl || '');
 
     return {
       id: id,
@@ -96,9 +106,11 @@
       schema: 1,
       createdAt: typeof p.createdAt === 'number' ? p.createdAt : Date.now(),
       updatedAt: typeof p.updatedAt === 'number' ? p.updatedAt : Date.now(),
+      bookUrl: bookUrl,
+      chapterUrl: chapterUrl,
       testUrls: {
-        book: typeof testUrls.book === 'string' ? testUrls.book.trim() : '',
-        chapter: typeof testUrls.chapter === 'string' ? testUrls.chapter.trim() : ''
+        book: bookUrl,
+        chapter: chapterUrl
       },
       mode: (p.mode === 'next') ? 'next' : 'list',
       book: {
@@ -114,6 +126,7 @@
       chapter: {
         contentSelector: typeof chapter.contentSelector === 'string' ? chapter.contentSelector.trim() : '',
         titleSelector: typeof chapter.titleSelector === 'string' ? chapter.titleSelector.trim() : '',
+        removeSelector: cleanRemoves.join(', '),
         removeSelectors: cleanRemoves,
         nextLinkSelector: typeof chapter.nextLinkSelector === 'string' ? chapter.nextLinkSelector.trim() : ''
       },
@@ -1094,29 +1107,46 @@
   // ══════════════════════════════════════════════════════════════════════════════════
 
   async function testRecipe(r, urls, deps) {
-    const warnings = [];
-    const bookUrl = urls && urls.bookUrl ? urls.bookUrl.trim() : '';
-    const chapterUrl = urls && urls.chapterUrl ? urls.chapterUrl.trim() : '';
+    const recipeObj = r || {};
+    const bookUrl = (urls && urls.bookUrl ? urls.bookUrl.trim() : '') || (recipeObj.bookUrl ? recipeObj.bookUrl.trim() : '') || (recipeObj.testUrls && recipeObj.testUrls.book ? recipeObj.testUrls.book.trim() : '');
+    const chapterUrl = (urls && urls.chapterUrl ? urls.chapterUrl.trim() : '') || (recipeObj.chapterUrl ? recipeObj.chapterUrl.trim() : '') || (recipeObj.testUrls && recipeObj.testUrls.chapter ? recipeObj.testUrls.chapter.trim() : '');
+
+    const fetchHtmlFn = (deps && typeof deps.fetchHtml === 'function')
+      ? deps.fetchHtml
+      : async (targetUrl) => {
+          if (typeof window !== 'undefined' && window.WebNovelImporter && typeof window.WebNovelImporter.fetchHtml === 'function') {
+            return await window.WebNovelImporter.fetchHtml(targetUrl);
+          }
+          if (typeof window !== 'undefined' && window.WebNovelCrawler && typeof window.WebNovelCrawler.fetchHtmlDirect === 'function') {
+            return await window.WebNovelCrawler.fetchHtmlDirect(targetUrl);
+          }
+          if (typeof window !== 'undefined' && typeof window.fetchRetry === 'function') {
+            const resp = await window.fetchRetry(targetUrl);
+            return await resp.text();
+          }
+          const resp = await fetch(targetUrl);
+          return await resp.text();
+        };
 
     const bookResult = {
       title: '', author: '', cover: '', summary: '',
       chapterCount: 0, firstChapter: '', lastChapter: '', warnings: []
     };
     const chapterResult = {
-      title: '', preview: '', words: 0, warnings: []
+      title: '', preview: '', words: 0, wordCount: 0, warnings: []
     };
 
-    if (!deps || typeof deps.fetchHtml !== 'function') {
-      throw new Error('Network fetcher not available.');
+    if (!bookUrl && !chapterUrl) {
+      throw new Error('Please enter a Book Overview URL or Sample Chapter URL above to test.');
     }
 
     // 1. Test Book Page
     if (bookUrl) {
       try {
-        const html = await deps.fetchHtml(bookUrl);
+        const html = await fetchHtmlFn(bookUrl);
         const doc = new DOMParser().parseFromString(html, 'text/html');
 
-        const recipeMeta = extractBookInfo(doc, r, bookUrl);
+        const recipeMeta = extractBookInfo(doc, recipeObj, bookUrl);
         const genericMeta = genericBookInfo(doc, bookUrl);
 
         bookResult.title = recipeMeta.title || genericMeta.title;
@@ -1128,13 +1158,13 @@
         if (!bookResult.author) bookResult.warnings.push('Author name was not found.');
         if (!bookResult.cover) bookResult.warnings.push('Cover image was not found.');
 
-        if (r.mode === 'next') {
-          if (r.book && r.book.firstChapterSelector) {
-            const firstA = safeQuerySelector(doc, r.book.firstChapterSelector);
+        if (recipeObj.mode === 'next') {
+          if (recipeObj.book && recipeObj.book.firstChapterSelector) {
+            const firstA = safeQuerySelector(doc, recipeObj.book.firstChapterSelector);
             if (!firstA) bookResult.warnings.push('First chapter link was not found on this book page.');
           }
-        } else if (r.book && r.book.chapterLinkSelector) {
-          const links = extractChapterLinks(doc, r, bookUrl);
+        } else if (recipeObj.book && recipeObj.book.chapterLinkSelector) {
+          const links = extractChapterLinks(doc, recipeObj, bookUrl);
           bookResult.chapterCount = links.length;
           if (links.length === 0) {
             bookResult.warnings.push('No chapter links found. Try picking a chapter link again.');
@@ -1153,22 +1183,24 @@
     // 2. Test Chapter Page
     if (chapterUrl) {
       try {
-        const html = await deps.fetchHtml(chapterUrl);
+        const html = await fetchHtmlFn(chapterUrl);
         const doc = new DOMParser().parseFromString(html, 'text/html');
 
-        const extracted = extractChapter(doc, r, chapterUrl);
+        const extracted = extractChapter(doc, recipeObj, chapterUrl);
         chapterResult.title = extracted.title || 'Chapter';
 
         const plainText = extracted.text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        chapterResult.words = plainText ? plainText.split(/\s+/).length : 0;
+        const wordsCount = plainText ? plainText.split(/\s+/).length : 0;
+        chapterResult.words = wordsCount;
+        chapterResult.wordCount = wordsCount;
         chapterResult.preview = plainText.slice(0, PREVIEW_CHARS);
 
         if (extracted.rawChars < MIN_CONTENT_CHARS) {
           chapterResult.warnings.push('Story text looks empty. Try picking a bigger area.');
         }
 
-        if (r.mode === 'next') {
-          const nextLink = findNextChapterLink(doc, r, chapterUrl);
+        if (recipeObj.mode === 'next') {
+          const nextLink = findNextChapterLink(doc, recipeObj, chapterUrl);
           if (!nextLink) {
             chapterResult.warnings.push('Next button not found on this chapter.');
           }
@@ -1178,7 +1210,8 @@
       }
     }
 
-    return { book: bookResult, chapter: chapterResult };
+    const allWarnings = [...bookResult.warnings, ...chapterResult.warnings];
+    return { book: bookResult, chapter: chapterResult, warnings: allWarnings };
   }
 
   // ══════════════════════════════════════════════════════════════════════════════════
