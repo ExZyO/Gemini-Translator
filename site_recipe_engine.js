@@ -1311,6 +1311,51 @@
       return 'h1';
     };
 
+    let aiEngineUsed = '';
+    const analyzeWithAiLlm = async (htmlText, contextHint) => {
+      try {
+        const callAi = (typeof window !== 'undefined' && window.GlossaryManagerEngine && typeof window.GlossaryManagerEngine.callAiAnalysis === 'function')
+          ? window.GlossaryManagerEngine.callAiAnalysis
+          : null;
+        if (!callAi) return null;
+
+        const stripped = htmlText
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+          .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '')
+          .replace(/data:image\/[^"'\s]+/gi, 'data:image/...')
+          .slice(0, 18000);
+
+        const prompt = `Web Novel HTML Excerpt (${contextHint}):\n${stripped}`;
+        const sys = `You are an expert web scraping specialist for novel sites.
+Analyze this webpage HTML structure and return a JSON object with the most accurate CSS selectors to extract content:
+{
+  "chapterLinkSelector": "CSS selector for all chapter links in the table of contents (e.g. '.chapter-list a[href]', 'ul.chapters a')",
+  "contentSelector": "CSS selector for the main chapter story text body (e.g. '#chapter-content', '.reading-content', 'article', '#content')",
+  "titleSelector": "CSS selector for chapter title or novel title (e.g. 'h1.chapter-title', 'h1')",
+  "authorSelector": "CSS selector for novel author if present, else ''",
+  "coverSelector": "CSS selector for book cover image if present, else ''",
+  "removeSelectors": [".ads", ".watermark", "header", "footer"]
+}
+Output valid raw JSON only, no markdown formatting.`;
+
+        const raw = await callAi(prompt, sys, {
+          modelOverride: options?.model || null,
+          providerOverride: options?.provider || null
+        });
+
+        if (raw) {
+          const cleanJson = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+          const parsed = JSON.parse(cleanJson);
+          aiEngineUsed = 'Gemini / DeepSeek AI';
+          return parsed;
+        }
+      } catch (aiErr) {
+        console.warn('[SiteRecipeEngine] AI analysis note:', aiErr.message);
+      }
+      return null;
+    };
+
     const detectedTOC = findBestChapterLinks(firstDoc, cleanUrl);
     const detectedDirectContent = findBestChapterContentSelector(firstDoc);
 
@@ -1332,6 +1377,29 @@
     let lastChapterName = '';
 
     const bookInfo = genericBookInfo(firstDoc, cleanUrl);
+
+    // Run AI LLM analysis if API key is configured
+    try {
+      const aiResult = await analyzeWithAiLlm(firstHtml, isTOC ? 'Table of Contents' : 'Chapter Page');
+      if (aiResult) {
+        if (aiResult.chapterLinkSelector && safeQuerySelectorAll(firstDoc, aiResult.chapterLinkSelector).length >= 2) {
+          chapterLinkSelector = aiResult.chapterLinkSelector;
+          chaptersCount = safeQuerySelectorAll(firstDoc, chapterLinkSelector).length;
+        }
+        if (aiResult.contentSelector && safeQuerySelector(firstDoc, aiResult.contentSelector)) {
+          contentSelector = aiResult.contentSelector;
+        }
+        if (aiResult.titleSelector && safeQuerySelector(firstDoc, aiResult.titleSelector)) {
+          titleSelector = aiResult.titleSelector;
+        }
+        if (aiResult.authorSelector && safeQuerySelector(firstDoc, aiResult.authorSelector)) {
+          bookInfo.author = (safeQuerySelector(firstDoc, aiResult.authorSelector)?.textContent || '').trim();
+        }
+        if (aiResult.coverSelector && safeQuerySelector(firstDoc, aiResult.coverSelector)) {
+          bookInfo.cover = safeQuerySelector(firstDoc, aiResult.coverSelector)?.getAttribute('src') || '';
+        }
+      }
+    } catch (_) {}
 
     // Probe registered source plugins (e.g. Novel Archive, Royal Road, etc.)
     const activePlugin = (typeof window !== 'undefined' && window.sourceRegistry && typeof window.sourceRegistry.findPlugin === 'function')
@@ -1466,6 +1534,7 @@
         sampleWords,
         firstChapterName,
         lastChapterName,
+        aiEngine: aiEngineUsed || (activePlugin ? activePlugin.name + ' Direct Feed' : 'Layout Intelligence Scanner'),
         bookTitle: bookInfo.title || '',
         author: bookInfo.author || '',
         cover: bookInfo.cover || '',

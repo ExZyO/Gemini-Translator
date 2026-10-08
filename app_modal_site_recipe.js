@@ -680,7 +680,7 @@
                     }
                     setIsDirty(true);
                     setAutoDetectStats(res.stats);
-                    toast?.(`✓ Successfully auto-detected: ${res.stats?.chaptersCount || 0} chapters & story text!`, 'success');
+                    toast?.(`✓ Analyzed with ${res.stats?.aiEngine || 'AI'}: ${res.stats?.chaptersCount || 0} chapters & story text!`, 'success');
                 }
             } catch (err) {
                 toast?.(`Auto-detect: ${err.message}`, 'error');
@@ -801,7 +801,7 @@
                         className: 'p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-200 flex items-center justify-between animate-fade-in'
                     }, [
                         h('div', { className: 'space-y-0.5 truncate' }, [
-                            h('p', { className: 'font-bold flex items-center gap-1 text-emerald-300' }, `✓ Discovered ${autoDetectStats.chaptersCount} chapters & story text (~${autoDetectStats.sampleWords?.toLocaleString()} words)`),
+                            h('p', { className: 'font-bold flex items-center gap-1 text-emerald-300' }, `✓ Analyzed via ${autoDetectStats.aiEngine || 'AI'}: ${autoDetectStats.chaptersCount} chapters (~${(autoDetectStats.sampleWords || 0).toLocaleString()} words)`),
                             autoDetectStats.firstChapterName && h('p', { className: 'text-[11px] text-emerald-400/80 truncate' }, `First chapter: "${autoDetectStats.firstChapterName}"`)
                         ]),
                         h('span', { className: 'px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-semibold text-[11px] shrink-0' }, 'Ready to Save')
