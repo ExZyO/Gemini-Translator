@@ -1,9 +1,9 @@
 {
-  "version": "8.21.0",
-  "versionCode": 8411,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.0/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.0/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.0",
+  "version": "8.21.1",
+  "versionCode": 8412,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.1/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.1/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.1",
   "releaseDate": "2026-10-08",
-  "releaseNotes": "v8.21.0: Add AI Site Scout with 2-tier live page reader, dual-chapter cross-checker, and adaptive crawling speed sensor."
+  "releaseNotes": "v8.21.1: Fix findBestChapterLinks scope in AI Scout, prioritize domain source plugins, and make mobile Site Settings layout responsive."
 }

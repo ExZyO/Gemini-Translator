@@ -738,7 +738,7 @@
                       disabled: isScoutingUrl,
                       onClick: handleAutoScoutSite,
                       title: 'Autonomously scout, learn, and save extraction rules for this website'
-                    }, isScoutingUrl ? (scoutStatusText || '🧭 Scouting...') : '✨ 1-Tap Auto-Scout'),
+                    }, isScoutingUrl ? '🧭 Scouting...' : '✨ 1-Tap Auto-Scout'),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
@@ -761,6 +761,24 @@
                       title: 'Reset Web Importer tab to clean state'
                     }, '✕ Reset Tab')
                   )
+                ),
+                (isScoutingUrl && scoutStatusText) && h('div', {
+                  style: {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 12px',
+                    borderRadius: 12,
+                    background: 'rgba(99, 102, 241, 0.12)',
+                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                    color: '#c7d2fe',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    marginBottom: 10
+                  }
+                },
+                  h('span', { className: 'animate-spin', style: { display: 'inline-block' } }, '🧭'),
+                  h('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, scoutStatusText)
                 ),
                 h('input', {
                   className: 'url-input',

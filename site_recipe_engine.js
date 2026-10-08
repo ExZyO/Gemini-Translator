@@ -1106,6 +1106,223 @@
   // 6. AUTO-DETECTION ENGINE (SMART AI & HEURISTIC SCANNER)
   // ══════════════════════════════════════════════════════════════════════════════════
 
+  // Standard high-probability content selectors
+  const standardContentSelectors = [
+    '#content', '.chapter-content', '.entry-content', '#chapter-content',
+    '#story-text', 'article', '.content', '.text-content', '#text',
+    '.chapter-text', '.reading-content', '#chr-content', '.chr-c',
+    '.post-content', '.reader-content', '.chapter-body', '#chapter_content'
+  ];
+
+  // Standard high-probability TOC containers
+  const standardTocContainers = [
+    '.chapter-list', '.list-chapter', '#chapters', '.volume-list',
+    '.catalog', '.toc', '.episodes', 'ul.chapters', '#chapter-list',
+    '.chapters', '.chapter-box', '.list-chapters', '.ch-list',
+    '#list-chapter', '.accordion-content', '.table-of-contents'
+  ];
+
+  // Helper: evaluate text density of a container
+  const evaluateContentContainer = (el) => {
+    if (!el) return { words: 0, text: '' };
+    const rawText = (el.textContent || '').trim();
+    const words = rawText ? rawText.split(/\s+/).length : 0;
+    return { words, text: rawText };
+  };
+
+  // Helper: detect chapter prose in a doc
+  const findBestChapterContentSelector = (doc) => {
+    for (const sel of standardContentSelectors) {
+      const el = safeQuerySelector(doc, sel);
+      if (el) {
+        const evalRes = evaluateContentContainer(el);
+        if (evalRes.words >= 80) {
+          return { selector: sel, words: evalRes.words, preview: evalRes.text.slice(0, 300) };
+        }
+      }
+    }
+
+    const candidateBlocks = safeQuerySelectorAll(doc, 'div, article, main, section');
+    let best = null;
+    let maxScore = 0;
+
+    for (const block of candidateBlocks) {
+      const tag = block.tagName.toLowerCase();
+      if (tag === 'nav' || tag === 'header' || tag === 'footer') continue;
+      const pCount = block.querySelectorAll('p').length;
+      if (pCount < 2) continue;
+
+      const text = (block.textContent || '').trim();
+      const words = text ? text.split(/\s+/).length : 0;
+      if (words < 120) continue;
+
+      const linkWords = Array.from(block.querySelectorAll('a')).map(a => a.textContent || '').join(' ').split(/\s+/).length;
+      const textDensity = words / Math.max(1, linkWords);
+
+      const score = words * Math.min(textDensity, 10);
+      if (score > maxScore) {
+        maxScore = score;
+        const sel = (typeof window !== 'undefined' && window.SitePicker && typeof window.SitePicker.uniqueSelector === 'function')
+          ? window.SitePicker.uniqueSelector(block, doc)
+          : (block.id ? '#' + block.id : (block.className ? '.' + block.className.split(/\s+/)[0] : 'article'));
+        best = { selector: sel, words, preview: text.slice(0, 300) };
+      }
+    }
+
+    return best || { selector: '#content', words: 0, preview: '' };
+  };
+
+  // Helper: detect chapter links in a doc
+  const findBestChapterLinks = (doc, pageUrl) => {
+    for (const containerSel of standardTocContainers) {
+      const container = safeQuerySelector(doc, containerSel);
+      if (container) {
+        const links = Array.from(container.querySelectorAll('a[href]'))
+          .map(a => ({
+            title: (a.textContent || '').trim(),
+            href: resolveUrl(a.getAttribute('href') || '', pageUrl)
+          }))
+          .filter(l => l.title.length > 0 && l.title.length < 160 && !/^(javascript:|#|mailto:)/i.test(l.href));
+        if (links.length >= 3) {
+          return {
+            selector: containerSel + ' a[href]',
+            links,
+            count: links.length
+          };
+        }
+      }
+    }
+
+    const allLinks = safeQuerySelectorAll(doc, 'a[href]');
+    const chapterPattern = /(?:chapter|ch|ep|episode|vol|volume|第)\s*\d+|\b\d+(?:[-.]\d+)?\b/i;
+
+    const parentGroups = new Map();
+    for (const a of allLinks) {
+      const t = (a.textContent || '').trim();
+      const h = a.getAttribute('href') || '';
+      if (!t || t.length > 160 || /^(javascript:|#|mailto:)/i.test(h)) continue;
+
+      const isChapterLike = chapterPattern.test(t) || /\/chapter[-_/]?\d+/i.test(h);
+      if (isChapterLike) {
+        const parent = a.parentElement;
+        if (parent) {
+          const list = parentGroups.get(parent) || [];
+          list.push({ title: t, href: resolveUrl(h, pageUrl), el: a });
+          parentGroups.set(parent, list);
+        }
+      }
+    }
+
+    let bestGroup = [];
+    let bestParent = null;
+    for (const [parent, list] of parentGroups.entries()) {
+      if (list.length > bestGroup.length) {
+        bestGroup = list;
+        bestParent = parent;
+      }
+    }
+
+    if (bestGroup.length >= 3 && bestParent) {
+      const grandParent = bestParent.parentElement || bestParent;
+      const containerSel = (typeof window !== 'undefined' && window.SitePicker && typeof window.SitePicker.uniqueSelector === 'function')
+        ? window.SitePicker.uniqueSelector(grandParent, doc)
+        : (grandParent.id ? '#' + grandParent.id : (grandParent.className ? '.' + grandParent.className.split(/\s+/)[0] : 'div'));
+      return {
+        selector: containerSel + ' a[href]',
+        links: bestGroup,
+        count: bestGroup.length
+      };
+    }
+
+    return null;
+  };
+
+  // Helper: detect Next Chapter link in chapter doc
+  const findNextChapterSelector = (doc) => {
+    const candidates = [
+      'a[rel="next"]',
+      '.next-chapter',
+      '#next_url',
+      '.btn-next',
+      '.next_page',
+      'a.next'
+    ];
+    for (const s of candidates) {
+      const el = safeQuerySelector(doc, s);
+      if (el) return s;
+    }
+    const allA = safeQuerySelectorAll(doc, 'a[href]');
+    for (const a of allA) {
+      const t = (a.textContent || '').trim();
+      if (NEXT_LINK_TEXT_RE.test(t)) {
+        return (typeof window !== 'undefined' && window.SitePicker)
+          ? window.SitePicker.uniqueSelector(a, doc)
+          : 'a[rel="next"]';
+      }
+    }
+    return 'a[rel="next"]';
+  };
+
+  // Helper: detect chapter title in chapter doc
+  const findChapterTitleSelector = (doc) => {
+    const candidates = [
+      'h1.chapter-title',
+      'h1.entry-title',
+      'h1.title',
+      '.chapter-name',
+      'h1',
+      'h2.chapter-title'
+    ];
+    for (const s of candidates) {
+      const el = safeQuerySelector(doc, s);
+      if (el && (el.textContent || '').trim()) return s;
+    }
+    return 'h1';
+  };
+
+  const analyzeWithAiLlm = async (htmlText, contextHint, options = {}) => {
+    try {
+      const callAi = (typeof window !== 'undefined' && window.GlossaryManagerEngine && typeof window.GlossaryManagerEngine.callAiAnalysis === 'function')
+        ? window.GlossaryManagerEngine.callAiAnalysis
+        : null;
+      if (!callAi) return null;
+
+      const stripped = (htmlText || '')
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+        .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '')
+        .replace(/data:image\/[^"'\s]+/gi, 'data:image/...')
+        .slice(0, 18000);
+
+      const prompt = `Web Novel HTML Excerpt (${contextHint}):\n${stripped}`;
+      const sys = `You are an expert web scraping specialist for novel sites.
+Analyze this webpage HTML structure and return a JSON object with the most accurate CSS selectors to extract content:
+{
+  "chapterLinkSelector": "CSS selector for all chapter links in the table of contents (e.g. '.chapter-list a[href]', 'ul.chapters a')",
+  "contentSelector": "CSS selector for the main chapter story text body (e.g. '#chapter-content', '.reading-content', 'article', '#content')",
+  "titleSelector": "CSS selector for chapter title or novel title (e.g. 'h1.chapter-title', 'h1')",
+  "authorSelector": "CSS selector for novel author if present, else ''",
+  "coverSelector": "CSS selector for book cover image if present, else ''",
+  "removeSelectors": [".ads", ".watermark", "header", "footer"]
+}
+Output valid raw JSON only, no markdown formatting.`;
+
+      const raw = await callAi(prompt, sys, {
+        modelOverride: options?.model || null,
+        providerOverride: options?.provider || null
+      });
+
+      if (raw) {
+        const cleanJson = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+        const parsed = JSON.parse(cleanJson);
+        return parsed;
+      }
+    } catch (aiErr) {
+      console.warn('[SiteRecipeEngine] AI analysis note:', aiErr.message);
+    }
+    return null;
+  };
+
   async function autoDetectRecipe(targetUrl, options, deps) {
     if (!targetUrl || typeof targetUrl !== 'string') {
       throw new Error('Please provide a URL to auto-detect.');
@@ -1136,225 +1353,7 @@
     }
 
     const firstDoc = new DOMParser().parseFromString(firstHtml, 'text/html');
-
-    // Standard high-probability content selectors
-    const standardContentSelectors = [
-      '#content', '.chapter-content', '.entry-content', '#chapter-content',
-      '#story-text', 'article', '.content', '.text-content', '#text',
-      '.chapter-text', '.reading-content', '#chr-content', '.chr-c',
-      '.post-content', '.reader-content', '.chapter-body', '#chapter_content'
-    ];
-
-    // Standard high-probability TOC containers
-    const standardTocContainers = [
-      '.chapter-list', '.list-chapter', '#chapters', '.volume-list',
-      '.catalog', '.toc', '.episodes', 'ul.chapters', '#chapter-list',
-      '.chapters', '.chapter-box', '.list-chapters', '.ch-list',
-      '#list-chapter', '.accordion-content', '.table-of-contents'
-    ];
-
-    // Helper: evaluate text density of a container
-    const evaluateContentContainer = (el) => {
-      if (!el) return { words: 0, text: '' };
-      const rawText = (el.textContent || '').trim();
-      const words = rawText ? rawText.split(/\s+/).length : 0;
-      return { words, text: rawText };
-    };
-
-    // Helper: detect chapter prose in a doc
-    const findBestChapterContentSelector = (doc) => {
-      for (const sel of standardContentSelectors) {
-        const el = safeQuerySelector(doc, sel);
-        if (el) {
-          const evalRes = evaluateContentContainer(el);
-          if (evalRes.words >= 80) {
-            return { selector: sel, words: evalRes.words, preview: evalRes.text.slice(0, 300) };
-          }
-        }
-      }
-
-      const candidateBlocks = safeQuerySelectorAll(doc, 'div, article, main, section');
-      let best = null;
-      let maxScore = 0;
-
-      for (const block of candidateBlocks) {
-        const tag = block.tagName.toLowerCase();
-        if (tag === 'nav' || tag === 'header' || tag === 'footer') continue;
-        const pCount = block.querySelectorAll('p').length;
-        if (pCount < 2) continue;
-
-        const text = (block.textContent || '').trim();
-        const words = text ? text.split(/\s+/).length : 0;
-        if (words < 120) continue;
-
-        const linkWords = Array.from(block.querySelectorAll('a')).map(a => a.textContent || '').join(' ').split(/\s+/).length;
-        const textDensity = words / Math.max(1, linkWords);
-
-        const score = words * Math.min(textDensity, 10);
-        if (score > maxScore) {
-          maxScore = score;
-          const sel = (typeof window !== 'undefined' && window.SitePicker && typeof window.SitePicker.uniqueSelector === 'function')
-            ? window.SitePicker.uniqueSelector(block, doc)
-            : (block.id ? '#' + block.id : (block.className ? '.' + block.className.split(/\s+/)[0] : 'article'));
-          best = { selector: sel, words, preview: text.slice(0, 300) };
-        }
-      }
-
-      return best || { selector: '#content', words: 0, preview: '' };
-    };
-
-    // Helper: detect chapter links in a doc
-    const findBestChapterLinks = (doc, pageUrl) => {
-      for (const containerSel of standardTocContainers) {
-        const container = safeQuerySelector(doc, containerSel);
-        if (container) {
-          const links = Array.from(container.querySelectorAll('a[href]'))
-            .map(a => ({
-              title: (a.textContent || '').trim(),
-              href: resolveUrl(a.getAttribute('href') || '', pageUrl)
-            }))
-            .filter(l => l.title.length > 0 && l.title.length < 160 && !/^(javascript:|#|mailto:)/i.test(l.href));
-          if (links.length >= 3) {
-            return {
-              selector: containerSel + ' a[href]',
-              links,
-              count: links.length
-            };
-          }
-        }
-      }
-
-      const allLinks = safeQuerySelectorAll(doc, 'a[href]');
-      const chapterPattern = /(?:chapter|ch|ep|episode|vol|volume|第)\s*\d+|\b\d+(?:[-.]\d+)?\b/i;
-
-      const parentGroups = new Map();
-      for (const a of allLinks) {
-        const t = (a.textContent || '').trim();
-        const h = a.getAttribute('href') || '';
-        if (!t || t.length > 160 || /^(javascript:|#|mailto:)/i.test(h)) continue;
-
-        const isChapterLike = chapterPattern.test(t) || /\/chapter[-_/]?\d+/i.test(h);
-        if (isChapterLike) {
-          const parent = a.parentElement;
-          if (parent) {
-            const list = parentGroups.get(parent) || [];
-            list.push({ title: t, href: resolveUrl(h, pageUrl), el: a });
-            parentGroups.set(parent, list);
-          }
-        }
-      }
-
-      let bestGroup = [];
-      let bestParent = null;
-      for (const [parent, list] of parentGroups.entries()) {
-        if (list.length > bestGroup.length) {
-          bestGroup = list;
-          bestParent = parent;
-        }
-      }
-
-      if (bestGroup.length >= 3 && bestParent) {
-        const grandParent = bestParent.parentElement || bestParent;
-        const containerSel = (typeof window !== 'undefined' && window.SitePicker && typeof window.SitePicker.uniqueSelector === 'function')
-          ? window.SitePicker.uniqueSelector(grandParent, doc)
-          : (grandParent.id ? '#' + grandParent.id : (grandParent.className ? '.' + grandParent.className.split(/\s+/)[0] : 'div'));
-        return {
-          selector: containerSel + ' a[href]',
-          links: bestGroup,
-          count: bestGroup.length
-        };
-      }
-
-      return null;
-    };
-
-    // Helper: detect Next Chapter link in chapter doc
-    const findNextChapterSelector = (doc) => {
-      const candidates = [
-        'a[rel="next"]',
-        '.next-chapter',
-        '#next_url',
-        '.btn-next',
-        '.next_page',
-        'a.next'
-      ];
-      for (const s of candidates) {
-        const el = safeQuerySelector(doc, s);
-        if (el) return s;
-      }
-      const allA = safeQuerySelectorAll(doc, 'a[href]');
-      for (const a of allA) {
-        const t = (a.textContent || '').trim();
-        if (NEXT_LINK_TEXT_RE.test(t)) {
-          return (typeof window !== 'undefined' && window.SitePicker)
-            ? window.SitePicker.uniqueSelector(a, doc)
-            : 'a[rel="next"]';
-        }
-      }
-      return 'a[rel="next"]';
-    };
-
-    // Helper: detect chapter title in chapter doc
-    const findChapterTitleSelector = (doc) => {
-      const candidates = [
-        'h1.chapter-title',
-        'h1.entry-title',
-        'h1.title',
-        '.chapter-name',
-        'h1',
-        'h2.chapter-title'
-      ];
-      for (const s of candidates) {
-        const el = safeQuerySelector(doc, s);
-        if (el && (el.textContent || '').trim()) return s;
-      }
-      return 'h1';
-    };
-
     let aiEngineUsed = '';
-    const analyzeWithAiLlm = async (htmlText, contextHint) => {
-      try {
-        const callAi = (typeof window !== 'undefined' && window.GlossaryManagerEngine && typeof window.GlossaryManagerEngine.callAiAnalysis === 'function')
-          ? window.GlossaryManagerEngine.callAiAnalysis
-          : null;
-        if (!callAi) return null;
-
-        const stripped = htmlText
-          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-          .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '')
-          .replace(/data:image\/[^"'\s]+/gi, 'data:image/...')
-          .slice(0, 18000);
-
-        const prompt = `Web Novel HTML Excerpt (${contextHint}):\n${stripped}`;
-        const sys = `You are an expert web scraping specialist for novel sites.
-Analyze this webpage HTML structure and return a JSON object with the most accurate CSS selectors to extract content:
-{
-  "chapterLinkSelector": "CSS selector for all chapter links in the table of contents (e.g. '.chapter-list a[href]', 'ul.chapters a')",
-  "contentSelector": "CSS selector for the main chapter story text body (e.g. '#chapter-content', '.reading-content', 'article', '#content')",
-  "titleSelector": "CSS selector for chapter title or novel title (e.g. 'h1.chapter-title', 'h1')",
-  "authorSelector": "CSS selector for novel author if present, else ''",
-  "coverSelector": "CSS selector for book cover image if present, else ''",
-  "removeSelectors": [".ads", ".watermark", "header", "footer"]
-}
-Output valid raw JSON only, no markdown formatting.`;
-
-        const raw = await callAi(prompt, sys, {
-          modelOverride: options?.model || null,
-          providerOverride: options?.provider || null
-        });
-
-        if (raw) {
-          const cleanJson = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
-          const parsed = JSON.parse(cleanJson);
-          aiEngineUsed = 'Gemini / DeepSeek AI';
-          return parsed;
-        }
-      } catch (aiErr) {
-        console.warn('[SiteRecipeEngine] AI analysis note:', aiErr.message);
-      }
-      return null;
-    };
 
     const detectedTOC = findBestChapterLinks(firstDoc, cleanUrl);
     const detectedDirectContent = findBestChapterContentSelector(firstDoc);
@@ -1632,51 +1631,18 @@ Output valid raw JSON only, no markdown formatting.`;
     const notify = callbacks?.onProgress || (() => {});
     notify('reading_overview', '🔍 [1/4] Reading overview page & chapter list...');
 
-    const { html: overviewHtml } = await fetchLiveHtml(url, options, callbacks);
-    const doc = new DOMParser().parseFromString(overviewHtml, 'text/html');
+    let overviewHtml = '';
+    let doc = null;
+    let bookInfo = { title: '', author: '', cover: '', summary: '' };
+    let chapterLinkSelector = '';
+    let chapters = [];
 
-    // 1. Generic book metadata
-    const bookInfo = genericBookInfo(doc, url);
-
-    // 2. Locate chapter links
-    let detectedTOC = findBestChapterLinks(doc, url);
-    let chapterLinkSelector = detectedTOC ? detectedTOC.selector : '';
-    let chapters = detectedTOC ? detectedTOC.links : [];
-
-    // 3. AI analysis for overview
-    try {
-      const aiResult = await analyzeWithAiLlm(overviewHtml, 'Table of Contents');
-      if (aiResult) {
-        if (aiResult.chapterLinkSelector) {
-          const aiLinks = safeQuerySelectorAll(doc, aiResult.chapterLinkSelector);
-          if (aiLinks.length >= 2) {
-            chapterLinkSelector = aiResult.chapterLinkSelector;
-            chapters = Array.from(aiLinks).map(a => ({
-              title: (a.textContent || '').trim(),
-              href: resolveUrl(a.getAttribute('href') || '', url)
-            })).filter(l => l.title && !/^(javascript:|#)/i.test(l.href));
-          }
-        }
-        if (aiResult.titleSelector) {
-          const tEl = safeQuerySelector(doc, aiResult.titleSelector);
-          if (tEl && (tEl.textContent || '').trim()) bookInfo.title = tEl.textContent.trim();
-        }
-        if (aiResult.authorSelector) {
-          const aEl = safeQuerySelector(doc, aiResult.authorSelector);
-          if (aEl && (aEl.textContent || '').trim()) bookInfo.author = aEl.textContent.trim();
-        }
-        if (aiResult.coverSelector) {
-          const cEl = safeQuerySelector(doc, aiResult.coverSelector);
-          if (cEl) bookInfo.cover = resolveUrl(cEl.getAttribute('src') || '', url);
-        }
-      }
-    } catch (_) {}
-
-    // Check registered source plugin for supplementary details
+    // 1. Check registered source plugin first for direct API/TOC feed
     const activePlugin = (typeof window !== 'undefined' && window.sourceRegistry && typeof window.sourceRegistry.findPlugin === 'function')
       ? window.sourceRegistry.findPlugin(url)
       : null;
-    if (activePlugin && activePlugin.id && activePlugin.id !== 'universal' && (!chapters || chapters.length === 0)) {
+
+    if (activePlugin && activePlugin.id && activePlugin.id !== 'universal') {
       try {
         const details = await activePlugin.getNovelDetails(url);
         if (details && details.chapters && details.chapters.length > 0) {
@@ -1684,11 +1650,63 @@ Output valid raw JSON only, no markdown formatting.`;
           if (details.title) bookInfo.title = details.title;
           if (details.author) bookInfo.author = details.author;
           if (details.cover) bookInfo.cover = details.cover;
+          if (details.summary) bookInfo.summary = details.summary;
+        }
+      } catch (plugErr) {
+        console.warn('[SiteScout] Source plugin pre-read note:', plugErr.message);
+      }
+    }
+
+    // 2. If plugin didn't supply chapters, fetch live HTML
+    if (!chapters || chapters.length === 0) {
+      const liveRes = await fetchLiveHtml(url, options, callbacks);
+      overviewHtml = liveRes.html;
+      doc = new DOMParser().parseFromString(overviewHtml, 'text/html');
+
+      const genericMeta = genericBookInfo(doc, url);
+      if (!bookInfo.title) bookInfo.title = genericMeta.title;
+      if (!bookInfo.author) bookInfo.author = genericMeta.author;
+      if (!bookInfo.cover) bookInfo.cover = genericMeta.cover;
+      if (!bookInfo.summary) bookInfo.summary = genericMeta.summary;
+
+      const detectedTOC = findBestChapterLinks(doc, url);
+      if (detectedTOC) {
+        chapterLinkSelector = detectedTOC.selector;
+        chapters = detectedTOC.links;
+      }
+
+      // 3. AI analysis for overview
+      try {
+        const aiResult = await analyzeWithAiLlm(overviewHtml, 'Table of Contents', options);
+        if (aiResult) {
+          if (aiResult.chapterLinkSelector) {
+            const aiLinks = safeQuerySelectorAll(doc, aiResult.chapterLinkSelector);
+            if (aiLinks.length >= 2) {
+              chapterLinkSelector = aiResult.chapterLinkSelector;
+              chapters = Array.from(aiLinks).map(a => ({
+                title: (a.textContent || '').trim(),
+                href: resolveUrl(a.getAttribute('href') || '', url)
+              })).filter(l => l.title && !/^(javascript:|#)/i.test(l.href));
+            }
+          }
+          if (aiResult.titleSelector) {
+            const tEl = safeQuerySelector(doc, aiResult.titleSelector);
+            if (tEl && (tEl.textContent || '').trim()) bookInfo.title = tEl.textContent.trim();
+          }
+          if (aiResult.authorSelector) {
+            const aEl = safeQuerySelector(doc, aiResult.authorSelector);
+            if (aEl && (aEl.textContent || '').trim()) bookInfo.author = aEl.textContent.trim();
+          }
+          if (aiResult.coverSelector) {
+            const cEl = safeQuerySelector(doc, aiResult.coverSelector);
+            if (cEl) bookInfo.cover = resolveUrl(cEl.getAttribute('src') || '', url);
+          }
         }
       } catch (_) {}
     }
 
-    const ch1Url = chapters[0]?.href || '';
+    const isReaderUrl = /[?&]chapter=\d+|\/chapter[-_/]?\d+/i.test(url);
+    const ch1Url = chapters[0]?.href || (isReaderUrl ? url : '');
     const ch2Url = (chapters.length > 1) ? chapters[1]?.href : ch1Url;
 
     return {
@@ -1716,15 +1734,40 @@ Output valid raw JSON only, no markdown formatting.`;
       };
     }
 
-    const { html: ch1Html } = await fetchLiveHtml(ch1Url, options, callbacks);
+    let ch1Html = '';
+    const activePlugin = (typeof window !== 'undefined' && window.sourceRegistry && typeof window.sourceRegistry.findPlugin === 'function')
+      ? window.sourceRegistry.findPlugin(ch1Url)
+      : null;
+
+    if (activePlugin && activePlugin.id && activePlugin.id !== 'universal') {
+      try {
+        const chData = await activePlugin.getChapter(ch1Url);
+        if (chData && chData.content) {
+          ch1Html = `<div><h1>${chData.title || ''}</h1><div id="content">${chData.content}</div></div>`;
+        }
+      } catch (_) {}
+    }
+
+    if (!ch1Html) {
+      const res1 = await fetchLiveHtml(ch1Url, options, callbacks);
+      ch1Html = res1.html;
+    }
     const doc1 = new DOMParser().parseFromString(ch1Html, 'text/html');
 
     let doc2 = null;
     let ch2Html = '';
     if (ch2Url && ch2Url !== ch1Url) {
       try {
-        const res2 = await fetchLiveHtml(ch2Url, options, callbacks);
-        ch2Html = res2.html;
+        if (activePlugin && activePlugin.id && activePlugin.id !== 'universal') {
+          const chData2 = await activePlugin.getChapter(ch2Url);
+          if (chData2 && chData2.content) {
+            ch2Html = `<div><h1>${chData2.title || ''}</h1><div id="content">${chData2.content}</div></div>`;
+          }
+        }
+        if (!ch2Html) {
+          const res2 = await fetchLiveHtml(ch2Url, options, callbacks);
+          ch2Html = res2.html;
+        }
         doc2 = new DOMParser().parseFromString(ch2Html, 'text/html');
       } catch (_) {}
     }
@@ -1864,17 +1907,24 @@ Return valid raw JSON only:
       id: host,
       name: overview.bookInfo.title ? `${overview.bookInfo.title} (${host})` : host,
       domain: host,
+      bookUrl: cleanUrl,
+      chapterUrl: overview.ch1Url,
+      testUrls: {
+        book: cleanUrl,
+        chapter: overview.ch1Url
+      },
+      mode: (overview.chapters.length >= 2 ? 'list' : 'next'),
       book: {
         titleSelector: overview.bookInfo.title ? 'h1' : 'h1',
         authorSelector: overview.bookInfo.author ? '.author, .novel-author, span' : '',
         coverSelector: overview.bookInfo.cover ? 'img' : '',
-        chapterListSelector: overview.chapterLinkSelector || 'a[href]'
+        chapterLinkSelector: overview.chapterLinkSelector || 'a[href]'
       },
       chapter: {
         titleSelector: chaptersInfo.chapterTitleSelector || 'h1',
         contentSelector: chaptersInfo.contentSelector || '#content',
-        nextSelector: 'a[rel="next"]',
-        cleanSelectors: chaptersInfo.removeSelectors || ['.ads', 'header', 'footer']
+        nextLinkSelector: 'a[rel="next"]',
+        removeSelectors: chaptersInfo.removeSelectors || ['.ads', 'header', 'footer']
       },
       network: {
         delayMs: speed.rateLimitMs,
