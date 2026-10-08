@@ -1066,6 +1066,11 @@ public class NativeAndroidBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openInAppBrowser(PluginCall call) {
+        resolveCloudflare(call);
+    }
+
+    @PluginMethod
     public void resolveCloudflare(PluginCall call) {
 
         String targetUrl = call.getString("url");
@@ -1084,14 +1089,14 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
 
                 AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setTitle(" Cloudflare Security Verification");
+                builder.setTitle("🛡️ In-App Browser Verification");
 
                 LinearLayout layout = new LinearLayout(context);
                 layout.setOrientation(LinearLayout.VERTICAL);
                 layout.setPadding(20, 20, 20, 20);
 
                 TextView tvInfo = new TextView(context);
-                tvInfo.setText("Verifying with website... If a checkbox appears, tap it.");
+                tvInfo.setText("Verifying with website... Complete any captcha that appears, then tap '✓ I'm Verified / Continue'.");
                 tvInfo.setTextSize(13);
                 layout.addView(tvInfo);
 
@@ -1121,21 +1126,50 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     cookieManager.setAcceptThirdPartyCookies(webView, true);
                 }
 
+                android.util.DisplayMetrics metrics = context.getResources().getDisplayMetrics();
+                int targetHeight = (int) (metrics.heightPixels * 0.75);
+                if (targetHeight < 800) targetHeight = 800;
                 LinearLayout.LayoutParams wvParams = new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, 800
+                        ViewGroup.LayoutParams.MATCH_PARENT, targetHeight
                 );
                 webView.setLayoutParams(wvParams);
                 layout.addView(webView);
 
+                final boolean[] resolved = new boolean[]{ false };
+
                 builder.setView(layout);
-                builder.setNegativeButton("Cancel", (dialog, which) -> {
-                    call.reject("Verification cancelled by user.");
+                builder.setPositiveButton("✓ I'm Verified / Continue", (d, which) -> {
+                    if (resolved[0]) return;
+                    resolved[0] = true;
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            cookieManager.flush();
+                        }
+                        String currentUrl = webView.getUrl();
+                        String cookies = cookieManager.getCookie(currentUrl != null ? currentUrl : targetUrl);
+                        JSObject ret = new JSObject();
+                        ret.put("success", true);
+                        ret.put("cookies", cookies != null ? cookies : "");
+                        ret.put("url", currentUrl != null ? currentUrl : targetUrl);
+                        call.resolve(ret);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Manual verification confirmation error: " + e.getMessage());
+                        JSObject ret = new JSObject();
+                        ret.put("success", true);
+                        call.resolve(ret);
+                    }
+                });
+                builder.setNeutralButton("Reload 🔄", null);
+                builder.setNegativeButton("Cancel", (d, which) -> {
+                    if (!resolved[0]) {
+                        resolved[0] = true;
+                        call.reject("Verification cancelled by user.");
+                    }
                 });
 
                 AlertDialog dialog = builder.create();
                 dialog.setCanceledOnTouchOutside(false);
 
-                final boolean[] resolved = new boolean[]{ false };
                 final Runnable checkHtml = () -> {
                     if (resolved[0]) return;
                     String currentUrl = webView.getUrl();
@@ -1196,9 +1230,15 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 };
                 pollHandler.postDelayed(pollRunnable, 1500);
 
-
                 webView.loadUrl(targetUrl);
                 dialog.show();
+
+                android.widget.Button reloadBtn = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+                if (reloadBtn != null) {
+                    reloadBtn.setOnClickListener(v -> {
+                        webView.reload();
+                    });
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Resolver error: " + e.getMessage(), e);
                 call.reject("Resolver error: " + e.getMessage());

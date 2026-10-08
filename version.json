@@ -1,9 +1,9 @@
 {
-  "version": "8.19.1",
-  "versionCode": 8401,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.1/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.1/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.19.1",
+  "version": "8.19.2",
+  "versionCode": 8402,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.2/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.2/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.19.2",
   "releaseDate": "2026-10-08",
-  "releaseNotes": "v8.19.1: Fix Android app update certificate signing and resolve backup export string length limit for large libraries."
+  "releaseNotes": "v8.19.2: In-app browser captcha solver with cookie sync, site recipe URL paste buttons, JSON import, and scroll clearance."
 }

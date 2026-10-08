@@ -254,6 +254,82 @@
             }
         };
 
+        const pasteToField = async (field) => {
+            try {
+                let text = '';
+                if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
+                    try { text = await navigator.clipboard.readText(); } catch (e) {}
+                }
+                if (!text && typeof window !== 'undefined' && window.prompt) {
+                    text = window.prompt('Paste URL:');
+                }
+                if (text && typeof text === 'string') {
+                    text = text.trim();
+                    if (text) {
+                        updateField(field, text);
+                        toast?.('URL pasted! 📋', 'success');
+                    }
+                }
+            } catch (err) {
+                toast?.('Could not paste: ' + err.message, 'error');
+            }
+        };
+
+        const handleImportRecipeFile = (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const parsed = JSON.parse(ev.target.result);
+                    if (parsed && typeof parsed === 'object') {
+                        const standardized = RE.withDefaults(parsed);
+                        setRecipe(standardized);
+                        setIsDirty(true);
+                        toast?.(`Imported recipe for "${standardized.name || standardized.id}"!`, 'success');
+                    } else {
+                        toast?.('Invalid recipe JSON file format.', 'error');
+                    }
+                } catch (err) {
+                    toast?.('Failed to parse JSON file: ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        };
+
+        const handlePasteRecipeCode = async () => {
+            try {
+                let code = '';
+                if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
+                    try { code = await navigator.clipboard.readText(); } catch (e) {}
+                }
+                if (!code && typeof window !== 'undefined' && window.prompt) {
+                    code = window.prompt('Paste Recipe JSON or Share Code:');
+                }
+                if (!code || typeof code !== 'string') return;
+                code = code.trim();
+                if (!code) return;
+
+                let imported = null;
+                if (code.startsWith('{')) {
+                    imported = JSON.parse(code);
+                } else if (RE.decodeShareCode) {
+                    imported = RE.decodeShareCode(code);
+                }
+                if (imported) {
+                    const standardized = RE.withDefaults(imported);
+                    setRecipe(standardized);
+                    setIsDirty(true);
+                    toast?.(`Loaded recipe for "${standardized.name || standardized.id}"!`, 'success');
+                } else {
+                    toast?.('Could not recognize recipe format.', 'error');
+                }
+            } catch (err) {
+                toast?.('Could not import recipe code: ' + err.message, 'error');
+            }
+        };
+
         const handleClosePrompt = () => {
             if (isDirty) {
                 confirmAction?.({
@@ -340,7 +416,7 @@
             // Scrollable Content Body
             h('div', {
                 key: 'body',
-                className: 'flex-1 overflow-y-auto p-4 md:p-6 space-y-5 max-w-4xl mx-auto w-full'
+                className: 'flex-1 overflow-y-auto p-4 md:p-6 pb-36 md:pb-28 overscroll-contain space-y-5 max-w-4xl mx-auto w-full'
             }, [
                 // Status Banner
                 h('div', {
@@ -378,13 +454,25 @@
                         h('label', { className: 'text-slate-400 block' }, 'Book Overview / Table of Contents URL'),
                         h('div', { className: 'flex gap-2' }, [
                             h('input', {
-                                className: 'flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-indigo-500 outline-none',
+                                type: 'url',
+                                inputMode: 'url',
+                                autoCapitalize: 'none',
+                                autoCorrect: 'off',
+                                spellCheck: false,
+                                className: 'flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-indigo-500 outline-none select-text cursor-text',
                                 placeholder: 'https://example.com/novel/title',
                                 value: recipe.bookUrl || '',
                                 onChange: (e) => updateField('bookUrl', e.target.value)
                             }),
                             h('button', {
-                                className: 'px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shrink-0',
+                                type: 'button',
+                                className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium shrink-0 flex items-center gap-1 transition-colors',
+                                onClick: () => pasteToField('bookUrl'),
+                                title: 'Paste URL from clipboard'
+                            }, '📋 Paste'),
+                            h('button', {
+                                type: 'button',
+                                className: 'px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shrink-0 transition-colors',
                                 onClick: () => openPicker('chapterLinks', recipe.bookUrl)
                             }, '👆 Inspect TOC')
                         ]),
@@ -392,15 +480,53 @@
                         h('label', { className: 'text-slate-400 block pt-1' }, 'Sample Chapter URL'),
                         h('div', { className: 'flex gap-2' }, [
                             h('input', {
-                                className: 'flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-indigo-500 outline-none',
+                                type: 'url',
+                                inputMode: 'url',
+                                autoCapitalize: 'none',
+                                autoCorrect: 'off',
+                                spellCheck: false,
+                                className: 'flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-indigo-500 outline-none select-text cursor-text',
                                 placeholder: 'https://example.com/novel/title/chapter-1',
                                 value: recipe.chapterUrl || '',
                                 onChange: (e) => updateField('chapterUrl', e.target.value)
                             }),
                             h('button', {
-                                className: 'px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shrink-0',
+                                type: 'button',
+                                className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium shrink-0 flex items-center gap-1 transition-colors',
+                                onClick: () => pasteToField('chapterUrl'),
+                                title: 'Paste URL from clipboard'
+                            }, '📋 Paste'),
+                            h('button', {
+                                type: 'button',
+                                className: 'px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shrink-0 transition-colors',
                                 onClick: () => openPicker('content', recipe.chapterUrl)
                             }, '👆 Inspect Chapter')
+                        ]),
+
+                        (recipe.bookUrl || recipe.chapterUrl) && h('div', { className: 'pt-2 flex items-center justify-between' }, [
+                            h('span', { className: 'text-[11px] text-slate-400' }, 'Protected by Cloudflare / Captcha?'),
+                            h('button', {
+                                type: 'button',
+                                className: 'px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-medium flex items-center gap-1.5 transition-colors',
+                                onClick: async () => {
+                                    const testUrl = recipe.chapterUrl || recipe.bookUrl;
+                                    if (!testUrl) return;
+                                    if (window.NativeBridge?.openInAppBrowser || window.NativeBridge?.resolveCloudflare) {
+                                        toast?.('Opening in-app browser to pass verification...', 'info');
+                                        try {
+                                            const solver = window.NativeBridge.openInAppBrowser || window.NativeBridge.resolveCloudflare;
+                                            const res = await solver(testUrl);
+                                            if (res?.success || res?.status === 'ok') {
+                                                toast?.('Verification successful! Clearance cookies captured.', 'success');
+                                            }
+                                        } catch (e) {
+                                            toast?.('In-app browser closed: ' + e.message, 'warning');
+                                        }
+                                    } else {
+                                        window.open(testUrl, '_blank');
+                                    }
+                                }
+                            }, '🛡️ Solve Captcha (In-App Browser)')
                         ])
                     ])
                 ]),
@@ -569,15 +695,34 @@
                     className: 'flex flex-wrap gap-2 pt-2 border-t border-slate-800 text-xs'
                 }, [
                     h('button', {
-                        className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200',
+                        type: 'button',
+                        className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors',
                         onClick: () => RE.Controller.copyCode(recipe, toast)
                     }, '📋 Copy Recipe Code'),
                     h('button', {
-                        className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200',
+                        type: 'button',
+                        className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors',
                         onClick: () => RE.Controller.exportFile(recipe, toast)
                     }, '💾 Export JSON File'),
                     h('button', {
-                        className: 'px-3 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 text-red-300 ml-auto',
+                        type: 'button',
+                        className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors',
+                        onClick: handlePasteRecipeCode
+                    }, '📋 Paste Recipe Code'),
+                    h('label', {
+                        className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer flex items-center transition-colors'
+                    }, [
+                        h('input', {
+                            type: 'file',
+                            accept: '.json',
+                            className: 'hidden',
+                            onChange: handleImportRecipeFile
+                        }),
+                        '📥 Import JSON File'
+                    ]),
+                    h('button', {
+                        type: 'button',
+                        className: 'px-3 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 text-red-300 ml-auto transition-colors',
                         onClick: () => {
                             confirmAction?.({
                                 title: `Delete Recipe for ${recipe.id}?`,
@@ -593,7 +738,13 @@
                             });
                         }
                     }, '🗑 Delete')
-                ])
+                ]),
+
+                // Mobile Safe Clearance Spacer
+                h('div', {
+                    key: 'safe-bottom-spacer',
+                    className: 'h-28 w-full shrink-0'
+                })
             ]),
 
             // Sub-Inspector Modal Overlay

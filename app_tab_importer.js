@@ -370,11 +370,27 @@
                     webImportError.targetUrl && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
-                      style: { borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8', fontWeight: 600 },
-                      onClick: () => {
-                        window.open(webImportError.targetUrl, '_blank');
+                      style: { borderColor: webImportError.isCloudflare ? 'rgba(234, 179, 8, 0.6)' : 'rgba(56, 189, 248, 0.4)', color: webImportError.isCloudflare ? '#facc15' : '#38bdf8', fontWeight: 600 },
+                      onClick: async () => {
+                        const targetUrl = webImportError.targetUrl;
+                        if (window.NativeBridge?.openInAppBrowser || window.NativeBridge?.resolveCloudflare) {
+                          toast?.('Opening in-app browser to pass verification...', 'info');
+                          try {
+                            const solver = window.NativeBridge.openInAppBrowser || window.NativeBridge.resolveCloudflare;
+                            const res = await solver(targetUrl);
+                            if (res?.success || res?.status === 'ok') {
+                              toast?.('Verification passed! Resuming chapter crawl...', 'success');
+                              setWebImportError(null);
+                              handleStartFetch(true);
+                            }
+                          } catch (err) {
+                            toast?.('Verification window closed: ' + err.message, 'warning');
+                          }
+                        } else {
+                          window.open(targetUrl, '_blank');
+                        }
                       }
-                    }, '🌐 Open Source in Browser'),
+                    }, webImportError.isCloudflare ? '🛡️ Solve Captcha (In-App Browser)' : '🌐 Open Source in Browser'),
                     (webImportError.targetUrl || webImportUrl) && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',

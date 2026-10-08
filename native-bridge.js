@@ -1054,15 +1054,30 @@
 
         
         // ══════════════════════════════════════════════════════════════════════
-        // TACHIYOMI / MIHON IN-APP CLOUDFLARE RESOLVER BRIDGE
+        // TACHIYOMI / MIHON IN-APP CLOUDFLARE RESOLVER & IN-APP BROWSER BRIDGE
         // ══════════════════════════════════════════════════════════════════════
         resolveCloudflare: async (url) => {
             const bridge = getBridge();
-            if (bridge && bridge.resolveCloudflare) {
-                const res = await bridge.resolveCloudflare({ url });
+            if (bridge && (bridge.resolveCloudflare || bridge.openInAppBrowser)) {
+                const fn = bridge.resolveCloudflare || bridge.openInAppBrowser;
+                const res = await fn({ url });
                 return res;
             }
             throw new Error('Cloudflare Resolver requires the Native Android App.');
+        },
+
+        openInAppBrowser: async (url) => {
+            const bridge = getBridge();
+            if (bridge && (bridge.openInAppBrowser || bridge.resolveCloudflare)) {
+                const fn = bridge.openInAppBrowser || bridge.resolveCloudflare;
+                const res = await fn({ url });
+                return res;
+            }
+            if (typeof window !== 'undefined') {
+                window.open(url, '_blank');
+                return { success: true, openedExternally: true };
+            }
+            throw new Error('In-app browser requires the Native Android App.');
         },
 
         // ══════════════════════════════════════════════════════════════════════
