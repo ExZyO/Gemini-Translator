@@ -1205,11 +1205,23 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         }
                         String currentUrl = webView.getUrl();
                         String cookies = cookieManager.getCookie(currentUrl != null ? currentUrl : targetUrl);
-                        JSObject ret = new JSObject();
-                        ret.put("success", true);
-                        ret.put("cookies", cookies != null ? cookies : "");
-                        ret.put("url", currentUrl != null ? currentUrl : targetUrl);
-                        call.resolve(ret);
+
+                        webView.evaluateJavascript("document.documentElement.outerHTML", html -> {
+                            String cleanHtml = "";
+                            if (html != null && html.length() > 200) {
+                                try {
+                                    cleanHtml = new org.json.JSONTokener(html).nextValue().toString();
+                                } catch (Exception parseErr) {
+                                    cleanHtml = html;
+                                }
+                            }
+                            JSObject ret = new JSObject();
+                            ret.put("success", true);
+                            ret.put("cookies", cookies != null ? cookies : "");
+                            ret.put("html", cleanHtml);
+                            ret.put("url", currentUrl != null ? currentUrl : targetUrl);
+                            call.resolve(ret);
+                        });
                     } catch (Exception e) {
                         Log.e(TAG, "Manual verification confirmation error: " + e.getMessage());
                         JSObject ret = new JSObject();
@@ -1234,6 +1246,21 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     String cookies = cookieManager.getCookie(currentUrl != null ? currentUrl : targetUrl);
                     boolean hasClearance = cookies != null && cookies.contains("cf_clearance");
 
+                    // Try auto-expanding chapter accordions or 'Show all chapters' buttons
+                    String expandScript = "(function() {" +
+                        "try {" +
+                        "  var btns = document.querySelectorAll('button, a, div[role=\"button\"], span[role=\"button\"], .btn, .show-all, .expand, [data-action]');" +
+                        "  for (var i = 0; i < btns.length; i++) {" +
+                        "    var txt = (btns[i].innerText || btns[i].textContent || '').trim().toLowerCase();" +
+                        "    if (txt.indexOf('show all chapters') !== -1 || txt.indexOf('all chapters') !== -1 || txt.indexOf('expand_more') !== -1 || txt.indexOf('load more chapters') !== -1 || txt.indexOf('view all chapters') !== -1) {" +
+                        "      btns[i].click();" +
+                        "      break;" +
+                        "    }" +
+                        "  }" +
+                        "} catch(e) {}" +
+                        "})();";
+                    webView.evaluateJavascript(expandScript, null);
+
                     webView.evaluateJavascript("document.documentElement.outerHTML", html -> {
                         if (resolved[0]) return;
                         if (html != null && html.length() > 200) {
@@ -1251,8 +1278,14 @@ public class NativeAndroidBridgePlugin extends Plugin {
                                 lower.contains("content-inner") || lower.contains("d-chapter-content") ||
                                 lower.contains("class=\"chapter-title\"") || lower.contains("id=\"chapter-content\"")
                             );
+                            boolean hasTocContent = !isChallenge && (
+                                lower.contains("chapter-list") || lower.contains("list-chapter") ||
+                                lower.contains("chapter-item") || lower.contains("chapters-list") ||
+                                lower.contains("class=\"chapter\"") || lower.contains("class='chapter'") ||
+                                lower.contains("volume-list") || lower.contains("table-of-contents")
+                            ) && (lower.split("chapter").length > 5);
 
-                            if (hasClearance || hasRichContent) {
+                            if (hasClearance || hasRichContent || hasTocContent) {
                                 resolved[0] = true;
                                 try {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {

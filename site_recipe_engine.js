@@ -1106,12 +1106,13 @@
   // 6. AUTO-DETECTION ENGINE (SMART AI & HEURISTIC SCANNER)
   // ══════════════════════════════════════════════════════════════════════════════════
 
-  // Standard high-probability content selectors
+  // Standard high-probability content selectors (ordered by specificity)
   const standardContentSelectors = [
-    '#content', '.chapter-content', '.entry-content', '#chapter-content',
-    '#story-text', 'article', '.content', '.text-content', '#text',
-    '.chapter-text', '.reading-content', '#chr-content', '.chr-c',
-    '.post-content', '.reader-content', '.chapter-body', '#chapter_content'
+    '#chapter-content', '.chapter-content', '.reading-content', '#chr-content',
+    '.chr-c', '.chapter-text', '.reader-content', '.chapter-body',
+    '#chapter_content', '#story-text', '.entry-content', '.post-content',
+    '.text-content', '#content-inner', '.content-inner', 'article',
+    '#content', '.content'
   ];
 
   // Standard high-probability TOC containers
@@ -1119,7 +1120,12 @@
     '.chapter-list', '.list-chapter', '#chapters', '.volume-list',
     '.catalog', '.toc', '.episodes', 'ul.chapters', '#chapter-list',
     '.chapters', '.chapter-box', '.list-chapters', '.ch-list',
-    '#list-chapter', '.accordion-content', '.table-of-contents'
+    '#list-chapter', '.accordion-content', '.table-of-contents',
+    '.chapter-items', '.chapter-table', '.list-vol', '#tab-chapters',
+    '.tab-content', '.box-list-chapter', '.item-list', '.novel-chapters',
+    '.scroll-chapter', '.chapters-container', '.chapters-list',
+    '[data-tab="chapters"]', '.manga-chapters-holder', '.listing-chapters_wrap',
+    '.eplist', '.ts-chl-collapsible-content', '.bixbox', '.ch-container', '.novel-toc'
   ];
 
   // Helper: evaluate text density of a container
@@ -1202,10 +1208,16 @@
       const h = a.getAttribute('href') || '';
       if (!t || t.length > 160 || /^(javascript:|#|mailto:)/i.test(h)) continue;
 
-      const isChapterLike = chapterPattern.test(t) || /\/chapter[-_/]?\d+/i.test(h);
+      const isChapterLike = chapterPattern.test(t) || /(?:\/chapter|\/ch|\/read|\/ep)[-_/]?\d+/i.test(h) || /\/c\d+/i.test(h);
       if (isChapterLike) {
-        const parent = a.parentElement;
+        let parent = a.parentElement;
         if (parent) {
+          const pTag = parent.tagName ? parent.tagName.toLowerCase() : '';
+          if (pTag === 'li' || pTag === 'td' || pTag === 'span' || (parent.className && /\b(?:col|item|row|grid|ch-item)\b/i.test(parent.className))) {
+            if (parent.parentElement) {
+              parent = parent.parentElement;
+            }
+          }
           const list = parentGroups.get(parent) || [];
           list.push({ title: t, href: resolveUrl(h, pageUrl), el: a });
           parentGroups.set(parent, list);
@@ -1223,10 +1235,9 @@
     }
 
     if (bestGroup.length >= 3 && bestParent) {
-      const grandParent = bestParent.parentElement || bestParent;
       const containerSel = (typeof window !== 'undefined' && window.SitePicker && typeof window.SitePicker.uniqueSelector === 'function')
-        ? window.SitePicker.uniqueSelector(grandParent, doc)
-        : (grandParent.id ? '#' + grandParent.id : (grandParent.className ? '.' + grandParent.className.split(/\s+/)[0] : 'div'));
+        ? window.SitePicker.uniqueSelector(bestParent, doc)
+        : (bestParent.id ? '#' + bestParent.id : (bestParent.className ? '.' + String(bestParent.className).trim().split(/\s+/)[0] : bestParent.tagName.toLowerCase()));
       return {
         selector: containerSel + ' a[href]',
         links: bestGroup,
@@ -1563,10 +1574,20 @@ Output valid raw JSON only, no markdown formatting.`;
       'please wait while',
       'class="skeleton',
       'class="placeholder-glow',
-      'class="animate-pulse'
+      'class="animate-pulse',
+      'show all chapters',
+      'expand_more'
     ];
     for (const phrase of skeletonPhrases) {
-      if (lower.includes(phrase)) return true;
+      if (lower.includes(phrase)) {
+        if (phrase === 'show all chapters' || phrase === 'expand_more') {
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const chLinks = doc.querySelectorAll('a[href*="chapter"], a[href*="ch-"], a[href*="/read/"]');
+          if (chLinks.length < 3) return true;
+        } else {
+          return true;
+        }
+      }
     }
 
     // Check for empty client-side SPA containers
@@ -1588,22 +1609,24 @@ Output valid raw JSON only, no markdown formatting.`;
     // Tier 1: Fast direct fetch / multi-proxy
     let html = '';
     let fetchedVia = 'direct';
-    try {
-      if (typeof window !== 'undefined' && window.WebNovelImporter && typeof window.WebNovelImporter.fetchHtml === 'function') {
-        html = await window.WebNovelImporter.fetchHtml(cleanUrl, { context: 'Scout' });
-      } else if (typeof window !== 'undefined' && typeof window.fetchRetry === 'function') {
-        const resp = await window.fetchRetry(cleanUrl);
-        html = await resp.text();
-      } else {
-        const resp = await fetch(cleanUrl);
-        html = await resp.text();
+    if (!options?.forceBrowser) {
+      try {
+        if (typeof window !== 'undefined' && window.WebNovelImporter && typeof window.WebNovelImporter.fetchHtml === 'function') {
+          html = await window.WebNovelImporter.fetchHtml(cleanUrl, { context: 'Scout' });
+        } else if (typeof window !== 'undefined' && typeof window.fetchRetry === 'function') {
+          const resp = await window.fetchRetry(cleanUrl);
+          html = await resp.text();
+        } else {
+          const resp = await fetch(cleanUrl);
+          html = await resp.text();
+        }
+      } catch (tier1Err) {
+        console.warn('[SiteScout] Tier 1 direct fetch error:', tier1Err.message);
       }
-    } catch (tier1Err) {
-      console.warn('[SiteScout] Tier 1 direct fetch error:', tier1Err.message);
     }
 
     const skeleton = isSkeletonHtml(html);
-    if (html && !skeleton) {
+    if (html && !skeleton && !options?.forceBrowser) {
       return { html, mode: fetchedVia };
     }
 
@@ -1703,6 +1726,25 @@ Output valid raw JSON only, no markdown formatting.`;
           }
         }
       } catch (_) {}
+
+      // 4. Escalate to In-App Browser if static HTML yielded fewer than 2 chapter links
+      if ((!chapters || chapters.length < 2) && liveRes.mode !== 'in_app_browser' && typeof window !== 'undefined' && window.NativeBridge && (window.NativeBridge.openInAppBrowser || window.NativeBridge.resolveCloudflare)) {
+        notify('escalating_browser', '🌐 Only 0-1 chapters visible in static page. Launching In-App Browser to expand live chapters...');
+        try {
+          const browserRes = await fetchLiveHtml(url, { forceBrowser: true }, callbacks);
+          if (browserRes && browserRes.html && browserRes.html.length > 200) {
+            overviewHtml = browserRes.html;
+            doc = new DOMParser().parseFromString(overviewHtml, 'text/html');
+            const browserTOC = findBestChapterLinks(doc, url);
+            if (browserTOC && browserTOC.links.length >= 2) {
+              chapterLinkSelector = browserTOC.selector;
+              chapters = browserTOC.links;
+            }
+          }
+        } catch (bErr) {
+          console.warn('[SiteScout] In-App Browser escalation note:', bErr.message);
+        }
+      }
     }
 
     const isReaderUrl = /[?&]chapter=\d+|\/chapter[-_/]?\d+/i.test(url);
@@ -1902,6 +1944,11 @@ Return valid raw JSON only:
     const speed = await measureOptimalSpeed(host, [cleanUrl, overview.ch1Url], callbacks);
 
     // 4. Assemble polished recipe
+    const isDirectChapterUrl = /[?&]chapter=\d+|\/chapter[-_/]?\d+/i.test(cleanUrl);
+    if (overview.chapters.length < 2 && !isDirectChapterUrl) {
+      throw new Error(`Only ${overview.chapters.length} chapter(s) found on this page. If this website hides chapters behind an accordion or button, please open Site Settings to inspect, or paste a link directly to Chapter 1.`);
+    }
+
     notify('saving_recipe', '💾 [4/4] Finalizing & saving custom recipe...');
     const recipe = withDefaults({
       id: host,

@@ -351,10 +351,14 @@
                     }
                   });
                   if (res && res.recipe) {
-                    toast?.(`✨ Site scouted & recipe saved! Loading chapters...`, 'success');
-                    setTimeout(() => {
-                      handleStartFetch(false);
-                    }, 600);
+                    if (res.stats && res.stats.chaptersCount >= 2) {
+                      toast?.(`✨ Site scouted & recipe saved (${res.stats.chaptersCount} chapters)! Loading chapters...`, 'success');
+                      setTimeout(() => {
+                        handleStartFetch(false);
+                      }, 600);
+                    } else {
+                      toast?.(`✓ Recipe saved, but only ${res.stats?.chaptersCount || 0} chapter(s) detected. Please check the chapter link in Site Settings before fetching.`, 'warning');
+                    }
                   }
                 } catch (err) {
                   toast?.(`Scout: ${err.message}`, 'error');
