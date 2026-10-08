@@ -191,8 +191,10 @@
             try {
                 cleanHtml = window.DOMPurify.sanitize(cleanHtml, {
                     WHOLE_DOCUMENT: true,
-                    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select'],
-                    FORBID_ATTR: ['srcset', 'on*']
+                    ADD_TAGS: ['style', 'link', 'base'],
+                    ADD_ATTR: ['rel', 'href', 'type', 'media'],
+                    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
+                    FORBID_ATTR: ['on*']
                 });
             } catch (e) {
                 console.warn('[SitePicker] DOMPurify error, using raw html:', e);
@@ -202,11 +204,17 @@
         const baseTag = baseUrl ? `<base href="${baseUrl}">` : '';
         const styleTag = `
 <style>
+html, body {
+    cursor: pointer !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    min-height: 100vh !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
 .gt-pick-hover { outline: 2px dashed #3b82f6 !important; outline-offset: 1px !important; }
 .gt-pick-sel { outline: 3px solid #22c55e !important; outline-offset: 2px !important; background: rgba(34, 197, 94, 0.12) !important; }
 .gt-pick-remove { outline: 3px solid #ef4444 !important; outline-offset: 2px !important; background: rgba(239, 68, 68, 0.15) !important; opacity: 0.6 !important; }
-a { pointer-events: auto !important; }
-html, body { cursor: pointer !important; }
+a { pointer-events: auto !important; color: #2563eb !important; }
 </style>`;
 
         if (cleanHtml.includes('</head>')) {

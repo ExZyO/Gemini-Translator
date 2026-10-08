@@ -38,6 +38,8 @@
         const [error, setError] = useState(null);
         const [previewHtml, setPreviewHtml] = useState('');
         const [selection, setSelection] = useState(null);
+        const [viewMode, setViewMode] = useState('visual'); // 'visual' | 'list'
+        const [parsedItems, setParsedItems] = useState([]);
         const iframeRef = useRef(null);
         const pickerHandleRef = useRef(null);
 
@@ -63,9 +65,77 @@
             setLoading(true);
             setError(null);
             try {
-                const fetchFn = window.WebNovelImporter?.fetchHtml;
-                if (!fetchFn) throw new Error('WebNovelImporter.fetchHtml is not available.');
-                const rawHtml = await fetchFn(url, { context: 'SitePickerPreview' });
+                let rawHtml = '';
+                if (window.WebNovelImporter?.fetchHtml) {
+                    rawHtml = await window.WebNovelImporter.fetchHtml(url, { context: 'SitePickerPreview' });
+                } else if (window.NativeBridge?.fetchNative) {
+                    const res = await window.NativeBridge.fetchNative(url);
+                    rawHtml = (res && res.data) ? (typeof res.data === 'string' ? res.data : JSON.stringify(res.data)) : '';
+                } else if (typeof window.fetchRetry === 'function') {
+                    const resp = await window.fetchRetry(url);
+                    rawHtml = await resp.text();
+                } else {
+                    const resp = await fetch(url);
+                    rawHtml = await resp.text();
+                }
+
+                if (!rawHtml || typeof rawHtml !== 'string' || !rawHtml.trim()) {
+                    throw new Error('Received empty response from website.');
+                }
+
+                // Check for Cloudflare / anti-bot challenge
+                const isChallenge = /checking your browser|just a moment|cf-turnstile|cf-challenge|challenge-platform/i.test(rawHtml);
+                if (isChallenge) {
+                    setError('This website is protected by Cloudflare verification.');
+                }
+
+                // Extract element candidates for the clean List View fallback
+                try {
+                    const doc = new DOMParser().parseFromString(rawHtml, 'text/html');
+                    if (target === 'chapterLinks') {
+                        const links = Array.from(doc.querySelectorAll('a[href]'))
+                            .map(a => {
+                                const t = (a.textContent || '').trim();
+                                const h = a.getAttribute('href') || '';
+                                const sel = window.SitePicker?.uniqueSelector?.(a, doc) || 'a';
+                                return { title: t, href: h, selector: sel, rawEl: a };
+                            })
+                            .filter(l => l.title.length > 0 && l.title.length < 160 && !/^(javascript:|#|mailto:)/i.test(l.href));
+                        setParsedItems(links);
+                    } else if (target === 'content') {
+                        const candidates = [];
+                        const standardSelectors = ['#content', '.chapter-content', '.entry-content', '#chapter-content', '#story-text', 'article', '.content', '.text-content', '#text', '.chapter-text', '.reading-content'];
+                        for (const s of standardSelectors) {
+                            const el = doc.querySelector(s);
+                            if (el) {
+                                const t = (el.textContent || '').trim();
+                                const wc = t ? t.split(/\s+/).length : 0;
+                                if (wc > 30) {
+                                    candidates.push({ selector: s, words: wc, preview: t.slice(0, 180) });
+                                }
+                            }
+                        }
+                        if (candidates.length === 0) {
+                            const blocks = Array.from(doc.querySelectorAll('div, article, section, main, p'));
+                            for (const b of blocks) {
+                                const t = (b.textContent || '').trim();
+                                const wc = t ? t.split(/\s+/).length : 0;
+                                if (wc > 60) {
+                                    candidates.push({
+                                        selector: window.SitePicker?.uniqueSelector?.(b, doc) || b.tagName.toLowerCase(),
+                                        words: wc,
+                                        preview: t.slice(0, 180)
+                                    });
+                                }
+                            }
+                            candidates.sort((a, b) => b.words - a.words);
+                        }
+                        setParsedItems(candidates.slice(0, 10));
+                    }
+                } catch (parseErr) {
+                    console.warn('[SitePicker] Error parsing elements list:', parseErr);
+                }
+
                 const built = window.SitePicker?.buildPreviewDoc?.(rawHtml, url) || rawHtml;
                 setPreviewHtml(built);
             } catch (err) {
@@ -107,31 +177,73 @@
             onClose?.();
         };
 
+        const handleOpenCaptchaSolver = async () => {
+            const solver = window.NativeBridge?.openInAppBrowser || window.NativeBridge?.resolveCloudflare;
+            if (solver) {
+                toast?.('Opening in-app browser to pass verification...', 'info');
+                try {
+                    const res = await solver(url);
+                    if (res?.success || res?.status === 'ok') {
+                        toast?.('Verification passed! Reloading preview...', 'success');
+                        loadPreview();
+                    }
+                } catch (e) {
+                    toast?.('In-app browser: ' + e.message, 'warning');
+                }
+            } else {
+                window.open(url, '_blank');
+            }
+        };
+
         return h('div', {
             className: 'fixed inset-0 z-[10060] bg-black/80 flex flex-col backdrop-blur-sm animate-fade-in'
         }, [
             // Top Bar
             h('div', {
                 key: 'topbar',
-                className: 'h-14 px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-white shrink-0 shadow-lg'
+                className: 'h-14 px-3 md:px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-white shrink-0 shadow-lg gap-2'
             }, [
                 h('div', { className: 'flex items-center gap-2 truncate' }, [
-                    h('span', { className: 'text-amber-400 font-bold text-sm tracking-wide uppercase' }, '👆 Visual Inspector'),
-                    h('span', { className: 'text-slate-400 text-xs truncate' }, targetLabels[target] || 'Tap an element on the page')
+                    h('span', { className: 'text-amber-400 font-bold text-xs md:text-sm tracking-wide uppercase shrink-0' }, '👆 Inspector'),
+                    h('span', { className: 'text-slate-400 text-[11px] md:text-xs truncate hidden sm:inline' }, targetLabels[target] || 'Tap an element on the page')
                 ]),
-                h('div', { className: 'flex items-center gap-2' }, [
+
+                // Center: View Mode Toggle (Visual Page vs Clean Elements List)
+                parsedItems.length > 0 && h('div', { className: 'flex rounded-xl bg-slate-800 p-0.5 border border-slate-700 text-xs shrink-0' }, [
                     h('button', {
+                        type: 'button',
+                        className: `px-2.5 py-1 rounded-lg transition-all text-xs ${viewMode === 'visual' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white'}`,
+                        onClick: () => setViewMode('visual')
+                    }, '🌐 Page View'),
+                    h('button', {
+                        type: 'button',
+                        className: `px-2.5 py-1 rounded-lg transition-all text-xs ${viewMode === 'list' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white'}`,
+                        onClick: () => setViewMode('list')
+                    }, target === 'chapterLinks' ? `📑 Chapters (${parsedItems.length})` : `📖 Story Prose (${parsedItems.length})`)
+                ]),
+
+                // Right action buttons
+                h('div', { className: 'flex items-center gap-1.5 shrink-0' }, [
+                    h('button', {
+                        type: 'button',
+                        className: 'px-2 py-1 rounded-lg text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-colors hidden sm:inline-flex items-center gap-1',
+                        onClick: handleOpenCaptchaSolver,
+                        title: 'Solve Cloudflare verification in in-app browser'
+                    }, '🛡️ Captcha'),
+                    h('button', {
+                        type: 'button',
                         className: 'px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors',
                         onClick: onClose
                     }, 'Cancel'),
                     h('button', {
+                        type: 'button',
                         className: 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-sm',
                         onClick: handleUseSelection
                     }, '✓ Use This')
                 ])
             ]),
 
-            // Middle: Iframe / Loading / Error
+            // Middle: Visual Iframe OR Clean Elements List
             h('div', {
                 key: 'body',
                 className: 'flex-1 relative bg-slate-950 overflow-hidden'
@@ -146,32 +258,102 @@
 
                 error && h('div', {
                     key: 'error',
-                    className: 'absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10'
+                    className: 'absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 bg-slate-950/95'
                 }, [
-                    h('div', { className: 'max-w-md p-6 rounded-2xl bg-slate-900 border border-red-500/30 text-white space-y-3' }, [
-                        h('p', { className: 'text-red-400 font-semibold' }, '⚠️ Could not load page'),
+                    h('div', { className: 'max-w-md p-6 rounded-2xl bg-slate-900 border border-amber-500/30 text-white space-y-4' }, [
+                        h('p', { className: 'text-amber-400 font-semibold text-sm' }, '⚠️ Could not load website preview'),
                         h('p', { className: 'text-xs text-slate-300' }, error),
-                        h('button', {
-                            className: 'px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-white transition-colors',
-                            onClick: loadPreview
-                        }, '🔄 Try Again')
+                        h('div', { className: 'flex flex-wrap gap-2 justify-center pt-2' }, [
+                            h('button', {
+                                type: 'button',
+                                className: 'px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-white transition-colors',
+                                onClick: loadPreview
+                            }, '🔄 Try Again'),
+                            h('button', {
+                                type: 'button',
+                                className: 'px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white transition-colors flex items-center gap-1.5 shadow-sm',
+                                onClick: handleOpenCaptchaSolver
+                            }, '🛡️ Solve in In-App Browser'),
+                            parsedItems.length > 0 && h('button', {
+                                type: 'button',
+                                className: 'px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors',
+                                onClick: () => { setError(null); setViewMode('list'); }
+                            }, '📑 View Extracted Elements')
+                        ])
                     ])
                 ]),
 
-                h('iframe', {
+                // 1. Visual Web View (Sandboxed-clean Iframe)
+                viewMode === 'visual' && h('iframe', {
                     key: 'iframe',
                     ref: iframeRef,
                     srcDoc: previewHtml,
-                    sandbox: 'allow-same-origin',
-                    className: 'w-full h-full border-none bg-white',
+                    className: 'w-full h-full border-none bg-slate-950',
                     onLoad: onIframeLoad
-                })
+                }),
+
+                // 2. Extracted Elements List View (Zero-Fail Alternative)
+                viewMode === 'list' && h('div', {
+                    key: 'list-view',
+                    className: 'w-full h-full overflow-y-auto p-4 max-w-2xl mx-auto space-y-3'
+                }, [
+                    h('div', { className: 'p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-center justify-between' }, [
+                        h('span', null, target === 'chapterLinks' ? `Discovered ${parsedItems.length} chapter links. Tap one to select:` : `Discovered ${parsedItems.length} story text candidates. Tap one to select:`),
+                        selection && h('span', { className: 'text-emerald-400 font-bold' }, '✓ Element Selected!')
+                    ]),
+                    parsedItems.map((item, idx) => {
+                        const isSelected = selection?.selector === item.selector;
+                        if (target === 'chapterLinks') {
+                            return h('button', {
+                                key: `item-${idx}`,
+                                type: 'button',
+                                className: `w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between gap-3 text-xs ${isSelected ? 'bg-emerald-950/40 border-emerald-500 text-white ring-1 ring-emerald-500' : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'}`,
+                                onClick: () => {
+                                    setSelection({
+                                        selector: item.selector,
+                                        count: parsedItems.length,
+                                        first: parsedItems[0]?.title || '',
+                                        last: parsedItems[parsedItems.length - 1]?.title || '',
+                                        target
+                                    });
+                                }
+                            }, [
+                                h('div', { className: 'truncate' }, [
+                                    h('p', { className: 'font-medium truncate' }, item.title),
+                                    h('p', { className: 'text-[11px] text-slate-500 font-mono truncate mt-0.5' }, item.href)
+                                ]),
+                                isSelected ? h('span', { className: 'text-emerald-400 text-xs font-bold shrink-0' }, '✓ Selected') : h('span', { className: 'text-slate-500 text-xs shrink-0' }, 'Tap to Pick')
+                            ]);
+                        } else {
+                            return h('button', {
+                                key: `item-${idx}`,
+                                type: 'button',
+                                className: `w-full p-3.5 rounded-xl border text-left transition-all space-y-1.5 text-xs ${isSelected ? 'bg-emerald-950/40 border-emerald-500 text-white ring-1 ring-emerald-500' : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'}`,
+                                onClick: () => {
+                                    setSelection({
+                                        selector: item.selector,
+                                        count: 1,
+                                        words: item.words,
+                                        sampleText: item.preview,
+                                        target
+                                    });
+                                }
+                            }, [
+                                h('div', { className: 'flex justify-between items-center' }, [
+                                    h('span', { className: 'font-mono text-indigo-400 font-bold text-xs' }, item.selector),
+                                    h('span', { className: 'px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 text-[11px]' }, `~${item.words.toLocaleString()} words`)
+                                ]),
+                                h('p', { className: 'text-xs text-slate-400 line-clamp-2 leading-relaxed' }, item.preview)
+                            ]);
+                        }
+                    })
+                ])
             ]),
 
             // Bottom Bar (Action Toolbar)
             selection && h('div', {
                 key: 'bottombar',
-                className: 'h-14 px-4 bg-slate-900/95 border-t border-slate-800 flex items-center justify-between text-white shrink-0'
+                className: 'h-14 px-4 bg-slate-900/95 border-t border-slate-800 flex items-center justify-between text-white shrink-0 shadow-lg'
             }, [
                 h('div', { className: 'flex items-center gap-2 truncate text-xs text-slate-300' }, [
                     selection.words ? `Selected: ~${selection.words.toLocaleString()} words` : null,
@@ -180,11 +362,13 @@
                     selection.selectors ? `${selection.selectors.length} element(s) marked for removal` : null
                 ].filter(Boolean).join(' • ')),
                 h('div', { className: 'flex items-center gap-2' }, [
-                    h('button', {
+                    viewMode === 'visual' && h('button', {
+                        type: 'button',
                         className: 'px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700',
                         onClick: () => pickerHandleRef.current?.bigger?.()
                     }, '⬆ Expand (Bigger)'),
-                    h('button', {
+                    viewMode === 'visual' && h('button', {
+                        type: 'button',
                         className: 'px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700',
                         onClick: () => pickerHandleRef.current?.smaller?.()
                     }, '⬇ Narrow (Smaller)')

@@ -1,9 +1,9 @@
 {
-  "version": "8.19.4",
-  "versionCode": 8404,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.4/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.4/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.19.4",
+  "version": "8.19.5",
+  "versionCode": 8405,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.5/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.5/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.19.5",
   "releaseDate": "2026-10-08",
-  "releaseNotes": "v8.19.4: Fix Site Recipe Test Pages URL input binding, enable direct typing & pasting, and resilient testing preview."
+  "releaseNotes": "v8.19.5: Fix Site Recipe visual preview white screen via stylesheet preservation, inject dark theme baseline, and add one-tap Elements List selector fallback."
 }
