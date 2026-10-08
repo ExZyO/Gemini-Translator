@@ -1739,6 +1739,7 @@
         if (clean.includes('royalroad.com') || clean.includes('scribblehub.com')) return 'royalroad';
         if (clean.includes('syosetu.com') || clean.includes('syosetu.org') || clean.includes('kakuyomu.jp')) return 'syosetu';
         if (clean.includes('novelfull.com') || clean.includes('boxnovel.com') || clean.includes('readlightnovel') || clean.includes('allnovelfull.') || clean.includes('readnovelfull.') || clean.includes('freewebnovel.') || clean.includes('lightnovelpub.')) return 'novelfull';
+        if (clean.includes('novelarchive.cc')) return 'novelarchive';
         if (clean.includes('pixiv.net/novel/')) return 'pixiv';
         return 'universal';
     }
@@ -1825,6 +1826,11 @@
         else if (type === 'novelfull') return await crawlNovelFull(url, progressCb, options);
         else if (type === 'lofter') return await crawlLofter(url, progressCb, options);
         else if (type === 'pixiv') return await crawlPixiv(url, progressCb, options);
+        else if (type === 'novelarchive') {
+            const plugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
+            if (plugin) return await crawlWithPlugin(plugin, url, progressCb, options);
+            return await crawlUniversal(url, progressCb, options);
+        }
         else {
             const registeredPlugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
             if (registeredPlugin && registeredPlugin.id !== 'universal') {

@@ -641,7 +641,9 @@
         };
 
         const handleAutoDetect = async () => {
-            const targetUrl = (recipe.bookUrl && recipe.bookUrl.trim()) || (recipe.testUrls?.book && recipe.testUrls.book.trim()) || (recipe.chapterUrl && recipe.chapterUrl.trim()) || (recipe.testUrls?.chapter && recipe.testUrls.chapter.trim()) || url;
+            const currentBook = (bookUrlInputRef.current?.value || recipe.bookUrl || recipe.testUrls?.book || '').trim();
+            const currentChapter = (chapterUrlInputRef.current?.value || recipe.chapterUrl || recipe.testUrls?.chapter || '').trim();
+            const targetUrl = currentBook || currentChapter || url;
             if (!targetUrl) {
                 toast?.('Please paste a novel link in the box above first.', 'warning');
                 return;
@@ -650,20 +652,31 @@
             setAutoDetectStats(null);
             try {
                 const res = await RE.Controller.autoDetect(targetUrl, {
-                    onStart: () => toast?.('⚡ AI scanning website structure & chapters...', 'info')
+                    onStart: () => toast?.('⚡ AI scanning website structure & chapters...', 'info'),
+                    existingBookUrl: currentBook,
+                    existingChapterUrl: currentChapter
                 });
                 if (res && res.recipe) {
+                    const resolvedBookUrl = res.recipe.bookUrl || currentBook || '';
+                    const resolvedChapterUrl = res.recipe.chapterUrl || currentChapter || '';
+
                     setRecipe(prev => ({
                         ...prev,
                         ...res.recipe,
                         id: prev.id || res.recipe.id,
-                        name: prev.name || res.recipe.name
+                        name: prev.name || res.recipe.name,
+                        bookUrl: resolvedBookUrl,
+                        chapterUrl: resolvedChapterUrl,
+                        testUrls: {
+                            book: resolvedBookUrl,
+                            chapter: resolvedChapterUrl
+                        }
                     }));
-                    if (bookUrlInputRef.current && res.recipe.bookUrl) {
-                        bookUrlInputRef.current.value = res.recipe.bookUrl;
+                    if (bookUrlInputRef.current && resolvedBookUrl) {
+                        bookUrlInputRef.current.value = resolvedBookUrl;
                     }
-                    if (chapterUrlInputRef.current && res.recipe.chapterUrl) {
-                        chapterUrlInputRef.current.value = res.recipe.chapterUrl;
+                    if (chapterUrlInputRef.current && resolvedChapterUrl) {
+                        chapterUrlInputRef.current.value = resolvedChapterUrl;
                     }
                     setIsDirty(true);
                     setAutoDetectStats(res.stats);

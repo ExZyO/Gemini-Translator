@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gemini-translator-v8.19.7';
+const CACHE_NAME = 'gemini-translator-v8.19.8';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -66,6 +66,7 @@ const ASSETS_TO_CACHE = [
     './epub_studio_ui.js',
     './sources/registry.js',
     './sources/novelfire.js',
+    './sources/novelarchive.js',
     './sources/lnreader_adapter.js',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',

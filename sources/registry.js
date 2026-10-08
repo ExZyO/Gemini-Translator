@@ -9,13 +9,14 @@
   const WitchCultPlugin = isNode ? require('./witchcult').WitchCultPlugin : window.WitchCultPlugin;
   const RoyalRoadPlugin = isNode ? require('./royalroad').RoyalRoadPlugin : window.RoyalRoadPlugin;
   const NovelFirePlugin = isNode ? require('./novelfire').NovelFirePlugin : window.NovelFirePlugin;
+  const NovelArchivePlugin = isNode ? require('./novelarchive').NovelArchivePlugin : window.NovelArchivePlugin;
   const UniversalPlugin = isNode ? require('./universal').UniversalPlugin : window.UniversalPlugin;
 
   class SourceRegistry {
     constructor() {
       this.plugins = new Map();
       this.universalPlugin = null;
-      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'novelfire', 'universal']);
+      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'novelfire', 'novelarchive', 'universal']);
       this.initBuiltins();
       this.loadPersistedPlugins();
     }
@@ -25,6 +26,7 @@
       if (WitchCultPlugin) this.register(new WitchCultPlugin());
       if (RoyalRoadPlugin) this.register(new RoyalRoadPlugin());
       if (NovelFirePlugin) this.register(new NovelFirePlugin());
+      if (NovelArchivePlugin) this.register(new NovelArchivePlugin());
       if (UniversalPlugin) {
         this.universalPlugin = new UniversalPlugin();
       }

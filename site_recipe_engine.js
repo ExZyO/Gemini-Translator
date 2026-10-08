@@ -1317,8 +1317,11 @@
     const isTOC = detectedTOC && detectedTOC.links.length >= 3;
     const isChapter = !isTOC && detectedDirectContent && detectedDirectContent.words >= 80;
 
-    let bookUrl = isTOC ? cleanUrl : '';
-    let chapterUrl = isChapter ? cleanUrl : '';
+    const urlHasBookId = /[?&](?:id|novel)=/i.test(cleanUrl) || /\/(?:novel|series|book|fiction)\/[^\s/?#]+/i.test(cleanUrl);
+    const urlHasChapter = /[?&]chapter=/i.test(cleanUrl) || /\/chapter[-_/]?\d+/i.test(cleanUrl);
+
+    let bookUrl = options?.existingBookUrl || (isTOC || urlHasBookId ? cleanUrl : '');
+    let chapterUrl = options?.existingChapterUrl || (isChapter || urlHasChapter ? cleanUrl : '');
     let chapterLinkSelector = '';
     let contentSelector = '';
     let titleSelector = 'h1';
@@ -1329,6 +1332,31 @@
     let lastChapterName = '';
 
     const bookInfo = genericBookInfo(firstDoc, cleanUrl);
+
+    // Probe registered source plugins (e.g. Novel Archive, Royal Road, etc.)
+    const activePlugin = (typeof window !== 'undefined' && window.sourceRegistry && typeof window.sourceRegistry.findPlugin === 'function')
+      ? window.sourceRegistry.findPlugin(cleanUrl)
+      : null;
+
+    if (activePlugin && activePlugin.id && activePlugin.id !== 'universal') {
+      try {
+        const details = await activePlugin.getNovelDetails(cleanUrl);
+        if (details && details.chapters && details.chapters.length > 0) {
+          chaptersCount = details.chapters.length;
+          firstChapterName = details.chapters[0]?.title || '';
+          lastChapterName = details.chapters[details.chapters.length - 1]?.title || '';
+          if (!chapterUrl && details.chapters[0]?.url) {
+            chapterUrl = details.chapters[0].url;
+          }
+          if (details.title) bookInfo.title = details.title;
+          if (details.author) bookInfo.author = details.author;
+          if (details.cover) bookInfo.cover = details.cover;
+          if (details.summary) bookInfo.summary = details.summary;
+        }
+      } catch (plugErr) {
+        console.warn('[SiteRecipeEngine] Auto-detect plugin probe error:', plugErr);
+      }
+    }
 
     if (isTOC) {
       chapterLinkSelector = detectedTOC.selector;
@@ -1364,14 +1392,21 @@
       const allA = safeQuerySelectorAll(firstDoc, 'a[href]');
       for (const a of allA) {
         const t = (a.textContent || '').trim().toLowerCase();
-        const h = a.getAttribute('href') || '';
-        if (t.includes('index') || t.includes('toc') || t.includes('all chapters') || t.includes('contents') || t.includes('novel')) {
-          bookUrl = resolveUrl(h, cleanUrl);
+        const h = (a.getAttribute('href') || '').trim();
+        if (!h || h === '#' || h === '/' || h.startsWith('javascript:')) continue;
+        const resolved = resolveUrl(h, cleanUrl);
+        try {
+          const u = new URL(resolved);
+          if (!u.pathname || u.pathname === '/' || u.pathname === '') continue;
+        } catch (_) { continue; }
+
+        if (t.includes('table of contents') || t.includes('chapter list') || t.includes('all chapters') || t.includes('toc') || t.includes('view index')) {
+          bookUrl = resolved;
           break;
         }
       }
 
-      if (bookUrl) {
+      if (bookUrl && bookUrl !== cleanUrl) {
         try {
           const bHtml = await fetchHtmlFn(bookUrl);
           if (bHtml) {
@@ -1401,7 +1436,7 @@
       name: host,
       mode: (chapterLinkSelector ? 'toc' : 'next'),
       bookUrl: bookUrl || cleanUrl,
-      chapterUrl: chapterUrl || '',
+      chapterUrl: chapterUrl || options?.existingChapterUrl || '',
       book: {
         titleSelector: 'h1',
         authorSelector: '.author, [rel="author"]',
@@ -1681,7 +1716,7 @@
           ? window.WebNovelImporter.fetchHtml
           : null;
 
-        const result = await autoDetectRecipe(url, {}, { fetchHtml });
+        const result = await autoDetectRecipe(url, callbacks || {}, { fetchHtml });
         if (callbacks?.onSuccess) callbacks.onSuccess(result);
         if (callbacks?.toast) callbacks.toast(`✓ Discovered ${result.stats?.chaptersCount || 0} chapters & story text!`, 'success');
         return result;
