@@ -1811,9 +1811,16 @@
     if (!showModal) return null;
     const h = getH();
 
+    let displayMessage = '';
+    if (modalMessage && typeof modalMessage === 'object') {
+      displayMessage = modalMessage.message || modalMessage.title || 'Are you sure?';
+    } else {
+      displayMessage = String(modalMessage || '');
+    }
+
     return h('div', { className: 'confirm-backdrop', onClick: () => { setShowModal(false); if (setModalCallback) setModalCallback(null); } },
       h('div', { className: 'confirm-box', onClick: (e) => e.stopPropagation() },
-        h('p', null, modalMessage),
+        h('p', null, displayMessage),
         h('div', { className: 'confirm-actions' },
           h('button', { type: 'button', className: 'mini-btn', onClick: () => { if (modalCallback) modalCallback(); } }, 'Confirm'),
           h('button', { type: 'button', className: 'mini-btn ghost', onClick: () => { setShowModal(false); if (setModalCallback) setModalCallback(null); } }, 'Cancel')

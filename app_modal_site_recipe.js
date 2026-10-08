@@ -596,14 +596,7 @@
 
         const handleClosePrompt = () => {
             if (isDirty) {
-                confirmAction?.({
-                    title: 'Discard Unsaved Changes?',
-                    message: 'You have unsaved adjustments to this recipe. Discard and leave?',
-                    confirmLabel: 'Discard',
-                    cancelLabel: 'Keep Editing',
-                    isDangerous: true,
-                    onConfirm: () => onClose?.()
-                });
+                confirmAction?.('You have unsaved adjustments to this recipe. Discard and leave?', () => onClose?.());
             } else {
                 onClose?.();
             }
@@ -1055,52 +1048,47 @@
                 // Footer sharing actions
                 h('div', {
                     key: 'footer-actions',
-                    className: 'flex flex-wrap gap-2 pt-2 border-t border-slate-800 text-xs'
+                    className: 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-slate-800 text-xs'
                 }, [
-                    h('button', {
-                        type: 'button',
-                        className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors',
-                        onClick: () => RE.Controller.copyCode(recipe, toast)
-                    }, '📋 Copy Recipe Code'),
-                    h('button', {
-                        type: 'button',
-                        className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors',
-                        onClick: () => RE.Controller.exportFile(recipe, toast)
-                    }, '💾 Export JSON File'),
-                    h('button', {
-                        type: 'button',
-                        className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors',
-                        onClick: handlePasteRecipeCode
-                    }, '📋 Paste Recipe Code'),
-                    h('label', {
-                        className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer flex items-center transition-colors'
-                    }, [
-                        h('input', {
-                            type: 'file',
-                            accept: '.json',
-                            className: 'hidden',
-                            onChange: handleImportRecipeFile
-                        }),
-                        '📥 Import JSON File'
+                    h('div', { className: 'flex flex-wrap items-center gap-2' }, [
+                        h('button', {
+                            type: 'button',
+                            className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors',
+                            onClick: () => RE.Controller.copyCode(recipe, toast)
+                        }, '📋 Copy Recipe Code'),
+                        h('button', {
+                            type: 'button',
+                            className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors',
+                            onClick: () => RE.Controller.exportFile(recipe, toast)
+                        }, '💾 Export JSON File'),
+                        h('button', {
+                            type: 'button',
+                            className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors',
+                            onClick: handlePasteRecipeCode
+                        }, '📋 Paste Recipe Code'),
+                        h('label', {
+                            className: 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer flex items-center transition-colors'
+                        }, [
+                            h('input', {
+                                type: 'file',
+                                accept: '.json',
+                                className: 'hidden',
+                                onChange: handleImportRecipeFile
+                            }),
+                            '📥 Import JSON File'
+                        ])
                     ]),
                     h('button', {
                         type: 'button',
-                        className: 'px-3 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 text-red-300 ml-auto transition-colors',
+                        className: 'w-full sm:w-auto px-3.5 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 text-red-300 font-medium transition-colors flex items-center justify-center gap-1.5 shrink-0',
                         onClick: () => {
-                            confirmAction?.({
-                                title: `Delete Recipe for ${recipe.id}?`,
-                                message: 'Are you sure you want to delete this custom recipe?',
-                                confirmLabel: 'Delete',
-                                cancelLabel: 'Cancel',
-                                isDangerous: true,
-                                onConfirm: async () => {
-                                    await RE.remove(recipe.id);
-                                    toast?.(`Deleted recipe for ${recipe.id}`, 'info');
-                                    onClose?.();
-                                }
+                            confirmAction?.(`Are you sure you want to delete the recipe for "${recipe.id}"?`, async () => {
+                                await RE.remove(recipe.id);
+                                toast?.(`Deleted recipe for ${recipe.id}`, 'info');
+                                onClose?.();
                             });
                         }
-                    }, '🗑 Delete')
+                    }, '🗑 Delete Recipe')
                 ]),
 
                 // Mobile Safe Clearance Spacer
@@ -1214,17 +1202,12 @@
                         }, 'Edit'),
                         h('button', {
                             className: 'px-2.5 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-500/20 transition-colors',
+                            title: 'Delete recipe',
                             onClick: () => {
-                                confirmAction?.({
-                                    title: `Delete Recipe?`,
-                                    message: `Delete recipe for "${r.id}"?`,
-                                    confirmLabel: 'Delete',
-                                    isDangerous: true,
-                                    onConfirm: async () => {
-                                        await RE.remove(r.id);
-                                        refresh();
-                                        toast?.(`Deleted recipe for ${r.id}`, 'info');
-                                    }
+                                confirmAction?.(`Delete recipe for "${r.id}"?`, async () => {
+                                    await RE.remove(r.id);
+                                    refresh();
+                                    toast?.(`Deleted recipe for ${r.id}`, 'info');
                                 });
                             }
                         }, '✕')

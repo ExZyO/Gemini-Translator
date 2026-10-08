@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.19.9';
+    let VERSION = '8.20.0';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1985,7 +1985,22 @@
       };
 
       // --- Modal ---
-      const confirmAction = (msg, cb) => { setModalMessage(msg); setModalCallback(() => () => { cb(); setShowModal(false) }); setShowModal(true) };
+      const confirmAction = (msg, cb) => {
+        let text = '';
+        let fn = cb;
+        if (msg && typeof msg === 'object') {
+          text = msg.message || msg.title || 'Are you sure?';
+          fn = msg.onConfirm || cb;
+        } else {
+          text = String(msg || '');
+        }
+        setModalMessage(text);
+        setModalCallback(() => () => {
+          if (typeof fn === 'function') fn();
+          setShowModal(false);
+        });
+        setShowModal(true);
+      };
 
       // --- Tab Reset Coordinators ---
       const handleResetTranslateTab = () => {

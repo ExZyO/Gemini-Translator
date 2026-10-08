@@ -1,9 +1,9 @@
 {
-  "version": "8.19.9",
-  "versionCode": 8409,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.9/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.19.9/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.19.9",
+  "version": "8.20.0",
+  "versionCode": 8410,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.20.0/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.20.0/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.20.0",
   "releaseDate": "2026-10-08",
-  "releaseNotes": "v8.19.9: Add real Gemini / DeepSeek AI LLM structural analysis for Site Recipe generation."
+  "releaseNotes": "v8.20.0: Fix confirmation dialog crash and make Site Recipe delete button fully visible on mobile."
 }
