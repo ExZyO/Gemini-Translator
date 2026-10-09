@@ -271,6 +271,32 @@
                 );
               })(),
 
+              h('div', { className: 'apple-page-header', style: { marginBottom: 14 } },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 } },
+                  h('div', null,
+                    h('h1', { style: { fontSize: 24, fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em', margin: '0 0 2px' } }, 'Translate'),
+                    h('p', { style: { fontSize: 13, color: '#94A3B8', margin: 0 } }, 'Dual-mode AI translation deck & real-time reader sync')
+                  ),
+                  (inputText || assembledText || (chapters && chapters.length > 0) || savedTranslationSession || activeSessionRef?.current) && h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    disabled: isTranslating,
+                    onClick: handleResetTranslateTab,
+                    title: 'Reset Translate tab and clear current text, chapters, and active sessions',
+                    style: {
+                      borderColor: 'rgba(239, 68, 68, 0.35)',
+                      color: '#f87171',
+                      background: 'rgba(239, 68, 68, 0.08)',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      padding: '5px 12px',
+                      borderRadius: 999,
+                      fontSize: 11.5
+                    }
+                  }, '✕ Reset Tab')
+                )
+              ),
+
               h('div', { className: 'translate-mode-pills' },
                 h('button', {
                   type: 'button',
@@ -351,20 +377,23 @@
               ),
 
               translateDeckMode === 'text' && h(React.Fragment, null,
-                h('div', { className: 'pane deck-card', onDragOver, onDragLeave, onDrop, style: isDragOver ? { borderColor: 'var(--iris-deep)' } : null },
+                h('div', { className: 'pane deck-card translate-glass-card', onDragOver, onDragLeave, onDrop, style: isDragOver ? { borderColor: 'var(--iris-deep)' } : null },
                   h('div', { className: 'pane-head' },
-                    h('span', { className: 'lbl' }, 'Source'),
+                    h('span', { className: 'lbl', style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                      h('span', null, '📝'),
+                      h('span', null, 'Source Text')
+                    ),
                     h('div', { className: 'pane-acts' },
-                      inputText.trim() && h('button', { type: 'button', className: 'chip-act', disabled, onClick: () => { setInputText(''); setChapters([]); localStorage.removeItem('inputText'); } }, 'Clear'),
-                      h('button', { type: 'button', className: 'chip-act', disabled, onClick: handlePasteFromClipboard }, 'Paste'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: disabled || uploadingFile, onClick: () => fileInputRef.current && fileInputRef.current.click() }, uploadingFile ? 'Loading…' : 'File'),
-                      inputText.trim() && h('span', { className: 'count' }, `${inputCharCount.toLocaleString()} chars · ~${inputTokenCount.toLocaleString()} tok`)
+                      inputText.trim() && h('button', { type: 'button', className: 'chip-act', disabled, onClick: () => { setInputText(''); setChapters([]); localStorage.removeItem('inputText'); } }, '✕ Clear'),
+                      h('button', { type: 'button', className: 'chip-act', disabled, onClick: handlePasteFromClipboard }, '📋 Paste'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: disabled || uploadingFile, onClick: () => fileInputRef.current && fileInputRef.current.click() }, uploadingFile ? 'Loading…' : '📁 File'),
+                      inputText.trim() && h('span', { className: 'count', style: { background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 999 } }, `${inputCharCount.toLocaleString()} chars · ~${inputTokenCount.toLocaleString()} tok`)
                     )
                   ),
                   h('textarea', {
                     className: 'pane-textarea', ref: inputRef, value: inputText, disabled,
                     onChange: e => handleInputChange(e.target.value),
-                    placeholder: 'Paste raw novel text or drop an EPUB/TXT/DOCX/PDF book here…',
+                    placeholder: 'Paste raw novel prose or drop an EPUB/TXT/DOCX/PDF book here…',
                     style: { height: `${inputBoxHeight}px` }
                   }),
                   h('input', { type: 'file', ref: fileInputRef, onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) processFile(f); }, accept: '.txt,.epub,.docx,.pdf,.md,.html,.xml', style: { display: 'none' } })
@@ -381,11 +410,14 @@
                   }, ic(ArrowRightLeft, 16))
                 ),
 
-                h('div', { className: 'pane deck-card' },
+                h('div', { className: 'pane deck-card translate-glass-card' },
                   h('div', { className: 'pane-head' },
-                    h('span', { className: 'lbl' }, 'Translated'),
+                    h('span', { className: 'lbl', style: { display: 'flex', alignItems: 'center', gap: 6, color: '#34d399' } },
+                      h('span', null, '✨'),
+                      h('span', null, 'Translated Prose')
+                    ),
                     h('div', { className: 'pane-acts' },
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, 'Copy'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, '📋 Copy'),
                       h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => {
                         const docKey = currentDocTitle || fileName || 'translated_doc';
                         setReaderNovelId(docKey);
@@ -397,11 +429,11 @@
                         if (savedProg && resumeIdx > 0) {
                           toast(`Resuming "${currentDocTitle || fileName || 'Document'}" at Chapter ${resumeIdx + 1}!`, 'success');
                         }
-                      } }, 'Reader'),
+                      } }, '📖 Reader'),
                       h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && chapters.length === 0), onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, '🩺 QA'),
                       h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && (!translatedChapters || translatedChapters.length === 0)), onClick: () => handleOpenDiffModal(0), title: 'Translation Revision Diffs & Rollbacks (§8.6)' }, '📜 Diffs'),
                       h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600 } }, '⭐ Save to Space'),
-                      assembledText.trim() && h('span', { className: 'count' }, `${outputWordCount.toLocaleString()} words`)
+                      assembledText.trim() && h('span', { className: 'count', style: { background: 'rgba(52, 211, 153, 0.12)', color: '#34d399', padding: '2px 8px', borderRadius: 999 } }, `${outputWordCount.toLocaleString()} words`)
                     )
                   ),
                   h('textarea', {
@@ -416,98 +448,55 @@
 
               translateDeckMode === 'file' && h(React.Fragment, null,
                 (chapters && chapters.length > 0)
-                  ? h('div', { className: 'card deck-card', style: { marginBottom: 16 } },
-                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' } },
+                  ? h('div', { className: 'translate-book-hero' },
+                      h('div', { className: 'translate-book-cover' },
                         currentDocCover
-                          ? h('div', { style: { width: 56, height: 78, borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.4)', flexShrink: 0 } },
-                              h('img', { src: currentDocCover, alt: 'Cover', style: { width: '100%', height: '100%', objectFit: 'cover' } })
-                            )
-                          : h('div', {
-                              style: {
-                                width: 56,
-                                height: 78,
-                                borderRadius: 8,
-                                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 28,
-                                flexShrink: 0,
-                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
-                              }
-                            }, '📖'),
-                        h('div', { style: { flex: 1, minWidth: 200 } },
-                          h('div', { style: { fontWeight: 800, fontSize: 15, color: 'var(--paper)', marginBottom: 4 } },
-                            currentDocTitle || fileName || 'Loaded Book'
-                          ),
-                          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' } },
-                            h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff' } }, `${chapters.length} Chapters`),
-                            inputCharCount > 0 && h('span', { className: 'chip' }, `${inputCharCount.toLocaleString()} chars`),
-                            inputTokenCount > 0 && h('span', { className: 'chip' }, `~${inputTokenCount.toLocaleString()} tokens`)
-                          )
+                          ? h('img', { src: currentDocCover, alt: 'Cover' })
+                          : h('span', null, '📖')
+                      ),
+                      h('div', { className: 'translate-book-details' },
+                        h('div', { className: 'translate-book-title' },
+                          currentDocTitle || fileName || 'Loaded Book'
                         ),
-                        h('div', { style: { display: 'flex', gap: 8 } },
-                          h('button', {
-                            type: 'button',
-                            className: 'chip-act',
-                            disabled,
-                            onClick: () => fileInputRef.current && fileInputRef.current.click()
-                          }, '📂 Change File'),
-                          h('button', {
-                            type: 'button',
-                            className: 'chip-act',
-                            disabled,
-                            style: { color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' },
-                            onClick: () => { setChapters([]); setInputText(''); setFileName(''); }
-                          }, '✕ Clear')
+                        h('div', { className: 'translate-book-meta' },
+                          h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700 } }, `${chapters.length} Chapters`),
+                          inputCharCount > 0 && h('span', { className: 'chip' }, `${inputCharCount.toLocaleString()} chars`),
+                          inputTokenCount > 0 && h('span', { className: 'chip' }, `~${inputTokenCount.toLocaleString()} tokens`)
                         )
                       ),
-                      h('div', {
-                        style: {
-                          marginTop: 14,
-                          padding: '10px 12px',
-                          background: 'rgba(0,0,0,0.25)',
-                          borderRadius: 10,
-                          fontSize: 12,
-                          color: 'var(--slate)',
-                          maxHeight: 120,
-                          overflowY: 'auto'
-                        }
-                      },
-                        chapters.slice(0, 5).map((ch, idx) => h('div', {
-                          key: idx,
-                          style: { padding: '3px 0', borderBottom: idx < 4 ? '1px solid rgba(255,255,255,0.05)' : 'none', display: 'flex', justifyContent: 'space-between' }
-                        },
-                          h('span', { style: { color: 'var(--paper-dim)', fontWeight: 500 } }, ch.title || `Chapter ${idx + 1}`),
-                          h('span', { style: { opacity: 0.6 } }, `${((ch.content || ch.text || '').length).toLocaleString()} chars`)
-                        )),
-                        chapters.length > 5 && h('div', { style: { textAlign: 'center', paddingTop: 6, fontSize: 11, color: 'var(--iris-light)' } },
-                          `+ ${chapters.length - 5} more chapters`
-                        )
+                      h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                        h('button', {
+                          type: 'button',
+                          className: 'chip-act',
+                          disabled,
+                          onClick: () => fileInputRef.current && fileInputRef.current.click()
+                        }, '📂 Change'),
+                        h('button', {
+                          type: 'button',
+                          className: 'chip-act',
+                          disabled,
+                          style: { color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' },
+                          onClick: () => { setChapters([]); setInputText(''); setFileName(''); }
+                        }, '✕ Clear')
                       ),
                       h('input', { type: 'file', ref: fileInputRef, onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) processFile(f); }, accept: '.txt,.epub,.docx,.pdf,.md,.html,.xml', style: { display: 'none' } })
                     )
                   : h('div', {
-                      className: 'card deck-card',
+                      className: 'studio-dropzone',
                       onDragOver, onDragLeave, onDrop,
                       style: {
-                        padding: '36px 20px',
-                        textAlign: 'center',
-                        marginBottom: 16,
-                        border: isDragOver ? '2px dashed var(--iris)' : '1px dashed rgba(255,255,255,0.15)',
-                        background: isDragOver ? 'rgba(99, 102, 241, 0.1)' : 'var(--card-midnight)',
-                        cursor: 'pointer'
+                        marginBottom: 16
                       },
                       onClick: () => fileInputRef.current && fileInputRef.current.click()
                     },
-                      h('div', { style: { fontSize: 36, marginBottom: 10 } }, '📖'),
-                      h('div', { style: { fontWeight: 700, fontSize: 15, color: 'var(--paper)', marginBottom: 6 } }, 'Select or Drop Ebook File'),
-                      h('div', { style: { fontSize: 12.5, color: 'var(--slate)', marginBottom: 16 } }, 'Drag and drop your EPUB/TXT/DOCX/PDF book here, or tap to browse'),
-                      h('div', { style: { display: 'flex', justifyContent: 'center', gap: 6 } },
-                        h('span', { className: 'chip' }, 'EPUB'),
-                        h('span', { className: 'chip' }, 'TXT'),
-                        h('span', { className: 'chip' }, 'DOCX'),
-                        h('span', { className: 'chip' }, 'PDF')
+                      h('div', { style: { fontSize: 40, marginBottom: 12 } }, '📖'),
+                      h('div', { style: { fontWeight: 800, fontSize: 16, color: '#F8FAFC', marginBottom: 6 } }, 'Select or Drop Ebook File'),
+                      h('div', { style: { fontSize: 13, color: '#94A3B8', marginBottom: 16 } }, 'Drag and drop your EPUB, TXT, DOCX, or PDF book here to translate the full novel'),
+                      h('div', { style: { display: 'flex', justifyContent: 'center', gap: 8 } },
+                        h('span', { className: 'chip', style: { padding: '4px 12px' } }, 'EPUB'),
+                        h('span', { className: 'chip', style: { padding: '4px 12px' } }, 'TXT'),
+                        h('span', { className: 'chip', style: { padding: '4px 12px' } }, 'DOCX'),
+                        h('span', { className: 'chip', style: { padding: '4px 12px' } }, 'PDF')
                       ),
                       h('input', {
                         type: 'file',
@@ -518,11 +507,14 @@
                       })
                     ),
 
-                (assembledText.trim() || (translatedChapters && translatedChapters.length > 0)) && h('div', { className: 'pane deck-card' },
+                (assembledText.trim() || (translatedChapters && translatedChapters.length > 0)) && h('div', { className: 'pane deck-card translate-glass-card' },
                   h('div', { className: 'pane-head' },
-                    h('span', { className: 'lbl' }, 'Translated Output'),
+                    h('span', { className: 'lbl', style: { display: 'flex', alignItems: 'center', gap: 6, color: '#34d399' } },
+                      h('span', null, '✨'),
+                      h('span', null, 'Translated Output')
+                    ),
                     h('div', { className: 'pane-acts' },
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, 'Copy'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, '📋 Copy'),
                       h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => {
                         const docKey = currentDocTitle || fileName || 'translated_doc';
                         setReaderNovelId(docKey);
@@ -534,11 +526,11 @@
                         if (savedProg && resumeIdx > 0) {
                           toast(`Resuming "${currentDocTitle || fileName || 'Document'}" at Chapter ${resumeIdx + 1}!`, 'success');
                         }
-                      } }, 'Reader'),
+                      } }, '📖 Reader'),
                       h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && chapters.length === 0), onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, '🩺 QA'),
                       h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && (!translatedChapters || translatedChapters.length === 0)), onClick: () => handleOpenDiffModal(0), title: 'Translation Revision Diffs & Rollbacks (§8.6)' }, '📜 Diffs'),
                       h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600 } }, '⭐ Save to Space'),
-                      assembledText.trim() && h('span', { className: 'count' }, `${outputWordCount.toLocaleString()} words`)
+                      assembledText.trim() && h('span', { className: 'count', style: { background: 'rgba(52, 211, 153, 0.12)', color: '#34d399', padding: '2px 8px', borderRadius: 999 } }, `${outputWordCount.toLocaleString()} words`)
                     )
                   ),
                   h('textarea', {
@@ -552,10 +544,11 @@
               ),
 
               // ═══ GLOSSARY & BOOK PROFILES PANEL (TRANSLATE SCREEN) ═══
-              h('div', { className: 'card', style: { marginTop: 12, borderColor: glossaryTermCount > 0 ? 'rgba(99, 102, 241, 0.4)' : 'var(--hairline)' } },
-                h('div', { className: 'card-title', style: { marginBottom: glossaryCardOpen ? 10 : 0 } },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                    h('span', { style: { fontWeight: 700 } }, '📖 Glossary & Profiles'),
+              h('div', { className: 'card settings-grouped-card deck-card', style: { marginTop: 14, borderColor: glossaryTermCount > 0 ? 'rgba(99, 102, 241, 0.4)' : 'rgba(255, 255, 255, 0.08)' } },
+                h('div', { className: 'card-title', style: { marginBottom: glossaryCardOpen ? 12 : 0 } },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' } }, '📖'),
+                    h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'Glossary & Profiles'),
                     activeGlossaryId
                       ? h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 10.5, padding: '2px 8px' } }, `Active: ${activeGlossaryId}`)
                       : (glossaryTermCount > 0
@@ -564,22 +557,22 @@
                         )
                   ),
                   h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                    h('button', { type: 'button', className: 'mini-btn', disabled, onClick: () => setGlossaryEditorOpen(true), style: { fontSize: 11, padding: '3px 8px' } }, 'Editor'),
+                    h('button', { type: 'button', className: 'mini-btn', disabled, onClick: () => setGlossaryEditorOpen(true), style: { fontSize: 11, padding: '4px 10px', borderRadius: 999 } }, 'Editor'),
                     h('button', {
                       type: 'button',
                       className: 'chip-act',
                       onClick: () => setGlossaryCardOpen(v => !v),
-                      style: { fontSize: 11 }
+                      style: { fontSize: 11, borderRadius: 999 }
                     }, glossaryCardOpen ? '▲ Collapse' : '▼ Expand')
                   )
                 ),
                 glossaryCardOpen && h(React.Fragment, null,
                   // Quick Preset Chips
-                  h('div', { className: 'seg', style: { marginBottom: 8 } },
-                    h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('ri') }, 'RI Preset'),
-                    h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('lotm') }, 'LOTM Preset'),
-                    h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('cote') }, 'COTE Preset'),
-                    h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia Preset')
+                  h('div', { className: 'studio-pill-bar', style: { marginBottom: 10, padding: 3 } },
+                    h('button', { type: 'button', className: 'studio-pill-btn', style: { padding: '7px 10px', fontSize: 11.5 }, disabled, onClick: () => applyGlossaryPreset('ri') }, 'RI Preset'),
+                    h('button', { type: 'button', className: 'studio-pill-btn', style: { padding: '7px 10px', fontSize: 11.5 }, disabled, onClick: () => applyGlossaryPreset('lotm') }, 'LOTM Preset'),
+                    h('button', { type: 'button', className: 'studio-pill-btn', style: { padding: '7px 10px', fontSize: 11.5 }, disabled, onClick: () => applyGlossaryPreset('cote') }, 'COTE Preset'),
+                    h('button', { type: 'button', className: 'studio-pill-btn', style: { padding: '7px 10px', fontSize: 11.5 }, disabled, onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia Preset')
                   ),
 
                   // Quick Term Bar
@@ -666,7 +659,7 @@
                 )
               ),
 
-              isTranslating && h('div', { className: 'card', style: { borderColor: 'rgba(124,135,255,.45)' } },
+              isTranslating && h('div', { className: 'card settings-grouped-card deck-card', style: { borderColor: 'rgba(124,135,255,.45)' } },
                 h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 } },
                   h('span', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--iris)' } }, progressLabel || 'Translating…'),
                   h('div', { style: { display: 'flex', gap: 10, alignItems: 'center' } },
@@ -688,7 +681,7 @@
                 const sessionTitle = session?.title || (fileName && fileName.trim()) || activeNovelRecord?.title || 'Novel Translation';
                 const deltaLabel = `Ch ${session?.deltaStart || (completedCount + 1)}–${session?.deltaEnd || totalCount}`;
                 return h('div', {
-                  className: 'card',
+                  className: 'card settings-grouped-card deck-card',
                   style: {
                     background: isDelta
                       ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.10))'
@@ -788,7 +781,7 @@
                 };
 
                 return h('div', {
-                  className: 'card',
+                  className: 'card settings-grouped-card deck-card',
                   style: {
                     background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(99, 102, 241, 0.12))',
                     borderColor: '#22c55e',
@@ -892,7 +885,7 @@
                 );
               })(),
 
-              lastUsageStats && !isTranslating && h('div', { className: 'card', style: { borderColor: 'var(--accent, #6366f1)' } },
+              lastUsageStats && !isTranslating && h('div', { className: 'card settings-grouped-card deck-card', style: { borderColor: 'var(--accent, #6366f1)' } },
                 h('div', { className: 'card-title' },
                   h('span', null, '📊 Last Translation Summary'),
                   h('div', { style: { display: 'flex', gap: 6 } },
@@ -949,7 +942,7 @@
               ),
 
               // ═══ TRANSLATOR BOTTOM LOGS PANEL ═══
-              h('div', { className: 'card', style: { marginTop: 12, marginBottom: 12 } },
+              h('div', { className: 'card settings-grouped-card deck-card', style: { marginTop: 12, marginBottom: 12 } },
                 h('div', { className: 'card-title', style: { marginBottom: showLiveLogs ? 8 : 0 } },
                   h('span', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
                     h('span', null, '📜 Live Diagnostics & API Logs'),

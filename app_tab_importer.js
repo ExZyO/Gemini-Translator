@@ -606,6 +606,27 @@
                   )
                 ),
 
+                // Apple-style Header
+                h('div', { className: 'apple-page-header', style: { marginBottom: 14 } },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 } },
+                    h('div', null,
+                      h('h1', { style: { fontSize: 24, fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em', margin: '0 0 2px' } }, 'Discover'),
+                      h('p', { style: { fontSize: 13, color: '#94A3B8', margin: 0 } }, 'Curated Light Novels, Web Serials, Books & Audio')
+                    ),
+                    h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+                      h('button', {
+                        type: 'button',
+                        className: 'mini-btn ghost',
+                        style: { padding: '5px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)' },
+                        onClick: () => {
+                          setImportCategoryTab('wn');
+                          handleResetImportTab();
+                        },
+                        title: 'Reset Web Importer tab to clean state'
+                      }, '✕ Reset')
+                    )
+                  )
+                ),
                 h('div', {
                   className: 'src-chips',
                   style: {
@@ -616,76 +637,6 @@
                     marginBottom: 10
                   }
                 },
-                  h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' } },
-                    [
-                      { id: 'ln', label: '📖 Light Novels' },
-                      { id: 'wn', label: '🌐 Web Novels' },
-                      { id: 'audio', label: '🎧 Audiobooks' },
-                      { id: 'books', label: '📚 Books' }
-                    ].map(tab => {
-                      const isActive = importCategoryTab === tab.id;
-                      return h('button', {
-                        key: tab.id,
-                        type: 'button',
-                        className: `tab-btn ${isActive ? 'active' : ''}`,
-                        style: {
-                          padding: '6px 14px',
-                          borderRadius: 999,
-                          fontSize: 12,
-                          fontWeight: isActive ? 700 : 500,
-                          cursor: 'pointer',
-                          border: isActive ? '1px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
-                          background: isActive ? 'var(--accent, #6366f1)' : 'rgba(255, 255, 255, 0.04)',
-                          color: isActive ? '#ffffff' : 'var(--paper-dim)',
-                          boxShadow: isActive ? '0 2px 8px rgba(99, 102, 241, 0.35)' : 'none',
-                          transition: 'all 0.15s ease'
-                        },
-                        onClick: () => {
-                          setImportCategoryTab(tab.id);
-                          const q = (webImportUrl || '').trim();
-                          const isDirectUrl = /^https?:\/\//i.test(q);
-
-                          if (tab.id === 'ln') {
-                            setIsBookSearchMode(false);
-                            setIsSwiftAudioMode(false);
-                            setNovelSearchFilter('Lnori');
-                            if (q && !isDirectUrl) {
-                              handleSearchNovels(q, 'Lnori');
-                            } else if (!q) {
-                              toast('📖 Light Novels mode active. Type a title to search.', 'info');
-                            }
-                          } else if (tab.id === 'wn') {
-                            setIsBookSearchMode(false);
-                            setIsSwiftAudioMode(false);
-                            setNovelSearchFilter('all');
-                            if (q && !isDirectUrl) {
-                              handleSearchNovels(q, 'all');
-                            } else if (!q) {
-                              toast('🌐 Web Novels mode active. Type a title or paste a novel link.', 'info');
-                            }
-                          } else if (tab.id === 'audio') {
-                            setIsBookSearchMode(false);
-                            setIsSwiftAudioMode(true);
-                            setNovelSearchFilter('all');
-                            if (q && !isDirectUrl) {
-                              handleSwiftAudioSearch(q);
-                            } else if (!q) {
-                              toast('🎧 Audiobooks mode active. Type an audiobook title or paste link.', 'info');
-                            }
-                          } else if (tab.id === 'books') {
-                            setIsBookSearchMode(true);
-                            setIsSwiftAudioMode(false);
-                            setNovelSearchFilter('all');
-                            if (q && !isDirectUrl) {
-                              handleSearchBooks(q);
-                            } else if (!q) {
-                              toast('📚 Books mode active. Type any book title or author to search.', 'info');
-                            }
-                          }
-                        }
-                      }, tab.label);
-                    })
-                  ),
                   h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
                     h('button', {
                       type: 'button',
@@ -872,82 +823,94 @@
                   }, '🎧 Audiobooks')
                 ),
 
-                h('input', {
-                  className: 'url-input',
-                  type: 'text',
-                  placeholder: (importCategoryTab === 'books' || isBookSearchMode)
-                    ? 'Type book title or author to search (e.g. Classics, Sci-Fi, Non-Fiction)…'
-                    : (importCategoryTab === 'audio' || isSwiftAudioDetected)
-                      ? 'Type audiobook title or paste audiobook link…'
-                      : (importCategoryTab === 'ln')
-                        ? 'Type Light Novel title to search catalog or paste series link…'
-                        : 'Type Web Novel title to search aggregators or paste novel URL…',
-                  value: webImportUrl,
-                  onChange: (e) => {
-                    setWebImportUrl(e.target.value);
-                    if (!e.target.value.trim() && importCategoryTab !== 'audio') setIsSwiftAudioMode(false);
-                  },
-                  onKeyDown: (e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      const q = (webImportUrl || '').trim();
-                      if (!q) return;
-                      if (/^https?:\/\//i.test(q)) {
-                        handleStartFetch(false);
-                      } else if (importCategoryTab === 'books' || isBookSearchMode) {
-                        handleSearchBooks(q);
-                      } else if (importCategoryTab === 'audio' || isSwiftAudioDetected) {
-                        handleSwiftAudioSearch(q);
-                      } else if (importCategoryTab === 'ln') {
-                        handleSearchNovels(q, 'Lnori');
-                      } else {
-                        handleSearchNovels(q, novelSearchFilter || 'all');
+                h('div', { className: 'apple-search-wrap' },
+                  h('div', { className: 'apple-search-bar' },
+                    h('span', { style: { fontSize: 16, opacity: 0.7 } }, '🔍'),
+                    h('input', {
+                      className: 'apple-search-input',
+                      type: 'text',
+                      placeholder: (importCategoryTab === 'books' || isBookSearchMode)
+                        ? 'Search classics, titles, or authors (e.g. Orwell, Dumas)…'
+                        : (importCategoryTab === 'audio' || isSwiftAudioDetected)
+                          ? 'Search free spoken audiobooks or paste audio link…'
+                          : (importCategoryTab === 'ln')
+                            ? 'Search official Light Novels or paste series link…'
+                            : 'Search Web Novels, paste URL, or drop link…',
+                      value: webImportUrl,
+                      onChange: (e) => {
+                        setWebImportUrl(e.target.value);
+                        if (!e.target.value.trim() && importCategoryTab !== 'audio') setIsSwiftAudioMode(false);
+                      },
+                      onKeyDown: (e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const q = (webImportUrl || '').trim();
+                          if (!q) return;
+                          if (/^https?:\/\//i.test(q)) {
+                            handleStartFetch(false);
+                          } else if (importCategoryTab === 'books' || isBookSearchMode) {
+                            handleSearchBooks(q);
+                          } else if (importCategoryTab === 'audio' || isSwiftAudioDetected) {
+                            handleSwiftAudioSearch(q);
+                          } else if (importCategoryTab === 'ln') {
+                            handleSearchNovels(q, 'Lnori');
+                          } else {
+                            handleSearchNovels(q, novelSearchFilter || 'all');
+                          }
+                        }
                       }
-                    }
-                  }
-                }),
-                h('div', {
-                  className: 'curated-lib-row',
-                  style: {
-                    display: 'flex',
-                    gap: 6,
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    marginTop: 6,
-                    marginBottom: 6
-                  }
-                },
-                  h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 600, marginRight: 2 } }, 'Curated EPUBs:'),
+                    }),
+                    webImportUrl && h('button', {
+                      type: 'button',
+                      className: 'apple-search-clear',
+                      onClick: () => {
+                        setWebImportUrl('');
+                        if (importCategoryTab !== 'audio') setIsSwiftAudioMode(false);
+                      },
+                      title: 'Clear search'
+                    }, '✕')
+                  )
+                ),
+
+                // ── CURATED DISCOVERY SOURCE SHELF ──
+                h('div', { className: 'discover-source-shelf' },
                   h('button', {
                     type: 'button',
-                    className: 'chip-act',
-                    style: { fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(16, 185, 129, 0.35)', color: '#34d399' },
+                    className: `discover-source-card ${bookSearchFilter === 'standardebooks' && isBookSearchMode ? 'active' : ''}`,
                     onClick: () => {
                       setImportCategoryTab('books');
                       setIsBookSearchMode(true);
                       setBookSearchFilter('standardebooks');
                       if (webImportUrl.trim()) handleSearchBooks(webImportUrl.trim());
-                      else toast('✨ Standard Ebooks mode: search curated, beautifully typeset public domain editions.', 'info');
-                    },
-                    title: 'Search Standard Ebooks for typography-grade curated EPUBs'
-                  }, '✨ Standard Ebooks'),
+                      else toast('✨ Standard Ebooks: search curated, beautifully typeset public domain editions.', 'info');
+                    }
+                  },
+                    h('span', { style: { fontSize: 16 } }, '✨'),
+                    h('div', { style: { textAlign: 'left' } },
+                      h('div', { style: { fontSize: 12, fontWeight: 700, color: '#34d399' } }, 'Standard Ebooks'),
+                      h('div', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Typeset Classics')
+                    )
+                  ),
                   h('button', {
                     type: 'button',
-                    className: 'chip-act',
-                    style: { fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(59, 130, 246, 0.35)', color: '#60a5fa' },
+                    className: `discover-source-card ${bookSearchFilter === 'gutenberg' && isBookSearchMode ? 'active' : ''}`,
                     onClick: () => {
                       setImportCategoryTab('books');
                       setIsBookSearchMode(true);
                       setBookSearchFilter('gutenberg');
                       if (webImportUrl.trim()) handleSearchBooks(webImportUrl.trim());
                       else toast('🏛️ Project Gutenberg: search 70,000+ curated classical books.', 'info');
-                    },
-                    title: 'Search Project Gutenberg for 70,000+ free EPUB classics'
-                  }, '🏛️ Gutenberg (70k+)'),
+                    }
+                  },
+                    h('span', { style: { fontSize: 16 } }, '🏛️'),
+                    h('div', { style: { textAlign: 'left' } },
+                      h('div', { style: { fontSize: 12, fontWeight: 700, color: '#60a5fa' } }, 'Gutenberg'),
+                      h('div', { style: { fontSize: 10, color: 'var(--slate)' } }, '70,000+ Titles')
+                    )
+                  ),
                   h('button', {
                     type: 'button',
-                    className: 'chip-act',
-                    style: { fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(168, 85, 247, 0.35)', color: '#c084fc' },
+                    className: `discover-source-card ${novelSearchFilter === 'Lnori' && importCategoryTab === 'ln' ? 'active' : ''}`,
                     onClick: () => {
                       setImportCategoryTab('ln');
                       setIsBookSearchMode(false);
@@ -955,13 +918,52 @@
                       setNovelSearchFilter('Lnori');
                       if (webImportUrl.trim()) handleSearchNovels(webImportUrl.trim(), 'Lnori');
                       else toast('📖 Lnori: 1-click clean EPUB download for light novels.', 'info');
-                    },
-                    title: 'Search Lnori for 1-click clean Light Novel EPUBs'
-                  }, '📖 Lnori LNs'),
+                    }
+                  },
+                    h('span', { style: { fontSize: 16 } }, '📖'),
+                    h('div', { style: { textAlign: 'left' } },
+                      h('div', { style: { fontSize: 12, fontWeight: 700, color: '#c084fc' } }, 'Lnori LNs'),
+                      h('div', { style: { fontSize: 10, color: 'var(--slate)' } }, '1-Click EPUB')
+                    )
+                  ),
                   h('button', {
                     type: 'button',
-                    className: 'chip-act',
-                    style: { fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(245, 158, 11, 0.35)', color: '#fbbf24' },
+                    className: `discover-source-card ${novelSearchFilter === 'RoyalRoad' ? 'active' : ''}`,
+                    onClick: () => {
+                      setImportCategoryTab('wn');
+                      setIsBookSearchMode(false);
+                      setIsSwiftAudioMode(false);
+                      setNovelSearchFilter('RoyalRoad');
+                      if (webImportUrl.trim()) handleSearchNovels(webImportUrl.trim(), 'RoyalRoad');
+                      else toast('⚔️ Royal Road: original web fiction & fantasy serials.', 'info');
+                    }
+                  },
+                    h('span', { style: { fontSize: 16 } }, '⚔️'),
+                    h('div', { style: { textAlign: 'left' } },
+                      h('div', { style: { fontSize: 12, fontWeight: 700, color: '#38bdf8' } }, 'Royal Road'),
+                      h('div', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Fantasy Serials')
+                    )
+                  ),
+                  h('button', {
+                    type: 'button',
+                    className: `discover-source-card ${isSwiftAudioMode ? 'active' : ''}`,
+                    onClick: () => {
+                      setImportCategoryTab('audio');
+                      setIsBookSearchMode(false);
+                      setIsSwiftAudioMode(true);
+                      if (webImportUrl.trim()) handleSwiftAudioSearch(webImportUrl.trim());
+                      else toast('🎧 SwiftAudiobooks: free audiobooks & track player.', 'info');
+                    }
+                  },
+                    h('span', { style: { fontSize: 16 } }, '🎧'),
+                    h('div', { style: { textAlign: 'left' } },
+                      h('div', { style: { fontSize: 12, fontWeight: 700, color: '#f472b6' } }, 'Audiobooks'),
+                      h('div', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Spoken Audio')
+                    )
+                  ),
+                  h('button', {
+                    type: 'button',
+                    className: 'discover-source-card',
                     onClick: () => {
                       const q = (webImportUrl || '').trim();
                       const targetUrl = q ? `https://oceanofpdf.com/?s=${encodeURIComponent(q)}` : 'https://oceanofpdf.com/';
@@ -969,11 +971,16 @@
                       toast(q ? `Opening OceanOfPDF EPUB search for "${q}"…` : 'Opening OceanOfPDF library in browser…', 'info');
                     },
                     title: 'Search OceanOfPDF for 1-click curated EPUB downloads'
-                  }, '🌊 OceanOfPDF Mirror'),
+                  },
+                    h('span', { style: { fontSize: 16 } }, '🌊'),
+                    h('div', { style: { textAlign: 'left' } },
+                      h('div', { style: { fontSize: 12, fontWeight: 700, color: '#fbbf24' } }, 'OceanOfPDF'),
+                      h('div', { style: { fontSize: 10, color: 'var(--slate)' } }, 'EPUB Mirror')
+                    )
+                  ),
                   h('button', {
                     type: 'button',
-                    className: 'chip-act',
-                    style: { fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(236, 72, 153, 0.35)', color: '#f472b6' },
+                    className: 'discover-source-card',
                     onClick: () => {
                       const q = (webImportUrl || '').trim();
                       const targetUrl = q ? `https://annas-archive.org/search?q=${encodeURIComponent(q)}&ext=epub` : 'https://annas-archive.org/';
@@ -981,7 +988,13 @@
                       toast(q ? `Opening Anna's Archive EPUB search for "${q}"…` : 'Opening Anna\'s Archive in browser…', 'info');
                     },
                     title: "Search Anna's Archive for complete community EPUB editions"
-                  }, "🌐 Anna's Archive")
+                  },
+                    h('span', { style: { fontSize: 16 } }, '🌐'),
+                    h('div', { style: { textAlign: 'left' } },
+                      h('div', { style: { fontSize: 12, fontWeight: 700, color: '#f472b6' } }, "Anna's Archive"),
+                      h('div', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Shadow Library')
+                    )
+                  )
                 ),
 
                 // Lnori Detection Card & Direct 1-Click EPUB Button
@@ -1429,45 +1442,47 @@
                   h('span', null, `⏸ Ingestion paused. ${getSafeChapterCount(activeNovelView)} chapters saved. Click "Resume Fetch" to continue.`)
                 ),
 
-                activeNovelView && h('div', { className: 'book-card' },
-                  h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
-                    h('div', { className: 't', style: { margin: 0, flex: 1 } }, activeNovelView.customTitle || getCustomTitle(activeNovelView) || activeNovelView.title || 'Untitled Web Novel'),
-                    h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                      h('button', {
-                        type: 'button',
-                        className: 'mini-btn secondary',
-                        style: { fontSize: '11px', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap', fontWeight: 600 },
-                        title: 'Rename this novel',
-                        onClick: () => {
-                          setRenameModalNovel(activeNovelView);
-                          setNewNovelTitleInput(activeNovelView.customTitle || getCustomTitle(activeNovelView) || activeNovelView.title || '');
-                        }
-                      }, '✏️ Rename'),
-                      h('button', {
-                        type: 'button',
-                        className: 'mini-btn ghost',
-                        style: { fontSize: '11px', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--slate)' },
-                        title: 'Reset view and start a new import or search',
-                        onClick: () => {
-                          setImportCategoryTab('wn');
-                          handleResetImportTab();
-                        }
-                      }, '✨ New Import')
-                    )
+                activeNovelView && h('div', { className: 'discover-novel-hero' },
+                  h('div', { className: 'discover-novel-cover' },
+                    activeNovelView.cover
+                      ? h('img', { src: activeNovelView.cover, alt: 'Cover' })
+                      : h('span', null, '📖')
                   ),
-                  h('div', { className: 'm' }, `By ${activeNovelView.author || 'Unknown'} · ${getSafeChapterCount(activeNovelView)} chapter(s) · ${getSafeChapters(activeNovelView).reduce((a, c) => a + (((c && (c.text || c.content)) || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
-                  isLnoriNovel && h('div', {
-                    style: {
-                      fontSize: '11.5px',
-                      color: '#10b981',
-                      margin: '4px 0 8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontWeight: 600
-                    }
-                  }, h('span', null, '✨ Official English Light Novel · Direct Clean EPUB Export Recommended (No Translation Needed)')),
-                  h('div', { className: 'book-acts' },
+                  h('div', { className: 'discover-novel-info' },
+                    h('div', null,
+                      h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 } },
+                        h('div', { className: 'discover-novel-title', style: { margin: 0, flex: 1 } }, activeNovelView.customTitle || getCustomTitle(activeNovelView) || activeNovelView.title || 'Untitled Web Novel'),
+                        h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn secondary',
+                            style: { fontSize: '11px', padding: '3px 8px', borderRadius: 999, whiteSpace: 'nowrap', fontWeight: 600 },
+                            title: 'Rename this novel',
+                            onClick: () => {
+                              setRenameModalNovel(activeNovelView);
+                              setNewNovelTitleInput(activeNovelView.customTitle || getCustomTitle(activeNovelView) || activeNovelView.title || '');
+                            }
+                          }, '✏️ Rename'),
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: { fontSize: '11px', padding: '3px 8px', borderRadius: 999, whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--slate)' },
+                            title: 'Reset view and start a new import or search',
+                            onClick: () => {
+                              setImportCategoryTab('wn');
+                              handleResetImportTab();
+                            }
+                          }, '✨ New Import')
+                        )
+                      ),
+                      h('div', { className: 'discover-novel-author' }, `By ${activeNovelView.author || 'Unknown'}`),
+                      h('div', { className: 'discover-novel-stats' },
+                        h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff' } }, `${getSafeChapterCount(activeNovelView)} chapters`),
+                        h('span', { className: 'chip' }, `${getSafeChapters(activeNovelView).reduce((a, c) => a + (((c && (c.text || c.content)) || '').split(/\s+/).filter(Boolean).length), 0).toLocaleString()} words`),
+                        isLnoriNovel && h('span', { className: 'chip', style: { color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' } }, '🇬🇧 English Original')
+                      )
+                    ),
+                    h('div', { className: 'book-acts', style: { marginTop: 12 } },
                     isLnoriNovel && h('button', {
                       type: 'button',
                       className: 'mini-btn',
@@ -1590,6 +1605,7 @@
                       : `📥 Download EPUB (${getSafeChapterCount(activeNovelView)} Ch)`)
                   )
                 ),
+              ),
                 activeNovelView && getSafeChapters(activeNovelView).length > 0 && (() => {
                   const sortedChs = [...getSafeChapters(activeNovelView)].sort((a, b) => (a && b && a.idx !== undefined && b.idx !== undefined) ? (a.idx - b.idx) : 0);
                   const chs = sortedChs;
@@ -1853,7 +1869,7 @@
                       }, '✕ Clear')
                     )
                   ),
-                  (!activeNovelView || !isSearchResultsCollapsed) && h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 10 } },
+                  (!activeNovelView || !isSearchResultsCollapsed) && h('div', { className: 'discover-cover-grid' },
                     novelSearchResults
                       .filter(item => {
                         const f = (novelSearchFilter || 'all').replace(/[\s\-_]+/g, '').toLowerCase();
@@ -1863,31 +1879,18 @@
                       })
                       .map((item, idx) => h('div', {
                         key: item.id || idx,
-                        className: 'card',
-                        style: {
-                          padding: 12,
-                          display: 'flex',
-                          gap: 12,
-                          alignItems: 'flex-start',
-                          background: 'var(--card-bg)',
-                          border: '1px solid var(--hairline)'
+                        className: 'discover-grid-card',
+                        onClick: () => {
+                          setWebImportUrl(item.url);
+                          if (item.source === 'Lnori' || /lnori\.(?:org|com)/i.test(item.url)) {
+                            handleLnoriDirectEpubDownload(item.url);
+                          } else {
+                            setIsSearchResultsCollapsed(true);
+                            handleStartFetch(false, null, false, item.url);
+                          }
                         }
                       },
-                        h('div', {
-                          style: {
-                            width: 68,
-                            height: 96,
-                            borderRadius: 6,
-                            overflow: 'hidden',
-                            flexShrink: 0,
-                            position: 'relative',
-                            background: 'var(--panel)',
-                            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }
-                        },
+                        h('div', { className: 'discover-grid-cover-wrap' },
                           item.cover ? h('img', {
                             src: item.cover,
                             alt: item.title,
@@ -1895,8 +1898,7 @@
                             onError: (e) => {
                               e.target.style.display = 'none';
                               if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                            },
-                            style: { width: '100%', height: '100%', objectFit: 'cover' }
+                            }
                           }) : null,
                           h('div', {
                             style: {
@@ -1905,72 +1907,46 @@
                               justifyContent: 'center',
                               width: '100%',
                               height: '100%',
-                              fontSize: 24
+                              fontSize: 32
                             }
-                          }, '📖')
+                          }, '📖'),
+                          h('div', { className: 'discover-grid-spine-shadow' }),
+                          item.source && h('span', {
+                            className: 'discover-grid-source-badge',
+                            style: {
+                              background: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.9)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.9)' : (item.source === 'Lnori' ? 'rgba(168, 85, 247, 0.9)' : 'rgba(236, 72, 153, 0.9)')),
+                              color: '#fff'
+                            }
+                          }, item.source)
                         ),
-
-                        h('div', { style: { flex: 1, minWidth: 0 } },
-                          h('div', { style: { display: 'flex', gap: 5, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' } },
-                            h('span', {
-                              className: 'badge',
-                              style: {
-                                fontSize: 10,
-                                fontWeight: 700,
-                                background: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.15)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.15)' : (item.source === 'NovelFire' ? 'rgba(245, 158, 11, 0.15)' : (item.source === 'Lnori' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(236, 72, 153, 0.15)'))),
-                                color: item.source === 'NovelBuddy' ? '#10b981' : (item.source === 'RoyalRoad' ? '#3b82f6' : (item.source === 'NovelFire' ? '#f59e0b' : (item.source === 'Lnori' ? '#a855f7' : '#ec4899'))),
-                                borderColor: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.3)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.3)' : (item.source === 'NovelFire' ? 'rgba(245, 158, 11, 0.3)' : (item.source === 'Lnori' ? 'rgba(168, 85, 247, 0.3)' : 'rgba(236, 72, 153, 0.3)')))
-                              }
-                            }, item.source),
-                            item.status && h('span', { className: 'badge', style: { fontSize: 9.5, opacity: 0.8 } }, item.status)
-                          ),
-                          h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
-                          item.author && h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, `by ${item.author}`),
-                          h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 } },
-                            item.chapters && h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent, #6366f1)', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 } },
-                              `📑 ${item.chapters}`
-                            ),
-                            item.rating && h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 } },
-                              `${item.rating}`
-                            )
-                          ),
-                          item.summary && h('div', { style: { fontSize: 11, color: 'var(--paper-dim, #94a3b8)', lineHeight: 1.35, marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } },
-                            item.summary
-                          ),
-                          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                            h('button', {
-                              type: 'button',
-                              className: 'mini-btn',
-                              style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
-                              onClick: () => {
+                        h('div', { className: 'discover-grid-title', title: item.title }, item.title),
+                        h('div', { className: 'discover-grid-author' }, item.author ? `by ${item.author}` : (item.chapters ? `📑 ${item.chapters}` : '')),
+                        h('div', { className: 'discover-grid-actions' },
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn',
+                            style: {
+                              width: '100%',
+                              justifyContent: 'center',
+                              padding: '6px 8px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: (item.source === 'Lnori' || /lnori\.(?:org|com)/i.test(item.url)) ? 'linear-gradient(90deg, #6366f1, #10b981)' : 'var(--accent, #6366f1)',
+                              border: 'none',
+                              color: '#fff',
+                              borderRadius: 999
+                            },
+                            onClick: (e) => {
+                              e.stopPropagation();
+                              setWebImportUrl(item.url);
+                              if (item.source === 'Lnori' || /lnori\.(?:org|com)/i.test(item.url)) {
+                                handleLnoriDirectEpubDownload(item.url);
+                              } else {
                                 setIsSearchResultsCollapsed(true);
-                                setWebImportUrl(item.url);
                                 handleStartFetch(false, null, false, item.url);
                               }
-                            }, '📥 Fetch Novel'),
-                            (item.source === 'Lnori' || /lnori\.(?:org|com)/i.test(item.url)) && h('button', {
-                              type: 'button',
-                              className: 'mini-btn',
-                              style: { background: 'linear-gradient(90deg, #6366f1, #10b981)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
-                              onClick: () => handleLnoriDirectEpubDownload(item.url)
-                            }, '⚡ 1-Click EPUB'),
-                            h('button', {
-                              type: 'button',
-                              className: 'mini-btn ghost',
-                              style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                              title: 'Fill URL into import box',
-                              onClick: () => {
-                                setWebImportUrl(item.url);
-                                toast(`Selected "${item.title}". Click "Fetch Novel" to begin!`, 'info');
-                              }
-                            }, '📋 Select URL'),
-                            h('button', {
-                              type: 'button',
-                              className: 'mini-btn ghost',
-                              style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                              onClick: () => window.open(item.url, '_blank')
-                            }, '🔗 Open')
-                          )
+                            }
+                          }, (item.source === 'Lnori' || /lnori\.(?:org|com)/i.test(item.url)) ? '⚡ 1-Click EPUB' : '⤓ Fetch Novel')
                         )
                       ))
                   )
@@ -1989,33 +1965,13 @@
                       onClick: () => setSwiftAudioResults([])
                     }, '✕ Clear')
                   ),
-                  h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 10 } },
+                  h('div', { className: 'discover-cover-grid' },
                     swiftAudioResults.map((item, idx) => h('div', {
                       key: idx,
-                      className: 'card',
-                      style: {
-                        padding: 12,
-                        display: 'flex',
-                        gap: 12,
-                        alignItems: 'flex-start',
-                        background: 'var(--card-bg)',
-                        border: '1px solid var(--hairline)'
-                      }
+                      className: 'discover-grid-card',
+                      onClick: () => handleStartPlayAudiobook(item)
                     },
-                      h('div', {
-                        style: {
-                          width: 64,
-                          height: 92,
-                          borderRadius: 6,
-                          overflow: 'hidden',
-                          flexShrink: 0,
-                          position: 'relative',
-                          background: 'var(--panel)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }
-                      },
+                      h('div', { className: 'discover-grid-cover-wrap' },
                         item.cover ? h('img', {
                           src: item.cover,
                           alt: 'Cover',
@@ -2023,8 +1979,7 @@
                           onError: (e) => {
                             e.target.style.display = 'none';
                             if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                          },
-                          style: { width: '100%', height: '100%', objectFit: 'cover' }
+                          }
                         }) : null,
                         h('div', {
                           style: {
@@ -2033,48 +1988,37 @@
                             justifyContent: 'center',
                             width: '100%',
                             height: '100%',
-                            fontSize: 24
+                            fontSize: 32
                           }
-                        }, '🎧')
+                        }, '🎧'),
+                        h('div', { className: 'discover-grid-spine-shadow' }),
+                        h('span', {
+                          className: 'discover-grid-source-badge',
+                          style: { background: 'rgba(236, 72, 153, 0.9)', color: '#fff' }
+                        }, item.duration || 'Audio')
                       ),
-
-                      h('div', { style: { flex: 1, minWidth: 0 } },
-                        h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
-                        h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, item.author ? `by ${item.author}` : ''),
-                        item.duration && h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent, #6366f1)', padding: '2px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 600, marginBottom: 8 } },
-                          `⏱ ${item.duration}`
-                        ),
-                        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                          h('button', {
-                            type: 'button',
-                            className: 'mini-btn',
-                            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
-                            onClick: () => handleStartPlayAudiobook(item)
-                          }, '🎧 Listen Now'),
-                          h('button', {
-                            type: 'button',
-                            className: 'mini-btn ghost',
-                            style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                            onClick: () => handleOpenAudioDownload(item)
-                          }, '📥 Download'),
-                          (() => {
-                            const inLib = isAudiobookInLibrary(item);
-                            return h('button', {
-                              type: 'button',
-                              className: `mini-btn ${inLib ? '' : 'ghost'}`,
-                              style: {
-                                fontSize: 11,
-                                fontWeight: 600,
-                                padding: '5px 8px',
-                                color: inLib ? '#f59e0b' : 'var(--paper-dim)',
-                                borderColor: inLib ? 'rgba(245, 158, 11, 0.4)' : 'var(--hairline)',
-                                background: inLib ? 'rgba(245, 158, 11, 0.12)' : undefined
-                              },
-                              title: inLib ? 'In Library (tap to remove)' : 'Save to Library for later',
-                              onClick: () => inLib ? removeAudiobookFromLibrary(item) : saveAudiobookToLibrary(item)
-                            }, inLib ? '⭐ In Library' : '☆ Add to Library');
-                          })()
-                        )
+                      h('div', { className: 'discover-grid-title', title: item.title }, item.title),
+                      h('div', { className: 'discover-grid-author' }, item.author ? `by ${item.author}` : 'SwiftAudio'),
+                      h('div', { className: 'discover-grid-actions' },
+                        h('button', {
+                          type: 'button',
+                          className: 'mini-btn',
+                          style: {
+                            width: '100%',
+                            justifyContent: 'center',
+                            padding: '6px 8px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            background: 'linear-gradient(90deg, #6366f1, #ec4899)',
+                            border: 'none',
+                            color: '#fff',
+                            borderRadius: 999
+                          },
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            handleStartPlayAudiobook(item);
+                          }
+                        }, '🎧 Listen Now')
                       )
                     ))
                   )
@@ -2133,7 +2077,7 @@
                         color: 'var(--paper-dim)',
                         background: 'var(--card-bg)',
                         border: '1px dashed var(--hairline)',
-                        borderRadius: 8,
+                        borderRadius: 12,
                         fontSize: 12
                       }
                     },
@@ -2144,48 +2088,32 @@
                         style: { fontSize: 11, marginLeft: 6, color: 'var(--iris)' },
                         onClick: () => setBooksDownloadableOnly(false)
                       }, 'Show all catalog records')
-                    ) : h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 12 } },
+                    ) : h('div', { className: 'discover-cover-grid' },
                       displayedBooks.map((item, idx) => {
                         const isEpub = item.format === 'EPUB' || (item.formatBadge && item.formatBadge.includes('EPUB'));
                         const isPdf = item.format === 'PDF' || (item.formatBadge && item.formatBadge.includes('PDF'));
-                        const isCatalog = item.format === 'CATALOG' || (item.formatBadge && item.formatBadge.includes('Catalog'));
-
                         return h('div', {
                           key: item.id || idx,
-                          className: 'card',
-                          style: {
-                            padding: 12,
-                            display: 'flex',
-                            gap: 12,
-                            alignItems: 'flex-start',
-                            background: 'var(--card-bg)',
-                            border: '1px solid var(--hairline)',
-                            borderRadius: 8
+                          className: 'discover-grid-card',
+                          onClick: () => {
+                            if (isEpub || item.directEpub || item.epubUrl) {
+                              handleDownloadBookEpub(item);
+                            } else if (item.downloadUrl) {
+                              (window.BookSearchEngine?.openExternalUrl || window.open)(item.downloadUrl, '_blank');
+                            } else if (item.iaUrl || item.annasUrl || item.workUrl) {
+                              window.open(item.iaUrl || item.annasUrl || item.workUrl, '_blank');
+                            }
                           }
                         },
-                          h('div', {
-                            style: {
-                              width: 68,
-                              height: 98,
-                              borderRadius: 6,
-                              overflow: 'hidden',
-                              flexShrink: 0,
-                              position: 'relative',
-                              background: 'var(--panel)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }
-                          },
+                          h('div', { className: 'discover-grid-cover-wrap' },
                             item.cover ? h('img', {
                               src: item.cover,
-                              alt: 'Cover',
+                              alt: item.title,
                               referrerPolicy: 'no-referrer',
                               onError: (e) => {
                                 e.target.style.display = 'none';
                                 if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                              },
-                              style: { width: '100%', height: '100%', objectFit: 'cover' }
+                              }
                             }) : null,
                             h('div', {
                               style: {
@@ -2194,148 +2122,46 @@
                                 justifyContent: 'center',
                                 width: '100%',
                                 height: '100%',
-                                fontSize: 26
+                                fontSize: 32
                               }
-                            }, isPdf ? '📄' : '📖')
+                            }, isPdf ? '📄' : '🏛️'),
+                            h('div', { className: 'discover-grid-spine-shadow' }),
+                            h('span', {
+                              className: 'discover-grid-source-badge',
+                              style: {
+                                background: isEpub ? 'rgba(16, 185, 129, 0.9)' : (isPdf ? 'rgba(245, 158, 11, 0.9)' : 'rgba(99, 102, 241, 0.9)'),
+                                color: '#fff'
+                              }
+                            }, item.sourceBadge || (isEpub ? 'EPUB' : (isPdf ? 'PDF' : 'BOOK')))
                           ),
-
-                          h('div', { style: { flex: 1, minWidth: 0 } },
-                            h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 2 } }, item.title),
-                            h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginBottom: 4 } }, item.authors ? `by ${item.authors}` : ''),
-                            h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 } },
-                              h('span', { className: 'chip', style: { fontSize: 10, padding: '1px 6px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' } }, item.sourceBadge || item.source),
-                              isEpub ? h('span', {
-                                className: 'chip',
-                                style: {
-                                  fontSize: 10.5,
-                                  fontWeight: 700,
-                                  padding: '1px 8px',
-                                  color: '#10b981',
-                                  background: 'rgba(16, 185, 129, 0.12)',
-                                  borderColor: 'rgba(16, 185, 129, 0.5)'
+                          h('div', { className: 'discover-grid-title', title: item.title }, item.title),
+                          h('div', { className: 'discover-grid-author' }, item.authors ? `by ${item.authors}` : (item.source || '')),
+                          h('div', { className: 'discover-grid-actions' },
+                            h('button', {
+                              type: 'button',
+                              className: 'mini-btn',
+                              style: {
+                                width: '100%',
+                                justifyContent: 'center',
+                                padding: '6px 8px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                background: isEpub ? 'linear-gradient(90deg, #10b981, #059669)' : 'var(--accent, #6366f1)',
+                                border: 'none',
+                                color: '#fff',
+                                borderRadius: 999
+                              },
+                              onClick: (e) => {
+                                e.stopPropagation();
+                                if (isEpub || item.directEpub || item.epubUrl) {
+                                  handleDownloadBookEpub(item);
+                                } else if (item.downloadUrl) {
+                                  (window.BookSearchEngine?.openExternalUrl || window.open)(item.downloadUrl, '_blank');
+                                } else if (item.iaUrl || item.annasUrl || item.workUrl) {
+                                  window.open(item.iaUrl || item.annasUrl || item.workUrl, '_blank');
                                 }
-                              }, '⚡ EPUB') : null,
-                              isPdf ? h('span', {
-                                className: 'chip',
-                                style: {
-                                  fontSize: 10.5,
-                                  fontWeight: 700,
-                                  padding: '1px 8px',
-                                  color: '#f59e0b',
-                                  background: 'rgba(245, 158, 11, 0.12)',
-                                  borderColor: 'rgba(245, 158, 11, 0.5)'
-                                }
-                              }, '📄 PDF') : null,
-                              (!isEpub && !isPdf && !isCatalog && item.formatBadge) ? h('span', {
-                                className: 'chip',
-                                style: {
-                                  fontSize: 10.5,
-                                  fontWeight: 700,
-                                  padding: '1px 8px',
-                                  color: '#8b5cf6',
-                                  background: 'rgba(139, 92, 246, 0.12)',
-                                  borderColor: 'rgba(139, 92, 246, 0.5)'
-                                }
-                              }, item.formatBadge) : null,
-                              isCatalog ? h('span', {
-                                className: 'chip',
-                                style: {
-                                  fontSize: 10,
-                                  fontWeight: 600,
-                                  padding: '1px 7px',
-                                  color: '#94a3b8',
-                                  background: 'rgba(148, 163, 184, 0.12)',
-                                  borderColor: 'rgba(148, 163, 184, 0.35)'
-                                }
-                              }, 'ℹ️ Catalog Record (Borrow / View Only)') : null,
-                              item.year && h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, item.year)
-                            ),
-                            item.summary && h('div', { style: { fontSize: 10.5, color: 'var(--paper-dim)', lineHeight: 1.3, marginBottom: 8 } }, item.summary),
-                            h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                              // 1. EPUB Download & Open / Save
-                              isEpub && (item.directEpub || item.epubUrl || item.downloadUrl) ? [
-                                h('button', {
-                                  type: 'button',
-                                  className: 'mini-btn',
-                                  style: { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
-                                  onClick: () => handleDownloadBookEpub(item)
-                                }, '📥 Download & Open EPUB'),
-                                h('button', {
-                                  type: 'button',
-                                  className: 'mini-btn ghost',
-                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 8px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' },
-                                  onClick: () => handleSaveBookEpub(item)
-                                }, '💾 Save EPUB')
-                              ] : null,
-
-                              // 2. PDF Download & Open / Save
-                              isPdf && (item.downloadUrl || item.epubUrl) ? [
-                                h('button', {
-                                  type: 'button',
-                                  className: 'mini-btn',
-                                  style: { background: 'linear-gradient(90deg, #f59e0b, #d97706)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
-                                  onClick: () => handleDownloadBookEpub(item)
-                                }, '📥 Download & Open PDF'),
-                                h('button', {
-                                  type: 'button',
-                                  className: 'mini-btn ghost',
-                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 8px', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' },
-                                  onClick: () => handleSaveBookEpub(item)
-                                }, '💾 Save PDF')
-                              ] : null,
-
-                              // 3. Other formats (MOBI, AZW3, etc.)
-                              (!isEpub && !isPdf && !isCatalog && item.downloadUrl) ? [
-                                h('button', {
-                                  type: 'button',
-                                  className: 'mini-btn',
-                                  style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '5px 10px' },
-                                  onClick: () => handleDownloadBookEpub(item)
-                                }, `📥 Download & Open ${item.format || ''}`),
-                                h('button', {
-                                  type: 'button',
-                                  className: 'mini-btn ghost',
-                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                                  onClick: () => handleSaveBookEpub(item)
-                                }, `💾 Save ${item.format || 'Book'}`)
-                              ] : null,
-
-                              // 4. External Mirror link (for direct downloadable sources like LibGen)
-                              (item.downloadUrl && !item.downloadUrl.includes('archive.org/download/')) ? h('button', {
-                                type: 'button',
-                                className: 'mini-btn ghost',
-                                style: { fontSize: 11, fontWeight: 600, padding: '5px 8px' },
-                                onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.downloadUrl, '_blank')
-                              }, '🌐 Mirror ↗') : null,
-
-                              // 5. Catalog & Borrowable Records (Internet Archive CDL + 1-tap Shadow Search)
-                              (!item.directEpub && !item.downloadUrl) ? [
-                                item.iaUrl ? h('button', {
-                                  type: 'button',
-                                  className: 'mini-btn ghost',
-                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: 'var(--accent, #6366f1)', borderColor: 'rgba(99, 102, 241, 0.4)' },
-                                  onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.iaUrl, '_blank')
-                                }, '🏛️ Borrow on Internet Archive ↗') : null,
-                                item.annasUrl ? h('button', {
-                                  type: 'button',
-                                  className: 'mini-btn ghost',
-                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: 'var(--iris, #818cf8)', borderColor: 'rgba(129, 140, 248, 0.4)' },
-                                  onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.annasUrl, '_blank')
-                                }, '🔍 Find on Anna\'s Archive ↗') : null,
-                                item.oceanUrl ? h('button', {
-                                  type: 'button',
-                                  className: 'mini-btn ghost',
-                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' },
-                                  onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.oceanUrl, '_blank')
-                                }, '📄 Find on OceanOfPDF ↗') : null,
-                                item.workUrl ? h('button', {
-                                  type: 'button',
-                                  className: 'mini-btn ghost',
-                                  style: { fontSize: 11, fontWeight: 600, padding: '5px 10px', color: 'var(--slate)', borderColor: 'var(--hairline)' },
-                                  onClick: () => (window.BookSearchEngine?.openExternalUrl || window.open)(item.workUrl, '_blank')
-                                }, '📖 View on Open Library ↗') : null
-                              ] : null
-                            )
+                              }
+                            }, isEpub ? '⚡ Download EPUB' : (isPdf ? '📄 Get PDF' : '📥 Get Book'))
                           )
                         );
                       })

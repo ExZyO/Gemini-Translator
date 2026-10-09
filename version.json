@@ -1,9 +1,9 @@
 {
-  "version": "8.21.9",
-  "versionCode": 8420,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.9/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.9/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.9",
+  "version": "8.21.10",
+  "versionCode": 8421,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.10/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.10/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.10",
   "releaseDate": "2026-10-09",
-  "releaseNotes": "v8.21.9: Complete Apple Books & LNReader UI/UX redesign — bookshelf-first hero card, 3:4 cover grid with 1-tap quick actions sheet, 4-category discover hub, dual-mode translate deck (quick text vs book file) with thumb-zone AI action button, floating live crawl banner, and frosted glass navigation dock."
+  "releaseNotes": "v8.21.10: Complete Apple Books & LNReader UI/UX Pro Max overhaul across all tabs — frosted glass translate deck, 3:4 fluid cover grid and novel hero in Discover, sleek studio canvas dropzone, and Apple iOS inset grouped settings."
 }

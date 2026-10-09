@@ -15,11 +15,23 @@
     const btn = window.btn || function(p, ...ch) { return h('button', p, ...ch); };
 
     const switchRow = (label, checked, onChange) => h('div', { className: 'set-row' },
-      h('span', { className: 'l' }, label),
+      h('span', { className: 'l', style: { fontWeight: 500 } }, label),
       h('button', { type: 'button', className: `switch ${checked ? 'on' : ''}`, onClick: () => onChange(!checked), 'aria-pressed': checked })
     );
 
-    const chipSelectStyle = { background: 'var(--void)', border: '1px solid var(--hairline)', color: 'var(--paper-dim)', borderRadius: 8, padding: '4px 6px', fontSize: 11, outline: 'none', maxWidth: 170 };
+    const chipSelectStyle = {
+      background: 'rgba(255, 255, 255, 0.05)',
+      border: '1px solid rgba(255, 255, 255, 0.12)',
+      color: '#F8FAFC',
+      borderRadius: 12,
+      padding: '7px 12px',
+      fontSize: 12.5,
+      fontWeight: 600,
+      outline: 'none',
+      maxWidth: 220,
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+      cursor: 'pointer'
+    };
     const fontThemes = [{ id: 'literata', label: 'Literata' }, { id: 'georgia', label: 'Georgia' }, { id: 'inter', label: 'Inter' }, { id: 'none', label: 'Default' }];
 
     const {
@@ -190,38 +202,48 @@
     ];
 
               return h(React.Fragment, null,
-                // Top Quick Status & Mihon-Style Toggles
-                h('div', {
-                  className: 'card',
-                  style: {
-                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)',
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                    marginBottom: 10,
-                    padding: '12px 14px'
-                  }
-                },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                      h('span', { style: { fontSize: 18 } }, '📱'),
-                      h('div', null,
-                        h('div', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)' } }, 'Gemini Novel Studio & Reader'),
-                        h('div', { style: { fontSize: 10.5, color: 'var(--slate)' } }, `v${appVersion} (Build ${appVersionCode || 8228}) · Pure AMOLED Black`)
-                      )
+                // Apple-style Header
+                h('div', { className: 'apple-page-header', style: { marginBottom: 14 } },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 } },
+                    h('div', null,
+                      h('h1', { style: { fontSize: 24, fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em', margin: '0 0 2px' } }, 'Settings'),
+                      h('p', { style: { fontSize: 13, color: '#94A3B8', margin: 0 } }, 'AI models, translation engine, cloud sync & reader defaults')
                     ),
                     h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
                       h('button', {
                         type: 'button',
                         className: 'chip-act',
-                        style: { fontSize: 10.5, padding: '3px 8px', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.35)' },
+                        style: { fontSize: 11, padding: '5px 12px', borderRadius: 999, color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.35)' },
                         onClick: handleResetSettings,
                         title: 'Restore settings to recommended defaults (keeps API keys and library safe)'
-                      }, '↺ Reset Settings'),
+                      }, '↺ Reset'),
                       h('button', {
                         type: 'button',
                         className: 'chip-act',
-                        style: { fontSize: 10.5, padding: '3px 8px' },
+                        style: { fontSize: 11, padding: '5px 12px', borderRadius: 999, background: 'rgba(99, 102, 241, 0.15)', borderColor: '#6366F1', color: '#c7d2fe', fontWeight: 600 },
                         onClick: () => checkForAppUpdate(true)
                       }, '🔄 Updates')
+                    )
+                  )
+                ),
+
+                // Top Quick Status & Mihon-Style Toggles
+                h('div', {
+                  className: 'card settings-grouped-card',
+                  style: {
+                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    marginBottom: 16,
+                    padding: '14px 16px'
+                  }
+                },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                      h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #4F46E5)' } }, '📱'),
+                      h('div', null,
+                        h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--paper)' } }, 'Gemini Novel Studio & Reader'),
+                        h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 1 } }, `v${appVersion} (Build ${appVersionCode || 8228}) · AMOLED Midnight`)
+                      )
                     )
                   ),
                   h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
@@ -315,10 +337,10 @@
                 h('div', {
                   style: {
                     display: 'flex',
-                    gap: 6,
+                    gap: 8,
                     overflowX: 'auto',
-                    paddingBottom: 8,
-                    marginBottom: 12,
+                    paddingBottom: 6,
+                    marginBottom: 16,
                     WebkitOverflowScrolling: 'touch',
                     scrollbarWidth: 'none'
                   }
@@ -330,16 +352,17 @@
                       type: 'button',
                       className: `chip-act ${isCatActive ? 'active' : ''}`,
                       style: {
-                        padding: '8px 14px',
-                        fontSize: 12,
+                        padding: '9px 16px',
+                        fontSize: 12.5,
                         fontWeight: isCatActive ? 700 : 500,
                         whiteSpace: 'nowrap',
-                        borderRadius: 20,
-                        background: isCatActive ? 'var(--accent, #6366f1)' : 'rgba(255, 255, 255, 0.04)',
-                        color: isCatActive ? '#fff' : 'var(--slate)',
-                        border: isCatActive ? '1px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
+                        borderRadius: 999,
+                        background: isCatActive ? '#6366F1' : 'rgba(255, 255, 255, 0.04)',
+                        color: isCatActive ? '#FFFFFF' : '#94A3B8',
+                        border: isCatActive ? '1px solid #6366F1' : '1px solid rgba(255, 255, 255, 0.08)',
+                        boxShadow: isCatActive ? '0 4px 14px rgba(99, 102, 241, 0.4)' : 'none',
                         cursor: 'pointer',
-                        transition: 'all 0.18s ease',
+                        transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
                         flexShrink: 0
                       },
                       onClick: () => {
@@ -359,8 +382,13 @@
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, provider.toUpperCase())
               ),
-              h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Engine Configuration')),
+              h('div', { className: 'card settings-grouped-card' },
+                h('div', { className: 'card-title' },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #4F46E5)' } }, '🔮'),
+                    h('span', null, 'Engine Configuration')
+                  )
+                ),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Active Provider'),
                   h('select', { className: 'chip', style: chipSelectStyle, value: provider, onChange: e => setProvider(e.target.value) },
@@ -524,13 +552,14 @@
                   h('span', { className: 'sec-title' }, 'API KEYS & ROTATION')
                 )
               ),
-              h('div', { className: 'card' },
+              h('div', { className: 'card settings-grouped-card' },
                 (() => {
                   const provKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
                   const uniqueCount = new Set(provKeys.map(k => k.key.trim())).size;
                   const hasDuplicates = provKeys.length > uniqueCount;
                   return h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+                      h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #EC4899, #DB2777)' } }, '🔑'),
                       h('span', null, `API Keys (${provider.toUpperCase()}) · ${provKeys.length} slots (${uniqueCount} unique)`),
                       hasDuplicates && h('span', { className: 'badge', style: { background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid currentColor', fontSize: 10 } }, `⚠️ ${provKeys.length - uniqueCount} duplicate(s)`)
                     ),
@@ -727,8 +756,13 @@
                 ),
                 h('span', { style: { fontSize: 10, color: healthAuditEnabled ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, healthAuditEnabled ? 'ACTIVE' : 'DISABLED')
               ),
-              h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Novel Diagnostics & Proofreader (§5.9 + §7.1 + §7.5)')),
+              h('div', { className: 'card settings-grouped-card' },
+                h('div', { className: 'card-title' },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #06B6D4, #0891B2)' } }, '🩺'),
+                    h('span', null, 'Novel Diagnostics & Proofreader')
+                  )
+                ),
                 switchRow('Novel Health Auditor', healthAuditEnabled, (v) => { setHealthAuditEnabled(v); localStorage.setItem('healthAuditEnabled', String(v)); }),
                 switchRow('Translation QA Proofreader', qaProofreaderEnabled, (v) => { setQaProofreaderEnabled(v); localStorage.setItem('qaProofreaderEnabled', String(v)); }),
                 switchRow('CJK Untranslated Leak Detector', cjkLeakCheckEnabled, (v) => { setCjkLeakCheckEnabled(v); localStorage.setItem('cjkLeakCheckEnabled', String(v)); }),
@@ -744,8 +778,13 @@
                 ),
                 h('span', { style: { fontSize: 10, color: (translationMemoryEnabled || snapshotsEnabled) ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, (translationMemoryEnabled || snapshotsEnabled) ? 'ACTIVE' : 'DISABLED')
               ),
-              h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Translation Memory & Snapshots (§8.2 + §8.6)')),
+              h('div', { className: 'card settings-grouped-card' },
+                h('div', { className: 'card-title' },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #F59E0B, #D97706)' } }, '📜'),
+                    h('span', null, 'Translation Memory & Snapshots')
+                  )
+                ),
                 switchRow('Translation Memory Bank (Exact & Fuzzy Cache)', translationMemoryEnabled, (v) => {
                   setTranslationMemoryEnabled(v);
                   window.__translationMemoryEnabled = v;
@@ -810,8 +849,13 @@
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, amoledMode ? 'AMOLED' : 'DARK')
               ),
-              h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Theme & Reader Formatting')),
+              h('div', { className: 'card settings-grouped-card' },
+                h('div', { className: 'card-title' },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' } }, '🎨'),
+                    h('span', null, 'Theme & Reader Formatting')
+                  )
+                ),
                 switchRow('AMOLED Pitch Black (Pure #000000)', amoledMode, (v) => {
                   setAmoledMode(v);
                   localStorage.setItem('amoledMode', String(v));
@@ -842,10 +886,11 @@
                 ),
                 h('span', { style: { fontSize: 10, color: opdsRunning ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, opdsRunning ? 'ONLINE' : 'STOPPED')
               ),
-              h('div', { className: 'card', style: { border: opdsRunning ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--hairline)' } },
+              h('div', { className: 'card settings-grouped-card', style: { border: opdsRunning ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--hairline)' } },
                 h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                    h('span', null, '📡 Moon+ Reader OPDS Catalog Feed'),
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' } }, '🌙'),
+                    h('span', null, 'Moon+ Reader OPDS Catalog Feed'),
                     opdsRunning && h('span', { className: 'badge', style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontSize: 10 } }, '🟢 Active')
                   ),
                   h('span', { className: 'count' }, 'OPDS 1.2 Protocol')
@@ -908,8 +953,13 @@
                   h('span', { className: 'sec-title' }, 'HARDWARE & DIAGNOSTICS')
                 )
               ),
-              h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Device Lock & Telemetry')),
+              h('div', { className: 'card settings-grouped-card' },
+                h('div', { className: 'card-title' },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #14B8A6, #0D9488)' } }, '🔋'),
+                    h('span', null, 'Device Lock & Keep-Alive')
+                  )
+                ),
                 switchRow('Keep Screen & Device Awake (WakeLock)', deviceWakeLock, (v) => {
                   setDeviceWakeLock(v);
                   localStorage.setItem('deviceWakeLock', String(v));
@@ -925,10 +975,11 @@
               ),
 
               // ── LIVE AGENT TELEMETRY & DEBUGGING (METHOD 2) CARD ──
-              h('div', { className: 'card', style: { border: telemetryEnabled ? '1px solid rgba(99,102,241,0.35)' : '1px solid var(--hairline)' } },
+              h('div', { className: 'card settings-grouped-card', style: { border: telemetryEnabled ? '1px solid rgba(99,102,241,0.35)' : '1px solid var(--hairline)' } },
                 h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                    h('span', null, '📡 Live Agent Telemetry & Debugging (Method 2)'),
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #F43F5E, #E11D48)' } }, '📡'),
+                    h('span', null, 'Live Agent Telemetry & Debugging'),
                     telemetryStatus === 'connected' && h('span', { className: 'badge', style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontSize: 10 } }, '🟢 Connected')
                   ),
                   h('span', { className: 'count' }, 'Wireless Local Wi-Fi')
@@ -999,7 +1050,7 @@
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, cloudProvider === 'gdrive' ? 'GOOGLE DRIVE' : 'NEXTCLOUD / NAS')
               ),
-              h('div', { className: 'card' },
+              h('div', { className: 'card settings-grouped-card' },
                 // Segmented Switcher
                 h('div', { style: { display: 'flex', border: '1px solid var(--hairline)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 } },
                   h('button', {
@@ -1271,9 +1322,12 @@
                   h('span', { className: 'sec-title' }, 'LOCAL ARCHIVE & STORAGE')
                 )
               ),
-              h('div', { className: 'card' },
+              h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
-                  h('span', null, 'Local Storage & Memory Diagnostics'),
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #64748B, #475569)' } }, '💾'),
+                    h('span', null, 'Local Storage & Memory Diagnostics')
+                  ),
                   h('span', { className: 'count', style: { color: storageDiag.pct > 80 ? '#f87171' : 'var(--pine)' } },
                     storageLoading ? 'Estimating…' : (storageDiag.available ? `${storageDiag.usedMB} MB used (${storageDiag.pct}%)` : 'Estimates Ready')
                   )
@@ -1353,9 +1407,12 @@
                   }, '🧹 Clear Session Cache')
                 )
               ),
-              h('div', { className: 'card' },
+              h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
-                  h('span', null, 'Full App Backup & Restore'),
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #3B82F6, #2563EB)' } }, '📦'),
+                    h('span', null, 'Full App Backup & Restore')
+                  ),
                   h('span', { className: 'count' }, 'Library · Settings · Keys')
                 ),
                 h('div', { className: 'toolbar-group', style: { width: '100%', marginTop: 8 } },
@@ -1376,8 +1433,13 @@
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, 'Moon+ Reader & SherpaTTS')
               ),
-              h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'Voice & Offline Speech Engine')),
+              h('div', { className: 'card settings-grouped-card' },
+                h('div', { className: 'card-title' },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #A855F7, #9333EA)' } }, '🔊'),
+                    h('span', null, 'Voice & Offline Speech Engine')
+                  )
+                ),
                 h('div', { style: { fontSize: 12.5, color: 'var(--slate)', marginBottom: 12, lineHeight: 1.5 } },
                   'Configure your Text-to-Speech voice, offline neural Piper/SherpaTTS models (e.g. Callum), and Android system speech.'
                 ),
@@ -1420,8 +1482,13 @@
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, `v${appVersion}`)
               ),
-              h('div', { className: 'card' },
-                h('div', { className: 'card-title' }, h('span', null, 'App Version & Runtime')),
+              h('div', { className: 'card settings-grouped-card' },
+                h('div', { className: 'card-title' },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #71717A, #52525B)' } }, '📱'),
+                    h('span', null, 'App Version & Runtime')
+                  )
+                ),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Check for updates'), h('button', { type: 'button', className: 'chip-act', onClick: () => checkForAppUpdate(true) }, `v${appVersion} (Build ${appVersionCode})`)),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Force Refresh & Clear Stale Cache'),

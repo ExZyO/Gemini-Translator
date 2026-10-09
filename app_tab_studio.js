@@ -100,49 +100,67 @@
           : (typeof window !== 'undefined' && window.mergeHtml ? window.mergeHtml : (typeof mergeHtml !== 'undefined' ? mergeHtml : '')));
 
     return h(React.Fragment, null,
-      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 } },
-        h('div', { className: 'seg-wide', style: { flex: 1, minWidth: 260, margin: 0 } },
-          h('span', {
-            className: studioSubTab === 'edit' ? 'on' : '',
+      // Apple-style Header
+      h('div', { className: 'apple-page-header', style: { marginBottom: 14 } },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 } },
+          h('div', null,
+            h('h1', { style: { fontSize: 24, fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em', margin: '0 0 2px' } }, 'Studio'),
+            h('p', { style: { fontSize: 13, color: '#94A3B8', margin: 0 } }, 'WYSIWYG prose editor, volume splitter & book merger')
+          ),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: {
+              padding: '6px 12px',
+              borderRadius: 999,
+              fontSize: 11.5,
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              cursor: 'pointer',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              whiteSpace: 'nowrap'
+            },
+            onClick: handleResetStudio,
+            title: 'Reset active studio tool and close open files'
+          }, '✕ Reset Studio')
+        )
+      ),
+      h('div', { style: { marginBottom: 12 } },
+        h('div', { className: 'studio-pill-bar', style: { width: '100%', margin: 0 } },
+          h('button', {
+            type: 'button',
+            className: `studio-pill-btn ${studioSubTab === 'edit' ? 'active' : ''}`,
             onClick: () => handleSelectSubTab('edit'),
-            role: 'button',
             title: 'Full WYSIWYG and chapter prose editor'
-          }, '✏️ Edit Ebook'),
-          h('span', {
-            className: studioSubTab === 'split' ? 'on' : '',
-            onClick: () => handleSelectSubTab('split'),
-            role: 'button',
-            title: 'Split continuous web novels into volumes'
-          }, 'Split into Volumes'),
-          h('span', {
-            className: studioSubTab === 'merge' ? 'on' : '',
-            onClick: () => handleSelectSubTab('merge'),
-            role: 'button',
-            title: 'Merge multiple EPUB volumes into one consolidated book'
-          }, 'Merge into One Book')
-        ),
-        h('button', {
-          type: 'button',
-          className: 'mini-btn ghost',
-          style: {
-            padding: '6px 12px',
-            borderRadius: 999,
-            fontSize: 11.5,
-            fontWeight: 600,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            cursor: 'pointer',
-            color: '#f87171',
-            border: '1px solid rgba(239, 68, 68, 0.35)',
-            whiteSpace: 'nowrap'
           },
-          onClick: handleResetStudio,
-          title: 'Reset active studio tool and close open files'
-        }, '✕ Reset Studio')
+            h('span', null, '✏️'),
+            h('span', null, 'Edit Ebook')
+          ),
+          h('button', {
+            type: 'button',
+            className: `studio-pill-btn ${studioSubTab === 'split' ? 'active' : ''}`,
+            onClick: () => handleSelectSubTab('split'),
+            title: 'Split continuous web novels into volumes'
+          },
+            h('span', null, '📚'),
+            h('span', null, 'Split Volumes')
+          ),
+          h('button', {
+            type: 'button',
+            className: `studio-pill-btn ${studioSubTab === 'merge' ? 'active' : ''}`,
+            onClick: () => handleSelectSubTab('merge'),
+            title: 'Merge multiple EPUB volumes into one consolidated book'
+          },
+            h('span', null, '📖'),
+            h('span', null, 'Merge Books')
+          )
+        )
       ),
       h('div', {
-        className: 'studio-host',
+        className: 'studio-host studio-canvas',
         dangerouslySetInnerHTML: {
           __html: currentHtml
         }

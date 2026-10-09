@@ -218,23 +218,32 @@
   justify-content: space-between;
   gap: 8px;
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', sans-serif;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--slate);
-  padding: 16px 0 8px;
-  border-bottom: 1px solid var(--hairline);
-  margin-bottom: 12px;
+  color: #818CF8;
+  padding: 22px 4px 8px;
+  margin-bottom: 6px;
+  border-bottom: none;
 }
 .sec-banner .sec-tag {
-  color: var(--iris-light);
-  font-weight: 700;
-  margin-right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.2);
+  color: #A5B4FC;
+  font-weight: 800;
+  margin-right: 8px;
+  font-size: 11px;
 }
 .sec-banner .sec-title {
-  color: var(--paper-dim);
-  font-weight: 600;
+  color: #E2E8F0;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 /* Connected Pill Toolbars */
@@ -1240,4 +1249,532 @@ input, textarea, [contenteditable="true"] {
   color: #FFFFFF;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
 }
+
+/* ── Apple Books Style Floating Search Bar (Discover) ── */
+.apple-search-wrap {
+  position: relative;
+  margin-bottom: 14px;
+}
+.apple-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  padding: 0 16px;
+  height: 50px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.apple-search-bar:focus-within {
+  border-color: #6366F1;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.apple-search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: #F8FAFC;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 0;
+}
+.apple-search-input::placeholder {
+  color: #64748B;
+}
+.apple-search-clear {
+  background: none;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 0.15s ease;
+}
+.apple-search-clear:hover {
+  color: #F8FAFC;
+}
+
+/* ── Discover Curated Source Shelf ── */
+.discover-source-shelf {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 16px;
+  scrollbar-width: none;
+}
+.discover-source-shelf::-webkit-scrollbar { display: none; }
+.discover-source-card {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.discover-source-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+}
+.discover-source-card.active {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: #6366F1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+/* ── Discover Media Result Cards ── */
+.discover-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.discover-media-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--card-midnight);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+.discover-media-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+.discover-media-cover {
+  width: 58px;
+  height: 80px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  background: #1E1B4B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+.discover-media-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.discover-media-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.discover-media-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #F8FAFC;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.discover-media-author {
+  font-size: 11.5px;
+  color: #94A3B8;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.discover-media-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+/* ── iOS-Style Grouped Inset Cards (Settings) ── */
+.settings-section-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #818CF8;
+  margin: 22px 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings-grouped-card {
+  background: #141724;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  margin-bottom: 16px;
+}
+.settings-row-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 14px;
+  color: #F8FAFC;
+  transition: background 0.15s ease;
+}
+.settings-row-item:last-child {
+  border-bottom: none;
+}
+.settings-row-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+.settings-row-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.settings-icon-tile {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Studio Floating Segmented Pill Bar ── */
+.studio-pill-bar {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.studio-pill-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #94A3B8;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.studio-pill-btn.active {
+  background: #6366F1;
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+}
+
+/* ── Apple Books Translate Deck Styles ── */
+.translate-glass-card {
+  background: #141724;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+  margin-bottom: 16px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.translate-glass-card:focus-within {
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 10px 32px rgba(99, 102, 241, 0.15), 0 0 0 1px rgba(99, 102, 241, 0.3);
+}
+.translate-glass-card .pane-head {
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.translate-glass-card .pane-textarea {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #F8FAFC;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  padding: 16px 18px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.translate-glass-card .pane-textarea::placeholder {
+  color: #64748B;
+}
+
+/* ── Apple Books Book Hero (Translate File Mode) ── */
+.translate-book-hero {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(20, 23, 36, 0.9) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.translate-book-cover {
+  width: 64px;
+  height: 88px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  background: #1E1B4B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+.translate-book-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.translate-book-details {
+  flex: 1;
+  min-width: 0;
+}
+.translate-book-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #F8FAFC;
+  line-height: 1.3;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.translate-book-meta {
+  font-size: 12px;
+  color: #94A3B8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Discover Novel Showcase Hero Card ── */
+.discover-novel-hero {
+  display: flex;
+  gap: 16px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, #141724 100%);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  border-radius: 20px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.discover-novel-cover {
+  width: 72px;
+  height: 98px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  background: #1E1B4B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+}
+.discover-novel-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.discover-novel-info {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.discover-novel-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #F8FAFC;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+.discover-novel-author {
+  font-size: 12.5px;
+  color: #94A3B8;
+  margin-bottom: 8px;
+}
+.discover-novel-stats {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+}
+
+/* ── Discover Fluid 3:4 Cover Grid (Matching Bookshelf) ── */
+.discover-cover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+  margin-bottom: 20px;
+}
+.discover-grid-card {
+  display: flex;
+  flex-direction: column;
+  background: #141724;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  position: relative;
+}
+.discover-grid-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+.discover-grid-cover-wrap {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #1E1B4B;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.discover-grid-cover-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.discover-grid-spine-shadow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 10px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+.discover-grid-source-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.discover-grid-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #F8FAFC;
+  line-height: 1.3;
+  margin-top: 8px;
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  min-height: 32px;
+}
+.discover-grid-author {
+  font-size: 11px;
+  color: #94A3B8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+.discover-grid-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: auto;
+}
+
+/* ── Studio Canvas & Dropzone ── */
+.studio-canvas {
+  background: #141724;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+  margin-bottom: 20px;
+}
+.studio-dropzone,
+#epub-drop-zone,
+#split-drop-zone,
+#merge-drop-zone {
+  border: 2px dashed rgba(99, 102, 241, 0.35) !important;
+  background: rgba(99, 102, 241, 0.04) !important;
+  border-radius: 20px !important;
+  padding: 36px 20px !important;
+  text-align: center !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer !important;
+}
+.studio-dropzone:hover,
+#epub-drop-zone:hover,
+#split-drop-zone:hover,
+#merge-drop-zone:hover {
+  border-color: #6366F1 !important;
+  background: rgba(99, 102, 241, 0.08) !important;
+  transform: translateY(-2px);
+}
+
 

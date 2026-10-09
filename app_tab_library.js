@@ -315,141 +315,145 @@
     }
 
     return h(React.Fragment, null,
-              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 } },
-                h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-                  h('input', {
-                    type: 'text',
-                    className: 'url-input',
-                    style: { flex: 1, height: 44, borderRadius: 12, padding: '0 14px', fontSize: 13 },
-                    placeholder: 'Search library by title, author, chapters…',
-                    value: libQuery,
-                    onChange: e => setLibQuery(e.target.value)
-                  }),
-                  libQuery && h('button', {
-                    type: 'button',
-                    className: 'icon-btn',
-                    style: { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: 'var(--slate)', cursor: 'pointer' },
-                    onClick: () => setLibQuery('')
-                  }, '✕')
-                ),
-                h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn',
-                    style: {
-                      background: 'rgba(99, 102, 241, 0.12)',
-                      color: 'var(--iris)',
-                      border: '1px solid rgba(99, 102, 241, 0.3)',
-                      fontWeight: 600,
-                      padding: '7px 14px',
-                      borderRadius: 999,
-                      fontSize: 12,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 5
-                    },
-                    title: 'Re-import previously downloaded EPUB files back into your library',
-                    onClick: () => epubRestoreInputRef.current?.click()
-                  }, '📥 Restore EPUBs'),
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn',
-                    style: {
-                      background: 'rgba(16, 185, 129, 0.12)',
-                      color: '#10b981',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
-                      fontWeight: 600,
-                      padding: '7px 14px',
-                      borderRadius: 999,
-                      fontSize: 12,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 5
-                    },
-                    title: 'Input an existing EPUB to auto-search sources and continue fetching',
-                    onClick: () => ongoingEpubInputRef.current?.click()
-                  }, '⚡ Continue Ongoing EPUB'),
-                  (libQuery || libTab !== 'all') && h('button', {
-                    type: 'button',
-                    className: 'mini-btn ghost',
-                    style: {
-                      color: '#f87171',
-                      borderColor: 'rgba(239, 68, 68, 0.35)',
-                      padding: '7px 14px',
-                      borderRadius: 999,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 5,
-                      cursor: 'pointer'
-                    },
-                    title: 'Reset library search and filter back to All Books',
-                    onClick: () => {
-                      setLibQuery('');
-                      setLibTab('all');
-                      toast('Library view reset to All Books.', 'info');
-                    }
-                  }, '✕ Reset View')
-                ),
-                h('input', {
-                  type: 'file',
-                  ref: epubRestoreInputRef,
-                  accept: '.epub',
-                  multiple: true,
-                  style: { display: 'none' },
-                  onChange: handleRestoreFromEpubFiles
-                }),
-                h('input', {
-                  type: 'file',
-                  ref: ongoingEpubInputRef,
-                  accept: '.epub',
-                  style: { display: 'none' },
-                  onChange: (e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleSelectOngoingEpubFile(f);
-                    e.target.value = '';
-                  }
-                })
-              ),
-              h('div', { className: 'seg', style: { marginTop: 10, marginBottom: 12, overflowX: 'auto', display: 'flex' } },
-                h('button', {
-                  type: 'button',
-                  className: `seg-btn ${libTab === 'all' ? 'active' : ''}`,
-                  style: libTab === 'all' ? { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700 } : {},
-                  onClick: () => setLibTab('all')
-                }, `📚 All (${allCountLabel})`),
-                h('button', {
-                  type: 'button',
-                  className: `seg-btn ${libTab === 'audio' ? 'active' : ''}`,
-                  style: libTab === 'audio' ? { background: '#8b5cf6', color: '#fff', fontWeight: 700 } : {},
-                  onClick: () => setLibTab('audio')
-                }, `🎧 Audiobooks (${filteredAudiobooks.length})`),
-                h('button', {
-                  type: 'button',
-                  className: `seg-btn ${libTab === 'saved' ? 'active' : ''}`,
-                  style: libTab === 'saved' ? { background: '#f59e0b', color: '#000', fontWeight: 700 } : {},
-                  onClick: () => setLibTab('saved')
-                }, `⭐ Saved Space (${savedSpaceCount})`),
-                h('button', {
-                  type: 'button',
-                  className: `seg-btn ${libTab === 'translated' ? 'active' : ''}`,
-                  style: libTab === 'translated' ? { background: '#22c55e', color: '#fff', fontWeight: 700 } : {},
-                  onClick: () => setLibTab('translated')
-                }, `🌐 Translated (${transCount})`),
-                h('button', {
-                  type: 'button',
-                  className: `seg-btn ${libTab === 'incomplete' ? 'active' : ''}`,
-                  style: libTab === 'incomplete' ? { background: '#eab308', color: '#000', fontWeight: 700 } : {},
-                  onClick: () => setLibTab('incomplete')
-                }, `⏸ Incomplete (${incCount})`),
-                h('button', {
-                  type: 'button',
-                  className: `seg-btn ${libTab === 'trash' ? 'active' : ''}`,
-                  style: libTab === 'trash' ? { background: '#ef4444', color: '#fff', fontWeight: 700 } : {},
-                  onClick: () => { setLibTab('trash'); loadTrashCount(); }
-                }, `🗑️ Trash (${trashCount})`)
-              ),
+      // Apple-style Header
+      h('div', { className: 'apple-page-header', style: { marginBottom: 14 } },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 } },
+          h('div', null,
+            h('h1', { style: { fontSize: 24, fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em', margin: '0 0 2px' } }, 'Bookshelf'),
+            h('p', { style: { fontSize: 13, color: '#94A3B8', margin: 0 } }, 'Your reading library, progress & offline books')
+          ),
+          (libQuery || libTab !== 'all') && h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: {
+              color: '#f87171',
+              borderColor: 'rgba(239, 68, 68, 0.35)',
+              padding: '5px 12px',
+              borderRadius: 999,
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: 'pointer'
+            },
+            title: 'Reset library search and filter back to All Books',
+            onClick: () => {
+              setLibQuery('');
+              setLibTab('all');
+              toast('Library view reset to All Books.', 'info');
+            }
+          }, '✕ Reset View')
+        )
+      ),
+
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 } },
+        h('div', { className: 'apple-search-wrap', style: { marginBottom: 0 } },
+          h('div', { className: 'apple-search-bar' },
+            h('span', { style: { fontSize: 16, opacity: 0.7 } }, '🔍'),
+            h('input', {
+              className: 'apple-search-input',
+              type: 'text',
+              placeholder: 'Search library by title, author, chapters…',
+              value: libQuery,
+              onChange: e => setLibQuery(e.target.value)
+            }),
+            libQuery && h('button', {
+              type: 'button',
+              className: 'apple-search-clear',
+              onClick: () => setLibQuery(''),
+              title: 'Clear search'
+            }, '✕')
+          )
+        ),
+        h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
+          h('button', {
+            type: 'button',
+            className: 'mini-btn',
+            style: {
+              background: 'rgba(99, 102, 241, 0.12)',
+              color: 'var(--iris)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              fontWeight: 600,
+              padding: '7px 14px',
+              borderRadius: 999,
+              fontSize: 12,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5
+            },
+            title: 'Re-import previously downloaded EPUB files back into your library',
+            onClick: () => epubRestoreInputRef.current?.click()
+          }, '📥 Restore EPUBs'),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn',
+            style: {
+              background: 'rgba(16, 185, 129, 0.12)',
+              color: '#10b981',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              fontWeight: 600,
+              padding: '7px 14px',
+              borderRadius: 999,
+              fontSize: 12,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5
+            },
+            title: 'Input an existing EPUB to auto-search sources and continue fetching',
+            onClick: () => ongoingEpubInputRef.current?.click()
+          }, '⚡ Continue Ongoing EPUB')
+        ),
+        h('input', {
+          type: 'file',
+          ref: epubRestoreInputRef,
+          accept: '.epub',
+          multiple: true,
+          style: { display: 'none' },
+          onChange: handleRestoreFromEpubFiles
+        }),
+        h('input', {
+          type: 'file',
+          ref: ongoingEpubInputRef,
+          accept: '.epub',
+          style: { display: 'none' },
+          onChange: (e) => {
+            const f = e.target.files?.[0];
+            if (f) handleSelectOngoingEpubFile(f);
+            e.target.value = '';
+          }
+        })
+      ),
+
+      h('div', { className: 'studio-pill-bar', style: { marginBottom: 14, overflowX: 'auto', scrollbarWidth: 'none' } },
+        h('button', {
+          type: 'button',
+          className: `studio-pill-btn ${libTab === 'all' ? 'active' : ''}`,
+          onClick: () => setLibTab('all')
+        }, `📚 All (${allCountLabel})`),
+        h('button', {
+          type: 'button',
+          className: `studio-pill-btn ${libTab === 'audio' ? 'active' : ''}`,
+          onClick: () => setLibTab('audio')
+        }, `🎧 Audio (${filteredAudiobooks.length})`),
+        h('button', {
+          type: 'button',
+          className: `studio-pill-btn ${libTab === 'saved' ? 'active' : ''}`,
+          onClick: () => setLibTab('saved')
+        }, `⭐ Saved (${savedSpaceCount})`),
+        h('button', {
+          type: 'button',
+          className: `studio-pill-btn ${libTab === 'translated' ? 'active' : ''}`,
+          onClick: () => setLibTab('translated')
+        }, `🌐 Translated (${transCount})`),
+        h('button', {
+          type: 'button',
+          className: `studio-pill-btn ${libTab === 'incomplete' ? 'active' : ''}`,
+          onClick: () => setLibTab('incomplete')
+        }, `⏸ Incomplete (${incCount})`),
+        h('button', {
+          type: 'button',
+          className: `studio-pill-btn ${libTab === 'trash' ? 'active' : ''}`,
+          onClick: () => { setLibTab('trash'); loadTrashCount(); }
+        }, `🗑️ Trash (${trashCount})`)
+      ),
 
               // 🎧 AUDIOBOOK SHELF IN LIBRARY
               libTab === 'audio' && h(React.Fragment, null,
