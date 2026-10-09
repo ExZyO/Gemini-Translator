@@ -1,9 +1,9 @@
 {
-  "version": "8.21.5",
-  "versionCode": 8416,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.5/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.5/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.5",
+  "version": "8.21.6",
+  "versionCode": 8417,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.6/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.6/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.6",
   "releaseDate": "2026-10-09",
-  "releaseNotes": "v8.21.5: Fix Site Settings status bar notch overlap with safe-area insets, add extra top scroll room and mobile exit bar, add Escape key exit, and prioritize Site Recipe Editor in Android hardware back button handler."
+  "releaseNotes": "v8.21.6: Fix React error #310 in SiteRecipeEditor by strictly enforcing React Rules of Hooks, eliminating early returns before hooks, and stabilizing Escape key and recipe loaders."
 }

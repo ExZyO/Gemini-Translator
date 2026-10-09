@@ -7,7 +7,8 @@
     if (typeof define === 'function' && define.amd) {
         define(['react'], factory);
     } else if (typeof module === 'object' && module.exports) {
-        module.exports = factory(require('react'));
+        const r = (typeof root !== 'undefined' && root.React) ? root.React : (typeof global !== 'undefined' ? global.React : null);
+        module.exports = factory(r);
     } else {
         const exports = factory(root.React);
         root.SiteRecipeEditor = exports.SiteRecipeEditor;
@@ -17,7 +18,7 @@
 }(typeof self !== 'undefined' ? self : this, function (React) {
     'use strict';
     const h = (typeof React !== 'undefined' && React.createElement) ? React.createElement : window.React?.createElement;
-    const { useState, useEffect, useRef } = React || window.React;
+    const { useState, useEffect, useRef, useCallback } = React || window.React;
 
     // Helper: Lucide icon or fallback
     function renderIcon(name, size = 16, className = '') {
@@ -32,8 +33,6 @@
     // 1. VISUAL PICKER OVERLAY (Sandboxed Iframe)
     // ══════════════════════════════════════════════════════════════════════
     function SitePickerOverlay({ open, url, target, initialSelector, onClose, onSelect, toast }) {
-        if (!open) return null;
-
         const [loading, setLoading] = useState(true);
         const [error, setError] = useState(null);
         const [previewHtml, setPreviewHtml] = useState('');
@@ -151,11 +150,12 @@
         };
 
         useEffect(() => {
+            if (!open) return;
             loadPreview();
             return () => {
                 pickerHandleRef.current?.detach?.();
             };
-        }, [url]);
+        }, [url, open]);
 
         const onIframeLoad = () => {
             if (!iframeRef.current || !window.SitePicker) return;
@@ -250,6 +250,8 @@
             window.addEventListener('keydown', onKeyDown);
             return () => window.removeEventListener('keydown', onKeyDown);
         }, [onClose]);
+
+        if (!open) return null;
 
         return h('div', {
             className: 'fixed inset-0 z-[10060] bg-black/80 flex flex-col backdrop-blur-sm animate-fade-in'
@@ -442,9 +444,7 @@
     // 2. SITE RECIPE EDITOR MODAL SHEET
     // ══════════════════════════════════════════════════════════════════════
     function SiteRecipeEditor({ open, url, recipeId, onClose, toast, confirmAction }) {
-        if (!open) return null;
-
-        const RE = window.SiteRecipeEngine;
+        const RE = (typeof window !== 'undefined') ? window.SiteRecipeEngine : null;
         const [recipe, setRecipe] = useState(null);
         const [isDirty, setIsDirty] = useState(false);
         const [activePicker, setActivePicker] = useState(null); // { target, url, initialSelector }
@@ -460,6 +460,7 @@
         const bookUrlInputRef = useRef(null);
         const chapterUrlInputRef = useRef(null);
 
+        // Load / initialize recipe
         useEffect(() => {
             if (!RE) return;
             let loaded = null;
@@ -485,7 +486,42 @@
             setTestResult(null);
         }, [recipeId, url]);
 
-        if (!recipe || !RE) return null;
+        const handleClosePrompt = useCallback(() => {
+            if (isDirty) {
+                if (typeof confirmAction === 'function') {
+                    confirmAction('You have unsaved adjustments to this recipe. Discard and leave?', () => onClose?.());
+                } else if (typeof window !== 'undefined' && window.confirm ? window.confirm('Discard unsaved adjustments and exit?') : true) {
+                    onClose?.();
+                }
+            } else {
+                onClose?.();
+            }
+        }, [isDirty, onClose, confirmAction]);
+
+        // Escape key listener (declared unconditionally at component top)
+        useEffect(() => {
+            const onKeyDown = (e) => {
+                if (e.key === 'Escape' || e.key === 'Esc') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleClosePrompt();
+                }
+            };
+            window.addEventListener('keydown', onKeyDown);
+            return () => window.removeEventListener('keydown', onKeyDown);
+        }, [handleClosePrompt]);
+
+        // Safe render guards AFTER all hooks have executed
+        if (!open) return null;
+        if (!RE) return null;
+        if (!recipe) {
+            return h('div', {
+                className: 'fixed inset-0 z-[10050] bg-slate-950 flex flex-col items-center justify-center gap-3 text-white'
+            }, [
+                h('div', { className: 'w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin' }),
+                h('p', { className: 'text-sm text-slate-400' }, 'Loading site recipe...')
+            ]);
+        }
 
         const isBuiltin = RE.isBuiltInSite(recipe.id);
 
@@ -615,30 +651,6 @@
                 toast?.('Could not import recipe code: ' + err.message, 'error');
             }
         };
-
-        const handleClosePrompt = () => {
-            if (isDirty) {
-                if (typeof confirmAction === 'function') {
-                    confirmAction('You have unsaved adjustments to this recipe. Discard and leave?', () => onClose?.());
-                } else if (typeof window !== 'undefined' && window.confirm ? window.confirm('Discard unsaved adjustments and exit?') : true) {
-                    onClose?.();
-                }
-            } else {
-                onClose?.();
-            }
-        };
-
-        useEffect(() => {
-            const onKeyDown = (e) => {
-                if (e.key === 'Escape' || e.key === 'Esc') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleClosePrompt();
-                }
-            };
-            window.addEventListener('keydown', onKeyDown);
-            return () => window.removeEventListener('keydown', onKeyDown);
-        }, [isDirty, onClose]);
 
         const toggleAdvanced = (val) => {
             setShowAdvanced(val);
