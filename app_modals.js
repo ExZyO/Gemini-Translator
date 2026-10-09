@@ -2256,14 +2256,6 @@
         }))
       ),
 
-      // 6. Confirm Dialog
-      h(ConfirmDialog, {
-        showModal: props.showModal,
-        setShowModal: props.setShowModal,
-        modalMessage: props.modalMessage,
-        modalCallback: props.modalCallback,
-        setModalCallback: props.setModalCallback
-      }),
 
       // 7. EPUB Packaging Progress Dock
       h(EpubPackagingProgressDock, {
@@ -2496,6 +2488,15 @@
         },
         toast,
         confirmAction: props.confirmAction
+      }),
+
+      // 23. Confirm Dialog (Rendered last so confirmations always stack over any active modal)
+      h(ConfirmDialog, {
+        showModal: props.showModal,
+        setShowModal: props.setShowModal,
+        modalMessage: props.modalMessage,
+        modalCallback: props.modalCallback,
+        setModalCallback: props.setModalCallback
       })
     );
   }

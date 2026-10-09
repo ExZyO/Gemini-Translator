@@ -261,7 +261,7 @@
                 key: 'topbar',
                 className: 'py-2.5 px-3 md:px-4 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-white shrink-0 shadow-lg gap-2',
                 style: {
-                    paddingTop: 'max(14px, env(safe-area-inset-top, 16px))',
+                    paddingTop: 'max(24px, env(safe-area-inset-top, 28px))',
                     paddingLeft: 'max(12px, env(safe-area-inset-left, 12px))',
                     paddingRight: 'max(12px, env(safe-area-inset-right, 12px))'
                 }
@@ -457,6 +457,7 @@
         const [isScouting, setIsScouting] = useState(false);
         const [scoutProgress, setScoutProgress] = useState('');
         const [autoDetectStats, setAutoDetectStats] = useState(null);
+        const [showExitConfirm, setShowExitConfirm] = useState(false);
         const bookUrlInputRef = useRef(null);
         const chapterUrlInputRef = useRef(null);
 
@@ -484,19 +485,16 @@
             setRecipe(normalized);
             setIsDirty(false);
             setTestResult(null);
+            setShowExitConfirm(false);
         }, [recipeId, url]);
 
         const handleClosePrompt = useCallback(() => {
             if (isDirty) {
-                if (typeof confirmAction === 'function') {
-                    confirmAction('You have unsaved adjustments to this recipe. Discard and leave?', () => onClose?.());
-                } else if (typeof window !== 'undefined' && window.confirm ? window.confirm('Discard unsaved adjustments and exit?') : true) {
-                    onClose?.();
-                }
+                setShowExitConfirm(true);
             } else {
                 onClose?.();
             }
-        }, [isDirty, onClose, confirmAction]);
+        }, [isDirty, onClose]);
 
         // Escape key listener (declared unconditionally at component top)
         useEffect(() => {
@@ -504,12 +502,16 @@
                 if (e.key === 'Escape' || e.key === 'Esc') {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleClosePrompt();
+                    if (showExitConfirm) {
+                        setShowExitConfirm(false);
+                    } else {
+                        handleClosePrompt();
+                    }
                 }
             };
             window.addEventListener('keydown', onKeyDown);
             return () => window.removeEventListener('keydown', onKeyDown);
-        }, [handleClosePrompt]);
+        }, [handleClosePrompt, showExitConfirm]);
 
         // Safe render guards AFTER all hooks have executed
         if (!open) return null;
@@ -800,22 +802,22 @@
             // Header bar
             h('div', {
                 key: 'header',
-                className: 'py-2.5 px-3 md:px-5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between shrink-0 shadow-md gap-2.5 z-20',
+                className: 'py-3 px-3 md:px-5 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0 shadow-md gap-2.5 z-20',
                 style: {
-                    paddingTop: 'max(14px, env(safe-area-inset-top, 16px))',
+                    paddingTop: 'max(24px, env(safe-area-inset-top, 28px))',
                     paddingBottom: '12px',
-                    paddingLeft: 'max(12px, env(safe-area-inset-left, 12px))',
-                    paddingRight: 'max(12px, env(safe-area-inset-right, 12px))'
+                    paddingLeft: 'max(14px, env(safe-area-inset-left, 14px))',
+                    paddingRight: 'max(14px, env(safe-area-inset-right, 14px))'
                 }
             }, [
                 h('div', { className: 'flex items-center gap-2.5 min-w-0 flex-1' }, [
                     h('button', {
                         type: 'button',
-                        className: 'px-3.5 py-2 rounded-xl border border-slate-500 hover:border-slate-300 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-bold text-xs sm:text-sm transition-all shrink-0 flex items-center gap-1.5 cursor-pointer shadow-md',
+                        className: 'px-3.5 py-2 rounded-xl border border-rose-500/50 hover:border-rose-400 bg-rose-950/40 hover:bg-rose-900/60 active:scale-95 text-rose-200 hover:text-white font-bold text-xs sm:text-sm transition-all shrink-0 flex items-center gap-1.5 cursor-pointer shadow-md',
                         onClick: handleClosePrompt,
                         title: 'Exit without saving'
                     }, [
-                        renderIcon('x', 16, 'text-slate-300'),
+                        renderIcon('x', 16, 'text-rose-300'),
                         '✕ Exit'
                     ]),
                     h('div', { className: 'truncate min-w-0' }, [
@@ -841,6 +843,14 @@
                     }, [
                         renderIcon('check', 16, 'text-emerald-200'),
                         '✓ Save & Exit'
+                    ]),
+                    h('button', {
+                        type: 'button',
+                        className: 'p-2 rounded-xl border border-slate-700 hover:border-slate-500 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer shrink-0',
+                        onClick: handleClosePrompt,
+                        title: 'Close window'
+                    }, [
+                        renderIcon('x', 18)
                     ])
                 ])
             ]),
@@ -850,43 +860,43 @@
                 key: 'body',
                 className: 'flex-1 overflow-y-auto px-4 md:px-6 overscroll-contain space-y-5 max-w-4xl mx-auto w-full',
                 style: {
-                    paddingTop: '16px',
-                    paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 24px))'
+                    paddingTop: '24px',
+                    paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 24px))'
                 }
             }, [
-                // Top Scroll Clearance Spacer
+                // Top Scroll Clearance Spacer - gives generous ability to scroll up comfortably
                 h('div', {
                     key: 'safe-top-spacer',
-                    className: 'h-1 w-full shrink-0'
+                    className: 'h-6 w-full shrink-0'
                 }),
 
-                // Extra Inline Exit Bar for Mobile (Visible at the top of scrollable content)
+                // Extra Prominent Exit & Save Bar (Visible across ALL devices: mobile, tablet, and desktop)
                 h('div', {
-                    key: 'mobile-top-bar',
-                    className: 'sm:hidden flex items-center justify-between p-3 rounded-2xl bg-slate-900/90 border border-slate-700/80 shadow-md gap-2'
+                    key: 'top-navigation-bar',
+                    className: 'flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/90 border border-slate-700/80 shadow-md gap-2.5'
                 }, [
-                    h('div', { className: 'flex items-center gap-1.5 text-xs font-bold text-slate-200 truncate' }, [
-                        renderIcon('sliders', 14, 'text-emerald-400 shrink-0'),
+                    h('div', { className: 'flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-200 truncate min-w-0' }, [
+                        renderIcon('sliders', 16, 'text-emerald-400 shrink-0'),
                         h('span', { className: 'truncate' }, recipe.name || recipe.id || 'Site Settings')
                     ]),
-                    h('div', { className: 'flex items-center gap-2 shrink-0' }, [
+                    h('div', { className: 'flex items-center gap-2 shrink-0 ml-auto' }, [
                         h('button', {
                             type: 'button',
-                            className: 'px-3 py-1.5 rounded-xl border border-slate-500 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer',
+                            className: 'px-3.5 py-1.5 rounded-xl border border-rose-500/40 bg-rose-950/40 hover:bg-rose-900/60 text-rose-200 hover:text-white font-bold text-xs sm:text-sm active:scale-95 transition-all flex items-center gap-1 cursor-pointer shadow-sm',
                             onClick: handleClosePrompt,
                             title: 'Exit without saving'
                         }, [
-                            renderIcon('x', 12, 'text-slate-300'),
+                            renderIcon('x', 14, 'text-rose-300'),
                             '✕ Exit'
                         ]),
                         h('button', {
                             type: 'button',
-                            className: 'px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer shadow-sm',
+                            className: 'px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm active:scale-95 transition-all flex items-center gap-1 cursor-pointer shadow-sm',
                             onClick: handleSave,
                             title: 'Save settings & exit'
                         }, [
-                            renderIcon('check', 12, 'text-emerald-100'),
-                            '✓ Save'
+                            renderIcon('check', 14, 'text-emerald-100'),
+                            '✓ Save & Exit'
                         ])
                     ])
                 ]),
@@ -1349,7 +1359,40 @@
                     else if (selData.target === 'chapterLinks') updateField('book.chapterLinkSelector', selData.selector);
                     toast?.(`Updated ${selData.target} selector!`, 'success');
                 }
-            })
+            }),
+
+            // In-Modal Unsaved Changes Exit Confirmation Dialog
+            showExitConfirm && h('div', {
+                key: 'exit-confirm-modal',
+                className: 'fixed inset-0 z-[10100] bg-black/85 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in',
+                onClick: () => setShowExitConfirm(false)
+            }, [
+                h('div', {
+                    className: 'bg-slate-900 border border-slate-700/90 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center',
+                    onClick: (e) => e.stopPropagation()
+                }, [
+                    h('div', { className: 'w-12 h-12 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-xl font-bold' }, '⚠️'),
+                    h('div', { className: 'space-y-1.5' }, [
+                        h('h3', { className: 'text-base font-bold text-white' }, 'Exit Without Saving?'),
+                        h('p', { className: 'text-xs text-slate-300 leading-relaxed' }, 'You have unsaved changes to this site recipe. If you leave now, your changes will be discarded.')
+                    ]),
+                    h('div', { className: 'flex items-center gap-2.5 pt-1.5 justify-center' }, [
+                        h('button', {
+                            type: 'button',
+                            className: 'flex-1 py-2.5 px-3 rounded-xl border border-slate-600 hover:border-slate-400 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs active:scale-95 transition-all cursor-pointer',
+                            onClick: () => setShowExitConfirm(false)
+                        }, 'Keep Editing'),
+                        h('button', {
+                            type: 'button',
+                            className: 'flex-1 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold text-xs transition-all shadow-md cursor-pointer',
+                            onClick: () => {
+                                setShowExitConfirm(false);
+                                onClose?.();
+                            }
+                        }, 'Discard & Exit')
+                    ])
+                ])
+            ])
         ]);
     }
 

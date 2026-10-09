@@ -646,7 +646,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   color: #ffffff;
   transform: scale(1.15);
 }
-.confirm-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.confirm-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 12000; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .confirm-box { background: #11131A; border: 1px solid var(--hairline); border-radius: 14px; padding: 24px 22px; max-width: 360px; width: 100%; box-shadow: 0 24px 80px rgba(0,0,0,.8); }
 .confirm-box p { font-size: 15px; font-weight: 600; text-align: center; color: var(--paper); margin-bottom: 20px; line-height: 1.5; }
 .confirm-actions { display: flex; gap: 10px; justify-content: center; }
