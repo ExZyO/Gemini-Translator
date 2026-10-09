@@ -334,37 +334,13 @@
                 ),
 
                 // Settings Category Group Switcher
-                h('div', {
-                  style: {
-                    display: 'flex',
-                    gap: 8,
-                    overflowX: 'auto',
-                    paddingBottom: 6,
-                    marginBottom: 16,
-                    WebkitOverflowScrolling: 'touch',
-                    scrollbarWidth: 'none'
-                  }
-                },
+                h('div', { className: 'settings-category-nav' },
                   SETTINGS_CATEGORIES.map(cat => {
                     const isCatActive = settingsCategory === cat.id;
                     return h('button', {
                       key: cat.id,
                       type: 'button',
-                      className: `chip-act ${isCatActive ? 'active' : ''}`,
-                      style: {
-                        padding: '9px 16px',
-                        fontSize: 12.5,
-                        fontWeight: isCatActive ? 700 : 500,
-                        whiteSpace: 'nowrap',
-                        borderRadius: 999,
-                        background: isCatActive ? '#6366F1' : 'rgba(255, 255, 255, 0.04)',
-                        color: isCatActive ? '#FFFFFF' : '#94A3B8',
-                        border: isCatActive ? '1px solid #6366F1' : '1px solid rgba(255, 255, 255, 0.08)',
-                        boxShadow: isCatActive ? '0 4px 14px rgba(99, 102, 241, 0.4)' : 'none',
-                        cursor: 'pointer',
-                        transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
-                        flexShrink: 0
-                      },
+                      className: `settings-category-pill ${isCatActive ? 'active' : ''}`,
                       onClick: () => {
                         setSettingsCategory(cat.id);
                         try { localStorage.setItem('gemini_settings_category', cat.id); } catch(e) {}

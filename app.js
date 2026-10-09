@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.10';
+    let VERSION = '8.21.11';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1065,7 +1065,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8409);
+      const [appVersionCode, setAppVersionCode] = useState(8422);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [installingPluginId, setInstallingPluginId] = useState(null);
@@ -2465,13 +2465,16 @@
 
       const chipSelectStyle = { background: 'var(--void)', border: '1px solid var(--hairline)', color: 'var(--paper-dim)', borderRadius: 8, padding: '4px 6px', fontSize: 11, outline: 'none', maxWidth: 170 };
 
-      const tabTitle = activeTab === 'text' ? 'Translate' : activeTab === 'web_importer' ? 'Import' : activeTab === 'studio' ? 'Studio' : activeTab === 'history' ? 'Library' : 'Settings';
-      const tabSub = activeTab === 'text'
+      const tabTitle = activeTab === 'history' ? 'Bookshelf' : activeTab === 'web_importer' ? 'Discover' : activeTab === 'text' ? 'Translate' : activeTab === 'studio' ? 'Studio' : 'Settings';
+      const tabSub = activeTab === 'history'
+        ? 'Your offline library, reading positions & audiobooks'
+        : activeTab === 'web_importer'
+        ? 'Web novels, light novels, classics & audiobooks'
+        : activeTab === 'text'
         ? `${provider.toUpperCase()} · ${provider === 'gemini' ? geminiModel : provider === 'deepseek' ? deepseekModel : provider}`
-        : activeTab === 'web_importer' ? 'AO3 · Lofter · Syosetu · Witch Cult'
-        : activeTab === 'studio' ? 'Lossless EPUB Splitter & Merger'
-        : activeTab === 'history' ? 'Novel Library & Saved Sessions'
-        : 'API Keys, Typography & Sync';
+        : activeTab === 'studio'
+        ? 'Lossless EPUB inspection, splitting & merging'
+        : 'AI models, cloud sync & reader defaults';
 
       const navItems = [['history', 'Bookshelf', Library], ['web_importer', 'Discover', Globe], ['text', 'Translate', Languages], ['studio', 'Studio', Layers], ['settings', 'Settings', Settings]];
       const appTabProps = {

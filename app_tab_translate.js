@@ -326,10 +326,26 @@
                 )
               ),
 
-              h('div', { className: 'langrow' },
-                h('select', { className: 'lang', value: srcLang, onChange: e => setSrcLang(e.target.value), disabled }, LANGUAGES.map(l => h('option', { key: l, value: l }, l))),
-                h('button', { type: 'button', className: 'swap', title: 'Swap Languages', disabled: disabled || srcLang === 'Auto-detect', onClick: handleSwapLanguages }, ic(ArrowRightLeft, 14)),
-                h('select', { className: 'lang', value: tgtLang, onChange: e => setTgtLang(e.target.value), disabled }, TARGET_LANGUAGES.map(l => h('option', { key: l, value: l }, l)))
+              h('div', { className: 'langrow-deck' },
+                h('div', { className: 'lang-deck-select' },
+                  h('span', { style: { fontSize: 15 } }, '🌐'),
+                  h('select', { value: srcLang, onChange: e => setSrcLang(e.target.value), disabled }, LANGUAGES.map(l => h('option', { key: l, value: l }, l)))
+                ),
+                h('button', {
+                  type: 'button',
+                  className: 'lang-deck-swap',
+                  title: 'Swap Languages',
+                  disabled: disabled || srcLang === 'Auto-detect',
+                  onClick: handleSwapLanguages
+                }, ic(ArrowRightLeft, 15)),
+                h('div', { className: 'lang-deck-select' },
+                  h('span', { style: { fontSize: 15 } }, '🎯'),
+                  h('select', { value: tgtLang, onChange: e => setTgtLang(e.target.value), disabled }, TARGET_LANGUAGES.map(l => h('option', { key: l, value: l }, l)))
+                ),
+                h('div', { className: 'active-model-pill', title: `Active Provider: ${provider}` },
+                  h('span', { className: 'pulse-green-dot' }),
+                  h('span', null, `${provider === 'gemini' ? (geminiModel?.replace(/^gemini-/, '') || 'Flash') : (deepseekModel || 'Chat')}`)
+                )
               ),
               h('div', { className: 'meta', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 } },
                 h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
@@ -1006,7 +1022,7 @@
 
               chapters.length > 0 && h('div', { className: 'count', style: { margin: '0 2px 8px' } }, `${chapters.length} chapters loaded`),
 
-              h('div', { className: 'actionbar' },
+              h('div', { className: 'actionbar', style: { display: 'flex', gap: 10, alignItems: 'center', margin: '8px 0 16px' } },
                 (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && !isTranslating ? (() => {
                   const s = savedTranslationSession || activeSessionRef.current || activeSession;
                   const cCount = s?.completedCount || 0;
@@ -1016,57 +1032,47 @@
                   return h(React.Fragment, null,
                     h('button', {
                       type: 'button',
-                      className: 'primary',
+                      className: 'deck-fab-translate',
                       style: {
                         background: isDelta ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
-                        fontWeight: 700,
-                        flex: 1,
-                        boxShadow: isDelta ? '0 2px 10px rgba(124, 58, 237, 0.4)' : undefined
+                        margin: 0,
+                        flex: 1
                       },
                       onClick: () => resumeSavedTranslation(s)
-                    }, isDelta ? `▶ Translate Only New Chapters (${deltaLabel})` : `▶ Resume Translation (${cCount}/${tCount} done)`),
+                    },
+                      h('span', null, '▶'),
+                      h('span', null, isDelta ? `Translate New Chapters (${deltaLabel})` : `Resume Translation (${cCount}/${tCount} done)`)
+                    ),
                     h('button', {
                       type: 'button',
                       className: 'chip-act',
-                      style: { padding: '8px 12px', fontSize: 12 },
+                      style: { padding: '8px 14px', fontSize: 12, borderRadius: 999 },
                       title: 'Discard staged/paused session and start fresh',
                       onClick: () => discardSavedTranslation(s?.id)
                     }, 'Start New')
                   );
                 })() : h('button', {
                   type: 'button',
-                  className: 'primary',
-                  disabled: isTranslating || (!inputText.trim() && (!chapters || chapters.length === 0)),
-                  onClick: () => handleStartTranslation()
-                }, isTranslating ? 'Translating…' : '◐ Translate'),
+                  className: 'deck-fab-translate',
+                  style: { margin: 0, flex: 1 },
+                  disabled: isTranslating ? false : (!inputText.trim() && (!chapters || chapters.length === 0)),
+                  onClick: () => {
+                    if (isTranslating) handlePauseTranslation();
+                    else handleStartTranslation();
+                  }
+                },
+                  h('span', { style: { fontSize: 17 } }, isTranslating ? '⏸' : '✨'),
+                  h('span', null, isTranslating ? 'Pause Translation' : (inputText.trim() ? `Translate Text (${inputCharCount.toLocaleString()} chars)` : 'Translate with AI'))
+                ),
                 h('button', {
                   type: 'button',
                   className: 'chip-act',
-                  style: { padding: '8px 12px', fontSize: 13, background: 'rgba(99, 102, 241, 0.15)', borderColor: 'var(--iris)', color: 'var(--iris)', fontWeight: 600 },
+                  style: { padding: '10px 14px', fontSize: 12.5, background: 'rgba(99, 102, 241, 0.15)', borderColor: 'var(--iris)', color: 'var(--iris)', fontWeight: 700, borderRadius: 999 },
                   disabled: isTranslating || (!inputText.trim() && (!chapters || chapters.length === 0)),
                   onClick: handleOpenCostEstimator,
-                  title: 'Calculate exact tokens, model costs, and time projections before translating (§7.2 / §3.6)'
+                  title: 'Calculate exact tokens, model costs, and time projections before translating'
                 }, '💰 Estimate'),
-                h('button', { type: 'button', className: 'overflow', title: 'More actions', disabled: isTranslating, onClick: () => setSheetOpen(true) }, '⋯')
-              ),
-
-              // Floating Thumb-zone Translate FAB
-              (inputText.trim() || (chapters && chapters.length > 0) || isTranslating || savedTranslationSession || isTranslationPaused) && h('button', {
-                type: 'button',
-                className: 'deck-fab-translate',
-                title: isTranslating ? 'Pause translation' : 'Translate with AI',
-                onClick: () => {
-                  if (isTranslating) {
-                    handlePauseTranslation();
-                  } else if (savedTranslationSession || isTranslationPaused || activeSessionRef?.current) {
-                    resumeSavedTranslation(savedTranslationSession || activeSessionRef?.current || activeSession);
-                  } else {
-                    handleStartTranslation();
-                  }
-                }
-              },
-                h('span', { style: { fontSize: 16 } }, isTranslating ? '⏸' : (savedTranslationSession ? '▶' : '✨')),
-                h('span', null, isTranslating ? 'Pause' : (savedTranslationSession ? 'Resume' : 'Translate with AI'))
+                h('button', { type: 'button', className: 'overflow', title: 'More actions & export', disabled: isTranslating, onClick: () => setSheetOpen(true) }, '⋯')
               )
             
     );

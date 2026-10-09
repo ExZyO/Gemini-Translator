@@ -872,8 +872,214 @@
                   )
                 ),
 
-                // ── CURATED DISCOVERY SOURCE SHELF ──
-                h('div', { className: 'discover-source-shelf' },
+                // ── CURATED DISCOVER FEED (IDLE STATE) ──
+                (!webImportUrl.trim() && !isFetchingUrl && !isFetchingPaused && !activeNovelView && (!novelSearchResults || novelSearchResults.length === 0) && (!bookSearchResults || bookSearchResults.length === 0) && (!swiftAudioResults || swiftAudioResults.length === 0)) && h('div', { className: 'discover-curated-container' },
+                  // Section 1: Featured Catalogs & Sources Grid
+                  h('div', { className: 'discover-section-hdr' },
+                    h('div', { className: 'discover-section-title' },
+                      h('span', null, '✨'),
+                      'Featured Catalogs & Sources'
+                    ),
+                    h('span', { className: 'discover-section-sub' }, '1-Tap Browse')
+                  ),
+                  h('div', { className: 'discover-source-grid' },
+                    // NovelBuddy
+                    h('div', {
+                      className: 'discover-source-tile',
+                      onClick: () => {
+                        setImportCategoryTab('wn');
+                        setIsBookSearchMode(false);
+                        setIsSwiftAudioMode(false);
+                        setNovelSearchFilter('NovelBuddy');
+                        toast('🌐 NovelBuddy: tap any title or search to browse web novels.', 'info');
+                      }
+                    },
+                      h('div', { className: 'discover-source-tile-hd' },
+                        h('span', { className: 'discover-source-tile-name' }, 'NovelBuddy'),
+                        h('span', { style: { fontSize: 16 } }, '🌐')
+                      ),
+                      h('div', { className: 'discover-source-tile-desc' }, 'Popular community web novels & translations')
+                    ),
+                    // Lnori
+                    h('div', {
+                      className: 'discover-source-tile',
+                      onClick: () => {
+                        setImportCategoryTab('ln');
+                        setIsBookSearchMode(false);
+                        setIsSwiftAudioMode(false);
+                        setNovelSearchFilter('Lnori');
+                        toast('📖 Lnori: 1-click clean EPUB downloads with illustrations.', 'info');
+                      }
+                    },
+                      h('div', { className: 'discover-source-tile-hd' },
+                        h('span', { className: 'discover-source-tile-name', style: { color: '#c084fc' } }, 'Lnori LNs'),
+                        h('span', { style: { fontSize: 16 } }, '📖')
+                      ),
+                      h('div', { className: 'discover-source-tile-desc' }, 'Official English light novels with volume art')
+                    ),
+                    // Royal Road
+                    h('div', {
+                      className: 'discover-source-tile',
+                      onClick: () => {
+                        setImportCategoryTab('wn');
+                        setIsBookSearchMode(false);
+                        setIsSwiftAudioMode(false);
+                        setNovelSearchFilter('RoyalRoad');
+                        toast('⚔️ Royal Road: original web fiction & fantasy serials.', 'info');
+                      }
+                    },
+                      h('div', { className: 'discover-source-tile-hd' },
+                        h('span', { className: 'discover-source-tile-name', style: { color: '#38bdf8' } }, 'Royal Road'),
+                        h('span', { style: { fontSize: 16 } }, '⚔️')
+                      ),
+                      h('div', { className: 'discover-source-tile-desc' }, 'Original fantasy, LitRPG & progression serials')
+                    ),
+                    // Standard Ebooks
+                    h('div', {
+                      className: 'discover-source-tile',
+                      onClick: () => {
+                        setImportCategoryTab('books');
+                        setIsBookSearchMode(true);
+                        setIsSwiftAudioMode(false);
+                        setBookSearchFilter('standardebooks');
+                        toast('✨ Standard Ebooks: curated, beautifully typeset editions.', 'info');
+                      }
+                    },
+                      h('div', { className: 'discover-source-tile-hd' },
+                        h('span', { className: 'discover-source-tile-name', style: { color: '#34d399' } }, 'Standard Ebooks'),
+                        h('span', { style: { fontSize: 16 } }, '✨')
+                      ),
+                      h('div', { className: 'discover-source-tile-desc' }, 'High-quality public domain typeset classics')
+                    ),
+                    // Gutenberg
+                    h('div', {
+                      className: 'discover-source-tile',
+                      onClick: () => {
+                        setImportCategoryTab('books');
+                        setIsBookSearchMode(true);
+                        setIsSwiftAudioMode(false);
+                        setBookSearchFilter('gutenberg');
+                        toast('🏛️ Project Gutenberg: search 70,000+ classical books.', 'info');
+                      }
+                    },
+                      h('div', { className: 'discover-source-tile-hd' },
+                        h('span', { className: 'discover-source-tile-name', style: { color: '#60a5fa' } }, 'Gutenberg'),
+                        h('span', { style: { fontSize: 16 } }, '🏛️')
+                      ),
+                      h('div', { className: 'discover-source-tile-desc' }, '70,000+ timeless literature and history works')
+                    ),
+                    // SwiftAudio
+                    h('div', {
+                      className: 'discover-source-tile',
+                      onClick: () => {
+                        setImportCategoryTab('audio');
+                        setIsBookSearchMode(false);
+                        setIsSwiftAudioMode(true);
+                        toast('🎧 SwiftAudiobooks: free audiobooks & track player.', 'info');
+                      }
+                    },
+                      h('div', { className: 'discover-source-tile-hd' },
+                        h('span', { className: 'discover-source-tile-name', style: { color: '#f472b6' } }, 'SwiftAudio'),
+                        h('span', { style: { fontSize: 16 } }, '🎧')
+                      ),
+                      h('div', { className: 'discover-source-tile-desc' }, 'Spoken chapters, jump controls & offline MP3s')
+                    )
+                  ),
+
+                  // Section 2: Explore by Genre & Theme
+                  h('div', { className: 'discover-section-hdr' },
+                    h('div', { className: 'discover-section-title' },
+                      h('span', null, '🏷️'),
+                      'Explore by Genre & Theme'
+                    ),
+                    h('span', { className: 'discover-section-sub' }, 'Instant Search')
+                  ),
+                  h('div', { className: 'discover-genre-pills' },
+                    [
+                      { label: '⚔️ Fantasy', query: 'Fantasy' },
+                      { label: '🌌 Sci-Fi', query: 'Sci-Fi' },
+                      { label: '🥋 Cultivation', query: 'Cultivation' },
+                      { label: '🌀 Isekai', query: 'Isekai' },
+                      { label: '🎲 LitRPG', query: 'LitRPG' },
+                      { label: '❤️ Romance', query: 'Romance' },
+                      { label: '🗡️ Action', query: 'Action' },
+                      { label: '🏛️ Classics', query: 'Classics', mode: 'books' }
+                    ].map(g => h('button', {
+                      key: g.label,
+                      type: 'button',
+                      className: 'discover-genre-pill',
+                      onClick: () => {
+                        setWebImportUrl(g.query);
+                        if (g.mode === 'books') {
+                          setImportCategoryTab('books');
+                          setIsBookSearchMode(true);
+                          handleSearchBooks(g.query);
+                        } else {
+                          setImportCategoryTab('wn');
+                          setIsBookSearchMode(false);
+                          setIsSwiftAudioMode(false);
+                          handleSearchNovels(g.query, 'all');
+                        }
+                      }
+                    }, g.label))
+                  ),
+
+                  // Section 3: Shadow Library Mirrors & External Archives
+                  h('div', { className: 'discover-section-hdr' },
+                    h('div', { className: 'discover-section-title' },
+                      h('span', null, '🌐'),
+                      'Shadow Library Mirrors'
+                    ),
+                    h('span', { className: 'discover-section-sub' }, 'External Archives')
+                  ),
+                  h('div', { className: 'discover-mirror-shelf' },
+                    h('div', {
+                      className: 'discover-mirror-tile',
+                      onClick: () => {
+                        const u = window.BookSearchEngine?.getAnnasArchiveSearchUrl('') || 'https://annas-archive.org/';
+                        (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
+                        toast("Opening Anna's Archive mirror in browser…", 'info');
+                      }
+                    },
+                      h('span', { style: { fontSize: 24 } }, '🌐'),
+                      h('div', null,
+                        h('div', { style: { fontSize: 13, fontWeight: 700, color: '#f472b6' } }, "Anna's Archive"),
+                        h('div', { style: { fontSize: 11, color: '#94a3b8' } }, 'Millions of community EPUBs & books')
+                      )
+                    ),
+                    h('div', {
+                      className: 'discover-mirror-tile',
+                      onClick: () => {
+                        const u = window.BookSearchEngine?.getOceanOfPdfSearchUrl('') || 'https://oceanofpdf.com/';
+                        (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
+                        toast('Opening OceanOfPDF mirror in browser…', 'info');
+                      }
+                    },
+                      h('span', { style: { fontSize: 24 } }, '🌊'),
+                      h('div', null,
+                        h('div', { style: { fontSize: 13, fontWeight: 700, color: '#fbbf24' } }, 'OceanOfPDF'),
+                        h('div', { style: { fontSize: 11, color: '#94a3b8' } }, 'Curated fiction & novel EPUB downloads')
+                      )
+                    ),
+                    h('div', {
+                      className: 'discover-mirror-tile',
+                      onClick: () => {
+                        const u = window.BookSearchEngine?.getZLibrarySearchUrl('') || 'https://singlelogin.re/';
+                        (window.BookSearchEngine?.openExternalUrl || window.open)(u, '_blank');
+                        toast('Opening Z-Library in browser…', 'info');
+                      }
+                    },
+                      h('span', { style: { fontSize: 24 } }, '📚'),
+                      h('div', null,
+                        h('div', { style: { fontSize: 13, fontWeight: 700, color: '#38bdf8' } }, 'Z-Library'),
+                        h('div', { style: { fontSize: 11, color: '#94a3b8' } }, 'Global repository of articles and books')
+                      )
+                    )
+                  )
+                ),
+
+                // ── COMPACT DISCOVERY SOURCE SHELF (WHEN SEARCHING) ──
+                Boolean(webImportUrl.trim()) && h('div', { className: 'discover-source-shelf' },
                   h('button', {
                     type: 'button',
                     className: `discover-source-card ${bookSearchFilter === 'standardebooks' && isBookSearchMode ? 'active' : ''}`,
