@@ -30,6 +30,9 @@
       setSrcLang = function() {},
       tgtLang = 'English',
       setTgtLang = function() {},
+      provider = 'gemini',
+      geminiModel = 'gemini-2.5-flash',
+      deepseekModel = 'deepseek-chat',
       handleSwapLanguages = function() {},
       handleResetTranslateTab = function() {},
       chunkSizePreset = 'turbo',
@@ -342,9 +345,9 @@
                   h('span', { style: { fontSize: 15 } }, '🎯'),
                   h('select', { value: tgtLang, onChange: e => setTgtLang(e.target.value), disabled }, TARGET_LANGUAGES.map(l => h('option', { key: l, value: l }, l)))
                 ),
-                h('div', { className: 'active-model-pill', title: `Active Provider: ${provider}` },
+                h('div', { className: 'active-model-pill', title: `Active Provider: ${provider || 'gemini'}` },
                   h('span', { className: 'pulse-green-dot' }),
-                  h('span', null, `${provider === 'gemini' ? (geminiModel?.replace(/^gemini-/, '') || 'Flash') : (deepseekModel || 'Chat')}`)
+                  h('span', null, `${(provider || 'gemini') === 'gemini' ? (String(geminiModel || 'Flash').replace(/^gemini-/, '') || 'Flash') : (deepseekModel || 'Chat')}`)
                 )
               ),
               h('div', { className: 'meta', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 } },

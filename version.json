@@ -1,9 +1,9 @@
 {
-  "version": "8.21.11",
-  "versionCode": 8422,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.11/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.11/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.11",
+  "version": "8.21.12",
+  "versionCode": 8423,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.12/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.12/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.12",
   "releaseDate": "2026-10-09",
-  "releaseNotes": "v8.21.11: Complete Apple Books & LNReader UI/UX redesign — ambient mesh glow background, floating bottom pill dock with blur, interactive translation deck, curated discover feed with genre chips and shadow library mirrors, and categorized grouped settings."
+  "releaseNotes": "v8.21.12: Fix translation deck provider prop resolution and add defensive nullish model fallbacks across all main spaces."
 }
