@@ -447,7 +447,7 @@
                     h('button', {
                       type: 'button',
                       className: 'mini-btn',
-                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '8px 14px', borderRadius: 8 },
+                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '8px 16px', borderRadius: 999 },
                       onClick: () => {
                         setWebImportError(null);
                         handleStartFetch(true);
@@ -456,7 +456,7 @@
                     webImportError.targetUrl && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
-                      style: { borderColor: webImportError.isCloudflare ? 'rgba(234, 179, 8, 0.6)' : 'rgba(56, 189, 248, 0.4)', color: webImportError.isCloudflare ? '#facc15' : '#38bdf8', fontWeight: 600, padding: '8px 14px', borderRadius: 8 },
+                      style: { borderColor: webImportError.isCloudflare ? 'rgba(234, 179, 8, 0.6)' : 'rgba(56, 189, 248, 0.4)', color: webImportError.isCloudflare ? '#facc15' : '#38bdf8', fontWeight: 600, padding: '8px 16px', borderRadius: 999 },
                       onClick: async () => {
                         const targetUrl = webImportError.targetUrl;
                         if (window.NativeBridge?.openInAppBrowser || window.NativeBridge?.resolveCloudflare) {
@@ -480,14 +480,14 @@
                     (webImportError.targetUrl || webImportUrl) && h('button', {
                       type: 'button',
                       className: 'mini-btn',
-                      style: { background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', color: '#fff', fontWeight: 700, padding: '8px 14px', borderRadius: 8 },
+                      style: { background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', color: '#fff', fontWeight: 700, padding: '8px 16px', borderRadius: 999 },
                       disabled: isScoutingUrl,
                       onClick: handleAutoScoutSite
                     }, isScoutingUrl ? '🧭 Scouting...' : '✨ Auto-Scout & Learn Site'),
                     (webImportError.targetUrl || webImportUrl) && h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
-                      style: { borderColor: 'rgba(234, 179, 8, 0.5)', color: '#eab308', fontWeight: 600, padding: '8px 14px', borderRadius: 8 },
+                      style: { borderColor: 'rgba(234, 179, 8, 0.5)', color: '#eab308', fontWeight: 600, padding: '8px 16px', borderRadius: 999 },
                       onClick: () => {
                         const targetUrl = webImportError.targetUrl || webImportUrl;
                         if (typeof openSiteRecipeEditor === 'function') {
@@ -500,7 +500,7 @@
                     h('button', {
                       type: 'button',
                       className: 'mini-btn ghost',
-                      style: { padding: '8px 14px', borderRadius: 8, color: 'var(--slate)' },
+                      style: { padding: '8px 16px', borderRadius: 999, color: 'var(--slate)' },
                       onClick: () => {
                         setActiveTab('text');
                         toast('Switched to Translate tab: paste text or upload EPUB directly.', 'info');

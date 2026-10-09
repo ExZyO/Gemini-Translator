@@ -237,12 +237,12 @@
                         type: 'button',
                         className: 'btn-primary',
                         style: {
-                          padding: '5px 14px',
+                          padding: '6px 16px',
                           fontSize: 12,
                           background: isDelta ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
                           color: '#fff',
                           border: 'none',
-                          borderRadius: 6,
+                          borderRadius: 999,
                           fontWeight: 700,
                           boxShadow: isDelta ? '0 2px 8px rgba(124, 58, 237, 0.35)' : 'none'
                         },
@@ -251,7 +251,7 @@
                       h('button', {
                         type: 'button',
                         className: 'chip-act',
-                        style: { padding: '5px 10px', fontSize: 12 },
+                        style: { padding: '6px 12px', fontSize: 12, borderRadius: 999 },
                         onClick: () => discardSavedTranslation(s.id)
                       }, 'Discard')
                     )
@@ -280,8 +280,8 @@
                       background: 'rgba(239, 68, 68, 0.08)',
                       cursor: 'pointer',
                       fontWeight: 600,
-                      padding: '2px 8px',
-                      borderRadius: 6,
+                      padding: '4px 10px',
+                      borderRadius: 999,
                       fontSize: 11
                     }
                   }, '✕ Reset Tab')
@@ -297,8 +297,8 @@
                     gap: 6,
                     cursor: 'pointer',
                     fontWeight: 600,
-                    padding: '4px 10px',
-                    borderRadius: 8
+                    padding: '5px 12px',
+                    borderRadius: 999
                   },
                   onClick: () => setGlossaryCardOpen(v => !v)
                 },

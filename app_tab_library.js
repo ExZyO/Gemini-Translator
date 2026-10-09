@@ -559,9 +559,9 @@
                           background: isDelta ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
                           color: '#fff',
                           fontWeight: 700,
-                          padding: '7px 16px',
+                          padding: '7px 18px',
                           border: 'none',
-                          borderRadius: 6,
+                          borderRadius: 999,
                           boxShadow: isDelta ? '0 2px 8px rgba(124, 58, 237, 0.35)' : 'none'
                         },
                         onClick: () => {
