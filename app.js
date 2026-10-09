@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.8';
+    let VERSION = '8.21.9';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -134,7 +134,7 @@
       const [selectedDiffSnapId, setSelectedDiffSnapId] = useState('');
       const [tmStats, setTmStats] = useState({ totalUnits: 0, tokensSaved: 0, exactHits: 0, fuzzyHits: 0 });
 
-      const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'text');
+      const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'history');
       const [settingsCategory, setSettingsCategory] = useState(() => localStorage.getItem('gemini_settings_category') || 'engine');
       const [isFetchingUrl, setIsFetchingUrl] = useState(false);
       const [isFetchingPaused, setIsFetchingPaused] = useState(false);
@@ -2473,7 +2473,7 @@
         : activeTab === 'history' ? 'Novel Library & Saved Sessions'
         : 'API Keys, Typography & Sync';
 
-      const navItems = [['text', 'Translate', Languages], ['web_importer', 'Import', Globe], ['studio', 'Studio', Layers], ['history', 'Library', Library], ['settings', 'Settings', Settings]];
+      const navItems = [['history', 'Bookshelf', Library], ['web_importer', 'Discover', Globe], ['text', 'Translate', Languages], ['studio', 'Studio', Layers], ['settings', 'Settings', Settings]];
       const appTabProps = {
         activeTab,
         // Tab 1: Translation
@@ -2614,6 +2614,54 @@
           ),
 
           h('main', { className: 'tl-wrap', style: { paddingTop: 16 } },
+            // Live Crawl Banner if active crawl in progress
+            (isFetchingUrl || isFetchingPaused) && activeCrawlSession && h('div', {
+              className: 'live-crawl-banner',
+              style: { cursor: 'pointer' },
+              onClick: () => setActiveTab('web_importer')
+            },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 } },
+                activeCrawlSession.cover ? h('img', {
+                  src: activeCrawlSession.cover,
+                  alt: '',
+                  style: { width: 34, height: 46, borderRadius: 6, objectFit: 'cover' }
+                }) : ic(Globe, 20),
+                h('div', { style: { minWidth: 0 } },
+                  h('div', { style: { fontSize: 13, fontWeight: 700, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                    activeCrawlSession.title || 'Downloading Novel...'
+                  ),
+                  h('div', { style: { fontSize: 11, color: '#A5B4FC' } },
+                    webImportStatus || (isFetchingPaused ? 'Paused' : 'Downloading chapters...')
+                  )
+                )
+              ),
+              h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 } },
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn primary',
+                  style: { padding: '5px 10px', fontSize: 11.5, borderRadius: 8 },
+                  onClick: (e) => {
+                    e.stopPropagation();
+                    const novel = activeCrawlSession;
+                    if (novel && (novel.chapters?.length || novel.rawChapters?.length)) {
+                      window.ReaderEngine?.openReaderForNovel?.(novel, { toast });
+                    } else {
+                      setActiveTab('web_importer');
+                    }
+                  }
+                }, '📖 Read Now'),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  style: { padding: '5px 8px', fontSize: 11.5, borderRadius: 8 },
+                  onClick: (e) => {
+                    e.stopPropagation();
+                    if (isFetchingPaused) handleStartFetch(true, activeCrawlSession);
+                    else handlePauseFetch();
+                  }
+                }, isFetchingPaused ? '▶' : '⏸')
+              )
+            ),
             h(window.AppTabsContainer || AppTabsContainer, appTabProps)
           ),
 

@@ -141,6 +141,18 @@
       renderBoxResizeBar = props?.renderBoxResizeBar || ((boxType) => null)
     } = props || {};
 
+    const [translateDeckMode, setTranslateDeckMode] = (typeof React !== 'undefined' && React.useState)
+      ? React.useState((props?.chapters && props.chapters.length > 0 && !props?.inputText) ? 'file' : 'text')
+      : ['text', function() {}];
+
+    if (typeof React !== 'undefined' && React.useEffect) {
+      React.useEffect(() => {
+        if (chapters && chapters.length > 0 && !inputText) {
+          setTranslateDeckMode('file');
+        }
+      }, [((chapters && chapters.length) || 0) > 0]);
+    }
+
     return h(React.Fragment, null,
       error && h('div', {
                 className: 'card',
@@ -259,6 +271,35 @@
                 );
               })(),
 
+              h('div', { className: 'translate-mode-pills' },
+                h('button', {
+                  type: 'button',
+                  className: `translate-mode-btn ${translateDeckMode === 'text' ? 'active' : ''}`,
+                  onClick: () => setTranslateDeckMode('text')
+                },
+                  h('span', null, '💬'),
+                  h('span', null, 'Quick Text')
+                ),
+                h('button', {
+                  type: 'button',
+                  className: `translate-mode-btn ${translateDeckMode === 'file' ? 'active' : ''}`,
+                  onClick: () => setTranslateDeckMode('file')
+                },
+                  h('span', null, '📖'),
+                  h('span', null, 'Book File'),
+                  (chapters && chapters.length > 0) && h('span', {
+                    style: {
+                      background: translateDeckMode === 'file' ? 'rgba(255,255,255,0.25)' : 'rgba(99,102,241,0.25)',
+                      color: translateDeckMode === 'file' ? '#fff' : '#c7d2fe',
+                      fontSize: '10.5px',
+                      padding: '1px 7px',
+                      borderRadius: 999,
+                      fontWeight: 700
+                    }
+                  }, `${chapters.length}`)
+                )
+              ),
+
               h('div', { className: 'langrow' },
                 h('select', { className: 'lang', value: srcLang, onChange: e => setSrcLang(e.target.value), disabled }, LANGUAGES.map(l => h('option', { key: l, value: l }, l))),
                 h('button', { type: 'button', className: 'swap', title: 'Swap Languages', disabled: disabled || srcLang === 'Auto-detect', onClick: handleSwapLanguages }, ic(ArrowRightLeft, 14)),
@@ -309,57 +350,206 @@
                 )
               ),
 
-              h('div', { className: 'pane', onDragOver, onDragLeave, onDrop, style: isDragOver ? { borderColor: 'var(--iris-deep)' } : null },
-                h('div', { className: 'pane-head' },
-                  h('span', { className: 'lbl' }, 'Source'),
-                  h('div', { className: 'pane-acts' },
-                    inputText.trim() && h('button', { type: 'button', className: 'chip-act', disabled, onClick: () => { setInputText(''); setChapters([]); localStorage.removeItem('inputText'); } }, 'Clear'),
-                    h('button', { type: 'button', className: 'chip-act', disabled, onClick: handlePasteFromClipboard }, 'Paste'),
-                    h('button', { type: 'button', className: 'chip-act', disabled: disabled || uploadingFile, onClick: () => fileInputRef.current && fileInputRef.current.click() }, uploadingFile ? 'Loading…' : 'File'),
-                    inputText.trim() && h('span', { className: 'count' }, `${inputCharCount.toLocaleString()} chars · ~${inputTokenCount.toLocaleString()} tok`)
-                  )
+              translateDeckMode === 'text' && h(React.Fragment, null,
+                h('div', { className: 'pane deck-card', onDragOver, onDragLeave, onDrop, style: isDragOver ? { borderColor: 'var(--iris-deep)' } : null },
+                  h('div', { className: 'pane-head' },
+                    h('span', { className: 'lbl' }, 'Source'),
+                    h('div', { className: 'pane-acts' },
+                      inputText.trim() && h('button', { type: 'button', className: 'chip-act', disabled, onClick: () => { setInputText(''); setChapters([]); localStorage.removeItem('inputText'); } }, 'Clear'),
+                      h('button', { type: 'button', className: 'chip-act', disabled, onClick: handlePasteFromClipboard }, 'Paste'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: disabled || uploadingFile, onClick: () => fileInputRef.current && fileInputRef.current.click() }, uploadingFile ? 'Loading…' : 'File'),
+                      inputText.trim() && h('span', { className: 'count' }, `${inputCharCount.toLocaleString()} chars · ~${inputTokenCount.toLocaleString()} tok`)
+                    )
+                  ),
+                  h('textarea', {
+                    className: 'pane-textarea', ref: inputRef, value: inputText, disabled,
+                    onChange: e => handleInputChange(e.target.value),
+                    placeholder: 'Paste raw novel text or drop an EPUB/TXT/DOCX/PDF book here…',
+                    style: { height: `${inputBoxHeight}px` }
+                  }),
+                  h('input', { type: 'file', ref: fileInputRef, onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) processFile(f); }, accept: '.txt,.epub,.docx,.pdf,.md,.html,.xml', style: { display: 'none' } })
                 ),
-                h('textarea', {
-                  className: 'pane-textarea', ref: inputRef, value: inputText, disabled,
-                  onChange: e => handleInputChange(e.target.value),
-                  placeholder: 'Paste raw novel text or drop an EPUB/TXT/DOCX/PDF book here…',
-                  style: { height: `${inputBoxHeight}px` }
-                }),
-                h('input', { type: 'file', ref: fileInputRef, onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) processFile(f); }, accept: '.txt,.epub,.docx,.pdf,.md,.html,.xml', style: { display: 'none' } })
-              ),
-              renderBoxResizeBar('input'),
+                renderBoxResizeBar('input'),
 
-              h('div', { className: 'pane' },
-                h('div', { className: 'pane-head' },
-                  h('span', { className: 'lbl' }, 'Translated'),
-                  h('div', { className: 'pane-acts' },
-                    h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, 'Copy'),
-                    h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => {
-                      const docKey = currentDocTitle || fileName || 'translated_doc';
-                      setReaderNovelId(docKey);
-                      setReaderNovelTitle(currentDocTitle || fileName || 'Document');
-                      const savedProg = window.getReadingProgress ? window.getReadingProgress(docKey) : null;
-                      const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
-                      setReaderChapterIdx(resumeIdx);
-                      setReaderOpen(true);
-                      if (savedProg && resumeIdx > 0) {
-                        toast(`Resuming "${currentDocTitle || fileName || 'Document'}" at Chapter ${resumeIdx + 1}!`, 'success');
-                      }
-                    } }, 'Reader'),
-                    h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && chapters.length === 0), onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, '🩺 QA'),
-                    h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && (!translatedChapters || translatedChapters.length === 0)), onClick: () => handleOpenDiffModal(0), title: 'Translation Revision Diffs & Rollbacks (§8.6)' }, '📜 Diffs'),
-                    h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600 } }, '⭐ Save to Space'),
-                    assembledText.trim() && h('span', { className: 'count' }, `${outputWordCount.toLocaleString()} words`)
-                  )
+                h('div', { style: { display: 'flex', justifyContent: 'center', margin: '-10px 0', zIndex: 10, position: 'relative' } },
+                  h('button', {
+                    type: 'button',
+                    className: 'deck-swap-circle',
+                    title: 'Swap Languages',
+                    disabled: disabled || srcLang === 'Auto-detect',
+                    onClick: handleSwapLanguages
+                  }, ic(ArrowRightLeft, 16))
                 ),
-                h('textarea', {
-                  className: 'pane-textarea out', ref: outputRef, value: assembledText, disabled: isTranslating, readOnly: isTranslating,
-                  onChange: e => handleAssembledTextChange(e.target.value),
-                  placeholder: 'Translated text will appear here…',
-                  style: { height: `${outputBoxHeight}px` }
-                })
+
+                h('div', { className: 'pane deck-card' },
+                  h('div', { className: 'pane-head' },
+                    h('span', { className: 'lbl' }, 'Translated'),
+                    h('div', { className: 'pane-acts' },
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, 'Copy'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => {
+                        const docKey = currentDocTitle || fileName || 'translated_doc';
+                        setReaderNovelId(docKey);
+                        setReaderNovelTitle(currentDocTitle || fileName || 'Document');
+                        const savedProg = window.getReadingProgress ? window.getReadingProgress(docKey) : null;
+                        const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
+                        setReaderChapterIdx(resumeIdx);
+                        setReaderOpen(true);
+                        if (savedProg && resumeIdx > 0) {
+                          toast(`Resuming "${currentDocTitle || fileName || 'Document'}" at Chapter ${resumeIdx + 1}!`, 'success');
+                        }
+                      } }, 'Reader'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && chapters.length === 0), onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, '🩺 QA'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && (!translatedChapters || translatedChapters.length === 0)), onClick: () => handleOpenDiffModal(0), title: 'Translation Revision Diffs & Rollbacks (§8.6)' }, '📜 Diffs'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600 } }, '⭐ Save to Space'),
+                      assembledText.trim() && h('span', { className: 'count' }, `${outputWordCount.toLocaleString()} words`)
+                    )
+                  ),
+                  h('textarea', {
+                    className: 'pane-textarea out', ref: outputRef, value: assembledText, disabled: isTranslating, readOnly: isTranslating,
+                    onChange: e => handleAssembledTextChange(e.target.value),
+                    placeholder: 'Translated text will appear here…',
+                    style: { height: `${outputBoxHeight}px` }
+                  })
+                ),
+                renderBoxResizeBar('output')
               ),
-              renderBoxResizeBar('output'),
+
+              translateDeckMode === 'file' && h(React.Fragment, null,
+                (chapters && chapters.length > 0)
+                  ? h('div', { className: 'card deck-card', style: { marginBottom: 16 } },
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' } },
+                        currentDocCover
+                          ? h('div', { style: { width: 56, height: 78, borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.4)', flexShrink: 0 } },
+                              h('img', { src: currentDocCover, alt: 'Cover', style: { width: '100%', height: '100%', objectFit: 'cover' } })
+                            )
+                          : h('div', {
+                              style: {
+                                width: 56,
+                                height: 78,
+                                borderRadius: 8,
+                                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 28,
+                                flexShrink: 0,
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                              }
+                            }, '📖'),
+                        h('div', { style: { flex: 1, minWidth: 200 } },
+                          h('div', { style: { fontWeight: 800, fontSize: 15, color: 'var(--paper)', marginBottom: 4 } },
+                            currentDocTitle || fileName || 'Loaded Book'
+                          ),
+                          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' } },
+                            h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff' } }, `${chapters.length} Chapters`),
+                            inputCharCount > 0 && h('span', { className: 'chip' }, `${inputCharCount.toLocaleString()} chars`),
+                            inputTokenCount > 0 && h('span', { className: 'chip' }, `~${inputTokenCount.toLocaleString()} tokens`)
+                          )
+                        ),
+                        h('div', { style: { display: 'flex', gap: 8 } },
+                          h('button', {
+                            type: 'button',
+                            className: 'chip-act',
+                            disabled,
+                            onClick: () => fileInputRef.current && fileInputRef.current.click()
+                          }, '📂 Change File'),
+                          h('button', {
+                            type: 'button',
+                            className: 'chip-act',
+                            disabled,
+                            style: { color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' },
+                            onClick: () => { setChapters([]); setInputText(''); setFileName(''); }
+                          }, '✕ Clear')
+                        )
+                      ),
+                      h('div', {
+                        style: {
+                          marginTop: 14,
+                          padding: '10px 12px',
+                          background: 'rgba(0,0,0,0.25)',
+                          borderRadius: 10,
+                          fontSize: 12,
+                          color: 'var(--slate)',
+                          maxHeight: 120,
+                          overflowY: 'auto'
+                        }
+                      },
+                        chapters.slice(0, 5).map((ch, idx) => h('div', {
+                          key: idx,
+                          style: { padding: '3px 0', borderBottom: idx < 4 ? '1px solid rgba(255,255,255,0.05)' : 'none', display: 'flex', justifyContent: 'space-between' }
+                        },
+                          h('span', { style: { color: 'var(--paper-dim)', fontWeight: 500 } }, ch.title || `Chapter ${idx + 1}`),
+                          h('span', { style: { opacity: 0.6 } }, `${((ch.content || ch.text || '').length).toLocaleString()} chars`)
+                        )),
+                        chapters.length > 5 && h('div', { style: { textAlign: 'center', paddingTop: 6, fontSize: 11, color: 'var(--iris-light)' } },
+                          `+ ${chapters.length - 5} more chapters`
+                        )
+                      ),
+                      h('input', { type: 'file', ref: fileInputRef, onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) processFile(f); }, accept: '.txt,.epub,.docx,.pdf,.md,.html,.xml', style: { display: 'none' } })
+                    )
+                  : h('div', {
+                      className: 'card deck-card',
+                      onDragOver, onDragLeave, onDrop,
+                      style: {
+                        padding: '36px 20px',
+                        textAlign: 'center',
+                        marginBottom: 16,
+                        border: isDragOver ? '2px dashed var(--iris)' : '1px dashed rgba(255,255,255,0.15)',
+                        background: isDragOver ? 'rgba(99, 102, 241, 0.1)' : 'var(--card-midnight)',
+                        cursor: 'pointer'
+                      },
+                      onClick: () => fileInputRef.current && fileInputRef.current.click()
+                    },
+                      h('div', { style: { fontSize: 36, marginBottom: 10 } }, '📖'),
+                      h('div', { style: { fontWeight: 700, fontSize: 15, color: 'var(--paper)', marginBottom: 6 } }, 'Select or Drop Ebook File'),
+                      h('div', { style: { fontSize: 12.5, color: 'var(--slate)', marginBottom: 16 } }, 'Drag and drop your EPUB/TXT/DOCX/PDF book here, or tap to browse'),
+                      h('div', { style: { display: 'flex', justifyContent: 'center', gap: 6 } },
+                        h('span', { className: 'chip' }, 'EPUB'),
+                        h('span', { className: 'chip' }, 'TXT'),
+                        h('span', { className: 'chip' }, 'DOCX'),
+                        h('span', { className: 'chip' }, 'PDF')
+                      ),
+                      h('input', {
+                        type: 'file',
+                        ref: fileInputRef,
+                        onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) processFile(f); },
+                        accept: '.txt,.epub,.docx,.pdf,.md,.html,.xml',
+                        style: { display: 'none' }
+                      })
+                    ),
+
+                (assembledText.trim() || (translatedChapters && translatedChapters.length > 0)) && h('div', { className: 'pane deck-card' },
+                  h('div', { className: 'pane-head' },
+                    h('span', { className: 'lbl' }, 'Translated Output'),
+                    h('div', { className: 'pane-acts' },
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); } }, 'Copy'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => {
+                        const docKey = currentDocTitle || fileName || 'translated_doc';
+                        setReaderNovelId(docKey);
+                        setReaderNovelTitle(currentDocTitle || fileName || 'Document');
+                        const savedProg = window.getReadingProgress ? window.getReadingProgress(docKey) : null;
+                        const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
+                        setReaderChapterIdx(resumeIdx);
+                        setReaderOpen(true);
+                        if (savedProg && resumeIdx > 0) {
+                          toast(`Resuming "${currentDocTitle || fileName || 'Document'}" at Chapter ${resumeIdx + 1}!`, 'success');
+                        }
+                      } }, 'Reader'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && chapters.length === 0), onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, '🩺 QA'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && (!translatedChapters || translatedChapters.length === 0)), onClick: () => handleOpenDiffModal(0), title: 'Translation Revision Diffs & Rollbacks (§8.6)' }, '📜 Diffs'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600 } }, '⭐ Save to Space'),
+                      assembledText.trim() && h('span', { className: 'count' }, `${outputWordCount.toLocaleString()} words`)
+                    )
+                  ),
+                  h('textarea', {
+                    className: 'pane-textarea out', ref: outputRef, value: assembledText, disabled: isTranslating, readOnly: isTranslating,
+                    onChange: e => handleAssembledTextChange(e.target.value),
+                    placeholder: 'Translated text will appear here…',
+                    style: { height: `${outputBoxHeight}px` }
+                  }),
+                  renderBoxResizeBar('output')
+                )
+              ),
 
               // ═══ GLOSSARY & BOOK PROFILES PANEL (TRANSLATE SCREEN) ═══
               h('div', { className: 'card', style: { marginTop: 12, borderColor: glossaryTermCount > 0 ? 'rgba(99, 102, 241, 0.4)' : 'var(--hairline)' } },
@@ -865,6 +1055,25 @@
                   title: 'Calculate exact tokens, model costs, and time projections before translating (§7.2 / §3.6)'
                 }, '💰 Estimate'),
                 h('button', { type: 'button', className: 'overflow', title: 'More actions', disabled: isTranslating, onClick: () => setSheetOpen(true) }, '⋯')
+              ),
+
+              // Floating Thumb-zone Translate FAB
+              (inputText.trim() || (chapters && chapters.length > 0) || isTranslating || savedTranslationSession || isTranslationPaused) && h('button', {
+                type: 'button',
+                className: 'deck-fab-translate',
+                title: isTranslating ? 'Pause translation' : 'Translate with AI',
+                onClick: () => {
+                  if (isTranslating) {
+                    handlePauseTranslation();
+                  } else if (savedTranslationSession || isTranslationPaused || activeSessionRef?.current) {
+                    resumeSavedTranslation(savedTranslationSession || activeSessionRef?.current || activeSession);
+                  } else {
+                    handleStartTranslation();
+                  }
+                }
+              },
+                h('span', { style: { fontSize: 16 } }, isTranslating ? '⏸' : (savedTranslationSession ? '▶' : '✨')),
+                h('span', null, isTranslating ? 'Pause' : (savedTranslationSession ? 'Resume' : 'Translate with AI'))
               )
             
     );

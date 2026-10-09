@@ -829,6 +829,49 @@
                   h('span', { className: 'animate-spin', style: { display: 'inline-block' } }, '🧭'),
                   h('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, scoutStatusText)
                 ),
+
+                // ── 4 MEDIA CATEGORY TABS ──
+                h('div', { className: 'discover-cat-bar' },
+                  h('button', {
+                    type: 'button',
+                    className: `discover-cat-pill ${importCategoryTab === 'wn' ? 'active' : ''}`,
+                    onClick: () => {
+                      setImportCategoryTab('wn');
+                      setIsBookSearchMode(false);
+                      setIsSwiftAudioMode(false);
+                      setNovelSearchFilter('all');
+                    }
+                  }, '🌐 Web Novels'),
+                  h('button', {
+                    type: 'button',
+                    className: `discover-cat-pill ${importCategoryTab === 'ln' ? 'active' : ''}`,
+                    onClick: () => {
+                      setImportCategoryTab('ln');
+                      setIsBookSearchMode(false);
+                      setIsSwiftAudioMode(false);
+                      setNovelSearchFilter('Lnori');
+                    }
+                  }, '📖 Light Novels'),
+                  h('button', {
+                    type: 'button',
+                    className: `discover-cat-pill ${importCategoryTab === 'books' ? 'active' : ''}`,
+                    onClick: () => {
+                      setImportCategoryTab('books');
+                      setIsBookSearchMode(true);
+                      setIsSwiftAudioMode(false);
+                    }
+                  }, '📚 Books'),
+                  h('button', {
+                    type: 'button',
+                    className: `discover-cat-pill ${importCategoryTab === 'audio' ? 'active' : ''}`,
+                    onClick: () => {
+                      setImportCategoryTab('audio');
+                      setIsBookSearchMode(false);
+                      setIsSwiftAudioMode(true);
+                    }
+                  }, '🎧 Audiobooks')
+                ),
+
                 h('input', {
                   className: 'url-input',
                   type: 'text',
