@@ -353,9 +353,32 @@
             const m = chUrl.match(/(https?:\/\/[^\/]*syosetu\.com\/[^\/]+)/i);
             if (m) detectedSourceUrl = m[1];
           } else if (chUrl.includes('lnori.')) {
-            const m = chUrl.match(/(https?:\/\/[^\/]*lnori\.(?:org|com)\/[^\/]+)/i);
+            const m = chUrl.match(/(https?:\/\/[^\/]*lnori\.(?:org|com)\/(?:series|book)\/\d+(?:\/[^\/]+)?)/i) || chUrl.match(/(https?:\/\/[^\/]*lnori\.(?:org|com)\/[^\/]+)/i);
             if (m) detectedSourceUrl = m[1];
           }
+        }
+      }
+
+      // Auto-heal Lnori cover art to official CDN series or volume cover
+      const isLnoriNovel = (detectedSourceUrl && detectedSourceUrl.includes('lnori.')) ||
+                           (novelData.sourceUrl && novelData.sourceUrl.includes('lnori.')) ||
+                           (novelData.url && novelData.url.includes('lnori.')) ||
+                           (coverArt && coverArt.includes('lnori.'));
+      if (isLnoriNovel) {
+        const fullLnoriUrl = detectedSourceUrl || novelData.sourceUrl || novelData.url || '';
+        const lnoriSeriesM = fullLnoriUrl.match(/\/series\/(\d+)/i);
+        const lnoriBookM = fullLnoriUrl.match(/\/book\/(\d+)/i);
+        if (!coverArt || /(?:https?:)?\/\/img\.lnori\.(?:com|org)\//i.test(coverArt) || /12040-01/i.test(coverArt)) {
+          if (lnoriSeriesM) coverArt = `https://cdn.lnori.com/series/${lnoriSeriesM[1]}.jpg`;
+          else if (lnoriBookM) coverArt = `https://cdn.lnori.com/volume/${lnoriBookM[1]}.jpg`;
+          else if (coverArt && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-/i.test(coverArt)) {
+            const m = coverArt.match(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-/i);
+            coverArt = `https://cdn.lnori.com/volume/${m[1]}.jpg`;
+          }
+        } else if (coverArt && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-/i.test(coverArt)) {
+          coverArt = coverArt.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
+        } else if (coverArt && /https?:\/\/cdn\.lnori\.com\/cover\/(\d+)\.webp/i.test(coverArt)) {
+          coverArt = coverArt.replace(/https?:\/\/cdn\.lnori\.com\/cover\/(\d+)\.webp/i, lnoriSeriesM ? 'https://cdn.lnori.com/series/$1.jpg' : 'https://cdn.lnori.com/volume/$1.jpg');
         }
       }
 

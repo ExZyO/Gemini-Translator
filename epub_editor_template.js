@@ -7,7 +7,7 @@
 
     const editHtml = `
     <div id="epub-edit-tab" style="width:100%;">
-        <input type="file" id="edit-epub-input" accept="*/*,.epub" class="hidden" />
+        <input type="file" id="edit-epub-input" accept="*/*,.epub" class="hidden" onchange="if(this.files && this.files[0]) { if(window.loadEpubForEditing) window.loadEpubForEditing(this.files[0]); else if(window.EpubEditorPacker?.parseEpubFile) window.EpubEditorPacker.parseEpubFile(this.files[0]); }" />
         <input type="file" id="edit-cover-file-input" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
         <input type="file" id="edit-chapter-img-input" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
 
@@ -30,8 +30,8 @@
                 Drop an .epub file here, select from your device, or load directly from your library
             </p>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <button type="button" id="btn-edit-pick-file" class="tl-btn primary">Select EPUB File</button>
-                <button type="button" id="btn-edit-load-library" class="tl-btn">Load from Saved Library</button>
+                <button type="button" id="btn-edit-pick-file" class="tl-btn primary" onclick="document.getElementById('edit-epub-input')?.click();">Select EPUB File</button>
+                <button type="button" id="btn-edit-load-library" class="tl-btn" onclick="if(window.openEpubEditorLibraryPicker) window.openEpubEditorLibraryPicker(); else if(window.initEpubEditor) { window.initEpubEditor(); window.openEpubEditorLibraryPicker?.(); }">Load from Saved Library</button>
             </div>
             <div id="edit-load-progress-wrapper" class="hidden w-full max-w-xs mx-auto mt-4">
                 <div class="flex justify-between text-xs mb-1 font-semibold" style="color: var(--slate);">

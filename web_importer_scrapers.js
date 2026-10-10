@@ -2358,6 +2358,7 @@
                                 completedCount: allChapters.length,
                                 title,
                                 author,
+                                cover: seriesCover,
                                 summary,
                                 chapterList: bookUrls
                             }
@@ -2410,6 +2411,7 @@
                             completedCount: allChapters.length,
                             title,
                             author,
+                            cover: seriesCover,
                             summary,
                             chapterList: bookUrls
                         }

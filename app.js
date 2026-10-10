@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.14';
+    let VERSION = '8.21.15';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1967,7 +1967,10 @@
       const pasteAndRestoreBackup = () => window.BackupEngine?.Controller?.performFullBackup('paste', { setters: getBackupSetters() }, { setError, toast });
 
       // --- Web Novel Crawl Pause, Cancel & Resume Controls (Delegated to WebNovelCrawlerEngine.Controller) ---
-      const handleStartFetch = (isResume = false, resumeSessionData = null, autoExportEpub = false, overrideUrl = null) => window.WebNovelCrawlerEngine?.Controller?.startFetch({ overrideUrl, isResume, resumeSessionData, autoExportEpub, options: { activeCrawlSession, webImportUrl, scrapeImages, getNovelFolderOptions, getCustomTitle, cleanBookTitle, cleanBookAuthor, getEpubOptions, getEpubFileName, generateEpubFromChapters, saveUniversalBlob }, callbacks: { setIsFetchingUrl, setIsFetchingPaused, setWebImportStatus, setWebImportError, setActiveCrawlSession, setWebImportData, saveNovelToHistory, toast, exportCleanLnoriEpub } });
+      const handleStartFetch = (isResume = false, resumeSessionData = null, autoExportEpub = false, overrideUrl = null, extraOpts = {}) => {
+        const crawlerSpeedMode = extraOpts?.crawlerSpeedMode || (typeof window !== 'undefined' && localStorage.getItem('gemini_crawler_speed_mode')) || 'builtin';
+        return window.WebNovelCrawlerEngine?.Controller?.startFetch({ overrideUrl, isResume, resumeSessionData, autoExportEpub, options: { activeCrawlSession, webImportUrl, scrapeImages, crawlerSpeedMode, getNovelFolderOptions, getCustomTitle, cleanBookTitle, cleanBookAuthor, getEpubOptions, getEpubFileName, generateEpubFromChapters, saveUniversalBlob, ...extraOpts }, callbacks: { setIsFetchingUrl, setIsFetchingPaused, setWebImportStatus, setWebImportError, setActiveCrawlSession, setWebImportData, saveNovelToHistory, toast, exportCleanLnoriEpub } });
+      };
       const handlePauseFetch = () => window.WebNovelCrawlerEngine?.Controller?.pauseFetch({ setIsFetchingPaused, setIsFetchingUrl, setWebImportStatus, toast });
       const handleCancelFetch = () => window.WebNovelCrawlerEngine?.Controller?.cancelFetch({ setIsFetchingPaused, setIsFetchingUrl, setWebImportStatus, toast });
       const exportCleanLnoriEpub = (novelData) => (window.WebNovelCrawlerEngine?.exportCleanLnoriEpub ? window.WebNovelCrawlerEngine.exportCleanLnoriEpub(novelData, { cleanBookTitle, cleanBookAuthor, getEpubOptions, getEpubFileName, getNovelFolderOptions, saveUniversalBlob, generateEpubFromChapters }, { setEpubPackagingModal, toast }) : toast('Crawler Engine export not available.', 'error'));

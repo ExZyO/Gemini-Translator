@@ -1206,7 +1206,13 @@
             }
         }
 
-        const baseDelay = (siteRecipe && siteRecipe.network && siteRecipe.network.delayMs > 0) ? siteRecipe.network.delayMs : (poolOptions.delayMs !== undefined ? poolOptions.delayMs : 100);
+        const speedMode = ctrl.crawlerSpeedMode || options.crawlerSpeedMode || poolOptions.crawlerSpeedMode || (typeof window !== 'undefined' && localStorage.getItem('gemini_crawler_speed_mode')) || 'builtin';
+        if (speedMode === 'recipe') {
+            concurrency = 1;
+        }
+        const baseDelay = (siteRecipe && siteRecipe.network && siteRecipe.network.delayMs > 0)
+            ? siteRecipe.network.delayMs
+            : (speedMode === 'recipe' ? 1500 : (poolOptions.delayMs !== undefined ? poolOptions.delayMs : 100));
         const speedCtrl = new AdaptiveSpeedController(concurrency, baseDelay);
         let totalWordsEstimate = chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : 0)), 0);
         let totalImagesCount = chapters.reduce((acc, c) => acc + ((c.text && c.text.match(/!\[Illustration\]/g)) || []).length, 0);
@@ -1924,15 +1930,19 @@
                 if (activeCrawlController) activeCrawlController.siteRecipe = recipe;
                 const RE = (typeof window !== 'undefined') ? window.SiteRecipeEngine : null;
                 const speedMode = options.crawlerSpeedMode || (typeof window !== 'undefined' && localStorage.getItem('gemini_crawler_speed_mode')) || 'builtin';
+                if (activeCrawlController) activeCrawlController.crawlerSpeedMode = speedMode;
                 const hasBuiltin = (type && type !== 'generic' && type !== 'unknown');
-                if (recipe && RE && RE.hasBookTakeover(recipe) && !(speedMode === 'builtin' && hasBuiltin)) {
+                if (recipe && RE && (RE.hasBookTakeover(recipe) || speedMode === 'recipe') && !(speedMode === 'builtin' && hasBuiltin)) {
                     result = await RE.crawlWithRecipe(recipe, url, progressCb, options, {
                         fetchHtml,
                         crawlChapterPool,
                         getController: () => activeCrawlController
                     });
                 } else {
-                    result = await dispatchBuiltin(type, url, progressCb, options);
+                    const effectiveOptions = speedMode === 'recipe'
+                        ? { ...options, concurrency: 1, delayMs: Math.max(1200, (recipe?.network?.delayMs || 1500)), crawlerSpeedMode: 'recipe' }
+                        : options;
+                    result = await dispatchBuiltin(type, url, progressCb, effectiveOptions);
                     if (recipe && result && RE && RE.hasMetaOverrides(recipe)) {
                         result = await RE.overlayBookInfo(recipe, url, result, { fetchHtml });
                     }

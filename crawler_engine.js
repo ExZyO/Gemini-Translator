@@ -169,6 +169,7 @@
         callbacks.onProgress?.(status, pct);
       }, {
         initialChapters,
+        crawlerSpeedMode: options.crawlerSpeedMode || (typeof window !== 'undefined' && localStorage.getItem('gemini_crawler_speed_mode')) || 'builtin',
         ...options,
         onChapterDone: (newChapterObj, allChapters, stats) => {
           const totalChs = stats.total || stats.totalCount || targetSession?.totalChapterCount || (stats.chapterList ? stats.chapterList.length : 0);
@@ -181,6 +182,17 @@
             safeGetCustomTitle(options, novelId) ||
             (targetSession?.title !== stats.title ? targetSession?.title : null);
 
+          let resolvedCover = stats.cover || targetSession?.cover || '';
+          if (!resolvedCover && resolvedUrl.includes('lnori.')) {
+            const sm = resolvedUrl.match(/\/series\/(\d+)/i);
+            const bm = resolvedUrl.match(/\/book\/(\d+)/i);
+            if (sm) resolvedCover = `https://cdn.lnori.com/series/${sm[1]}.jpg`;
+            else if (bm) resolvedCover = `https://cdn.lnori.com/volume/${bm[1]}.jpg`;
+          }
+          if (resolvedCover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-/i.test(resolvedCover)) {
+            resolvedCover = resolvedCover.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
+          }
+
           const sessionObj = {
             id: novelId,
             url: resolvedUrl,
@@ -190,7 +202,7 @@
             originalSourceTitle: stats.title || targetSession?.originalSourceTitle || targetSession?.title || undefined,
             author: stats.author || targetSession?.author || 'Unknown',
             summary: stats.summary || targetSession?.summary || '',
-            cover: stats.cover || targetSession?.cover || '',
+            cover: resolvedCover,
             chapters: [...allChapters].sort((a, b) => (a.idx !== undefined && b.idx !== undefined) ? (a.idx - b.idx) : 0),
             chapterList: stats.chapterList || targetSession?.chapterList || [],
             completedCount: allChapters.length,
@@ -283,7 +295,18 @@
           data.title = completedCustomTitle;
           data.customTitle = completedCustomTitle;
         }
-        data.cover = data.cover || targetSession?.cover || latestSessionSnapshot?.cover || '';
+        let finalCover = data.cover || targetSession?.cover || latestSessionSnapshot?.cover || '';
+        const chkUrl = data.sourceUrl || resolvedUrl;
+        if (!finalCover && chkUrl && chkUrl.includes('lnori.')) {
+          const sm = chkUrl.match(/\/series\/(\d+)/i);
+          const bm = chkUrl.match(/\/book\/(\d+)/i);
+          if (sm) finalCover = `https://cdn.lnori.com/series/${sm[1]}.jpg`;
+          else if (bm) finalCover = `https://cdn.lnori.com/volume/${bm[1]}.jpg`;
+        }
+        if (finalCover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-/i.test(finalCover)) {
+          finalCover = finalCover.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
+        }
+        data.cover = finalCover;
         const existingFolder = safeGetNovelFolderOptions(options, data);
         data.folderTreeUri = data.folderTreeUri || targetSession?.folderTreeUri || latestSessionSnapshot?.folderTreeUri || existingFolder.treeUri || '';
         data.folderPath = data.folderPath || targetSession?.folderPath || latestSessionSnapshot?.folderPath || existingFolder.folderPath || '';
@@ -447,20 +470,26 @@
     const novelTitle = safeCleanBookTitle(options, novelData.title, chs).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
     const novelAuthor = safeCleanBookAuthor(options, novelData.author).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
     let coverUrl = novelData.cover || '';
-    if (!coverUrl && novelData.sourceUrl) {
-      const bookIdMatch = novelData.sourceUrl.match(/\/book\/(\d+)/i);
-      const seriesIdMatch = novelData.sourceUrl.match(/\/series\/(\d+)/i);
+    if (coverUrl && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-/i.test(coverUrl)) {
+      coverUrl = coverUrl.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
+    }
+    const novelSrc = novelData.sourceUrl || novelData.url || '';
+    if ((!coverUrl || /(?:https?:)?\/\/img\.lnori\.(?:com|org)\//i.test(coverUrl)) && novelSrc) {
+      const bookIdMatch = novelSrc.match(/\/book\/(\d+)/i);
+      const seriesIdMatch = novelSrc.match(/\/series\/(\d+)/i);
       if (bookIdMatch) coverUrl = `https://cdn.lnori.com/volume/${bookIdMatch[1]}.jpg`;
       else if (seriesIdMatch) coverUrl = `https://cdn.lnori.com/series/${seriesIdMatch[1]}.jpg`;
-    }
-    if (coverUrl && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(coverUrl)) {
-      coverUrl = coverUrl.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
     }
     if (coverUrl && /https?:\/\/cdn\.lnori\.com\/cover\/(\d+)\.webp/i.test(coverUrl)) {
       coverUrl = coverUrl.replace(/https?:\/\/cdn\.lnori\.com\/cover\/(\d+)\.webp/i, 'https://cdn.lnori.com/series/$1.jpg');
     }
     if (!coverUrl) {
-      coverUrl = (chs[0]?.content?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || (chs[0]?.text?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || '';
+      const ch1Img = (chs[0]?.content?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || (chs[0]?.text?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || '';
+      if (ch1Img && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-/i.test(ch1Img)) {
+        coverUrl = ch1Img.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
+      } else {
+        coverUrl = ch1Img;
+      }
     }
 
     try {

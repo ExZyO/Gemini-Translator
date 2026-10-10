@@ -281,6 +281,19 @@
         if (!record) return;
         state.novelId = record.id || '';
 
+        // If the record has no chapters array and no epubBlob, load full record from database
+        if ((!record.chapters || record.chapters.length === 0) &&
+            (!record.rawChapters || record.rawChapters.length === 0) &&
+            (!record.translatedChapters || record.translatedChapters.length === 0) &&
+            !record.epubBlob && record.id) {
+            try {
+                if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getNovel === 'function') {
+                    const full = await window.GeminiNovelDB.getNovel(record.id);
+                    if (full) record = full;
+                }
+            } catch (e) {}
+        }
+
         // If the record has a pre-built EPUB blob, parse it to preserve original fonts, styles, and illustrations (only if not manually edited)
         if (record.epubBlob && !record.isEdited) {
             await parseEpubFile(record.epubBlob);
@@ -1805,7 +1818,19 @@ ${bodyHtml}
 
         let novels = [];
         if (window.GeminiNovelDB) {
-            novels = await window.GeminiNovelDB.getAllNovels();
+            try {
+                novels = await window.GeminiNovelDB.getAllNovels();
+            } catch (dbErr) {
+                console.warn('GeminiNovelDB getAllNovels error:', dbErr);
+            }
+        }
+        if (!novels || novels.length === 0) {
+            try {
+                const storedMeta = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
+                if (Array.isArray(storedMeta) && storedMeta.length > 0) {
+                    novels = storedMeta;
+                }
+            } catch (_) {}
         }
 
         const renderItems = (q = '') => {
@@ -1827,14 +1852,32 @@ ${bodyHtml}
                         ${n.cover ? `<img src="${n.cover}" class="w-10 h-14 object-cover rounded shrink-0" />` : `<div class="w-10 h-14 bg-slate-800 rounded flex items-center justify-center text-xs shrink-0 text-slate-500 font-bold">EPUB</div>`}
                         <div class="min-w-0 flex-1">
                             <h4 class="font-bold text-sm truncate" style="color:var(--paper);">${escapeXml(n.title || 'Untitled')}</h4>
-                            <p class="text-xs truncate" style="color:var(--slate);">${escapeXml(n.author || 'Author')} · ${chs.length} chapters</p>
+                            <p class="text-xs truncate" style="color:var(--slate);">${escapeXml(n.author || 'Author')} · ${chs.length || n.chapterCount || 0} chapters</p>
                         </div>
                     </div>
                     <button type="button" class="tl-btn accent shrink-0" style="padding:6px 12px; font-size:11.5px;">Edit Book</button>
                 `;
-                item.onclick = () => {
+                item.onclick = async () => {
                     modal.classList.add('hidden');
-                    loadBookFromRecord(n);
+                    let targetRecord = n;
+                    if ((!targetRecord.chapters || targetRecord.chapters.length === 0) &&
+                        (!targetRecord.rawChapters || targetRecord.rawChapters.length === 0) &&
+                        (!targetRecord.translatedChapters || targetRecord.translatedChapters.length === 0) &&
+                        !targetRecord.epubBlob && targetRecord.id) {
+                        try {
+                            if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getNovel === 'function') {
+                                const full = await window.GeminiNovelDB.getNovel(targetRecord.id);
+                                if (full) targetRecord = full;
+                            }
+                            if ((!targetRecord.chapters || targetRecord.chapters.length === 0) && window.LibraryEngine?.Controller?.loadFullNovel) {
+                                const full = await window.LibraryEngine.Controller.loadFullNovel(targetRecord);
+                                if (full) targetRecord = full;
+                            }
+                        } catch (loadErr) {
+                            console.warn('Failed to load full record:', loadErr);
+                        }
+                    }
+                    await loadBookFromRecord(targetRecord);
                 };
                 list.appendChild(item);
             });
@@ -1848,30 +1891,94 @@ ${bodyHtml}
         }
     }
 
+    // ── Global Event Delegation (Survives React Re-renders) ──
+    let hasGlobalEpubEditorDelegation = false;
+    function setupGlobalEpubEditorDelegation() {
+        if (hasGlobalEpubEditorDelegation) return;
+        hasGlobalEpubEditorDelegation = true;
+
+        if (typeof document === 'undefined') return;
+
+        document.addEventListener('click', (e) => {
+            const pickBtn = e.target.closest('#btn-edit-pick-file');
+            if (pickBtn) {
+                e.preventDefault();
+                const fileIn = document.getElementById('edit-epub-input');
+                fileIn?.click();
+                return;
+            }
+            const loadLibBtn = e.target.closest('#btn-edit-load-library');
+            if (loadLibBtn) {
+                e.preventDefault();
+                openLibraryPicker();
+                return;
+            }
+            const changeCoverBtn = e.target.closest('#btn-edit-change-cover') || e.target.closest('#edit-cover-preview');
+            if (changeCoverBtn) {
+                e.preventDefault();
+                document.getElementById('edit-cover-file-input')?.click();
+                return;
+            }
+        });
+
+        document.addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'edit-epub-input') {
+                if (e.target.files && e.target.files[0]) {
+                    parseEpubFile(e.target.files[0]);
+                }
+            }
+            if (e.target && e.target.id === 'edit-cover-file-input') {
+                if (e.target.files && e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        state.coverUrl = reader.result;
+                        state.imageRepository.set('cover.jpg', { dataUrl: reader.result, mime: e.target.files[0].type, name: 'cover.jpg' });
+                        updateCoverPreview();
+                        if (typeof window.toast === 'function') window.toast('Custom cover image loaded!', 'success');
+                    };
+                    reader.readAsDataURL(e.target.files[0]);
+                }
+            }
+        });
+    }
+
     // ── Event Wire-up ──
     let isEpubEditorInitialized = false;
     function initEpubEditor() {
-        if (isEpubEditorInitialized) {
-            if (state.chapters && state.chapters.length > 0) {
-                renderEditorView();
-            }
-            return;
+        setupGlobalEpubEditorDelegation();
+        if (typeof window !== 'undefined') {
+            window.loadEpubForEditing = parseEpubFile;
+            window.openEpubEditorLibraryPicker = openLibraryPicker;
         }
-        isEpubEditorInitialized = true;
 
         const fileInput = document.getElementById('edit-epub-input');
         const coverInput = document.getElementById('edit-cover-file-input');
         const chImgInput = document.getElementById('edit-chapter-img-input');
 
-        // File drop/picker
-        document.getElementById('btn-edit-pick-file')?.addEventListener('click', () => fileInput?.click());
-        document.getElementById('btn-edit-load-library')?.addEventListener('click', openLibraryPicker);
+        if (state.chapters && state.chapters.length > 0) {
+            renderEditorView();
+        }
 
-        fileInput?.addEventListener('change', (e) => {
-            if (e.target.files && e.target.files[0]) {
-                parseEpubFile(e.target.files[0]);
-            }
-        });
+        // Direct listeners with idempotent dataset tags for immediate reactivity
+        const pickBtn = document.getElementById('btn-edit-pick-file');
+        if (pickBtn && !pickBtn.dataset.bound) {
+            pickBtn.dataset.bound = 'true';
+            pickBtn.addEventListener('click', () => fileInput?.click());
+        }
+        const libBtn = document.getElementById('btn-edit-load-library');
+        if (libBtn && !libBtn.dataset.bound) {
+            libBtn.dataset.bound = 'true';
+            libBtn.addEventListener('click', openLibraryPicker);
+        }
+
+        if (fileInput && !fileInput.dataset.bound) {
+            fileInput.dataset.bound = 'true';
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    parseEpubFile(e.target.files[0]);
+                }
+            });
+        }
 
         // Cover file upload
         document.getElementById('btn-edit-change-cover')?.addEventListener('click', () => coverInput?.click());
