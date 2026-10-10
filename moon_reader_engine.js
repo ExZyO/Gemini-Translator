@@ -945,7 +945,8 @@
       return {
         bookId: inspected.bookId || '',
         title: inspected.oldTitle || '',
-        filePath: inspected.oldFilePath || ''
+        filePath: inspected.oldFilePath || '',
+        entryCount: inspected.entryCount || 0
       };
     },
 
@@ -1024,6 +1025,8 @@
      * Merges target phone book credentials with a master backup .mrexpt file.
      * Supports discarding dummy sample bookmarks, deduplicating overlapping notes,
      * re-stamping target book ID, title, and device file path.
+     * Uses in-place rawLines replacement to preserve 100% of bookmark coordinates,
+     * highlight offsets, colors, and extra metadata without row shifts.
      */
     mergeMrexpts(targetSampleText, masterBackupText, options = {}) {
       const {
@@ -1051,7 +1054,7 @@
         const ch = entry.chapterIdx !== undefined ? entry.chapterIdx : 0;
         const p = entry.paraOffset !== undefined ? entry.paraOffset : 0;
         const c = entry.charOffset !== undefined ? entry.charOffset : 0;
-        const textKey = (entry.highlightText || '').trim().slice(0, 40).toLowerCase();
+        const textKey = (entry.highlightText || (entry.rawLines && entry.rawLines[10]) || '').trim().slice(0, 40).toLowerCase();
         return `${ch}:${p}:${c}:${textKey}`;
       };
 
@@ -1062,7 +1065,7 @@
       if (targetData && targetData.entries && !discardSampleBookmark) {
         for (const entry of targetData.entries) {
           const key = getEntryKey(entry);
-          entryMap.set(key, { ...entry });
+          entryMap.set(key, { ...entry, rawLines: [...(entry.rawLines || [])] });
         }
       } else if (targetData && targetData.entries && discardSampleBookmark) {
         dummyDiscardedCount = targetData.entries.length;
@@ -1089,7 +1092,7 @@
               existing.timestamp = entry.timestamp;
             }
           } else {
-            entryMap.set(key, { ...entry });
+            entryMap.set(key, { ...entry, rawLines: [...(entry.rawLines || [])] });
             masterAddedCount++;
           }
         }
@@ -1103,7 +1106,7 @@
         return a.charOffset - b.charOffset;
       });
 
-      // 4. Serialize back into standard .mrexpt format
+      // 4. Serialize back into standard .mrexpt format using safe in-place line preservation
       const finalLines = [];
       finalLines.push(resolvedBookId);
       finalLines.push(baseTarget.headerLines[0] || 'indent:false');
@@ -1113,23 +1116,22 @@
         const e = mergedEntries[idx];
         const assignedId = renumberIds ? String(idx + 1) : (e.id || String(idx + 1));
         finalLines.push('#');
-        finalLines.push(assignedId);
-        finalLines.push(resolvedTitle);
-        finalLines.push(resolvedFilePath);
-        finalLines.push(resolvedFilePath.toLowerCase());
-        finalLines.push(String(e.chapterIdx));
-        finalLines.push(String(e.paraOffset));
-        finalLines.push(String(e.charOffset));
-        finalLines.push(String(e.type));
-        finalLines.push(String(e.color));
-        finalLines.push(String(e.timestamp));
-        finalLines.push(e.highlightText || '');
-        finalLines.push(e.noteText || '');
-        const extra = (e.extraLines && e.extraLines.length >= 4) ? e.extraLines : ['0', '0', '0', '0'];
-        finalLines.push(extra[0] || '0');
-        finalLines.push(extra[1] || '0');
-        finalLines.push(extra[2] || '0');
-        finalLines.push(extra[3] || '0');
+
+        const eLines = e.rawLines ? [...e.rawLines] : [];
+        while (eLines.length < 16) {
+          eLines.push('0');
+        }
+        eLines[0] = assignedId;
+        eLines[1] = resolvedTitle;
+        eLines[2] = resolvedFilePath;
+        eLines[3] = resolvedFilePath.toLowerCase();
+        if (e.noteText && e.noteText !== eLines[11]) {
+          eLines[11] = e.noteText;
+        }
+
+        for (let li = 0; li < eLines.length; li++) {
+          finalLines.push(eLines[li]);
+        }
       }
 
       return {

@@ -228,7 +228,11 @@
       if (sample.title) setTargetTitle(sample.title);
       if (sample.filePath) setTargetPath(sample.filePath);
       setIsDone(false);
-      toast(`Phone passport matched! ID: ${sample.bookId || 'detected'}, Title: ${sample.title || 'detected'}`, 'success');
+      if (sample.entryCount === 0) {
+        toast(`Captured Phone Book ID (${sample.bookId}) from 0-bookmark export! Please verify Title and Folder path below.`, 'info');
+      } else {
+        toast(`Phone passport matched! ID: ${sample.bookId || 'detected'}, Title: ${sample.title || 'detected'}`, 'success');
+      }
     };
 
     const handleProcessEpub = async (file) => {
@@ -303,6 +307,18 @@
       const countMsg = stats ? ` (${stats.totalEntries} bookmarks aligned)` : '';
       toast(`Downloaded "${downloadName}"${countMsg}! 100% ready for Moon+ Reader.`, 'success');
     };
+
+    const isSameIdWarning = masterFile && sampleFile && masterFile.info?.bookId && sampleFile.sample?.bookId && masterFile.info.bookId === sampleFile.sample.bookId;
+
+    const folderPresets = [
+      { label: '/Books/ (Default)', path: '/storage/emulated/0/Books/' },
+      { label: '/sdcard/Books/', path: '/sdcard/Books/' },
+      { label: '/sdcard/Sync/Books/', path: '/sdcard/Sync/Books/' },
+      { label: '/Download/', path: '/storage/emulated/0/Download/' },
+      { label: '/sdcard/Download/', path: '/sdcard/Download/' },
+      { label: '/MoonReader/', path: '/storage/emulated/0/MoonReader/' },
+      { label: '/sdcard/MoonReader/', path: '/sdcard/MoonReader/' }
+    ];
 
     return h('div', {
       style: {
@@ -629,11 +645,7 @@
             })
           ),
           h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-            [
-              { label: '/Books/ (Default)', path: '/storage/emulated/0/Books/' },
-              { label: '/Download/', path: '/storage/emulated/0/Download/' },
-              { label: '/sdcard/Books/', path: '/sdcard/Books/' }
-            ].map(preset => {
+            folderPresets.map(preset => {
               const fullP = preset.path + (targetTitle || 'Book.epub');
               const isSel = targetPath.startsWith(preset.path);
               return h('button', {
@@ -654,6 +666,99 @@
                 }
               }, preset.label);
             })
+          )
+        ),
+
+        // Collision warning if both files share the exact same ID
+        isSameIdWarning && h('div', {
+          style: {
+            background: 'rgba(245, 158, 11, 0.1)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            borderRadius: 10,
+            padding: '10px 14px',
+            fontSize: 12,
+            color: '#f59e0b',
+            lineHeight: 1.5,
+            display: 'flex',
+            gap: 8,
+            alignItems: 'flex-start'
+          }
+        },
+          ic('AlertTriangle', 15, 'shrink-0 mt-0.5'),
+          h('div', null,
+            h('strong', null, `Both files currently have identical Book ID (${masterFile.info?.bookId}). `),
+            'If your Phone Export was copied from your PC, Moon+ Reader on your phone will reject it because your phone database assigns a different ID. Make sure this file was exported directly from Moon+ Reader on your phone (Menu → Bookmarks → Export).'
+          )
+        ),
+
+        // Side-by-side comparison box
+        h('div', {
+          style: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: 10,
+            marginTop: 4
+          }
+        },
+          h('div', {
+            style: {
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid var(--hairline)',
+              borderRadius: 10,
+              padding: '10px 12px',
+              fontSize: 11.5,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4
+            }
+          },
+            h('div', { style: { fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', fontSize: 10.5, letterSpacing: '0.05em' } }, 'Master Backup File:'),
+            h('div', { style: { color: 'var(--paper)', fontWeight: 600 } }, masterFile.fileName),
+            h('div', { style: { color: 'var(--slate)' } }, `ID: ${masterFile.info?.bookId || 'Unknown'}`),
+            h('div', { style: { color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `Path: ${masterFile.info?.oldFilePath || 'None'}`)
+          ),
+          h('div', {
+            style: {
+              background: 'rgba(16, 185, 129, 0.05)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              borderRadius: 10,
+              padding: '10px 12px',
+              fontSize: 11.5,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4
+            }
+          },
+            h('div', { style: { fontWeight: 700, color: '#10b981', textTransform: 'uppercase', fontSize: 10.5, letterSpacing: '0.05em' } }, 'Target Phone Book:'),
+            h('div', { style: { color: 'var(--paper)', fontWeight: 600 } }, targetTitle || 'Book.epub'),
+            h('div', { style: { color: 'var(--slate)' } }, `ID: ${targetBookId || 'Pending'}`),
+            h('div', { style: { color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `Path: ${targetPath}`)
+          )
+        ),
+
+        // Quick Check Helper Tip (how to tap 'i' in Moon+ Reader)
+        h('div', {
+          style: {
+            background: 'rgba(99, 102, 241, 0.08)',
+            border: '1px solid rgba(99, 102, 241, 0.2)',
+            borderRadius: 10,
+            padding: '10px 14px',
+            fontSize: 12,
+            color: 'var(--slate)',
+            lineHeight: 1.5,
+            display: 'flex',
+            gap: 8,
+            alignItems: 'flex-start'
+          }
+        },
+          ic('Info', 15, 'shrink-0 mt-0.5 text-indigo-400'),
+          h('div', null,
+            h('strong', { style: { color: 'var(--paper)' } }, 'How to check your book\'s exact path in Moon+ Reader: '),
+            'Open your book on your phone → tap the center of the screen → tap the ',
+            h('strong', { style: { color: 'var(--iris)' } }, '\'i\' (Book Information)'),
+            ' icon at the top. The ',
+            h('strong', { style: { color: 'var(--paper)' } }, '\'File\''),
+            ' row shows the exact storage path Moon+ Reader uses!'
           )
         ),
 
