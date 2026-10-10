@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.20';
+    let VERSION = '8.21.21';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2482,7 +2482,6 @@
         : 'AI models, cloud sync & reader defaults';
 
       const navItems = [['history', 'Bookshelf', Library], ['web_importer', 'Discover', Globe], ['text', 'Translate', Languages], ['studio', 'Studio', Layers], ['settings', 'Settings', Settings]];
-      const activeNavIdx = Math.max(0, navItems.findIndex(([key]) => key === activeTab));
       const appTabProps = {
         activeTab,
         // Tab 1: Translation
@@ -2676,39 +2675,15 @@
           ),
 
         // ── BOTTOM NAV (iOS Liquid Sliding Glass Dock matching NuvioMobile) ──
-          h('nav', {
-            className: 'bottomnav',
-            'aria-label': 'Main Navigation'
-          },
-            h('div', {
-              className: 'nav-sliding-pill',
-              style: {
-                transform: `translateX(${activeNavIdx * 100}%)`
-              }
-            }),
-            navItems.map(([key, label, Icon]) => {
-              const isActive = activeTab === key;
-              return h('button', {
-                key,
-                type: 'button',
-                className: `nav-item ${isActive ? 'active' : ''}`,
-                'aria-selected': isActive,
-                onClick: () => {
-                  if (activeTab !== key) {
-                    if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
-                      try { window.navigator.vibrate(8); } catch (_) {}
-                    }
-                    setActiveTab(key);
-                    localStorage.setItem('activeTab', key);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }
-                }
-              },
-                ic(Icon, 20, `nav-icon ${isActive ? 'active' : ''}`),
-                h('span', { className: 'nav-label' }, label)
-              );
-            })
-          )
+          h(window.LiquidGlassDock || window.NavigationEngine?.LiquidGlassDock || LiquidGlassDock, {
+            activeTab,
+            navItems,
+            onSelectTab: (key) => {
+              setActiveTab(key);
+              localStorage.setItem('activeTab', key);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          })
         ),
 
         // ══════════════════════════════════════════════════════════════════════

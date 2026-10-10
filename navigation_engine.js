@@ -424,11 +424,146 @@
     return cleanup;
   }
 
+  /**
+   * LiquidGlassDock - iOS & NuvioMobile-style floating liquid glass navigation dock
+   * Supports real-time finger gliding across tabs, elastic liquid morphing,
+   * spring physics snap, haptic feedback, and midnight frosted glass.
+   */
+  function LiquidGlassDock(props) {
+    const activeTab = props.activeTab;
+    const onSelectTab = props.onSelectTab;
+    const navItems = props.navItems || [];
+    const h = (window.React && window.React.createElement) || (typeof React !== 'undefined' ? React.createElement : null);
+    if (!h) return null;
+
+    const navRef = React.useRef(null);
+    const pillRef = React.useRef(null);
+    const isGlidingRef = React.useRef(false);
+    const [hoverIdx, setHoverIdx] = React.useState(null);
+
+    const activeNavIdx = Math.max(0, navItems.findIndex(function (item) { return item[0] === activeTab; }));
+    const currentDisplayIdx = hoverIdx !== null ? hoverIdx : activeNavIdx;
+
+    const triggerHaptic = function (duration) {
+      try {
+        if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+          window.navigator.vibrate(duration || 8);
+        }
+      } catch (_) {}
+    };
+
+    const getIndexFromX = function (clientX) {
+      if (!navRef.current) return activeNavIdx;
+      const rect = navRef.current.getBoundingClientRect();
+      const relativeX = clientX - rect.left;
+      const tabWidth = rect.width / navItems.length;
+      return Math.max(0, Math.min(navItems.length - 1, Math.floor(relativeX / tabWidth)));
+    };
+
+    const handlePointerDown = function (e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      isGlidingRef.current = true;
+      const targetIdx = getIndexFromX(e.clientX);
+      setHoverIdx(targetIdx);
+      triggerHaptic(10);
+
+      if (pillRef.current) {
+        pillRef.current.style.transition = 'transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1)';
+        pillRef.current.style.transform = 'translate3d(' + (targetIdx * 100) + '%, 0, 0) scaleX(1.08)';
+      }
+
+      const onPointerMove = function (moveEvt) {
+        if (!isGlidingRef.current || !navRef.current || !pillRef.current) return;
+        const newIdx = getIndexFromX(moveEvt.clientX);
+        setHoverIdx(function (prev) {
+          if (prev !== newIdx) {
+            triggerHaptic(6);
+            if (pillRef.current) {
+              pillRef.current.style.transition = 'transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)';
+              pillRef.current.style.transform = 'translate3d(' + (newIdx * 100) + '%, 0, 0) scaleX(1.12)';
+            }
+          }
+          return newIdx;
+        });
+      };
+
+      const onPointerUp = function (upEvt) {
+        isGlidingRef.current = false;
+        const finalIdx = getIndexFromX(upEvt.clientX);
+        setHoverIdx(null);
+
+        if (pillRef.current) {
+          pillRef.current.style.transition = 'transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1)';
+          pillRef.current.style.transform = 'translate3d(' + (finalIdx * 100) + '%, 0, 0) scaleX(1)';
+        }
+
+        if (navItems[finalIdx] && navItems[finalIdx][0] !== activeTab) {
+          triggerHaptic(12);
+          onSelectTab(navItems[finalIdx][0]);
+        }
+
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerUp);
+      };
+
+      window.addEventListener('pointermove', onPointerMove, { passive: true });
+      window.addEventListener('pointerup', onPointerUp, { passive: true });
+      window.addEventListener('pointercancel', onPointerUp, { passive: true });
+    };
+
+    React.useEffect(function () {
+      if (!isGlidingRef.current && pillRef.current) {
+        pillRef.current.style.transition = 'transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        pillRef.current.style.transform = 'translate3d(' + (activeNavIdx * 100) + '%, 0, 0) scaleX(1)';
+      }
+    }, [activeNavIdx]);
+
+    return h('nav', {
+      ref: navRef,
+      className: 'bottomnav',
+      'aria-label': 'Main Navigation',
+      onPointerDown: handlePointerDown
+    },
+      h('div', {
+        ref: pillRef,
+        className: 'nav-sliding-pill',
+        style: {
+          transform: 'translate3d(' + (currentDisplayIdx * 100) + '%, 0, 0)'
+        }
+      }),
+      navItems.map(function (item, idx) {
+        const key = item[0];
+        const label = item[1];
+        const Icon = item[2];
+        const isCurrentActive = currentDisplayIdx === idx;
+        return h('button', {
+          key: key,
+          type: 'button',
+          className: 'nav-item ' + (isCurrentActive ? 'active' : ''),
+          'aria-selected': isCurrentActive,
+          onClick: function (e) {
+            e.preventDefault();
+            if (activeTab !== key) {
+              triggerHaptic(10);
+              onSelectTab(key);
+            }
+          }
+        },
+          window.ic ? window.ic(Icon, 20, 'nav-icon ' + (isCurrentActive ? 'active' : '')) : null,
+          h('span', { className: 'nav-label' }, label)
+        );
+      })
+    );
+  }
+
   const NavigationEngine = {
     initBoxResizer,
     initDeepLinkRouter,
-    initBackButtonHandler
+    initBackButtonHandler,
+    LiquidGlassDock
   };
 
   global.NavigationEngine = NavigationEngine;
+  global.LiquidGlassDock = LiquidGlassDock;
 })(typeof window !== 'undefined' ? window : this);
