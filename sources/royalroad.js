@@ -142,10 +142,16 @@
       if (!fetchHtml) return [];
       try {
         const url = `https://www.royalroad.com/fictions/search?title=${encodeURIComponent(query.trim())}`;
-        const html = await fetchHtml(url);
+        const html = await fetchHtml(url, {
+          context: 'Royal Road Search',
+          headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Referer': 'https://www.royalroad.com/'
+          }
+        });
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const items = [];
-        const fictionCards = doc.querySelectorAll('.fiction-list-item, .search-item');
+        const fictionCards = doc.querySelectorAll('.fiction-list-item, .search-item, div.row.fiction-list-item');
         fictionCards.forEach(card => {
           const titleA = card.querySelector('h2.fiction-title a, .fiction-title a, a[href*="/fiction/"]');
           if (!titleA) return;
@@ -154,7 +160,7 @@
           const name = this.decodeHtml(titleA.textContent.trim());
           const img = card.querySelector('img');
           const cover = img?.getAttribute('src') || '';
-          const author = this.decodeHtml(card.querySelector('.author a, span.author')?.textContent?.trim() || '');
+          const author = this.decodeHtml(card.querySelector('.author a, span.author, a[href*="/profile/"]')?.textContent?.trim() || 'Royal Road Author');
           const summary = this.decodeHtml(card.querySelector('.description, p')?.textContent?.trim() || '');
           items.push({
             id: 'rr_' + (href.match(/fiction\/(\d+)/)?.[1] || Math.random().toString(36).slice(2)),

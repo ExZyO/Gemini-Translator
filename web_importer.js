@@ -677,7 +677,11 @@
             return { blocked: true, type: 'proxy_dead', label: 'CORS Proxy Error / Redirect' };
         }
 
-        if (lower.includes('play.google.com') || lower.includes('gamesappsbookskids') || lower.includes('not yet media ltd') || lower.includes('com.royalroad.app')) {
+        if (text.length < 3500 && (
+            (lower.includes('play.google.com') && (lower.includes('window.location') || lower.includes('location.replace') || lower.includes('http-equiv="refresh"') || lower.includes('url=https://play.google.com'))) ||
+            lower.includes('gamesappsbookskids') ||
+            lower.includes('not yet media ltd')
+        )) {
             return { blocked: true, type: 'app_store_redirect', label: 'App Store Redirect Trap' };
         }
 

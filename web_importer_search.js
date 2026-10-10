@@ -165,52 +165,134 @@
     }
 
     async function searchRoyalRoad(query) {
-        const url = `https://www.royalroad.com/fictions/search?title=${encodeURIComponent(query)}`;
-        const html = await fetchHtml(url);
+        if (!query || !query.trim()) return [];
+        const cleanQ = encodeURIComponent(query.trim());
+        const url = `https://www.royalroad.com/fictions/search?title=${cleanQ}`;
+        let html = null;
+        try {
+            html = await fetchHtml(url, {
+                context: 'RoyalRoad Web Search',
+                headers: {
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                    'Referer': 'https://www.royalroad.com/'
+                }
+            });
+        } catch (_) {}
         if (!html) return [];
 
         const results = [];
-        const itemMatches = [...html.matchAll(/<div class="row fiction-list-item">([\s\S]*?)(?:<div class="row fiction-list-item"|<\/div>\s*<\/div>\s*<div class="text-center">|$)/gi)];
+        const seenUrls = new Set();
 
-        for (const m of itemMatches) {
-            const block = m[1];
-            const titleMatch = block.match(/<h2 class="fiction-title">\s*<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
-            if (!titleMatch) continue;
+        // 1. DOMParser parsing (Standard browser engine)
+        if (typeof DOMParser !== 'undefined') {
+            try {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const cards = doc.querySelectorAll('.fiction-list-item, .search-item, div.row.fiction-list-item');
+                cards.forEach(card => {
+                    const titleA = card.querySelector('h2.fiction-title a, .fiction-title a, a[href*="/fiction/"]');
+                    if (!titleA) return;
+                    const href = titleA.getAttribute('href') || '';
+                    if (!href.includes('/fiction/')) return;
+                    const fullUrl = href.startsWith('http') ? href : 'https://www.royalroad.com' + href;
+                    if (seenUrls.has(fullUrl)) return;
+                    seenUrls.add(fullUrl);
 
-            const url = 'https://www.royalroad.com' + titleMatch[1];
-            const title = stripSearchHtml(titleMatch[2]);
+                    const title = stripSearchHtml(titleA.textContent.trim());
+                    const img = card.querySelector('img');
+                    let cover = img?.getAttribute('src') || '';
+                    if (cover.includes('nocover-new-min.png')) cover = '';
+                    if (cover.includes('/covers-full/')) {
+                        cover = cover.replace(/\/covers-full\//i, '/covers-large/');
+                    }
+                    if (cover && !cover.startsWith('http')) {
+                        cover = 'https://www.royalroad.com' + cover;
+                    }
 
-            const coverMatch = block.match(/<img[^>]+src="([^"]+)"/i);
-            let cover = coverMatch ? coverMatch[1] : '';
-            if (cover.includes('nocover-new-min.png')) cover = '';
-            if (cover.includes('/covers-full/')) {
-                cover = cover.replace(/\/covers-full\//i, '/covers-large/');
+                    const authorEl = card.querySelector('.author a, span.author, a[href*="/profile/"]');
+                    const author = stripSearchHtml(authorEl?.textContent?.trim() || 'RoyalRoad Author');
+
+                    const chEl = card.querySelector('.stats, .fiction-stats') || card;
+                    const chMatch = chEl?.textContent?.match(/(\d[\d,]*)\s*Chapters/i);
+                    const pageMatch = chEl?.textContent?.match(/(\d[\d,]*)\s*Pages/i);
+                    const chapters = chMatch ? `${chMatch[1]} chapters` : (pageMatch ? `${pageMatch[1]} pages` : '');
+
+                    const ratingMatch = card.innerHTML.match(/aria-label="Rating:\s*([0-9.]+)\s*out of 5"/i);
+                    const rating = ratingMatch ? `${ratingMatch[1]} / 5` : '';
+
+                    const tags = Array.from(card.querySelectorAll('.tags .tag, .fiction-tag, .label-tag')).map(t => stripSearchHtml(t.textContent)).filter(Boolean).slice(0, 4);
+                    const descEl = card.querySelector('.description, [id^="description-"], p');
+                    const summary = descEl ? stripSearchHtml(descEl.textContent).substring(0, 240) + '…' : '';
+                    const status = card.textContent.includes('COMPLETED') ? 'Completed' : 'Ongoing';
+
+                    results.push({
+                        source: 'RoyalRoad',
+                        title,
+                        url: fullUrl,
+                        cover,
+                        author,
+                        chapters,
+                        rating,
+                        tags,
+                        summary,
+                        status
+                    });
+                });
+            } catch (_) {}
+        }
+
+        // 2. Regex fallback if DOMParser returned 0 items
+        if (results.length === 0) {
+            const itemMatches = [...html.matchAll(/<div class="[^"]*fiction-list-item[^"]*">([\s\S]*?)(?:<div class="[^"]*fiction-list-item[^"]*"|<\/div>\s*<\/div>\s*<div class="text-center">|$)/gi)];
+
+            for (const m of itemMatches) {
+                const block = m[1];
+                const titleMatch = block.match(/<h2 class="fiction-title">\s*<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+                if (!titleMatch) continue;
+
+                const url = titleMatch[1].startsWith('http') ? titleMatch[1] : ('https://www.royalroad.com' + titleMatch[1]);
+                if (seenUrls.has(url)) continue;
+                seenUrls.add(url);
+
+                const title = stripSearchHtml(titleMatch[2]);
+
+                const coverMatch = block.match(/<img[^>]+src="([^"]+)"/i);
+                let cover = coverMatch ? coverMatch[1] : '';
+                if (cover.includes('nocover-new-min.png')) cover = '';
+                if (cover.includes('/covers-full/')) {
+                    cover = cover.replace(/\/covers-full\//i, '/covers-large/');
+                }
+                if (cover && !cover.startsWith('http')) {
+                    cover = 'https://www.royalroad.com' + cover;
+                }
+
+                const authorMatch = block.match(/href="\/profile\/[^"]*"[^>]*>([\s\S]*?)<\/a>/i) || block.match(/class="author"[^>]*>([\s\S]*?)<\/span>/i);
+                const author = authorMatch ? stripSearchHtml(authorMatch[1]) : 'RoyalRoad Author';
+
+                const chMatch = block.match(/(\d[\d,]*)\s*Chapters/i);
+                const pageMatch = block.match(/(\d[\d,]*)\s*Pages/i);
+                const chapters = chMatch ? `${chMatch[1]} chapters` : (pageMatch ? `${pageMatch[1]} pages` : '');
+
+                const ratingMatch = block.match(/aria-label="Rating:\s*([0-9.]+)\s*out of 5"/i);
+                const rating = ratingMatch ? `${ratingMatch[1]} / 5` : '';
+
+                const tags = [...block.matchAll(/class="label[^"]*fiction-tag"[^>]*>([\s\S]*?)<\/a>/gi)].map(t => stripSearchHtml(t[1])).slice(0, 4);
+
+                const descMatch = block.match(/id="description-\d+"[^>]*>([\s\S]*?)<\/div>/i);
+                const summary = descMatch ? stripSearchHtml(descMatch[1]).substring(0, 240) + '…' : '';
+
+                results.push({
+                    source: 'RoyalRoad',
+                    title,
+                    url,
+                    cover,
+                    author,
+                    chapters,
+                    rating,
+                    tags,
+                    summary,
+                    status: block.includes('COMPLETED') ? 'Completed' : 'Ongoing'
+                });
             }
-
-            const chMatch = block.match(/(\d[\d,]*)\s*Chapters/i);
-            const pageMatch = block.match(/(\d[\d,]*)\s*Pages/i);
-            const chapters = chMatch ? `${chMatch[1]} chapters` : (pageMatch ? `${pageMatch[1]} pages` : '');
-
-            const ratingMatch = block.match(/aria-label="Rating:\s*([0-9.]+)\s*out of 5"/i);
-            const rating = ratingMatch ? `${ratingMatch[1]} / 5` : '';
-
-            const tags = [...block.matchAll(/class="label[^"]*fiction-tag"[^>]*>([\s\S]*?)<\/a>/gi)].map(t => stripSearchHtml(t[1])).slice(0, 4);
-
-            const descMatch = block.match(/id="description-\d+"[^>]*>([\s\S]*?)<\/div>/i);
-            const summary = descMatch ? stripSearchHtml(descMatch[1]).substring(0, 240) + '…' : '';
-
-            results.push({
-                source: 'RoyalRoad',
-                title,
-                url,
-                cover,
-                author: 'RoyalRoad Author',
-                chapters,
-                rating,
-                tags,
-                summary,
-                status: block.includes('COMPLETED') ? 'Completed' : 'Ongoing'
-            });
         }
 
         return results;

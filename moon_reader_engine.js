@@ -442,33 +442,31 @@
             console.warn('[MoonReaderEngine] Crawler search error:', err);
           })
         );
-      } else {
+      } else if (typeof window !== 'undefined' && window.WebNovelImporter?.searchNovels) {
         // Task B: Direct WebNovelImporter.searchNovels with streaming partials
-        if (typeof window !== 'undefined' && window.WebNovelImporter?.searchNovels) {
-          searchTasks.push(
-            window.WebNovelImporter.searchNovels(cleanQuery, 'all', (partial) => {
-              addItems(partial);
-            }).then(res => {
-              addItems(res);
-            }).catch(err => {
-              console.warn('[MoonReaderEngine] Importer search error:', err);
-            })
-          );
-        }
+        searchTasks.push(
+          window.WebNovelImporter.searchNovels(cleanQuery, 'all', (partial) => {
+            addItems(partial);
+          }).then(res => {
+            addItems(res);
+          }).catch(err => {
+            console.warn('[MoonReaderEngine] Importer search error:', err);
+          })
+        );
+      }
 
-        // Task C: Direct Source Registry extensions with streaming partials
-        const reg = (typeof window !== 'undefined' ? (window.sourceRegistry || window.SourceRegistry) : null);
-        if (reg && typeof reg.searchAll === 'function') {
-          searchTasks.push(
-            reg.searchAll(cleanQuery, (partial) => {
-              addItems(partial);
-            }).then(res => {
-              addItems(res);
-            }).catch(err => {
-              console.warn('[MoonReaderEngine] Plugin search error:', err);
-            })
-          );
-        }
+      // Task C: Direct Source Registry extensions with streaming partials (in parallel with scrapers)
+      const reg = (typeof window !== 'undefined' ? (window.sourceRegistry || window.SourceRegistry) : null);
+      if (reg && typeof reg.searchAll === 'function') {
+        searchTasks.push(
+          reg.searchAll(cleanQuery, (partial) => {
+            addItems(partial);
+          }).then(res => {
+            addItems(res);
+          }).catch(err => {
+            console.warn('[MoonReaderEngine] Plugin search error:', err);
+          })
+        );
       }
 
       if (searchTasks.length > 0) {
