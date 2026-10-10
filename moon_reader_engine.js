@@ -826,6 +826,8 @@
 
         const modalState = {
           isOpen: true,
+          novelId: full.id || novelItem.id || '',
+          novelItem: full || novelItem,
           file: full.epubBlob || null,
           originalFileName: full.fileName || (full.title ? `${full.title}.epub` : 'Novel.epub'),
           originalTitle: epubMeta?.title || full.title || 'Novel',
@@ -1342,6 +1344,16 @@
               };
             });
           }
+
+          // Auto-persist successfully verified website source to novel record
+          const curNovel = options.ongoingEpubModal?.novelItem || options.novelItem || options.novel;
+          if (curNovel && targetUrl && window.LibraryEngine?.assignNovelSourceUrl) {
+            window.LibraryEngine.assignNovelSourceUrl(curNovel, targetUrl, {
+              onUpdateHistory: callbacks.setWebImportHistory,
+              onUpdateWebImportData: callbacks.setWebImportData,
+              onUpdateActiveNovelRecord: callbacks.setActiveNovelRecord
+            }).catch(() => {});
+          }
           if (typeof toast === 'function') {
             const curExisting = (options.ongoingEpubModal?.highestStoryChapter > 0 ? options.ongoingEpubModal.highestStoryChapter : (options.ongoingEpubModal?.existingCount || existingCount)) || 0;
             if (curExisting >= totalOnlineCount) {
@@ -1464,6 +1476,17 @@
             isFetching: false
           } : null);
         }
+
+        // Auto-persist selected source website to novel record
+        const curNovel = options.ongoingEpubModal?.novelItem || options.novelItem || options.novel;
+        if (curNovel && window.LibraryEngine?.assignNovelSourceUrl) {
+          window.LibraryEngine.assignNovelSourceUrl(curNovel, targetUrl, {
+            onUpdateHistory: callbacks.setWebImportHistory,
+            onUpdateWebImportData: callbacks.setWebImportData,
+            onUpdateActiveNovelRecord: callbacks.setActiveNovelRecord
+          }).catch(() => {});
+        }
+
         const onScan = callbacks.handleScanContinuationToc || callbacks.onScanToc || ((u, count) => this.handleScanContinuationToc(u, { ...options, existingCount: count }, callbacks));
         const count = options.existingCount !== undefined ? options.existingCount : options.ongoingEpubModal?.existingCount;
         await onScan(targetUrl, count);
@@ -1511,6 +1534,7 @@
           // Save updated novel into library with epubBlob cached for preserved re-downloads
           if (typeof saveNovelToHistory === 'function') {
             await saveNovelToHistory({
+              id: ongoingEpubModal.novelId || ongoingEpubModal.novelItem?.id,
               title,
               author,
               cover,

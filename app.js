@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.24';
+    let VERSION = '8.21.25';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -322,6 +322,20 @@
       const getCustomTitle = (novelOrUrl) => window.LibraryEngine ? window.LibraryEngine.getCustomTitle(novelOrUrl) : '';
 
       const handleSaveNovelRename = (novel, newTitle) => window.LibraryEngine?.Controller?.saveRename(novel, newTitle, { setWebImportHistory, setWebImportData, setActiveCrawlSession, setActiveNovelRecord, setReaderNovelTitle: (trimmed) => { if (typeof readerNovelId !== 'undefined' && readerNovelId && (readerNovelId === novel?.id || readerNovelId === novel?.title)) setReaderNovelTitle(trimmed); }, setRenameModalNovel, toast });
+      const handleSaveNovelWebsite = (novel, newUrl, andContinue = false) => {
+        window.LibraryEngine?.Controller?.assignSourceUrl(novel, newUrl, {
+          setWebImportHistory,
+          setWebImportData,
+          setActiveNovelRecord,
+          toast
+        }).then(savedUrl => {
+          if (savedUrl && andContinue && typeof handleOpenContinuationForNovel === 'function') {
+            handleOpenContinuationForNovel({ ...novel, sourceUrl: savedUrl, url: savedUrl });
+          }
+        }).catch(err => {
+          console.warn('[Library] Failed to assign novel website source:', err);
+        });
+      };
       const saveNovelToHistory = (novelData) => window.LibraryEngine?.Controller?.saveToHistory(novelData, { setWebImportHistory, setActiveCrawlSession });
       const toggleNovelSavedSpace = (id, fallback = null) => window.LibraryEngine?.Controller?.toggleSavedSpace(id, fallback, { setWebImportHistory, setActiveCrawlSession, setWebImportData, setActiveNovelRecord, toast });
       const handleCheckNovelUpdate = (item) => window.LibraryEngine?.Controller?.checkUpdate(item, novelUpdateBadges, { setCheckingUpdates, setNovelUpdateBadges, toast });
@@ -1067,9 +1081,11 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8435);
+      const [appVersionCode, setAppVersionCode] = useState(8436);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
+      const [assignWebsiteModalNovel, setAssignWebsiteModalNovel] = useState(null);
+      const [newNovelWebsiteUrlInput, setNewNovelWebsiteUrlInput] = useState('');
       const [installingPluginId, setInstallingPluginId] = useState(null);
       useEffect(() => {
         fetch('./version.json?t=' + Date.now())
@@ -1461,6 +1477,8 @@
           if (isFullPlayerOpen) { setIsFullPlayerOpen(false); return true; }
           // 18. Novel Rename Modal
           if (renameModalNovel) { setRenameModalNovel(null); return true; }
+          // 18b. Novel Assign Website Modal
+          if (assignWebsiteModalNovel) { setAssignWebsiteModalNovel(null); return true; }
           // 19. Source Extensions / Plugins Modal
           if (sourcePluginsModalOpen) { setSourcePluginsModalOpen(false); return true; }
           // 20. Cost & Time Estimator Modal
@@ -2527,7 +2545,8 @@
         isAudiobookInLibrary, saveAudiobookToLibrary, removeAudiobookFromLibrary, handleSetNovelFolder,
         toggleNovelSavedSpace, autoSortImportChapters, reverseImportChapters, aiReorderImportChapters,
         moveImportChapter, moveImportChapterToEdge, removeImportChapter, checkAndApplyNovelGlossary,
-        loadFullNovel, getCustomTitle, setRenameModalNovel, setNewNovelTitleInput, setFileName,
+        loadFullNovel, getCustomTitle, setRenameModalNovel, setNewNovelTitleInput,
+        setAssignWebsiteModalNovel, setNewNovelWebsiteUrlInput, handleSaveNovelWebsite, setFileName,
         ongoingEpubInputRef, cleanBookTitle, cleanBookAuthor, generateEpubFromChapters,
         getEpubFileName, getEpubOptions, getNovelFolderOptions, saveUniversalBlob, InfoTooltip,
 
@@ -2722,7 +2741,7 @@
 
           // Library Novel Action Sheet
           activeBookMenuNovel, setActiveBookMenuNovel, getNovelFolderOptions, setRenameModalNovel,
-          setNewNovelTitleInput, getCustomTitle, loadFullNovel, setActiveTab, setStudioSubTab,
+          setNewNovelTitleInput, setAssignWebsiteModalNovel, setNewNovelWebsiteUrlInput, getCustomTitle, loadFullNovel, setActiveTab, setStudioSubTab,
           handleCheckNovelUpdate, handleOpenContinuationForNovel, handleOpenAutoGlossary,
           toggleNovelSavedSpace, handleSetNovelFolder, handleOpenNovelHealthModal,
           handleEnrichNovelMetadata, handleUpgradeNovelIllustrations, handleSplitNovelIntoArcs, confirmAction, deleteNovelFromHistory,
@@ -2764,6 +2783,9 @@
 
           // Novel Rename Modal
           renameModalNovel, newNovelTitleInput, handleSaveNovelRename,
+
+          // Novel Assign Website Modal
+          assignWebsiteModalNovel, setAssignWebsiteModalNovel, newNovelWebsiteUrlInput, setNewNovelWebsiteUrlInput, handleSaveNovelWebsite,
 
           // Source Extensions Modal
           sourcePluginsModalOpen, setSourcePluginsModalOpen, pluginSelectedTab,

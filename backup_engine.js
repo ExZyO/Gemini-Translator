@@ -235,7 +235,7 @@
       const PREFERENCE_KEYS = [
         // Reading Progress & Bookshelf
         'gemini_reading_progress', 'gemini_saved_audiobooks', 'gemini_last_audiobook_position',
-        'gemini_novel_custom_titles', 'gemini_novel_folder_mappings', 'gemini_web_import_history_meta',
+        'gemini_novel_custom_titles', 'gemini_novel_folder_mappings', 'gemini_novel_source_urls', 'gemini_web_import_history_meta',
         'gemini_web_import_history', 'gemini_current_doc_cover', 'gemini_active_crawl_session',
         'gemini_installed_plugins', 'gemini_gender_locks', 'gemini_settings_category',
         'epub-studio-presets', 'exportHistory',
@@ -973,6 +973,9 @@
           for (const novel of data.novelLibrary) {
             try {
               if (!novel.id) novel.id = 'novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+              // Ensure source website URL parity across legacy schemas
+              if (!novel.sourceUrl && novel.url) novel.sourceUrl = novel.url;
+              if (novel.sourceUrl && !novel.url) novel.url = novel.sourceUrl;
               // Reconstruct binary EPUB blob if serialized
               if (novel.epubBlob && novel.epubBlob.__blob) {
                 novel.epubBlob = this.base64ToBlob(novel.epubBlob);
@@ -993,9 +996,14 @@
       }
 
       if (data.webImportHistory && Array.isArray(data.webImportHistory)) {
-        if (setters.setWebImportHistory) setters.setWebImportHistory(data.webImportHistory);
-        try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(data.webImportHistory)); } catch (e) {}
-        if (novelCount === 0) novelCount = data.webImportHistory.length;
+        const normalizedHistory = data.webImportHistory.map(item => ({
+          ...item,
+          sourceUrl: item.sourceUrl || item.url || '',
+          url: item.sourceUrl || item.url || ''
+        }));
+        if (setters.setWebImportHistory) setters.setWebImportHistory(normalizedHistory);
+        try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(normalizedHistory)); } catch (e) {}
+        if (novelCount === 0) novelCount = normalizedHistory.length;
       } else if (data.novelLibrary && Array.isArray(data.novelLibrary) && data.novelLibrary.length > 0) {
         const synthesizedMeta = data.novelLibrary.map(n => ({
           id: n.id,
@@ -1010,13 +1018,39 @@
           wordCount: n.wordCount || 0,
           timestamp: n.timestamp || new Date().toISOString(),
           isEpub: !!n.isEpub,
-          sourceUrl: n.sourceUrl || '',
+          sourceUrl: n.sourceUrl || n.url || '',
+          url: n.sourceUrl || n.url || '',
           folderTreeUri: n.folderTreeUri || '',
           folderPath: n.folderPath || ''
         }));
         if (setters.setWebImportHistory) setters.setWebImportHistory(synthesizedMeta);
         try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(synthesizedMeta)); } catch (e) {}
       }
+
+      // Re-index novel website source URLs into fast lookup map
+      try {
+        const rawMap = localStorage.getItem('gemini_novel_source_urls');
+        const sourceMap = rawMap ? JSON.parse(rawMap) : {};
+        if (Array.isArray(data.novelLibrary)) {
+          data.novelLibrary.forEach(n => {
+            const u = n.sourceUrl || n.url;
+            if (u && /^https?:\/\//i.test(u)) {
+              if (n.id) sourceMap[n.id] = u;
+              if (n.title) sourceMap[n.title.trim().toLowerCase()] = u;
+            }
+          });
+        }
+        if (Array.isArray(data.webImportHistory)) {
+          data.webImportHistory.forEach(n => {
+            const u = n.sourceUrl || n.url;
+            if (u && /^https?:\/\//i.test(u)) {
+              if (n.id) sourceMap[n.id] = u;
+              if (n.title) sourceMap[n.title.trim().toLowerCase()] = u;
+            }
+          });
+        }
+        localStorage.setItem('gemini_novel_source_urls', JSON.stringify(sourceMap));
+      } catch (e) {}
 
       // Active Translation Sessions Restore
       if (data.activeTranslations && Array.isArray(data.activeTranslations) && data.activeTranslations.length > 0) {

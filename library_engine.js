@@ -255,6 +255,98 @@
     },
 
     /**
+     * Binds or updates the online website source URL for an ebook in library and storage
+     */
+    async assignNovelSourceUrl(novel, newSourceUrl, callbacks = {}) {
+      if (!novel) return null;
+      const rawUrl = (newSourceUrl || '').trim();
+      if (!rawUrl || !/^https?:\/\//i.test(rawUrl)) {
+        if (typeof callbacks.toast === 'function') {
+          callbacks.toast('Please enter a valid website URL starting with https://', 'warning');
+        }
+        return null;
+      }
+      const novelId = novel.id;
+      const cleanUrl = rawUrl;
+
+      // 1. Update gemini_novel_source_urls lookup map in localStorage
+      try {
+        const rawMap = localStorage.getItem('gemini_novel_source_urls');
+        const map = rawMap ? JSON.parse(rawMap) : {};
+        if (novelId) map[novelId] = cleanUrl;
+        if (novel.title) map[novel.title.trim().toLowerCase()] = cleanUrl;
+        localStorage.setItem('gemini_novel_source_urls', JSON.stringify(map));
+      } catch(e) {}
+
+      // 2. Update webImportHistory (localStorage)
+      let updatedHistory = [];
+      try {
+        const raw = localStorage.getItem('gemini_web_import_history_meta');
+        const list = raw ? JSON.parse(raw) : [];
+        updatedHistory = list.map(item => {
+          if (item.id === novelId || (novel.title && item.title === novel.title)) {
+            return { ...item, sourceUrl: cleanUrl, url: cleanUrl };
+          }
+          return item;
+        });
+        localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updatedHistory));
+      } catch(e) {}
+
+      // 3. Update React history state
+      if (typeof callbacks.onUpdateHistory === 'function') {
+        callbacks.onUpdateHistory(prev => {
+          const prevList = Array.isArray(prev) ? prev : updatedHistory;
+          return prevList.map(item => {
+            if (item.id === novelId || (novel.title && item.title === novel.title)) {
+              return { ...item, sourceUrl: cleanUrl, url: cleanUrl };
+            }
+            return item;
+          });
+        });
+      }
+
+      // 4. Update IndexedDB full record
+      if (window.GeminiNovelDB && novelId) {
+        try {
+          const full = await window.GeminiNovelDB.getNovel(novelId);
+          if (full) {
+            full.sourceUrl = cleanUrl;
+            full.url = cleanUrl;
+            await window.GeminiNovelDB.saveNovel(full);
+          }
+        } catch(e) {
+          console.warn('[LibraryEngine] Failed to update novel sourceUrl in IndexedDB:', e);
+        }
+      }
+
+      // 5. Update active sessions if present
+      if (typeof callbacks.onUpdateWebImportData === 'function') {
+        callbacks.onUpdateWebImportData(prev => {
+          if (prev && (prev.id === novelId || (novel.title && prev.title === novel.title))) {
+            return { ...prev, sourceUrl: cleanUrl, url: cleanUrl };
+          }
+          return prev;
+        });
+      }
+      if (typeof callbacks.onUpdateActiveNovelRecord === 'function') {
+        callbacks.onUpdateActiveNovelRecord(prev => {
+          if (prev && (prev.id === novelId || (novel.title && prev.title === novel.title))) {
+            return { ...prev, sourceUrl: cleanUrl, url: cleanUrl };
+          }
+          return prev;
+        });
+      }
+
+      if (typeof callbacks.toast === 'function') {
+        callbacks.toast(`Saved website source for "${novel.title || 'Novel'}"!`, 'success');
+      }
+      if (typeof callbacks.onSuccess === 'function') {
+        callbacks.onSuccess(cleanUrl);
+      }
+      return cleanUrl;
+    },
+
+    /**
      * Sanitizes and saves full novel record to IndexedDB and lightweight meta stub to localStorage
      */
     async saveNovelToHistory(novelData, callbacks = {}) {
@@ -1986,6 +2078,16 @@
               setRenameModalNovel(null);
             }
           }
+        });
+      },
+
+      async assignSourceUrl(novel, url, { setWebImportHistory, setWebImportData, setActiveNovelRecord, toast } = {}) {
+        if (!LibraryEngine.assignNovelSourceUrl) return null;
+        return await LibraryEngine.assignNovelSourceUrl(novel, url, {
+          toast,
+          onUpdateHistory: setWebImportHistory,
+          onUpdateWebImportData: setWebImportData,
+          onUpdateActiveNovelRecord: typeof setActiveNovelRecord === 'function' ? setActiveNovelRecord : null
         });
       },
 

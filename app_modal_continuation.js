@@ -507,25 +507,44 @@
                 ongoingEpubModal.sourceUrl
               )
             ),
-            h('button', {
-              type: 'button',
-              className: 'mini-btn',
-              style: {
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid var(--hairline)',
-                color: 'var(--paper)',
-                fontSize: 12,
-                padding: '6px 12px',
-                borderRadius: 8,
-                cursor: 'pointer',
-                flexShrink: 0,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5
-              },
-              disabled: ongoingEpubModal.isScanningToc || ongoingEpubModal.isFetching,
-              onClick: () => handleScanContinuationToc && handleScanContinuationToc(ongoingEpubModal.sourceUrl, ongoingEpubModal.existingCount)
-            }, ongoingEpubModal.isScanningToc ? 'Scanning…' : [ic('RefreshCw', 12), ' Re-scan'])
+            h('div', { style: { display: 'flex', gap: 6, flexShrink: 0 } },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: {
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid var(--hairline)',
+                  color: 'var(--paper)',
+                  fontSize: 12,
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5
+                },
+                disabled: ongoingEpubModal.isScanningToc || ongoingEpubModal.isFetching,
+                onClick: () => handleScanContinuationToc && handleScanContinuationToc(ongoingEpubModal.sourceUrl, ongoingEpubModal.existingCount)
+              }, ongoingEpubModal.isScanningToc ? 'Scanning…' : [ic('RefreshCw', 12), ' Re-scan']),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: {
+                  background: ongoingEpubModal.showSourceSwitcher ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                  border: ongoingEpubModal.showSourceSwitcher ? '1px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
+                  color: ongoingEpubModal.showSourceSwitcher ? '#818cf8' : 'var(--paper)',
+                  fontSize: 12,
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5
+                },
+                disabled: ongoingEpubModal.isFetching,
+                onClick: () => setOngoingEpubModal(prev => prev ? { ...prev, showSourceSwitcher: !prev.showSourceSwitcher } : null)
+              }, [ic('Globe', 12), ongoingEpubModal.showSourceSwitcher ? 'Hide' : 'Change Website'])
+            )
           ),
 
           // Source Switcher Tray
