@@ -193,12 +193,12 @@
     } = props;
 
     const SETTINGS_CATEGORIES = [
-      { id: 'engine', label: '🌐 Engine & Keys' },
-      { id: 'sources', label: '📖 Sites & Sources' },
-      { id: 'quality', label: '🩺 Quality & TM' },
-      { id: 'display', label: '🎨 Reader & Display' },
-      { id: 'backup', label: '💾 Backup & Storage' },
-      { id: 'all', label: '📋 All Settings' }
+      { id: 'engine', label: 'Engine & Keys', icon: 'Key' },
+      { id: 'sources', label: 'Sites & Sources', icon: 'Compass' },
+      { id: 'quality', label: 'Quality & TM', icon: 'Shield' },
+      { id: 'display', label: 'Reader & Display', icon: 'Palette' },
+      { id: 'backup', label: 'Backup & Storage', icon: 'Save' },
+      { id: 'all', label: 'All Settings', icon: 'Sliders' }
     ];
 
               return h(React.Fragment, null,
@@ -216,13 +216,13 @@
                         style: { fontSize: 11, padding: '5px 12px', borderRadius: 999, color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.35)' },
                         onClick: handleResetSettings,
                         title: 'Restore settings to recommended defaults (keeps API keys and library safe)'
-                      }, '↺ Reset'),
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RotateCcw', 12), 'Reset')),
                       h('button', {
                         type: 'button',
                         className: 'chip-act',
                         style: { fontSize: 11, padding: '5px 12px', borderRadius: 999, background: 'rgba(99, 102, 241, 0.15)', borderColor: '#6366F1', color: '#c7d2fe', fontWeight: 600 },
                         onClick: () => checkForAppUpdate(true)
-                      }, '🔄 Updates')
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RefreshCw', 12), 'Updates'))
                     )
                   )
                 ),
@@ -239,7 +239,7 @@
                 },
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
                     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                      h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #4F46E5)' } }, '📱'),
+                      h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #4F46E5)' } }, ic('Sparkles', 18, 'text-white')),
                       h('div', null,
                         h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--paper)' } }, 'Gemini Novel Studio & Reader'),
                         h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 1 } }, `v${appVersion} (Build ${appVersionCode || 8228}) · AMOLED Midnight`)
@@ -262,10 +262,10 @@
                         const next = !downloadedOnly;
                         setDownloadedOnly(next);
                         localStorage.setItem('downloadedOnly', String(next));
-                        toast(next ? '📥 Downloaded only: ON' : '📥 Downloaded only: OFF', 'info');
+                        toast(next ? 'Downloaded only: ON' : 'Downloaded only: OFF', 'info');
                       }
                     },
-                      h('div', { style: { fontSize: 11.5, fontWeight: 600, color: downloadedOnly ? 'var(--iris)' : 'var(--paper)' } }, '📥 Downloaded only'),
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: downloadedOnly ? 'var(--iris)' : 'var(--paper)' } }, ic('Download', 13), 'Downloaded only'),
                       h('button', { type: 'button', className: `switch ${downloadedOnly ? 'on' : ''}`, style: { pointerEvents: 'none' } })
                     ),
                     h('div', {
@@ -283,10 +283,10 @@
                         const next = !incognitoMode;
                         setIncognitoMode(next);
                         localStorage.setItem('incognitoMode', String(next));
-                        toast(next ? '🕶️ Incognito mode: ON (history paused)' : '🕶️ Incognito mode: OFF', 'info');
+                        toast(next ? 'Incognito mode: ON (history paused)' : 'Incognito mode: OFF', 'info');
                       }
                     },
-                      h('div', { style: { fontSize: 11.5, fontWeight: 600, color: incognitoMode ? '#ec4899' : 'var(--paper)' } }, '🕶️ Incognito mode'),
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: incognitoMode ? '#ec4899' : 'var(--paper)' } }, ic('EyeOff', 13), 'Incognito mode'),
                       h('button', { type: 'button', className: `switch ${incognitoMode ? 'on' : ''}`, style: { pointerEvents: 'none' } })
                     ),
                     h('div', {
@@ -303,10 +303,10 @@
                       onClick: () => {
                         const next = !enableStreaming;
                         setEnableStreaming(next);
-                        toast(next ? '⚡ Typewriter streaming: ON' : '⚡ Typewriter streaming: OFF', 'info');
+                        toast(next ? 'Typewriter streaming: ON' : 'Typewriter streaming: OFF', 'info');
                       }
                     },
-                      h('div', { style: { fontSize: 11.5, fontWeight: 600, color: enableStreaming ? '#10b981' : 'var(--paper)' } }, '⚡ Stream tokens'),
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: enableStreaming ? '#10b981' : 'var(--paper)' } }, ic('Zap', 13), 'Stream tokens'),
                       h('button', { type: 'button', className: `switch ${enableStreaming ? 'on' : ''}`, style: { pointerEvents: 'none' } })
                     ),
                     h('div', {
@@ -324,10 +324,10 @@
                         const next = !enableThinking;
                         setEnableThinking(next);
                         localStorage.setItem('enableThinking', String(next));
-                        toast(next ? '🧠 Extended Thinking: ON' : '🧠 Extended Thinking: OFF', 'info');
+                        toast(next ? 'Extended Thinking: ON' : 'Extended Thinking: OFF', 'info');
                       }
                     },
-                      h('div', { style: { fontSize: 11.5, fontWeight: 600, color: enableThinking ? '#c084fc' : 'var(--paper)' } }, '🧠 Thinking AI'),
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: enableThinking ? '#c084fc' : 'var(--paper)' } }, ic('Brain', 13), 'Thinking AI'),
                       h('button', { type: 'button', className: `switch ${enableThinking ? 'on' : ''}`, style: { pointerEvents: 'none' } })
                     )
                   )
@@ -345,7 +345,7 @@
                         setSettingsCategory(cat.id);
                         try { localStorage.setItem('gemini_settings_category', cat.id); } catch(e) {}
                       }
-                    }, cat.label);
+                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic(cat.icon, 13), cat.label));
                   })
                 ),
 
@@ -361,7 +361,7 @@
               h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #4F46E5)' } }, '🔮'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #4F46E5)' } }, ic('Brain', 18, 'text-white')),
                     h('span', null, 'Engine Configuration')
                   )
                 ),
@@ -396,7 +396,7 @@
                       } 
                     },
                       DEFAULT_GEMINI_MODELS.map(m => h('option', { key: m.id, value: m.id }, m.name)),
-                      h('option', { value: 'custom' }, '✍️ Custom Model (Enter Manually…)')
+                      h('option', { value: 'custom' }, 'Custom Model (Enter Manually…)')
                     )
                   ),
                   useCustomModel && h('div', { className: 'set-row', style: { paddingTop: 4 } },
@@ -444,7 +444,7 @@
                       } 
                     },
                       DEFAULT_DEEPSEEK_MODELS.map(m => h('option', { key: m.id, value: m.id }, m.name)),
-                      h('option', { value: 'custom' }, '✍️ Custom Model (Enter Manually…)')
+                      h('option', { value: 'custom' }, 'Custom Model (Enter Manually…)')
                     )
                   ),
                   useCustomDeepseekModel && h('div', { className: 'set-row', style: { paddingTop: 4 } },
@@ -506,10 +506,10 @@
                       fontFamily: "'IBM Plex Mono', monospace"
                     }
                   },
-                    h('option', { value: 'turbo' }, '⚡ Turbo (Max words/req)'),
-                    h('option', { value: 'large' }, '📖 Large (~3,500 chars)'),
-                    h('option', { value: 'medium' }, '⚖️ Medium (~2,500 chars)'),
-                    h('option', { value: 'small' }, '🐢 Small (~1,800 chars)')
+                    h('option', { value: 'turbo' }, 'Turbo (Max words/req)'),
+                    h('option', { value: 'large' }, 'Large (~3,500 chars)'),
+                    h('option', { value: 'medium' }, 'Medium (~2,500 chars)'),
+                    h('option', { value: 'small' }, 'Small (~1,800 chars)')
                   )
                 ),
                 h('div', { className: 'set-row' },
@@ -518,7 +518,7 @@
                     type: 'button',
                     className: 'chip-act',
                     onClick: handleOpenSourcePluginsModal
-                  }, `🔌 Browse Sources (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`)
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Compass', 13), `Browse Sources (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`))
                 )
               ),
 
@@ -535,9 +535,9 @@
                   const hasDuplicates = provKeys.length > uniqueCount;
                   return h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
                     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
-                      h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #EC4899, #DB2777)' } }, '🔑'),
+                      h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #EC4899, #DB2777)' } }, ic('Key', 18, 'text-white')),
                       h('span', null, `API Keys (${provider.toUpperCase()}) · ${provKeys.length} slots (${uniqueCount} unique)`),
-                      hasDuplicates && h('span', { className: 'badge', style: { background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid currentColor', fontSize: 10 } }, `⚠️ ${provKeys.length - uniqueCount} duplicate(s)`)
+                      hasDuplicates && h('span', { className: 'badge', style: { background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid currentColor', fontSize: 10 } }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('AlertTriangle', 10), `${provKeys.length - uniqueCount} duplicate(s)`))
                     ),
                   h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
                     h('button', {
@@ -547,17 +547,17 @@
                       onClick: () => {
                         const allK = (apiKeysByProvider[provider] || []).map(k => (k.key || '').trim()).filter(Boolean);
                         if (allK.length === 0) { toast('No keys to copy', 'info'); return; }
-                        navigator.clipboard.writeText(allK.join('\n')).then(() => toast(`📋 Copied all ${allK.length} keys to clipboard!`, 'success'));
+                        navigator.clipboard.writeText(allK.join('\n')).then(() => toast(`Copied all ${allK.length} keys to clipboard!`, 'success'));
                       }
-                    }, '📋 Copy All'),
+                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 12), 'Copy All')),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn',
                       style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontWeight: 600 },
                       disabled: testingKeys,
                       onClick: () => handleTestAllKeys(provider)
-                    }, testingKeys ? 'Testing…' : '⚡ Test All Keys'),
-                    h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => setBulkKeyModalOpen(true) }, '⚡ Bulk Paste'),
+                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Zap', 12), testingKeys ? 'Testing…' : 'Test All Keys')),
+                    h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => setBulkKeyModalOpen(true) }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Clipboard', 12), 'Bulk Paste')),
                     h('button', { type: 'button', className: 'mini-btn', onClick: () => addApiKey(provider) }, '+ Add')
                   )
                 );
@@ -571,7 +571,7 @@
                   return h('div', { key: k.id, style: { padding: '6px 0', borderBottom: '1px solid rgba(36,39,48,.5)' } },
                     h('div', { className: 'set-row', style: { gap: 8, alignItems: 'center' } },
                       h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 140 } },
-                        h('span', { style: { fontSize: 13, opacity: 0.8 } }, '🏷️'),
+                        ic('Tag', 13, 'text-slate'),
                         h('input', {
                           type: 'text',
                           value: k.name || '',
@@ -595,7 +595,7 @@
                       isActive
                         ? h('span', { className: 'badge' }, 'Active')
                         : h('button', { type: 'button', className: 'chip-act', onClick: () => setActiveKey(provider, k.id) }, 'Set Active'),
-                      isDuplicate && h('span', { className: 'badge', style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 10 } }, '⚠️ Duplicate'),
+                      isDuplicate && h('span', { className: 'badge', style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 10 } }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('AlertTriangle', 10), 'Duplicate')),
                       h('button', {
                         type: 'button',
                         className: 'icon-btn',
@@ -603,7 +603,7 @@
                         title: 'Test this API key latency and validity',
                         disabled: !k.key || keyHealth[k.id]?.status === 'testing',
                         onClick: () => testSingleKey(provider, k.key, k.id)
-                      }, keyHealth[k.id]?.status === 'testing' ? '⏳' : '⚡'),
+                      }, keyHealth[k.id]?.status === 'testing' ? ic('Loader2', 14) : ic('Zap', 14)),
                       h('button', {
                         type: 'button',
                         className: 'icon-btn',
@@ -614,7 +614,7 @@
                           if (!k.key) return;
                           navigator.clipboard.writeText(k.key).then(() => toast('Key copied to clipboard!', 'success')).catch(() => toast('Could not copy key', 'error'));
                         }
-                      }, '📋'),
+                      }, ic('Copy', 14)),
                       h('button', {
                         type: 'button',
                         className: 'icon-btn',
@@ -633,9 +633,9 @@
                             toast('Clipboard access denied. Please paste manually.', 'error');
                           }
                         }
-                      }, '📥'),
-                      h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: isVisible ? 'Hide key' : 'Show key', onClick: () => setShowKeys(prev => ({ ...prev, [k.id]: !isVisible })) }, isVisible ? '🙈' : '👁'),
-                      h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: 'Delete key', onClick: () => deleteApiKey(provider, k.id) }, '🗑')
+                      }, ic('Clipboard', 14)),
+                      h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: isVisible ? 'Hide key' : 'Show key', onClick: () => setShowKeys(prev => ({ ...prev, [k.id]: !isVisible })) }, isVisible ? ic('EyeOff', 14) : ic('Eye', 14)),
+                      h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: 'Delete key', onClick: () => deleteApiKey(provider, k.id) }, ic('Trash2', 14))
                     ),
                     h('div', { style: { position: 'relative' } },
                       h('input', {
@@ -653,9 +653,9 @@
                         const statusType = hInfo?.status || (poolStatus?.isCooling ? 'cooling' : (poolStatus?.inFlight ? 'inflight' : 'idle'));
                         let msg = hInfo?.message;
                         if (!msg && poolStatus?.isCooling) {
-                          msg = `⏳ In-Flight Cooldown (${poolStatus.coolSecondsRemaining}s remaining)`;
+                          msg = `In-Flight Cooldown (${poolStatus.coolSecondsRemaining}s remaining)`;
                         } else if (!msg && poolStatus?.inFlight) {
-                          msg = `⚡ In-Flight (Leased by active worker)`;
+                          msg = `In-Flight (Leased by active worker)`;
                         }
 
                         const bgMap = {
@@ -735,7 +735,7 @@
               h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #06B6D4, #0891B2)' } }, '🩺'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #06B6D4, #0891B2)' } }, ic('Shield', 18, 'text-white')),
                     h('span', null, 'Novel Diagnostics & Proofreader')
                   )
                 ),
@@ -757,7 +757,7 @@
               h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #F59E0B, #D97706)' } }, '📜'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #F59E0B, #D97706)' } }, ic('FileText', 18, 'text-white')),
                     h('span', null, 'Translation Memory & Snapshots')
                   )
                 ),
@@ -778,7 +778,7 @@
                       className: 'btn-ghost',
                       style: { fontSize: 10, padding: '2px 8px' },
                       onClick: refreshTmStats
-                    }, '↻ Refresh')
+                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RefreshCw', 10), 'Refresh'))
                   ),
                   h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: 11, marginBottom: '10px' } },
                     h('div', { style: { background: 'var(--card-bg)', padding: '6px 8px', borderRadius: '4px' } },
@@ -804,16 +804,16 @@
                       className: 'btn-secondary',
                       style: { flex: 1, fontSize: 11, padding: '6px' },
                       onClick: handleExportTmx
-                    }, '📥 Export TMX'),
+                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Download', 12), 'Export TMX')),
                     h('button', {
                       type: 'button',
                       className: 'btn-secondary',
                       style: { flex: 1, fontSize: 11, padding: '6px', color: '#f87171' },
                       onClick: handleClearTm
-                    }, '🗑 Clear TM')
+                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Trash2', 12), 'Clear TM'))
                   )
                 )
-              )
+              ),
             ),
 
             // ═══ GROUP 3: READER & DISPLAY ═══
@@ -828,7 +828,7 @@
               h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' } }, '🎨'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' } }, ic('Palette', 18, 'text-white')),
                     h('span', null, 'Theme & Reader Formatting')
                   )
                 ),
@@ -865,9 +865,9 @@
               h('div', { className: 'card settings-grouped-card', style: { border: opdsRunning ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--hairline)' } },
                 h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' } }, '🌙'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' } }, ic('BookOpen', 18, 'text-white')),
                     h('span', null, 'Moon+ Reader OPDS Catalog Feed'),
-                    opdsRunning && h('span', { className: 'badge', style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontSize: 10 } }, '🟢 Active')
+                    opdsRunning && h('span', { className: 'badge', style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontSize: 10 } }, 'Active')
                   ),
                   h('span', { className: 'count' }, 'OPDS 1.2 Protocol')
                 ),
@@ -892,7 +892,7 @@
                           navigator.clipboard?.writeText(opdsUrl || 'http://127.0.0.1:8080/opds');
                           toast('Copied OPDS URL!', 'success');
                         }
-                      }, '📋 Copy')
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 12), 'Copy'))
                     )
                   ),
                   opdsWifiUrl && h('div', { style: { background: 'var(--panel)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--hairline)' } },
@@ -911,11 +911,11 @@
                           navigator.clipboard?.writeText(opdsWifiUrl);
                           toast('Copied Wi-Fi OPDS URL!', 'success');
                         }
-                      }, '📋 Copy')
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 12), 'Copy'))
                     )
                   ),
                   h('div', { style: { fontSize: 11, color: 'var(--slate)', lineHeight: 1.4, padding: '4px 2px' } },
-                    '💡 In Moon+ Reader Pro: Open side menu ➔ "Net Library" ➔ tap "Add new catalog" ➔ enter the URL above and name it "Gemini Translator".'
+                    'In Moon+ Reader Pro: Open side menu -> Net Library -> tap Add new catalog -> enter the URL above and name it Gemini Translator.'
                   )
                 )
               )
@@ -932,7 +932,7 @@
               h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #14B8A6, #0D9488)' } }, '🔋'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #14B8A6, #0D9488)' } }, ic('Zap', 18, 'text-white')),
                     h('span', null, 'Device Lock & Keep-Alive')
                   )
                 ),
@@ -946,7 +946,7 @@
                 switchRow('Show Live Logs on Translate Tab', showLiveLogs, setShowLiveLogs),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'System & API Logs'),
-                  h('button', { type: 'button', className: 'chip-act', onClick: () => setLogsModalOpen(true) }, '📜 View Live Logs')
+                  h('button', { type: 'button', className: 'chip-act', onClick: () => setLogsModalOpen(true) }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('FileText', 13), 'View Live Logs'))
                 )
               ),
 
@@ -954,9 +954,9 @@
               h('div', { className: 'card settings-grouped-card', style: { border: telemetryEnabled ? '1px solid rgba(99,102,241,0.35)' : '1px solid var(--hairline)' } },
                 h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #F43F5E, #E11D48)' } }, '📡'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #F43F5E, #E11D48)' } }, ic('Zap', 18, 'text-white')),
                     h('span', null, 'Live Agent Telemetry & Debugging'),
-                    telemetryStatus === 'connected' && h('span', { className: 'badge', style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontSize: 10 } }, '🟢 Connected')
+                    telemetryStatus === 'connected' && h('span', { className: 'badge', style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontSize: 10 } }, 'Connected')
                   ),
                   h('span', { className: 'count' }, 'Wireless Local Wi-Fi')
                 ),
@@ -969,12 +969,12 @@
                   window.updateTelemetryConfig?.({ enabled: v });
                   toast(v ? 'Live telemetry enabled! Logs stream to PC.' : 'Live telemetry disabled (zero overhead).', 'info');
                 }),
-                switchRow('🔬 Deep Debugging (All Buttons & Backgrounds)', telemetryVerbose, (v) => {
+                switchRow('Deep Debugging (All Buttons & Backgrounds)', telemetryVerbose, (v) => {
                   setTelemetryVerbose(v);
                   localStorage.setItem('telemetry_verbose', String(v));
                   window.updateTelemetryConfig?.({ verbose: v });
                   window.telemetryLog?.('CONFIG', `Deep Debugging set to ${v}`);
-                  toast(v ? '🔬 Deep Debugging enabled! All buttons & background actions logged.' : 'Standard telemetry enabled.', 'info');
+                  toast(v ? 'Deep Debugging enabled! All buttons & background actions logged.' : 'Standard telemetry enabled.', 'info');
                 }),
                 h('div', { style: { marginTop: 8 } },
                   h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'PC TELEMETRY SERVER URL'),
@@ -998,13 +998,13 @@
                     style: { flex: 1, textAlign: 'center', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
                     disabled: telemetryTesting,
                     onClick: handleTestTelemetryConnection
-                  }, telemetryTesting ? 'Testing…' : '⚡ Test Connection to Agent'),
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Zap', 12), telemetryTesting ? 'Testing…' : 'Test Connection to Agent')),
                   h('button', {
                     type: 'button',
                     className: 'mini-btn ghost',
                     style: { textAlign: 'center' },
                     onClick: handleClearTelemetryServer
-                  }, '🧹 Clear Server Logs')
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Trash2', 12), 'Clear Server Logs'))
                 ),
                 telemetryStatusMsg && h('div', {
                   style: {
@@ -1075,8 +1075,8 @@
                       }
                     },
                       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-                        h('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--iris)' } }, '📁 1-Tap Google Drive Backup (Mihon Style)'),
-                        h('span', { style: { fontSize: 9.5, padding: '2px 6px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600 } }, '✨ Zero Setup')
+                        h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--iris)' } }, ic('Folder', 14), '1-Tap Google Drive Backup (Mihon Style)'),
+                        h('span', { style: { fontSize: 9.5, padding: '2px 6px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600 } }, 'Zero Setup')
                       ),
                       h('p', { style: { fontSize: 11, color: 'var(--slate)', margin: 0, lineHeight: 1.45 } },
                         'Save and restore your entire novel library, translation history, and glossaries directly into your Google Drive folder using Android\'s system storage (exactly like Mihon and Komikku). No Google Developer account, tokens, or Client IDs needed!'
@@ -1087,19 +1087,19 @@
                           className: 'mini-btn',
                           style: { flex: 1, textAlign: 'center', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '9px 12px' },
                           onClick: backupToGoogleDriveFile
-                        }, '💾 Save to Drive Folder'),
+                        }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Save', 13), 'Save to Drive Folder')),
                         h('button', {
                           type: 'button',
                           className: 'mini-btn ghost',
                           style: { flex: 1, textAlign: 'center', padding: '9px 12px' },
                           onClick: () => document.getElementById('full-backup-input')?.click()
-                        }, '📥 Restore from File')
+                        }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Download', 13), 'Restore from File'))
                       )
                     ),
 
                     // Advanced: Direct Google Cloud OAuth API Sync
                     h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 } },
-                      h('span', { style: { fontSize: 11, fontWeight: 600, color: 'var(--paper-dim)' } }, '☁️ Direct Google Cloud API Sync (Advanced)'),
+                      h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--paper-dim)' } }, ic('Globe', 13), 'Direct Google Cloud API Sync (Advanced)'),
                       h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Requires OAuth Client ID')
                     ),
 
@@ -1190,25 +1190,25 @@
                         style: { flex: 1, textAlign: 'center' },
                         disabled: gdriveTesting || !gdriveConnected,
                         onClick: testGoogleDriveConnection
-                      }, gdriveTesting ? 'Testing…' : '⚡ Test Link'),
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Zap', 12), gdriveTesting ? 'Testing…' : 'Test Link')),
                       h('button', {
                         type: 'button',
                         style: { flex: 1, textAlign: 'center', fontWeight: 600, color: 'var(--iris)' },
                         disabled: gdriveSyncing || !gdriveConnected,
                         onClick: backupToGoogleDrive
-                      }, gdriveSyncing ? 'Syncing…' : '☁️ Backup Now'),
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Upload', 12), gdriveSyncing ? 'Syncing…' : 'Backup Now')),
                       h('button', {
                         type: 'button',
                         style: { flex: 1, textAlign: 'center' },
                         disabled: gdriveSyncing || !gdriveConnected,
                         onClick: restoreFromGoogleDrive
-                      }, '📥 Restore'),
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Download', 12), 'Restore')),
                       h('button', {
                         type: 'button',
                         style: { width: 36, textAlign: 'center', fontSize: 13 },
                         title: 'Client ID & Direct Token Settings',
                         onClick: () => setGdriveConfigModalOpen(true)
-                      }, '⚙️')
+                      }, ic('Settings', 14))
                     )
                   )
                 ) : (
@@ -1274,19 +1274,19 @@
                         style: { flex: 1, textAlign: 'center' },
                         disabled: webdavTesting,
                         onClick: testWebDavConnection
-                      }, webdavTesting ? 'Testing…' : '⚡ Test Link'),
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Zap', 12), webdavTesting ? 'Testing…' : 'Test Link')),
                       h('button', {
                         type: 'button',
                         style: { flex: 1, textAlign: 'center', fontWeight: 600, color: 'var(--iris)' },
                         disabled: webdavSyncing,
                         onClick: backupToWebDav
-                      }, webdavSyncing ? 'Syncing…' : '☁️ Backup Now'),
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Upload', 12), webdavSyncing ? 'Syncing…' : 'Backup Now')),
                       h('button', {
                         type: 'button',
                         style: { flex: 1, textAlign: 'center' },
                         disabled: webdavSyncing,
                         onClick: restoreFromWebDav
-                      }, '📥 Restore')
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Download', 12), 'Restore'))
                     )
                   )
                 )
@@ -1301,7 +1301,7 @@
               h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #64748B, #475569)' } }, '💾'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #64748B, #475569)' } }, ic('Save', 18, 'text-white')),
                     h('span', null, 'Local Storage & Memory Diagnostics')
                   ),
                   h('span', { className: 'count', style: { color: storageDiag.pct > 80 ? '#f87171' : 'var(--pine)' } },
@@ -1333,15 +1333,15 @@
                 h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 12 } },
                   h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
                     h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Books in Library'),
-                    h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, `📚 ${webImportHistory?.length || 0}`)
+                    h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, `${webImportHistory?.length || 0}`)
                   ),
                   h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
                     h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Audiobook Tracks'),
-                    h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, `🎧 ${(window.SwiftAudioEngine?.Library?.getAllBooks?.() || []).length || 0}`)
+                    h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, `${(window.SwiftAudioEngine?.Library?.getAllBooks?.() || []).length || 0}`)
                   ),
                   h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
                     h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Recycle Bin'),
-                    h('div', { style: { fontSize: 15, fontWeight: 700, color: trashCount > 0 ? '#f87171' : 'var(--paper)', marginTop: 2 } }, `🗑️ ${trashCount} item${trashCount === 1 ? '' : 's'}`)
+                    h('div', { style: { fontSize: 15, fontWeight: 700, color: trashCount > 0 ? '#f87171' : 'var(--paper)', marginTop: 2 } }, `${trashCount} item${trashCount === 1 ? '' : 's'}`)
                   ),
                   h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
                     h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Estimated Quota'),
@@ -1354,7 +1354,7 @@
                     style: { flex: 1, textAlign: 'center' },
                     disabled: storageLoading,
                     onClick: () => refreshStorageDiag()
-                  }, storageLoading ? 'Estimating…' : '🔄 Refresh Storage'),
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RefreshCw', 12), storageLoading ? 'Estimating…' : 'Refresh Storage')),
                   h('button', {
                     type: 'button',
                     style: { flex: 1, textAlign: 'center', color: trashCount > 0 ? '#f87171' : 'var(--slate)' },
@@ -1366,7 +1366,7 @@
                         await refreshStorageDiag();
                       });
                     }
-                  }, '🗑️ Empty Recycle Bin'),
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Trash2', 12), 'Empty Recycle Bin')),
                   h('button', {
                     type: 'button',
                     style: { flex: 1, textAlign: 'center' },
@@ -1380,13 +1380,13 @@
                         toast('Cache clear error: ' + e.message, 'error');
                       }
                     }
-                  }, '🧹 Clear Session Cache')
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RotateCcw', 12), 'Clear Session Cache'))
                 )
               ),
               h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #3B82F6, #2563EB)' } }, '📦'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #3B82F6, #2563EB)' } }, ic('Layers', 18, 'text-white')),
                     h('span', null, 'Full App Backup & Restore')
                   ),
                   h('span', { className: 'count' }, 'Library · Settings · Keys')
@@ -1412,7 +1412,7 @@
               h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #A855F7, #9333EA)' } }, '🔊'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #A855F7, #9333EA)' } }, ic('Volume2', 18, 'text-white')),
                     h('span', null, 'Voice & Offline Speech Engine')
                   )
                 ),
@@ -1427,9 +1427,9 @@
                     onClick: () => {
                       if (window.__openVoiceModal) window.__openVoiceModal();
                       else if (window.NativeBridge?.openTtsSettings) window.NativeBridge.openTtsSettings();
-                      else toast('Open any book in Reader and tap 🎙 Voice to choose voices.', 'info');
+                      else toast('Open any book in Reader and tap Voice to choose voices.', 'info');
                     }
-                  }, '🎙 Voice Manager')
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Volume2', 13), 'Voice Manager'))
                 ),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Android System TTS Settings'),
@@ -1443,7 +1443,7 @@
                         toast('Open phone Settings > Accessibility > Text-to-Speech to select SherpaTTS/Piper models.', 'info');
                       }
                     }
-                  }, '⚙ Open Android TTS Settings')
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Settings', 13), 'Open Android TTS Settings'))
                 ),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Default Voice Mode'),
@@ -1461,7 +1461,7 @@
               h('div', { className: 'card settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #71717A, #52525B)' } }, '📱'),
+                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #71717A, #52525B)' } }, ic('Info', 18, 'text-white')),
                     h('span', null, 'App Version & Runtime')
                   )
                 ),
@@ -1486,7 +1486,7 @@
                       localStorage.setItem('gemini_force_reload', Date.now());
                       window.location.reload(true);
                     }
-                  }, '🔄 Force Clear Cache')
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('RefreshCw', 13), 'Force Clear Cache'))
                 ),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Notifications & Sound'),
@@ -1496,13 +1496,13 @@
                     onClick: async () => {
                       const granted = await window.NativeBridge?.requestNotificationPermission?.();
                       if (granted) {
-                        toast('Notifications enabled! 🎉', 'success');
-                        window.NativeBridge?.showCompletionNotification?.('Gemini Notifications Active 🔔', 'Completion alerts with sound & vibration are ready.');
+                        toast('Notifications enabled!', 'success');
+                        window.NativeBridge?.showCompletionNotification?.('Gemini Notifications Active', 'Completion alerts with sound & vibration are ready.');
                       } else {
                         toast('Notification permission not granted. Check Android App Permissions.', 'warning');
                       }
                     }
-                  }, '🔔 Enable Alerts')
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('AlertCircle', 13), 'Enable Alerts'))
                 ),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Background Execution (Battery)'),
@@ -1518,7 +1518,7 @@
                         await window.NativeBridge?.requestIgnoreBatteryOptimizations?.();
                       }
                     }
-                  }, '🔋 Unrestricted Battery')
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Zap', 13), 'Unrestricted Battery'))
                 ),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Install App (PWA)'), h('button', { type: 'button', className: 'chip-act', onClick: handleInstallPWA }, 'Install')),
                 h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Keyboard Shortcuts'), h('span', { className: 'count' }, 'Ctrl+Enter · Ctrl+Shift+C · Ctrl+Alt+R'))

@@ -108,12 +108,111 @@
       return best;
     }, [displayedBooks]) : null;
 
+    const [isSelectMode, setIsSelectMode] = (typeof React !== 'undefined' && React.useState) ? React.useState(false) : [false, () => {}];
+    const [selectedBookIds, setSelectedBookIds] = (typeof React !== 'undefined' && React.useState) ? React.useState([]) : [[], () => {}];
+
+    const toggleSelectBook = (id) => {
+      setSelectedBookIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
+    const selectAllBooks = () => {
+      setSelectedBookIds(displayedBooks.map(b => b.id).filter(Boolean));
+    };
+
+    const deselectAllBooks = () => {
+      setSelectedBookIds([]);
+    };
+
+    const deleteSelectedBooks = () => {
+      if (selectedBookIds.length === 0) return;
+      confirmAction(`Move ${selectedBookIds.length} selected book(s) to Trash?`, async () => {
+        const count = selectedBookIds.length;
+        for (const id of selectedBookIds) {
+          if (props.deleteNovelFromHistory) {
+            await props.deleteNovelFromHistory(id);
+          } else if (window.LibraryEngine?.Controller?.moveToTrash) {
+            await window.LibraryEngine.Controller.moveToTrash(id, { setWebImportHistory: props.setWebImportHistory, loadTrashCount, toast });
+          }
+        }
+        setSelectedBookIds([]);
+        setIsSelectMode(false);
+        toast(`Moved ${count} book(s) to Trash.`, 'success');
+      });
+    };
+
+    const timerRefs = (typeof React !== 'undefined' && React.useRef) ? React.useRef({}) : { current: {} };
+    const longPressTriggered = (typeof React !== 'undefined' && React.useRef) ? React.useRef({}) : { current: {} };
+    const touchStartPos = (typeof React !== 'undefined' && React.useRef) ? React.useRef({}) : { current: {} };
+
+    const handleCardTouchStart = (item, e) => {
+      const id = item.id || item.title;
+      longPressTriggered.current[id] = false;
+      const t = e.touches ? e.touches[0] : e;
+      touchStartPos.current[id] = { x: t?.clientX || 0, y: t?.clientY || 0 };
+      timerRefs.current[id] = setTimeout(() => {
+        longPressTriggered.current[id] = true;
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate(35); } catch(_) {}
+        }
+        setActiveBookMenuNovel(item);
+      }, 450);
+    };
+
+    const handleCardTouchMove = (item, e) => {
+      const id = item.id || item.title;
+      if (!timerRefs.current[id]) return;
+      const t = e.touches ? e.touches[0] : e;
+      const start = touchStartPos.current[id] || { x: 0, y: 0 };
+      const dx = Math.abs((t?.clientX || 0) - start.x);
+      const dy = Math.abs((t?.clientY || 0) - start.y);
+      if (dx > 10 || dy > 10) {
+        clearTimeout(timerRefs.current[id]);
+        timerRefs.current[id] = null;
+      }
+    };
+
+    const handleCardTouchEnd = (item) => {
+      const id = item.id || item.title;
+      if (timerRefs.current[id]) {
+        clearTimeout(timerRefs.current[id]);
+        timerRefs.current[id] = null;
+      }
+    };
+
+    const handleCardClick = (item, e) => {
+      const id = item.id || item.title;
+      if (longPressTriggered.current[id]) {
+        longPressTriggered.current[id] = false;
+        return;
+      }
+      if (isSelectMode) {
+        toggleSelectBook(item.id);
+      } else {
+        openReaderForBook(item);
+      }
+    };
+
     const openReaderForBook = async (item) => {
       const full = await loadFullNovel(item);
       if (!full) { toast('Novel data not found in local store.', 'error'); return; }
-      const chs = (full.translatedChapters && full.translatedChapters.length > 0)
+      let chs = (full.translatedChapters && full.translatedChapters.length > 0)
         ? full.translatedChapters
         : (full.rawChapters || full.chapters || []);
+      if (chs.length === 0 && (full.epubBlob || item.epubBlob)) {
+        try {
+          toast('Unpacking book for reader...', 'info');
+          const blob = full.epubBlob || item.epubBlob;
+          const parsed = await window.DocumentParser.parseFile(blob);
+          if (parsed && parsed.chapters && parsed.chapters.length > 0) {
+            chs = parsed.chapters;
+            if (full.id && window.GeminiNovelDB) {
+              window.GeminiNovelDB.updateNovel(full.id, { rawChapters: parsed.chapters }).catch(() => {});
+            }
+          }
+        } catch(err) {
+          console.error('Failed to unpack EPUB for reader:', err);
+        }
+      }
       if (chs.length === 0) { toast('No chapters available to read.', 'warning'); return; }
       const cleanCh = (c) => {
         const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
@@ -191,11 +290,11 @@
               onError: (e) => { e.target.style.display = 'none'; }
             }) : h('div', {
               className: 'shelf-hero-cover',
-              style: { display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, background: '#1A1D30', color: '#F8FAFC' }
-            }, '📖')
+              style: { display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1A1D30', color: 'var(--iris)' }
+            }, ic(BookOpen, 28))
           ),
           h('div', { style: { flex: 1, minWidth: 0 } },
-            h('div', { className: 'shelf-hero-badge' }, '▶ Continue Reading'),
+            h('div', { className: 'shelf-hero-badge' }, ic(BookOpen, 13), 'Continue Reading'),
             h('div', {
               style: {
                 fontSize: 16,
@@ -241,13 +340,16 @@
               color: '#000',
               border: 'none',
               boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
               flexShrink: 0
             },
             onClick: (e) => {
               e.stopPropagation();
               openReaderForBook(latestReadingBook.book);
             }
-          }, '▶ Resume')
+          }, ic(Play, 13), 'Resume')
         ),
 
         // ── FLUID 3:4 COVER GRID ──
@@ -258,13 +360,42 @@
             const pct = savedProg?.pct;
             const updateBadge = novelUpdateBadges[item.id];
             const unit = updateBadge?.isVolumeBased ? 'Vol' : 'Ch';
+            const isSelected = selectedBookIds.includes(item.id);
 
             return h('div', {
               key: item.id || idx,
-              className: 'shelf-book-item',
-              onClick: () => setActiveBookMenuNovel(item)
+              className: `shelf-book-item ${isSelected ? 'shelf-selected' : ''}`,
+              onMouseDown: (e) => handleCardTouchStart(item, e),
+              onMouseUp: () => handleCardTouchEnd(item),
+              onMouseLeave: () => handleCardTouchEnd(item),
+              onTouchStart: (e) => handleCardTouchStart(item, e),
+              onTouchMove: (e) => handleCardTouchMove(item, e),
+              onTouchEnd: () => handleCardTouchEnd(item),
+              onClick: (e) => handleCardClick(item, e),
+              onContextMenu: (e) => {
+                e.preventDefault();
+                setActiveBookMenuNovel(item);
+              }
             },
               h('div', { className: 'shelf-book-cover-wrap' },
+                isSelectMode && h('div', {
+                  style: {
+                    position: 'absolute',
+                    top: 8,
+                    left: 8,
+                    zIndex: 10,
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    background: isSelected ? 'var(--iris)' : 'rgba(0, 0, 0, 0.65)',
+                    border: isSelected ? '2px solid #fff' : '2px solid rgba(255, 255, 255, 0.75)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.5)'
+                  }
+                }, isSelected ? ic(Check, 13) : null),
                 item.cover ? h('img', {
                   src: item.cover,
                   alt: item.title || 'Cover',
@@ -282,11 +413,10 @@
                     justifyContent: 'center',
                     width: '100%',
                     height: '100%',
-                    fontSize: 28,
                     background: '#1A1D30',
-                    color: '#F8FAFC'
+                    color: 'var(--iris)'
                   }
-                }, '📖'),
+                }, ic(BookOpen, 28)),
                 h('div', { className: 'shelf-book-spine' }),
                 (pct > 0 || resumeCh) && h('div', { className: 'shelf-book-progress-badge' },
                   pct > 0 ? `${pct}%` : `Ch.${resumeCh}`
@@ -322,32 +452,109 @@
             h('h1', { style: { fontSize: 24, fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em', margin: '0 0 2px' } }, 'Bookshelf'),
             h('p', { style: { fontSize: 13, color: '#94A3B8', margin: 0 } }, 'Your reading library, progress & offline books')
           ),
-          (libQuery || libTab !== 'all') && h('button', {
+          h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
+            h('button', {
+              type: 'button',
+              className: isSelectMode ? 'mini-btn primary' : 'mini-btn ghost',
+              style: {
+                padding: '6px 14px',
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 650,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
+              },
+              onClick: () => {
+                setIsSelectMode(prev => !prev);
+                setSelectedBookIds([]);
+              }
+            }, ic(Check, 13), isSelectMode ? 'Exit Select' : 'Select'),
+            (libQuery || libTab !== 'all') && h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: {
+                color: '#f87171',
+                borderColor: 'rgba(239, 68, 68, 0.35)',
+                padding: '5px 12px',
+                borderRadius: 999,
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: 'pointer'
+              },
+              title: 'Reset library search and filter back to All Books',
+              onClick: () => {
+                setLibQuery('');
+                setLibTab('all');
+                toast('Library view reset to All Books.', 'info');
+              }
+            }, 'Reset View')
+          )
+        )
+      ),
+
+      // Multi-Select Batch Actions Deck
+      isSelectMode && h('div', {
+        className: 'card',
+        style: {
+          background: 'rgba(30, 27, 75, 0.95)',
+          border: '1px solid var(--iris)',
+          borderRadius: 16,
+          padding: '10px 14px',
+          marginBottom: 14,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          flexWrap: 'wrap'
+        }
+      },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          h('span', { style: { fontWeight: 700, fontSize: 13, color: '#F8FAFC' } }, `${selectedBookIds.length} Selected`),
+          h('span', { style: { fontSize: 11, color: '#94A3B8' } }, `of ${displayedBooks.length}`)
+        ),
+        h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
+          h('button', {
             type: 'button',
             className: 'mini-btn ghost',
+            style: { padding: '5px 10px', fontSize: 11.5 },
+            onClick: selectAllBooks
+          }, 'Select All'),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { padding: '5px 10px', fontSize: 11.5 },
+            onClick: deselectAllBooks
+          }, 'Deselect All'),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn danger',
             style: {
-              color: '#f87171',
-              borderColor: 'rgba(239, 68, 68, 0.35)',
               padding: '5px 12px',
-              borderRadius: 999,
               fontSize: 11.5,
-              fontWeight: 600,
-              cursor: 'pointer'
+              background: 'rgba(239, 68, 68, 0.2)',
+              color: '#ef4444',
+              border: '1px solid #ef4444',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4
             },
-            title: 'Reset library search and filter back to All Books',
-            onClick: () => {
-              setLibQuery('');
-              setLibTab('all');
-              toast('Library view reset to All Books.', 'info');
-            }
-          }, '✕ Reset View')
+            disabled: selectedBookIds.length === 0,
+            onClick: deleteSelectedBooks
+          }, ic(Trash2, 13), `Delete (${selectedBookIds.length})`),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn primary',
+            style: { padding: '5px 12px', fontSize: 11.5 },
+            onClick: () => { setIsSelectMode(false); setSelectedBookIds([]); }
+          }, 'Done')
         )
       ),
 
       h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 } },
         h('div', { className: 'apple-search-wrap', style: { marginBottom: 0 } },
           h('div', { className: 'apple-search-bar' },
-            h('span', { style: { fontSize: 16, opacity: 0.7 } }, '🔍'),
+            h('span', { style: { display: 'inline-flex', alignItems: 'center', opacity: 0.7 } }, ic(Search, 15)),
             h('input', {
               className: 'apple-search-input',
               type: 'text',
@@ -360,7 +567,7 @@
               className: 'apple-search-clear',
               onClick: () => setLibQuery(''),
               title: 'Clear search'
-            }, '✕')
+            }, ic('X', 12))
           )
         ),
         h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
@@ -377,11 +584,11 @@
               fontSize: 12,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 5
+              gap: 6
             },
             title: 'Re-import previously downloaded EPUB files back into your library',
             onClick: () => epubRestoreInputRef.current?.click()
-          }, '📥 Restore EPUBs'),
+          }, ic(Download, 13), 'Restore EPUBs'),
           h('button', {
             type: 'button',
             className: 'mini-btn',
@@ -395,11 +602,11 @@
               fontSize: 12,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 5
+              gap: 6
             },
             title: 'Input an existing EPUB to auto-search sources and continue fetching',
             onClick: () => ongoingEpubInputRef.current?.click()
-          }, '⚡ Continue Ongoing EPUB')
+          }, ic(Zap, 13), 'Continue Ongoing EPUB')
         ),
         h('input', {
           type: 'file',
@@ -427,38 +634,38 @@
           type: 'button',
           className: `studio-pill-btn ${libTab === 'all' ? 'active' : ''}`,
           onClick: () => setLibTab('all')
-        }, `📚 All (${allCountLabel})`),
+        }, ic(Library, 12), ` All (${allCountLabel})`),
         h('button', {
           type: 'button',
           className: `studio-pill-btn ${libTab === 'audio' ? 'active' : ''}`,
           onClick: () => setLibTab('audio')
-        }, `🎧 Audio (${filteredAudiobooks.length})`),
+        }, ic(Volume2, 12), ` Audio (${filteredAudiobooks.length})`),
         h('button', {
           type: 'button',
           className: `studio-pill-btn ${libTab === 'saved' ? 'active' : ''}`,
           onClick: () => setLibTab('saved')
-        }, `⭐ Saved (${savedSpaceCount})`),
+        }, ic(Star, 12), ` Saved (${savedSpaceCount})`),
         h('button', {
           type: 'button',
           className: `studio-pill-btn ${libTab === 'translated' ? 'active' : ''}`,
           onClick: () => setLibTab('translated')
-        }, `🌐 Translated (${transCount})`),
+        }, ic(Globe, 12), ` Translated (${transCount})`),
         h('button', {
           type: 'button',
           className: `studio-pill-btn ${libTab === 'incomplete' ? 'active' : ''}`,
           onClick: () => setLibTab('incomplete')
-        }, `⏸ Incomplete (${incCount})`),
+        }, ic(Clock, 12), ` Incomplete (${incCount})`),
         h('button', {
           type: 'button',
           className: `studio-pill-btn ${libTab === 'trash' ? 'active' : ''}`,
           onClick: () => { setLibTab('trash'); loadTrashCount(); }
-        }, `🗑️ Trash (${trashCount})`)
+        }, ic(Trash2, 12), ` Trash (${trashCount})`)
       ),
 
-              // 🎧 AUDIOBOOK SHELF IN LIBRARY
+              // AUDIOBOOK SHELF IN LIBRARY
               libTab === 'audio' && h(React.Fragment, null,
                 h('div', { className: 'card-title', style: { marginTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
-                  h('span', { style: { fontWeight: 700 } }, `🎧 Saved Audiobooks (${filteredAudiobooks.length})`),
+                  h('span', { style: { fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Headphones', 15), `Saved Audiobooks (${filteredAudiobooks.length})`),
                   savedAudiobooks.length > 0 && h('button', {
                     type: 'button',
                     className: 'mini-btn danger',
@@ -471,10 +678,10 @@
                 ),
                 filteredAudiobooks.length === 0
                   ? h('div', { className: 'card', style: { textAlign: 'center', padding: '44px 16px' } },
-                      h('div', { style: { fontSize: 36, marginBottom: 10 } }, '🎧'),
+                      h('div', { style: { display: 'flex', justifyContent: 'center', marginBottom: 10, color: 'var(--slate)' } }, ic('Headphones', 36)),
                       h('p', { style: { fontSize: 13.5, color: 'var(--paper)', fontWeight: 600 } }, libQuery ? 'No saved audiobooks match your search.' : 'Your Audiobook Library is empty.'),
                       h('p', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 6, maxWidth: 360, margin: '6px auto 0', lineHeight: 1.5 } },
-                        libQuery ? 'Try another search keyword.' : 'Search for any audiobook in the Import tab and tap "☆ Add to Library" to keep it here for quick listening and downloading!'
+                        libQuery ? 'Try another search keyword.' : 'Search for any audiobook in the Import tab and tap "Add to Library" to keep it here for quick listening and downloading!'
                       )
                     )
                   : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
@@ -526,9 +733,9 @@
                                   justifyContent: 'center',
                                   width: '100%',
                                   height: '100%',
-                                  fontSize: 24
+                                  color: 'var(--slate)'
                                 }
-                              }, '🎧')
+                              }, ic('Headphones', 24))
                             ),
 
                             h('div', { style: { flex: 1, minWidth: 0 } },
@@ -543,14 +750,17 @@
                                     color: '#a78bfa',
                                     border: '1px solid rgba(139, 92, 246, 0.3)',
                                     fontWeight: 600,
-                                    whiteSpace: 'nowrap'
+                                    whiteSpace: 'nowrap',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4
                                   }
-                                }, '🎧 Audiobook')
+                                }, ic('Headphones', 10), ' Audiobook')
                               ),
                               h('div', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 2 } }, b.author ? `by ${b.author}` : 'SwiftAudiobooks'),
                               h('div', { style: { fontSize: 11.5, color: 'var(--paper-dim)', marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' } },
-                                h('span', null, `📚 ${b.totalTracks || (b.tracks ? b.tracks.length : '?')} chapters`),
-                                b.duration && h('span', null, `⏱ ${b.duration}`)
+                                h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('BookOpen', 11), `${b.totalTracks || (b.tracks ? b.tracks.length : '?')} chapters`),
+                                b.duration && h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Clock', 11), b.duration)
                               ),
                               b.lastPlayedTrackTitle ? h('div', {
                                 style: {
@@ -561,7 +771,7 @@
                                   alignItems: 'center',
                                   gap: 4
                                 }
-                              }, `▶ Resumes at: ${b.lastPlayedTrackTitle}${progressPercent > 0 ? ` (${progressPercent}%)` : ''}`) : null
+                              }, `Resumes at: ${b.lastPlayedTrackTitle}${progressPercent > 0 ? ` (${progressPercent}%)` : ''}`) : null
                             )
                           ),
 
@@ -573,7 +783,10 @@
                                 background: isCurrentlyPlaying ? '#10b981' : 'var(--accent, #6366f1)',
                                 color: '#fff',
                                 fontWeight: 700,
-                                padding: '6px 12px'
+                                padding: '6px 12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6
                               },
                               onClick: () => {
                                 if (isCurrentlyPlaying) {
@@ -585,48 +798,48 @@
                                   handleStartPlayAudiobook(b, b.lastPlayedTrackIndex || 0);
                                 }
                               }
-                            }, isCurrentlyPlaying ? '⏸ Now Playing' : (b.lastPlayedTrackIndex ? '▶ Resume Playing' : '▶ Start Listening')),
+                            }, isCurrentlyPlaying ? [ic('Pause', 12), ' Now Playing'] : (b.lastPlayedTrackIndex ? [ic('Play', 12), ' Resume Playing'] : [ic('Play', 12), ' Start Listening'])),
                             h('button', {
                               type: 'button',
                               className: 'mini-btn ghost',
-                              style: { fontWeight: 600, padding: '6px 10px' },
+                              style: { fontWeight: 600, padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 },
                               onClick: () => handleOpenAudioDownload(b)
-                            }, '📥 Download MP3s'),
+                            }, ic('Download', 12), ' Download MP3s'),
                             h('button', {
                               type: 'button',
                               className: 'mini-btn danger',
-                              style: { marginLeft: 'auto', padding: '6px 10px' },
+                              style: { marginLeft: 'auto', padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 },
                               title: 'Remove this audiobook from Library',
                               onClick: () => confirmAction(`Remove "${b.title}" from your Library?`, () => removeAudiobookFromLibrary(b))
-                            }, '🗑 Remove')
+                            }, ic('Trash2', 12), ' Remove')
                           )
                         );
                       })
                     )
               ),
 
-              // 🗑️ RECYCLE BIN SHELF IN LIBRARY
+              // RECYCLE BIN SHELF IN LIBRARY
               libTab === 'trash' && h(React.Fragment, null,
                 h('div', { className: 'card-title', style: { marginTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
-                  h('span', { style: { fontWeight: 700 } }, `🗑️ Recycle Bin (${trashList.length})`),
+                  h('span', { style: { fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Trash2', 15), `Recycle Bin (${trashList.length})`),
                   h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
                     trashList.length > 0 && h('button', {
                       type: 'button',
                       className: 'mini-btn',
-                      style: { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700, padding: '6px 12px' },
+                      style: { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 },
                       onClick: () => confirmAction(`Restore all ${trashList.length} deleted novel(s) back into your library?`, handleRestoreAllTrash)
-                    }, `↺ Restore All (${trashList.length})`),
+                    }, ic('RotateCcw', 12), ` Restore All (${trashList.length})`),
                     trashList.length > 0 && h('button', {
                       type: 'button',
                       className: 'mini-btn danger',
-                      style: { padding: '6px 12px' },
+                      style: { padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 },
                       onClick: () => confirmAction('Permanently delete all items in Recycle Bin? This cannot be undone.', handleEmptyTrash)
-                    }, 'Empty Bin')
+                    }, ic('Trash2', 12), ' Empty Bin')
                   )
                 ),
                 trashList.length === 0
                   ? h('div', { className: 'card', style: { textAlign: 'center', padding: '44px 16px' } },
-                      h('div', { style: { fontSize: 36, marginBottom: 10 } }, '🗑️'),
+                      h('div', { style: { display: 'flex', justifyContent: 'center', marginBottom: 10, color: 'var(--slate)' } }, ic('Trash2', 36)),
                       h('p', { style: { fontSize: 13.5, color: 'var(--paper)', fontWeight: 600 } }, 'Your Recycle Bin is empty.'),
                       h('p', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 6, maxWidth: 380, margin: '6px auto 0', lineHeight: 1.5 } },
                         'Whenever you delete novels or clear a shelf, they are safely preserved here so you can restore them anytime with 1 tap.'
@@ -670,9 +883,9 @@
                                 justifyContent: 'center',
                                 width: '100%',
                                 height: '100%',
-                                fontSize: 22
+                                color: 'var(--slate)'
                               }
-                            }, '📖')
+                            }, ic('BookOpen', 20))
                           ),
                           h('div', { style: { flex: 1, minWidth: 0 } },
                             h('div', { style: { fontSize: 14.5, fontWeight: 700, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.title || 'Untitled Book'),
@@ -685,15 +898,15 @@
                           h('button', {
                             type: 'button',
                             className: 'mini-btn',
-                            style: { background: '#10b981', color: '#fff', fontWeight: 700, padding: '5px 12px' },
+                            style: { background: '#10b981', color: '#fff', fontWeight: 700, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 },
                             onClick: () => handleRestoreNovel(item.id)
-                          }, '↺ Restore to Library'),
+                          }, ic('RotateCcw', 12), ' Restore to Library'),
                           h('button', {
                             type: 'button',
                             className: 'mini-btn danger',
-                            style: { padding: '5px 10px' },
+                            style: { padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 },
                             onClick: () => confirmAction(`Permanently delete "${item.title}"?`, () => handlePermanentDelete(item.id))
-                          }, 'Delete Permanently')
+                          }, ic('Trash2', 12), ' Delete Permanently')
                         )
                       ))
                     )
@@ -708,11 +921,11 @@
                     webImportHistory.some(b => b.sourceUrl && b.sourceUrl.startsWith('http')) && h('button', {
                       type: 'button',
                       className: 'chip-act',
-                      style: { background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', border: '1px solid var(--accent, #6366f1)', fontWeight: 600 },
+                      style: { background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', border: '1px solid var(--accent, #6366f1)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
                       disabled: isBatchChecking,
                       onClick: handleCheckAllUpdates,
                       title: 'Scan web sources for novel chapter updates'
-                    }, isBatchChecking ? '🔄 Checking…' : '🔄 Check All Updates'),
+                    }, isBatchChecking ? [ic('RefreshCw', 12, 'animate-spin'), ' Checking…'] : [ic('RefreshCw', 12), ' Check All Updates']),
 
                     // Scoped Clear Button for Incomplete:
                     libTab === 'incomplete' && displayedBooks.length > 0 && h('button', {
@@ -743,7 +956,7 @@
                       type: 'button',
                       className: 'mini-btn danger',
                       title: 'Move all library books to Recycle Bin',
-                      onClick: () => confirmAction(`⚠️ WARNING: You are in the 'All' tab. This will move ALL ${webImportHistory.length} novels from every shelf into the Recycle Bin. Proceed?`, () => clearAllNovelHistory())
+                      onClick: () => confirmAction(`Warning: You are in the 'All' tab. This will move all ${webImportHistory.length} novels from every shelf into the Recycle Bin. Proceed?`, () => clearAllNovelHistory())
                     }, 'Clear Entire Library')
                   )
                 ),
@@ -768,7 +981,7 @@
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 } },
                     h('div', null,
                       h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13 } },
-                        h('span', null, isDelta ? '⚡ Novel Update Staged' : '⏸ Paused Translation Session'),
+                        h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, isDelta ? ic('Zap', 13) : ic('Pause', 13), isDelta ? 'Novel Update Staged' : 'Paused Translation Session'),
                         h('span', { className: 'badge', style: { background: isDelta ? '#2563eb' : 'var(--accent, #6366f1)', color: '#fff' } },
                           isDelta ? `${deltaLabel} staged` : `${cCount} / ${tCount} done`
                         )
@@ -795,7 +1008,7 @@
                           setActiveTab('text');
                           resumeSavedTranslation(s);
                         }
-                      }, isDelta ? `▶ Translate New Chapters (${deltaLabel})` : '▶ Resume Translation'),
+                      }, isDelta ? `Translate New Chapters (${deltaLabel})` : 'Resume Translation'),
                       h('button', {
                         type: 'button',
                         className: 'mini-btn danger',

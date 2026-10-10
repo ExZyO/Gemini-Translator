@@ -30,8 +30,8 @@
                 Drop an .epub file here, select from your device, or load directly from your library
             </p>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <button type="button" id="btn-edit-pick-file" class="tl-btn primary">📁 Select EPUB File</button>
-                <button type="button" id="btn-edit-load-library" class="tl-btn">📚 Load from Saved Library</button>
+                <button type="button" id="btn-edit-pick-file" class="tl-btn primary">Select EPUB File</button>
+                <button type="button" id="btn-edit-load-library" class="tl-btn">Load from Saved Library</button>
             </div>
             <div id="edit-load-progress-wrapper" class="hidden w-full max-w-xs mx-auto mt-4">
                 <div class="flex justify-between text-xs mb-1 font-semibold" style="color: var(--slate);">
@@ -57,8 +57,8 @@
                         <span style="font-size:11px; color:var(--slate); text-align:center; padding:8px;">No Cover</span>
                     </div>
                     <div style="display:flex; flex-direction:column; gap:4px; width:100%;">
-                        <button type="button" id="btn-edit-change-cover" class="tl-btn" style="padding:5px 8px; font-size:11px; width:100%;">📁 Upload</button>
-                        <button type="button" id="btn-edit-svg-cover" class="tl-btn" style="padding:5px 8px; font-size:11px; width:100%;" title="Generate clean typography SVG cover">🎨 Make Cover</button>
+                        <button type="button" id="btn-edit-change-cover" class="tl-btn" style="padding:5px 8px; font-size:11px; width:100%;">Upload</button>
+                        <button type="button" id="btn-edit-svg-cover" class="tl-btn" style="padding:5px 8px; font-size:11px; width:100%;" title="Generate clean typography SVG cover">Make Cover</button>
                         <button type="button" id="btn-edit-remove-cover" class="tl-btn danger" style="padding:4px 8px; font-size:10px; width:100%;">Remove</button>
                     </div>
                 </div>
@@ -102,30 +102,30 @@
             <div class="stu-sec" style="display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:12px 0;">
                 <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                     <button type="button" id="btn-edit-sanitize-titles" class="tl-btn" title="Strip scraped tags, website names, and duplicate prefixes from all chapter titles">
-                        🧹 Sanitize Titles
+                        Sanitize Titles
                     </button>
                     <button type="button" id="btn-edit-auto-number" class="tl-btn" title="Renumber chapters sequentially (e.g. Chapter 1 - [Title])">
-                        🔢 Auto-Number
+                        Auto-Number
                     </button>
                     <button type="button" id="btn-edit-auto-hierarchy" class="tl-btn" title="Automatically detect volume dividers and nest chapters into a collapsible tree">
-                        🪄 Auto-Hierarchy
+                        Auto-Hierarchy
                     </button>
                     <button type="button" id="btn-edit-find-replace" class="tl-btn" title="Search and replace across all chapters">
-                        🔍 Find & Replace
+                        Find & Replace
                     </button>
                     <button type="button" id="btn-edit-gallery" class="tl-btn" title="View all illustrations in book, set cover, or download">
-                        🖼️ Image Gallery
+                        Image Gallery
                     </button>
                     <button type="button" id="btn-edit-add-chapter" class="tl-btn" style="color:var(--iris);" title="Add a new chapter">
-                        ➕ Add Chapter
+                        Add Chapter
                     </button>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                     <button type="button" id="btn-edit-save-library" class="tl-btn accent" title="Save edited book to IndexedDB library and sync with Reader">
-                        💾 Save to Library
+                        Save to Library
                     </button>
                     <button type="button" id="btn-edit-export-epub" class="tl-btn primary" title="Download packaged clean EPUB file to device">
-                        📥 Download EPUB
+                        Download EPUB
                     </button>
                 </div>
             </div>
@@ -137,10 +137,10 @@
                         <span class="cap" style="font-size:12px; letter-spacing:.12em;">Table of Contents & Hierarchy</span>
                         <span id="edit-toc-badge" class="chip-act" style="background:rgba(99,102,241,.15); color:var(--iris); border-color:transparent;">0 Chapters</span>
                         <button type="button" id="btn-edit-open-toc-manager" class="tl-btn accent" style="padding:4px 11px; font-size:11.5px; font-weight:700;" title="Open full Table of Contents editor to edit titles, levels, and order">
-                            📝 Edit TOC
+                            Edit TOC
                         </button>
                         <button type="button" id="btn-edit-flatten-all" class="tl-btn" style="padding:4px 11px; font-size:11.5px; font-weight:600; color:var(--paper-dim);" title="Reset all chapters to standard normal flat chapters in 1 tap">
-                            📑 Flatten All
+                            Flatten All
                         </button>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center;">
@@ -177,7 +177,7 @@
                         </select>
                     </div>
                     <button type="button" onclick="window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden')"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center text-base font-bold shrink-0" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
 
                 <!-- Modal Sub-Toolbar (Prose Editor Mode) -->
@@ -196,26 +196,26 @@
                         <div class="flex items-center gap-1 bg-black/30 p-1 rounded-lg border border-slate-700/50">
                             <button type="button" id="fmt-btn-h2" class="chip-act" style="padding:4px 7px; font-weight:700; font-size:11.5px;" title="Scene Subheading (H2)">H2</button>
                             <button type="button" id="fmt-btn-h3" class="chip-act" style="padding:4px 7px; font-weight:700; font-size:11.5px;" title="Minor Heading (H3)">H3</button>
-                            <button type="button" id="fmt-btn-quote" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Quote / Monologue / Thought">❝ Quote</button>
-                            <button type="button" id="fmt-btn-center" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Center Text (Letters, Poems, Statuses)">↔ Center</button>
+                            <button type="button" id="fmt-btn-quote" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Quote / Monologue / Thought">Quote</button>
+                            <button type="button" id="fmt-btn-center" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Center Text (Letters, Poems, Statuses)">Center</button>
                         </div>
 
                         <!-- Group 3: Spacing & Breaks -->
                         <div class="flex items-center gap-1 bg-black/30 p-1 rounded-lg border border-slate-700/50">
-                            <button type="button" id="fmt-btn-divider" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Scene Divider (✦ ✦ ✦)">❖ Break</button>
-                            <button type="button" id="fmt-btn-spacer" class="chip-act" style="padding:4px 8px; font-size:11.5px; color:#38bdf8;" title="Extra Paragraph Spacing (Guaranteed Blank Line)">↕ Spacer</button>
-                            <button type="button" id="btn-edit-modal-clean-spacing" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Clean extra blank lines & trailing spaces">🧹 Clean</button>
+                            <button type="button" id="fmt-btn-divider" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Scene Divider">Break</button>
+                            <button type="button" id="fmt-btn-spacer" class="chip-act" style="padding:4px 8px; font-size:11.5px; color:#38bdf8;" title="Extra Paragraph Spacing (Guaranteed Blank Line)">Spacer</button>
+                            <button type="button" id="btn-edit-modal-clean-spacing" class="chip-act" style="padding:4px 8px; font-size:11.5px;" title="Clean extra blank lines & trailing spaces">Clean</button>
                         </div>
 
                         <!-- Group 4: Illustration Picker & History -->
                         <div class="flex items-center gap-1 bg-black/30 p-1 rounded-lg border border-slate-700/50">
-                            <button type="button" id="btn-edit-modal-insert-img" class="chip-act accent" style="padding:4px 9px; font-size:11.5px; font-weight:600;" title="Insert Book Illustration or Upload New Image">🖼️ Illustration</button>
-                            <button type="button" id="btn-edit-modal-undo" class="chip-act" style="padding:4px 7px; font-size:11.5px;" title="Undo (Ctrl+Z)">↶</button>
-                            <button type="button" id="btn-edit-modal-redo" class="chip-act" style="padding:4px 7px; font-size:11.5px;" title="Redo (Ctrl+Y)">↷</button>
+                            <button type="button" id="btn-edit-modal-insert-img" class="chip-act accent" style="padding:4px 9px; font-size:11.5px; font-weight:600;" title="Insert Book Illustration or Upload New Image">Illustration</button>
+                            <button type="button" id="btn-edit-modal-undo" class="chip-act" style="padding:4px 7px; font-size:11.5px;" title="Undo (Ctrl+Z)">Undo</button>
+                            <button type="button" id="btn-edit-modal-redo" class="chip-act" style="padding:4px 7px; font-size:11.5px;" title="Redo (Ctrl+Y)">Redo</button>
                         </div>
 
                         <button type="button" id="btn-edit-modal-preview-toggle" class="tl-btn accent" style="padding:5px 11px; font-size:11.5px; font-weight:700;">
-                            👁️ Preview HTML
+                            Preview HTML
                         </button>
                     </div>
                     <div class="flex items-center gap-3 font-mono text-[11px]" style="color:var(--slate);">
@@ -231,7 +231,7 @@
                         ← Back to Editor
                     </button>
                     <div class="flex items-center gap-3 text-xs" style="color:var(--slate);">
-                        <span class="font-semibold">👁️ Chapter Preview</span>
+                        <span class="font-semibold">Chapter Preview</span>
                         <span id="preview-modal-word-count" class="font-mono text-[11px]"></span>
                     </div>
                 </div>
@@ -273,7 +273,7 @@
                     </div>
                     <div class="flex gap-2">
                         <button type="button" onclick="window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden')" class="tl-btn">Close</button>
-                        <button type="button" id="btn-edit-modal-save" class="tl-btn accent">✓ Save Chapter</button>
+                        <button type="button" id="btn-edit-modal-save" class="tl-btn accent">Save Chapter</button>
                     </div>
                 </div>
             </div>
@@ -286,13 +286,13 @@
             <div class="rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center"
                  style="background:var(--ember); border:1px solid var(--hairline);"
                  onclick="event.stopPropagation();">
-                <div class="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl"
-                     style="background:rgba(245,158,11,0.15); color:#f59e0b;">⚠️</div>
+                <div class="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center text-xl font-bold"
+                     style="background:rgba(245,158,11,0.15); color:#f59e0b;">!</div>
                 <h4 class="text-base font-bold mb-1" style="color:var(--paper);">Unsaved Prose Changes</h4>
                 <p class="text-xs mb-5 leading-relaxed" style="color:var(--slate);">You have modified chapter prose or title. Save your edits before closing?</p>
                 <div class="flex flex-col gap-2.5">
-                    <button type="button" id="btn-unsaved-save-close" class="tl-btn accent w-full justify-center" style="padding:10px; font-weight:600;">✓ Save & Close</button>
-                    <button type="button" id="btn-unsaved-discard" class="tl-btn danger w-full justify-center" style="padding:10px; color:#f87171; border-color:rgba(239,68,68,0.4);">🗑️ Discard Changes</button>
+                    <button type="button" id="btn-unsaved-save-close" class="tl-btn accent w-full justify-center" style="padding:10px; font-weight:600;">Save & Close</button>
+                    <button type="button" id="btn-unsaved-discard" class="tl-btn danger w-full justify-center" style="padding:10px; color:#f87171; border-color:rgba(239,68,68,0.4);">Discard Changes</button>
                     <button type="button" id="btn-unsaved-cancel" class="tl-btn w-full justify-center" style="padding:8px; font-size:12px;">Keep Editing</button>
                 </div>
             </div>
@@ -306,22 +306,19 @@
                  style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh; max-height:85dvh;">
                 <!-- Header -->
                 <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
-                    <div class="flex items-center gap-2">
-                        <span class="text-lg">🖼️</span>
-                        <div>
-                            <h4 class="text-sm sm:text-base font-bold" style="color:var(--paper);">Insert Book Illustration</h4>
-                            <p class="text-xs" style="color:var(--slate);">Select an illustration already inside this novel or upload a new one</p>
-                        </div>
+                    <div>
+                        <h4 class="text-sm sm:text-base font-bold" style="color:var(--paper);">Insert Book Illustration</h4>
+                        <p class="text-xs" style="color:var(--slate);">Select an illustration already inside this novel or upload a new one</p>
                     </div>
                     <button type="button" onclick="document.getElementById('edit-novel-image-picker-modal').classList.add('hidden')"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center text-base font-bold shrink-0" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
                 <!-- Body: Grid of existing images -->
                 <div class="p-4 overflow-y-auto custom-scrollbar flex-1" style="min-height:220px; max-height:60vh;">
                     <div class="mb-3 flex items-center justify-between">
                         <span id="novel-image-picker-count" class="text-xs font-semibold" style="color:var(--slate);">0 images available</span>
                         <button type="button" id="btn-picker-upload-new" class="tl-btn accent" style="padding:5px 12px; font-size:11.5px;">
-                            ➕ Upload from Device…
+                            Upload from Device…
                         </button>
                     </div>
                     <div id="novel-image-picker-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -336,7 +333,6 @@
             <!-- Header Bar -->
             <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-800 bg-[#0d0f17] shrink-0">
                 <div class="flex items-center gap-3">
-                    <span class="text-xl">🖼️</span>
                     <div>
                         <div class="flex items-center gap-2">
                             <h3 class="font-bold text-sm sm:text-base text-white">Book Illustration & Cover Gallery</h3>
@@ -346,9 +342,9 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button type="button" id="btn-edit-gallery-upload-new" class="tl-btn text-xs" style="padding:6px 14px;">➕ Upload Image</button>
+                    <button type="button" id="btn-edit-gallery-upload-new" class="tl-btn text-xs" style="padding:6px 14px;">Upload Image</button>
                     <button type="button" onclick="if(window.closeGalleryModal) window.closeGalleryModal(); else document.getElementById('edit-gallery-modal').style.display='none';"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors">✕</button>
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors" title="Close">&times;</button>
                 </div>
             </div>
 
@@ -359,7 +355,7 @@
                     <button type="button" class="gallery-tab px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800" data-filter="covers">Covers</button>
                     <button type="button" class="gallery-tab px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800" data-filter="chapters">Chapter Art</button>
                 </div>
-                <span class="text-xs text-slate-500 hidden sm:inline">💡 Tap any image to view in fullscreen lightbox</span>
+                <span class="text-xs text-slate-500 hidden sm:inline">Tap any image to view in fullscreen lightbox</span>
             </div>
 
             <!-- Fullscreen Gallery Grid (Portrait Aspect Ratio for Full Covers) -->
@@ -382,10 +378,10 @@
             <div class="w-full flex items-center justify-between py-2.5 px-3 text-white max-w-5xl shrink-0" style="background:transparent;">
                 <span id="lightbox-img-name" class="font-mono text-xs sm:text-sm truncate text-slate-200 max-w-xs sm:max-w-md">image.jpg</span>
                 <div class="flex items-center gap-2">
-                    <button type="button" id="lightbox-set-cover-btn" class="tl-btn accent text-xs" style="padding:6px 12px;">👑 Set as Book Cover</button>
-                    <button type="button" id="lightbox-download-btn" class="tl-btn text-xs" style="padding:6px 12px;">📥 Download</button>
+                    <button type="button" id="lightbox-set-cover-btn" class="tl-btn accent text-xs" style="padding:6px 12px;">Set as Book Cover</button>
+                    <button type="button" id="lightbox-download-btn" class="tl-btn text-xs" style="padding:6px 12px;">Download</button>
                     <button type="button" onclick="if(window.closeGalleryLightbox) window.closeGalleryLightbox(); else document.getElementById('edit-gallery-lightbox').style.display='none';"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-slate-400 hover:text-white bg-white/10 hover:bg-white/20 transition-colors">✕</button>
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-slate-400 hover:text-white bg-white/10 hover:bg-white/20 transition-colors" title="Close">&times;</button>
                 </div>
             </div>
             <!-- Main image container -->
@@ -394,7 +390,7 @@
             </div>
             <!-- Bottom caption -->
             <div class="py-2 text-center text-xs text-slate-400 font-mono shrink-0" id="lightbox-img-meta">
-                Tap outside or ✕ to close
+                Tap outside to close
             </div>
         </div>
 
@@ -406,7 +402,7 @@
                 <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
                     <h3 class="font-bold text-base" style="color:var(--paper);">Global Find & Replace</h3>
                     <button type="button" onclick="document.getElementById('edit-find-replace-modal').classList.add('hidden')"
-                            class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
                 <div class="p-5 space-y-3">
                     <div>
@@ -447,7 +443,7 @@
                 <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
                     <h3 class="font-bold text-base" style="color:var(--paper);">Auto-Number Chapters</h3>
                     <button type="button" onclick="document.getElementById('edit-autonumber-modal').classList.add('hidden')"
-                            class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
                 <div class="p-5 space-y-3">
                     <div>
@@ -499,12 +495,9 @@
             <div class="rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
                  style="background:var(--ember); border:1px solid var(--hairline);">
                 <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
-                    <div class="flex items-center gap-2">
-                        <span class="text-lg">📚</span>
-                        <h3 class="font-bold text-base" style="color:var(--paper);">Choose Book from Saved Library</h3>
-                    </div>
+                    <h3 class="font-bold text-base" style="color:var(--paper);">Choose Book from Saved Library</h3>
                     <button type="button" onclick="document.getElementById('edit-library-modal').classList.add('hidden')"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
                 <div class="p-4" style="border-bottom:1px solid var(--hairline);">
                     <input type="text" id="edit-lib-search" placeholder="Search library by title or author…" class="tl-field" style="width:100%; margin:0;">
@@ -522,15 +515,12 @@
             <div class="rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
                  style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh;">
                 <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
-                    <div class="flex items-center gap-2">
-                        <span class="text-lg">↕</span>
-                        <div>
-                            <h3 id="edit-move-modal-title" class="font-bold text-sm" style="color:var(--paper);">Organize & Move Chapter</h3>
-                            <p id="edit-move-modal-subtitle" class="text-xs truncate" style="color:var(--slate); max-width:280px;">Chapter</p>
-                        </div>
+                    <div>
+                        <h3 id="edit-move-modal-title" class="font-bold text-sm" style="color:var(--paper);">Organize & Move Chapter</h3>
+                        <p id="edit-move-modal-subtitle" class="text-xs truncate" style="color:var(--slate); max-width:280px;">Chapter</p>
                     </div>
                     <button type="button" onclick="document.getElementById('edit-move-chapter-modal').classList.add('hidden')"
-                            class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
                 <div class="p-4 space-y-3.5">
                     <div>
@@ -552,8 +542,8 @@
                     <div>
                         <div style="font-size:11px; font-weight:700; color:var(--slate); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">In-Place Chapter Insertion</div>
                         <div class="grid grid-cols-2 gap-2">
-                            <button type="button" id="btn-move-sheet-insert-above" class="tl-btn accent" style="padding:10px 8px; justify-content:center; font-weight:600;">➕ Insert Above</button>
-                            <button type="button" id="btn-move-sheet-insert-below" class="tl-btn accent" style="padding:10px 8px; justify-content:center; font-weight:600;">➕ Insert Below</button>
+                            <button type="button" id="btn-move-sheet-insert-above" class="tl-btn accent" style="padding:10px 8px; justify-content:center; font-weight:600;">Insert Above</button>
+                            <button type="button" id="btn-move-sheet-insert-below" class="tl-btn accent" style="padding:10px 8px; justify-content:center; font-weight:600;">Insert Below</button>
                         </div>
                     </div>
                 </div>
@@ -572,7 +562,7 @@
                 <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
                     <h3 class="font-bold text-sm" style="color:var(--paper);">Rename Chapter</h3>
                     <button type="button" onclick="document.getElementById('edit-rename-modal').classList.add('hidden')"
-                            class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
                 <div class="p-4">
                     <label class="cap" style="display:block; margin-bottom:6px;">Chapter Title</label>
@@ -593,15 +583,12 @@
                  style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh;">
                 <!-- Header -->
                 <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-xl">🧹</span>
-                        <div>
-                            <h3 class="font-bold text-base" style="color:var(--paper);">Sanitize Chapter Titles</h3>
-                            <p id="sanitize-preview-subtitle" class="text-xs" style="color:var(--slate);">Review proposed title cleanups</p>
-                        </div>
+                    <div>
+                        <h3 class="font-bold text-base" style="color:var(--paper);">Sanitize Chapter Titles</h3>
+                        <p id="sanitize-preview-subtitle" class="text-xs" style="color:var(--slate);">Review proposed title cleanups</p>
                     </div>
                     <button type="button" onclick="document.getElementById('edit-sanitize-preview-modal').classList.add('hidden')"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
 
                 <!-- Diff Content List -->
@@ -612,7 +599,7 @@
                 <!-- Footer -->
                 <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
                     <button type="button" onclick="document.getElementById('edit-sanitize-preview-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
-                    <button type="button" id="btn-sanitize-apply-confirm" class="tl-btn accent font-bold" style="padding:8px 18px;">✓ Apply Clean Titles</button>
+                    <button type="button" id="btn-sanitize-apply-confirm" class="tl-btn accent font-bold" style="padding:8px 18px;">Apply Clean Titles</button>
                 </div>
             </div>
         </div>
@@ -625,15 +612,12 @@
                  style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh;">
                 <!-- Header -->
                 <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-xl">🪄</span>
-                        <div>
-                            <h3 class="font-bold text-base" style="color:var(--paper);">Auto-Hierarchy Assistant</h3>
-                            <p id="hierarchy-modal-subtitle" class="text-xs" style="color:var(--slate);">Organize book into collapsible volumes and sub-chapters</p>
-                        </div>
+                    <div>
+                        <h3 class="font-bold text-base" style="color:var(--paper);">Auto-Hierarchy Assistant</h3>
+                        <p id="hierarchy-modal-subtitle" class="text-xs" style="color:var(--slate);">Organize book into collapsible volumes and sub-chapters</p>
                     </div>
                     <button type="button" onclick="document.getElementById('edit-hierarchy-modal').classList.add('hidden')"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
 
                 <!-- Detection Summary Banner -->
@@ -652,7 +636,7 @@
                     <button type="button" id="btn-hierarchy-flatten-all" class="tl-btn text-xs" style="color:var(--slate);" title="Reset all chapters to Level 1 flat main chapters">Flatten All (Level 1)</button>
                     <div class="flex items-center gap-2">
                         <button type="button" onclick="document.getElementById('edit-hierarchy-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
-                        <button type="button" id="btn-hierarchy-apply-confirm" class="tl-btn accent font-bold" style="padding:8px 18px;">✓ Apply Hierarchy</button>
+                        <button type="button" id="btn-hierarchy-apply-confirm" class="tl-btn accent font-bold" style="padding:8px 18px;">Apply Hierarchy</button>
                     </div>
                 </div>
             </div>
@@ -666,15 +650,12 @@
                  style="background:var(--ember); border:1px solid var(--hairline); height:88vh; height:88dvh; max-height:88dvh;">
                 <!-- Header -->
                 <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-xl">📑</span>
-                        <div>
-                            <h3 class="font-bold text-base" style="color:var(--paper);">Table of Contents Editor</h3>
-                            <p id="toc-manager-subtitle" class="text-xs" style="color:var(--slate);">Edit chapter titles, adjust hierarchy levels, and reorder chapters</p>
-                        </div>
+                    <div>
+                        <h3 class="font-bold text-base" style="color:var(--paper);">Table of Contents Editor</h3>
+                        <p id="toc-manager-subtitle" class="text-xs" style="color:var(--slate);">Edit chapter titles, adjust hierarchy levels, and reorder chapters</p>
                     </div>
                     <button type="button" onclick="document.getElementById('edit-toc-manager-modal').classList.add('hidden')"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);">✕</button>
+                            class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
 
                 <!-- Subtoolbar / Filter & Quick Actions -->
@@ -683,9 +664,9 @@
                     <input type="text" id="toc-manager-search" placeholder="Search chapters in TOC…" class="tl-field"
                            style="width:200px; padding:5px 9px; font-size:12px; margin:0;">
                     <div class="flex items-center gap-1.5 flex-wrap">
-                        <button type="button" id="btn-toc-manager-paste-titles" class="tl-btn text-xs" style="padding:4px 9px;" title="Paste a list of titles from clipboard">📋 Paste Titles</button>
-                        <button type="button" id="btn-toc-manager-autonumber" class="tl-btn text-xs" style="padding:4px 9px;" title="Renumber chapters sequentially">🔢 Renumber</button>
-                        <button type="button" id="btn-toc-manager-flatten-all" class="tl-btn text-xs" style="padding:4px 9px; color:var(--paper-dim);" title="Reset all chapters in TOC to normal flat chapters">📑 Flatten All</button>
+                        <button type="button" id="btn-toc-manager-paste-titles" class="tl-btn text-xs" style="padding:4px 9px;" title="Paste a list of titles from clipboard">Paste Titles</button>
+                        <button type="button" id="btn-toc-manager-autonumber" class="tl-btn text-xs" style="padding:4px 9px;" title="Renumber chapters sequentially">Renumber</button>
+                        <button type="button" id="btn-toc-manager-flatten-all" class="tl-btn text-xs" style="padding:4px 9px; color:var(--paper-dim);" title="Reset all chapters in TOC to normal flat chapters">Flatten All</button>
                     </div>
                 </div>
 
@@ -697,7 +678,7 @@
                 <!-- Footer -->
                 <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
                     <button type="button" onclick="document.getElementById('edit-toc-manager-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
-                    <button type="button" id="btn-toc-manager-save-all" class="tl-btn accent font-bold" style="padding:8px 20px;">✓ Save TOC Changes</button>
+                    <button type="button" id="btn-toc-manager-save-all" class="tl-btn accent font-bold" style="padding:8px 20px;">Save TOC Changes</button>
                 </div>
             </div>
         </div>

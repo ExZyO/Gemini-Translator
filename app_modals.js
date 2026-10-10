@@ -15,6 +15,7 @@
 
   const getH = () => (typeof React !== 'undefined' ? React.createElement : window.React?.createElement);
   const getToast = () => (window.toast || function() {});
+  const ic = (name, size = 18, cls = 'shrink-0') => (typeof window.ic === 'function' ? window.ic(name, size, cls) : null);
 
   // ─────────────────────────────────────────────────────────────────────────
   // 1. DIAGNOSTICS & TELEMETRY LOGS MODAL
@@ -28,9 +29,9 @@
     return h('div', { className: 'gloss-overlay', style: { zIndex: 9999 } },
       h('div', { className: 'gloss-box', style: { maxWidth: 700, height: '85vh', display: 'flex', flexDirection: 'column' } },
         h('div', { className: 'gloss-head', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-          h('span', { style: { fontWeight: 600, fontSize: 14 } }, '📜 Live Diagnostics & API Logs'),
+          h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 14 } }, ic('FileText', 16), 'Live Diagnostics & API Logs'),
           h('div', { style: { display: 'flex', gap: 6 } },
-            h('button', { type: 'button', className: 'chip-act', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: copyLogsWithReport }, '📋 Copy All'),
+            h('button', { type: 'button', className: 'chip-act', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: copyLogsWithReport }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Copy', 13), 'Copy All')),
             h('button', {
               type: 'button',
               className: 'chip-act',
@@ -38,11 +39,11 @@
               onClick: () => {
                 const logs = window.AppLogger ? window.AppLogger.getFormattedText() : '';
                 window.sendTelemetry?.('MANUAL_DUMP', 'Manual log buffer dump requested by user', logs);
-                toast('📡 Log buffer sent to PC Agent!', 'success');
+                toast('Log buffer sent to PC Agent!', 'success');
               }
-            }, '📡 Send to Agent'),
-            h('button', { type: 'button', className: 'chip-act', onClick: () => { window.AppLogger?.clear(); toast('Logs cleared', 'info'); } }, '🗑 Clear'),
-            h('button', { type: 'button', className: 'icon-btn', onClick: onClose }, '✕')
+            }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Send', 13), 'Send to Agent')),
+            h('button', { type: 'button', className: 'chip-act', onClick: () => { window.AppLogger?.clear(); toast('Logs cleared', 'info'); } }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Trash2', 13), 'Clear')),
+            h('button', { type: 'button', className: 'icon-btn', onClick: onClose, title: 'Close' }, ic('X', 16))
           )
         ),
         h('div', {
@@ -95,15 +96,15 @@
     return h('div', { className: 'gloss-overlay', style: { zIndex: 9999 } },
       h('div', { className: 'gloss-box', style: { maxWidth: 520 } },
         h('div', { className: 'gloss-head', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-          h('span', { style: { fontWeight: 600, fontSize: 14 } }, `⚡ Bulk Paste ${(provider || '').toUpperCase()} Keys`),
-          h('button', { type: 'button', className: 'icon-btn', onClick: onClose }, '✕')
+          h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 14 } }, ic('Key', 16), `Bulk Paste ${(provider || '').toUpperCase()} Keys`),
+          h('button', { type: 'button', className: 'icon-btn', onClick: onClose, title: 'Close' }, ic('X', 16))
         ),
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0' } },
           h('p', { style: { fontSize: 12, color: 'var(--paper-dim)', margin: 0 } }, 'Paste keys below (one per line or comma-separated):'),
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { fontSize: 11, padding: '3px 8px' },
+            style: { fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 6 },
             onClick: async () => {
               try {
                 const clipText = await navigator.clipboard.readText();
@@ -117,7 +118,7 @@
                 toast('Clipboard access denied', 'error');
               }
             }
-          }, '📥 Paste from Clipboard')
+          }, ic('Clipboard', 13), 'Paste from Clipboard')
         ),
         h('textarea', {
           value: bulkKeyText,
@@ -172,20 +173,20 @@
             onClick: async () => {
               await handleSaveGlossary(activeGlossaryId);
             }
-          }, activeGlossaryId ? `💾 Save "${activeGlossaryId}"` : '💾 Save Profile'),
-          h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('ri') }, 'RI'),
-          h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('lotm') }, 'LOTM'),
-          h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('cote') }, 'COTE'),
+          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Save', 13), activeGlossaryId ? `Save "${activeGlossaryId}"` : 'Save Profile')),
+          h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('ri') }, 'Cultivation'),
+          h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('lotm') }, 'Fantasy'),
+          h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('cote') }, 'School'),
           h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia'),
-          h('button', { type: 'button', className: 'chip-act accent', disabled: isOptimizingGlossary, onClick: handleAiOptimizeGlossary }, isOptimizingGlossary ? 'Optimizing…' : 'AI Optimize ✦'),
-          h('button', { type: 'button', className: 'icon-btn', onClick: onClose }, '✕')
+          h('button', { type: 'button', className: 'chip-act accent', disabled: isOptimizingGlossary, onClick: handleAiOptimizeGlossary }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Sparkles', 13), isOptimizingGlossary ? 'Optimizing…' : 'AI Optimize')),
+          h('button', { type: 'button', className: 'icon-btn', onClick: onClose, title: 'Close' }, ic('X', 16))
         )
       ),
       h('div', { className: 'gloss-editor' },
         h('textarea', {
           value: terminology,
           onChange: e => { setTerminology(e.target.value); localStorage.setItem('terminology', e.target.value); },
-          placeholder: 'Enter character names and lore terms (e.g. - Fang Yuan -> Fang Yuan (MC))'
+          placeholder: 'Enter character names and lore terms (e.g. - Character Name -> Character Name (Protagonist))'
         })
       ),
       h('div', { className: 'gloss-foot' },
@@ -199,13 +200,14 @@
               await handleSaveGlossary(activeGlossaryId);
               onClose();
             }
-          }, '💾 Save & Close'),
-          h('label', { className: 'chip-act', style: { cursor: 'pointer' } },
-            '⇧ Import',
+          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Save', 13), 'Save & Close')),
+          h('label', { className: 'chip-act', style: { cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 } },
+            ic('Upload', 13),
+            'Import',
             h('input', { type: 'file', accept: '.txt', style: { display: 'none' }, onChange: importGlossaryFile })
           ),
-          h('button', { type: 'button', className: 'chip-act', onClick: exportGlossaryTxt }, '⇩ Export'),
-          h('button', { type: 'button', className: `chip-act ${smartGlossary ? '' : 'ghost'}`, onClick: () => { setSmartGlossary(!smartGlossary); localStorage.setItem('smartGlossary', !smartGlossary); } }, `Smart ✦ ${smartGlossary ? 'on' : 'off'}`)
+          h('button', { type: 'button', className: 'chip-act', onClick: exportGlossaryTxt }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Download', 13), 'Export')),
+          h('button', { type: 'button', className: `chip-act ${smartGlossary ? '' : 'ghost'}`, onClick: () => { setSmartGlossary(!smartGlossary); localStorage.setItem('smartGlossary', !smartGlossary); } }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Sparkles', 13), `Smart ${smartGlossary ? 'On' : 'Off'}`))
         )
       )
     );
@@ -262,7 +264,7 @@
 
     const handleCopyReport = () => {
       const reportText = [
-        `# 🩺 Novel Health & Translation QA Audit`,
+        `# Novel Health & Translation QA Audit`,
         `Novel: ${qaAuditResult?.title || 'Unknown'}`,
         `Health Score: ${score}% (Grade ${grade})`,
         `Chapters: ${healthy} / ${total} Healthy`,
@@ -286,13 +288,13 @@
       h('div', { className: 'modal-box', style: { maxWidth: 660, maxHeight: '90vh' }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('span', { style: { fontSize: 20 } }, '🩺'),
+            ic('Activity', 20, 'text-indigo-400'),
             h('div', null,
               h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Novel Health & Translation QA Report'),
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, qaAuditResult?.title || 'Active Document')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose }, '✕')
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
           h('div', {
@@ -342,7 +344,7 @@
               className: 'chip-act',
               style: { fontWeight: 600, padding: '6px 12px' },
               onClick: handleCopyReport
-            }, '📋 Copy Report')
+            }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Copy', 13), 'Copy Report'))
           ),
 
           h('div', {
@@ -354,7 +356,7 @@
             }
           },
             h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--iris)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 } },
-              '⚙️ Active Heuristic Rules (Toggle On/Off)'
+              'Active Heuristic Rules (Toggle On/Off)'
             ),
             h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } },
               [
@@ -378,7 +380,7 @@
                   fontWeight: r.val ? 600 : 400
                 },
                 onClick: () => handleToggleRule(r.key, !r.val)
-              }, `${r.val ? '✓' : '✗'} ${r.label}`))
+              }, `${r.val ? 'Active: ' : 'Off: '} ${r.label}`))
             )
           ),
 
@@ -410,7 +412,7 @@
                   borderRadius: 8
                 }
               },
-                h('div', { style: { fontSize: 32, marginBottom: 8 } }, '✨'),
+                h('div', { style: { display: 'flex', justifyContent: 'center', marginBottom: 8 } }, ic('CheckCircle', 32, 'text-emerald-400')),
                 h('div', { style: { fontWeight: 700, fontSize: 14, color: '#10b981' } },
                   issues.length === 0 ? 'Novel is 100% Healthy!' : 'No issues found in this category.'
                 ),
@@ -491,7 +493,7 @@
                             onInspectChapterInReader(iss);
                           }
                         }
-                      }, '📖 Inspect in Reader')
+                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('BookOpen', 13), 'Inspect in Reader'))
                     )
                   );
                 })
@@ -525,13 +527,13 @@
       h('div', { className: 'modal-box', style: { maxWidth: 760, maxHeight: '90vh', width: '92vw' }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('span', { style: { fontSize: 20 } }, '📜'),
+            ic('GitCompare', 20, 'text-indigo-400'),
             h('div', null,
               h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Translation Diff & Revision History (§8.6)'),
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, activeDiffData?.title || 'Chapter Revisions')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose }, '✕')
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
           h('div', { style: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)' } },
@@ -553,7 +555,7 @@
                 style: { padding: '4px 10px', fontSize: 11.5, background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', border: '1px solid rgba(99, 102, 241, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 4 },
                 onClick: handleManualSnapshot,
                 title: 'Save a snapshot of current text now'
-              }, '⚡ Snapshot Current Text')
+              }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Camera', 13), 'Snapshot Current Text'))
             ),
             h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', fontSize: 11, fontWeight: 600 } },
               h('span', { style: { background: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7', padding: '3px 8px', borderRadius: 4 } }, `+${activeDiffData?.addedWords || 0} words`),
@@ -576,7 +578,7 @@
               gap: 8
             }
           },
-            h('span', { style: { fontSize: 14 } }, '💡'),
+            ic('HelpCircle', 15, 'text-indigo-400 shrink-0 mt-0.5'),
             h('div', null,
               h('strong', { style: { color: '#ffffff' } }, 'How to test Translation Diffs: '),
               '1) Take a snapshot or let translation run. 2) Switch models, adjust prompt/glossary, or edit text and translate again. 3) Select the revision above to see color-coded additions (green) & deletions (red), or click ',
@@ -655,13 +657,13 @@
       h('div', { className: 'modal-box', onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 } },
-            h('span', { style: { fontSize: 18, flexShrink: 0 } }, '⚡'),
+            ic('Sparkles', 18, 'text-amber-400'),
             h('div', { style: { minWidth: 0, flex: 1 } },
               h('div', { style: { fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, 'AI Auto-Glossary & Character Extractor'),
-              novelTitle && h('div', { style: { fontSize: 11, color: 'var(--iris)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `📖 ${novelTitle}`)
+              novelTitle && h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--iris)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ic('BookOpen', 12), novelTitle)
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose }, '✕')
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd' },
           h('p', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 14, lineHeight: 1.5 } },
@@ -696,7 +698,7 @@
               style: { flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 },
               disabled: isExtractingGlossary,
               onClick: handleExtractGlossary
-            }, isExtractingGlossary ? 'Analyzing Chapters with AI…' : '⚡ Extract Characters & Lore')
+            }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Sparkles', 14), isExtractingGlossary ? 'Analyzing Chapters with AI…' : 'Extract Characters & Lore'))
           ),
           extractedTerms && extractedTerms.length > 0 && h('div', null,
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid var(--hairline)' } },
@@ -736,7 +738,7 @@
                 h('div', { style: { flex: 1, minWidth: 0 } },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
                     h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--paper)' } }, t.orig),
-                    h('span', { style: { color: 'var(--slate)', fontSize: 11 } }, '➔'),
+                    h('span', { style: { color: 'var(--slate)', fontSize: 11 } }, '→'),
                     h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--iris)' } }, t.trans),
                     h('span', { className: 'badge', style: { fontSize: 9, textTransform: 'uppercase', padding: '1px 5px' } }, t.category || 'Term'),
                     t.gender && h('span', {
@@ -755,7 +757,7 @@
                         const nextGen = t.gender === 'female' ? 'male' : 'female';
                         setExtractedTerms(prev => prev.map(item => item.id === t.id ? { ...item, gender: nextGen, category: `Character (${nextGen})` } : item));
                       }
-                    }, t.gender === 'female' ? '♀ Female' : '♂ Male')
+                    }, t.gender === 'female' ? 'Female' : 'Male')
                   ),
                   t.note && h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.note)
                 )
@@ -768,13 +770,13 @@
             type: 'button',
             className: 'mini-btn ghost',
             onClick: () => handleApplyExtractedTerms(true)
-          }, targetNovel ? '💾 Save as Novel Profile' : '💾 Save as New Profile'),
+          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Save', 13), targetNovel ? 'Save as Novel Profile' : 'Save as New Profile')),
           h('button', {
             type: 'button',
             className: 'mini-btn',
             style: { background: 'var(--iris)', color: '#fff', fontWeight: 600 },
             onClick: () => handleApplyExtractedTerms(false)
-          }, `➕ Append to Glossary (${extractedTerms.filter(t => t.checked).length})`)
+          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Plus', 13), `Append to Glossary (${extractedTerms.filter(t => t.checked).length})`))
         )
       )
     );
@@ -799,10 +801,10 @@
       h('div', { className: 'modal-box', style: { maxWidth: 640 }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('span', { style: { fontSize: 18 } }, '🔍'),
+            ic('Search', 18, 'text-indigo-400'),
             h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'Name Consistency & Leak Verifier')
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose }, '✕')
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd' },
           h('p', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 14, lineHeight: 1.5 } },
@@ -825,7 +827,7 @@
             ),
             (leakItems.length === 0 && driftItems.length === 0)
               ? h('div', { style: { padding: 18, background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 4, textAlign: 'center', color: '#34d399' } },
-                  h('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 4 } }, '✨ 100% Consistent!'),
+                  h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 600, marginBottom: 4 } }, ic('CheckCircle', 16, 'text-emerald-400'), '100% Consistent!'),
                   h('div', { style: { fontSize: 12, color: 'var(--paper-dim)' } }, 'No untranslated source terms or known romanization drift detected across chapters.')
                 )
               : h('div', { style: { maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 } },
@@ -836,11 +838,11 @@
                     h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
                       h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
                         h('span', { style: { fontWeight: 700, fontSize: 12, color: '#f87171' } }, item.orig),
-                        h('span', { style: { color: 'var(--slate)', fontSize: 11 } }, '➔ should be'),
+                        h('span', { style: { color: 'var(--slate)', fontSize: 11 } }, '→ should be'),
                         h('span', { style: { fontWeight: 700, fontSize: 12, color: 'var(--iris)' } }, item.target)
                       ),
                       h('span', { className: 'badge', style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 10 } },
-                        `⚠️ ${item.totalLeaks} Untranslated Leak(s)`
+                        `${item.totalLeaks} Untranslated Leak(s)`
                       )
                     ),
                     h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 8 } },
@@ -851,7 +853,7 @@
                       className: 'mini-btn',
                       style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 11 },
                       onClick: () => handleBatchFixDrift(item.orig, item.target)
-                    }, `⚡ Replace All Leaks with "${item.target}"`)
+                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Check', 12), `Replace All Leaks with "${item.target}"`))
                   )),
                   driftItems.map((item, idx) => h('div', {
                     key: 'drift_' + idx,
@@ -886,7 +888,7 @@
             className: 'mini-btn',
             onClick: handleRunConsistencyCheck,
             disabled: isAuditingConsistency
-          }, isAuditingConsistency ? 'Auditing…' : '🔄 Re-audit Chapters'),
+          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('RefreshCw', 13), isAuditingConsistency ? 'Auditing…' : 'Re-audit Chapters')),
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
@@ -914,14 +916,14 @@
       h('div', { className: 'modal-box', style: { maxWidth: 540 }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('span', { style: { fontSize: 18 } }, '☁️'),
+            ic('Cloud', 18, 'text-sky-400'),
             h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'Google Drive Settings (Mihon/Komikku)')
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose }, '✕')
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd', style: { display: 'flex', flexDirection: 'column', gap: 12 } },
           h('div', { style: { background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 6, padding: '10px 12px' } },
-            h('div', { style: { fontSize: 11, fontWeight: 700, color: '#818cf8', marginBottom: 4 } }, '💡 No Developer Account? Use 1-Tap File Backup!'),
+            h('div', { style: { fontSize: 11, fontWeight: 700, color: '#818cf8', marginBottom: 4 } }, 'No Developer Account? Use 1-Tap File Backup!'),
             h('div', { style: { fontSize: 10.5, color: 'var(--slate)', lineHeight: 1.45 } },
               'If you don\'t want to configure Google Cloud Console, use ',
               h('strong', { style: { color: 'var(--paper-dim)' } }, '1-Tap Google Drive File Backup'),
@@ -935,7 +937,7 @@
                 className: 'mini-btn ghost',
                 style: { cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', fontSize: 10, color: 'var(--iris)' }
               },
-                h('span', null, '📂 Import client_secrets.json'),
+                h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Folder', 13), 'Import client_secrets.json'),
                 h('input', {
                   type: 'file',
                   accept: '.json',
@@ -979,7 +981,7 @@
                   navigator.clipboard?.writeText(window.location.origin);
                   toast('Origin copied: ' + window.location.origin, 'info');
                 }
-              }, '📋 Copy Origin')
+              }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Copy', 12), 'Copy Origin'))
             ),
             h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 } },
               h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Authorized Redirect URI: ' + (window.GoogleDriveSync?.getRedirectUri?.() || (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : ''))),
@@ -992,7 +994,7 @@
                   navigator.clipboard?.writeText(rUri);
                   toast('Redirect URI copied: ' + rUri, 'info');
                 }
-              }, '📋 Copy Redirect URI')
+              }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Copy', 12), 'Copy Redirect URI'))
             )
           ),
           h('div', { style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 10.5, color: 'var(--slate)', lineHeight: 1.45 } },
@@ -1055,13 +1057,13 @@
       h('div', { className: 'modal-box', style: { maxWidth: 440 }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('span', { style: { fontSize: 20 } }, '✏️'),
+            ic('Edit', 20, 'text-indigo-400'),
             h('div', null,
               h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Rename Novel'),
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Custom title for EPUB export, library, and future updates')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose }, '✕')
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd', style: { padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 } },
           novel.originalSourceTitle && novel.originalSourceTitle !== (value || '').trim() && h('div', {
@@ -1102,7 +1104,7 @@
               className: 'mini-btn ghost',
               style: { fontSize: 11, padding: '2px 8px' },
               onClick: () => setValue(novel.originalSourceTitle)
-            }, '↺ Reset to Original')
+            }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RotateCcw', 12), 'Reset to Original'))
           )
         ),
         h('div', { className: 'modal-ft', style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } },
@@ -1137,13 +1139,13 @@
       h('div', { className: 'modal-box', style: { maxWidth: 640, width: '92vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('span', { style: { fontSize: 20 } }, '💰'),
+            ic('Coins', 20, 'text-amber-400'),
             h('div', null,
               h('div', { style: { fontWeight: 700, fontSize: 15 } }, 'Translation Cost & Time Estimator'),
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Pre-translation token economics and multi-stream time projections (§7.2 / §3.6)')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose }, '✕')
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14, padding: '14px 16px' } },
           h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 } },
@@ -1287,7 +1289,7 @@
       }
     },
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 } },
-        h('span', { style: { fontSize: 20, flexShrink: 0 } }, icon),
+        h('span', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, flexShrink: 0, color: isDanger ? '#ef4444' : 'var(--iris)' } }, typeof icon === 'string' ? (ic(icon, 18) || icon) : icon),
         h('div', { style: { minWidth: 0, flex: 1 } },
           h('div', { style: { fontWeight: 600, fontSize: 13.5, color: isDanger ? '#ef4444' : 'var(--paper)' } }, title),
           desc && h('div', { style: { fontSize: 11, color: isDanger ? 'rgba(239, 68, 68, 0.8)' : 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, desc)
@@ -1302,20 +1304,20 @@
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 } },
             item.cover
               ? h('img', { src: item.cover, style: { width: 32, height: 42, objectFit: 'cover', borderRadius: 4, flexShrink: 0 } })
-              : h('span', { style: { fontSize: 22, flexShrink: 0 } }, '📚'),
+              : h('span', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 42, background: 'rgba(255,255,255,0.05)', borderRadius: 4, flexShrink: 0, color: 'var(--iris)' } }, ic('BookOpen', 18)),
             h('div', { style: { minWidth: 0, flex: 1 } },
               h('div', { style: { fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.title || 'Novel Options'),
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, `${item.chapterCount || 0} chapters · ${item.author || 'Author'}`)
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose }, '✕')
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '14px 16px' } },
-          menuRow('✏️', 'Rename Novel', 'Set a custom title for EPUB export, library, and future updates', () => {
+          menuRow('Edit', 'Rename Novel', 'Set a custom title for EPUB export, library, and future updates', () => {
             if (setRenameModalNovel) setRenameModalNovel(item);
             if (setNewNovelTitleInput) setNewNovelTitleInput(item.customTitle || (getCustomTitle ? getCustomTitle(item) : '') || item.title || '');
           }),
-          menuRow('📝', 'Edit in Ebook Studio', 'Edit chapters, prose, covers, and table of contents', async () => {
+          menuRow('BookOpen', 'Edit in Ebook Studio', 'Edit chapters, prose, covers, and table of contents', async () => {
             const full = loadFullNovel ? await loadFullNovel(item) : null;
             if (!full) { toast('Novel data not found in local store.', 'error'); return; }
             if (setActiveTab) setActiveTab('studio');
@@ -1327,13 +1329,13 @@
             if (window.loadEpubForEditing) window.loadEpubForEditing(full);
             toast(`Opened "${item.title || 'Novel'}" in Ebook Studio!`, 'success');
           }),
-          menuRow('🔄', 'Check Online Updates', 'Check online web source for newly published chapters', () => {
+          menuRow('RefreshCw', 'Check Online Updates', 'Check online web source for newly published chapters', () => {
             if (handleCheckNovelUpdate) handleCheckNovelUpdate(item);
           }),
-          menuRow('⚡', 'Continue Fetching Online', 'Fetch new chapters from web and append to this EPUB with same Book ID', () => {
+          menuRow('Download', 'Continue Fetching Online', 'Fetch new chapters from web and append to this EPUB with same Book ID', () => {
             if (handleOpenContinuationForNovel) handleOpenContinuationForNovel(item);
           }),
-          (item.sourceUrl || item.url) && /^https?:\/\//i.test(item.sourceUrl || item.url) && menuRow('🛠️', "Site Settings for Book's Website", 'Customize how chapters are extracted from this website', () => {
+          (item.sourceUrl || item.url) && /^https?:\/\//i.test(item.sourceUrl || item.url) && menuRow('Settings', "Site Settings for Book's Website", 'Customize how chapters are extracted from this website', () => {
             const u = item.sourceUrl || item.url;
             if (typeof openSiteRecipeEditor === 'function') {
               openSiteRecipeEditor({ url: u });
@@ -1343,35 +1345,35 @@
               window.SiteRecipeEngine.Controller.open({ url: u });
             }
           }),
-          menuRow('🧬', 'Auto-Build Glossary', 'Extract character cast and lore into a locked Smart Glossary', async () => {
+          menuRow('Sparkles', 'Auto-Build Glossary', 'Extract character cast and lore into a locked Smart Glossary', async () => {
             const full = loadFullNovel ? await loadFullNovel(item) : null;
             if (!full) { toast('Novel data not found in local store.', 'error'); return; }
             if (handleOpenAutoGlossary) handleOpenAutoGlossary(full);
           }),
-          menuRow('⭐', item.inSavedSpace ? 'Remove from Saved Space' : 'Save to Space', item.inSavedSpace ? 'Remove priority star bookmark' : 'Pin to personal Saved Space shelf', () => {
+          menuRow('Star', item.inSavedSpace ? 'Remove from Saved Space' : 'Save to Space', item.inSavedSpace ? 'Remove priority star bookmark' : 'Pin to personal Saved Space shelf', () => {
             if (toggleNovelSavedSpace) toggleNovelSavedSpace(item.id, item);
           }, false, item.inSavedSpace ? 'In Space' : null),
-          menuRow('📁', 'Designated Device Folder', dispPath ? `Current: ${dispPath.length > 24 ? dispPath.slice(0, 22) + '…' : dispPath}` : 'Set auto-export folder for Moon+ Reader continuity', () => {
+          menuRow('Folder', 'Designated Device Folder', dispPath ? `Current: ${dispPath.length > 24 ? dispPath.slice(0, 22) + '…' : dispPath}` : 'Set auto-export folder for Moon+ Reader continuity', () => {
             if (handleSetNovelFolder) handleSetNovelFolder(item);
           }, false, hasFolder ? 'Configured' : null),
-          menuRow('🩺', 'Novel Health & QA Audit', 'Audit for CJK leaks, empty chapters, and AI loops', () => {
+          menuRow('Activity', 'Novel Health & QA Audit', 'Audit for CJK leaks, empty chapters, and AI loops', () => {
             if (handleOpenNovelHealthModal) handleOpenNovelHealthModal(item);
           }),
-          menuRow('📜', 'Translation Diffs & History', 'Inspect chapter changes and rollback revisions', async () => {
+          menuRow('GitCompare', 'Translation Diffs & History', 'Inspect chapter changes and rollback revisions', async () => {
             const full = loadFullNovel ? await loadFullNovel(item) : null;
             if (full && handleOpenDiffModal) handleOpenDiffModal(0, full);
             else toast('Novel data not found.', 'error');
           }),
-          menuRow('🏷️', 'Enrich Metadata (AniList)', 'Fetch high-res cover, synopsis, and genres', () => {
+          menuRow('Tag', 'Enrich Metadata (AniList)', 'Fetch high-res cover, synopsis, and genres', () => {
             if (handleEnrichNovelMetadata) handleEnrichNovelMetadata(item);
           }),
-          menuRow('🖼️', 'Upgrade Illustrations', 'Replace blurry placeholders with crisp, full-resolution sharp artwork', () => {
+          menuRow('Image', 'Upgrade Illustrations', 'Replace blurry placeholders with crisp, full-resolution sharp artwork', () => {
             if (handleUpgradeNovelIllustrations) handleUpgradeNovelIllustrations(item);
           }),
-          menuRow('✂️', 'Split into Story Arcs', 'Divide large multi-volume novel into separate books', () => {
+          menuRow('Scissors', 'Split into Story Arcs', 'Divide large multi-volume novel into separate books', () => {
             if (handleSplitNovelIntoArcs) handleSplitNovelIntoArcs(item);
           }),
-          menuRow('🗑️', 'Remove from Library', 'Delete novel and cached chapters from local library', () => {
+          menuRow('Trash2', 'Remove from Library', 'Delete novel and cached chapters from local library', () => {
             if (confirmAction) {
               confirmAction(`Remove "${item.title}" from the library?`, async () => {
                 if (deleteNovelFromHistory) await deleteNovelFromHistory(item.id);
@@ -1480,7 +1482,7 @@
               className: `mini-btn ${pluginSelectedTab === 'custom' ? '' : 'ghost'}`,
               style: { fontSize: 11, padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap', borderColor: 'var(--hairline)' },
               onClick: () => setPluginSelectedTab(pluginSelectedTab === 'custom' ? 'installed' : 'custom')
-            }, pluginSelectedTab === 'custom' ? '✕ Close Sideload' : '🔗 Sideload'),
+            }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic(pluginSelectedTab === 'custom' ? 'X' : 'Link', 13), pluginSelectedTab === 'custom' ? 'Close Sideload' : 'Sideload')),
             h('button', {
               type: 'button',
               className: 'mini-btn ghost',
@@ -1494,15 +1496,15 @@
           h('span', {
             className: (pluginSelectedTab === 'installed' || !pluginSelectedTab) ? 'on' : '',
             onClick: () => setPluginSelectedTab('installed')
-          }, `✅ Installed (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`),
+          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Check', 13), `Installed (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`)),
           h('span', {
             className: pluginSelectedTab === 'catalog' ? 'on' : '',
             onClick: () => setPluginSelectedTab('catalog')
-          }, `🌐 Browse Catalog (${pluginCatalog?.length || '278+'})`),
+          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Globe', 13), `Browse Catalog (${pluginCatalog?.length || '278+'})`)),
           pluginSelectedTab === 'custom' && h('span', {
             className: 'on',
             onClick: () => setPluginSelectedTab('custom')
-          }, '🔗 Sideload Custom')
+          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Link', 13), 'Sideload Custom'))
         )
       ),
 
@@ -1528,7 +1530,7 @@
           const installed = reg && typeof reg.getAll === 'function' ? reg.getAll() : (reg && typeof reg.listPlugins === 'function' ? reg.listPlugins() : []);
           if (installed.length === 0) {
             return h('div', { style: { textAlign: 'center', padding: '60px 16px', color: 'var(--slate)', fontSize: 13.5 } },
-              h('div', { style: { fontSize: 36, marginBottom: 10 } }, '🔌'),
+              h('div', { style: { display: 'flex', justifyContent: 'center', marginBottom: 10 } }, ic('Plug', 36, 'text-slate-400')),
               h('div', { style: { fontWeight: 600, color: 'var(--paper)', marginBottom: 4 } }, 'No extensions installed yet'),
               h('div', { style: { fontSize: 12, maxWidth: 360, margin: '0 auto 14px', lineHeight: 1.5 } }, 'Browse the Catalog tab to add from 278+ community light novel and web novel sources!'),
               h('button', {
@@ -1569,7 +1571,7 @@
                       fontSize: 20,
                       flexShrink: 0
                     }
-                  }, isBuiltin ? '⚡' : '🔌'),
+                  }, isBuiltin ? ic('Zap', 14, 'text-indigo-400') : ic('Plug', 14, 'text-emerald-400')),
                   h('div', { style: { flex: 1, minWidth: 0 } },
                     h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
                       h('span', { style: { fontWeight: 700, fontSize: 14, color: 'var(--paper)' } }, p.name),
@@ -1619,13 +1621,13 @@
           ),
           h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 2px' } },
             [
-              { id: 'all', label: '🌐 All' },
-              { id: 'en', label: '🇺🇸 English' },
-              { id: 'ja', label: '🇯🇵 Japanese' },
-              { id: 'zh', label: '🇨🇳 Chinese' },
-              { id: 'es', label: '🇪🇸 Spanish' },
-              { id: 'ru', label: '🇷🇺 Russian' },
-              { id: 'ko', label: '🇰🇷 Korean' }
+              { id: 'all', label: 'All' },
+              { id: 'en', label: 'English' },
+              { id: 'ja', label: 'Japanese' },
+              { id: 'zh', label: 'Chinese' },
+              { id: 'es', label: 'Spanish' },
+              { id: 'ru', label: 'Russian' },
+              { id: 'ko', label: 'Korean' }
             ].map(pill => {
               const isSel = (pluginSelectedLangFilter || 'all') === pill.id;
               return h('button', {
@@ -1701,7 +1703,7 @@
                         h('span', { style: { fontWeight: 600, fontSize: 14, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, p.name),
                         h('span', { className: 'badge', style: { fontSize: 9.5, padding: '1px 6px', textTransform: 'uppercase', borderRadius: 4 } }, p.lang || 'EN'),
                         p.version && h('span', { style: { fontSize: 10.5, color: 'var(--slate)', fontFamily: 'monospace' } }, `v${p.version}`),
-                        isInstalled && h('span', { style: { fontSize: 10.5, fontWeight: 700, color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: 4 } }, '✓ Installed')
+                        isInstalled && h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: 4 } }, ic('Check', 11), 'Installed')
                       ),
                       p.site && h('div', { style: { fontSize: 11.5, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 } }, p.site)
                     )
@@ -1726,7 +1728,7 @@
                       cursor: isInstalling ? 'wait' : 'pointer'
                     },
                     onClick: () => handleInstallPlugin && handleInstallPlugin(p)
-                  }, isInstalling ? '⏳ Installing…' : 'Install')
+                  }, isInstalling ? 'Installing…' : 'Install')
                 );
               }),
               list.length > 100 && h('div', { style: { textAlign: 'center', fontSize: 11.5, color: 'var(--slate)', padding: 8 } }, `Showing top 100 of ${list.length} matching plugins. Refine search query to filter.`)
@@ -1751,7 +1753,7 @@
             className: 'mini-btn',
             style: { background: 'var(--iris)', color: '#fff', fontWeight: 700, padding: '8px 18px', alignSelf: 'flex-start' },
             onClick: handleInstallCustomPluginUrl
-          }, '⚡ Fetch & Register Plugin')
+          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Download', 13), 'Fetch & Register Plugin'))
         )
       )
     );
@@ -1779,19 +1781,19 @@
       h('div', { className: 'sheet', onClick: (e) => e.stopPropagation() },
         h('div', { className: 'sheet-handle' }),
         h('div', { className: 'sheet-lbl' }, 'Export'),
-        h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('epub') }, h('span', { className: 'ic' }, '⇩'), 'EPUB', h('span', { className: 'chev' }, '›')),
-        h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('reader') }, h('span', { className: 'ic' }, '◈'), 'Open in Reader', h('span', { className: 'chev' }, '›')),
-        h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('pdf') }, h('span', { className: 'ic' }, '⇩'), 'PDF', h('span', { className: 'chev' }, '›')),
-        h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('docx') }, h('span', { className: 'ic' }, '⇩'), 'DOCX', h('span', { className: 'chev' }, '›')),
+        h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('epub') }, h('span', { className: 'ic' }, ic('Download', 16)), 'EPUB', h('span', { className: 'chev' }, '›')),
+        h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('reader') }, h('span', { className: 'ic' }, ic('BookOpen', 16)), 'Open in Reader', h('span', { className: 'chev' }, '›')),
+        h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('pdf') }, h('span', { className: 'ic' }, ic('FileDown', 16)), 'PDF', h('span', { className: 'chev' }, '›')),
+        h('button', { type: 'button', className: 'sheet-row', onClick: () => handleExportRow('docx') }, h('span', { className: 'ic' }, ic('FileText', 16)), 'DOCX', h('span', { className: 'chev' }, '›')),
         h('div', { className: 'sheet-lbl' }, 'Tools'),
         h('button', { type: 'button', className: 'sheet-row', onClick: () => {
           if (isTranslating) { toast('Cannot split chapters while translation is in progress.', 'warning'); return; }
           setSheetOpen(false);
           handleAutoDetectSplit();
-        } }, h('span', { className: 'ic' }, '✂'), 'Split Chapters', h('span', { className: 'chev' }, '›')),
-        h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'auto'); setBoxPreset('output', 'auto'); setSheetOpen(false); } }, h('span', { className: 'ic' }, '↕'), 'Fit Text Height', h('span', { className: 'chev' }, '›')),
-        h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'S'); setBoxPreset('output', 'S'); setSheetOpen(false); } }, h('span', { className: 'ic' }, '↺'), 'Reset Box Heights', h('span', { className: 'chev' }, '›')),
-        h('button', { type: 'button', className: 'sheet-row', onClick: () => { setSheetOpen(false); setGlossaryEditorOpen(true); } }, h('span', { className: 'ic' }, '📖'), 'Glossary Editor', h('span', { className: 'chev' }, '›'))
+        } }, h('span', { className: 'ic' }, ic('Scissors', 16)), 'Split Chapters', h('span', { className: 'chev' }, '›')),
+        h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'auto'); setBoxPreset('output', 'auto'); setSheetOpen(false); } }, h('span', { className: 'ic' }, ic('Maximize2', 16)), 'Fit Text Height', h('span', { className: 'chev' }, '›')),
+        h('button', { type: 'button', className: 'sheet-row', onClick: () => { setBoxPreset('input', 'S'); setBoxPreset('output', 'S'); setSheetOpen(false); } }, h('span', { className: 'ic' }, ic('RotateCcw', 16)), 'Reset Box Heights', h('span', { className: 'chev' }, '›')),
+        h('button', { type: 'button', className: 'sheet-row', onClick: () => { setSheetOpen(false); setGlossaryEditorOpen(true); } }, h('span', { className: 'ic' }, ic('BookOpen', 16)), 'Glossary Editor', h('span', { className: 'chev' }, '›'))
       )
     );
   }
@@ -1864,7 +1866,7 @@
     return h('div', { className: 'confirm-backdrop', style: { zIndex: 10100 }, onClick: () => setDownloadSuccessModal(null) },
       h('div', { className: 'confirm-box', style: { maxWidth: 440, width: '92%' }, onClick: (e) => e.stopPropagation() },
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 } },
-          h('span', { style: { fontSize: 24 } }, isContinuation ? '📚' : '🎉'),
+          h('span', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' } }, ic('CheckCircle', 26, 'text-emerald-400')),
           h('h3', { style: { margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-color, #f1f5f9)' } },
             isContinuation ? 'EPUB Updated Successfully!' : 'File Saved Successfully!'
           )
@@ -1886,7 +1888,7 @@
             color: 'var(--text-secondary, #cbd5e1)'
           }
         },
-          h('strong', { style: { color: 'var(--primary-color, #a5b4fc)', display: 'block', marginBottom: 4 } }, '💡 Moon+ Reader Pro Shelf Note:'),
+          h('strong', { style: { color: 'var(--primary-color, #a5b4fc)', display: 'block', marginBottom: 4 } }, 'Moon+ Reader Pro Shelf Note:'),
           'Moon+ Reader caches book chapters in its shelf database. Tapping ',
           h('strong', null, 'Open in Moon+ Reader'),
           ' below sends a direct system intent that immediately tells Moon+ Reader to scan the updated file and display all new chapters on your shelf.'
@@ -1898,7 +1900,7 @@
             style: { width: '100%', padding: '10px 14px', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
             onClick: handleOpenInReader
           },
-            h('span', null, '📖 Open in Moon+ Reader')
+            h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('BookOpen', 15), 'Open in Moon+ Reader')
           ),
           h('button', {
             type: 'button',
@@ -1955,9 +1957,10 @@
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 16,
-              boxShadow: '0 3px 8px rgba(99, 102, 241, 0.4)'
+              boxShadow: '0 3px 8px rgba(99, 102, 241, 0.4)',
+              color: '#fff'
             }
-          }, '📦'),
+          }, ic('Package', 16)),
           h('div', { style: { minWidth: 0, flex: 1 } },
             h('div', { style: { fontWeight: 700, fontSize: 13.5, color: '#f8fafc', lineHeight: 1.2 } }, 'Packaging EPUB…'),
             h('div', { style: { fontSize: 11, color: '#94a3b8', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, epubPackagingModal.title || 'Novel Archive')
@@ -1990,7 +1993,7 @@
             },
             onClick: () => setEpubPackagingModal(null),
             title: 'Dismiss loading card'
-          }, '✕')
+          }, ic('X', 12))
         )
       ),
 
@@ -2163,7 +2166,7 @@
           e.stopPropagation();
           if (typeof onDismiss === 'function') onDismiss(toast.id);
         }
-      }, '✕')
+      }, ic('X', 12))
     );
   }
 
@@ -2239,7 +2242,7 @@
             e.stopPropagation();
             if (typeof props.setToasts === 'function') props.setToasts([]);
           }
-        }, `✕ Swipe down or tap to clear all (${props.toasts.length})`),
+        }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('X', 12), `Swipe down or tap to clear all (${props.toasts.length})`)),
         props.toasts.map(t => h(ToastItem, {
           key: t.id,
           toast: t,

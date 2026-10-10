@@ -518,16 +518,16 @@
       if (config.antiMtlGateEnabled && typeof window !== 'undefined' && window.QAEngine && result) {
         const refCheck = window.QAEngine.checkMtlRefusal(result);
         const loopCheck = window.QAEngine.checkRepetitionLoop(result);
-        window.telemetryLog?.('ANTI_MTL', `Text translation quality audit: ${refCheck.hasRefusal ? `⚠️ Refusal [${refCheck.patternName}]` : loopCheck.hasLoop ? `⚠️ Loop [${loopCheck.phrase}]` : 'Clean Pass ✅'}`, {
+        window.telemetryLog?.('ANTI_MTL', `Text translation quality audit: ${refCheck.hasRefusal ? `Refusal [${refCheck.patternName}]` : loopCheck.hasLoop ? `Loop [${loopCheck.phrase}]` : 'Clean Pass'}`, {
           hasRefusal: refCheck.hasRefusal,
           refusalPattern: refCheck.patternName || null,
           hasLoop: loopCheck.hasLoop,
           loopPhrase: loopCheck.phrase || null
         });
         if (refCheck.hasRefusal && callbacks.onToast) {
-          callbacks.onToast(`⚠️ Anti-MTL Gate: ${refCheck.patternName} detected in translation`, 'warning');
+          callbacks.onToast(`Anti-MTL Gate: ${refCheck.patternName} detected in translation`, 'warning');
         } else if (loopCheck.hasLoop && callbacks.onToast) {
-          callbacks.onToast(`⚠️ QA Proofreader: Hallucinated repetition loop detected`, 'warning');
+          callbacks.onToast(`QA Proofreader: Hallucinated repetition loop detected`, 'warning');
         }
       }
 
@@ -928,7 +928,7 @@
       if (config.antiMtlGateEnabled && typeof window !== 'undefined' && window.QAEngine && content) {
         const refCheck = window.QAEngine.checkMtlRefusal(content);
         const loopCheck = window.QAEngine.checkRepetitionLoop(content);
-        window.telemetryLog?.('ANTI_MTL', `Chapter ${i + 1} quality audit: ${refCheck.hasRefusal ? `⚠️ Refusal [${refCheck.patternName}]` : loopCheck.hasLoop ? `⚠️ Loop [${loopCheck.phrase}]` : 'Clean Pass ✅'}`, {
+        window.telemetryLog?.('ANTI_MTL', `Chapter ${i + 1} quality audit: ${refCheck.hasRefusal ? `Refusal [${refCheck.patternName}]` : loopCheck.hasLoop ? `Loop [${loopCheck.phrase}]` : 'Clean Pass'}`, {
           chapterIndex: i + 1,
           hasRefusal: refCheck.hasRefusal,
           refusalPattern: refCheck.patternName || null,
@@ -937,10 +937,10 @@
         });
         if (refCheck.hasRefusal) {
           console.warn(`[Anti-MTL Gate] Chapter ${i + 1}:`, refCheck.matchedText);
-          if (callbacks.onToast) callbacks.onToast(`⚠️ Anti-MTL Gate: ${refCheck.patternName} detected in Ch. ${i + 1}`, 'warning');
+          if (callbacks.onToast) callbacks.onToast(`Anti-MTL Gate: ${refCheck.patternName} detected in Ch. ${i + 1}`, 'warning');
         } else if (loopCheck.hasLoop) {
           console.warn(`[QA Proofreader] Chapter ${i + 1}:`, loopCheck.phrase);
-          if (callbacks.onToast) callbacks.onToast(`⚠️ QA Proofreader: Repetition loop detected in Ch. ${i + 1}`, 'warning');
+          if (callbacks.onToast) callbacks.onToast(`QA Proofreader: Repetition loop detected in Ch. ${i + 1}`, 'warning');
         }
       }
 
@@ -1569,7 +1569,7 @@
       try {
         if (typeof window !== 'undefined' && window.NativeBridge) {
           window.NativeBridge.releaseWakeLock?.();
-          window.NativeBridge.showCompletionNotification?.('Text Translation Complete! ✨', `Translated in ${stats.duration} (${stats.totalTokens.toLocaleString()} tokens).`);
+          window.NativeBridge.showCompletionNotification?.('Text Translation Complete!', `Translated in ${stats.duration} (${stats.totalTokens.toLocaleString()} tokens).`);
         }
       } catch (_) {}
       return res;
@@ -1821,8 +1821,8 @@
       try {
         if (typeof window !== 'undefined' && window.NativeBridge) {
           window.NativeBridge.releaseWakeLock?.();
-          window.NativeBridge.clearProgressNotification?.(true, 'Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${stats.duration}. Tap to read!`);
-          window.NativeBridge.showCompletionNotification?.('Book Translation Complete! 🎉', `${chapters.length} chapters translated in ${stats.duration}. Tap to read!`);
+          window.NativeBridge.clearProgressNotification?.(true, 'Book Translation Complete!', `${chapters.length} chapters translated in ${stats.duration}. Tap to read!`);
+          window.NativeBridge.showCompletionNotification?.('Book Translation Complete!', `${chapters.length} chapters translated in ${stats.duration}. Tap to read!`);
           window.NativeBridge.haptic?.('success');
         }
       } catch (_) {}

@@ -18,6 +18,10 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   const h = (typeof React !== 'undefined' && React.createElement) ? React.createElement : (window.React ? window.React.createElement : null);
+  const ic = (name, size = 18, cls = 'shrink-0') => {
+    if (typeof window !== 'undefined' && window.ic) return window.ic(name, size, cls);
+    return h ? h('span', { className: cls }, '') : null;
+  };
 
   // ── 1. MOON+ READER FLOATING TTS PLAYER BAR ──
   function ReaderTtsPlayerBar(props) {
@@ -136,7 +140,7 @@
             style: { flex: 1, minWidth: 0, height: 38, fontSize: 15, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
             title: 'Change Voice & Speech Engine (SherpaTTS / Piper)',
             onClick: () => setShowVoiceModal(true)
-          }, '🎙'),
+          }, ic('Volume2', 15)),
 
           // 5. Play / Pause button (DEAD CENTER)
           h('button', {
@@ -190,7 +194,7 @@
             style: { flex: 1, minWidth: 0, height: 38, fontSize: 15, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: 'var(--r-accent)' },
             title: 'TTS Options',
             onClick: () => setShowTtsOptionsModal(true)
-          }, '⚙'),
+          }, ic('Settings', 15)),
 
           // 9. More Options (...)
           h('button', {
@@ -222,13 +226,13 @@
           // Header & Search
           h('div', { style: { padding: '16px 18px', borderBottom: '1px solid var(--r-border)' } },
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
-              h('span', { style: { fontWeight: 700, fontSize: 16 } }, '📑 Table of Contents'),
+              h('span', { style: { fontWeight: 700, fontSize: 16, display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('List', 18), 'Table of Contents'),
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { border: 'none', fontSize: 16, padding: '2px 6px' },
+                style: { border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' },
                 onClick: () => setShowToc(false)
-              }, '✕')
+              }, ic('X', 15))
             ),
             h('input', {
               type: 'text',
@@ -327,13 +331,13 @@
           onClick: (e) => e.stopPropagation()
         },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 } },
-            h('span', { style: { fontWeight: 700, fontSize: 15 } }, '⚙ Typography & Appearance'),
+            h('span', { style: { fontWeight: 700, fontSize: 15, display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Settings', 16), 'Typography & Appearance'),
             h('button', {
               type: 'button',
               className: 'mini-btn ghost',
-              style: { border: 'none', fontSize: 16 },
+              style: { border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' },
               onClick: () => setShowSettings(false)
-            }, '✕')
+            }, ic('X', 15))
           ),
 
           // Reading Mode (Foliate vs Scroll)
@@ -343,15 +347,15 @@
               h('button', {
                 type: 'button',
                 className: `mini-btn ${viewMode === 'paginated' ? '' : 'ghost'}`,
-                style: viewMode === 'paginated' ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, padding: '9px 0' } : { padding: '9px 0' },
+                style: viewMode === 'paginated' ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 } : { padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
                 onClick: () => setViewMode('paginated')
-              }, '📖 Foliate Book Flip'),
+              }, ic('BookOpen', 15), 'Foliate Book Flip'),
               h('button', {
                 type: 'button',
                 className: `mini-btn ${viewMode === 'scroll' ? '' : 'ghost'}`,
-                style: viewMode === 'scroll' ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, padding: '9px 0' } : { padding: '9px 0' },
+                style: viewMode === 'scroll' ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 } : { padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
                 onClick: () => setViewMode('scroll')
-              }, '📜 Continuous Scroll')
+              }, ic('Rows2', 15), 'Continuous Scroll')
             )
           ),
 
@@ -435,18 +439,18 @@
               className: `mini-btn ${paragraphIndent ? '' : 'ghost'}`,
               style: { flex: 1, padding: '8px 0' },
               onClick: () => setParagraphIndent(s => !s)
-            }, paragraphIndent ? '✓ First-Line Indent' : 'No Indent'),
+            }, paragraphIndent ? 'First-Line Indent' : 'No Indent'),
             h('button', {
               type: 'button',
               className: `mini-btn ${justify ? '' : 'ghost'}`,
               style: { flex: 1, padding: '8px 0' },
               onClick: () => setJustify(s => !s)
-            }, justify ? '✓ Justify Text' : 'Align Left')
+            }, justify ? 'Justify Text' : 'Align Left')
           ),
 
           // Audio & Speech (TTS) Engine & Voice Settings (Legado & Piper Integration)
           h('div', { style: { marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--r-border)' } },
-            h('div', { style: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-muted)', marginBottom: 10 } }, '🎧 Audio & Speech (TTS)'),
+            h('div', { style: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-muted)', marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Headphones', 14), 'Audio & Speech (TTS)'),
 
             // Installed TTS Engine Selector (SherpaTTS / Piper / Google / Samsung)
             ttsEngines.length > 0 && h('div', { style: { marginBottom: 12 } },
@@ -547,9 +551,9 @@
             h('button', {
               type: 'button',
               className: 'mini-btn',
-              style: { width: '100%', padding: '10px 0', marginTop: 14, background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8 },
+              style: { width: '100%', padding: '10px 0', marginTop: 14, background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
               onClick: () => { setShowSettings(false); setShowVoiceModal(true); }
-            }, '🎙 Open Voice & Offline AI Engine Manager')
+            }, ic('Volume2', 15), 'Open Voice & Offline AI Engine Manager')
           )
         )
       );
@@ -608,7 +612,7 @@
                   fontSize: 19,
                   boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
                 }
-              }, '🎙'),
+              }, ic('Volume2', 20, 'text-white')),
               h('div', null,
                 h('div', { style: { fontWeight: 800, fontSize: 16.5, letterSpacing: -0.3 } }, 'Speech Engine & Voices'),
                 h('div', { style: { fontSize: 12, color: 'var(--r-muted, #94a3b8)' } }, 'Select offline Piper AI (SherpaTTS) or system speech')
@@ -630,7 +634,7 @@
                 cursor: 'pointer'
               },
               onClick: () => setShowVoiceModal(false)
-            }, '✕')
+            }, ic('X', 15))
           ),
 
           // ── 1. ACTIVE ANDROID SYSTEM SPEECH STATUS CARD ──
@@ -647,7 +651,7 @@
           },
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' } },
               h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                h('span', { style: { fontSize: 26 } }, '📱'),
+                ic('Activity', 22, 'text-indigo-400'),
                 h('div', null,
                   h('div', { style: { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8 } }, 'Active Speech Engine (From Android)'),
                   h('div', { style: { fontWeight: 800, fontSize: 16, color: 'var(--r-text, #f1f5f9)', marginTop: 2 } },
@@ -665,7 +669,7 @@
                   color: '#34d399',
                   border: '1px solid rgba(16, 185, 129, 0.3)'
                 }
-              }, '★ Active in Android')
+              }, 'Active in Android')
             ),
 
             h('div', {
@@ -710,7 +714,7 @@
                   gap: 6
                 },
                 onClick: previewVoice
-              }, previewSpeaking ? '🔊 Speaking…' : '▶ Test Audio Sample'),
+              }, previewSpeaking ? [ic('Volume2', 14), ' Speaking…'] : [ic('Play', 14), ' Test Audio Sample']),
 
               h('button', {
                 type: 'button',
@@ -728,9 +732,9 @@
                 title: 'Re-detect settings from Android',
                 onClick: () => {
                   refreshSystemTts(true);
-                  if (window.toast) window.toast('🔄 Re-detected TTS settings from Android', 'info');
+                  if (window.toast) window.toast('Re-detected TTS settings from Android', 'info');
                 }
-              }, '🔄 Refresh')
+              }, [ic('RefreshCw', 13), ' Refresh'])
             )
           ),
 
@@ -743,13 +747,13 @@
                 className: 'mini-btn ghost',
                 style: { padding: '12px 14px', borderRadius: 12, border: '1px solid var(--r-border)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
                 onClick: () => window.NativeBridge.openTtsSettings()
-              }, '⚙ Android Settings'),
+              }, [ic('Settings', 13), ' Android Settings']),
               window.NativeBridge?.openSherpaApp && h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
                 style: { padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(16,185,129,0.35)', color: '#34d399', background: 'rgba(16,185,129,0.08)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
                 onClick: () => window.NativeBridge.openSherpaApp()
-              }, '⚡ Open SherpaTTS App')
+              }, [ic('Zap', 13), ' Open SherpaTTS App'])
             )
           ),
 
@@ -799,7 +803,7 @@
             h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8, marginBottom: 4 } }, '4. Sentence Pause (DAC Buffer)'),
             h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)', marginBottom: 8 } }, 'Recommended: 200ms to prevent initial consonant clipping on Piper models'),
             h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 } },
-              [[0, '0ms'], [100, '100ms'], [200, '200ms (★)'], [300, '300ms'], [500, '500ms']].map(([ms, label]) => h('button', {
+              [[0, '0ms'], [100, '100ms'], [200, '200ms (Rec)'], [300, '300ms'], [500, '500ms']].map(([ms, label]) => h('button', {
                 key: ms,
                 type: 'button',
                 className: `mini-btn ${dacDelayMs === ms ? '' : 'ghost'}`,
@@ -822,10 +826,10 @@
           },
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
               h('div', { style: { fontWeight: 700, fontSize: 12.5, color: 'var(--r-accent)', display: 'flex', alignItems: 'center', gap: 6 } },
-                h('span', null, '💡'),
+                ic('Info', 14),
                 h('span', null, 'How to install Callum / Piper models in SherpaTTS')
               ),
-              h('span', { style: { fontSize: 12, color: 'var(--r-muted)' } }, showSherpaHelp ? '▲' : '▼')
+              showSherpaHelp ? ic('ChevronUp', 13) : ic('ChevronDown', 13)
             ),
             showSherpaHelp && h('ol', { style: { fontSize: 12, lineHeight: 1.6, color: 'var(--r-text)', paddingLeft: 18, margin: '10px 0 0 0' } },
               h('li', null, 'Install the SherpaTTS APK on your Android device.'),
@@ -862,7 +866,9 @@
           // 0. Voice & Speech Engine (Prominent & Clear)
           h('div', { style: { background: 'rgba(255,255,255,0.04)', border: '1px solid var(--r-border)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 } },
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
-              h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)' } }, '🎙 Voice & Speech Engine'),
+              h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent)', display: 'flex', alignItems: 'center', gap: 6 } },
+                ic('Volume2', 14), ' Voice & Speech Engine'
+              ),
               h('span', { style: { fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(16,185,129,0.2)', color: '#34d399', fontWeight: 700 } },
                 systemTtsInfo.engineLabel || 'Android Settings Default'
               )
@@ -876,14 +882,14 @@
                 className: 'mini-btn',
                 style: { flex: 1, padding: '9px 12px', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
                 onClick: () => { setShowTtsOptionsModal(false); setShowVoiceModal(true); }
-              }, '🎙 Speech & Voice Info'),
+              }, [ic('Volume2', 13), ' Speech & Voice Info']),
               window.NativeBridge?.openTtsSettings && h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
                 style: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--r-border)', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 12 },
                 title: 'Open Android System Text-to-Speech Settings',
                 onClick: () => window.NativeBridge.openTtsSettings()
-              }, '⚙ Android Settings')
+              }, [ic('Settings', 13), ' Android Settings'])
             )
           ),
 
@@ -905,7 +911,7 @@
                 style: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--r-border)' },
                 title: 'TTS Voice & Offline Engine Manager',
                 onClick: () => { setShowTtsOptionsModal(false); setShowVoiceModal(true); }
-              }, '⚙')
+              }, ic('Settings', 14))
             )
           ),
 
@@ -1019,16 +1025,16 @@
             onClick: () => setShowGestureGuideModal(true)
           },
             h('span', { style: { fontSize: 13, color: 'var(--r-muted)' } }, 'Try control gestures'),
-            h('span', { style: { fontSize: 12, color: 'var(--r-accent)', fontWeight: 700 } }, 'View ➔')
+            h('span', { style: { fontSize: 12, color: 'var(--r-accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 } }, 'View ', ic('ArrowRight', 12))
           ),
 
           // 9. Open Android TTS Settings Button
           window.NativeBridge?.openTtsSettings && h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { width: '100%', padding: '9px 0', marginBottom: 16, borderRadius: 8, fontSize: 12.5, fontWeight: 600, border: '1px solid var(--r-border)' },
+            style: { width: '100%', padding: '9px 0', marginBottom: 16, borderRadius: 8, fontSize: 12.5, fontWeight: 600, border: '1px solid var(--r-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
             onClick: () => window.NativeBridge.openTtsSettings()
-          }, '⚙ Open Android System Text-to-Speech Settings'),
+          }, [ic('Settings', 13), ' Open Android System Text-to-Speech Settings']),
 
           // Footer: CANCEL / OK
           h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 12 } },
@@ -1068,7 +1074,7 @@
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 } },
             h('div', { style: { fontSize: 18, fontWeight: 800 } }, 'TTS Chars Filters'),
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, background: 'var(--r-bg, #111)', padding: '4px 8px', borderRadius: 8, border: '1px solid var(--r-border)' } },
-              h('span', { style: { fontSize: 12, opacity: 0.7 } }, '🔍'),
+              ic('Search', 12, 'opacity-70'),
               h('input', {
                 type: 'text',
                 placeholder: 'Search filters…',
@@ -1149,9 +1155,9 @@
               }),
               h('label', { htmlFor: 'cb-use-regex', style: { fontSize: 12.5, cursor: 'pointer' } }, 'Use regular expression'),
               h('span', {
-                style: { fontSize: 11, cursor: 'pointer', color: 'var(--r-accent)' },
+                style: { fontSize: 11, cursor: 'pointer', color: 'var(--r-accent)', display: 'inline-flex', alignItems: 'center' },
                 title: 'When enabled, Match text is evaluated as a regular expression (e.g. \\d+ or [a-z])'
-              }, 'ℹ')
+              }, ic('Info', 12))
             ),
 
             h('div', { style: { display: 'flex', gap: 16 } },
@@ -1248,28 +1254,28 @@
           h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px 16px', marginBottom: 20 } },
             // 1. Speak (1 finger vertical swipe)
             h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
-              h('div', { style: { fontSize: 32 } }, '👆↕️'),
+              ic('ArrowUpDown', 28, 'text-indigo-400'),
               h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Speak'),
               h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, '1 finger vertical swipe')
             ),
 
             // 2. Speed (2 fingers vertical swipe)
             h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
-              h('div', { style: { fontSize: 32 } }, '✌️↕️'),
+              ic('Sliders', 28, 'text-indigo-400'),
               h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Speed'),
               h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, '2 fingers vertical swipe')
             ),
 
             // 3. Pause / Resume (Single tap)
             h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
-              h('div', { style: { fontSize: 32 } }, '👆'),
+              ic('Play', 28, 'text-indigo-400'),
               h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Pause/Resume'),
               h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, 'Single tap')
             ),
 
             // 4. Stop (Horizontal swipe)
             h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
-              h('div', { style: { fontSize: 32 } }, '👆↔️'),
+              ic('ArrowRightLeft', 28, 'text-indigo-400'),
               h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Stop'),
               h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, 'Horizontal swipe')
             )

@@ -60,7 +60,7 @@
       {
         id: 'gemini-2.5-flash-lite',
         name: 'Gemini 3.5 Flash-Lite',
-        tag: 'Most Cost Effective ⚡',
+        tag: 'Most Cost Effective',
         inRate: 0.075,
         outRate: 0.30,
         recommended: true
@@ -580,7 +580,7 @@
       toast(`Installing ${item.name || item.id} plugin…`, 'info');
       const res = await reg.loadPluginById(item.id);
       if (callbacks.setPluginCatalogTick) callbacks.setPluginCatalogTick(t => (typeof t === 'number' ? t + 1 : 1));
-      toast(`✅ Successfully installed ${item.name || item.id} (${item.id})!`, 'success');
+      toast(`Successfully installed ${item.name || item.id} (${item.id})!`, 'success');
       return res;
     } catch (err) {
       toast(`Plugin install failed: ${err.message}`, 'error');
@@ -616,7 +616,7 @@
       toast('Fetching and installing custom plugin…', 'info');
       const res = await reg.loadPluginFromUrl(url.trim());
       if (callbacks.setPluginCatalogTick) callbacks.setPluginCatalogTick(t => (typeof t === 'number' ? t + 1 : 1));
-      toast('✅ Custom plugin registered and ready!', 'success');
+      toast('Custom plugin registered and ready!', 'success');
       if (callbacks.setCustomPluginUrl) callbacks.setCustomPluginUrl('');
       return res;
     } catch (err) {
@@ -1053,7 +1053,7 @@
         if (installResult && installResult.success === false) {
           throw new Error(installResult.message || 'The package installer could not be launched.');
         }
-        if (typeof callbacks.toast === 'function') callbacks.toast('🎉 Download complete. Opening package installer...', 'success');
+        if (typeof callbacks.toast === 'function') callbacks.toast('Download complete. Opening package installer...', 'success');
         if (typeof callbacks.onSuccess === 'function') callbacks.onSuccess(installResult);
       } catch (err) {
         console.error('Update error:', err);
@@ -1280,7 +1280,7 @@
         toast('No novel selected for illustration upgrade.', 'warning');
         return;
       }
-      toast(`🖼️ Scanning "${novelRecord.title || 'Novel'}" for illustrations to upgrade…`, 'info');
+      toast(`Scanning "${novelRecord.title || 'Novel'}" for illustrations to upgrade…`, 'info');
 
       const loader = typeof loadFullNovelFn === 'function' ? loadFullNovelFn : ((typeof window !== 'undefined' && window.LibraryEngine?.Controller?.loadFullNovel) || null);
       const full = loader ? await loader(novelRecord) : novelRecord;
@@ -1352,7 +1352,7 @@
       }
 
       if (upgradedCount > 0) {
-        toast(`✨ Upgraded ${upgradedCount} illustrations to crisp high resolution! Packaging EPUB…`, 'success');
+        toast(`Upgraded ${upgradedCount} illustrations to crisp high resolution! Packaging EPUB…`, 'success');
       } else {
         toast('Illustrations verified. Packaging EPUB with high-resolution mirrors…', 'info');
       }
@@ -1371,13 +1371,13 @@
             setEpubPackagingModal: options.setEpubPackagingModal,
             toast
           });
-          toast(`🎉 "${full.title || 'Novel'}" successfully upgraded with sharp artwork and saved!`, 'success');
+          toast(`"${full.title || 'Novel'}" successfully upgraded with sharp artwork and saved!`, 'success');
         } else if (typeof window !== 'undefined' && window.generateEpubFromChapters) {
           const cleanTitle = (typeof window.cleanText === 'function') ? window.cleanText(full.title) : full.title;
           const epubBlob = await window.generateEpubFromChapters(chs, cleanTitle, full.author || 'Author', full.cover, { includeImages: true });
           if (epubBlob && typeof window.saveUniversalBlob === 'function') {
             await window.saveUniversalBlob(epubBlob, `${cleanTitle}.epub`);
-            toast(`🎉 "${full.title || 'Novel'}" saved to downloads!`, 'success');
+            toast(`"${full.title || 'Novel'}" saved to downloads!`, 'success');
           }
         }
       } catch (expErr) {

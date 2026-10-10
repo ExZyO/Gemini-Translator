@@ -108,7 +108,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
                 showToast(` Saved "${fileName}"!`, 'success');
             }
             try {
-                window.NativeBridge?.showCompletionNotification?.('File Saved! 💾', `Saved "${fileName}".`);
+                window.NativeBridge?.showCompletionNotification?.('File Saved!', `Saved "${fileName}".`);
             } catch(e) {}
             return res;
         }
@@ -147,7 +147,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
                     showToast(` Saved "${fileName}"!`, 'success');
                 }
                 try {
-                    window.NativeBridge?.showCompletionNotification?.('File Saved! 💾', `Saved "${fileName}".`);
+                    window.NativeBridge?.showCompletionNotification?.('File Saved!', `Saved "${fileName}".`);
                 } catch(e) {}
                 return;
             } catch (err) {
@@ -172,7 +172,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
             showToast(` Downloading "${fileName}"...`, 'success');
         }
         try {
-            window.NativeBridge?.showCompletionNotification?.('File Downloaded! 💾', `Downloaded "${fileName}".`);
+            window.NativeBridge?.showCompletionNotification?.('File Downloaded!', `Downloaded "${fileName}".`);
         } catch(e) {}
     } catch (e) {
         console.error('saveUniversalBlob failed:', e);

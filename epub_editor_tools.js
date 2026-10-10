@@ -13,9 +13,18 @@
 
   // Access editor state and helpers from window
   const getState = () => (typeof window !== 'undefined' && window.epubEditorState) || {};
-  const getHelpers = () => (typeof window !== 'undefined' && window.epubEditorHelpers) || {};
-  let state = getState();
-  const syncState = () => { if (typeof window !== 'undefined' && window.epubEditorState) state = window.epubEditorState; };
+  const localToolsState = {};
+  const state = new Proxy(localToolsState, {
+    get(target, prop) {
+      const activeObj = (typeof window !== 'undefined' && window.epubEditorState) || target;
+      return activeObj[prop];
+    },
+    set(target, prop, value) {
+      const activeObj = (typeof window !== 'undefined' && window.epubEditorState) || target;
+      activeObj[prop] = value;
+      return true;
+    }
+  });
 
   const renderChapterList = () => (getHelpers().renderChapterList ? getHelpers().renderChapterList() : null);
   const updateStats = () => (getHelpers().updateStats ? getHelpers().updateStats() : null);
@@ -54,7 +63,7 @@
             if (subtitle) subtitle.textContent = `All ${state.chapters.length} chapter titles are already clean`;
             list.innerHTML = `
                 <div class="p-6 text-center rounded-xl flex flex-col items-center justify-center gap-2" style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25);">
-                    <span class="text-3xl">✨</span>
+                    <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">&#10003;</div>
                     <div class="font-bold text-sm" style="color:#34d399;">All Chapter Titles Are Clean!</div>
                     <p class="text-xs max-w-sm" style="color:var(--slate);">Every title in this book is properly formatted. No scraped watermarks, website names, broken prefixes, or unformatted titles detected.</p>
                 </div>
@@ -80,7 +89,7 @@
                     </div>
                     <div class="text-xs line-through text-red-400/80 break-words font-mono">${escapeXml(d.original)}</div>
                     <div class="text-xs font-semibold text-emerald-400 break-words font-mono flex items-center gap-1.5">
-                        <span class="text-emerald-500 font-bold">➔</span> ${escapeXml(d.cleaned)}
+                        <span class="text-emerald-500 font-bold">&rarr;</span> ${escapeXml(d.cleaned)}
                     </div>
                 `;
                 list.appendChild(card);
@@ -89,7 +98,7 @@
                 confirmBtn.disabled = false;
                 confirmBtn.style.opacity = '1';
                 confirmBtn.style.pointerEvents = 'auto';
-                confirmBtn.textContent = `✓ Apply ${pendingSanitizeDiffs.length} Clean Title(s)`;
+                confirmBtn.textContent = `Apply ${pendingSanitizeDiffs.length} Clean Title(s)`;
             }
         }
 
@@ -175,7 +184,7 @@
 
             bannerHtml = `
                 <div class="flex items-center gap-2">
-                    <span class="font-bold text-emerald-400">✨ Pattern Detected:</span>
+                    <span class="font-bold text-emerald-400">Pattern Detected:</span>
                     <span>Found <strong>${volumeCount}</strong> standalone volume headers and <strong>${chapterCount}</strong> sub-chapters</span>
                 </div>
                 <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300">Collapsible Sections</span>
@@ -218,7 +227,7 @@
 
             bannerHtml = `
                 <div class="flex items-center gap-2">
-                    <span class="font-bold text-indigo-400">✨ Pattern Detected:</span>
+                    <span class="font-bold text-indigo-400">Pattern Detected:</span>
                     <span>Found <strong>${volumeGroups.size}</strong> volume prefixes (${subCount} chapters)</span>
                 </div>
                 <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-500/20 text-indigo-300">Creates Volume Dividers</span>
@@ -244,7 +253,7 @@
 
             bannerHtml = `
                 <div class="flex items-center gap-2">
-                    <span class="font-bold text-amber-400">✨ Pattern Detected:</span>
+                    <span class="font-bold text-amber-400">Pattern Detected:</span>
                     <span>Found <strong>${decimalCount}</strong> decimal sub-chapters (e.g. 1.1, 1.2)</span>
                 </div>
                 <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/20 text-amber-300">Nested Sub-Chapters</span>
@@ -256,7 +265,7 @@
             const currentSubs = proposedChapters.filter(c => c.level === 2).length;
             bannerHtml = `
                 <div class="flex items-center gap-2">
-                    <span class="font-bold text-blue-400">ℹ️ Current Hierarchy:</span>
+                    <span class="font-bold text-blue-400">Current Hierarchy:</span>
                     <span>No volume patterns detected. Showing current layout (${currentSubs} sub-chapters).</span>
                 </div>
                 <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-500/20 text-blue-300">Manual / Flat</span>
@@ -287,7 +296,7 @@
                 item.style.background = ch.isNew ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)';
                 item.style.fontWeight = '700';
                 item.innerHTML = `
-                    <span class="text-sky-400">📁</span>
+                    <span class="text-sky-400 font-bold">&bull;</span>
                     <span class="text-xs text-slate-100 truncate flex-1">${escapeXml(ch.title || 'Untitled')}</span>
                     <span class="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">${ch.isNew ? 'New Volume Header' : 'Main'}</span>
                 `;
@@ -312,7 +321,7 @@
                 confirmBtn.disabled = false;
                 confirmBtn.style.opacity = '1';
                 confirmBtn.style.pointerEvents = 'auto';
-                confirmBtn.textContent = '✓ Apply Hierarchy';
+                confirmBtn.textContent = 'Apply Hierarchy';
             }
         }
 
@@ -495,7 +504,7 @@
             delBtn.type = 'button';
             delBtn.className = 'chip-act shrink-0 text-xs text-rose-400 hover:text-rose-300';
             delBtn.style.padding = '5px 8px';
-            delBtn.textContent = '✕';
+            delBtn.textContent = 'Delete';
             delBtn.title = 'Remove chapter';
             delBtn.onclick = () => {
                 harvestTocManagerInputs();
@@ -566,7 +575,7 @@
         }
 
         if (typeof window.toast === 'function') {
-            window.toast(`✓ Saved Table of Contents! (${renamedCount} titles updated)`, 'success');
+            window.toast(`Saved Table of Contents! (${renamedCount} titles updated)`, 'success');
         }
     }
 
@@ -586,7 +595,7 @@
         });
         renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
         if (typeof window.toast === 'function') {
-            window.toast(`✓ Applied ${applied} titles! Click "✓ Save TOC Changes" to commit.`, 'info');
+            window.toast(`Applied ${applied} titles! Click "Save TOC Changes" to commit.`, 'info');
         }
     }
 
@@ -598,7 +607,7 @@
         });
         renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
         if (typeof window.toast === 'function') {
-            window.toast('✓ Renumbered chapters! Click "✓ Save TOC Changes" to commit.', 'info');
+            window.toast('Renumbered chapters! Click "Save TOC Changes" to commit.', 'info');
         }
     }
 
@@ -752,7 +761,7 @@
 
             if (filtered.length === 0) {
                 grid.innerHTML = `<div class="col-span-full text-center py-16 italic text-sm text-slate-400">
-                    No images found in this filter. Tap "➕ Upload Image" to add illustrations to your book!
+                    No images found in this filter. Tap "Upload Image" to add illustrations to your book!
                 </div>`;
                 return;
             }
@@ -765,18 +774,18 @@
                     <div class="relative flex items-center justify-center bg-[#050608] cursor-pointer overflow-hidden p-2"
                          style="aspect-ratio: 2/3; min-height: 200px;" title="Tap to inspect full screen">
                         <img src="${item.url}" class="w-full h-full object-contain rounded transition-transform duration-200 group-hover:scale-105" alt="${escapeXml(item.name)}" />
-                        ${isCover ? '<span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-black shadow">👑 CURRENT COVER</span>' : ''}
+                        ${isCover ? '<span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-black shadow">CURRENT COVER</span>' : ''}
                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span class="px-2.5 py-1 rounded bg-indigo-600/90 text-white text-xs font-semibold shadow">👁️ View Fullscreen</span>
+                            <span class="px-2.5 py-1 rounded bg-indigo-600/90 text-white text-xs font-semibold shadow">View Fullscreen</span>
                         </div>
                     </div>
                     <div class="p-2.5 flex flex-col gap-1.5 border-t border-slate-800/80 bg-[#0f111a]">
                         <span class="text-[11px] font-mono truncate text-slate-200 font-medium" title="${escapeXml(item.name)}">${escapeXml(item.name)}</span>
                         <div class="flex items-center gap-1 pt-1 flex-wrap">
-                            <button type="button" class="chip-act shrink-0 text-[10px] set-cover-btn" style="color:#fbbf24;" title="Set as Book Cover">👑 Set as Cover</button>
-                            <button type="button" class="chip-act shrink-0 text-[10px] view-btn" title="View Fullscreen">👁️ View</button>
-                            <button type="button" class="chip-act shrink-0 text-[10px] dl-btn" title="Download image file">📥 Save</button>
-                            <button type="button" class="chip-act danger shrink-0 text-[10px] del-btn" title="Remove from book">✕</button>
+                            <button type="button" class="chip-act shrink-0 text-[10px] set-cover-btn" style="color:#fbbf24;" title="Set as Book Cover">Set as Cover</button>
+                            <button type="button" class="chip-act shrink-0 text-[10px] view-btn" title="View Fullscreen">View</button>
+                            <button type="button" class="chip-act shrink-0 text-[10px] dl-btn" title="Download image file">Save</button>
+                            <button type="button" class="chip-act danger shrink-0 text-[10px] del-btn" title="Remove from book">Delete</button>
                         </div>
                     </div>
                 `;
@@ -790,7 +799,7 @@
                     state.coverUrl = item.url;
                     updateCoverPreview();
                     renderGalleryGrid();
-                    if (typeof window.toast === 'function') window.toast('👑 Updated book cover!', 'success');
+                    if (typeof window.toast === 'function') window.toast('Updated book cover!', 'success');
                 };
 
                 // Download image
@@ -836,13 +845,13 @@
 
         img.src = item.url;
         if (nameEl) nameEl.textContent = item.name || 'Illustration';
-        if (metaEl) metaEl.textContent = `${item.name || 'Illustration'} · Tap outside or ✕ to close`;
+        if (metaEl) metaEl.textContent = `${item.name || 'Illustration'} · Tap outside to close`;
 
         if (setCoverBtn) {
             setCoverBtn.onclick = () => {
                 state.coverUrl = item.url;
                 updateCoverPreview();
-                if (typeof window.toast === 'function') window.toast('👑 Set as book cover!', 'success');
+                if (typeof window.toast === 'function') window.toast('Set as book cover!', 'success');
             };
         }
 
@@ -1122,7 +1131,7 @@
         }
 
         if (typeof window.toast === 'function') {
-            window.toast(`✓ Auto-numbered ${numberedCount} chapters!`, 'success');
+            window.toast(`Auto-numbered ${numberedCount} chapters!`, 'success');
         }
     }
 

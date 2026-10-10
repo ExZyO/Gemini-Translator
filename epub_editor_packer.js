@@ -48,8 +48,26 @@
 
   const renderEditorView = () => (window.epubEditorHelpers?.renderEditorView ? window.epubEditorHelpers.renderEditorView() : null);
 
-  let state = (typeof window !== 'undefined' && window.epubEditorState) || {};
-  const syncState = () => { if (typeof window !== 'undefined' && window.epubEditorState) state = window.epubEditorState; };
+  const localState = {
+    title: '', author: '', series: '', lang: 'en', description: '', coverUrl: '',
+    chapters: [], imageRepository: new Map(), originalZip: null,
+    originalOpfPath: '', originalOpfDir: '', originalFileName: '',
+    collapsedVolumes: new Set(), activeChapterIdx: -1, searchQuery: '', isDirty: false
+  };
+  if (typeof window !== 'undefined' && !window.epubEditorState) {
+    window.epubEditorState = localState;
+  }
+  const state = new Proxy(localState, {
+    get(target, prop) {
+      const activeObj = (typeof window !== 'undefined' && window.epubEditorState) || target;
+      return activeObj[prop];
+    },
+    set(target, prop, value) {
+      const activeObj = (typeof window !== 'undefined' && window.epubEditorState) || target;
+      activeObj[prop] = value;
+      return true;
+    }
+  });
 
 
     // ── Universal XML & Zip Resolution Helpers ──
@@ -1085,7 +1103,7 @@ ${bodyHtml}
             }
 
             if (typeof window.toast === 'function') {
-                window.toast(`✓ Clean EPUB exported! (${state.chapters.length} chapters)`, 'success');
+                window.toast(`Clean EPUB exported! (${state.chapters.length} chapters)`, 'success');
             }
 
             // Cache freshly exported blob in IndexedDB for fast re-downloads
@@ -1108,7 +1126,7 @@ ${bodyHtml}
             }
             if (btnExport) {
                 btnExport.disabled = false;
-                btnExport.textContent = '📥 Download EPUB';
+                btnExport.textContent = 'Download EPUB';
             }
         }
     }

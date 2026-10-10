@@ -1,9 +1,9 @@
 /**
  * app_tab_studio.js - Tab 3 (EPUB Studio / Ebook Editor, Splitter & Merger) for Gemini Translator
  * Provides the sub-tab navigator and host mounting container for:
- *   1. ✏️ Edit Ebook (epub_editor.js)
- *   2. 📚 Split into Volumes (splitter.js)
- *   3. 📖 Merge into One Book (merger.js)
+ *   1. Edit Ebook (epub_editor.js)
+ *   2. Split into Volumes (splitter.js)
+ *   3. Merge into One Book (merger.js)
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -17,6 +17,7 @@
 
   function TabStudio(props) {
     const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
+    const ic = (name, size = 16, cls = '') => (typeof window !== 'undefined' && window.ic) ? window.ic(name, size, cls) : null;
 
     const {
       studioSubTab = (typeof window !== 'undefined' && window.studioSubTab) || 'split',
@@ -125,7 +126,10 @@
             },
             onClick: handleResetStudio,
             title: 'Reset active studio tool and close open files'
-          }, '✕ Reset Studio')
+          },
+            ic('RotateCcw', 12, 'mr-1 text-red-400'),
+            'Reset Studio'
+          )
         )
       ),
       h('div', { style: { marginBottom: 12 } },
@@ -136,7 +140,7 @@
             onClick: () => handleSelectSubTab('edit'),
             title: 'Full WYSIWYG and chapter prose editor'
           },
-            h('span', null, '✏️'),
+            ic('Edit', 14, 'shrink-0'),
             h('span', null, 'Edit Ebook')
           ),
           h('button', {
@@ -145,7 +149,7 @@
             onClick: () => handleSelectSubTab('split'),
             title: 'Split continuous web novels into volumes'
           },
-            h('span', null, '📚'),
+            ic('Scissors', 14, 'shrink-0'),
             h('span', null, 'Split Volumes')
           ),
           h('button', {
@@ -154,7 +158,7 @@
             onClick: () => handleSelectSubTab('merge'),
             title: 'Merge multiple EPUB volumes into one consolidated book'
           },
-            h('span', null, '📖'),
+            ic('BookOpen', 14, 'shrink-0'),
             h('span', null, 'Merge Books')
           )
         )

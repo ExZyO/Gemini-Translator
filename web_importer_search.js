@@ -77,7 +77,7 @@
 
                     const authorStr = Array.isArray(it.authors) ? it.authors.map(a => a.name || a).filter(Boolean).join(', ') : (it.author || it.alt_name || 'NovelBuddy Author');
                     const chStr = it.stats?.chapters_count ? `${it.stats.chapters_count} chapters` : (it.displayChapters || (it.stats?.chaptersCount ? `${it.stats.chaptersCount} chapters` : ''));
-                    const ratingStr = it.rating ? `${it.rating} ★` : (it.rating_avg ? `${it.rating_avg} ★` : '');
+                    const ratingStr = it.rating ? `${it.rating} / 5` : (it.rating_avg ? `${it.rating_avg} / 5` : '');
 
                     results.push({
                         id: it.id || ('nb_' + Math.random().toString(36).substring(2, 8)),
@@ -127,7 +127,7 @@
                             cover: it.cover || '',
                             author: Array.isArray(it.authors) ? it.authors.map(a => a.name).filter(Boolean).join(', ') : (it.author || 'NovelBuddy Author'),
                             chapters: it.displayChapters || (it.stats?.chaptersCount ? `${it.stats.chaptersCount} chapters` : ''),
-                            rating: it.rating ? `${it.rating} ★` : '',
+                            rating: it.rating ? `${it.rating} / 5` : '',
                             summary: it.summary ? stripSearchHtml(it.summary).substring(0, 240) + '…' : '',
                             tags: (it.genres || []).map(g => g.name || g).slice(0, 4),
                             status: it.status || ''
@@ -192,7 +192,7 @@
             const chapters = chMatch ? `${chMatch[1]} chapters` : (pageMatch ? `${pageMatch[1]} pages` : '');
 
             const ratingMatch = block.match(/aria-label="Rating:\s*([0-9.]+)\s*out of 5"/i);
-            const rating = ratingMatch ? `${ratingMatch[1]} ★` : '';
+            const rating = ratingMatch ? `${ratingMatch[1]} / 5` : '';
 
             const tags = [...block.matchAll(/class="label[^"]*fiction-tag"[^>]*>([\s\S]*?)<\/a>/gi)].map(t => stripSearchHtml(t[1])).slice(0, 4);
 
@@ -630,7 +630,7 @@
                                 cover,
                                 author,
                                 chapters: volCount ? `${volCount} volumes` : (href.includes('/series/') ? 'Series' : 'Novel'),
-                                rating: year ? `★ ${year}` : '★ Lnori',
+                                rating: year ? `${year}` : 'Lnori',
                                 tags: tags.slice(0, 5),
                                 summary: tags.length ? `Genres: ${tags.join(', ')}` : 'Available on Lnori Light Novels',
                                 status: 'Completed'
@@ -672,7 +672,7 @@
                                 cover,
                                 author,
                                 chapters: volCount ? `${volCount} volumes` : (href.includes('/series/') ? 'Series' : 'Novel'),
-                                rating: year ? `★ ${year}` : '★ Lnori',
+                                rating: year ? `${year}` : 'Lnori',
                                 tags: tags.slice(0, 5),
                                 summary: tags.length ? `Genres: ${tags.join(', ')}` : 'Available on Lnori Light Novels',
                                 status: 'Completed'

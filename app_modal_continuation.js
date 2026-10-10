@@ -10,6 +10,11 @@
 
   const getH = () => (typeof React !== 'undefined' ? React.createElement : window.React?.createElement);
   const getToast = () => (window.toast || function() {});
+  const ic = (name, size = 18, cls = 'shrink-0') => {
+    if (typeof window !== 'undefined' && window.ic) return window.ic(name, size, cls);
+    const h = getH();
+    return h ? h('span', { className: cls }, '') : null;
+  };
 
   // ─────────────────────────────────────────────────────────────────────────
   function OngoingEpubContinuationModal(props) {
@@ -137,14 +142,14 @@
         }, '‹ Back'),
         h('div', { style: { textAlign: 'center' } },
           h('div', { style: { fontWeight: 700, fontSize: 16, color: 'var(--paper)' } }, 'Continue Ongoing Novel'),
-          h('div', { style: { fontSize: 11, color: '#10b981', fontWeight: 600 } }, '✓ Moon+ Reader Pro Continuity')
+          h('div', { style: { fontSize: 11, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 } }, ic('Check', 12), ' Moon+ Reader Pro Continuity')
         ),
         !ongoingEpubModal.isFetching ? h('button', {
           type: 'button',
           className: 'icon-btn',
-          style: { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: 'var(--paper)', cursor: 'pointer', fontSize: 14 },
+          style: { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: 'var(--paper)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' },
           onClick: handleClose
-        }, '✕') : h('div', { style: { width: 36 } })
+        }, ic('X', 14)) : h('div', { style: { width: 36 } })
       ),
 
       // Scrollable Content with Apple Spacing & Touch Targets
@@ -196,10 +201,9 @@
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 28,
               flexShrink: 0
             }
-          }, '📖'),
+          }, ic('BookOpen', 28, 'text-indigo-400')),
           h('div', { style: { flex: 1, minWidth: 0 } },
             h('div', { style: { fontWeight: 700, fontSize: 16, color: 'var(--paper)', lineHeight: 1.3, marginBottom: 4 } }, ongoingEpubModal.title),
             h('div', { style: { fontSize: 13, color: 'var(--slate)', marginBottom: 8 } }, `by ${ongoingEpubModal.author || 'Unknown'}`),
@@ -212,11 +216,14 @@
                   background: 'rgba(99, 102, 241, 0.15)',
                   color: 'var(--iris)',
                   fontWeight: 600,
-                  border: '1px solid rgba(99, 102, 241, 0.3)'
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4
                 }
-              }, ongoingEpubModal.highestStoryChapter > 0
-                ? `📚 ${ongoingEpubModal.highestStoryChapter} chapters in EPUB (Next: Ch. ${ongoingEpubModal.startChapter || (ongoingEpubModal.highestStoryChapter + 1)})`
-                : `📚 ${ongoingEpubModal.existingCount || 0} chapters in EPUB`
+              }, ic('BookOpen', 12), ongoingEpubModal.highestStoryChapter > 0
+                ? `${ongoingEpubModal.highestStoryChapter} chapters in EPUB (Next: Ch. ${ongoingEpubModal.startChapter || (ongoingEpubModal.highestStoryChapter + 1)})`
+                : `${ongoingEpubModal.existingCount || 0} chapters in EPUB`
               ),
               h('span', {
                 style: {
@@ -226,9 +233,12 @@
                   background: 'rgba(16, 185, 129, 0.12)',
                   color: '#10b981',
                   fontWeight: 600,
-                  border: '1px solid rgba(16, 185, 129, 0.3)'
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4
                 }
-              }, '✓ Book ID preserved silently')
+              }, ic('Check', 12), 'Book ID preserved silently')
             )
           )
         ),
@@ -257,10 +267,9 @@
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
                 flexShrink: 0
               }
-            }, '✓'),
+            }, ic('Check', 20)),
             h('div', { style: { minWidth: 0 } },
               h('div', { style: { fontSize: 13.5, fontWeight: 700, color: '#10b981' } }, 'True In-Place Continuation Active'),
               h('div', { style: { fontSize: 12, color: 'var(--paper)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
@@ -272,7 +281,8 @@
             )
           ) : h('div', { style: { flex: 1 } },
             h('div', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
-              '📷 Preserve 100% Original Photos & Styles'
+              ic('Image', 16, 'text-indigo-400'),
+              h('span', null, 'Preserve 100% Original Photos & Styles')
             ),
             h('div', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 3, lineHeight: 1.4 } },
               'Link your original .epub file from your device so all existing illustrations, drop-caps, and custom formatting remain completely intact.'
@@ -295,7 +305,7 @@
               minHeight: 44
             }
           },
-            ongoingEpubModal.file ? '📁 Change File' : '📁 Link Original EPUB',
+            ongoingEpubModal.file ? [ic('Folder', 14), ' Change File'] : [ic('Folder', 14), ' Link Original EPUB'],
             h('input', {
               type: 'file',
               accept: '.epub',
@@ -337,10 +347,9 @@
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 18,
                 flexShrink: 0
               }
-            }, '📁'),
+            }, ic('Folder', 18)),
             h('div', { style: { minWidth: 0 } },
               h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)' } }, 'Save Location:'),
               h('div', { style: { fontSize: 12, color: (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? '#10b981' : 'var(--slate)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 } },
@@ -364,7 +373,10 @@
               fontWeight: 600,
               cursor: 'pointer',
               flexShrink: 0,
-              minHeight: 44
+              minHeight: 44,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6
             },
             onClick: async () => {
               if (window.NativeBridge && window.NativeBridge.chooseFolder) {
@@ -401,7 +413,7 @@
                 }
               }
             }
-          }, (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? '📁 Change Location' : '📁 Select Location')
+          }, (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? [ic('Folder', 14), ' Change Location'] : [ic('Folder', 14), ' Select Location'])
         ),
 
         // 2. Online Source Management & Switching Card
@@ -428,9 +440,12 @@
                   background: 'rgba(16, 185, 129, 0.15)',
                   color: '#10b981',
                   fontWeight: 700,
-                  border: '1px solid rgba(16, 185, 129, 0.3)'
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4
                 }
-              }, '🟢 Active')
+              }, ic('Check', 11), 'Active')
             ),
             h('button', {
               type: 'button',
@@ -448,7 +463,7 @@
                 gap: 6
               },
               onClick: () => setOngoingEpubModal(prev => prev ? { ...prev, showSourceSwitcher: !prev.showSourceSwitcher } : null)
-            }, ongoingEpubModal.showSourceSwitcher ? '▲ Hide Source Chooser' : '🔀 Switch Source / Search')
+            }, ongoingEpubModal.showSourceSwitcher ? [ic('ChevronUp', 12), ' Hide Source Chooser'] : [ic('Shuffle', 12), ' Switch Source / Search'])
           ),
 
           // Currently Active Source Highlight Card
@@ -490,11 +505,14 @@
                 padding: '6px 12px',
                 borderRadius: 8,
                 cursor: 'pointer',
-                flexShrink: 0
+                flexShrink: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5
               },
               disabled: ongoingEpubModal.isScanningToc || ongoingEpubModal.isFetching,
               onClick: () => handleScanContinuationToc && handleScanContinuationToc(ongoingEpubModal.sourceUrl, ongoingEpubModal.existingCount)
-            }, ongoingEpubModal.isScanningToc ? 'Scanning…' : '🔄 Re-scan')
+            }, ongoingEpubModal.isScanningToc ? 'Scanning…' : [ic('RefreshCw', 12), ' Re-scan'])
           ),
 
           // Source Switcher Tray
@@ -527,10 +545,10 @@
               h('button', {
                 type: 'button',
                 className: 'mini-btn',
-                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '0 16px', height: 42, borderRadius: 10 },
+                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '0 16px', height: 42, borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6 },
                 disabled: ongoingEpubModal.isSearchingSources || ongoingEpubModal.isFetching,
                 onClick: () => handleSearchContinuationSources && handleSearchContinuationSources(ongoingEpubModal.searchQuery || ongoingEpubModal.title)
-              }, ongoingEpubModal.isSearchingSources ? 'Searching…' : '🔍 Search Sources')
+              }, ongoingEpubModal.isSearchingSources ? 'Searching…' : [ic('Search', 13), ' Search Sources'])
             ),
 
             // Matched Sources List
@@ -574,7 +592,7 @@
                       fontSize: 12,
                       flexShrink: 0
                     }
-                  }, isSelected ? '✓' : (srcItem.source ? srcItem.source.slice(0, 2).toUpperCase() : '🌐')),
+                  }, isSelected ? ic('Check', 14) : (srcItem.source ? srcItem.source.slice(0, 2).toUpperCase() : ic('Globe', 14))),
                   h('div', { style: { flex: 1, minWidth: 0 } },
                     h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
                       h('span', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)' } }, srcItem.source || 'Source'),
@@ -609,10 +627,10 @@
                 h('button', {
                   type: 'button',
                   className: 'mini-btn',
-                  style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '0 16px', height: 42, borderRadius: 10 },
+                  style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '0 16px', height: 42, borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6 },
                   disabled: !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isFetching || ongoingEpubModal.isScanningToc,
                   onClick: () => handleScanContinuationToc && handleScanContinuationToc(ongoingEpubModal.sourceUrl, ongoingEpubModal.existingCount)
-                }, ongoingEpubModal.isScanningToc ? 'Scanning…' : '🔍 Use & Scan')
+                }, ongoingEpubModal.isScanningToc ? 'Scanning…' : [ic('Search', 13), ' Use & Scan'])
               )
             )
           ),
@@ -631,7 +649,7 @@
               alignItems: 'center',
               gap: 6
             }
-          }, `✓ Found ${ongoingEpubModal.totalOnlineCount} chapters online (${Math.max(0, ongoingEpubModal.totalOnlineCount - ongoingEpubModal.existingCount)} new chapters ready to fetch)`)
+          }, ic('Check', 13), `Found ${ongoingEpubModal.totalOnlineCount} chapters online (${Math.max(0, ongoingEpubModal.totalOnlineCount - ongoingEpubModal.existingCount)} new chapters ready to fetch)`)
         ),
 
         // 3. Chapter Range Selector (Apple Touch Form)
@@ -676,8 +694,9 @@
               })
             )
           ),
-          h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.5, background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: 8 } },
-            `💡 Chapters 1 to ${Math.max(0, (ongoingEpubModal.startChapter || 1) - 1)} in your EPUB will be kept completely untouched with identical internal filenames, preserving 100% of your Moon+ Reader bookmarks, highlights, and notes.`
+          h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.5, background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: 8, display: 'flex', alignItems: 'flex-start', gap: 6 } },
+            ic('Info', 14, 'shrink-0 mt-0.5 text-indigo-400'),
+            h('span', null, `Chapters 1 to ${Math.max(0, (ongoingEpubModal.startChapter || 1) - 1)} in your EPUB will be kept completely untouched with identical internal filenames, preserving 100% of your Moon+ Reader bookmarks, highlights, and notes.`)
           )
         ),
 
@@ -695,7 +714,7 @@
         },
           h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 } },
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-              h('span', { style: { fontSize: 18 } }, '🔖'),
+              ic('Bookmark', 18, 'text-indigo-400'),
               h('div', null,
                 h('div', { style: { fontSize: 13.5, fontWeight: 700, color: 'var(--paper)' } }, 'Moon+ Reader Backup (.mrexpt) Fixer'),
                 h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } }, 'Restore your bookmarks & highlights into the updated EPUB')
@@ -762,7 +781,7 @@
                     minHeight: 44
                   }
                 },
-                  '📁 Select Backup File (Any File / .mrexpt)',
+                  [ic('Folder', 14), ' Select Backup File (Any File / .mrexpt)'],
                   h('input', {
                     type: 'file',
                     accept: '*/*',
@@ -802,7 +821,7 @@
                       showMrexptPaste: !prev.showMrexptPaste
                     } : null);
                   }
-                }, ongoingEpubModal.showMrexptPaste ? '✕ Hide Paste Box' : '📋 Or Paste Text')
+                }, ongoingEpubModal.showMrexptPaste ? [ic('X', 13), ' Hide Paste Box'] : [ic('Clipboard', 13), ' Or Paste Text'])
               ),
               ongoingEpubModal.showMrexptPaste && h('div', {
                 style: {
@@ -848,7 +867,10 @@
                     borderRadius: 8,
                     border: 'none',
                     cursor: 'pointer',
-                    alignSelf: 'flex-start'
+                    alignSelf: 'flex-start',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
                   },
                   disabled: !ongoingEpubModal.pastedMrexpt?.trim(),
                   onClick: () => {
@@ -856,7 +878,7 @@
                     if (!text) return toast('Please paste your .mrexpt text first.', 'warning');
                     processMrexptText(text, 'backup.mrexpt');
                   }
-                }, '⚡ Parse & Fix Pasted Text')
+                }, [ic('Zap', 13), ' Parse & Fix Pasted Text'])
               )
             ) : h('div', {
               style: {
@@ -870,8 +892,8 @@
               }
             },
               h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-                h('div', { style: { fontSize: 12.5, fontWeight: 700, color: '#10b981' } },
-                  `✓ Found ${ongoingEpubModal.mrexptData.info?.entryCount || 0} bookmarks & highlights`
+                h('div', { style: { fontSize: 12.5, fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: 6 } },
+                  ic('Check', 13), `Found ${ongoingEpubModal.mrexptData.info?.entryCount || 0} bookmarks & highlights`
                 ),
                 h('button', {
                   type: 'button',
@@ -903,12 +925,12 @@
                 }
               },
                 h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 } },
-                  h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--paper)' } },
-                    '⚡ Auto-Match Target Book (1-Tap Setup)'
+                  h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
+                    ic('Zap', 13), 'Auto-Match Target Book (1-Tap Setup)'
                   ),
                   ongoingEpubModal.mrexptData.autoMatched && h('span', {
-                    style: { fontSize: 11, color: '#10b981', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: 999 }
-                  }, `✓ Matched ID: ${ongoingEpubModal.mrexptData.targetBookId}`)
+                    style: { fontSize: 11, color: '#10b981', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 4 }
+                  }, ic('Check', 11), `Matched ID: ${ongoingEpubModal.mrexptData.targetBookId}`)
                 ),
                 h('div', { style: { fontSize: 11.5, color: 'var(--slate)', lineHeight: 1.4 } },
                   'In Moon+ Reader, open your updated book, create 1 bookmark, and tap Export. Pick that tiny file here to instantly auto-fill the target ID, Title, and Path:'
@@ -930,7 +952,7 @@
                     gap: 6
                   }
                 },
-                  '📄 Pick 1-Bookmark Sample Export',
+                  [ic('FileText', 13), ' Pick 1-Bookmark Sample Export'],
                   h('input', {
                     type: 'file',
                     accept: '*/*',
@@ -963,8 +985,9 @@
                     } : null);
                   }
                 }),
-                h('span', { style: { fontSize: 11, color: 'var(--slate)' } },
-                  '💡 Moon+ Reader database ID. Keep as original if replacing the file on device, or use the ID from a sample export.'
+                h('span', { style: { fontSize: 11, color: 'var(--slate)', display: 'flex', alignItems: 'flex-start', gap: 4 } },
+                  ic('Info', 12, 'shrink-0 mt-0.5 text-indigo-400'),
+                  h('span', null, 'Moon+ Reader database ID. Keep as original if replacing the file on device, or use the ID from a sample export.')
                 )
               ),
               h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
@@ -998,8 +1021,9 @@
                     } : null);
                   }
                 }),
-                h('span', { style: { fontSize: 11, color: 'var(--slate)' } },
-                  '💡 Entering just the filename (e.g. MyBook.epub) keeps your original device folder automatically.'
+                h('span', { style: { fontSize: 11, color: 'var(--slate)', display: 'flex', alignItems: 'flex-start', gap: 4 } },
+                  ic('Info', 12, 'shrink-0 mt-0.5 text-indigo-400'),
+                  h('span', null, 'Entering just the filename (e.g. MyBook.epub) keeps your original device folder automatically.')
                 )
               ),
               h('button', {
@@ -1057,7 +1081,7 @@
                     toast(`Downloaded "${downloadName}"! Import this into Moon+ Reader Pro.`, 'success');
                   }
                 }
-              }, '⚡ Download .mrexpt File'),
+              }, [ic('Download', 14), ' Download .mrexpt File']),
               ongoingEpubModal.mrexptData.isDone && h('div', {
                 style: {
                   padding: '8px 12px',
@@ -1066,9 +1090,12 @@
                   border: '1px solid rgba(16, 185, 129, 0.3)',
                   color: '#10b981',
                   fontSize: 12,
-                  lineHeight: 1.4
+                  lineHeight: 1.4,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 6
                 }
-              }, '✓ Ready! In Moon+ Reader Pro, open your updated EPUB → tap Bookmarks → Options → Restore → select the newly downloaded fixed file.')
+              }, ic('Check', 14, 'shrink-0 mt-0.5'), h('span', null, 'Ready! In Moon+ Reader Pro, open your updated EPUB → tap Bookmarks → Options → Restore → select the newly downloaded fixed file.'))
             )
           )
         ),
@@ -1089,8 +1116,8 @@
           h('div', { style: { width: '100%', height: 6, borderRadius: 99, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden', margin: '6px 0' } },
             h('div', { style: { height: '100%', width: `${ongoingEpubModal.progress?.pct || 0}%`, background: 'linear-gradient(90deg, #6366f1, #10b981)', transition: 'width 0.25s' } })
           ),
-          ongoingEpubModal.progress?.elapsed && h('div', { style: { fontSize: 11, color: 'var(--slate)', textAlign: 'right', marginTop: 4, fontFamily: "'IBM Plex Mono', monospace" } },
-            `⏱ ${ongoingEpubModal.progress.elapsed}`
+          ongoingEpubModal.progress?.elapsed && h('div', { style: { fontSize: 11, color: 'var(--slate)', textAlign: 'right', marginTop: 4, fontFamily: "'IBM Plex Mono', monospace", display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 } },
+            ic('Clock', 11), ongoingEpubModal.progress.elapsed
           )
         )
       ),
@@ -1154,7 +1181,7 @@
               if (ongoingEpubModal.isFetching || ongoingEpubModal.isScanningToc) return;
               if (handleExecuteContinuation) handleExecuteContinuation();
             }
-          }, ongoingEpubModal.isFetching ? '⏳ Fetching & Merging…' : `▶ Fetch Ch. ${ongoingEpubModal.startChapter}–${ongoingEpubModal.endChapter} & Update EPUB`)
+          }, ongoingEpubModal.isFetching ? 'Fetching & Merging…' : [ic('Play', 14), ` Fetch Ch. ${ongoingEpubModal.startChapter}–${ongoingEpubModal.endChapter} & Update EPUB`])
         )
       )
     );

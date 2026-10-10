@@ -272,7 +272,7 @@
             .replace(/<hr\b[^>]*>/gi, '\n\n---\n\n')
             .replace(/<(?:p|div|center|h[1-6])\b[^>]*>([\s\S]*?)<\/(?:p|div|center|h[1-6])>/gi, (m, inner) => {
                 const stripped = inner.replace(/<[^>]+>/g, '').trim();
-                if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(stripped) || stripped === '---' || stripped === '***' || stripped === '___' || stripped === '===') {
+                if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:\u25C6[\s\u00A0]*){2,}|(?:\u25C7[\s\u00A0]*){2,}|(?:\u2726[\s\u00A0]*){2,}|(?:\u2605[\s\u00A0]*){2,}|(?:\u2606[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(stripped) || stripped === '---' || stripped === '***' || stripped === '___' || stripped === '===') {
                     return '\n\n---\n\n';
                 }
                 return m;
@@ -1147,7 +1147,7 @@
 
         if (hasRange) {
             if ((chapterRange.start - 1) >= chapterList.length) {
-                console.log(`⚡ [Crawl Pool] Chapter list has ${chapterList.length} items for requested range ${chapterRange.start}–${chapterRange.end || 'end'} (pre-filtered). Processing all supplied items.`);
+                console.log(`[Crawl Pool] Chapter list has ${chapterList.length} items for requested range ${chapterRange.start}–${chapterRange.end || 'end'} (pre-filtered). Processing all supplied items.`);
                 isPreSliced = true;
                 rangeStart = 0;
                 rangeEnd = chapterList.length - 1;
@@ -1247,7 +1247,7 @@
                         // Polite adaptive inter-request pacing
                         const currentDelay = speedCtrl.getPacingDelay();
                         if (speedCtrl.isThrottled()) {
-                            progressCb?.(`🚦 Adaptive speed control active (${currentDelay}ms pacing)... (${completedIndices.size}/${chapterList.length} ch done)`);
+                            progressCb?.(`Adaptive speed control active (${currentDelay}ms pacing)... (${completedIndices.size}/${chapterList.length} ch done)`);
                         }
                         if (currentDelay > 15) {
                             await new Promise(r => setTimeout(r, currentDelay));
@@ -1834,7 +1834,7 @@
         else {
             const registeredPlugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
             if (registeredPlugin && registeredPlugin.id !== 'universal') {
-                console.log(`⚡ [LNCrawl Engine] Routing to active source plugin: ${registeredPlugin.name} (${registeredPlugin.id})`);
+                console.log(`[LNCrawl Engine] Routing to active source plugin: ${registeredPlugin.name} (${registeredPlugin.id})`);
                 return await crawlWithPlugin(registeredPlugin, url, progressCb, options);
             } else {
                 return await crawlUniversal(url, progressCb, options);
@@ -1894,7 +1894,7 @@
             if (!url || !url.trim()) throw new Error('Please enter a valid novel URL.');
             createCrawlController(options);
             const type = detectUrlType(url);
-            console.log(`⚡ [LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
+            console.log(`[LNCrawl Engine] Importing ${type.toUpperCase()} URL: ${url}`);
 
             if (!options.tocOnly) {
                 try {

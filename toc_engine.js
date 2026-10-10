@@ -144,7 +144,7 @@ Return strictly a JSON object with this exact format:
             if (typeof window !== 'undefined' && window.notifyModelChange) {
               window.notifyModelChange(currentModel, nextModel, reason);
             }
-            if (typeof onRetryStatus === 'function') onRetryStatus(`⚠️ Model switched: ${currentModel} → ${nextModel} (${reason})`);
+            if (typeof onRetryStatus === 'function') onRetryStatus(`Model switched: ${currentModel} → ${nextModel} (${reason})`);
             await new Promise(r => setTimeout(r, 800));
             continue;
           }

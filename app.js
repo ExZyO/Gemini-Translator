@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.12';
+    let VERSION = '8.21.13';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1180,7 +1180,7 @@
       window.__toast = toast;
       window.setEpubPackagingModal = setEpubPackagingModal;
       window.notifyModelChange = (fromModel, toModel, reason) => {
-        const msg = `⚠️ Model switched: ${fromModel} → ${toModel} (${reason})`;
+        const msg = `Model switched: ${fromModel} → ${toModel} (${reason})`;
         toast(msg, 'warning');
         window.NativeBridge?.haptic?.('warning');
       };
@@ -1384,7 +1384,7 @@
             setChapters(cleanedChs);
             setReaderChapterIdx(targetIdx);
             setReaderOpen(true);
-            toast(`🔗 Deep link routed to "${target.title}" (Ch ${targetIdx + 1})`, 'success');
+            toast(`Deep link routed to "${target.title}" (Ch ${targetIdx + 1})`, 'success');
           }
         });
       }, []);
@@ -1764,7 +1764,7 @@
                 setExtractedTerms(parsed);
                 toast(`Extracted ${parsed.length} terms from novel!`, 'success');
                 window.telemetryLog?.('AUTO_GLOSSARY', `Successfully extracted ${parsed.length} terms from novel!`, { termCount: parsed.length });
-                try { window.NativeBridge?.showCompletionNotification?.('AI Glossary Extracted! ⚡', `Discovered ${parsed.length} character names and lore terms.`); } catch(e) {}
+                try { window.NativeBridge?.showCompletionNotification?.('AI Glossary Extracted!', `Discovered ${parsed.length} character names and lore terms.`); } catch(e) {}
               }
             },
             onError: (err) => {
@@ -1860,7 +1860,7 @@
         if (assembledText) setAssembledText(updatedAssembledText);
 
         toast(`Replaced ${replacedCount} occurrences of "${foundWord}" with "${targetWord}"!`, 'success');
-        try { window.NativeBridge?.showCompletionNotification?.('Name Drift Fixed! 🔍', `Replaced ${replacedCount} occurrences of "${foundWord}" with "${targetWord}".`); } catch(e) {}
+        try { window.NativeBridge?.showCompletionNotification?.('Name Drift Fixed!', `Replaced ${replacedCount} occurrences of "${foundWord}" with "${targetWord}".`); } catch(e) {}
         handleRunConsistencyCheck();
       };
 
@@ -1943,7 +1943,7 @@
           const { backup, novelLibrary, fullHistory } = await generateBackupPayload(includeApiKeysInBackup);
           const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
           await saveUniversalBlob(blob, 'gemini_translator_backup.json', 'application/json', true);
-          toast(`📁 Backup exported! (${novelLibrary.length} novels, ${fullHistory.length} history items)`, 'success');
+          toast(`Backup exported! (${novelLibrary.length} novels, ${fullHistory.length} history items)`, 'success');
         } catch (e) {
           toast('Backup error: ' + e.message, 'error');
         }
@@ -2601,7 +2601,7 @@
                 h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } }, 'Tap to install the latest features and fixes.')
               ),
               h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
-                h('button', { type: 'button', className: 'mini-btn', disabled: isUpdating, onClick: handlePerformUpdate }, isUpdating ? 'Downloading…' : '⚡ Update Now'),
+                h('button', { type: 'button', className: 'mini-btn', disabled: isUpdating, onClick: handlePerformUpdate }, isUpdating ? 'Downloading…' : 'Update Now'),
                 h('button', {
                   type: 'button',
                   className: 'mini-btn ghost',
@@ -2611,8 +2611,8 @@
                     window.AppLogger?.log('info', 'Updater', 'Opening browser download: ' + apkUrl);
                     window.open(apkUrl, '_blank');
                   }
-                }, '🌐 Browser Download'),
-                h('button', { type: 'button', className: 'icon-btn', onClick: () => setAvailableUpdate(null) }, '✕')
+                }, 'Browser Download'),
+                h('button', { type: 'button', className: 'icon-btn', onClick: () => setAvailableUpdate(null) }, ic(X, 14))
               )
             )
           ),
@@ -2653,7 +2653,7 @@
                       setActiveTab('web_importer');
                     }
                   }
-                }, '📖 Read Now'),
+                }, 'Read Now'),
                 h('button', {
                   type: 'button',
                   className: 'mini-btn ghost',

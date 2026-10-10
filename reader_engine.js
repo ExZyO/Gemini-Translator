@@ -15,6 +15,10 @@
 (function(window) {
   const { useState, useEffect, useRef, useMemo, useCallback } = React;
   const h = React.createElement;
+  const ic = (name, size = 18, cls = 'shrink-0') => {
+    if (typeof window !== 'undefined' && window.ic) return window.ic(name, size, cls);
+    return h ? h('span', { className: cls }, '') : null;
+  };
 
   // ══════════════════════════════════════════════════════════════════════
   // INLINE STYLES FOR CRISP, RESPONSIVE READER
@@ -362,7 +366,7 @@
           if (c.scrollTop + c.clientHeight >= c.scrollHeight - 10) {
             if (activeIdx < safeChapters.length - 1) {
               if (typeof window !== 'undefined' && window.toast) {
-                window.toast(`⚡ Auto-scrolling to Chapter ${activeIdx + 2}...`, 'info');
+                window.toast(`Auto-scrolling to Chapter ${activeIdx + 2}...`, 'info');
               }
               changeChapter(activeIdx + 1);
               scrollAccumulatorRef.current = 0;
@@ -517,7 +521,7 @@
               continue; // Suppress duplicate centered title subheading!
             }
           }
-          if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
+          if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:\u2726[\s\u00A0]*){2,}|(?:\u2605[\s\u00A0]*){2,}|(?:\u2606[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
             elems.push({ type: 'divider', id: `p_${elIdx++}` });
           } else {
             elems.push({ type: 'center', content: inner, id: `p_${elIdx++}` });
@@ -531,7 +535,7 @@
                     || rawLine.match(/^([\s\S]*?)\[\/right\]$/i);
         if (rightM) {
           const inner = (rightM[1] || '').replace(/\[\/?right\]/gi, '').trim();
-          if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
+          if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:\u2726[\s\u00A0]*){2,}|(?:\u2605[\s\u00A0]*){2,}|(?:\u2606[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
             elems.push({ type: 'divider', id: `p_${elIdx++}` });
           } else {
             elems.push({ type: 'right', content: inner, id: `p_${elIdx++}` });
@@ -540,8 +544,8 @@
           continue;
         }
 
-        // 6. Scene break divider: ---, ***, ___, ◆◆◆, ✦✦✦, etc.
-        if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(rawLine) || rawLine === '---' || rawLine === '***' || rawLine === '___' || rawLine === '===') {
+        // 6. Scene break divider: ---, ***, ___, diamond/star dividers, etc.
+        if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:\u2726[\s\u00A0]*){2,}|(?:\u2605[\s\u00A0]*){2,}|(?:\u2606[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(rawLine) || rawLine === '---' || rawLine === '***' || rawLine === '___' || rawLine === '===') {
           elems.push({ type: 'divider', id: `p_${elIdx++}` });
           continue;
         }
@@ -1429,8 +1433,8 @@
         const fullUrl = window.location.origin + window.location.pathname + deepHash;
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(fullUrl);
-          if (typeof window.showToast === 'function') window.showToast('🔗 Deep link copied to clipboard!', 'success');
-          else if (typeof window.toast === 'function') window.toast('🔗 Deep link copied to clipboard!', 'success');
+          if (typeof window.showToast === 'function') window.showToast('Deep link copied to clipboard!', 'success');
+          else if (typeof window.toast === 'function') window.toast('Deep link copied to clipboard!', 'success');
         } else {
           prompt('Copy deep link:', fullUrl);
         }
@@ -1775,10 +1779,10 @@
           h('button', {
             type: 'button',
             className: 'reader-top-btn',
-            style: { minWidth: 40, minHeight: 40, fontSize: 16 },
+            style: { minWidth: 40, minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' },
             onClick: () => { stopTts(); onClose(); },
             title: 'Close Reader'
-          }, '✕'),
+          }, ic('X', 18)),
           h('div', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, fontSize: 13.5 } },
             currentChapter.title
           )
@@ -1791,7 +1795,7 @@
             onClick: () => { setShowMoreMenu(false); setShowToc(true); },
             title: 'Table of Contents'
           },
-            h('span', null, '📑'),
+            ic('List', 16),
             h('span', { className: 'reader-top-btn-text' }, ' TOC')
           ),
           // 2. Read Aloud (TTS)
@@ -1801,7 +1805,7 @@
             onClick: () => { setShowMoreMenu(false); toggleTts(); },
             title: ttsActive ? (ttsPaused ? 'Resume Read Aloud' : 'Pause Read Aloud') : 'Read Aloud (TTS)'
           },
-            h('span', null, ttsActive ? (ttsPaused ? '▶' : '⏸') : '🎧'),
+            ttsActive ? (ttsPaused ? ic('Play', 16) : ic('Pause', 16)) : ic('Headphones', 16),
             h('span', { className: 'reader-top-btn-text' }, ' TTS')
           ),
           // 2b. Voice & Engine Selector
@@ -1811,7 +1815,7 @@
             onClick: () => { setShowMoreMenu(false); setShowVoiceModal(true); },
             title: 'Change Voice & Speech Engine (SherpaTTS / Piper / Android Settings)'
           },
-            h('span', null, '🎙'),
+            ic('Volume2', 16),
             h('span', { className: 'reader-top-btn-text' }, ' Voice')
           ),
           // 3. Settings (Typography & Themes)
@@ -1821,7 +1825,7 @@
             onClick: () => { setShowMoreMenu(false); setShowSettings(true); },
             title: 'Typography & Appearance'
           },
-            h('span', null, '⚙'),
+            ic('Settings', 16),
             h('span', { className: 'reader-top-btn-text' }, ' Settings')
           ),
           // 4. More Actions Menu (...)
@@ -1851,7 +1855,7 @@
           className: 'reader-more-item',
           onClick: () => { setShowMoreMenu(false); setShowSearch(s => !s); }
         },
-          h('span', null, '🔍'),
+          ic('Search', 15),
           h('span', null, 'Find in Chapter')
         ),
         h('button', {
@@ -1859,7 +1863,7 @@
           className: 'reader-more-item',
           onClick: () => { setShowMoreMenu(false); setAutoScroll(s => !s); }
         },
-          h('span', null, '⚡'),
+          ic('Zap', 15),
           h('span', null, autoScroll ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')
         ),
         h('button', {
@@ -1867,7 +1871,7 @@
           className: 'reader-more-item',
           onClick: () => { setShowMoreMenu(false); setShowVoiceModal(true); }
         },
-          h('span', null, '🎙'),
+          ic('Volume2', 15),
           h('span', null, 'Voice & Offline Engine Settings')
         ),
         h('div', { className: 'reader-more-divider' }),
@@ -1880,7 +1884,7 @@
             else if (typeof window !== 'undefined' && typeof window.openNovelHealthAudit === 'function') window.openNovelHealthAudit();
           }
         },
-          h('span', null, '🩺'),
+          ic('Activity', 15),
           h('span', null, 'Novel Health & QA Audit')
         ),
         h('button', {
@@ -1892,7 +1896,7 @@
             else if (typeof window !== 'undefined' && typeof window.openDiffInspector === 'function') window.openDiffInspector(activeIdx);
           }
         },
-          h('span', null, '📜'),
+          ic('GitCompare', 15),
           h('span', null, 'Translation Diffs & Revisions')
         ),
         h('button', {
@@ -1905,7 +1909,7 @@
             if (typeof window.setActiveAppTab === 'function') window.setActiveAppTab('studio', 'edit');
           }
         },
-          h('span', null, '✏️'),
+          ic('Edit', 15),
           h('span', null, 'Edit in Ebook Studio')
         ),
         h('button', {
@@ -1913,7 +1917,7 @@
           className: 'reader-more-item',
           onClick: () => { setShowMoreMenu(false); handleShareDeepLink(); }
         },
-          h('span', null, '🔗'),
+          ic('Link', 15),
           h('span', null, 'Share Chapter Deep Link')
         )
       ),
@@ -1923,7 +1927,7 @@
         className: 'reader-v2-search-bar',
         onClick: (e) => e.stopPropagation()
       },
-        h('span', { style: { fontSize: 15, opacity: 0.7 } }, '🔍'),
+        ic('Search', 15, 'opacity-70'),
         h('input', {
           type: 'text',
           className: 'reader-search-input',
@@ -1961,14 +1965,14 @@
           disabled: searchMatches.length === 0,
           onClick: handlePrevSearchMatch,
           title: 'Previous match (Shift+Enter)'
-        }, '▲'),
+        }, ic('ChevronUp', 14)),
         h('button', {
           type: 'button',
           className: 'reader-search-nav-btn',
           disabled: searchMatches.length === 0,
           onClick: handleNextSearchMatch,
           title: 'Next match (Enter)'
-        }, '▼'),
+        }, ic('ChevronDown', 14)),
         h('button', {
           type: 'button',
           className: 'reader-search-nav-btn close',
@@ -1977,7 +1981,7 @@
             setSearchQuery('');
           },
           title: 'Close search'
-        }, '✕')
+        }, ic('X', 14))
       ),
 
       // ── READING CANVAS CONTAINER ──
@@ -2083,17 +2087,17 @@
               type: 'button',
               className: 'mini-btn ghost',
               disabled: activeIdx <= 0,
-              style: { padding: '10px 18px', fontWeight: 600 },
+              style: { padding: '10px 18px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
               onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx - 1); }
-            }, '← Previous Chapter'),
+            }, ic('ArrowLeft', 15), 'Previous Chapter'),
             h('span', { style: { fontSize: 12, color: 'var(--r-muted)' } }, `${activeIdx + 1} / ${safeChapters.length}`),
             h('button', {
               type: 'button',
               className: 'mini-btn',
               disabled: activeIdx >= safeChapters.length - 1,
-              style: { padding: '10px 18px', background: 'var(--r-accent)', color: '#fff', fontWeight: 600 },
+              style: { padding: '10px 18px', background: 'var(--r-accent)', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
               onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx + 1); }
-            }, 'Next Chapter →')
+            }, 'Next Chapter', ic('ArrowRight', 15))
           )
         )
       ),
@@ -2167,9 +2171,9 @@
             type: 'button',
             className: 'mini-btn ghost',
             disabled: activeIdx <= 0,
-            style: { padding: '7px 14px', fontWeight: 600, fontSize: 12.5 },
+            style: { padding: '7px 14px', fontWeight: 600, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 4 },
             onClick: () => changeChapter(activeIdx - 1)
-          }, '⏮ Previous'),
+          }, ic('SkipBack', 14), 'Previous'),
 
           h('div', { style: { fontSize: 12, color: 'var(--r-muted)', fontWeight: 600 } },
             `Chapter ${activeIdx + 1} of ${safeChapters.length} • ${Math.round(((activeIdx + 1) / safeChapters.length) * 100)}%`
@@ -2179,9 +2183,9 @@
             type: 'button',
             className: 'mini-btn ghost',
             disabled: activeIdx >= safeChapters.length - 1,
-            style: { padding: '7px 14px', fontWeight: 600, fontSize: 12.5 },
+            style: { padding: '7px 14px', fontWeight: 600, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 4 },
             onClick: () => changeChapter(activeIdx + 1)
-          }, 'Next ⏭')
+          }, 'Next', ic('SkipForward', 14))
         )
       ),
 
@@ -2194,7 +2198,7 @@
 
       // ── FLOATING AUTO-SCROLL PILL (WHEN ACTIVE) ──
       autoScroll && h('div', { className: 'reader-v2-autoscroll-pill' },
-        h('span', null, '⚡ Auto-Scroll'),
+        h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Zap', 13), 'Auto-Scroll'),
         h('button', {
           type: 'button',
           style: { background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: 4, padding: '2px 6px', cursor: 'pointer' },
@@ -2208,9 +2212,9 @@
         }, '+'),
         h('button', {
           type: 'button',
-          style: { background: 'none', border: 'none', color: '#f87171', padding: '2px 6px', cursor: 'pointer', fontWeight: 700 },
+          style: { background: 'none', border: 'none', color: '#f87171', padding: '2px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
           onClick: () => setAutoScroll(false)
-        }, '✕')
+        }, ic('X', 14))
       ),
 
       // ── HIERARCHICAL ARC & VOLUME TABLE OF CONTENTS DRAWER ──
@@ -2295,15 +2299,15 @@
       },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--r-accent)' } },
-            h('span', null, '🔖'),
+            ic('Bookmark', 15),
             h('span', null, `Cultural Context Note [${activeFootnote.num}]`)
           ),
           h('button', {
             type: 'button',
             className: 'reader-search-nav-btn close',
-            style: { width: 28, height: 28, minWidth: 28, minHeight: 28, padding: 0 },
+            style: { width: 28, height: 28, minWidth: 28, minHeight: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
             onClick: () => setActiveFootnote(null)
-          }, '✕')
+          }, ic('X', 14))
         ),
         h('div', { style: { fontSize: 13.5, lineHeight: 1.55, color: 'var(--r-text)' } }, activeFootnote.text)
       )

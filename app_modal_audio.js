@@ -10,6 +10,11 @@
 
   const getH = () => (typeof React !== 'undefined' ? React.createElement : window.React?.createElement);
   const getToast = () => (window.toast || function() {});
+  const ic = (name, size = 18, cls = 'shrink-0') => {
+    if (typeof window !== 'undefined' && window.ic) return window.ic(name, size, cls);
+    const h = getH();
+    return h ? h('span', { className: cls }, '') : null;
+  };
 
   // ─────────────────────────────────────────────────────────────────────────
   function SwiftAudioPlayer(props) {
@@ -72,8 +77,8 @@
           onError: (e) => { e.target.style.display = 'none'; },
           style: { width: 42, height: 42, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }
         }) : h('div', {
-          style: { width: 42, height: 42, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }
-        }, '🎧'),
+          style: { width: 42, height: 42, borderRadius: 6, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }
+        }, ic('Headphones', 22, 'text-slate-400')),
 
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
@@ -107,12 +112,11 @@
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 14,
               padding: 0
             },
             title: audioPlayerState.isPlaying ? 'Pause' : 'Play',
             onClick: () => window.SwiftAudioEngine?.Player?.togglePlay()
-          }, audioPlayerState.isPlaying ? '⏸' : '▶'),
+          }, audioPlayerState.isPlaying ? ic('Pause', 18) : ic('Play', 18)),
 
           h('button', {
             type: 'button',
@@ -125,29 +129,29 @@
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { padding: '6px 8px', fontSize: 13 },
+            style: { padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
             title: 'Next Chapter',
             onClick: () => window.SwiftAudioEngine?.Player?.nextTrack()
-          }, '⏭'),
+          }, ic('SkipForward', 16)),
 
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { padding: '6px 8px', fontSize: 12 },
+            style: { padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
             title: 'Open full audiobook player',
             onClick: () => setIsFullPlayerOpen(true)
-          }, '▲'),
+          }, ic('ChevronUp', 16)),
 
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { padding: '6px 8px', fontSize: 13, color: 'var(--slate)' },
+            style: { padding: '6px 8px', color: 'var(--slate)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
             title: 'Close and stop player',
             onClick: (e) => {
               e.stopPropagation();
               window.SwiftAudioEngine?.Player?.close();
             }
-          }, '✕')
+          }, ic('X', 16))
         )
       ),
 
@@ -208,10 +212,10 @@
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { padding: '4px 8px', fontSize: 13, fontWeight: 700 },
+                style: { padding: '4px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
                 title: 'Minimize player to bottom',
                 onClick: () => setIsFullPlayerOpen(false)
-              }, '▼'),
+              }, ic('ChevronDown', 16)),
               h('div', null,
                 h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--paper)' } }, 'Audiobook Player'),
                 h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, isPlayerFullscreen ? 'Fullscreen Mode' : 'Powered by Open-Source Plyr')
@@ -228,7 +232,10 @@
                     fontSize: 12,
                     fontWeight: 600,
                     color: inLib ? '#f59e0b' : 'var(--paper)',
-                    borderColor: inLib ? '#f59e0b' : 'var(--hairline)'
+                    borderColor: inLib ? '#f59e0b' : 'var(--hairline)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4
                   },
                   title: inLib ? 'Saved in Library (tap to remove)' : 'Add audiobook to Library',
                   onClick: () => {
@@ -238,25 +245,28 @@
                       if (saveAudiobookToLibrary) saveAudiobookToLibrary(audioPlayerState.currentBook);
                     }
                   }
-                }, inLib ? '⭐ In Library' : '☆ Add to Library');
+                },
+                  ic('Star', 14, inLib ? 'text-amber-400' : 'text-slate-400'),
+                  inLib ? 'In Library' : 'Add to Library'
+                );
               })(),
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { padding: '4px 8px', fontSize: 13 },
+                style: { padding: '4px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
                 title: isPlayerFullscreen ? 'Exit Fullscreen' : 'Fullscreen Player',
                 onClick: () => setIsPlayerFullscreen(prev => !prev)
-              }, isPlayerFullscreen ? '🗗' : '⛶'),
+              }, isPlayerFullscreen ? ic('Minimize2', 15) : ic('Maximize2', 15)),
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { border: 'none', fontSize: 16, color: 'var(--slate)' },
+                style: { border: 'none', color: 'var(--slate)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
                 title: 'Close and stop player',
                 onClick: () => {
                   setIsFullPlayerOpen(false);
                   window.SwiftAudioEngine?.Player?.close();
                 }
-              }, '✕')
+              }, ic('X', 16))
             )
           ),
 
@@ -269,8 +279,8 @@
                 onError: (e) => { e.target.style.display = 'none'; },
                 style: { width: isPlayerFullscreen ? 180 : 160, height: isPlayerFullscreen ? 260 : 230, borderRadius: 12, objectFit: 'cover', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', margin: '0 auto' }
               }) : h('div', {
-                style: { width: 160, height: 210, borderRadius: 12, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, margin: '0 auto' }
-              }, '🎧')
+                style: { width: 160, height: 210, borderRadius: 12, background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }
+              }, ic('Headphones', 48, 'text-slate-400'))
             ),
 
             h('div', { style: { textAlign: 'center', marginBottom: 16 } },
@@ -301,10 +311,10 @@
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { fontSize: 16, padding: '8px 12px' },
+                style: { padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
                 title: 'Previous Chapter',
                 onClick: () => window.SwiftAudioEngine?.Player?.previousTrack()
-              }, '⏮'),
+              }, ic('SkipBack', 18)),
 
               h('button', {
                 type: 'button',
@@ -323,7 +333,6 @@
                   width: 52,
                   height: 52,
                   borderRadius: '50%',
-                  fontSize: 20,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -332,7 +341,7 @@
                 },
                 title: audioPlayerState.isPlaying ? 'Pause' : 'Play',
                 onClick: () => window.SwiftAudioEngine?.Player?.togglePlay()
-              }, audioPlayerState.isPlaying ? '⏸' : '▶'),
+              }, audioPlayerState.isPlaying ? ic('Pause', 22) : ic('Play', 22)),
 
               h('button', {
                 type: 'button',
@@ -345,10 +354,10 @@
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { fontSize: 16, padding: '8px 12px' },
+                style: { padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
                 title: 'Next Chapter',
                 onClick: () => window.SwiftAudioEngine?.Player?.nextTrack()
-              }, '⏭')
+              }, ic('SkipForward', 18))
             ),
 
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--panel)', padding: '10px 14px', borderRadius: 8, marginBottom: 14, flexWrap: 'wrap', gap: 8 } },
@@ -396,9 +405,9 @@
                 h('button', {
                   type: 'button',
                   className: 'mini-btn ghost',
-                  style: { fontSize: 11, padding: '3px 8px' },
+                  style: { fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 },
                   onClick: () => handleOpenAudioDownload && handleOpenAudioDownload(audioPlayerState.currentBook)
-                }, '📥 Download MP3s')
+                }, ic('Download', 13), 'Download MP3s')
               ),
               h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, maxHeight: isPlayerFullscreen ? 360 : 180, overflowY: 'auto' } },
                 (audioPlayerState.currentBook.tracks || []).map((t, idx) => {
@@ -426,7 +435,7 @@
                       h('button', {
                         type: 'button',
                         className: 'mini-btn ghost',
-                        style: { padding: '3px 6px', fontSize: 11, color: downloadingTrackId === idx ? '#fbbf24' : 'var(--slate)' },
+                        style: { padding: '3px 6px', fontSize: 11, color: downloadingTrackId === idx ? '#fbbf24' : 'var(--slate)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
                         title: `Download Track ${idx + 1}: ${t.title}`,
                         disabled: downloadingTrackId === idx,
                         onClick: async (e) => {
@@ -443,8 +452,8 @@
                             setDownloadingTrackId(null);
                           }
                         }
-                      }, downloadingTrackId === idx ? '⏳' : '📥'),
-                      isCur && h('span', { style: { fontSize: 11, color: 'var(--accent, #6366f1)' } }, audioPlayerState.isPlaying ? '▶' : '⏸')
+                      }, downloadingTrackId === idx ? ic('Loader2', 13, 'animate-spin') : ic('Download', 13)),
+                      isCur && h('span', { style: { display: 'inline-flex', alignItems: 'center', color: 'var(--accent, #6366f1)' } }, audioPlayerState.isPlaying ? ic('Play', 12) : ic('Pause', 12))
                     )
                   );
                 })
@@ -477,7 +486,7 @@
         },
         onClick: () => setAudioDownloadModal(prev => ({ ...prev, isMinimized: false }))
       },
-        h('span', { style: { fontSize: 18 } }, '📥'),
+        ic('Download', 18, 'text-indigo-400'),
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'var(--paper)' } },
             h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, audioDownloadModal.status || 'Downloading audio tracks...'),
@@ -487,7 +496,7 @@
             h('div', { style: { height: '100%', width: `${audioDownloadModal.percent || 0}%`, background: 'linear-gradient(90deg, #6366f1, #10b981)', transition: 'width 0.25s' } })
           )
         ),
-        h('span', { style: { fontSize: 11, color: 'var(--accent, #6366f1)', fontWeight: 600, flexShrink: 0 } }, 'Expand ↗')
+        h('span', { style: { fontSize: 11, color: 'var(--accent, #6366f1)', fontWeight: 600, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4 } }, 'Expand', ic('Maximize2', 12))
       ),
 
       // 4. Batch Download Modal
@@ -509,7 +518,7 @@
         },
           h('div', { className: 'modal-hd' },
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-              h('span', { style: { fontSize: 20 } }, '📥'),
+              ic('Download', 18, 'text-indigo-400'),
               h('span', { className: 't' }, 'Download Audiobook MP3s')
             ),
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
@@ -519,7 +528,7 @@
                 style: { fontSize: 11, padding: '3px 8px' },
                 title: 'Continue downloading in background',
                 onClick: () => setAudioDownloadModal(prev => ({ ...prev, isMinimized: true }))
-              }, 'Run in Background ─'),
+              }, 'Run in Background'),
               h('button', {
                 type: 'button',
                 className: 'x-btn',
@@ -531,7 +540,7 @@
                     setAudioDownloadModal(null);
                   }
                 }
-              }, '✕')
+              }, ic('X', 15))
             )
           ),
           h('div', { className: 'modal-bd' },
@@ -556,7 +565,7 @@
                 h('button', {
                   type: 'button',
                   className: 'mini-btn ghost',
-                  style: { fontSize: 10.5, padding: '2px 6px' },
+                  style: { fontSize: 10.5, padding: '2px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 },
                   disabled: audioDownloadModal.active,
                   onClick: async () => {
                     if (window.NativeBridge && window.NativeBridge.chooseFolder) {
@@ -579,7 +588,7 @@
                       }
                     }
                   }
-                }, '📁 Change Folder')
+                }, ic('Folder', 12), 'Change Folder')
               ),
               h('div', { style: { fontSize: 11.5, fontFamily: 'monospace', color: 'var(--paper)', wordBreak: 'break-all' } },
                 audioDownloadModal.folderOptions?.folderPath || `Download/GeminiTranslator/Audiobooks/${audioDownloadModal.book?.title}`
@@ -646,7 +655,7 @@
                       h('button', {
                         type: 'button',
                         className: 'mini-btn ghost',
-                        style: { padding: '2px 5px', fontSize: 10.5, color: downloadingTrackId === tIdx ? '#fbbf24' : 'var(--slate)' },
+                        style: { padding: '2px 5px', fontSize: 10.5, color: downloadingTrackId === tIdx ? '#fbbf24' : 'var(--slate)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
                         title: `Download ${track.title}`,
                         disabled: audioDownloadModal.active || downloadingTrackId === tIdx,
                         onClick: async (e) => {
@@ -663,7 +672,7 @@
                             setDownloadingTrackId(null);
                           }
                         }
-                      }, downloadingTrackId === tIdx ? '⏳' : '📥')
+                      }, downloadingTrackId === tIdx ? ic('Loader2', 12, 'animate-spin') : ic('Download', 12))
                     )
                   );
                 })
@@ -685,16 +694,17 @@
                 className: 'mini-btn',
                 style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
                 onClick: () => setAudioDownloadModal(prev => ({ ...prev, isMinimized: true }))
-              }, 'Run in Background ─'),
+              }, 'Run in Background'),
               h('button', {
                 key: 'cancel',
                 type: 'button',
                 className: 'mini-btn danger',
+                style: { display: 'inline-flex', alignItems: 'center', gap: 4 },
                 onClick: () => {
                   window.SwiftAudioEngine?.Downloader?.cancel();
                   toast('Cancelling download…', 'info');
                 }
-              }, '✕ Cancel Download')
+              }, ic('X', 13), 'Cancel Download')
             ] : [
               h('button', {
                 key: 'close',
@@ -706,9 +716,9 @@
                 key: 'start',
                 type: 'button',
                 className: 'mini-btn',
-                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700 },
+                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 },
                 onClick: handleExecuteAudioBatchDownload
-              }, `⚡ Download Selected (${(audioDownloadModal.selectedIndices || []).length})`)
+              }, ic('Download', 14), `Download Selected (${(audioDownloadModal.selectedIndices || []).length})`)
             ]
           )
         )

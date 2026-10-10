@@ -843,7 +843,7 @@
             return false;
         },
 
-        showCompletionNotification: async (title = "Completed! 🎉", message = "Action finished successfully.") => {
+        showCompletionNotification: async (title = "Completed!", message = "Action finished successfully.") => {
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.showCompletionNotification) {
@@ -871,7 +871,7 @@
             try { window.NativeBridge?.haptic?.('success'); } catch(e) {}
         },
 
-        clearProgressNotification: async (notifyDone = false, title = "Completed! 🎉", message = "Tap to view in reader.") => {
+        clearProgressNotification: async (notifyDone = false, title = "Completed!", message = "Tap to view in reader.") => {
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.clearProgressNotification) {

@@ -861,7 +861,7 @@
                     if (window.NativeBridge?.clearProgressNotification) {
                         window.NativeBridge.clearProgressNotification(
                             true,
-                            'Audiobook Downloaded! 🎉',
+                            'Audiobook Downloaded Successfully',
                             `Downloaded ${downloadedFiles.length} chapter(s) of "${cleanBookTitle}".`
                         );
                     }
@@ -1172,5 +1172,5 @@
         }
     };
 
-    console.log('✅ SwiftAudioEngine ready (Scraper, 5-Second Plyr Player & Downloader)');
+    console.log('[SwiftAudioEngine] ready (Scraper, 5-Second Plyr Player & Downloader)');
 })();

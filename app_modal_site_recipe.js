@@ -23,11 +23,11 @@
     // Helper: Lucide icon or fallback
     function renderIcon(name, size = 16, className = '') {
         if (typeof window !== 'undefined' && window.ic) {
-            const iconObj = window[name] || window.LucideIcons?.[name];
-            if (iconObj) return window.ic(iconObj, size, className);
+            return window.ic(name, size, className);
         }
         return null;
     }
+    const ic = (name, size = 16, cls = '') => renderIcon(name, size, cls);
 
     // ══════════════════════════════════════════════════════════════════════
     // 1. VISUAL PICKER OVERLAY (Sandboxed Iframe)
@@ -267,7 +267,7 @@
                 }
             }, [
                 h('div', { className: 'flex items-center gap-2 min-w-0 truncate' }, [
-                    h('span', { className: 'text-amber-400 font-bold text-xs md:text-sm tracking-wide uppercase shrink-0' }, '👆 Inspector'),
+                    h('span', { className: 'text-amber-400 font-bold text-xs md:text-sm tracking-wide uppercase shrink-0 flex items-center gap-1.5' }, [ic('Search', 14), 'Inspector']),
                     h('span', { className: 'text-slate-400 text-[11px] md:text-xs truncate hidden sm:inline' }, targetLabels[target] || 'Tap an element on the page')
                 ]),
 
@@ -275,14 +275,14 @@
                 parsedItems.length > 0 && h('div', { className: 'flex rounded-xl bg-slate-800 p-0.5 border border-slate-700 text-xs shrink-0 order-last sm:order-none w-full sm:w-auto justify-center' }, [
                     h('button', {
                         type: 'button',
-                        className: `flex-1 sm:flex-initial px-2.5 py-1 rounded-lg transition-all text-xs ${viewMode === 'visual' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white'}`,
+                        className: `flex-1 sm:flex-initial px-2.5 py-1 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 ${viewMode === 'visual' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white'}`,
                         onClick: () => setViewMode('visual')
-                    }, '🌐 Page View'),
+                    }, [ic('Globe', 13), 'Page View']),
                     h('button', {
                         type: 'button',
-                        className: `flex-1 sm:flex-initial px-2.5 py-1 rounded-lg transition-all text-xs ${viewMode === 'list' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white'}`,
+                        className: `flex-1 sm:flex-initial px-2.5 py-1 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 ${viewMode === 'list' ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white'}`,
                         onClick: () => setViewMode('list')
-                    }, target === 'chapterLinks' ? `📑 Chapters (${parsedItems.length})` : `📖 Story Prose (${parsedItems.length})`)
+                    }, target === 'chapterLinks' ? [ic('List', 13), `Chapters (${parsedItems.length})`] : [ic('BookOpen', 13), `Story Prose (${parsedItems.length})`])
                 ]),
 
                 // Right action buttons
@@ -292,17 +292,17 @@
                         className: 'px-2 py-1 rounded-lg text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-colors hidden sm:inline-flex items-center gap-1',
                         onClick: handleOpenCaptchaSolver,
                         title: 'Solve Cloudflare verification in in-app browser'
-                    }, '🛡️ Captcha'),
+                    }, [ic('Shield', 13), 'Captcha']),
                     h('button', {
                         type: 'button',
-                        className: 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-600 hover:border-slate-300 transition-colors shadow-sm cursor-pointer',
+                        className: 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-600 hover:border-slate-300 transition-colors shadow-sm cursor-pointer flex items-center gap-1',
                         onClick: onClose
-                    }, '✕ Cancel'),
+                    }, [ic('X', 13), 'Cancel']),
                     h('button', {
                         type: 'button',
-                        className: 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-sm',
+                        className: 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-sm flex items-center gap-1',
                         onClick: handleUseSelection
-                    }, '✓ Use This')
+                    }, [ic('Check', 13), 'Use This'])
                 ])
             ]),
 
@@ -324,24 +324,24 @@
                     className: 'absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 bg-slate-950/95'
                 }, [
                     h('div', { className: 'max-w-md p-6 rounded-2xl bg-slate-900 border border-amber-500/30 text-white space-y-4' }, [
-                        h('p', { className: 'text-amber-400 font-semibold text-sm' }, '⚠️ Could not load website preview'),
+                        h('p', { className: 'text-amber-400 font-semibold text-sm flex items-center justify-center gap-1.5' }, [ic('AlertTriangle', 15), 'Could not load website preview']),
                         h('p', { className: 'text-xs text-slate-300' }, error),
                         h('div', { className: 'flex flex-wrap gap-2 justify-center pt-2' }, [
                             h('button', {
                                 type: 'button',
-                                className: 'px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-white transition-colors',
+                                className: 'px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-white transition-colors flex items-center gap-1.5',
                                 onClick: loadPreview
-                            }, '🔄 Try Again'),
+                            }, [ic('RefreshCw', 13), 'Try Again']),
                             h('button', {
                                 type: 'button',
                                 className: 'px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white transition-colors flex items-center gap-1.5 shadow-sm',
                                 onClick: handleOpenCaptchaSolver
-                            }, '🛡️ Solve in In-App Browser'),
+                            }, [ic('Shield', 13), 'Solve in In-App Browser']),
                             parsedItems.length > 0 && h('button', {
                                 type: 'button',
-                                className: 'px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors',
+                                className: 'px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center gap-1.5',
                                 onClick: () => { setError(null); setViewMode('list'); }
-                            }, '📑 View Extracted Elements')
+                            }, [ic('List', 13), 'View Extracted Elements'])
                         ])
                     ])
                 ]),
@@ -362,7 +362,7 @@
                 }, [
                     h('div', { className: 'p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-center justify-between' }, [
                         h('span', null, target === 'chapterLinks' ? `Discovered ${parsedItems.length} chapter links. Tap one to select:` : `Discovered ${parsedItems.length} story text candidates. Tap one to select:`),
-                        selection && h('span', { className: 'text-emerald-400 font-bold' }, '✓ Element Selected!')
+                        selection && h('span', { className: 'text-emerald-400 font-bold flex items-center gap-1' }, [ic('Check', 12), 'Element Selected!'])
                     ]),
                     parsedItems.map((item, idx) => {
                         const isSelected = selection?.selector === item.selector;
@@ -385,7 +385,7 @@
                                     h('p', { className: 'font-medium truncate' }, item.title),
                                     h('p', { className: 'text-[11px] text-slate-500 font-mono truncate mt-0.5' }, item.href)
                                 ]),
-                                isSelected ? h('span', { className: 'text-emerald-400 text-xs font-bold shrink-0' }, '✓ Selected') : h('span', { className: 'text-slate-500 text-xs shrink-0' }, 'Tap to Pick')
+                                isSelected ? h('span', { className: 'text-emerald-400 text-xs font-bold shrink-0 flex items-center gap-1' }, [ic('Check', 11), 'Selected']) : h('span', { className: 'text-slate-500 text-xs shrink-0' }, 'Tap to Pick')
                             ]);
                         } else {
                             return h('button', {
@@ -584,7 +584,7 @@
                             chapterUrlInputRef.current.value = text;
                         }
                         updateField(field, text);
-                        toast?.('Pasted link! 📋', 'success');
+                        toast?.('Pasted link!', 'success');
                         return;
                     }
                 }
@@ -697,7 +697,7 @@
             setAutoDetectStats(null);
             try {
                 const res = await RE.Controller.autoDetect(targetUrl, {
-                    onStart: () => toast?.('⚡ AI scanning website structure & chapters...', 'info'),
+                    onStart: () => toast?.('AI scanning website structure & chapters...', 'info'),
                     existingBookUrl: currentBook,
                     existingChapterUrl: currentChapter
                 });
@@ -725,7 +725,7 @@
                     }
                     setIsDirty(true);
                     setAutoDetectStats(res.stats);
-                    toast?.(`✓ Analyzed with ${res.stats?.aiEngine || 'AI'}: ${res.stats?.chaptersCount || 0} chapters & story text!`, 'success');
+                    toast?.(`Analyzed with ${res.stats?.aiEngine || 'AI'}: ${res.stats?.chaptersCount || 0} chapters & story text!`, 'success');
                 }
             } catch (err) {
                 toast?.(`Auto-detect: ${err.message}`, 'error');
@@ -777,7 +777,7 @@
                         ...res.stats,
                         isScout: true
                     });
-                    toast?.(`✓ Autonomous Scout completed & recipe saved!`, 'success');
+                    toast?.('Autonomous Scout completed & recipe saved!', 'success');
                 }
             } catch (err) {
                 toast?.(`Scout failed: ${err.message}`, 'error');
@@ -818,7 +818,7 @@
                         title: 'Exit without saving'
                     }, [
                         renderIcon('x', 16, 'text-rose-300'),
-                        '✕ Exit'
+                        'Exit'
                     ]),
                     h('div', { className: 'truncate min-w-0' }, [
                         h('h2', { className: 'text-sm sm:text-base font-bold text-white truncate' }, 'Site Settings & Recipe'),
@@ -842,7 +842,7 @@
                         title: 'Save settings and return'
                     }, [
                         renderIcon('check', 16, 'text-emerald-200'),
-                        '✓ Save & Exit'
+                        'Save & Exit'
                     ]),
                     h('button', {
                         type: 'button',
@@ -887,7 +887,7 @@
                             title: 'Exit without saving'
                         }, [
                             renderIcon('x', 14, 'text-rose-300'),
-                            '✕ Exit'
+                            'Exit'
                         ]),
                         h('button', {
                             type: 'button',
@@ -896,7 +896,7 @@
                             title: 'Save settings & exit'
                         }, [
                             renderIcon('check', 14, 'text-emerald-100'),
-                            '✓ Save & Exit'
+                            'Save & Exit'
                         ])
                     ])
                 ]),
@@ -905,8 +905,8 @@
                     key: 'banner',
                     className: `p-3.5 rounded-2xl border text-xs leading-relaxed ${isBuiltin ? 'bg-amber-950/40 border-amber-500/30 text-amber-200' : 'bg-blue-950/40 border-blue-500/30 text-blue-200'}`
                 }, isBuiltin
-                    ? '⚡ This website is officially supported. Any selector you customize here overrides just that specific element. Blank fields retain standard built-in behaviour.'
-                    : '🌐 This website is custom or unsupported. Use the visual inspector below to configure chapter links, story text, and layout cleanup.'
+                    ? 'This website is officially supported. Any selector you customize here overrides just that specific element. Blank fields retain standard built-in behaviour.'
+                    : 'This website is custom or unsupported. Use the visual inspector below to configure chapter links, story text, and layout cleanup.'
                 ),
 
                 // Controls toolbar (Advanced patterns toggle)
@@ -932,18 +932,21 @@
                     className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3.5'
                 }, [
                     h('div', { className: 'flex items-center justify-between' }, [
-                        h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, '🔗 Test Pages'),
+                        h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, [
+                            ic('Link', 15),
+                            'Test Pages'
+                        ]),
                         h('span', { className: 'text-[11px] text-slate-400' }, 'Paste a book or chapter link to begin')
                     ]),
 
-                    // ⚡ AI Auto-Detect Banner & One-Tap Action
+                    // AI Auto-Detect Banner & One-Tap Action
                     h('div', {
                         className: 'p-3.5 rounded-xl bg-gradient-to-r from-indigo-950/80 to-purple-950/80 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm'
                     }, [
                         h('div', { className: 'space-y-0.5' }, [
                             h('div', { className: 'text-xs font-bold text-indigo-300 flex items-center gap-1.5' }, [
                                 renderIcon('sparkles', 14, 'text-amber-400 shrink-0'),
-                                '⚡ AI Smart Auto-Detect'
+                                'AI Smart Auto-Detect'
                             ]),
                             h('p', { className: 'text-[11px] text-slate-300 leading-relaxed' }, 'Paste your novel link below, then tap here to let AI automatically detect all chapters and story text with zero setup.')
                         ]),
@@ -955,7 +958,7 @@
                                 onClick: handleAutoDetect
                             }, [
                                 isAutoDetecting ? renderIcon('refresh', 13, 'animate-spin') : renderIcon('sparkles', 13),
-                                isAutoDetecting ? 'Scanning...' : '⚡ Quick Auto-Detect'
+                                isAutoDetecting ? 'Scanning...' : 'Quick Auto-Detect'
                             ]),
                             h('button', {
                                 type: 'button',
@@ -964,7 +967,7 @@
                                 onClick: handleRunScout
                             }, [
                                 isScouting ? renderIcon('refresh', 13, 'animate-spin') : renderIcon('sparkles', 13),
-                                isScouting ? 'Scouting...' : '✨ Autonomous Scout'
+                                isScouting ? 'Scouting...' : 'Autonomous Scout'
                             ])
                         ])
                     ]),
@@ -990,8 +993,11 @@
                                 autoDetectStats.firstChapterName && h('p', { className: 'text-[11px] text-emerald-400/80 truncate' }, `First chapter: "${autoDetectStats.firstChapterName}"`)
                             ]),
                             autoDetectStats.safeDelayMs && h('span', {
-                                className: 'px-2 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-mono text-[10px] shrink-0'
-                            }, `⏱️ ${autoDetectStats.safeDelayMs}ms delay`)
+                                className: 'px-2 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-mono text-[10px] shrink-0 flex items-center gap-1'
+                            }, [
+                                ic('Clock', 11),
+                                `${autoDetectStats.safeDelayMs}ms delay`
+                            ])
                         ]),
                         autoDetectStats.preview && h('div', {
                             className: 'p-2 rounded-lg bg-black/40 border border-emerald-500/20 text-[11px] text-slate-300 font-mono line-clamp-2'
@@ -1018,15 +1024,21 @@
                             h('div', { className: 'flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end' }, [
                                 h('button', {
                                     type: 'button',
-                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-medium text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer',
                                     onClick: () => pasteToField('bookUrl'),
                                     title: 'Paste URL from clipboard'
-                                }, '📋 Paste'),
+                                }, [
+                                    ic('Clipboard', 13),
+                                    'Paste'
+                                ]),
                                 h('button', {
                                     type: 'button',
-                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs transition-colors cursor-pointer text-center',
+                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs transition-colors cursor-pointer text-center flex items-center justify-center gap-1.5',
                                     onClick: () => openPicker('chapterLinks', recipe.bookUrl || recipe.testUrls?.book)
-                                }, '👆 Inspect TOC')
+                                }, [
+                                    ic('Search', 13),
+                                    'Inspect TOC'
+                                ])
                             ])
                         ]),
 
@@ -1049,15 +1061,21 @@
                             h('div', { className: 'flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end' }, [
                                 h('button', {
                                     type: 'button',
-                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-medium text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer',
                                     onClick: () => pasteToField('chapterUrl'),
                                     title: 'Paste URL from clipboard'
-                                }, '📋 Paste'),
+                                }, [
+                                    ic('Clipboard', 13),
+                                    'Paste'
+                                ]),
                                 h('button', {
                                     type: 'button',
-                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs transition-colors cursor-pointer text-center',
+                                    className: 'flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs transition-colors cursor-pointer text-center flex items-center justify-center gap-1.5',
                                     onClick: () => openPicker('content', recipe.chapterUrl || recipe.testUrls?.chapter)
-                                }, '👆 Inspect Chapter')
+                                }, [
+                                    ic('Search', 13),
+                                    'Inspect Chapter'
+                                ])
                             ])
                         ]),
 
@@ -1084,7 +1102,10 @@
                                         window.open(testUrl, '_blank');
                                     }
                                 }
-                            }, '🛡️ Solve Captcha (In-App Browser)')
+                            }, [
+                                ic('Shield', 13, 'text-amber-300'),
+                                'Solve Captcha (In-App Browser)'
+                            ])
                         ])
                     ])
                 ]),
@@ -1094,7 +1115,10 @@
                     key: 'card-mode',
                     className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3'
                 }, [
-                    h('h3', { className: 'text-sm font-semibold text-white' }, '📑 Chapter Ingestion Strategy'),
+                    h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, [
+                        ic('Layers', 15),
+                        'Chapter Ingestion Strategy'
+                    ]),
                     h('div', { className: 'grid grid-cols-2 gap-3 text-xs' }, [
                         h('button', {
                             className: `p-3 rounded-xl border text-left transition-all ${recipe.mode === 'list' ? 'bg-indigo-600/20 border-indigo-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`,
@@ -1118,16 +1142,22 @@
                     key: 'card-chapter',
                     className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3'
                 }, [
-                    h('h3', { className: 'text-sm font-semibold text-white' }, '📖 Chapter Reading Elements'),
+                    h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, [
+                        ic('BookOpen', 15),
+                        'Chapter Reading Elements'
+                    ]),
                     h('div', { className: 'space-y-3 text-xs' }, [
                         // Content Selector
                         h('div', { className: 'space-y-1' }, [
                             h('div', { className: 'flex justify-between items-center' }, [
                                 h('span', { className: 'text-slate-300 font-medium' }, 'Story Prose / Main Content'),
                                 h('button', {
-                                    className: 'text-indigo-400 hover:text-indigo-300 font-medium',
+                                    className: 'text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1',
                                     onClick: () => openPicker('content', recipe.chapterUrl, recipe.chapter?.contentSelector)
-                                }, '👆 Tap to Pick')
+                                }, [
+                                    ic('Search', 12),
+                                    'Tap to Pick'
+                                ])
                             ]),
                             showAdvanced && h('input', {
                                 className: 'w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 font-mono text-white text-xs',
@@ -1142,9 +1172,12 @@
                             h('div', { className: 'flex justify-between items-center' }, [
                                 h('span', { className: 'text-slate-300 font-medium' }, 'Chapter Title'),
                                 h('button', {
-                                    className: 'text-indigo-400 hover:text-indigo-300 font-medium',
+                                    className: 'text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1',
                                     onClick: () => openPicker('chapterTitle', recipe.chapterUrl, recipe.chapter?.titleSelector)
-                                }, '👆 Tap to Pick')
+                                }, [
+                                    ic('Search', 12),
+                                    'Tap to Pick'
+                                ])
                             ]),
                             showAdvanced && h('input', {
                                 className: 'w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 font-mono text-white text-xs',
@@ -1159,9 +1192,12 @@
                             h('div', { className: 'flex justify-between items-center' }, [
                                 h('span', { className: 'text-slate-300 font-medium' }, 'Elements to Remove (Junk, Ads, Watermarks)'),
                                 h('button', {
-                                    className: 'text-red-400 hover:text-red-300 font-medium',
+                                    className: 'text-red-400 hover:text-red-300 font-medium flex items-center gap-1',
                                     onClick: () => openPicker('remove', recipe.chapterUrl)
-                                }, '👆 Tap Elements to Remove')
+                                }, [
+                                    ic('Trash2', 12),
+                                    'Tap Elements to Remove'
+                                ])
                             ]),
                             showAdvanced && h('input', {
                                 className: 'w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 font-mono text-white text-xs',
@@ -1178,7 +1214,10 @@
                     key: 'card-network',
                     className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3'
                 }, [
-                    h('h3', { className: 'text-sm font-semibold text-white' }, '⚙️ Courtesy Delay & Safety'),
+                    h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, [
+                        ic('Sliders', 15),
+                        'Courtesy Delay & Safety'
+                    ]),
                     h('div', { className: 'space-y-3 text-xs' }, [
                         h('label', { className: 'flex items-center gap-2 cursor-pointer text-slate-300' }, [
                             h('input', {
@@ -1222,12 +1261,18 @@
                     className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3'
                 }, [
                     h('div', { className: 'flex items-center justify-between' }, [
-                        h('h3', { className: 'text-sm font-semibold text-white' }, '🧪 Test Recipe Rules'),
+                        h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, [
+                            ic('Play', 14),
+                            'Test Recipe Rules'
+                        ]),
                         h('button', {
-                            className: 'px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-50',
+                            className: 'px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-50 flex items-center gap-1.5',
                             disabled: isTesting,
                             onClick: handleRunTest
-                        }, isTesting ? 'Testing...' : '▶ Run Test')
+                        }, isTesting ? 'Testing...' : [
+                            ic('Play', 12),
+                            'Run Test'
+                        ])
                     ]),
 
                     testResult && h('div', {
@@ -1255,21 +1300,30 @@
                     h('div', { className: 'grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full' }, [
                         h('button', {
                             type: 'button',
-                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 transition-colors text-center text-xs font-medium cursor-pointer',
+                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 transition-colors text-center text-xs font-medium cursor-pointer flex items-center justify-center gap-1.5',
                             onClick: () => RE.Controller.copyCode(recipe, toast)
-                        }, '📋 Copy Code'),
+                        }, [
+                            ic('Copy', 13),
+                            'Copy Code'
+                        ]),
                         h('button', {
                             type: 'button',
-                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 transition-colors text-center text-xs font-medium cursor-pointer',
+                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 transition-colors text-center text-xs font-medium cursor-pointer flex items-center justify-center gap-1.5',
                             onClick: () => RE.Controller.exportFile(recipe, toast)
-                        }, '💾 Export JSON'),
+                        }, [
+                            ic('Download', 13),
+                            'Export JSON'
+                        ]),
                         h('button', {
                             type: 'button',
-                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 transition-colors text-center text-xs font-medium cursor-pointer',
+                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 transition-colors text-center text-xs font-medium cursor-pointer flex items-center justify-center gap-1.5',
                             onClick: handlePasteRecipeCode
-                        }, '📋 Paste Code'),
+                        }, [
+                            ic('Clipboard', 13),
+                            'Paste Code'
+                        ]),
                         h('label', {
-                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 cursor-pointer flex items-center justify-center transition-colors text-xs font-medium',
+                            className: 'px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 hover:border-slate-500 cursor-pointer flex items-center justify-center transition-colors text-xs font-medium gap-1.5',
                             title: 'Import recipe JSON'
                         }, [
                             h('input', {
@@ -1278,7 +1332,8 @@
                                 className: 'hidden',
                                 onChange: handleImportRecipeFile
                             }),
-                            '📥 Import JSON'
+                            ic('Upload', 13),
+                            'Import JSON'
                         ])
                     ]),
                     h('button', {
@@ -1291,7 +1346,10 @@
                                 onClose?.();
                             });
                         }
-                    }, '🗑 Delete Recipe')
+                    }, [
+                        ic('Trash2', 13),
+                        'Delete Recipe'
+                    ])
                 ]),
 
                 // Mobile Safe Clearance Spacer
@@ -1318,8 +1376,8 @@
                     onClick: handleClosePrompt,
                     title: 'Exit without saving changes'
                 }, [
-                    renderIcon('x', 16, 'text-slate-300'),
-                    '✕ Exit'
+                    ic('X', 15, 'text-slate-300'),
+                    'Exit'
                 ]),
                 h('div', { className: 'flex items-center gap-2.5' }, [
                     h('label', { className: 'hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-300 cursor-pointer mr-1' }, [
@@ -1337,8 +1395,8 @@
                         onClick: handleSave,
                         title: 'Save all recipe settings and return'
                     }, [
-                        renderIcon('check', 16, 'text-emerald-200'),
-                        '✓ Save Settings & Exit'
+                        ic('Check', 16, 'text-emerald-200'),
+                        'Save Settings & Exit'
                     ])
                 ])
             ]),
@@ -1371,7 +1429,7 @@
                     className: 'bg-slate-900 border border-slate-700/90 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center',
                     onClick: (e) => e.stopPropagation()
                 }, [
-                    h('div', { className: 'w-12 h-12 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-xl font-bold' }, '⚠️'),
+                    h('div', { className: 'w-12 h-12 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto' }, ic('AlertTriangle', 24)),
                     h('div', { className: 'space-y-1.5' }, [
                         h('h3', { className: 'text-base font-bold text-white' }, 'Exit Without Saving?'),
                         h('p', { className: 'text-xs text-slate-300 leading-relaxed' }, 'You have unsaved changes to this site recipe. If you leave now, your changes will be discarded.')
@@ -1436,28 +1494,40 @@
         }, [
             h('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-3' }, [
                 h('div', { className: 'min-w-0' }, [
-                    h('h3', { className: 'text-base font-bold text-white' }, '🌐 Site Recipes & Overrides'),
+                    h('h3', { className: 'text-base font-bold text-white flex items-center gap-2' }, [
+                        ic('Globe', 16),
+                        'Site Recipes & Overrides'
+                    ]),
                     h('p', { className: 'text-xs text-slate-400 mt-0.5' }, 'Custom extraction rules for novel websites')
                 ]),
                 h('div', { className: 'flex flex-wrap items-center gap-2' }, [
                     h('button', {
-                        className: 'px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-medium text-slate-200 transition-colors cursor-pointer',
+                        className: 'px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-medium text-slate-200 transition-colors cursor-pointer flex items-center gap-1.5',
                         onClick: handlePasteRecipe
-                    }, '📋 Paste Code'),
+                    }, [
+                        ic('Clipboard', 12),
+                        'Paste Code'
+                    ]),
                     h('button', {
-                        className: 'px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-medium text-slate-200 transition-colors cursor-pointer',
+                        className: 'px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-medium text-slate-200 transition-colors cursor-pointer flex items-center gap-1.5',
                         onClick: handleImportFile
-                    }, '📂 Open File'),
+                    }, [
+                        ic('Folder', 12),
+                        'Open File'
+                    ]),
                     h('button', {
-                        className: 'px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-xs font-semibold text-white transition-colors cursor-pointer',
+                        className: 'px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-xs font-semibold text-white transition-colors cursor-pointer flex items-center gap-1',
                         onClick: () => openSiteRecipeEditor?.({})
-                    }, '+ New Recipe')
+                    }, [
+                        ic('Plus', 13),
+                        'New Recipe'
+                    ])
                 ])
             ]),
 
             recipes.length === 0 ? h('div', {
                 className: 'py-8 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl'
-            }, 'No custom site recipes yet. When importing a novel, tap the ⚙️ Site Settings button to create one.')
+            }, 'No custom site recipes yet. When importing a novel, tap the Site Settings button to create one.')
             : h('div', { className: 'divide-y divide-slate-800/60' }, recipes.map(r => {
                 const isBuiltin = RE?.isBuiltInSite(r.id);
                 return h('div', {
@@ -1479,7 +1549,7 @@
                             onClick: () => openSiteRecipeEditor?.({ recipeId: r.id })
                         }, 'Edit'),
                         h('button', {
-                            className: 'px-2.5 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-500/20 transition-colors',
+                            className: 'px-2.5 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-500/20 transition-colors flex items-center justify-center',
                             title: 'Delete recipe',
                             onClick: () => {
                                 confirmAction?.(`Delete recipe for "${r.id}"?`, async () => {
@@ -1488,7 +1558,7 @@
                                     toast?.(`Deleted recipe for ${r.id}`, 'info');
                                 });
                             }
-                        }, '✕')
+                        }, ic('X', 14))
                     ])
                 ]);
             }))

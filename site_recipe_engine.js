@@ -1706,7 +1706,7 @@ Output valid raw JSON only, no markdown formatting.`;
 
   const scoutOverview = async (url, options = {}, callbacks = {}) => {
     const notify = callbacks?.onProgress || (() => {});
-    notify('reading_overview', '🔍 [1/4] Reading overview page & chapter list...');
+    notify('reading_overview', '[1/4] Reading overview page & chapter list...');
 
     let overviewHtml = '';
     let doc = null;
@@ -1783,7 +1783,7 @@ Output valid raw JSON only, no markdown formatting.`;
 
       // 4. Escalate to In-App Browser if static HTML yielded fewer than 2 chapter links
       if ((!chapters || chapters.length < 2) && liveRes.mode !== 'in_app_browser' && typeof window !== 'undefined' && window.NativeBridge && (window.NativeBridge.openInAppBrowser || window.NativeBridge.resolveCloudflare)) {
-        notify('escalating_browser', '🌐 Only 0-1 chapters visible in static page. Launching In-App Browser to expand live chapters...');
+        notify('escalating_browser', 'Only 0-1 chapters visible in static page. Launching In-App Browser to expand live chapters...');
         try {
           const browserRes = await fetchLiveHtml(url, { forceBrowser: true }, callbacks);
           if (browserRes && browserRes.html && browserRes.html.length > 200) {
@@ -1846,7 +1846,7 @@ Output valid raw JSON only, no markdown formatting.`;
 
   const scoutChapters = async (ch1Url, ch2Url, options = {}, callbacks = {}) => {
     const notify = callbacks?.onProgress || (() => {});
-    notify('analyzing_chapters', '📖 [2/4] Cross-analyzing Chapter 1 & Chapter 2 text...');
+    notify('analyzing_chapters', '[2/4] Cross-analyzing Chapter 1 & Chapter 2 text...');
 
     if (!ch1Url) {
       return {
@@ -2033,7 +2033,7 @@ Return valid raw JSON only:
       throw new Error(`Only ${overview.chapters.length} chapter(s) found on this page. If this website hides chapters behind an accordion or button, please open Site Settings to inspect, or paste a link directly to Chapter 1.`);
     }
 
-    notify('saving_recipe', '💾 [4/4] Finalizing & saving custom recipe...');
+    notify('saving_recipe', '[4/4] Finalizing & saving custom recipe...');
     const isSequentialNextMode = !!(overview.isQuickLinksOnly || overview.chapters.length < 2 || isDirectChapterUrl);
     const recipe = withDefaults({
       id: host,
@@ -2085,9 +2085,9 @@ Return valid raw JSON only:
       }
     };
 
-    notify('done', `✓ Successfully scouted & saved recipe for ${host}!`);
+    notify('done', `Successfully scouted & saved recipe for ${host}!`);
     if (callbacks?.onSuccess) callbacks.onSuccess(result);
-    if (callbacks?.toast) callbacks.toast(`✓ Scouted & saved recipe! (${overview.chapters.length} chapters, ${speed.rateLimitMs}ms delay)`, 'success');
+    if (callbacks?.toast) callbacks.toast(`Scouted & saved recipe! (${overview.chapters.length} chapters, ${speed.rateLimitMs}ms delay)`, 'success');
     return result;
   };
 
@@ -2279,7 +2279,7 @@ Return valid raw JSON only:
         } else if (navigator.clipboard) {
           await navigator.clipboard.writeText(code);
         }
-        if (typeof toast === 'function') toast('Recipe share code copied to clipboard! 📋', 'success');
+        if (typeof toast === 'function') toast('Recipe share code copied to clipboard!', 'success');
         return code;
       } catch (err) {
         if (typeof toast === 'function') toast('Could not copy share code: ' + err.message, 'error');
@@ -2312,7 +2312,7 @@ Return valid raw JSON only:
       try {
         await exportFile(recipe);
         const tFn = typeof toast === 'function' ? toast : toast?.toast;
-        if (typeof tFn === 'function') tFn(`Saved ${recipe.id}.gtrecipe.json! 💾`, 'success');
+        if (typeof tFn === 'function') tFn(`Saved ${recipe.id}.gtrecipe.json!`, 'success');
       } catch (err) {
         const tFn = typeof toast === 'function' ? toast : toast?.toast;
         if (typeof tFn === 'function') tFn('Export failed: ' + err.message, 'error');
@@ -2336,7 +2336,7 @@ Return valid raw JSON only:
     async autoDetect(url, callbacks) {
       try {
         if (callbacks?.onStart) callbacks.onStart();
-        if (callbacks?.toast) callbacks.toast('⚡ AI scanning website layout & chapters...', 'info');
+        if (callbacks?.toast) callbacks.toast('AI scanning website layout & chapters...', 'info');
 
         const fetchHtml = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml)
           ? window.WebNovelImporter.fetchHtml
@@ -2344,7 +2344,7 @@ Return valid raw JSON only:
 
         const result = await autoDetectRecipe(url, callbacks || {}, { fetchHtml });
         if (callbacks?.onSuccess) callbacks.onSuccess(result);
-        if (callbacks?.toast) callbacks.toast(`✓ Discovered ${result.stats?.chaptersCount || 0} chapters & story text!`, 'success');
+        if (callbacks?.toast) callbacks.toast(`Discovered ${result.stats?.chaptersCount || 0} chapters & story text!`, 'success');
         return result;
       } catch (err) {
         if (callbacks?.onError) callbacks.onError(err);

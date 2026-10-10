@@ -228,7 +228,7 @@
   <rect x="40" y="40" width="720" height="1120" fill="none" stroke="url(#goldGrad)" stroke-width="2" opacity="0.4" rx="8" />
   <rect x="52" y="52" width="696" height="1096" fill="none" stroke="#e0e7ff" stroke-width="1" opacity="0.15" rx="6" />
   <circle cx="400" cy="300" r="130" fill="none" stroke="url(#goldGrad)" stroke-width="1" opacity="0.25" />
-  <text x="400" y="315" font-family="sans-serif" font-size="64" font-weight="900" fill="#a5b4fc" text-anchor="middle" letter-spacing="4">✦</text>
+  <text x="400" y="315" font-family="sans-serif" font-size="64" font-weight="900" fill="#a5b4fc" text-anchor="middle" letter-spacing="4">&#9670;</text>
   <text font-family="'Cinzel', 'Noto Serif', serif, sans-serif" font-size="${fontSize}" font-weight="bold" fill="#ffffff" text-anchor="middle">
     ${tspanLines}
   </text>
@@ -243,7 +243,7 @@
     }
 
     // ── Editor State ──
-    const state = {
+    const state = (typeof window !== "undefined" && window.epubEditorState) ? window.epubEditorState : {
         title: '',
         author: '',
         series: '',
@@ -285,6 +285,7 @@
         if (record.epubBlob && !record.isEdited) {
             await parseEpubFile(record.epubBlob);
             if (state.chapters && state.chapters.length > 0) {
+                renderEditorView();
                 return;
             }
             console.warn('EPUB blob in record yielded 0 chapters, falling back to stored chapters array');
@@ -367,7 +368,7 @@
         const preview = document.getElementById('edit-cover-preview');
         if (!preview) return;
         if (state.coverUrl) {
-            preview.innerHTML = `<img src="${state.coverUrl}" style="width:100%; height:100%; object-fit:cover;" alt="Cover" onerror="this.style.display='none'; if(this.parentElement) this.parentElement.innerHTML='<span style=\\'font-size:10px; color:#ef4444; text-align:center; padding:6px;\\'>⚠️ Broken Cover Link</span>';" />`;
+            preview.innerHTML = `<img src="${state.coverUrl}" style="width:100%; height:100%; object-fit:cover;" alt="Cover" onerror="this.style.display='none'; if(this.parentElement) this.parentElement.innerHTML='<span style=\\'font-size:10px; color:#ef4444; text-align:center; padding:6px;\\'>Broken Cover Link</span>';" />`;
         } else {
             preview.innerHTML = `<span style="font-size:11px; color:var(--slate); text-align:center; padding:8px;">No Cover<br><span style="font-size:9px; opacity:0.7;">Click to set</span></span>`;
         }
@@ -580,7 +581,7 @@
             textarea.classList.remove('hidden');
             textarea.style.display = 'block';
         }
-        if (btn) btn.textContent = '👁️ Preview HTML';
+        if (btn) btn.textContent = 'Preview HTML';
         isPreviewMode = false;
         window.isEpubEditorPreviewActive = false;
     }
@@ -704,8 +705,8 @@
             trimmed === '- - -' ||
             trimmed === '———' ||
             trimmed === '–––' ||
-            trimmed === '✦ ✦ ✦' ||
-            trimmed === '❖ ❖ ❖'
+            trimmed === '* * *' ||
+            trimmed === '&#9670; &#9670; &#9670;'
         );
     }
 
@@ -735,9 +736,9 @@
         // 2. Scene dividers / Breaks
         if (isProseDivider(trimmed)) {
             if (isPreview) {
-                return `<div class="scene-break" style="text-align:center; margin:24px 0; letter-spacing:0.4em; color:var(--paper); opacity:0.85; font-size:1.1em;">✦ ✦ ✦</div>`;
+                return `<div class="scene-break" style="text-align:center; margin:24px 0; letter-spacing:0.4em; color:var(--paper); opacity:0.85; font-size:1.1em;">&#9670; &#9670; &#9670;</div>`;
             }
-            return `<div class="scene-break" style="text-align:center; margin:2em 0; letter-spacing:0.4em; opacity:0.85;">✦ ✦ ✦</div>`;
+            return `<div class="scene-break" style="text-align:center; margin:2em 0; letter-spacing:0.4em; opacity:0.85;">&#9670; &#9670; &#9670;</div>`;
         }
 
         // 3. Center block (letters, notices, poems, system status)
@@ -836,7 +837,7 @@
         list.innerHTML = '';
 
         if (state.chapters.length === 0) {
-            list.innerHTML = `<p class="italic text-center py-8 text-xs" style="color:var(--slate);">No chapters in this book. Click "➕ Add Chapter" to start writing.</p>`;
+            list.innerHTML = `<p class="italic text-center py-8 text-xs" style="color:var(--slate);">No chapters in this book. Click "Add Chapter" to start writing.</p>`;
             return;
         }
 
@@ -917,7 +918,7 @@
             numBadge.className = 'text-xs font-mono font-bold shrink-0 cursor-pointer select-none px-1.5 py-0.5 rounded';
             numBadge.style.color = isSub ? '#818cf8' : (isExplicitVolume ? '#a5b4fc' : 'var(--paper-dim)');
             numBadge.style.background = 'rgba(255,255,255,0.06)';
-            numBadge.textContent = isSub ? `↳ #${idx + 1}` : (isExplicitVolume ? `📁 #${idx + 1}` : `#${idx + 1}`);
+            numBadge.textContent = isSub ? `↳ #${idx + 1}` : (isExplicitVolume ? `[Vol] #${idx + 1}` : `#${idx + 1}`);
             numBadge.title = 'Click to jump to a specific position number';
             numBadge.onclick = (e) => {
                 e.stopPropagation();
@@ -959,7 +960,7 @@
             renameBtn.style.padding = '2px 7px';
             renameBtn.style.fontSize = '11px';
             renameBtn.style.fontWeight = '600';
-            renameBtn.innerHTML = '<span>✏️</span><span class="hidden sm:inline">Rename</span>';
+            renameBtn.textContent = 'Rename';
             renameBtn.title = 'Rename this chapter';
             renameBtn.onclick = (e) => {
                 e.stopPropagation();
@@ -990,7 +991,7 @@
                 imgBadge.style.fontSize = '10px';
                 imgBadge.style.color = '#38bdf8';
                 imgBadge.style.borderColor = 'rgba(56,189,248,0.3)';
-                imgBadge.textContent = `🖼️ ${imgCount}`;
+                imgBadge.textContent = `${imgCount} img`;
                 line1Right.appendChild(imgBadge);
             }
 
@@ -1012,7 +1013,7 @@
             editBtn.style.fontSize = '12px';
             editBtn.style.fontWeight = '700';
             editBtn.style.height = '34px';
-            editBtn.textContent = '✏️ Edit Prose';
+            editBtn.textContent = 'Edit Prose';
             editBtn.title = 'Open chapter prose editor';
             editBtn.onclick = () => openChapterModal(idx);
             line2Left.appendChild(editBtn);
@@ -1166,7 +1167,7 @@
             insBtn.className = 'chip-act';
             insBtn.style.padding = '5px 8px';
             insBtn.style.fontSize = '11px';
-            insBtn.textContent = '➕ Below';
+            insBtn.textContent = 'Insert Below';
             insBtn.title = 'Insert a new chapter directly below this one';
             insBtn.onclick = () => insertChapterAt(idx, 'below');
             line2Right.appendChild(insBtn);
@@ -1176,7 +1177,7 @@
             delBtn.className = 'chip-act danger';
             delBtn.style.padding = '5px 8px';
             delBtn.style.fontSize = '11px';
-            delBtn.textContent = '✕';
+            delBtn.textContent = 'Delete';
             delBtn.title = 'Delete this chapter';
             delBtn.onclick = () => {
                 if (confirm(`Delete "${ch.title}"?`)) {
@@ -1364,7 +1365,7 @@ ${bodyHtml}
 
         const imgs = ch.images || [];
         if (imgs.length === 0) {
-            container.innerHTML = `<span class="text-[11px] italic" style="color:var(--slate);">No images in this chapter. Click "🖼️ Insert Image" to add illustrations.</span>`;
+            container.innerHTML = `<span class="text-[11px] italic" style="color:var(--slate);">No images in this chapter. Click "Insert Image" to add illustrations.</span>`;
             return;
         }
 
@@ -1375,8 +1376,8 @@ ${bodyHtml}
             card.innerHTML = `
                 <img src="${resolvedSrc}" style="width:36px; height:36px; object-fit:cover; border-radius:4px;" />
                 <div class="flex flex-col gap-1">
-                    <button type="button" class="chip-act" style="padding:1px 4px; font-size:9px; color:#fbbf24;" title="Set as Book Cover">👑 Cover</button>
-                    <button type="button" class="chip-act danger" style="padding:1px 4px; font-size:9px;" title="Remove image from chapter">✕ Delete</button>
+                    <button type="button" class="chip-act" style="padding:1px 4px; font-size:9px; color:#fbbf24;" title="Set as Book Cover">Cover</button>
+                    <button type="button" class="chip-act danger" style="padding:1px 4px; font-size:9px;" title="Remove image from chapter">Delete</button>
                 </div>
             `;
 
@@ -1639,7 +1640,7 @@ ${bodyHtml}
                     <p class="text-sm font-semibold mb-1">No illustrations stored in this novel yet</p>
                     <p class="text-xs mb-3">You can upload illustrations from your device directly into this chapter.</p>
                     <button type="button" class="tl-btn accent" onclick="document.getElementById('edit-ch-modal-img-input')?.click();" style="padding:6px 14px; font-size:12px;">
-                        ➕ Upload New Illustration
+                        Upload New Illustration
                     </button>
                 </div>
             `;
@@ -1762,7 +1763,7 @@ ${bodyHtml}
             } catch (e) {}
 
             if (!opts.silent && typeof window.toast === 'function') {
-                window.toast(`✓ Saved "${state.title}" to Library!`, 'success');
+                window.toast(`Saved "${state.title}" to Library!`, 'success');
             }
             // Update library view if open
             if (typeof window.loadSavedNovels === 'function') {
@@ -1817,7 +1818,7 @@ ${bodyHtml}
                 item.className = 'flex items-center justify-between p-3 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-indigo-500/50 cursor-pointer transition-all';
                 item.innerHTML = `
                     <div class="flex items-center gap-3 min-w-0 flex-1">
-                        ${n.cover ? `<img src="${n.cover}" class="w-10 h-14 object-cover rounded shrink-0" />` : `<div class="w-10 h-14 bg-slate-800 rounded flex items-center justify-center text-xs shrink-0 text-slate-500">📖</div>`}
+                        ${n.cover ? `<img src="${n.cover}" class="w-10 h-14 object-cover rounded shrink-0" />` : `<div class="w-10 h-14 bg-slate-800 rounded flex items-center justify-center text-xs shrink-0 text-slate-500 font-bold">EPUB</div>`}
                         <div class="min-w-0 flex-1">
                             <h4 class="font-bold text-sm truncate" style="color:var(--paper);">${escapeXml(n.title || 'Untitled')}</h4>
                             <p class="text-xs truncate" style="color:var(--slate);">${escapeXml(n.author || 'Author')} · ${chs.length} chapters</p>
@@ -1926,7 +1927,7 @@ ${bodyHtml}
                 saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save sanitize error:', e));
             }
             if (typeof window.toast === 'function') {
-                window.toast(`✓ Successfully sanitized ${appliedCount} chapter titles!`, 'success');
+                window.toast(`Successfully sanitized ${appliedCount} chapter titles!`, 'success');
             }
         });
 
@@ -1946,7 +1947,7 @@ ${bodyHtml}
             }
             if (typeof window.toast === 'function') {
                 const subCount = state.chapters.filter(c => c.level === 2).length;
-                window.toast(`✓ Hierarchy applied! (${subCount} nested sub-chapters)`, 'success');
+                window.toast(`Hierarchy applied! (${subCount} nested sub-chapters)`, 'success');
             }
         });
         document.getElementById('btn-hierarchy-flatten-all')?.addEventListener('click', () => {
@@ -1959,7 +1960,7 @@ ${bodyHtml}
                 saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save flatten error:', e));
             }
             if (typeof window.toast === 'function') {
-                window.toast(`✓ All chapters flattened to Main Chapters (Level 1)!`, 'info');
+                window.toast(`All chapters flattened to Main Chapters (Level 1)!`, 'info');
             }
         });
 
@@ -1978,7 +1979,7 @@ ${bodyHtml}
                 saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save flatten error:', e));
             }
             if (typeof window.toast === 'function') {
-                window.toast('✓ All chapters restored to normal flat chapters!', 'success');
+                window.toast('All chapters restored to normal flat chapters!', 'success');
             }
         };
 
@@ -2143,7 +2144,7 @@ ${bodyHtml}
                 preview.classList.remove('hidden');
                 preview.style.display = 'block';
                 preview.scrollTop = 0;
-                if (btn) btn.textContent = '✏️ Edit Prose';
+                if (btn) btn.textContent = 'Edit Prose';
 
                 const raw = textarea.value || '';
                 const currTitle = (document.getElementById('edit-ch-modal-title')?.value || state.chapters[modalActiveIdx]?.title || '').trim();
@@ -2291,7 +2292,7 @@ ${bodyHtml}
                     if (state.novelId || (state.chapters && state.chapters.length > 0)) {
                         saveNovelToDatabase({ silent: true }).catch(e => console.warn('Auto-save rename error:', e));
                     }
-                    if (typeof window.toast === 'function') window.toast(`✓ Renamed to "${val}"!`, 'success');
+                    if (typeof window.toast === 'function') window.toast(`Renamed to "${val}"!`, 'success');
                 }
             }
             document.getElementById('edit-rename-modal')?.classList.add('hidden');
@@ -2389,7 +2390,6 @@ ${bodyHtml}
 
     // ── Global Exports ──
     if (typeof window !== 'undefined') {
-    if (typeof window !== "undefined") {
         window.epubEditorHelpers = {
             renderEditorView,
             renderChapterList,
@@ -2400,18 +2400,20 @@ ${bodyHtml}
             extractImagesFromContent,
             saveNovelToDatabase
         };
-    }
         window.editHtml = editHtml;
         window.initEpubEditor = initEpubEditor;
         window.openGalleryModal = openGalleryModal;
         window.closeGalleryModal = closeGalleryModal;
         window.closeGalleryLightbox = closeGalleryLightbox;
-        window.loadEpubForEditing = function(bookOrFile) {
+        window.loadEpubForEditing = async function(bookOrFile) {
             if (!bookOrFile) return;
             if (bookOrFile instanceof Blob || bookOrFile instanceof File) {
-                parseEpubFile(bookOrFile);
+                await parseEpubFile(bookOrFile);
             } else if (typeof bookOrFile === 'object') {
-                loadBookFromRecord(bookOrFile);
+                await loadBookFromRecord(bookOrFile);
+            }
+            if (state.chapters && state.chapters.length > 0) {
+                renderEditorView();
             }
         };
     }
