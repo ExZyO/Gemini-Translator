@@ -1,9 +1,9 @@
 {
-  "version": "8.21.19",
-  "versionCode": 8430,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.19/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.19/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.19",
+  "version": "8.21.20",
+  "versionCode": 8431,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.20/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.20/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.20",
   "releaseDate": "2026-10-10",
-  "releaseNotes": "v8.21.19: Moon+ Reader (.mrexpt) Exact Byte Size Book ID Alignment & Smart Multi-Bookmark Merging. Automatically captures device storage paths and aligns backup IDs directly to target ebook sizes without line shift."
+  "releaseNotes": "v8.21.20: iOS Liquid Sliding Glass Navigation Dock. Floating capsule bar with spring-animated liquid glass indicator, specular sheen highlights, haptic touch feedback, and seamless Android WebView compatibility."
 }
