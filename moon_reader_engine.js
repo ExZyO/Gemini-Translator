@@ -879,7 +879,7 @@
 
     /**
      * Inspects a Moon+ Reader Pro .mrexpt backup file content
-     * Returns metadata about the original book title, path, and entries
+     * Returns metadata about the original book title, path, entries, and sample notes
      */
     inspectMrexpt(content) {
       if (!content || typeof content !== 'string') return null;
@@ -891,6 +891,7 @@
       let inEntry = false;
       let entryLineIdx = 0;
       const sampleHighlights = [];
+      const sampleNotes = [];
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -911,9 +912,13 @@
             oldTitle = line.trim();
           } else if (entryLineIdx === 2 && !oldFilePath) {
             oldFilePath = line.trim();
-          } else if (entryLineIdx === 12) {
+          } else if (entryLineIdx === 10) {
             if (line.trim() && sampleHighlights.length < 5) {
               sampleHighlights.push(line.trim());
+            }
+          } else if (entryLineIdx === 11) {
+            if (line.trim() && sampleNotes.length < 5) {
+              sampleNotes.push(line.trim());
             }
           }
           entryLineIdx++;
@@ -925,7 +930,8 @@
         bookId,
         oldTitle,
         oldFilePath,
-        sampleHighlights
+        sampleHighlights,
+        sampleNotes
       };
     },
 
@@ -944,6 +950,221 @@
     },
 
     /**
+     * Normalizes a raw array of entry lines into a structured object with safe defaults
+     */
+    _normalizeParsedEntry(lines) {
+      const rawLines = lines ? [...lines] : [];
+      while (rawLines.length < 16) {
+        rawLines.push('0');
+      }
+      return {
+        id: rawLines[0] || '1',
+        title: rawLines[1] || '',
+        filePath: rawLines[2] || '',
+        filePathLower: rawLines[3] || '',
+        chapterIdx: parseInt(rawLines[4], 10) || 0,
+        paraOffset: parseInt(rawLines[5], 10) || 0,
+        charOffset: parseInt(rawLines[6], 10) || 0,
+        type: parseInt(rawLines[7], 10) || 0,
+        color: rawLines[8] || '0',
+        timestamp: rawLines[9] || String(Date.now()),
+        highlightText: rawLines[10] || '',
+        noteText: rawLines[11] || '',
+        extraLines: rawLines.slice(12),
+        rawLines
+      };
+    },
+
+    /**
+     * Parses a Moon+ Reader Pro .mrexpt file into structured records
+     */
+    parseMrexptEntries(content) {
+      if (!content || typeof content !== 'string') return null;
+      const lines = content.split(/\r?\n/);
+      let bookId = '';
+      const headerLines = [];
+      const entries = [];
+      let inEntry = false;
+      let curEntry = null;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === '#') {
+          if (curEntry) {
+            entries.push(this._normalizeParsedEntry(curEntry));
+          }
+          curEntry = [];
+          inEntry = true;
+          continue;
+        }
+        if (!inEntry) {
+          if (i === 0) {
+            bookId = line.trim();
+          } else {
+            headerLines.push(line);
+          }
+          continue;
+        }
+        if (curEntry) {
+          curEntry.push(line);
+        }
+      }
+      if (curEntry) {
+        entries.push(this._normalizeParsedEntry(curEntry));
+      }
+
+      return {
+        bookId,
+        headerLines,
+        entries
+      };
+    },
+
+    /**
+     * Merges target phone book credentials with a master backup .mrexpt file.
+     * Supports discarding dummy sample bookmarks, deduplicating overlapping notes,
+     * re-stamping target book ID, title, and device file path.
+     */
+    mergeMrexpts(targetSampleText, masterBackupText, options = {}) {
+      const {
+        discardSampleBookmark = true,
+        customBookId = '',
+        customTitle = '',
+        customFilePath = '',
+        renumberIds = true
+      } = options;
+
+      const targetData = targetSampleText ? this.parseMrexptEntries(targetSampleText) : null;
+      const masterData = masterBackupText ? this.parseMrexptEntries(masterBackupText) : null;
+
+      if (!masterData && !targetData) return null;
+
+      const baseMaster = masterData || targetData;
+      const baseTarget = targetData || masterData;
+
+      let resolvedBookId = String(customBookId || baseTarget.bookId || baseMaster.bookId || '1').trim();
+      let resolvedTitle = String(customTitle || (baseTarget.entries[0] && baseTarget.entries[0].title) || (baseMaster.entries[0] && baseMaster.entries[0].title) || 'Book.epub').trim();
+      let resolvedFilePath = String(customFilePath || (baseTarget.entries[0] && baseTarget.entries[0].filePath) || (baseMaster.entries[0] && baseMaster.entries[0].filePath) || '').trim().replace(/\\/g, '/');
+
+      // Helper for unique bookmark identity
+      const getEntryKey = (entry) => {
+        const ch = entry.chapterIdx !== undefined ? entry.chapterIdx : 0;
+        const p = entry.paraOffset !== undefined ? entry.paraOffset : 0;
+        const c = entry.charOffset !== undefined ? entry.charOffset : 0;
+        const textKey = (entry.highlightText || '').trim().slice(0, 40).toLowerCase();
+        return `${ch}:${p}:${c}:${textKey}`;
+      };
+
+      const entryMap = new Map();
+      let dummyDiscardedCount = 0;
+
+      // 1. Process targetData entries
+      if (targetData && targetData.entries && !discardSampleBookmark) {
+        for (const entry of targetData.entries) {
+          const key = getEntryKey(entry);
+          entryMap.set(key, { ...entry });
+        }
+      } else if (targetData && targetData.entries && discardSampleBookmark) {
+        dummyDiscardedCount = targetData.entries.length;
+      }
+
+      // 2. Process masterData entries
+      let masterAddedCount = 0;
+      let notesMergedCount = 0;
+      if (masterData && masterData.entries) {
+        for (const entry of masterData.entries) {
+          const key = getEntryKey(entry);
+          if (entryMap.has(key)) {
+            const existing = entryMap.get(key);
+            if (!existing.noteText && entry.noteText) {
+              existing.noteText = entry.noteText;
+              notesMergedCount++;
+            } else if (existing.noteText && entry.noteText && existing.noteText !== entry.noteText) {
+              if (!existing.noteText.includes(entry.noteText)) {
+                existing.noteText = `${existing.noteText}\n${entry.noteText}`;
+                notesMergedCount++;
+              }
+            }
+            if (Number(entry.timestamp) > Number(existing.timestamp)) {
+              existing.timestamp = entry.timestamp;
+            }
+          } else {
+            entryMap.set(key, { ...entry });
+            masterAddedCount++;
+          }
+        }
+      }
+
+      // 3. Sort entries chronologically by story position
+      const mergedEntries = Array.from(entryMap.values());
+      mergedEntries.sort((a, b) => {
+        if (a.chapterIdx !== b.chapterIdx) return a.chapterIdx - b.chapterIdx;
+        if (a.paraOffset !== b.paraOffset) return a.paraOffset - b.paraOffset;
+        return a.charOffset - b.charOffset;
+      });
+
+      // 4. Serialize back into standard .mrexpt format
+      const finalLines = [];
+      finalLines.push(resolvedBookId);
+      finalLines.push(baseTarget.headerLines[0] || 'indent:false');
+      finalLines.push(baseTarget.headerLines[1] || 'trim:false');
+
+      for (let idx = 0; idx < mergedEntries.length; idx++) {
+        const e = mergedEntries[idx];
+        const assignedId = renumberIds ? String(idx + 1) : (e.id || String(idx + 1));
+        finalLines.push('#');
+        finalLines.push(assignedId);
+        finalLines.push(resolvedTitle);
+        finalLines.push(resolvedFilePath);
+        finalLines.push(resolvedFilePath.toLowerCase());
+        finalLines.push(String(e.chapterIdx));
+        finalLines.push(String(e.paraOffset));
+        finalLines.push(String(e.charOffset));
+        finalLines.push(String(e.type));
+        finalLines.push(String(e.color));
+        finalLines.push(String(e.timestamp));
+        finalLines.push(e.highlightText || '');
+        finalLines.push(e.noteText || '');
+        const extra = (e.extraLines && e.extraLines.length >= 4) ? e.extraLines : ['0', '0', '0', '0'];
+        finalLines.push(extra[0] || '0');
+        finalLines.push(extra[1] || '0');
+        finalLines.push(extra[2] || '0');
+        finalLines.push(extra[3] || '0');
+      }
+
+      return {
+        mergedText: finalLines.join('\n'),
+        totalEntries: mergedEntries.length,
+        masterAddedCount,
+        notesMergedCount,
+        dummyDiscardedCount,
+        resolvedBookId,
+        resolvedTitle,
+        resolvedFilePath
+      };
+    },
+
+    /**
+     * Direct alignment when the user only has the .epub file and master backup file.
+     * Stamps the EPUB file name, title, and selected Android folder path across all entries.
+     */
+    alignMrexptToEpub({ epubFileName, epubTitle, deviceFolder, targetBookId, masterBackupText } = {}) {
+      if (!masterBackupText) return null;
+      const folder = (deviceFolder || '/storage/emulated/0/Books/').trim().replace(/\\/g, '/').replace(/\/?$/, '/');
+      const cleanFileName = (epubFileName || 'Book.epub').trim();
+      const customFilePath = folder + cleanFileName;
+      const customTitle = (epubFileName || epubTitle || 'Book.epub').trim();
+
+      return this.mergeMrexpts(null, masterBackupText, {
+        discardSampleBookmark: false,
+        customBookId: targetBookId || '',
+        customTitle,
+        customFilePath,
+        renumberIds: true
+      });
+    },
+
+    /**
      * Migrates a Moon+ Reader Pro .mrexpt backup file content to match a new book title, book ID, and/or file path.
      * Preserves 100% of bookmark coordinates, notes, colors, offsets, and timestamps.
      */
@@ -957,7 +1178,7 @@
 
       let resolvedFilePath = (newFilePath || '').trim().replace(/\\/g, '/');
 
-      // If resolvedFilePath is just a file name (no slash), find existing directory prefix from file
+      // If resolvedFilePath is just a file name (no slash), find existing directory prefix or default
       if (resolvedFilePath && !resolvedFilePath.includes('/')) {
         let existingDir = '';
         let scanInEntry = false;
@@ -979,9 +1200,7 @@
             scanIdx++;
           }
         }
-        if (existingDir) {
-          resolvedFilePath = existingDir + resolvedFilePath;
-        }
+        resolvedFilePath = (existingDir || '/storage/emulated/0/Books/') + resolvedFilePath;
       }
 
       for (let i = 0; i < lines.length; i++) {

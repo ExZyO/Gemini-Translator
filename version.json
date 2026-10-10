@@ -1,9 +1,9 @@
 {
-  "version": "8.21.16",
-  "versionCode": 8427,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.16/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.16/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.16",
+  "version": "8.21.17",
+  "versionCode": 8428,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.17/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.17/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.17",
   "releaseDate": "2026-10-10",
-  "releaseNotes": "v8.21.16: Fix Continue Ongoing Novels source search with title sanitization, direct URL support, and real-time streaming results."
+  "releaseNotes": "v8.21.17: Moon+ Reader (.mrexpt) Compatibility & Merge Studio. Aligns credentials, deduplicates overlapping notes, and enables 100% successful imports even for fresh books with 0 bookmarks."
 }

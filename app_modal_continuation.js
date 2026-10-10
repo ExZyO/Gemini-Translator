@@ -78,10 +78,13 @@
           ...prev,
           mrexptData: {
             ...prev.mrexptData,
+            sampleRawText: text,
+            sampleFileName: fileName || 'sample.mrexpt',
             targetBookId: sample.bookId || prev.mrexptData.targetBookId,
             targetTitle: sample.title || prev.mrexptData.targetTitle,
             targetPath: sample.filePath || prev.mrexptData.targetPath,
-            autoMatched: true
+            autoMatched: true,
+            discardSampleBookmark: true
           }
         };
       });
@@ -945,62 +948,178 @@
                 'Original Moon+ Reader Book ID: ', h('span', { style: { color: 'var(--accent, #6366f1)', fontWeight: 700, fontFamily: 'monospace' } }, ongoingEpubModal.mrexptData.info.bookId)
               ),
 
-              // Auto-Match from 1-Bookmark Sample Card
+              // Compatibility Mode Switcher (Phone Passport vs Direct EPUB)
               h('div', {
                 style: {
                   background: 'rgba(99, 102, 241, 0.08)',
                   border: '1px solid rgba(99, 102, 241, 0.25)',
-                  borderRadius: 10,
-                  padding: '10px 12px',
+                  borderRadius: 12,
+                  padding: '12px 14px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 8,
+                  gap: 10,
                   marginTop: 2
                 }
               },
                 h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 } },
-                  h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
-                    ic('Zap', 13), 'Auto-Match Target Book (1-Tap Setup)'
+                  h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
+                    ic('Zap', 13), 'Align to Phone Book (Fix "Not the same book")'
                   ),
                   ongoingEpubModal.mrexptData.autoMatched && h('span', {
                     style: { fontSize: 11, color: '#10b981', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 4 }
-                  }, ic('Check', 11), `Matched ID: ${ongoingEpubModal.mrexptData.targetBookId}`)
+                  }, ic('Check', 11), `Phone ID Matched: ${ongoingEpubModal.mrexptData.targetBookId}`)
                 ),
-                h('div', { style: { fontSize: 11.5, color: 'var(--slate)', lineHeight: 1.4 } },
-                  'In Moon+ Reader, open your updated book, create 1 bookmark, and tap Export. Pick that tiny file here to instantly auto-fill the target ID, Title, and Path:'
-                ),
-                h('label', {
-                  className: 'mini-btn',
-                  style: {
-                    background: 'rgba(99, 102, 241, 0.2)',
-                    border: '1px dashed var(--accent, #6366f1)',
-                    color: 'var(--paper)',
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6
-                  }
-                },
-                  [ic('FileText', 13), ' Pick 1-Bookmark Sample Export'],
-                  h('input', {
-                    type: 'file',
-                    accept: '*/*',
-                    style: { display: 'none' },
-                    onChange: (e) => {
-                      const f = e.target.files?.[0];
-                      if (!f) return;
-                      const reader = new FileReader();
-                      reader.onload = (evt) => {
-                        processSampleMrexpt(evt.target.result, f.name);
-                      };
-                      reader.readAsText(f);
+
+                // Sub-mode tabs: 1. Phone Stamp (Recommended) vs 2. Direct EPUB (Zero bookmarks)
+                h('div', { style: { display: 'flex', gap: 6, background: 'rgba(0,0,0,0.25)', padding: 3, borderRadius: 8 } },
+                  h('button', {
+                    type: 'button',
+                    style: {
+                      flex: 1,
+                      padding: '6px 10px',
+                      borderRadius: 6,
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: 'none',
+                      background: ongoingEpubModal.mrexptData.alignMode !== 'direct' ? 'var(--accent, #6366f1)' : 'transparent',
+                      color: ongoingEpubModal.mrexptData.alignMode !== 'direct' ? '#fff' : 'var(--slate)'
+                    },
+                    onClick: () => setOngoingEpubModal(prev => prev ? {
+                      ...prev,
+                      mrexptData: { ...prev.mrexptData, alignMode: 'passport' }
+                    } : null)
+                  }, 'Option A: Phone Export / 1-Tap Stamp'),
+                  h('button', {
+                    type: 'button',
+                    style: {
+                      flex: 1,
+                      padding: '6px 10px',
+                      borderRadius: 6,
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: 'none',
+                      background: ongoingEpubModal.mrexptData.alignMode === 'direct' ? 'var(--accent, #6366f1)' : 'transparent',
+                      color: ongoingEpubModal.mrexptData.alignMode === 'direct' ? '#fff' : 'var(--slate)'
+                    },
+                    onClick: () => {
+                      const cleanName = ongoingEpubModal.originalFileName || ongoingEpubModal.file?.name || `${ongoingEpubModal.title || 'Novel'}.epub`;
+                      const folder = ongoingEpubModal.folderOptions?.folderPath || '/storage/emulated/0/Books/';
+                      const p = folder.replace(/\/?$/, '/') + cleanName;
+                      setOngoingEpubModal(prev => prev ? {
+                        ...prev,
+                        mrexptData: {
+                          ...prev.mrexptData,
+                          alignMode: 'direct',
+                          targetTitle: cleanName,
+                          targetPath: p
+                        }
+                      } : null);
                     }
-                  })
+                  }, 'Option B: Clean Book (0 Bookmarks)')
+                ),
+
+                ongoingEpubModal.mrexptData.alignMode !== 'direct' ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+                  h('div', { style: { fontSize: 11.5, color: 'var(--slate)', lineHeight: 1.4 } },
+                    'If your book on phone has bookmarks (or if you make 1 quick test highlight in it), export it from Moon+ Reader and select that file below. We will match its exact database ID and merge all your notes without duplicates:'
+                  ),
+                  h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                    h('label', {
+                      className: 'mini-btn',
+                      style: {
+                        flex: 1,
+                        minWidth: 180,
+                        background: 'rgba(99, 102, 241, 0.2)',
+                        border: '1px dashed var(--accent, #6366f1)',
+                        color: 'var(--paper)',
+                        padding: '9px 12px',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6
+                      }
+                    },
+                      [ic('FileText', 13), ongoingEpubModal.mrexptData.sampleFileName ? `Phone File: ${ongoingEpubModal.mrexptData.sampleFileName}` : 'Select Phone Export (.mrexpt)'],
+                      h('input', {
+                        type: 'file',
+                        accept: '*/*',
+                        style: { display: 'none' },
+                        onChange: (e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            processSampleMrexpt(evt.target.result, f.name);
+                          };
+                          reader.readAsText(f);
+                        }
+                      })
+                    )
+                  ),
+                  ongoingEpubModal.mrexptData.sampleRawText && h('label', {
+                    style: {
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontSize: 12,
+                      color: 'var(--paper)',
+                      cursor: 'pointer',
+                      marginTop: 2
+                    }
+                  },
+                    h('input', {
+                      type: 'checkbox',
+                      checked: ongoingEpubModal.mrexptData.discardSampleBookmark !== false,
+                      onChange: (e) => {
+                        const chk = e.target.checked;
+                        setOngoingEpubModal(prev => prev ? {
+                          ...prev,
+                          mrexptData: { ...prev.mrexptData, discardSampleBookmark: chk }
+                        } : null);
+                      }
+                    }),
+                    h('span', null, 'Discard dummy test highlight (keeps book clean if phone export was only a 1-bookmark sample)')
+                  )
+                ) : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+                  h('div', { style: { fontSize: 11.5, color: 'var(--slate)', lineHeight: 1.4 } },
+                    'Your ebook currently has nothing in it. Pick your Android folder preset below to automatically format the file path to match your phone perfectly:'
+                  ),
+                  h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                    [
+                      { label: '/Books/ (Default)', path: '/storage/emulated/0/Books/' },
+                      { label: '/Download/', path: '/storage/emulated/0/Download/' },
+                      { label: '/sdcard/Books/', path: '/sdcard/Books/' }
+                    ].map(preset => {
+                      const cleanName = ongoingEpubModal.originalFileName || ongoingEpubModal.file?.name || `${ongoingEpubModal.title || 'Novel'}.epub`;
+                      const fullP = preset.path + cleanName;
+                      const isSel = ongoingEpubModal.mrexptData.targetPath?.startsWith(preset.path);
+                      return h('button', {
+                        key: preset.label,
+                        type: 'button',
+                        style: {
+                          background: isSel ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                          border: isSel ? '1px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
+                          color: isSel ? 'var(--iris)' : 'var(--slate)',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: '5px 10px',
+                          borderRadius: 6,
+                          cursor: 'pointer'
+                        },
+                        onClick: () => {
+                          setOngoingEpubModal(prev => prev ? {
+                            ...prev,
+                            mrexptData: { ...prev.mrexptData, targetPath: fullP, targetTitle: cleanName }
+                          } : null);
+                        }
+                      }, preset.label);
+                    })
+                  )
                 )
               ),
 
@@ -1021,7 +1140,7 @@
                 }),
                 h('span', { style: { fontSize: 11, color: 'var(--slate)', display: 'flex', alignItems: 'flex-start', gap: 4 } },
                   ic('Info', 12, 'shrink-0 mt-0.5 text-indigo-400'),
-                  h('span', null, 'Moon+ Reader database ID. Keep as original if replacing the file on device, or use the ID from a sample export.')
+                  h('span', null, 'Moon+ Reader database ID. Auto-detected from phone export, or keep original if replacing the file on device.')
                 )
               ),
               h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
@@ -1041,7 +1160,7 @@
                 })
               ),
               h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
-                h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--slate)' } }, 'Target EPUB File Name or Full Path:'),
+                h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--slate)' } }, 'Target EPUB Full Device Path:'),
                 h('input', {
                   type: 'text',
                   className: 'mini-input',
@@ -1057,7 +1176,7 @@
                 }),
                 h('span', { style: { fontSize: 11, color: 'var(--slate)', display: 'flex', alignItems: 'flex-start', gap: 4 } },
                   ic('Info', 12, 'shrink-0 mt-0.5 text-indigo-400'),
-                  h('span', null, 'Entering just the filename (e.g. MyBook.epub) keeps your original device folder automatically.')
+                  h('span', null, 'Full path on phone storage (e.g. /storage/emulated/0/Books/MyBook.epub). Matches Moon+ Reader storage.')
                 )
               ),
               h('button', {
@@ -1081,19 +1200,47 @@
                   boxShadow: '0 3px 10px rgba(16, 185, 129, 0.3)'
                 },
                 onClick: () => {
-                  const migrateFn = window.MoonReaderEngine?.migrateMrexpt;
-                  if (!migrateFn) {
-                    if (typeof toast === 'function') toast('Migration engine not loaded.', 'error');
+                  const engine = window.MoonReaderEngine;
+                  let updatedText = '';
+                  let mergeStats = null;
+
+                  if (ongoingEpubModal.mrexptData.sampleRawText && engine?.mergeMrexpts) {
+                    mergeStats = engine.mergeMrexpts(
+                      ongoingEpubModal.mrexptData.sampleRawText,
+                      ongoingEpubModal.mrexptData.rawText,
+                      {
+                        discardSampleBookmark: ongoingEpubModal.mrexptData.discardSampleBookmark !== false,
+                        customBookId: ongoingEpubModal.mrexptData.targetBookId,
+                        customTitle: ongoingEpubModal.mrexptData.targetTitle,
+                        customFilePath: ongoingEpubModal.mrexptData.targetPath,
+                        renumberIds: true
+                      }
+                    );
+                    updatedText = mergeStats?.mergedText || '';
+                  } else if (engine?.alignMrexptToEpub) {
+                    mergeStats = engine.alignMrexptToEpub({
+                      epubFileName: ongoingEpubModal.originalFileName || ongoingEpubModal.file?.name || `${ongoingEpubModal.title || 'Novel'}.epub`,
+                      epubTitle: ongoingEpubModal.mrexptData.targetTitle,
+                      deviceFolder: ongoingEpubModal.folderOptions?.folderPath || '/storage/emulated/0/Books/',
+                      targetBookId: ongoingEpubModal.mrexptData.targetBookId,
+                      masterBackupText: ongoingEpubModal.mrexptData.rawText
+                    });
+                    updatedText = mergeStats?.mergedText || '';
+                  } else if (engine?.migrateMrexpt) {
+                    updatedText = engine.migrateMrexpt(ongoingEpubModal.mrexptData.rawText, {
+                      newBookId: ongoingEpubModal.mrexptData.targetBookId,
+                      newTitle: ongoingEpubModal.mrexptData.targetTitle,
+                      newFilePath: ongoingEpubModal.mrexptData.targetPath
+                    });
+                  }
+
+                  if (!updatedText) {
+                    if (typeof toast === 'function') toast('Failed to generate compatible backup text.', 'error');
                     return;
                   }
-                  const updatedText = migrateFn(ongoingEpubModal.mrexptData.rawText, {
-                    newBookId: ongoingEpubModal.mrexptData.targetBookId,
-                    newTitle: ongoingEpubModal.mrexptData.targetTitle,
-                    newFilePath: ongoingEpubModal.mrexptData.targetPath
-                  });
+
                   const blob = new Blob([updatedText], { type: 'application/octet-stream' });
                   let rawName = (ongoingEpubModal.mrexptData.fileName || 'backup.mrexpt').trim();
-                  // Clean up any double extensions (.txt) or _fixed suffix so it saves exactly as .mrexpt
                   let downloadName = rawName.replace(/\.txt$/i, '').replace(/_fixed(?=\.mrexpt|$)/i, '');
                   if (!/\.mrexpt$/i.test(downloadName)) {
                     downloadName = `${downloadName}.mrexpt`;
@@ -1109,27 +1256,41 @@
                   }
                   setOngoingEpubModal(prev => prev ? {
                     ...prev,
-                    mrexptData: { ...prev.mrexptData, isDone: true }
+                    mrexptData: { ...prev.mrexptData, isDone: true, mergeStats }
                   } : null);
                   if (typeof toast === 'function') {
-                    toast(`Downloaded "${downloadName}"! Import this into Moon+ Reader Pro.`, 'success');
+                    const countMsg = mergeStats ? ` (${mergeStats.totalEntries} bookmarks aligned)` : '';
+                    toast(`Downloaded "${downloadName}"${countMsg}! 100% ready for Moon+ Reader Pro.`, 'success');
                   }
                 }
-              }, [ic('Download', 14), ' Download .mrexpt File']),
+              }, [ic('Download', 14), ' Download Compatible .mrexpt File']),
               ongoingEpubModal.mrexptData.isDone && h('div', {
                 style: {
-                  padding: '8px 12px',
-                  borderRadius: 8,
+                  padding: '10px 14px',
+                  borderRadius: 10,
                   background: 'rgba(16, 185, 129, 0.12)',
                   border: '1px solid rgba(16, 185, 129, 0.3)',
                   color: '#10b981',
                   fontSize: 12,
-                  lineHeight: 1.4,
+                  lineHeight: 1.5,
                   display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 6
+                  flexDirection: 'column',
+                  gap: 4
                 }
-              }, ic('Check', 14, 'shrink-0 mt-0.5'), h('span', null, 'Ready! In Moon+ Reader Pro, open your updated EPUB → tap Bookmarks → Options → Restore → select the newly downloaded fixed file.'))
+              },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 } },
+                  ic('Check', 14, 'shrink-0'),
+                  h('span', null, '100% Compatible with Moon+ Reader!')
+                ),
+                ongoingEpubModal.mrexptData.mergeStats && h('div', { style: { fontSize: 11.5, color: 'var(--paper)', opacity: 0.9 } },
+                  `Aligned ${ongoingEpubModal.mrexptData.mergeStats.totalEntries} bookmarks` +
+                  (ongoingEpubModal.mrexptData.mergeStats.notesMergedCount > 0 ? `, merged ${ongoingEpubModal.mrexptData.mergeStats.notesMergedCount} personal notes` : '') +
+                  (ongoingEpubModal.mrexptData.mergeStats.dummyDiscardedCount > 0 ? `, discarded ${ongoingEpubModal.mrexptData.mergeStats.dummyDiscardedCount} test stamp bookmark` : '')
+                ),
+                h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } },
+                  'In Moon+ Reader Pro: open your book → tap Bookmarks → Options → Restore → pick the downloaded file. It will import with 0 errors!'
+                )
+              )
             )
           )
         ),
