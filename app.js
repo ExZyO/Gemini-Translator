@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.15';
+    let VERSION = '8.21.16';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -347,8 +347,10 @@
       // ══════════════════════════════════════════════════════════════════════════
       const handleSearchContinuationSources = async (query) => {
         if (window.MoonReaderEngine?.Continuation?.handleSearchContinuationSources) {
-          return window.MoonReaderEngine.Continuation.handleSearchContinuationSources(query, {}, {
-            setOngoingEpubModal
+          return window.MoonReaderEngine.Continuation.handleSearchContinuationSources(query, { ongoingEpubModal }, {
+            toast,
+            setOngoingEpubModal,
+            handleScanContinuationToc
           });
         }
       };

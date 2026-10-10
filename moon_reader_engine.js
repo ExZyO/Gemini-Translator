@@ -337,14 +337,70 @@
     /**
      * Searches both built-in scrapers and extension plugins for continuation sources
      */
-    async searchContinuationSources(query) {
-      const cleanQuery = (query || '').trim();
-      if (!cleanQuery) return [];
+    async searchContinuationSources(query, onPartial = null) {
+      const rawQuery = (query || '').trim();
+      if (!rawQuery) return [];
+
+      // 1. Direct novel or chapter URL entered into search box
+      if (/^https?:\/\//i.test(rawQuery)) {
+        const directItem = {
+          id: rawQuery,
+          title: 'Direct Novel Source',
+          author: '',
+          url: rawQuery,
+          cover: '',
+          summary: '',
+          chapters: '',
+          source: 'Direct Web URL'
+        };
+        if (typeof onPartial === 'function') {
+          onPartial([directItem]);
+        }
+        return [directItem];
+      }
+
+      // 2. Intelligent title sanitization:
+      // Strip .epub, bracketed/parenthetical volume tags, chapter counts, branding, and noise
+      let cleanQuery = rawQuery
+        .replace(/\.epub$/i, '')
+        .replace(/\s*\[(?:vol(?:ume)?\.?\s*\d+|complete|ongoing|mtl|web\s*novel)[^\]]*\]/gi, '')
+        .replace(/\s*\((?:vol(?:ume)?\.?\s*\d+|ch(?:apter)?\.?\s*\d+(?:-\d+)?|complete|ongoing|mtl)[^)]*\)/gi, '')
+        .replace(/\s*-\s*(?:chapter|ch\.?|ep\.?)\s*\d+.*$/i, '')
+        .replace(/\s*-\s*\d+\s*chs?$/i, '')
+        .replace(/\s*[-|–—:•~]\s*(?:Novel\s*Fire(?:\.net)?|Novelfire(?:\.net)?|Lnori|Novel\s*Buddy|Lightnovelpub|Royal\s*Road)\s*$/i, '')
+        .trim();
+      if (!cleanQuery) cleanQuery = rawQuery;
+
       const results = [];
       const seenUrls = new Set();
 
+      const sortResults = (list) => {
+        const qLower = cleanQuery.toLowerCase();
+        list.sort((a, b) => {
+          const aTitle = (a.title || '').toLowerCase();
+          const bTitle = (b.title || '').toLowerCase();
+          const aExact = aTitle === qLower ? 3 : (aTitle.startsWith(qLower) ? 2 : (aTitle.includes(qLower) ? 1 : 0));
+          const bExact = bTitle === qLower ? 3 : (bTitle.startsWith(qLower) ? 2 : (bTitle.includes(qLower) ? 1 : 0));
+          if (bExact !== aExact) return bExact - aExact;
+          const aCover = a.cover ? 1 : 0;
+          const bCover = b.cover ? 1 : 0;
+          return bCover - aCover;
+        });
+      };
+
+      const emitPartial = () => {
+        if (typeof onPartial === 'function' && results.length > 0) {
+          try {
+            const copy = [...results];
+            sortResults(copy);
+            onPartial(copy);
+          } catch (_) {}
+        }
+      };
+
       const addItems = (items) => {
-        if (!Array.isArray(items)) return;
+        if (!Array.isArray(items) || items.length === 0) return;
+        let added = false;
         for (const p of items) {
           const u = (p.url || p.path || '').replace(/\/$/, '');
           if (u && !seenUrls.has(u)) {
@@ -357,59 +413,81 @@
               cover: p.cover || '',
               summary: p.summary || '',
               chapters: p.chapters || '',
+              rating: p.rating || '',
+              status: p.status || '',
               source: p.source || 'Online Source'
             });
+            added = true;
           }
+        }
+        if (added) {
+          emitPartial();
         }
       };
 
-      // 1. Run built-in scrapers and installed source plugins in parallel with fast 5s timeouts
-      const scraperPromise = (async () => {
-        if (window.WebNovelImporter?.searchNovels) {
-          try {
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Scraper timeout')), 5000));
-            const scraperResults = await Promise.race([
-              window.WebNovelImporter.searchNovels(cleanQuery, 'all'),
-              timeoutPromise
-            ]);
-            addItems(scraperResults);
-          } catch (e) {
-            console.warn('[MoonReaderEngine] Scraper search error or timeout:', e);
-          }
-        }
-      })();
+      // 3. Multi-tier search: Query CrawlerEngine, built-in scrapers, and source plugins in parallel with streaming
+      const searchTasks = [];
 
-      const pluginPromise = (async () => {
-        const reg = window.sourceRegistry || window.SourceRegistry;
+      // Task A: WebNovelCrawlerEngine searchNovels with streaming
+      if (typeof window !== 'undefined' && window.WebNovelCrawlerEngine?.searchNovels) {
+        searchTasks.push(
+          window.WebNovelCrawlerEngine.searchNovels(cleanQuery, 'all', {
+            toast: () => {}, // silent background search
+            onResults: (partial) => {
+              addItems(partial);
+            }
+          }).then(res => {
+            addItems(res);
+          }).catch(err => {
+            console.warn('[MoonReaderEngine] Crawler search error:', err);
+          })
+        );
+      } else {
+        // Task B: Direct WebNovelImporter.searchNovels with streaming partials
+        if (typeof window !== 'undefined' && window.WebNovelImporter?.searchNovels) {
+          searchTasks.push(
+            window.WebNovelImporter.searchNovels(cleanQuery, 'all', (partial) => {
+              addItems(partial);
+            }).then(res => {
+              addItems(res);
+            }).catch(err => {
+              console.warn('[MoonReaderEngine] Importer search error:', err);
+            })
+          );
+        }
+
+        // Task C: Direct Source Registry extensions with streaming partials
+        const reg = (typeof window !== 'undefined' ? (window.sourceRegistry || window.SourceRegistry) : null);
         if (reg && typeof reg.searchAll === 'function') {
-          try {
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Plugin timeout')), 5000));
-            const pluginResults = await Promise.race([
-              reg.searchAll(cleanQuery),
-              timeoutPromise
-            ]);
-            addItems(pluginResults);
-          } catch (e) {
-            console.warn('[MoonReaderEngine] Plugin search error or timeout:', e);
-          }
+          searchTasks.push(
+            reg.searchAll(cleanQuery, (partial) => {
+              addItems(partial);
+            }).then(res => {
+              addItems(res);
+            }).catch(err => {
+              console.warn('[MoonReaderEngine] Plugin search error:', err);
+            })
+          );
         }
-      })();
+      }
 
-      await Promise.allSettled([scraperPromise, pluginPromise]);
+      if (searchTasks.length > 0) {
+        await Promise.allSettled(searchTasks);
+      }
 
-      // 2. Rank exact title matches and entries with covers first
-      const qLower = cleanQuery.toLowerCase();
-      results.sort((a, b) => {
-        const aTitle = (a.title || '').toLowerCase();
-        const bTitle = (b.title || '').toLowerCase();
-        const aExact = aTitle === qLower ? 3 : (aTitle.startsWith(qLower) ? 2 : (aTitle.includes(qLower) ? 1 : 0));
-        const bExact = bTitle === qLower ? 3 : (bTitle.startsWith(qLower) ? 2 : (bTitle.includes(qLower) ? 1 : 0));
-        if (bExact !== aExact) return bExact - aExact;
-        const aCover = a.cover ? 1 : 0;
-        const bCover = b.cover ? 1 : 0;
-        return bCover - aCover;
-      });
+      // 4. Secondary fallback: If 0 results and cleanQuery differed from rawQuery, try rawQuery
+      if (results.length === 0 && cleanQuery !== rawQuery && rawQuery.length > 2) {
+        if (typeof window !== 'undefined' && window.WebNovelImporter?.searchNovels) {
+          try {
+            const rawRes = await window.WebNovelImporter.searchNovels(rawQuery, 'all', (partial) => {
+              addItems(partial);
+            });
+            addItems(rawRes);
+          } catch (_) {}
+        }
+      }
 
+      sortResults(results);
       return results;
     },
 
@@ -1053,29 +1131,83 @@
       },
 
       async handleSearchContinuationSources(cleanTitle, options = {}, callbacks = {}) {
-        const query = (cleanTitle || options.query || '').trim();
-        if (!query) return [];
+        const raw = (cleanTitle || options.query || '').trim();
+        if (!raw) return [];
         const setOngoingEpubModal = callbacks.setOngoingEpubModal || callbacks.onModalState;
-        if (typeof setOngoingEpubModal === 'function') {
-          setOngoingEpubModal(prev => prev ? { ...prev, isSearchingSources: true, continuationSources: [] } : null);
+        const toast = callbacks.toast || (typeof window !== 'undefined' ? window.toast : null);
+
+        // If direct novel URL entered into search box
+        if (/^https?:\/\//i.test(raw)) {
+          if (typeof toast === 'function') toast('Direct novel URL detected. Scanning table of contents…', 'info');
+          if (typeof setOngoingEpubModal === 'function') {
+            setOngoingEpubModal(prev => prev ? {
+              ...prev,
+              sourceUrl: raw,
+              isSearchingSources: false,
+              hasSearched: true,
+              continuationSources: [{
+                id: raw,
+                title: prev.title || 'Direct Source',
+                url: raw,
+                source: 'Direct Web URL'
+              }]
+            } : null);
+          }
+          const onScan = callbacks.handleScanContinuationToc || callbacks.onScanToc;
+          if (typeof onScan === 'function') {
+            onScan(raw, options.ongoingEpubModal?.existingCount || 0);
+          }
+          return [];
         }
+
+        if (typeof setOngoingEpubModal === 'function') {
+          setOngoingEpubModal(prev => prev ? {
+            ...prev,
+            isSearchingSources: true,
+            hasSearched: true,
+            continuationSources: []
+          } : null);
+        }
+
         try {
-          const deduped = await MoonReaderEngine.searchContinuationSources(query);
+          const deduped = await MoonReaderEngine.searchContinuationSources(raw, (partialList) => {
+            if (typeof setOngoingEpubModal === 'function') {
+              setOngoingEpubModal(prev => {
+                if (!prev) return null;
+                return {
+                  ...prev,
+                  continuationSources: partialList
+                };
+              });
+            }
+          });
+
           if (typeof setOngoingEpubModal === 'function') {
             setOngoingEpubModal(prev => {
               if (!prev) return null;
               return {
                 ...prev,
                 isSearchingSources: false,
+                hasSearched: true,
                 continuationSources: deduped
               };
             });
           }
+
+          if (deduped.length === 0 && typeof toast === 'function') {
+            toast('No online sources found for this keyword. Try a shorter title or paste the novel URL directly.', 'warning');
+          } else if (deduped.length > 0 && typeof toast === 'function') {
+            toast(`Found ${deduped.length} source match${deduped.length === 1 ? '' : 'es'}! Tap any source below to switch.`, 'success');
+          }
+
           return deduped;
         } catch (err) {
           console.error('[handleSearchContinuationSources] Error:', err);
           if (typeof setOngoingEpubModal === 'function') {
-            setOngoingEpubModal(prev => prev ? { ...prev, isSearchingSources: false } : null);
+            setOngoingEpubModal(prev => prev ? { ...prev, isSearchingSources: false, hasSearched: true } : null);
+          }
+          if (typeof toast === 'function') {
+            toast('Failed searching sources: ' + (err.message || err), 'error');
           }
           return [];
         }

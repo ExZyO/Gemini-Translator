@@ -1,9 +1,9 @@
 {
-  "version": "8.21.15",
-  "versionCode": 8426,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.15/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.15/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.15",
+  "version": "8.21.16",
+  "versionCode": 8427,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.16/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.16/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.16",
   "releaseDate": "2026-10-10",
-  "releaseNotes": "v8.21.15: Fix Lnori cover resolution, enforce Safe Recipe Delay mode, and restore Select EPUB File and Load from Saved Library in Studio Editor."
+  "releaseNotes": "v8.21.16: Fix Continue Ongoing Novels source search with title sanitization, direct URL support, and real-time streaming results."
 }

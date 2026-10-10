@@ -538,7 +538,8 @@
                 onChange: (e) => setOngoingEpubModal(prev => prev ? { ...prev, searchQuery: e.target.value } : null),
                 onKeyDown: (e) => {
                   if (e.key === 'Enter' && handleSearchContinuationSources) {
-                    handleSearchContinuationSources(ongoingEpubModal.searchQuery || ongoingEpubModal.title);
+                    const q = (ongoingEpubModal.searchQuery !== undefined ? ongoingEpubModal.searchQuery : ongoingEpubModal.title) || '';
+                    if (q.trim()) handleSearchContinuationSources(q);
                   }
                 }
               }),
@@ -547,64 +548,97 @@
                 className: 'mini-btn',
                 style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '0 16px', height: 42, borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6 },
                 disabled: ongoingEpubModal.isSearchingSources || ongoingEpubModal.isFetching,
-                onClick: () => handleSearchContinuationSources && handleSearchContinuationSources(ongoingEpubModal.searchQuery || ongoingEpubModal.title)
+                onClick: () => {
+                  if (handleSearchContinuationSources) {
+                    const q = (ongoingEpubModal.searchQuery !== undefined ? ongoingEpubModal.searchQuery : ongoingEpubModal.title) || '';
+                    if (q.trim()) handleSearchContinuationSources(q);
+                  }
+                }
               }, ongoingEpubModal.isSearchingSources ? 'Searching…' : [ic('Search', 13), ' Search Sources'])
             ),
 
-            // Matched Sources List
-            ongoingEpubModal.isSearchingSources && h('div', {
+            // Live Searching Banner when 0 results yet
+            ongoingEpubModal.isSearchingSources && (!ongoingEpubModal.continuationSources || ongoingEpubModal.continuationSources.length === 0) && h('div', {
               style: { padding: '16px', textAlign: 'center', color: 'var(--slate)', fontSize: 13 }
             }, 'Searching built-in sources & 278+ extensions by title…'),
 
-            !ongoingEpubModal.isSearchingSources && ongoingEpubModal.continuationSources?.length > 0 && h('div', {
+            // Matched Sources List (renders immediately as partial results stream in!)
+            ongoingEpubModal.continuationSources?.length > 0 && h('div', {
               style: { display: 'flex', flexDirection: 'column', gap: 8 }
             },
-              h('div', { style: { fontSize: 12, color: 'var(--slate)', fontWeight: 600 } }, 'Tap any source below to switch immediately:'),
-              ongoingEpubModal.continuationSources.slice(0, 8).map((srcItem, sIdx) => {
-                const isSelected = ongoingEpubModal.sourceUrl === (srcItem.url || srcItem.path);
-                return h('div', {
-                  key: srcItem.url || srcItem.id || sIdx,
-                  style: {
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '12px 14px',
-                    borderRadius: 12,
-                    background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                    border: isSelected ? '1.5px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    minHeight: 52
-                  },
-                  onClick: () => handleSelectContinuationSource && handleSelectContinuationSource(srcItem)
-                },
-                  h('div', {
+              h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+                h('div', { style: { fontSize: 12, color: 'var(--slate)', fontWeight: 600 } }, 'Tap any source below to switch immediately:'),
+                ongoingEpubModal.isSearchingSources && h('span', { style: { fontSize: 11, color: 'var(--iris)', fontWeight: 500 } }, 'Checking more sources…')
+              ),
+              h('div', {
+                style: {
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  maxHeight: 280,
+                  overflowY: 'auto',
+                  paddingRight: 2
+                }
+              },
+                ongoingEpubModal.continuationSources.slice(0, 16).map((srcItem, sIdx) => {
+                  const isSelected = ongoingEpubModal.sourceUrl === (srcItem.url || srcItem.path);
+                  return h('div', {
+                    key: srcItem.url || srcItem.id || sIdx,
                     style: {
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      background: isSelected ? 'var(--accent, #6366f1)' : 'rgba(255, 255, 255, 0.06)',
-                      color: '#fff',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 700,
-                      fontSize: 12,
-                      flexShrink: 0
-                    }
-                  }, isSelected ? ic('Check', 14) : (srcItem.source ? srcItem.source.slice(0, 2).toUpperCase() : ic('Globe', 14))),
-                  h('div', { style: { flex: 1, minWidth: 0 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                      h('span', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)' } }, srcItem.source || 'Source'),
-                      srcItem.chapters && h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, `(${srcItem.chapters} chs)`),
-                      isSelected && h('span', { style: { fontSize: 11, color: 'var(--iris)', fontWeight: 600 } }, '• Current')
+                      gap: 12,
+                      padding: '12px 14px',
+                      borderRadius: 12,
+                      background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                      border: isSelected ? '1.5px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      minHeight: 52
+                    },
+                    onClick: () => handleSelectContinuationSource && handleSelectContinuationSource(srcItem)
+                  },
+                    h('div', {
+                      style: {
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        background: isSelected ? 'var(--accent, #6366f1)' : 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: 12,
+                        flexShrink: 0
+                      }
+                    }, isSelected ? ic('Check', 14) : (srcItem.source ? srcItem.source.slice(0, 2).toUpperCase() : ic('Globe', 14))),
+                    h('div', { style: { flex: 1, minWidth: 0 } },
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                        h('span', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)' } }, srcItem.source || 'Source'),
+                        srcItem.chapters && h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, `(${srcItem.chapters} chs)`),
+                        isSelected && h('span', { style: { fontSize: 11, color: 'var(--iris)', fontWeight: 600 } }, '• Current')
+                      ),
+                      h('div', { style: { fontSize: 11.5, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, srcItem.title || srcItem.url)
                     ),
-                    h('div', { style: { fontSize: 11.5, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, srcItem.title || srcItem.url)
-                  ),
-                  isSelected && ongoingEpubModal.isScanningToc && h('span', { style: { fontSize: 11.5, color: 'var(--iris)', fontWeight: 600 } }, 'Scanning…')
-                );
-              })
+                    isSelected && ongoingEpubModal.isScanningToc && h('span', { style: { fontSize: 11.5, color: 'var(--iris)', fontWeight: 600 } }, 'Scanning…')
+                  );
+                })
+              )
             ),
+
+            // Helpful feedback when search completed with 0 results
+            !ongoingEpubModal.isSearchingSources && ongoingEpubModal.hasSearched && (!ongoingEpubModal.continuationSources || ongoingEpubModal.continuationSources.length === 0) && h('div', {
+              style: {
+                padding: '14px',
+                textAlign: 'center',
+                color: 'var(--slate)',
+                fontSize: 12.5,
+                background: 'rgba(255, 255, 255, 0.02)',
+                borderRadius: 10,
+                border: '1px dashed var(--hairline)'
+              }
+            }, 'No matching online sources found for this keyword. Try a shorter title, or paste the novel webpage URL directly below.'),
 
             // Direct Custom URL Input
             h('div', { style: { marginTop: 6 } },
