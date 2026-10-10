@@ -426,8 +426,8 @@
 
   /**
    * LiquidGlassDock - iOS & NuvioMobile-style floating liquid glass navigation dock
-   * Supports real-time finger gliding across tabs, elastic liquid morphing,
-   * spring physics snap, haptic feedback, and midnight frosted glass.
+   * Supports continuous 1:1 finger gliding across tabs, liquid stretch physics,
+   * critically-damped spring settle, and dark frosted obsidian glass without vibration.
    */
   function LiquidGlassDock(props) {
     const activeTab = props.activeTab;
@@ -439,66 +439,81 @@
     const navRef = React.useRef(null);
     const pillRef = React.useRef(null);
     const isGlidingRef = React.useRef(false);
+    const lastXRef = React.useRef(0);
     const [hoverIdx, setHoverIdx] = React.useState(null);
 
     const activeNavIdx = Math.max(0, navItems.findIndex(function (item) { return item[0] === activeTab; }));
     const currentDisplayIdx = hoverIdx !== null ? hoverIdx : activeNavIdx;
 
-    const triggerHaptic = function (duration) {
-      try {
-        if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
-          window.navigator.vibrate(duration || 8);
-        }
-      } catch (_) {}
+    const getTabMetrics = function () {
+      if (!navRef.current) return { trackWidth: 0, tabWidth: 0, rect: null };
+      const rect = navRef.current.getBoundingClientRect();
+      const trackWidth = Math.max(0, rect.width - 10); // 5px padding on left & right
+      const tabWidth = trackWidth / (navItems.length || 1);
+      return { trackWidth: trackWidth, tabWidth: tabWidth, rect: rect };
     };
 
-    const getIndexFromX = function (clientX) {
-      if (!navRef.current) return activeNavIdx;
-      const rect = navRef.current.getBoundingClientRect();
-      const relativeX = clientX - rect.left;
-      const tabWidth = rect.width / navItems.length;
-      return Math.max(0, Math.min(navItems.length - 1, Math.floor(relativeX / tabWidth)));
+    const calculatePillPercent = function (clientX, metrics) {
+      if (!metrics.rect || metrics.tabWidth <= 0) return activeNavIdx * 100;
+      const fingerTrackX = clientX - metrics.rect.left - 5;
+      const pillCenterTarget = fingerTrackX - (metrics.tabWidth / 2);
+      const clampedTarget = Math.max(0, Math.min(metrics.trackWidth - metrics.tabWidth, pillCenterTarget));
+      return (clampedTarget / metrics.tabWidth) * 100;
+    };
+
+    const getIndexFromPercent = function (percent) {
+      const rawIdx = Math.round(percent / 100);
+      return Math.max(0, Math.min(navItems.length - 1, rawIdx));
     };
 
     const handlePointerDown = function (e) {
       if (e.button !== undefined && e.button !== 0) return;
       isGlidingRef.current = true;
-      const targetIdx = getIndexFromX(e.clientX);
+      lastXRef.current = e.clientX;
+
+      const metrics = getTabMetrics();
+      const targetPercent = calculatePillPercent(e.clientX, metrics);
+      const targetIdx = getIndexFromPercent(targetPercent);
       setHoverIdx(targetIdx);
-      triggerHaptic(10);
 
       if (pillRef.current) {
-        pillRef.current.style.transition = 'transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1)';
-        pillRef.current.style.transform = 'translate3d(' + (targetIdx * 100) + '%, 0, 0) scaleX(1.08)';
+        // Silky, critically-damped slide toward thumb on touch down
+        pillRef.current.style.transition = 'transform 0.16s cubic-bezier(0.22, 1, 0.36, 1)';
+        pillRef.current.style.transform = 'translate3d(' + targetPercent + '%, 0, 0) scaleX(1.06)';
       }
 
       const onPointerMove = function (moveEvt) {
-        if (!isGlidingRef.current || !navRef.current || !pillRef.current) return;
-        const newIdx = getIndexFromX(moveEvt.clientX);
-        setHoverIdx(function (prev) {
-          if (prev !== newIdx) {
-            triggerHaptic(6);
-            if (pillRef.current) {
-              pillRef.current.style.transition = 'transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)';
-              pillRef.current.style.transform = 'translate3d(' + (newIdx * 100) + '%, 0, 0) scaleX(1.12)';
-            }
-          }
-          return newIdx;
-        });
+        if (!isGlidingRef.current || !pillRef.current) return;
+        const currentMetrics = getTabMetrics();
+        const continuousPercent = calculatePillPercent(moveEvt.clientX, currentMetrics);
+        const currentIdx = getIndexFromPercent(continuousPercent);
+
+        // Organic liquid stretch matching drag velocity
+        const delta = Math.abs(moveEvt.clientX - lastXRef.current);
+        lastXRef.current = moveEvt.clientX;
+        const dynamicStretch = Math.min(1.14, 1.02 + (delta * 0.005));
+
+        setHoverIdx(currentIdx);
+
+        // Continuous 1:1 real-time finger tracking with micro-damping for liquid smoothness
+        pillRef.current.style.transition = 'transform 0.04s cubic-bezier(0.1, 0.9, 0.2, 1)';
+        pillRef.current.style.transform = 'translate3d(' + continuousPercent + '%, 0, 0) scaleX(' + dynamicStretch.toFixed(3) + ')';
       };
 
       const onPointerUp = function (upEvt) {
         isGlidingRef.current = false;
-        const finalIdx = getIndexFromX(upEvt.clientX);
+        const finalMetrics = getTabMetrics();
+        const finalPercent = calculatePillPercent(upEvt.clientX, finalMetrics);
+        const finalIdx = getIndexFromPercent(finalPercent);
         setHoverIdx(null);
 
         if (pillRef.current) {
-          pillRef.current.style.transition = 'transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1)';
+          // Nuvio / iOS critically-damped spring snap
+          pillRef.current.style.transition = 'transform 0.34s cubic-bezier(0.22, 1, 0.36, 1)';
           pillRef.current.style.transform = 'translate3d(' + (finalIdx * 100) + '%, 0, 0) scaleX(1)';
         }
 
         if (navItems[finalIdx] && navItems[finalIdx][0] !== activeTab) {
-          triggerHaptic(12);
           onSelectTab(navItems[finalIdx][0]);
         }
 
@@ -514,7 +529,8 @@
 
     React.useEffect(function () {
       if (!isGlidingRef.current && pillRef.current) {
-        pillRef.current.style.transition = 'transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        // Nuvio / iOS critically-damped spring settle
+        pillRef.current.style.transition = 'transform 0.34s cubic-bezier(0.22, 1, 0.36, 1)';
         pillRef.current.style.transform = 'translate3d(' + (activeNavIdx * 100) + '%, 0, 0) scaleX(1)';
       }
     }, [activeNavIdx]);
@@ -545,7 +561,6 @@
           onClick: function (e) {
             e.preventDefault();
             if (activeTab !== key) {
-              triggerHaptic(10);
               onSelectTab(key);
             }
           }
