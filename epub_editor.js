@@ -1215,12 +1215,20 @@
                curContent !== (initialChapterSnapshot.content || '');
     }
 
+    function closeChapterModalDirect() {
+        exitEpubEditorPreview();
+        document.getElementById('edit-unsaved-confirm-modal')?.classList.add('hidden');
+        document.getElementById('edit-chapter-modal')?.classList.add('hidden');
+    }
+    if (typeof window !== 'undefined') {
+        window.closeChapterModalDirect = closeChapterModalDirect;
+    }
+
     function requestCloseChapterModal() {
         const confirmModal = document.getElementById('edit-unsaved-confirm-modal');
         const chapterModal = document.getElementById('edit-chapter-modal');
         if (!isChapterModalDirty()) {
-            exitEpubEditorPreview();
-            chapterModal?.classList.add('hidden');
+            closeChapterModalDirect();
             return;
         }
 
@@ -1229,12 +1237,10 @@
         } else {
             if (confirm('You have unsaved changes in this chapter.\n\nClick OK to Save & Close.\nClick Cancel to Discard.')) {
                 saveCurrentModalChapter();
-                exitEpubEditorPreview();
-                chapterModal?.classList.add('hidden');
+                closeChapterModalDirect();
                 if (typeof window.toast === 'function') window.toast('Chapter saved!', 'success');
             } else {
-                exitEpubEditorPreview();
-                chapterModal?.classList.add('hidden');
+                closeChapterModalDirect();
                 if (typeof window.toast === 'function') window.toast('Unsaved changes discarded.', 'info');
             }
         }
@@ -1843,7 +1849,16 @@ ${bodyHtml}
     }
 
     // ── Event Wire-up ──
+    let isEpubEditorInitialized = false;
     function initEpubEditor() {
+        if (isEpubEditorInitialized) {
+            if (state.chapters && state.chapters.length > 0) {
+                renderEditorView();
+            }
+            return;
+        }
+        isEpubEditorInitialized = true;
+
         const fileInput = document.getElementById('edit-epub-input');
         const coverInput = document.getElementById('edit-cover-file-input');
         const chImgInput = document.getElementById('edit-chapter-img-input');
@@ -2112,8 +2127,7 @@ ${bodyHtml}
         });
 
         // Modal: Preview Toggle & Back Button
-        document.getElementById('btn-preview-back-to-edit')?.addEventListener('click', exitEpubEditorPreview);
-        document.getElementById('btn-edit-modal-preview-toggle')?.addEventListener('click', () => {
+        function toggleEpubEditorPreview() {
             const textarea = document.getElementById('edit-ch-modal-textarea');
             const preview = document.getElementById('edit-ch-modal-preview');
             const previewBar = document.getElementById('edit-ch-modal-preview-bar');
@@ -2126,72 +2140,86 @@ ${bodyHtml}
             window.isEpubEditorPreviewActive = isPreviewMode;
 
             if (isPreviewMode) {
-                textarea.classList.add('hidden');
-                textarea.style.display = 'none';
-                if (subtoolbar) {
-                    subtoolbar.classList.add('hidden');
-                    subtoolbar.style.display = 'none';
-                }
-                const imgTray = document.getElementById('edit-ch-modal-img-tray');
-                if (imgTray) {
-                    imgTray.classList.add('hidden');
-                    imgTray.style.display = 'none';
-                }
-                if (previewBar) {
-                    previewBar.classList.remove('hidden');
-                    previewBar.style.display = 'flex';
-                }
-                preview.classList.remove('hidden');
-                preview.style.display = 'block';
-                preview.scrollTop = 0;
-                if (btn) btn.textContent = 'Edit Prose';
-
-                const raw = textarea.value || '';
-                const currTitle = (document.getElementById('edit-ch-modal-title')?.value || state.chapters[modalActiveIdx]?.title || '').trim();
-                const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent)
-                    ? window.stripLeadingTitleFromContent
-                    : ((typeof stripLeadingTitleFromContent === 'function') ? stripLeadingTitleFromContent : null);
-                let cleanRaw = raw;
-                if (stripFn && currTitle) {
-                    cleanRaw = stripFn(cleanRaw, currTitle);
-                }
-
-                // Normalize newlines and convert 3+ consecutive newlines into guaranteed paragraph spacers
-                let normalized = cleanRaw.replace(/\r\n/g, '\n');
-                normalized = normalized.replace(/\n{3,}/g, '\n\n<p class="para-spacer">&nbsp;</p>\n\n');
-
-                const paras = normalized.split(/\n\s*\n/);
-                const htmlParts = [];
-                if (currTitle) {
-                    htmlParts.push(`<h2 class="chapter-title" style="font-weight:800; font-size:1.45em; color:var(--paper); margin:0 0 20px; padding-bottom:12px; border-bottom:1px solid var(--hairline); letter-spacing:-0.01em;">${escapeXml(currTitle)}</h2>`);
-                }
-                paras.forEach((p, idx) => {
-                    let trimmed = p.trim();
-                    if (!trimmed) return;
-                    if (idx === 0 && /^#{1,6}\s+/.test(trimmed)) {
-                        const hText = trimmed.replace(/^#{1,6}\s+/, '').trim();
-                        const isEcho = (typeof window !== 'undefined' && window.isTitleEcho)
-                            ? window.isTitleEcho(hText, currTitle)
-                            : (hText.toLowerCase() === (currTitle || '').toLowerCase());
-                        if (isEcho) return;
+                try {
+                    textarea.classList.add('hidden');
+                    textarea.style.display = 'none';
+                    if (subtoolbar) {
+                        subtoolbar.classList.add('hidden');
+                        subtoolbar.style.display = 'none';
                     }
-                    htmlParts.push(renderProseParagraphHtml(trimmed, true));
-                });
-                if (htmlParts.length === 0 || (htmlParts.length === 1 && currTitle)) {
-                    htmlParts.push('<p class="italic text-center py-8 text-xs" style="color:var(--slate);">Chapter prose is empty.</p>');
-                }
-                if (previewContent) {
-                    previewContent.innerHTML = htmlParts.join('\n');
-                }
-                const wordSpan = document.getElementById('preview-modal-word-count');
-                if (wordSpan) {
-                    const wc = countWords(raw);
-                    wordSpan.textContent = `${wc.toLocaleString()} words`;
+                    const imgTray = document.getElementById('edit-ch-modal-img-tray');
+                    if (imgTray) {
+                        imgTray.classList.add('hidden');
+                        imgTray.style.display = 'none';
+                    }
+                    if (previewBar) {
+                        previewBar.classList.remove('hidden');
+                        previewBar.style.display = 'flex';
+                    }
+                    preview.classList.remove('hidden');
+                    preview.style.display = 'block';
+                    preview.scrollTop = 0;
+                    if (btn) btn.textContent = 'Edit Prose';
+
+                    const raw = textarea.value || '';
+                    const currTitle = (document.getElementById('edit-ch-modal-title')?.value || state.chapters[modalActiveIdx]?.title || '').trim();
+                    const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent)
+                        ? window.stripLeadingTitleFromContent
+                        : ((typeof stripLeadingTitleFromContent === 'function') ? stripLeadingTitleFromContent : null);
+                    let cleanRaw = raw;
+                    if (stripFn && currTitle) {
+                        cleanRaw = stripFn(cleanRaw, currTitle);
+                    }
+
+                    // Normalize newlines and convert 3+ consecutive newlines into guaranteed paragraph spacers
+                    let normalized = cleanRaw.replace(/\r\n/g, '\n');
+                    normalized = normalized.replace(/\n{3,}/g, '\n\n<p class="para-spacer">&nbsp;</p>\n\n');
+
+                    const paras = normalized.split(/\n\s*\n/);
+                    const htmlParts = [];
+                    if (currTitle) {
+                        htmlParts.push(`<h2 class="chapter-title" style="font-weight:800; font-size:1.45em; color:var(--paper); margin:0 0 20px; padding-bottom:12px; border-bottom:1px solid var(--hairline); letter-spacing:-0.01em;">${escapeXml(currTitle)}</h2>`);
+                    }
+                    paras.forEach((p, idx) => {
+                        let trimmed = p.trim();
+                        if (!trimmed) return;
+                        if (idx === 0 && /^#{1,6}\s+/.test(trimmed)) {
+                            const hText = trimmed.replace(/^#{1,6}\s+/, '').trim();
+                            const isEcho = (typeof window !== 'undefined' && window.isTitleEcho)
+                                ? window.isTitleEcho(hText, currTitle)
+                                : (hText.toLowerCase() === (currTitle || '').toLowerCase());
+                            if (isEcho) return;
+                        }
+                        try {
+                            htmlParts.push(renderProseParagraphHtml(trimmed, true));
+                        } catch (pErr) {
+                            htmlParts.push(`<p style="margin-bottom:16px;">${escapeXml(trimmed)}</p>`);
+                        }
+                    });
+                    if (htmlParts.length === 0 || (htmlParts.length === 1 && currTitle)) {
+                        htmlParts.push('<p class="italic text-center py-8 text-xs" style="color:var(--slate);">Chapter prose is empty.</p>');
+                    }
+                    if (previewContent) {
+                        previewContent.innerHTML = htmlParts.join('\n');
+                    }
+                    const wordSpan = document.getElementById('preview-modal-word-count');
+                    if (wordSpan) {
+                        const wc = countWords(raw);
+                        wordSpan.textContent = `${wc.toLocaleString()} words`;
+                    }
+                } catch (err) {
+                    console.error('[EpubEditor] Chapter preview generation error:', err);
+                    if (previewContent) {
+                        previewContent.innerHTML = `<div style="padding:16px; color:#ef4444;"><p><strong>Preview Error:</strong></p><pre style="white-space:pre-wrap; font-size:12px;">${escapeXml(err.message || 'Error rendering preview')}</pre></div>`;
+                    }
                 }
             } else {
                 exitEpubEditorPreview();
             }
-        });
+        }
+        if (typeof window !== 'undefined') window.toggleEpubEditorPreview = toggleEpubEditorPreview;
+        document.getElementById('btn-preview-back-to-edit')?.addEventListener('click', exitEpubEditorPreview);
+        document.getElementById('btn-edit-modal-preview-toggle')?.addEventListener('click', toggleEpubEditorPreview);
 
         // Modal: Word count, in-memory sync, and auto-save on typing
         document.getElementById('edit-ch-modal-textarea')?.addEventListener('input', () => {

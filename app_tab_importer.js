@@ -306,6 +306,21 @@
     const [booksDownloadableOnly, setBooksDownloadableOnly] = useState(true);
     const [isScoutingUrl, setIsScoutingUrl] = useState(false);
     const [scoutStatusText, setScoutStatusText] = useState('');
+    const [crawlerSpeedMode, setCrawlerSpeedMode] = useState(() => {
+      try {
+        return localStorage.getItem('gemini_crawler_speed_mode') || 'builtin';
+      } catch (_) {
+        return 'builtin';
+      }
+    });
+    const toggleCrawlerSpeedMode = () => {
+      const next = crawlerSpeedMode === 'builtin' ? 'recipe' : 'builtin';
+      setCrawlerSpeedMode(next);
+      try {
+        localStorage.setItem('gemini_crawler_speed_mode', next);
+      } catch (_) {}
+      toast?.(next === 'builtin' ? 'Speed Mode: Fast Built-in Speed (Multi-worker pool)' : 'Speed Mode: Safe Recipe Delay (Polite delay)', 'info');
+    };
     const [importCategoryTab, setImportCategoryTab] = useState(() => {
       if (isBookSearchMode) return 'books';
       if (isSwiftAudioMode) return 'audio';
@@ -724,6 +739,26 @@
                       },
                       title: 'Configure custom HTML extraction rules for this website'
                     }, ic('Settings', 13), (webImportUrl && typeof window !== 'undefined' && window.SiteRecipeEngine?.findForUrl(webImportUrl)) ? 'Site Settings (Active)' : 'Site Settings'),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: {
+                        padding: '6px 11px',
+                        borderRadius: 999,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        cursor: 'pointer',
+                        color: crawlerSpeedMode === 'builtin' ? '#34d399' : '#fbbf24',
+                        border: crawlerSpeedMode === 'builtin' ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid rgba(251, 191, 36, 0.4)'
+                      },
+                      onClick: toggleCrawlerSpeedMode,
+                      title: crawlerSpeedMode === 'builtin'
+                        ? 'Fast Built-in Speed: Blazing-fast multi-worker crawling (Click to switch to Safe Recipe Delay)'
+                        : 'Safe Recipe Delay: Respects site recipe rate limits and polite delay (Click to switch to Fast Built-in Speed)'
+                    }, ic(crawlerSpeedMode === 'builtin' ? 'Zap' : 'Clock', 12), crawlerSpeedMode === 'builtin' ? 'Fast Built-in Speed' : 'Safe Recipe Delay'),
                     (/^https?:\/\//i.test((webImportUrl || '').trim())) && h('button', {
                       type: 'button',
                       className: 'mini-btn',

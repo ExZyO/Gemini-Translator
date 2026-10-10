@@ -169,6 +169,7 @@
         callbacks.onProgress?.(status, pct);
       }, {
         initialChapters,
+        ...options,
         onChapterDone: (newChapterObj, allChapters, stats) => {
           const totalChs = stats.total || stats.totalCount || targetSession?.totalChapterCount || (stats.chapterList ? stats.chapterList.length : 0);
           const currentTotal = totalChs > 0 ? totalChs : Math.max(allChapters.length + 1, targetSession?.totalChapterCount || 0);
@@ -445,18 +446,21 @@
     const chs = novelData.chapters;
     const novelTitle = safeCleanBookTitle(options, novelData.title, chs).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
     const novelAuthor = safeCleanBookAuthor(options, novelData.author).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
-    let coverUrl = novelData.cover || (chs[0]?.content?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || (chs[0]?.text?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || '';
+    let coverUrl = novelData.cover || '';
+    if (!coverUrl && novelData.sourceUrl) {
+      const bookIdMatch = novelData.sourceUrl.match(/\/book\/(\d+)/i);
+      const seriesIdMatch = novelData.sourceUrl.match(/\/series\/(\d+)/i);
+      if (bookIdMatch) coverUrl = `https://cdn.lnori.com/volume/${bookIdMatch[1]}.jpg`;
+      else if (seriesIdMatch) coverUrl = `https://cdn.lnori.com/series/${seriesIdMatch[1]}.jpg`;
+    }
     if (coverUrl && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(coverUrl)) {
       coverUrl = coverUrl.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
     }
     if (coverUrl && /https?:\/\/cdn\.lnori\.com\/cover\/(\d+)\.webp/i.test(coverUrl)) {
       coverUrl = coverUrl.replace(/https?:\/\/cdn\.lnori\.com\/cover\/(\d+)\.webp/i, 'https://cdn.lnori.com/series/$1.jpg');
     }
-    if (!coverUrl && novelData.sourceUrl) {
-      const bookIdMatch = novelData.sourceUrl.match(/\/book\/(\d+)/i);
-      const seriesIdMatch = novelData.sourceUrl.match(/\/series\/(\d+)/i);
-      if (bookIdMatch) coverUrl = `https://cdn.lnori.com/volume/${bookIdMatch[1]}.jpg`;
-      else if (seriesIdMatch) coverUrl = `https://cdn.lnori.com/series/${seriesIdMatch[1]}.jpg`;
+    if (!coverUrl) {
+      coverUrl = (chs[0]?.content?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || (chs[0]?.text?.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/)?.[1]) || '';
     }
 
     try {

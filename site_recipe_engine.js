@@ -1032,8 +1032,10 @@
       return { title: title || item.title, text: text || '' };
     };
 
-    const poolDelay = (r.network && r.network.delayMs > 0) ? r.network.delayMs : 250;
-    const poolConcurrency = (r.network && r.network.delayMs > 0) ? 1 : (options.concurrency || 4);
+    const speedMode = options.crawlerSpeedMode || (typeof window !== 'undefined' && localStorage.getItem('gemini_crawler_speed_mode')) || 'builtin';
+    const isFastSpeed = speedMode === 'builtin';
+    const poolDelay = isFastSpeed ? 100 : ((r.network && r.network.delayMs > 0) ? r.network.delayMs : 250);
+    const poolConcurrency = isFastSpeed ? (options.concurrency || 3) : ((r.network && r.network.delayMs > 0) ? 1 : (options.concurrency || 4));
 
     const crawledChapters = await deps.crawlChapterPool(
       links,

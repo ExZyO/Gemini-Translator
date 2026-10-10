@@ -176,8 +176,8 @@
                             <option value="2">↳ Sub-Chapter (Level 2)</option>
                         </select>
                     </div>
-                    <button type="button" onclick="window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden')"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0" style="color:var(--slate);" title="Close">&times;</button>
+                    <button type="button" onclick="window.closeChapterModalDirect ? window.closeChapterModalDirect() : (window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden'))"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 cursor-pointer" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
 
                 <!-- Modal Sub-Toolbar (Prose Editor Mode) -->

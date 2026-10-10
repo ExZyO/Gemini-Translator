@@ -136,6 +136,12 @@
         if (customCover && typeof customCover === 'string' && customCover.trim()) {
             try { return new URL(customCover.trim(), baseUrl).href; } catch (_) { return customCover.trim(); }
         }
+        if (baseUrl && baseUrl.includes('lnori')) {
+            const bMatch = baseUrl.match(/\/book\/(\d+)/i);
+            const sMatch = baseUrl.match(/\/series\/(\d+)/i);
+            if (bMatch) return `https://cdn.lnori.com/volume/${bMatch[1]}.jpg`;
+            if (sMatch) return `https://cdn.lnori.com/series/${sMatch[1]}.jpg`;
+        }
         if (!doc) return '';
         try {
             let og = doc.querySelector('meta[property="og:image"], meta[name="og:image"], meta[property="twitter:image"], meta[name="twitter:image"]')?.getAttribute('content');
@@ -1917,7 +1923,9 @@
                 }
                 if (activeCrawlController) activeCrawlController.siteRecipe = recipe;
                 const RE = (typeof window !== 'undefined') ? window.SiteRecipeEngine : null;
-                if (recipe && RE && RE.hasBookTakeover(recipe)) {
+                const speedMode = options.crawlerSpeedMode || (typeof window !== 'undefined' && localStorage.getItem('gemini_crawler_speed_mode')) || 'builtin';
+                const hasBuiltin = (type && type !== 'generic' && type !== 'unknown');
+                if (recipe && RE && RE.hasBookTakeover(recipe) && !(speedMode === 'builtin' && hasBuiltin)) {
                     result = await RE.crawlWithRecipe(recipe, url, progressCb, options, {
                         fetchHtml,
                         crawlChapterPool,

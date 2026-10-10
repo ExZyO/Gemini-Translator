@@ -159,8 +159,28 @@
     if (!isOpen) return null;
     const h = getH();
 
-    return h('div', { className: 'gloss-overlay' },
-      h('div', { className: 'tl-head-inner' },
+    return h('div', {
+      className: 'gloss-overlay',
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        height: '100%',
+        padding: '8px 16px'
+      }
+    },
+      h('div', {
+        className: 'tl-head-inner',
+        style: {
+          width: '100%',
+          maxWidth: '880px',
+          margin: '0 auto',
+          padding: '12px 16px',
+          boxSizing: 'border-box'
+        }
+      },
         h('div', null,
           h('div', { className: 'tl-title' }, 'Glossary'),
           h('div', { className: 'tl-subtitle' }, `${glossaryTermCount} terms · full-screen editor`)
@@ -182,14 +202,40 @@
           h('button', { type: 'button', className: 'icon-btn', onClick: onClose, title: 'Close' }, ic('X', 16))
         )
       ),
-      h('div', { className: 'gloss-editor' },
+      h('div', {
+        className: 'gloss-editor',
+        style: {
+          width: '100%',
+          maxWidth: '880px',
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          boxSizing: 'border-box'
+        }
+      },
         h('textarea', {
           value: terminology,
           onChange: e => { setTerminology(e.target.value); localStorage.setItem('terminology', e.target.value); },
-          placeholder: 'Enter character names and lore terms (e.g. - Character Name -> Character Name (Protagonist))'
+          placeholder: 'Enter character names and lore terms (e.g. - Character Name -> Character Name (Protagonist))',
+          style: {
+            width: '100%',
+            height: '100%',
+            minHeight: '380px',
+            margin: '0 auto',
+            boxSizing: 'border-box'
+          }
         })
       ),
-      h('div', { className: 'gloss-foot' },
+      h('div', {
+        className: 'gloss-foot',
+        style: {
+          width: '100%',
+          maxWidth: '880px',
+          margin: '0 auto',
+          boxSizing: 'border-box'
+        }
+      },
         h('span', null, `${glossaryTermCount} terms · ${(terminology || '').split(/\s+/).filter(Boolean).length} words`),
         h('div', { className: 'pane-acts' },
           h('button', {

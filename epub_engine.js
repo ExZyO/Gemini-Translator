@@ -279,6 +279,8 @@
 
     const smartFormat = (raw, useSmartQuotes = true) => {
       let s = escapeXml(raw);
+      // Restore valid unescaped HTML tags if input or AI translation already included formatting tags
+      s = s.replace(/&lt;(\/)?(i|em|b|strong|u|del|s|code|sup|sub)&gt;/gi, '<$1$2>');
       s = s.replace(/\[\/?(?:b|i|u|s|center|right|left)\]|\[\/?(?:color|size|font|align)(?:=[^\]]*)?\]/gi, '');
       s = s.replace(/\*{4,}/g, '**');
       if (s.startsWith('**') && !s.slice(2).includes('**')) s = s.slice(2);
@@ -314,7 +316,13 @@
 
       // 3. Italic: *text* or _text_ (supports dialogue quotes, punctuation, and glued text)
       s = s.replace(/\*([^*\n\s](?:[^*\n]*?[^*\n\s])?|\S)\*/g, '<em>$1</em>');
+      s = s.replace(/\*([^*\n]+?)\*/g, (m, inner) => {
+        const trimmed = inner.trim();
+        if (!trimmed || /^[\s\*]+$/.test(trimmed)) return m;
+        return '<em>' + trimmed + '</em>';
+      });
       s = s.replace(/(?<!\w)_([^_\n]+?)_(?!\w)/g, '<em>$1</em>');
+      s = s.replace(/(?<=\w)\*(?!\*)/g, '').replace(/(?<!\*)\*(?=\w)/g, '');
 
       // 4. Strikethrough: ~~text~~
       s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
@@ -1558,6 +1566,8 @@ hr {
           // Smart typographic formatter
           const smartFormat = (raw) => {
             let s = escapeXml(raw);
+            // Restore valid unescaped HTML tags if input or AI translation already included formatting tags
+            s = s.replace(/&lt;(\/)?(i|em|b|strong|u|del|s|code|sup|sub)&gt;/gi, '<$1$2>');
             s = s.replace(/\[\/?(?:b|i|u|s|center|right|left)\]|\[\/?(?:color|size|font|align)(?:=[^\]]*)?\]/gi, '');
             s = s.replace(/\*{4,}/g, '**');
             if (s.startsWith('**') && !s.slice(2).includes('**')) s = s.slice(2);
@@ -1593,7 +1603,13 @@ hr {
 
             // 3. Italic: *text* or _text_ (supports dialogue quotes, punctuation, and glued text)
             s = s.replace(/\*([^*\n\s](?:[^*\n]*?[^*\n\s])?|\S)\*/g, '<em>$1</em>');
+            s = s.replace(/\*([^*\n]+?)\*/g, (m, inner) => {
+              const trimmed = inner.trim();
+              if (!trimmed || /^[\s\*]+$/.test(trimmed)) return m;
+              return '<em>' + trimmed + '</em>';
+            });
             s = s.replace(/(?<!\w)_([^_\n]+?)_(?!\w)/g, '<em>$1</em>');
+            s = s.replace(/(?<=\w)\*(?!\*)/g, '').replace(/(?<!\*)\*(?=\w)/g, '');
 
             // 4. Strikethrough: ~~text~~
             s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');

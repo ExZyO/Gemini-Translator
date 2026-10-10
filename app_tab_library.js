@@ -143,18 +143,36 @@
     const timerRefs = (typeof React !== 'undefined' && React.useRef) ? React.useRef({}) : { current: {} };
     const longPressTriggered = (typeof React !== 'undefined' && React.useRef) ? React.useRef({}) : { current: {} };
     const touchStartPos = (typeof React !== 'undefined' && React.useRef) ? React.useRef({}) : { current: {} };
+    const lastLongPressTimeRef = (typeof React !== 'undefined' && React.useRef) ? React.useRef(0) : { current: 0 };
+    const isTouchInteractionRef = (typeof React !== 'undefined' && React.useRef) ? React.useRef(false) : { current: false };
 
     const handleCardTouchStart = (item, e) => {
+      const isTouch = Boolean(e.touches || e.changedTouches || e.type === 'touchstart');
+      if (isTouch) {
+        isTouchInteractionRef.current = true;
+      } else if (isTouchInteractionRef.current && e.type === 'mousedown') {
+        return;
+      }
+
       const id = item.id || item.title;
+      if (timerRefs.current[id]) {
+        clearTimeout(timerRefs.current[id]);
+        timerRefs.current[id] = null;
+      }
       longPressTriggered.current[id] = false;
       const t = e.touches ? e.touches[0] : e;
       touchStartPos.current[id] = { x: t?.clientX || 0, y: t?.clientY || 0 };
       timerRefs.current[id] = setTimeout(() => {
         longPressTriggered.current[id] = true;
+        lastLongPressTimeRef.current = Date.now();
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
           try { navigator.vibrate(35); } catch(_) {}
         }
-        setActiveBookMenuNovel(item);
+        if (isSelectMode) {
+          toggleSelectBook(item.id);
+        } else {
+          setActiveBookMenuNovel(item);
+        }
       }, 450);
     };
 
@@ -165,7 +183,7 @@
       const start = touchStartPos.current[id] || { x: 0, y: 0 };
       const dx = Math.abs((t?.clientX || 0) - start.x);
       const dy = Math.abs((t?.clientY || 0) - start.y);
-      if (dx > 10 || dy > 10) {
+      if (dx > 12 || dy > 12) {
         clearTimeout(timerRefs.current[id]);
         timerRefs.current[id] = null;
       }
@@ -181,8 +199,13 @@
 
     const handleCardClick = (item, e) => {
       const id = item.id || item.title;
-      if (longPressTriggered.current[id]) {
+      const timeSinceLongPress = Date.now() - (lastLongPressTimeRef.current || 0);
+      if (longPressTriggered.current[id] || timeSinceLongPress < 600) {
         longPressTriggered.current[id] = false;
+        if (e) {
+          e.preventDefault?.();
+          e.stopPropagation?.();
+        }
         return;
       }
       if (isSelectMode) {
@@ -374,7 +397,11 @@
               onClick: (e) => handleCardClick(item, e),
               onContextMenu: (e) => {
                 e.preventDefault();
-                setActiveBookMenuNovel(item);
+                e.stopPropagation();
+                const timeSinceLongPress = Date.now() - (lastLongPressTimeRef.current || 0);
+                if (timeSinceLongPress >= 600 && !isSelectMode) {
+                  setActiveBookMenuNovel(item);
+                }
               }
             },
               h('div', { className: 'shelf-book-cover-wrap' },
@@ -918,6 +945,24 @@
                     `${libCollapsed.books ? '▸' : '▾'} ${libTab === 'saved' ? 'Special Saved Space' : libTab === 'translated' ? 'Translated Books' : libTab === 'incomplete' ? 'Incomplete Crawls' : 'Books Library'} (${displayedBooks.length})`
                   ),
                   h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+                    displayedBooks.length > 0 && h('button', {
+                      type: 'button',
+                      className: isSelectMode ? 'mini-btn primary' : 'mini-btn ghost',
+                      style: {
+                        padding: '5px 12px',
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 650,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5
+                      },
+                      onClick: () => {
+                        setIsSelectMode(prev => !prev);
+                        setSelectedBookIds([]);
+                      }
+                    }, ic(Check, 13), isSelectMode ? 'Exit Select' : 'Select Books'),
+
                     webImportHistory.some(b => b.sourceUrl && b.sourceUrl.startsWith('http')) && h('button', {
                       type: 'button',
                       className: 'chip-act',

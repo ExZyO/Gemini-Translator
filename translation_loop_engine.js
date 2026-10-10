@@ -962,11 +962,12 @@
           const lines = content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
           if (lines.length > 0) {
             const titleHeading = (title && !isGenericTitle(title)) ? `<h2>${escapeXml(title)}</h2>\n` : '';
+            const fmtFn = (typeof window !== 'undefined' && window.smartFormat) ? window.smartFormat : escapeXml;
             const bodyParagraphs = lines.map(line => {
               if (/^(\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(line)) {
                 return `<p class="divider">${escapeXml(line)}</p>`;
               }
-              return `<p>${escapeXml(line)}</p>`;
+              return `<p>${fmtFn(line)}</p>`;
             }).join('\n');
             ch.doc.body.innerHTML = `${titleHeading}${bodyParagraphs}`;
           }

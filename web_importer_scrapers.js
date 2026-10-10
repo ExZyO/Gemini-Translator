@@ -2226,11 +2226,11 @@
             const tags = ['Lnori', 'Light Novel', 'Illustrated', 'English'];
             const bookId = (url.match(/\/book\/(\d+)/i) || [])[1] || '';
             const seriesId = (url.match(/\/series\/(\d+)/i) || [])[1] || '';
-            let cover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
-                        doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
-                        (bookId ? `https://cdn.lnori.com/volume/${bookId}.jpg` : '') ||
+            let cover = (bookId ? `https://cdn.lnori.com/volume/${bookId}.jpg` : '') ||
                         (seriesId ? `https://cdn.lnori.com/series/${seriesId}.jpg` : '') ||
                         doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i], img[src*="/cover/"]')?.getAttribute('src') ||
+                        doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+                        doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
                         doc.querySelector('link[rel="image_src"]')?.getAttribute('href') || '';
             if (cover && cover.startsWith('/')) cover = 'https://lnori.com' + cover;
             if (cover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(cover)) {
@@ -2302,10 +2302,10 @@
             if (bookUrls.length === 0) throw new Error('No readable volumes found for this Lnori series.');
 
             const seriesId = (url.match(/\/series\/(\d+)/i) || [])[1] || '';
-            let seriesCover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
-                              doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
-                              (seriesId ? `https://cdn.lnori.com/series/${seriesId}.jpg` : '') ||
+            let seriesCover = (seriesId ? `https://cdn.lnori.com/series/${seriesId}.jpg` : '') ||
                               doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i], img[src*="/cover/"]')?.getAttribute('src') ||
+                              doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+                              doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
                               doc.querySelector('link[rel="image_src"]')?.getAttribute('href') || '';
             if (seriesCover && seriesCover.startsWith('/')) seriesCover = 'https://lnori.com' + seriesCover;
             if (seriesCover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(seriesCover)) {
@@ -2429,9 +2429,10 @@
             const totalWords = allChapters.reduce((sum, c) => sum + (c.text.trim().split(/\s+/).filter(Boolean).length || 0), 0);
             progressCb?.(` Loaded ${allChapters.length} chapters across ${bookUrls.length} Lnori volumes (~${totalWords.toLocaleString()} words)!`, 100);
             let cover = seriesCover ||
+                          (seriesId ? `https://cdn.lnori.com/series/${seriesId}.jpg` : '') ||
+                          doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i], img[src*="/cover/"]')?.getAttribute('src') ||
                           doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
-                          doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
-                          doc.querySelector('.cover img, .book-cover img, img[alt*="Cover" i], img[src*="/cover/"]')?.getAttribute('src') || '';
+                          doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') || '';
             if (cover && cover.startsWith('/')) cover = 'https://lnori.com' + cover;
             if (cover && /(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\./i.test(cover)) {
                 cover = cover.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
