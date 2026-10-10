@@ -41,9 +41,10 @@
       }
       const inspectFn = window.MoonReaderEngine?.inspectMrexpt;
       const info = inspectFn ? inspectFn(text) : null;
-      const targetTitle = ongoingEpubModal.originalTitle || ongoingEpubModal.title || info?.oldTitle || '';
-      const defaultFileName = ongoingEpubModal.originalFileName || ongoingEpubModal.file?.name || `${ongoingEpubModal.title || 'Novel'}.epub`;
-      const defaultPath = (ongoingEpubModal.folderOptions?.folderPath ? (ongoingEpubModal.folderOptions.folderPath.replace(/\/?$/, '/') + defaultFileName) : '') || info?.oldFilePath || defaultFileName;
+      const cleanTargetFileName = (ongoingEpubModal.originalFileName || ongoingEpubModal.file?.name || `${ongoingEpubModal.title || 'Novel'}.epub`).replace(/\s*\(\d+\)\.epub$/i, '.epub');
+      const targetTitle = (ongoingEpubModal.originalTitle || ongoingEpubModal.title || info?.oldTitle || '').replace(/\s*\(\d+\)\.epub$/i, '.epub');
+      const defaultPath = (ongoingEpubModal.folderOptions?.folderPath ? (ongoingEpubModal.folderOptions.folderPath.replace(/\/?$/, '/') + cleanTargetFileName) : '') || (info?.oldFilePath ? info.oldFilePath.replace(/\s*\(\d+\)\.epub$/i, '.epub') : cleanTargetFileName);
+      const resolvedBookId = ongoingEpubModal.file?.size ? String(ongoingEpubModal.file.size) : (info?.bookId || '');
       setOngoingEpubModal(prev => prev ? {
         ...prev,
         showMrexptFixer: true,
@@ -52,10 +53,10 @@
           fileName: fileName || 'backup.mrexpt',
           rawText: text,
           info,
-          targetBookId: info?.bookId || '',
+          targetBookId: resolvedBookId,
           targetTitle,
           targetPath: defaultPath,
-          autoMatched: false,
+          autoMatched: Boolean(ongoingEpubModal.file?.size),
           isDone: false
         }
       } : null);
@@ -72,6 +73,9 @@
         if (typeof toast === 'function') toast('Could not detect target book info from sample file.', 'warning');
         return;
       }
+      const cleanTitle = (sample.title || '').replace(/\s*\(\d+\)\.epub$/i, '.epub');
+      const cleanPath = (sample.filePath || '').replace(/\s*\(\d+\)\.epub$/i, '.epub');
+      const shouldDiscard = sample.entryCount === 1;
       setOngoingEpubModal(prev => {
         if (!prev || !prev.mrexptData) return prev;
         return {
@@ -80,19 +84,21 @@
             ...prev.mrexptData,
             sampleRawText: text,
             sampleFileName: fileName || 'sample.mrexpt',
-            targetBookId: sample.bookId || prev.mrexptData.targetBookId,
-            targetTitle: sample.title || prev.mrexptData.targetTitle,
-            targetPath: sample.filePath || prev.mrexptData.targetPath,
+            targetBookId: sample.bookId || (prev.file?.size ? String(prev.file.size) : prev.mrexptData.targetBookId),
+            targetTitle: cleanTitle || prev.mrexptData.targetTitle,
+            targetPath: cleanPath || prev.mrexptData.targetPath,
             autoMatched: true,
-            discardSampleBookmark: true
+            discardSampleBookmark: shouldDiscard
           }
         };
       });
       if (typeof toast === 'function') {
         if (sample.entryCount === 0) {
           toast(`Captured Phone Book ID (${sample.bookId}) from 0-bookmark export! Please verify Title and Folder path below.`, 'info');
+        } else if (sample.entryCount > 1) {
+          toast(`Captured phone bookmarks (${sample.entryCount} notes)! ID: ${sample.bookId}. Ready to merge without loss!`, 'success');
         } else {
-          toast(`Auto-matched target book! ID: ${sample.bookId || 'detected'}, Title: ${sample.title || 'detected'}`, 'success');
+          toast(`Phone passport matched! ID: ${sample.bookId || 'detected'}, Title: ${sample.title || 'detected'}`, 'success');
         }
       }
     };
@@ -1048,7 +1054,7 @@
                         gap: 6
                       }
                     },
-                      [ic('FileText', 13), ongoingEpubModal.mrexptData.sampleFileName ? `Phone File: ${ongoingEpubModal.mrexptData.sampleFileName}` : 'Select Phone Export (.mrexpt)'],
+                      [ic('FileText', 13), ongoingEpubModal.mrexptData.sampleFileName ? `Phone File: ${ongoingEpubModal.mrexptData.sampleFileName}` : 'Select Phone Export (.mrexpt or .epub)'],
                       h('input', {
                         type: 'file',
                         accept: '*/*',
@@ -1056,6 +1062,26 @@
                         onChange: (e) => {
                           const f = e.target.files?.[0];
                           if (!f) return;
+                          if (f.name.toLowerCase().endsWith('.epub')) {
+                            const cleanFileName = f.name.replace(/\s*\(\d+\)\.epub$/i, '.epub');
+                            const curFolder = (ongoingEpubModal.mrexptData?.targetPath && ongoingEpubModal.mrexptData.targetPath.includes('/'))
+                              ? ongoingEpubModal.mrexptData.targetPath.substring(0, ongoingEpubModal.mrexptData.targetPath.lastIndexOf('/') + 1)
+                              : (ongoingEpubModal.folderOptions?.folderPath ? ongoingEpubModal.folderOptions.folderPath.replace(/\/?$/, '/') : '/storage/emulated/0/Books/');
+                            setOngoingEpubModal(prev => prev ? {
+                              ...prev,
+                              file: f,
+                              originalFileName: cleanFileName,
+                              mrexptData: prev.mrexptData ? {
+                                ...prev.mrexptData,
+                                sampleFileName: f.name,
+                                targetBookId: String(f.size),
+                                targetTitle: cleanFileName,
+                                targetPath: curFolder + cleanFileName,
+                                autoMatched: true
+                              } : null
+                            } : null);
+                            return toast(`Captured Phone EPUB "${cleanFileName}" (Size / Book ID: ${f.size})!`, 'success');
+                          }
                           const reader = new FileReader();
                           reader.onload = (evt) => {
                             processSampleMrexpt(evt.target.result, f.name);
@@ -1305,6 +1331,7 @@
                   let updatedText = '';
                   let mergeStats = null;
 
+                  const epubSize = ongoingEpubModal.file?.size || (Number(ongoingEpubModal.mrexptData.targetBookId) || null);
                   if (ongoingEpubModal.mrexptData.sampleRawText && engine?.mergeMrexpts) {
                     mergeStats = engine.mergeMrexpts(
                       ongoingEpubModal.mrexptData.sampleRawText,
@@ -1314,6 +1341,7 @@
                         customBookId: ongoingEpubModal.mrexptData.targetBookId,
                         customTitle: ongoingEpubModal.mrexptData.targetTitle,
                         customFilePath: ongoingEpubModal.mrexptData.targetPath,
+                        epubFileSize: epubSize,
                         renumberIds: true
                       }
                     );
@@ -1324,7 +1352,8 @@
                       epubTitle: ongoingEpubModal.mrexptData.targetTitle,
                       deviceFolder: ongoingEpubModal.folderOptions?.folderPath || '/storage/emulated/0/Books/',
                       targetBookId: ongoingEpubModal.mrexptData.targetBookId,
-                      masterBackupText: ongoingEpubModal.mrexptData.rawText
+                      masterBackupText: ongoingEpubModal.mrexptData.rawText,
+                      epubFileSize: epubSize
                     });
                     updatedText = mergeStats?.mergedText || '';
                   } else if (engine?.migrateMrexpt) {

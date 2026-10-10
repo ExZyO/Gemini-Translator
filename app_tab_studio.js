@@ -225,11 +225,18 @@
       }
       setSampleFile({ text, fileName, sample });
       if (sample.bookId) setTargetBookId(sample.bookId);
-      if (sample.title) setTargetTitle(sample.title);
-      if (sample.filePath) setTargetPath(sample.filePath);
+      if (sample.title) setTargetTitle(sample.title.replace(/\s*\(\d+\)\.epub$/i, '.epub'));
+      if (sample.filePath) setTargetPath(sample.filePath.replace(/\s*\(\d+\)\.epub$/i, '.epub'));
+      if (sample.entryCount > 1) {
+        setDiscardDummy(false);
+      } else {
+        setDiscardDummy(true);
+      }
       setIsDone(false);
       if (sample.entryCount === 0) {
         toast(`Captured Phone Book ID (${sample.bookId}) from 0-bookmark export! Please verify Title and Folder path below.`, 'info');
+      } else if (sample.entryCount > 1) {
+        toast(`Captured phone bookmarks (${sample.entryCount} notes)! ID: ${sample.bookId}. Ready to merge without loss!`, 'success');
       } else {
         toast(`Phone passport matched! ID: ${sample.bookId || 'detected'}, Title: ${sample.title || 'detected'}`, 'success');
       }
@@ -237,19 +244,22 @@
 
     const handleProcessEpub = async (file) => {
       if (!file) return;
-      let title = file.name.replace(/\.epub$/i, '');
+      const cleanFileName = file.name.replace(/\s*\(\d+\)\.epub$/i, '.epub');
+      let title = cleanFileName.replace(/\.epub$/i, '');
       try {
         if (typeof window.readEpub === 'function') {
           const zip = await window.readEpub(file);
           if (zip && zip.title) title = zip.title;
         }
       } catch (e) {}
-      const cleanFileName = file.name;
-      const folder = '/storage/emulated/0/Books/';
+      const curFolder = targetPath.includes('/') ? targetPath.substring(0, targetPath.lastIndexOf('/') + 1) : '/storage/emulated/0/Books/';
       setTargetTitle(cleanFileName);
-      setTargetPath(folder + cleanFileName);
+      setTargetPath(curFolder + cleanFileName);
+      if (file.size) {
+        setTargetBookId(String(file.size));
+      }
       setIsDone(false);
-      toast(`Matched EPUB "${cleanFileName}"!`, 'info');
+      toast(`Captured EPUB "${cleanFileName}" (Size / Moon ID: ${file.size})!`, 'success');
     };
 
     const handleDownloadFixed = () => {
@@ -260,12 +270,14 @@
       let updatedText = '';
       let stats = null;
 
+      const epubSize = Number(targetBookId) || null;
       if (sampleFile && sampleFile.text && engine?.mergeMrexpts) {
         stats = engine.mergeMrexpts(sampleFile.text, masterFile.text, {
           discardSampleBookmark: discardDummy,
           customBookId: targetBookId,
           customTitle: targetTitle,
           customFilePath: targetPath,
+          epubFileSize: epubSize,
           renumberIds: true
         });
         updatedText = stats?.mergedText || '';
@@ -276,7 +288,8 @@
           epubTitle: targetTitle,
           deviceFolder: folder,
           targetBookId,
-          masterBackupText: masterFile.text
+          masterBackupText: masterFile.text,
+          epubFileSize: epubSize
         });
         updatedText = stats?.mergedText || '';
       } else if (engine?.migrateMrexpt) {
@@ -588,7 +601,7 @@
               gap: 8
             }
           },
-            [ic('FileText', 14), sampleFile ? `Phone File: ${sampleFile.fileName}` : 'Pick Phone Export File (.mrexpt)'],
+            [ic('FileText', 14), sampleFile ? `Phone File: ${sampleFile.fileName}` : 'Pick Phone Export File (.mrexpt or .epub)'],
             h('input', {
               type: 'file',
               accept: '*/*',
@@ -596,6 +609,10 @@
               onChange: (e) => {
                 const f = e.target.files?.[0];
                 if (!f) return;
+                if (f.name.toLowerCase().endsWith('.epub')) {
+                  handleProcessEpub(f);
+                  return;
+                }
                 const reader = new FileReader();
                 reader.onload = (evt) => handleProcessSample(evt.target.result, f.name);
                 reader.readAsText(f);

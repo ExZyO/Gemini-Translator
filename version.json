@@ -1,9 +1,9 @@
 {
-  "version": "8.21.18",
-  "versionCode": 8429,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.18/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.18/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.18",
+  "version": "8.21.19",
+  "versionCode": 8430,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.19/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.19/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.19",
   "releaseDate": "2026-10-10",
-  "releaseNotes": "v8.21.18: Moon+ Reader (.mrexpt) In-Place Row Preservation & Collision Guard. Fixes 100% of line displacement and 0-bookmark imports, adds side-by-side comparison with device Book Info guidance."
+  "releaseNotes": "v8.21.19: Moon+ Reader (.mrexpt) Exact Byte Size Book ID Alignment & Smart Multi-Bookmark Merging. Automatically captures device storage paths and aligns backup IDs directly to target ebook sizes without line shift."
 }

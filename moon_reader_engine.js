@@ -1030,10 +1030,11 @@
      */
     mergeMrexpts(targetSampleText, masterBackupText, options = {}) {
       const {
-        discardSampleBookmark = true,
+        discardSampleBookmark,
         customBookId = '',
         customTitle = '',
         customFilePath = '',
+        epubFileSize = null,
         renumberIds = true
       } = options;
 
@@ -1045,9 +1046,17 @@
       const baseMaster = masterData || targetData;
       const baseTarget = targetData || masterData;
 
-      let resolvedBookId = String(customBookId || baseTarget.bookId || baseMaster.bookId || '1').trim();
-      let resolvedTitle = String(customTitle || (baseTarget.entries[0] && baseTarget.entries[0].title) || (baseMaster.entries[0] && baseMaster.entries[0].title) || 'Book.epub').trim();
+      // Smart dummy discard: Only discard if explicitly true, or auto-detect if exactly 1 entry in sample
+      const shouldDiscardSample = (discardSampleBookmark !== undefined)
+        ? Boolean(discardSampleBookmark)
+        : Boolean(targetData && targetData.entries && targetData.entries.length === 1);
+
+      let resolvedBookId = String(customBookId || (epubFileSize ? String(epubFileSize) : '') || baseTarget.bookId || baseMaster.bookId || '1').trim();
+      let resolvedTitle = String(customTitle || (baseTarget.entries[0] && baseTarget.entries[0].title) || (baseMaster.entries[0] && baseMaster.entries[0].title) || 'Book.epub').trim().replace(/\s*\(\d+\)\.epub$/i, '.epub');
       let resolvedFilePath = String(customFilePath || (baseTarget.entries[0] && baseTarget.entries[0].filePath) || (baseMaster.entries[0] && baseMaster.entries[0].filePath) || '').trim().replace(/\\/g, '/');
+      if (resolvedFilePath) {
+        resolvedFilePath = resolvedFilePath.replace(/\s*\(\d+\)\.epub$/i, '.epub');
+      }
 
       // Helper for unique bookmark identity
       const getEntryKey = (entry) => {
@@ -1062,12 +1071,12 @@
       let dummyDiscardedCount = 0;
 
       // 1. Process targetData entries
-      if (targetData && targetData.entries && !discardSampleBookmark) {
+      if (targetData && targetData.entries && !shouldDiscardSample) {
         for (const entry of targetData.entries) {
           const key = getEntryKey(entry);
           entryMap.set(key, { ...entry, rawLines: [...(entry.rawLines || [])] });
         }
-      } else if (targetData && targetData.entries && discardSampleBookmark) {
+      } else if (targetData && targetData.entries && shouldDiscardSample) {
         dummyDiscardedCount = targetData.entries.length;
       }
 
@@ -1148,20 +1157,26 @@
 
     /**
      * Direct alignment when the user only has the .epub file and master backup file.
-     * Stamps the EPUB file name, title, and selected Android folder path across all entries.
+     * Stamps the EPUB file name, title, byte size as book ID, and selected Android folder path across all entries.
      */
-    alignMrexptToEpub({ epubFileName, epubTitle, deviceFolder, targetBookId, masterBackupText } = {}) {
+    alignMrexptToEpub({ epubFileName, epubTitle, deviceFolder, targetBookId, masterBackupText, epubFileSize } = {}) {
       if (!masterBackupText) return null;
+      const cleanFileName = (epubFileName || 'Book.epub').replace(/\s*\(\d+\)\.epub$/i, '.epub').trim();
+      const cleanTitle = (epubTitle || cleanFileName).replace(/\s*\(\d+\)\.epub$/i, '.epub').trim();
       const folder = (deviceFolder || '/storage/emulated/0/Books/').trim().replace(/\\/g, '/').replace(/\/?$/, '/');
-      const cleanFileName = (epubFileName || 'Book.epub').trim();
       const customFilePath = folder + cleanFileName;
-      const customTitle = (epubFileName || epubTitle || 'Book.epub').trim();
+
+      let resolvedId = targetBookId;
+      if (!resolvedId && epubFileSize) {
+        resolvedId = String(epubFileSize);
+      }
 
       return this.mergeMrexpts(null, masterBackupText, {
         discardSampleBookmark: false,
-        customBookId: targetBookId || '',
-        customTitle,
+        customBookId: resolvedId || '',
+        customTitle: cleanTitle,
         customFilePath,
+        epubFileSize,
         renumberIds: true
       });
     },
