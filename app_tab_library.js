@@ -165,15 +165,12 @@
       timerRefs.current[id] = setTimeout(() => {
         longPressTriggered.current[id] = true;
         lastLongPressTimeRef.current = Date.now();
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          try { navigator.vibrate(35); } catch(_) {}
-        }
         if (isSelectMode) {
           toggleSelectBook(item.id);
         } else {
           setActiveBookMenuNovel(item);
         }
-      }, 450);
+      }, 500);
     };
 
     const handleCardTouchMove = (item, e) => {
@@ -200,7 +197,7 @@
     const handleCardClick = (item, e) => {
       const id = item.id || item.title;
       const timeSinceLongPress = Date.now() - (lastLongPressTimeRef.current || 0);
-      if (longPressTriggered.current[id] || timeSinceLongPress < 600) {
+      if (longPressTriggered.current[id] || timeSinceLongPress < 850) {
         longPressTriggered.current[id] = false;
         if (e) {
           e.preventDefault?.();
@@ -388,6 +385,7 @@
             return h('div', {
               key: item.id || idx,
               className: `shelf-book-item ${isSelected ? 'shelf-selected' : ''}`,
+              style: { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' },
               onMouseDown: (e) => handleCardTouchStart(item, e),
               onMouseUp: () => handleCardTouchEnd(item),
               onMouseLeave: () => handleCardTouchEnd(item),
@@ -399,7 +397,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 const timeSinceLongPress = Date.now() - (lastLongPressTimeRef.current || 0);
-                if (timeSinceLongPress >= 600 && !isSelectMode) {
+                if (timeSinceLongPress >= 850 && !isSelectMode) {
                   setActiveBookMenuNovel(item);
                 }
               }

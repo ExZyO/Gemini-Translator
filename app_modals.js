@@ -1310,6 +1310,38 @@
     const h = getH();
     const toast = getToast();
 
+    const mountTimeRef = (typeof React !== 'undefined' && React.useRef) ? React.useRef(Date.now()) : { current: Date.now() };
+    const hasIntentionalTouchRef = (typeof React !== 'undefined' && React.useRef) ? React.useRef(false) : { current: false };
+
+    if (typeof React !== 'undefined' && React.useEffect) {
+      React.useEffect(() => {
+        mountTimeRef.current = Date.now();
+        hasIntentionalTouchRef.current = false;
+      }, [novel]);
+    }
+
+    const handleActionClick = (actionFn, e) => {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      const elapsed = Date.now() - mountTimeRef.current;
+      // Guard against ghost clicks from long-press release:
+      // 1. Must be at least 450ms since modal opened
+      // 2. If touch interaction, must have had an intentional touch-down on the sheet itself
+      if (elapsed < 450) return;
+      if (!hasIntentionalTouchRef.current && elapsed < 750) return;
+
+      if (onClose) onClose();
+      actionFn();
+    };
+
+    const handleOverlayClick = (e) => {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      const elapsed = Date.now() - mountTimeRef.current;
+      if (elapsed < 450) return;
+      if (onClose) onClose();
+    };
+
     const item = novel;
     const fOpts = typeof getNovelFolderOptions === 'function' ? getNovelFolderOptions(item) : {};
     const dispPath = item.folderPath || fOpts.folderPath || '';
@@ -1326,13 +1358,15 @@
         background: 'rgba(255, 255, 255, 0.03)',
         border: isDanger ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--hairline)',
         marginBottom: 8,
-        transition: 'background 0.15s ease'
+        transition: 'background 0.15s ease',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none'
       },
-      onClick: (e) => {
-        e?.stopPropagation?.();
-        if (onClose) onClose();
-        onClick();
-      }
+      onTouchStart: () => { hasIntentionalTouchRef.current = true; },
+      onPointerDown: () => { hasIntentionalTouchRef.current = true; },
+      onMouseDown: () => { hasIntentionalTouchRef.current = true; },
+      onClick: (e) => handleActionClick(onClick, e)
     },
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 } },
         h('span', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, flexShrink: 0, color: isDanger ? '#ef4444' : 'var(--iris)' } }, typeof icon === 'string' ? (ic(icon, 18) || icon) : icon),
@@ -1344,8 +1378,14 @@
       badgeText && h('span', { className: 'badge', style: { marginLeft: 8, fontSize: 11, padding: '3px 8px', flexShrink: 0 } }, badgeText)
     );
 
-    return h('div', { className: 'modal-overlay', onClick: onClose },
-      h('div', { className: 'modal-box', style: { maxWidth: 460, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation() },
+    return h('div', { className: 'modal-overlay', onClick: handleOverlayClick },
+      h('div', {
+        className: 'modal-box',
+        style: { maxWidth: 460, maxHeight: '85vh', display: 'flex', flexDirection: 'column' },
+        onTouchStart: () => { hasIntentionalTouchRef.current = true; },
+        onPointerDown: () => { hasIntentionalTouchRef.current = true; },
+        onClick: e => e.stopPropagation()
+      },
         h('div', { className: 'modal-hd' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 } },
             item.cover
@@ -1356,7 +1396,7 @@
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, `${item.chapterCount || 0} chapters · ${item.author || 'Author'}`)
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: handleOverlayClick, title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '14px 16px' } },
           menuRow('Edit', 'Rename Novel', 'Set a custom title for EPUB export, library, and future updates', () => {

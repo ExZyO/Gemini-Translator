@@ -1231,6 +1231,18 @@ input, textarea, [contenteditable="true"] {
   cursor: pointer;
   position: relative;
   transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+.shelf-book-item * {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
 }
 .shelf-book-item:active {
   transform: scale(0.96);
