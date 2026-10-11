@@ -855,7 +855,7 @@ const batchParallel = async (items, fn, concurrency = 3, signal = null) => {
             } catch (err) {
                 if (signal?.aborted || err.name === 'AbortError') throw err;
                 const msg = err?.message || '';
-                const isFatal = msg.includes('429') || msg.includes('quota') || msg.includes('billing') || msg.includes('Strict Model');
+                const isFatal = msg.includes('429') || msg.includes('quota') || msg.includes('billing') || msg.includes('Strict Model') || msg.includes('403') || msg.includes('denied access') || msg.includes('PERMISSION_DENIED');
                 if (isFatal) {
                     fatalError = err;
                     throw err;

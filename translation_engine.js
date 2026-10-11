@@ -1059,6 +1059,24 @@ const streamWithRotation = async (text, opts) => {
       } catch (err) {
         if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
         const errMsg = (err.message || '').toLowerCase();
+        const isForbiddenOrDead = errMsg.includes('403') || errMsg.includes('permission_denied') ||
+          errMsg.includes('denied access') || errMsg.includes('api_key_invalid') || errMsg.includes('not valid');
+        if (isForbiddenOrDead) {
+          if (allKeys.length > 1 && KeyPool) {
+            if (currentOpts.apiKey) {
+              KeyPool.coolingUntil?.set(currentOpts.apiKey, Date.now() + 86400000);
+            }
+            const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
+            if (freshKey && freshKey !== currentOpts.apiKey) {
+              console.warn(`Key denied (403) → Auto-rotating to fresh key ${maskKey ? maskKey(freshKey) : 'freshKey'}...`);
+              currentOpts.apiKey = freshKey;
+              await new Promise(r => setTimeout(r, 600));
+              continue;
+            }
+          }
+          throw new Error('Gemini API Key Denied (403): Google has blocked this project/key ("Your project has been denied access"). Please create a new API key in Google AI Studio (under a new project) and tap Resume to continue.');
+        }
+
         const isRetryable = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') ||
           errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('500') ||
           errMsg.includes('502') || errMsg.includes('504') || errMsg.includes('demand') ||
@@ -1146,6 +1164,24 @@ const translateWithRotation = async (text, opts) => {
       } catch (err) {
         if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
         const errMsg = (err.message || '').toLowerCase();
+        const isForbiddenOrDead = errMsg.includes('403') || errMsg.includes('permission_denied') ||
+          errMsg.includes('denied access') || errMsg.includes('api_key_invalid') || errMsg.includes('not valid');
+        if (isForbiddenOrDead) {
+          if (allKeys.length > 1 && KeyPool) {
+            if (currentOpts.apiKey) {
+              KeyPool.coolingUntil?.set(currentOpts.apiKey, Date.now() + 86400000);
+            }
+            const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
+            if (freshKey && freshKey !== currentOpts.apiKey) {
+              console.warn(`Key denied (403) → Auto-rotating to fresh key ${maskKey ? maskKey(freshKey) : 'freshKey'}...`);
+              currentOpts.apiKey = freshKey;
+              await new Promise(r => setTimeout(r, 600));
+              continue;
+            }
+          }
+          throw new Error('Gemini API Key Denied (403): Google has blocked this project/key ("Your project has been denied access"). Please create a new API key in Google AI Studio (under a new project) and tap Resume to continue.');
+        }
+
         const isRetryable = errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('quota') ||
           errMsg.includes('resource_exhausted') || errMsg.includes('503') || errMsg.includes('500') ||
           errMsg.includes('502') || errMsg.includes('504') || errMsg.includes('demand') ||

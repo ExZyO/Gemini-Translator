@@ -196,7 +196,7 @@
         } catch (err) {
           if (signal?.aborted || err.name === 'AbortError') throw err;
           const msg = err?.message || '';
-          const isFatal = msg.includes('429') || msg.includes('quota') || msg.includes('billing') || msg.includes('Strict Model');
+          const isFatal = msg.includes('429') || msg.includes('quota') || msg.includes('billing') || msg.includes('Strict Model') || msg.includes('403') || msg.includes('denied access') || msg.includes('PERMISSION_DENIED');
           if (isFatal) {
             fatalError = err;
             throw err;
@@ -874,9 +874,14 @@
           }
         } catch (e) {
           if (e.name === 'AbortError' || opts?.signal?.aborted) throw e;
-          const isFatalQuota = (e.message || '').includes('429') || (e.message || '').includes('quota') || (e.message || '').includes('billing');
+          const msg = e.message || '';
+          const isFatalQuota = msg.includes('429') || msg.includes('quota') || msg.includes('billing');
           if (isFatalQuota) {
             throw new Error(`API Quota exhausted across keys. Switch model to Gemini 3.5 Flash Lite in Settings · Engine. Progress saved at chapter ${i + 1}.`);
+          }
+          const isForbidden = msg.includes('403') || msg.includes('denied access') || msg.includes('PERMISSION_DENIED');
+          if (isForbidden) {
+            throw new Error(`Gemini Key Denied (403): Google blocked access to this project/key ("Your project has been denied access"). Add a fresh key in Settings · Engine and tap Resume. Progress saved at chapter ${i + 1}.`);
           }
           if (opts?.strictModel) {
             throw new Error(`Strict Model: Failed translating chunk ${j + 1}/${chunks.length} of "${title || `Chapter ${i + 1}`}": ${e.message}. Progress safely saved. Tap Resume to retry.`);
