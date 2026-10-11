@@ -54,29 +54,52 @@
       const summary = this.decodeHtml(doc.querySelector('#novel_ex, .synopsis, #synopsis')?.textContent || '');
 
       const chapters = [];
-      // Hameln chapter table
-      const links = doc.querySelectorAll('table a[href*="/novel/"], table a[href$=".html"], .ss a[href*=".html"]');
-      const seen = new Set();
+      const novelId = (url.match(/novel\/(\d+)/) || [])[1];
+      const baseUrl = url.replace(/\/index\.html.*$/, '/').replace(/\?.*$/, '').replace(/\/+$/, '') + '/';
+      const seenNums = new Set();
+      const seenUrls = new Set();
 
-      links.forEach((a, idx) => {
+      const allLinks = doc.querySelectorAll('a[href]');
+      allLinks.forEach((a) => {
         let href = a.getAttribute('href') || '';
-        if (!href || seen.has(href)) return;
-        // Filter out non-chapter navigation links
-        if (!/\/\d+\.html|\/\d+\/?$/.test(href)) return;
+        if (!href) return;
+        let fullUrl;
+        try {
+          fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
+        } catch (e) {
+          return;
+        }
 
-        seen.add(href);
-        const fullUrl = href.startsWith('http') ? href : new URL(href, url).href;
-        chapters.push({
-          title: this.decodeHtml(a.textContent.trim()) || `Chapter ${idx + 1}`,
-          url: fullUrl,
-          order: idx + 1
-        });
+        try {
+          const u = new URL(fullUrl);
+          if (!u.hostname.includes('syosetu.org')) return;
+          const pathRegex = novelId
+            ? new RegExp(`^/novel/${novelId}/(\\d+)(?:\\.html)?$`, 'i')
+            : /^\/novel\/\d+\/(\d+)(?:\.html)?$/i;
+          const m = u.pathname.match(pathRegex);
+          if (m) {
+            const chNum = parseInt(m[1], 10);
+            const cleanUrl = u.origin + u.pathname;
+            if (!seenNums.has(chNum) && !seenUrls.has(cleanUrl)) {
+              seenNums.add(chNum);
+              seenUrls.add(cleanUrl);
+              const titleText = a.textContent?.trim() || `Chapter ${chNum}`;
+              chapters.push({
+                title: this.decodeHtml(titleText),
+                url: cleanUrl,
+                order: chNum
+              });
+            }
+          }
+        } catch (e) {}
       });
 
-      // Single-chapter Hameln fallback
-      if (chapters.length === 0) {
-        const bodyContent = doc.querySelector('#honbun, .ss, .novel_honbun');
-        if (bodyContent && bodyContent.textContent.trim().length > 100) {
+      if (chapters.length > 0) {
+        chapters.sort((a, b) => a.order - b.order);
+      } else {
+        const isChapterUrl = /\/\d+\.html/.test(url);
+        const bodyContent = doc.querySelector('#honbun');
+        if (isChapterUrl || (bodyContent && bodyContent.textContent.trim().length > 100)) {
           chapters.push({
             title: title || 'Chapter 1',
             url: url,
@@ -86,7 +109,7 @@
       }
 
       return {
-        id: 'hameln_' + (url.match(/novel\/(\d+)/)?.[1] || Date.now()),
+        id: 'hameln_' + (novelId || Date.now()),
         title,
         author,
         cover: 'https://placehold.co/400x600?text=Hameln',
@@ -160,22 +183,32 @@
       let title = doc.querySelector('.p-novel__title, .novel_subtitle, h1, .subtitle')?.textContent?.trim() || options.title || 'Chapter';
       title = this.decodeHtml(title);
 
-      // Content extraction: Hameln uses #honbun or .ss, Narou uses .p-novel__body or #novel_honbun
-      const contentEl = doc.querySelector('.p-novel__body, #novel_honbun, #honbun, .ss, .novel_honbun');
+      // Content extraction: Hameln uses #honbun (plus optional #mae/#ato), Narou uses .p-novel__body or #novel_honbun
       let content = '';
-
-      if (contentEl) {
-        // Remove Ruby tags markup or format cleanly
-        const paras = contentEl.querySelectorAll('p, div.novel_honbun, .p-novel__text');
-        if (paras.length > 0) {
-          const cleanParas = [];
-          paras.forEach(p => {
-            const t = p.textContent.trim();
-            if (t) cleanParas.push(t);
-          });
-          content = cleanParas.join('\n\n');
-        } else {
-          content = contentEl.innerText || contentEl.textContent || '';
+      const honbun = doc.querySelector('#honbun');
+      if (honbun) {
+        const mae = doc.querySelector('#mae');
+        const ato = doc.querySelector('#ato');
+        const parts = [];
+        if (mae && mae.textContent.trim()) parts.push(mae.textContent.trim());
+        parts.push(honbun.textContent.trim());
+        if (ato && ato.textContent.trim()) parts.push(ato.textContent.trim());
+        content = parts.join('\n\n');
+      } else {
+        const contentEl = doc.querySelector('.p-novel__body, #novel_honbun, .novel_honbun, .widget-episodeBody, .ss');
+        if (contentEl) {
+          // Remove Ruby tags markup or format cleanly
+          const paras = contentEl.querySelectorAll('p, div.novel_honbun, .p-novel__text');
+          if (paras.length > 0) {
+            const cleanParas = [];
+            paras.forEach(p => {
+              const t = p.textContent.trim();
+              if (t) cleanParas.push(t);
+            });
+            content = cleanParas.join('\n\n');
+          } else {
+            content = contentEl.innerText || contentEl.textContent || '';
+          }
         }
       }
 

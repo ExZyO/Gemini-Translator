@@ -1,9 +1,9 @@
 {
-  "version": "8.21.25",
-  "versionCode": 8436,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.25/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.25/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.25",
+  "version": "8.21.26",
+  "versionCode": 8437,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.26/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.26/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.26",
   "releaseDate": "2026-10-11",
-  "releaseNotes": "v8.21.25: Allow assigning online website sources to library ebooks, continuous chapter fetching from assigned sites, and full local and cloud backup parity."
+  "releaseNotes": "v8.21.26: Fix Hameln (syosetu.org) table of contents chapter link extraction across desktop and mobile layouts with clean preface and body parsing."
 }

@@ -1120,17 +1120,69 @@
         const cover = extractPageCover(doc, url);
 
         const indexLinks = [];
-        const baseUrl = url.endsWith('/') ? url : url + '/';
+        const baseUrl = url.replace(/\/index\.html.*$/, '/').replace(/\?.*$/, '').replace(/\/+$/, '') + '/';
+        const isHameln = /syosetu\.org/i.test(url);
+        const hamelnNovelId = isHameln ? (url.match(/novel\/(\d+)/) || [])[1] : null;
 
-        doc.querySelectorAll('.p-eplist__sublist a, .novel_sublist2 .subtitle a, .index_box a, .widget-toc-items a, table.table-striped tr td a, table tr td a[href*="/novel/"], table tr td a[href$=".html"], table tr td a[href^="./"], table tr td a[href^="/novel/"]').forEach(a => {
-            const href = a.getAttribute('href');
-            if (href) {
-                const fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
-                if (!indexLinks.some(l => l.url === fullUrl)) {
-                    indexLinks.push({ url: fullUrl, title: a.textContent?.trim() || `Chapter ${indexLinks.length + 1}` });
+        if (isHameln) {
+            const seenNums = new Set();
+            const seenUrls = new Set();
+            const hamelnLinks = [];
+
+            doc.querySelectorAll('a[href]').forEach(a => {
+                const href = a.getAttribute('href');
+                if (!href) return;
+                let fullUrl;
+                try {
+                    fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
+                } catch (e) {
+                    return;
                 }
+
+                try {
+                    const u = new URL(fullUrl);
+                    if (!u.hostname.includes('syosetu.org')) return;
+                    const pathRegex = hamelnNovelId
+                        ? new RegExp(`^/novel/${hamelnNovelId}/(\\d+)(?:\\.html)?$`, 'i')
+                        : /^\/novel\/\d+\/(\d+)(?:\.html)?$/i;
+                    const m = u.pathname.match(pathRegex);
+                    if (m) {
+                        const chNum = parseInt(m[1], 10);
+                        const cleanUrl = u.origin + u.pathname;
+                        if (!seenNums.has(chNum) && !seenUrls.has(cleanUrl)) {
+                            seenNums.add(chNum);
+                            seenUrls.add(cleanUrl);
+                            const rawText = a.textContent?.trim() || '';
+                            const chTitle = rawText || `Chapter ${chNum}`;
+                            hamelnLinks.push({
+                                url: cleanUrl,
+                                title: chTitle,
+                                order: chNum
+                            });
+                        }
+                    }
+                } catch (e) {}
+            });
+
+            if (hamelnLinks.length > 0) {
+                hamelnLinks.sort((a, b) => a.order - b.order);
+                hamelnLinks.forEach(item => {
+                    indexLinks.push({ url: item.url, title: item.title });
+                });
             }
-        });
+        }
+
+        if (indexLinks.length === 0) {
+            doc.querySelectorAll('.p-eplist__sublist a, .p-eplist__subtitle a, .novel_sublist2 .subtitle a, .novel_sublist2 a, .index_box a, .widget-toc-items a, .widget-toc-episode a, table.table-striped tr td a, table tr td a[href*="/novel/"], table tr td a[href$=".html"], table tr td a[href^="./"], table tr td a[href^="/novel/"]').forEach(a => {
+                const href = a.getAttribute('href');
+                if (href) {
+                    const fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
+                    if (!indexLinks.some(l => l.url === fullUrl)) {
+                        indexLinks.push({ url: fullUrl, title: a.textContent?.trim() || `Chapter ${indexLinks.length + 1}` });
+                    }
+                }
+            });
+        }
 
         if (indexLinks.length === 0) {
             if (isCloudflareChallenge(html) || isCloudflareChallenge(doc.body?.textContent)) {
@@ -1138,12 +1190,19 @@
                     progressCb?.('Cloudflare challenge detected. Please solve challenge in window...', 10);
                     const cfRes = await window.NativeBridge.resolveCloudflare(url);
                     if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) {
-                        return crawlSyosetu(url, progressCb);
+                        return crawlSyosetu(url, progressCb, options);
                     }
                 }
                 throw new Error('Syosetu.org Cloudflare verification was not completed. Please solve the verification prompt.');
             }
-            const body = doc.querySelector('.p-novel__body .p-novel__text:not([class*="p-novel__text--"]), .p-novel__body, #novel_honbun, .novel_honbun, #honbun, .honbun, .ss, .widget-episodeBody') || doc.body;
+            const isExplicitChapter = /\/\d+\.html/.test(url) || /\/n\d+[a-z]+\/\d+\/?$/i.test(url);
+            const specificBody = doc.querySelector('.p-novel__body .p-novel__text:not([class*="p-novel__text--"]), .p-novel__body, #novel_honbun, .novel_honbun, #honbun, .honbun, .widget-episodeBody');
+
+            if (!isExplicitChapter && !specificBody && isHameln) {
+                throw new Error('Could not find chapter links on this Syosetu.org (Hameln) page. If the page is protected or requires verification, please open it once in the built-in browser.');
+            }
+
+            const body = specificBody || doc.body;
             return {
                 title,
                 author,
@@ -1154,6 +1213,10 @@
                 isEpub: false,
                 sourceUrl: url
             };
+        }
+
+        if (options?.tocOnly || activeCrawlController?.tocOnly) {
+            return { title, author, summary, cover, tags: ['Syosetu', 'Japanese Light Novel'], chapters: [], chapterList: indexLinks, totalChapterCount: indexLinks.length, isEpub: false, sourceUrl: url };
         }
 
         progressCb?.(`Found ${indexLinks.length} Syosetu chapters! Fetching in parallel...`, 25);
@@ -1167,18 +1230,26 @@
                     if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) chHtml = cfRes.html;
                 }
                 const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');
-                const chBody = chDoc.querySelector('.p-novel__body .p-novel__text:not([class*="p-novel__text--"]), .p-novel__body, #novel_honbun, .novel_honbun, #honbun, .honbun, .ss, .widget-episodeBody') || chDoc.body;
-                return { title: item.title, text: cleanChapterHtmlWithImages(chBody.innerHTML || chBody.textContent || '') };
+                let chapterText = '';
+                const honbun = chDoc.querySelector('#honbun');
+                if (honbun) {
+                    const mae = chDoc.querySelector('#mae');
+                    const ato = chDoc.querySelector('#ato');
+                    const parts = [];
+                    if (mae && mae.textContent.trim()) parts.push(mae.innerHTML);
+                    parts.push(honbun.innerHTML);
+                    if (ato && ato.textContent.trim()) parts.push(ato.innerHTML);
+                    chapterText = cleanChapterHtmlWithImages(parts.join('<br/><br/>'), item.url);
+                } else {
+                    const chBody = chDoc.querySelector('.p-novel__body .p-novel__text:not([class*="p-novel__text--"]), .p-novel__body, #novel_honbun, .novel_honbun, #honbun, .honbun, .widget-episodeBody, .ss') || chDoc.body;
+                    chapterText = cleanChapterHtmlWithImages(chBody.innerHTML || chBody.textContent || '', item.url);
+                }
+                return { title: item.title, text: chapterText };
             },
             12,
             progressCb,
             { title, author, summary, cover, chapterList: indexLinks }
         );
-
-
-        if (activeCrawlController?.tocOnly) {
-            return { title, author, summary, cover, tags: ['Syosetu', 'Japanese Light Novel'], chapters: [], chapterList: indexLinks, totalChapterCount: indexLinks.length, isEpub: false, sourceUrl: url };
-        }
 
         progressCb?.(` Loaded ${chapters.length} Syosetu chapters (~${totalWords.toLocaleString()} words)!`, 100);
         return { title, author, summary, cover, tags: ['Syosetu', 'Japanese Light Novel'], chapters, chapterList: indexLinks, totalChapterCount: indexLinks.length, isEpub: false, sourceUrl: url };
