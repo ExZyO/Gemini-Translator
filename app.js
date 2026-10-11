@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.27';
+    let VERSION = '8.21.28';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1081,7 +1081,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8438);
+      const [appVersionCode, setAppVersionCode] = useState(8439);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [assignWebsiteModalNovel, setAssignWebsiteModalNovel] = useState(null);

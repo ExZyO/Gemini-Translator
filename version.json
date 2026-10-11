@@ -1,9 +1,9 @@
 {
-  "version": "8.21.27",
-  "versionCode": 8438,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.27/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.27/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.27",
+  "version": "8.21.28",
+  "versionCode": 8439,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.28/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.28/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.28",
   "releaseDate": "2026-10-11",
-  "releaseNotes": "v8.21.27: Live GitHub Actions workflow build status tracker in header, automatic updater auto-polling, and resilient Hameln chapter ingestion throttling."
+  "releaseNotes": "v8.21.28: Deduplicate in-app verification dialogs during batch crawling, match native client User-Agent with WebView, and reset output workspace when loading imported novels."
 }

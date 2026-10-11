@@ -609,12 +609,14 @@
                         const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
                         setInputText(fullText);
                         setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
+                        setAssembledText('');
+                        setTranslatedChapters([]);
                         setActiveNovelRecord(activeCrawlSession);
                         setCurrentDocCover(activeCrawlSession?.cover || '');
                         setFileName(activeCrawlSession?.title || 'Web Novel');
                         setCurrentDocTitle(activeCrawlSession?.title || 'Web Novel');
                         setActiveTab('text');
-                        toast(`Loaded ${chs.length} chapters to Translator tab!`, 'info');
+                        toast(`Loaded ${chs.length} chapters to Translator! Tap "Translate" below to begin translating.`, 'info');
                       }
                     }, 'Send to Translator'),
                     h('button', {
@@ -1644,13 +1646,15 @@
                       const fullText = chs.map(c => `# ${c.title}\n\n${c.text || c.content}`).join('\n\n');
                       setInputText(fullText);
                       setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
+                      setAssembledText('');
+                      setTranslatedChapters([]);
                       setActiveNovelRecord(full || activeNovelView);
                       setCurrentDocCover(full?.cover || activeNovelView?.cover || '');
                       setFileName(full?.title || activeNovelView.title || 'Web Novel');
                       setCurrentDocTitle(full?.title || activeNovelView.title || 'Web Novel');
                       checkAndApplyNovelGlossary(full || activeNovelView);
                       setActiveTab('text');
-                      toast(`Loaded "${full?.title || activeNovelView.title || 'Novel'}" (${chs.length} ch) to Translator!`, 'info');
+                      toast(`Loaded "${full?.title || activeNovelView.title || 'Novel'}" (${chs.length} ch) to Translator! Tap "Translate" below to begin translating.`, 'info');
                     } }, isLnoriNovel ? 'Translate to Other Lang' : 'Send to Translator'),
                     h('button', {
                       type: 'button',

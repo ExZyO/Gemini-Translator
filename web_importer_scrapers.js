@@ -1224,6 +1224,17 @@
         const poolConcurrency = isHameln ? 2 : 8;
         const poolDelay = isHameln ? 400 : 50;
 
+        let cfSharedPromise = null;
+        const resolveCfOnce = (targetUrl) => {
+            if (!window.NativeBridge?.resolveCloudflare) return Promise.resolve(null);
+            if (!cfSharedPromise) {
+                cfSharedPromise = window.NativeBridge.resolveCloudflare(targetUrl).finally(() => {
+                    setTimeout(() => { cfSharedPromise = null; }, 15000);
+                });
+            }
+            return cfSharedPromise;
+        };
+
         const { chapters, totalWords } = await crawlChapterPool(
             indexLinks,
             async (item) => {
@@ -1231,16 +1242,18 @@
                 try {
                     chHtml = await fetchHtml(item.url);
                 } catch (err) {
-                    if (window.NativeBridge?.resolveCloudflare) {
-                        const cfRes = await window.NativeBridge.resolveCloudflare(item.url);
+                    if (isHameln && window.NativeBridge?.resolveCloudflare) {
+                        const cfRes = await resolveCfOnce(item.url);
                         if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) {
                             chHtml = cfRes.html;
+                        } else {
+                            try { chHtml = await fetchHtml(item.url); } catch (_) {}
                         }
                     }
                     if (!chHtml) throw err;
                 }
                 if (chHtml && isCloudflareChallenge(chHtml) && window.NativeBridge?.resolveCloudflare) {
-                    const cfRes = await window.NativeBridge.resolveCloudflare(item.url);
+                    const cfRes = await resolveCfOnce(item.url);
                     if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) chHtml = cfRes.html;
                 }
                 const chDoc = new DOMParser().parseFromString(chHtml, 'text/html');

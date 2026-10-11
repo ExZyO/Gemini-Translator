@@ -105,6 +105,12 @@ public class NativeAndroidBridgePlugin extends Plugin {
     private static final String DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
     private String getDefaultUserAgent() {
+        try {
+            Context ctx = getContext();
+            if (ctx != null) {
+                return android.webkit.WebSettings.getDefaultUserAgent(ctx);
+            }
+        } catch (Throwable ignored) {}
         return DEFAULT_UA;
     }
 
