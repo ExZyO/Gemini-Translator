@@ -33,6 +33,11 @@
       provider = 'gemini',
       geminiModel = 'gemini-2.5-flash',
       deepseekModel = 'deepseek-chat',
+      customModel = '',
+      useCustomModel = false,
+      customDeepseekModel = '',
+      useCustomDeepseekModel = false,
+      model = '',
       handleSwapLanguages = function() {},
       handleResetTranslateTab = function() {},
       chunkSizePreset = 'turbo',
@@ -352,7 +357,7 @@
                 ),
                 h('div', { className: 'active-model-pill', title: `Active Provider: ${provider || 'gemini'}` },
                   h('span', { className: 'pulse-green-dot' }),
-                  h('span', null, `${(provider || 'gemini') === 'gemini' ? (String(geminiModel || 'Flash').replace(/^gemini-/, '') || 'Flash') : (deepseekModel || 'Chat')}`)
+                  h('span', null, `${(provider || 'gemini') === 'gemini' ? (String((useCustomModel && customModel ? customModel : geminiModel) || 'Flash').replace(/^gemini-/, '') || 'Flash') : (String((useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel) || 'Chat'))}`)
                 )
               ),
               h('div', { className: 'meta', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 } },

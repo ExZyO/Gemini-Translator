@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.34';
+    let VERSION = '8.21.35';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2503,7 +2503,7 @@
         : activeTab === 'web_importer'
         ? 'Web novels, light novels, classics & audiobooks'
         : activeTab === 'text'
-        ? `${provider.toUpperCase()} · ${provider === 'gemini' ? geminiModel : provider === 'deepseek' ? deepseekModel : provider}`
+        ? `${provider.toUpperCase()} · ${model}`
         : activeTab === 'studio'
         ? 'Lossless EPUB inspection, splitting & merging'
         : 'AI models, cloud sync & reader defaults';
@@ -2513,7 +2513,7 @@
         activeTab,
         // Tab 1: Translation
         error, setError, srcLang, setSrcLang, tgtLang, setTgtLang, handleSwapLanguages, handleResetTranslateTab,
-        provider, geminiModel, deepseekModel,
+        provider, geminiModel, deepseekModel, customModel, useCustomModel, customDeepseekModel, useCustomDeepseekModel, model,
         chunkSizePreset, concurrency, inputText, setInputText, handleInputChange,
         inputCharCount, inputTokenCount, inputRef, fileInputRef, uploadingFile, processFile,
         onDragOver, onDragLeave, onDrop, isDragOver, handlePasteFromClipboard, inputBoxHeight,
