@@ -1103,7 +1103,7 @@ const streamWithRotation = async (text, opts) => {
         throw err;
       }
     }
-    throw new Error(`Model ${currentOpts.model || 'chosen'} stream busy/rate-limited after ${maxAttempts} patient attempts. Progress safely saved.`);
+    throw new Error(`Model ${currentOpts.model || 'chosen'} stream busy/rate-limited after ${maxAttempts} patient attempts.`);
   } finally {
     if (currentOpts.apiKey) KeyPool.releaseKey(currentOpts.apiKey);
   }
@@ -1209,7 +1209,7 @@ const translateWithRotation = async (text, opts) => {
         throw err;
       }
     }
-    throw new Error(`Model ${currentOpts.model || 'chosen'} busy/rate-limited after ${maxAttempts} patient attempts. Progress safely saved.`);
+    throw new Error(`Model ${currentOpts.model || 'chosen'} busy/rate-limited after ${maxAttempts} patient attempts.`);
   } finally {
     if (currentOpts.apiKey) KeyPool.releaseKey(currentOpts.apiKey);
   }
