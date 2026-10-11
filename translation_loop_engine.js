@@ -678,7 +678,7 @@
         const curText = (typeof cur === 'string' ? cur : (cur?.text || cur?.content || ''));
         const curIsSummary = /(?:^|\n)\s*(?:by\s+[^\n]+\r?\n+)?\s*(?:Summary|Synopsis|Warning|Notes|简介|内容简介|前言)[:：\s]/i.test(curText);
         if (curIsSummary) {
-          if (typeof cur === 'object') cur.title = 'Summary';
+          if (cur && typeof cur === 'object') cur.title = 'Summary';
         }
       }
     }
@@ -766,8 +766,8 @@
     await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx, workerId = 0) => {
       const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
       const workerOpts = { ...opts, apiKey: workerKey, availableKeys, isParallelWorker: effectiveConcurrency > 1 };
-      let title = ch.title;
-      const chunks = ch.chunks;
+      let title = ch?.title || '';
+      const chunks = ch?.chunks || [];
       let chapterCtx = '';
 
       // 1. Translate title if needed (cached so duplicate chapter titles match exactly)
@@ -825,7 +825,7 @@
             );
           }
         } else {
-          title = newChapters[i].title;
+          title = newChapters[i]?.title || ch?.title || `Chapter ${i + 1}`;
         }
       }
 
@@ -989,7 +989,8 @@
         }).catch(e => console.warn('[Snapshots] Auto-save error:', e));
       }
 
-      newChapters[i] = { originalTitle: chapters[i].title, title, content, zipPath: ch.zipPath, docHtml };
+      const origTitle = chapters[i]?.originalTitle || chapters[i]?.title || ch?.title || `Chapter ${i + 1}`;
+      newChapters[i] = { originalTitle: origTitle, title: title || origTitle, content, zipPath: ch?.zipPath, docHtml };
       allParts[i] = `${title}\n\n${content}`;
       
       if (callbacks.onChapterComplete) {
@@ -1234,7 +1235,7 @@
       const assembledText = params.assembledText || '';
 
       if (chapters && chapters.length > 0) {
-        const bTitle = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || (chapters[0] && chapters[0].title) || 'Web Novel';
+        const bTitle = (fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || (chapters[0] && chapters[0]?.title) || 'Web Novel';
         const jId = currentFileHash || ('job_' + String(bTitle).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30) + '_' + chapters.length);
         const compCount = translatedChapters.filter(c => c && (c.content || c.text)).length;
         session = {
@@ -1434,7 +1435,7 @@
     const webImportHistory = params.webImportHistory || [];
     const webImportData = params.webImportData || null;
     const webImportUrl = params.webImportUrl || '';
-    const matchingOriginal = webImportHistory.find(n => n && normalizeTitleKey(n.title) === baseTitle);
+    const matchingOriginal = webImportHistory.find(n => n && normalizeTitleKey(n?.title) === baseTitle);
     const resolvedCover = params.currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || (webImportData && webImportData.cover) || (matchingOriginal && matchingOriginal.cover) || '';
     const resolvedAuthor = (activeNovelRecord && activeNovelRecord.author) || (webImportData && webImportData.author) || (matchingOriginal && matchingOriginal.author) || 'Author';
     const resolvedSourceUrl = (activeNovelRecord && (activeNovelRecord.sourceUrl || activeNovelRecord.url)) ||
@@ -1745,7 +1746,7 @@
         const activeCrawlSession = params.activeCrawlSession || null;
 
         if (activeNovelRecord && activeNovelRecord.id) {
-          const cleanBT = normalizeTitleKey(activeNovelRecord.title);
+          const cleanBT = normalizeTitleKey(activeNovelRecord?.title || '');
           const matchedMeta = webImportHistory.find(n => {
             const nt = normalizeTitleKey(n?.title);
             return nt && (nt === cleanBT || cleanBT.includes(nt) || nt.includes(cleanBT)) && n.cover;

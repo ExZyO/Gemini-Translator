@@ -1814,8 +1814,8 @@ Output valid raw JSON only, no markdown formatting.`;
     let ch2Url = '';
 
     if (chapters && chapters.length === 2) {
-      const num0 = extractChNum(chapters[0].title) || extractChNum(chapters[0].href);
-      const num1 = extractChNum(chapters[1].title) || extractChNum(chapters[1].href);
+      const num0 = extractChNum(chapters[0]?.title) || extractChNum(chapters[0]?.href);
+      const num1 = extractChNum(chapters[1]?.title) || extractChNum(chapters[1]?.href);
       if (num0 !== null && num1 !== null && Math.abs(num1 - num0) > 1) {
         isQuickLinksOnly = true;
         if (num0 <= num1) {

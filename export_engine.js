@@ -388,7 +388,7 @@
           if (parsed.length === translatedChapters.length) {
             return parsed.map((p, i) => ({
               ...translatedChapters[i],
-              title: p.title || translatedChapters[i].title,
+              title: p.title || translatedChapters[i]?.title || `Chapter ${i + 1}`,
               content: p.content || p.text || '',
               text: p.content || p.text || ''
             }));

@@ -1532,7 +1532,7 @@ hr {
 
         // Skip redundant standalone cover chapter if cover.xhtml was already generated
         let chStartIndex = 0;
-        if (coverCached && exportChapters.length > 1 && /^cover$/i.test(exportChapters[0].title.trim())) {
+        if (coverCached && exportChapters.length > 1 && exportChapters[0]?.title && /^cover$/i.test(exportChapters[0].title.trim())) {
           chStartIndex = 1;
         }
 
