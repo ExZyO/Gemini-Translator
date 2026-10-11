@@ -1221,8 +1221,8 @@
 
         progressCb?.(`Found ${indexLinks.length} Syosetu chapters! Fetching in parallel...`, 25);
 
-        const poolConcurrency = isHameln ? 2 : 8;
-        const poolDelay = isHameln ? 400 : 50;
+        const poolConcurrency = isHameln ? 1 : 8;
+        const poolDelay = isHameln ? 800 : 50;
 
         let cfSharedPromise = null;
         const resolveCfOnce = (targetUrl) => {

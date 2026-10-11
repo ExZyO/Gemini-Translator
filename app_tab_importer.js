@@ -616,9 +616,14 @@
                         setFileName(activeCrawlSession?.title || 'Web Novel');
                         setCurrentDocTitle(activeCrawlSession?.title || 'Web Novel');
                         setActiveTab('text');
-                        toast(`Loaded ${chs.length} chapters to Translator! Tap "Translate" below to begin translating.`, 'info');
+                        const totalChs = activeCrawlSession?.totalChapterCount || activeCrawlSession?.chapterList?.length || 0;
+                        if (totalChs > 0 && chs.length < totalChs) {
+                          toast(`Loaded ${chs.length} of ${totalChs} downloaded chapters to Translator. To translate all ${totalChs}, tap "Resume Fetch" first!`, 'warning');
+                        } else {
+                          toast(`Loaded ${chs.length} chapters to Translator! Tap "Translate" below to begin translating.`, 'info');
+                        }
                       }
-                    }, 'Send to Translator'),
+                    }, `Send to Translator (${getSafeChapterCount(activeCrawlSession)} Ch)`),
                     h('button', {
                       type: 'button',
                       className: 'mini-btn danger',

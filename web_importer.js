@@ -643,6 +643,8 @@
             lower.includes('class="chr-c"') ||
             lower.includes('__next_data__') ||
             lower.includes('novel_honbun') ||
+            lower.includes('id="honbun"') ||
+            lower.includes('honbun') ||
             lower.includes('p-novel__body') ||
             lower.includes('widget-episodebody') ||
             lower.includes('chapter-list') ||
