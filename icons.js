@@ -57,7 +57,7 @@ window.LUCIDE_ICONS = {"Edit":[["path",{"d":"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 
     'Plus', 'Minus', 'Maximize2', 'Minimize2', 'BookOpen', 'Library', 'Key', 'Shield', 'Lock', 'Unlock',
     'Calendar', 'ArrowUpDown', 'CalendarDays', 'Volume2', 'VolumeX', 'Play', 'Pause',
     'SkipForward', 'SkipBack', 'MoreVertical', 'Type', 'Palette', 'List', 'Compass',
-    'Bookmark', 'Menu', 'ArrowLeft', 'ArrowRight', 'Maximize', 'Minimize', 'ChevronsUp', 'ChevronsDown'
+    'Bookmark', 'Menu', 'ArrowLeft', 'ArrowRight', 'Maximize', 'Minimize', 'ChevronsUp', 'ChevronsDown', 'Activity'
   ];
   iconNamesList.forEach(name => {
     window[name] = LucideIcons[name] || createLucideIcon(name);

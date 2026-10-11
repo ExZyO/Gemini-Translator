@@ -959,6 +959,33 @@
    * AppUpdate: In-app update checking and APK installation
    */
   const AppUpdate = {
+    async checkBuildStatus() {
+      try {
+        const res = await fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/actions/runs?per_page=5&t=' + Date.now(), {
+          headers: { 'Accept': 'application/vnd.github.v3+json' },
+          cache: 'no-store'
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const runs = Array.isArray(data?.workflow_runs) ? data.workflow_runs : [];
+        const apkRun = runs.find(r => /build\s*android|release\s*apk|apk/i.test(r.name || '')) || runs[0];
+        if (!apkRun) return null;
+        const isBuilding = apkRun.status === 'in_progress' || apkRun.status === 'queued';
+        return {
+          id: apkRun.id,
+          name: apkRun.name,
+          status: apkRun.status,
+          conclusion: apkRun.conclusion,
+          isBuilding,
+          htmlUrl: apkRun.html_url || 'https://github.com/ExZyO/Gemini-Translator/actions',
+          createdAt: apkRun.created_at,
+          commitMsg: apkRun.head_commit?.message?.split('\n')[0] || ''
+        };
+      } catch (_) {
+        return null;
+      }
+    },
+
     async checkForUpdate(currentVersion, isManual = false, callbacks = {}) {
       if (isManual && typeof callbacks.toast === 'function') callbacks.toast('Checking for updates...', 'info');
       try {
@@ -971,6 +998,7 @@
           // Web fallback: query GitHub releases and version manifest concurrently
           const candidates = [];
           let discoveredApk = null;
+          let buildStatus = null;
           const q1 = fetch('https://api.github.com/repos/ExZyO/Gemini-Translator/releases/latest?t=' + Date.now()).then(async r => {
             if (r.ok) {
               const d = await r.json();
@@ -989,7 +1017,8 @@
               if (d?.apkUrl || d?.downloadUrl) discoveredApk = d.apkUrl || d.downloadUrl;
             }
           }).catch(() => {});
-          await Promise.allSettled([q1, q2]);
+          const q3 = AppUpdate.checkBuildStatus().then(bs => { buildStatus = bs; }).catch(() => {});
+          await Promise.allSettled([q1, q2, q3]);
 
           if (candidates.length > 0) {
             candidates.sort((a, b) => {
@@ -1004,23 +1033,40 @@
             const [cMaj=0, cMin=0, cPat=0] = parseV(currentVersion);
             const isNewer = (rMaj > cMaj) || (rMaj === cMaj && rMin > cMin) || (rMaj === cMaj && rMin === cMin && rPat > cPat);
             const latestTag = `v${[rMaj, rMin, rPat].join('.')}`;
+            const isApkReady = !!(discoveredApk && discoveredApk.includes(latestTag));
             update = {
               isNewer,
+              isBuilding: isNewer && (buildStatus?.isBuilding || !isApkReady),
+              buildStatus,
               latestVersion: latestTag,
               currentVersion: 'v' + [cMaj, cMin, cPat].join('.'),
-              apkUrl: (discoveredApk && discoveredApk.includes(latestTag))
+              apkUrl: isApkReady
                 ? discoveredApk
                 : `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`,
-              releasePage: `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`
+              releasePage: `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`,
+              actionsUrl: buildStatus?.htmlUrl || 'https://github.com/ExZyO/Gemini-Translator/actions'
             };
           }
         }
 
         if (update && update.isNewer) {
+          if (!update.buildStatus) {
+            try {
+              update.buildStatus = await AppUpdate.checkBuildStatus();
+              if (update.buildStatus?.isBuilding) update.isBuilding = true;
+              if (update.buildStatus?.htmlUrl) update.actionsUrl = update.buildStatus.htmlUrl;
+            } catch (_) {}
+          }
           if (typeof callbacks.onUpdateAvailable === 'function') {
             callbacks.onUpdateAvailable(update);
           }
-          if (isManual && typeof callbacks.toast === 'function') callbacks.toast(`New version ${update.latestVersion} available!`, 'success');
+          if (isManual && typeof callbacks.toast === 'function') {
+            if (update.isBuilding) {
+              callbacks.toast(`Version ${update.latestVersion} is currently compiling on GitHub Actions (~2 mins)... Tap the pulse icon to view progress!`, 'info');
+            } else {
+              callbacks.toast(`New version ${update.latestVersion} available!`, 'success');
+            }
+          }
         } else {
           if (typeof callbacks.onUpToDate === 'function') {
             callbacks.onUpToDate(currentVersion, isManual, update);

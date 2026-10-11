@@ -291,18 +291,21 @@
                 else if (rMajor === cMajor && rMinor === cMinor && rPatch > cPatch) isNewer = true;
 
                 const latestTag = 'v' + [rMajor, rMinor, rPatch].join('.');
-                const targetApkUrl = (discoveredApkUrl && discoveredApkUrl.includes(latestTag))
+                const isApkUploaded = Boolean(discoveredApkUrl && discoveredApkUrl.includes(latestTag));
+                const targetApkUrl = isApkUploaded
                     ? discoveredApkUrl
                     : `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`;
                 const targetReleasePage = `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`;
 
                 return {
                     isNewer,
+                    isBuilding: isNewer && !isApkUploaded,
                     latestVersion: latestTag,
                     currentVersion: 'v' + [cMajor, cMinor, cPatch].join('.'),
                     releaseNotes: releaseNotes || `Gemini Translator ${latestTag} is available!`,
                     apkUrl: targetApkUrl,
-                    releasePage: targetReleasePage
+                    releasePage: targetReleasePage,
+                    actionsUrl: 'https://github.com/ExZyO/Gemini-Translator/actions'
                 };
             } catch (e) {
                 console.warn('Update check failed:', e);

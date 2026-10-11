@@ -1221,10 +1221,24 @@
 
         progressCb?.(`Found ${indexLinks.length} Syosetu chapters! Fetching in parallel...`, 25);
 
+        const poolConcurrency = isHameln ? 2 : 8;
+        const poolDelay = isHameln ? 400 : 50;
+
         const { chapters, totalWords } = await crawlChapterPool(
             indexLinks,
             async (item) => {
-                let chHtml = await fetchHtml(item.url);
+                let chHtml = '';
+                try {
+                    chHtml = await fetchHtml(item.url);
+                } catch (err) {
+                    if (window.NativeBridge?.resolveCloudflare) {
+                        const cfRes = await window.NativeBridge.resolveCloudflare(item.url);
+                        if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) {
+                            chHtml = cfRes.html;
+                        }
+                    }
+                    if (!chHtml) throw err;
+                }
                 if (chHtml && isCloudflareChallenge(chHtml) && window.NativeBridge?.resolveCloudflare) {
                     const cfRes = await window.NativeBridge.resolveCloudflare(item.url);
                     if (cfRes && cfRes.html && !isCloudflareChallenge(cfRes.html)) chHtml = cfRes.html;
@@ -1246,9 +1260,10 @@
                 }
                 return { title: item.title, text: chapterText };
             },
-            12,
+            poolConcurrency,
             progressCb,
-            { title, author, summary, cover, chapterList: indexLinks }
+            { title, author, summary, cover, chapterList: indexLinks },
+            { delayMs: poolDelay }
         );
 
         progressCb?.(` Loaded ${chapters.length} Syosetu chapters (~${totalWords.toLocaleString()} words)!`, 100);

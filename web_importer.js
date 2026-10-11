@@ -904,7 +904,10 @@
         }
 
         // 3. Tiered Public Proxy Failover Pool (Fast sub-second proxies prioritized)
-        const proxyPool = [
+        // Cloudflare on syosetu.org strictly blocks datacenter proxy IPs with 522/503.
+        // Skip public datacenter proxies for syosetu.org so we fail fast to NativeBridge/Cloudflare resolver in 0ms instead of 30s.
+        const isSyosetu = typeof url === 'string' && url.includes('syosetu.org');
+        const proxyPool = isSyosetu ? [] : [
             { name: 'corsproxy.org', getUrl: (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}` },
             { name: 'corsproxy.io', getUrl: (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
             { name: 'allorigins.win', getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },

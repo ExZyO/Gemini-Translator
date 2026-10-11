@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.26';
+    let VERSION = '8.21.27';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1081,7 +1081,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8436);
+      const [appVersionCode, setAppVersionCode] = useState(8438);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [assignWebsiteModalNovel, setAssignWebsiteModalNovel] = useState(null);
@@ -1340,6 +1340,15 @@
       useEffect(() => {
         checkForAppUpdate(false);
       }, []);
+
+      // Auto-poll GitHub Actions while an update is compiling so Exile gets notified instantly when ready
+      useEffect(() => {
+        if (!availableUpdate?.isBuilding) return;
+        const timer = setInterval(() => {
+          checkForAppUpdate(false);
+        }, 15000);
+        return () => clearInterval(timer);
+      }, [availableUpdate?.isBuilding]);
 
       // --- Refs for Text Areas & Files ---
       // --- Refs for Text Areas & Files ---
@@ -2612,30 +2621,53 @@
                 h('button', { type: 'button', className: 'version-chip', title: 'Check for updates', onClick: () => checkForAppUpdate(true) },
                   `v${appVersion}`, availableUpdate ? h('span', { className: 'dot' }) : null
                 ),
-                !isStandalone && h('button', { type: 'button', className: 'icon-btn', title: 'Install App on Device', onClick: handleInstallPWA }, ic(Download, 16))
+                h('button', {
+                  type: 'button',
+                  className: 'icon-btn',
+                  title: availableUpdate?.isBuilding
+                    ? `Update ${availableUpdate.latestVersion} is compiling on GitHub Actions (~2 mins) — tap to view live build`
+                    : 'GitHub Actions (Builds & Workflow Runs)',
+                  onClick: () => {
+                    const url = availableUpdate?.actionsUrl || 'https://github.com/ExZyO/Gemini-Translator/actions';
+                    window.open(url, '_blank');
+                  }
+                }, availableUpdate?.isBuilding ? ic(Loader2, 16, 'animate-spin') : ic(Activity, 16))
               )
             )
           ),
 
           // ── UPDATE BANNER ──
           availableUpdate && h('div', { className: 'tl-wrap', style: { marginTop: 16 } },
-            h('div', { className: 'card', style: { borderColor: 'rgba(124,135,255,.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 0 } },
+            h('div', { className: 'card', style: { borderColor: availableUpdate.isBuilding ? 'rgba(234,179,8,.6)' : 'rgba(124,135,255,.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 0 } },
               h('div', null,
-                h('div', { style: { fontWeight: 700, fontSize: 13 } }, `Update Ready: v${availableUpdate.latestVersion}`),
-                h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } }, 'Tap to install the latest features and fixes.')
+                h('div', { style: { fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 } },
+                  availableUpdate.isBuilding ? ic(Loader2, 14, 'animate-spin') : null,
+                  availableUpdate.isBuilding ? `Update Compiling: ${availableUpdate.latestVersion} ⏳` : `Update Ready: ${availableUpdate.latestVersion}`
+                ),
+                h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } },
+                  availableUpdate.isBuilding
+                    ? 'GitHub Actions is building the new release APK (~2 mins). Auto-refreshing...'
+                    : 'Tap to install the latest features and fixes.'
+                )
               ),
               h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
-                h('button', { type: 'button', className: 'mini-btn', disabled: isUpdating, onClick: handlePerformUpdate }, isUpdating ? 'Downloading…' : 'Update Now'),
-                h('button', {
+                availableUpdate.isBuilding ? h('button', {
                   type: 'button',
-                  className: 'mini-btn ghost',
-                  title: 'Download APK directly using your device browser',
-                  onClick: () => {
-                    const apkUrl = availableUpdate?.releasePage || availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest";
-                    window.AppLogger?.log('info', 'Updater', 'Opening browser download: ' + apkUrl);
-                    window.open(apkUrl, '_blank');
-                  }
-                }, 'Browser Download'),
+                  className: 'mini-btn',
+                  onClick: () => window.open(availableUpdate?.actionsUrl || 'https://github.com/ExZyO/Gemini-Translator/actions', '_blank')
+                }, 'View Build Progress') : h(React.Fragment, null,
+                  h('button', { type: 'button', className: 'mini-btn', disabled: isUpdating, onClick: handlePerformUpdate }, isUpdating ? 'Downloading…' : 'Update Now'),
+                  h('button', {
+                    type: 'button',
+                    className: 'mini-btn ghost',
+                    title: 'Download APK directly using your device browser',
+                    onClick: () => {
+                      const apkUrl = availableUpdate?.releasePage || availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest";
+                      window.AppLogger?.log('info', 'Updater', 'Opening browser download: ' + apkUrl);
+                      window.open(apkUrl, '_blank');
+                    }
+                  }, 'Browser Download')
+                ),
                 h('button', { type: 'button', className: 'icon-btn', onClick: () => setAvailableUpdate(null) }, ic(X, 14))
               )
             )

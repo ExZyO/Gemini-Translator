@@ -1,9 +1,9 @@
 {
-  "version": "8.21.26",
-  "versionCode": 8437,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.26/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.26/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.26",
+  "version": "8.21.27",
+  "versionCode": 8438,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.27/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.27/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.27",
   "releaseDate": "2026-10-11",
-  "releaseNotes": "v8.21.26: Fix Hameln (syosetu.org) table of contents chapter link extraction across desktop and mobile layouts with clean preface and body parsing."
+  "releaseNotes": "v8.21.27: Live GitHub Actions workflow build status tracker in header, automatic updater auto-polling, and resilient Hameln chapter ingestion throttling."
 }
