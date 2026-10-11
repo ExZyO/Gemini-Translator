@@ -1,9 +1,9 @@
 {
-  "version": "8.21.33",
-  "versionCode": 8444,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.33/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.33/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.33",
+  "version": "8.21.34",
+  "versionCode": 8445,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.34/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.34/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.34",
   "releaseDate": "2026-10-11",
-  "releaseNotes": "v8.21.33: Add automatic 403 Permission Denied key rotation and quarantine in translation rotation engine."
+  "releaseNotes": "v8.21.34: Distinguish Project Denied Access (403) in Settings key tester for instant diagnosis."
 }

@@ -240,6 +240,9 @@
           }
           return { status: 'cooling', latency, message: `⏳ Rate Limited (429 · ${latency}ms)` };
         } else if (r.status === 400 || r.status === 403) {
+          if (/denied access|permission_denied/i.test(detail)) {
+            return { status: 'error', latency, message: `❌ Project Denied Access (403 · Disabled by Google)` };
+          }
           return { status: 'error', latency, message: `❌ Invalid Key / Unauthorized (${r.status})` };
         }
         return { status: 'error', latency, message: `❌ HTTP ${r.status}: ${detail}` };
