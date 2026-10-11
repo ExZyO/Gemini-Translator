@@ -1,9 +1,9 @@
 {
-  "version": "8.21.36",
-  "versionCode": 8447,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.36/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.36/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.36",
+  "version": "8.21.37",
+  "versionCode": 8448,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.37/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.37/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.37",
   "releaseDate": "2026-10-11",
-  "releaseNotes": "v8.21.36: Accurate active model resolution in Diagnostics Report while translation is in-flight."
+  "releaseNotes": "v8.21.37: Clean readable formatting and smart auto-scroll for live diagnostics logs."
 }

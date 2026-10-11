@@ -1023,19 +1023,27 @@
                     borderRadius: 8,
                     border: '1px solid var(--hairline)',
                     whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all'
+                    wordBreak: 'break-word'
                   }
                 },
                   liveLogs.length === 0
                     ? h('div', { style: { color: '#64748b', textAlign: 'center', padding: '20px 0' } }, 'Ready. Run a translation to see live API calls, key leases, and responses.')
                     : liveLogs.map((l, idx) => {
                         const color = l.level === 'warn' ? '#f59e0b' : (l.level === 'error' ? '#ef4444' : '#38bdf8');
-                        const det = l.details ? ' ' + (typeof l.details === 'object' ? JSON.stringify(l.details) : String(l.details)) : '';
-                        return h('div', { key: idx, style: { marginBottom: 3 } },
+                        let det = '';
+                        if (l.details) {
+                          if (typeof l.details === 'object' && l.details.matchedTerms) {
+                            det = ` (${l.details.matchedCount || l.details.matchedTerms.length} terms matched)`;
+                          } else {
+                            const raw = typeof l.details === 'object' ? JSON.stringify(l.details) : String(l.details);
+                            det = raw.length > 140 ? ' ' + raw.slice(0, 140) + '…' : ' ' + raw;
+                          }
+                        }
+                        return h('div', { key: idx, style: { padding: '2px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' } },
                           h('span', { style: { color: '#64748b' } }, `[${l.time}] `),
-                          h('span', { style: { color, fontWeight: 600 } }, `[${l.tag}] `),
-                          h('span', null, l.message),
-                          det && h('span', { style: { color: '#94a3b8' } }, det)
+                          h('span', { style: { color, fontWeight: 700 } }, `[${(l.tag || 'INFO').toUpperCase()}] `),
+                          h('span', { style: { color: '#cbd5e1' } }, l.message),
+                          det && h('span', { style: { color: '#94a3b8', fontSize: 10 } }, det)
                         );
                       })
                 )
