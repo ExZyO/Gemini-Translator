@@ -1007,13 +1007,15 @@
 
     if (untranslatedTitles.length > 0 && !opts.signal?.aborted) {
       console.log(`[Title Healing] Found ${untranslatedTitles.length} untranslated title(s). Running healing pass...`);
-      if (callbacks.onProgressLabel) {
-        callbacks.onProgressLabel(`Healing ${untranslatedTitles.length} untranslated chapter title(s)...`);
-      }
-      for (const { nc, idx } of untranslatedTitles) {
+      for (let hIdx = 0; hIdx < untranslatedTitles.length; hIdx++) {
+        const { nc, idx } = untranslatedTitles[hIdx];
         if (opts.signal?.aborted) break;
+        if (callbacks.onProgressLabel) {
+          callbacks.onProgressLabel(`Healing untranslated title ${hIdx + 1}/${untranslatedTitles.length}...`);
+        }
         try {
-          const hRes = await safeTranslateWithRotation(nc.title, {
+          const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('Title healing timeout')), 12000));
+          const titlePromise = safeTranslateWithRotation(nc.title, {
             ...opts,
             context: undefined,
             needContextUpdate: false,
@@ -1021,13 +1023,14 @@
             smartGlossary: false,
             instructions: 'Translate this novel chapter title accurately and concisely into English. Output ONLY the translated title, without quotes or markdown formatting.'
           });
+          const hRes = await Promise.race([titlePromise, timeoutPromise]);
           const hTrans = (hRes && typeof hRes === 'object') ? (hRes.text || '') : (typeof hRes === 'string' ? hRes : '');
           if (hTrans && hTrans.trim()) {
             nc.title = hTrans.trim();
             allParts[idx] = `${nc.title}\n\n${nc.content}`;
           }
         } catch (hErr) {
-          console.warn(`[Title Healing] Failed for Ch. ${idx + 1}:`, hErr.message);
+          console.warn(`[Title Healing] Skipped Ch. ${idx + 1}:`, hErr.message);
         }
       }
     }

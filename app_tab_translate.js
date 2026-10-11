@@ -444,8 +444,8 @@
                       h('span', null, 'Translated Prose')
                     ),
                     h('div', { className: 'pane-acts' },
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); }, style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 11), 'Copy'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => {
+                      h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); }, style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 11), 'Copy'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim() && (!translatedChapters || translatedChapters.length === 0), onClick: () => {
                         const docKey = currentDocTitle || fileName || 'translated_doc';
                         setReaderNovelId(docKey);
                         setReaderNovelTitle(currentDocTitle || fileName || 'Document');
@@ -543,8 +543,8 @@
                       h('span', null, 'Translated Output')
                     ),
                     h('div', { className: 'pane-acts' },
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); }, style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 11), 'Copy'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: () => {
+                      h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); }, style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 11), 'Copy'),
+                      h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim() && (!translatedChapters || translatedChapters.length === 0), onClick: () => {
                         const docKey = currentDocTitle || fileName || 'translated_doc';
                         setReaderNovelId(docKey);
                         setReaderNovelTitle(currentDocTitle || fileName || 'Document');

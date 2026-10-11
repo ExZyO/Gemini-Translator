@@ -1,9 +1,9 @@
 {
-  "version": "8.21.29",
-  "versionCode": 8440,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.29/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.29/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.29",
+  "version": "8.21.30",
+  "versionCode": 8441,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.30/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.30/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.30",
   "releaseDate": "2026-10-11",
-  "releaseNotes": "v8.21.29: Prevent undefined chapter title crash during multi-chapter ebook translation loop and harden title property lookups across engines."
+  "releaseNotes": "v8.21.30: Unlock Reader and Copy buttons in Translated Prose during live background translation."
 }
