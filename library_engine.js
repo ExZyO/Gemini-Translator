@@ -1003,7 +1003,7 @@
       try {
         const raw = localStorage.getItem('gemini_web_import_history_meta');
         const list = raw ? JSON.parse(raw) : [];
-        itemToDelete = list.find(n => n.id === novelId);
+        itemToDelete = list.find(n => n.id === novelId || n.title === novelId || (n.title && n.title.trim().toLowerCase() === String(novelId).trim().toLowerCase()));
       } catch(e) {}
 
       if (window.GeminiNovelDB) {
@@ -1018,14 +1018,14 @@
       try {
         const raw = localStorage.getItem('gemini_web_import_history_meta');
         const list = raw ? JSON.parse(raw) : [];
-        updatedList = list.filter(item => item.id !== novelId);
+        updatedList = list.filter(item => item.id !== novelId && item.title !== novelId && (!item.title || item.title.trim().toLowerCase() !== String(novelId).trim().toLowerCase()));
         localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updatedList));
       } catch (e) {}
 
       if (typeof callbacks.onUpdateHistory === 'function') {
         callbacks.onUpdateHistory(prev => {
           const list = Array.isArray(prev) ? prev : updatedList;
-          return list.filter(item => item.id !== novelId);
+          return list.filter(item => item.id !== novelId && item.title !== novelId && (!item.title || item.title.trim().toLowerCase() !== String(novelId).trim().toLowerCase()));
         });
       }
 

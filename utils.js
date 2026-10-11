@@ -831,6 +831,7 @@ const batchParallel = async (items, fn, concurrency = 3, signal = null) => {
     if (!items || items.length === 0) return [];
     const results = new Array(items.length);
     let nextIndex = 0;
+    let fatalError = null;
     const numWorkers = Math.max(1, Math.min(concurrency, items.length));
 
     const workers = Array.from({ length: numWorkers }, async (_, workerId) => {
@@ -843,6 +844,9 @@ const batchParallel = async (items, fn, concurrency = 3, signal = null) => {
                 err.name = 'AbortError';
                 throw err;
             }
+            if (fatalError) {
+                throw fatalError;
+            }
             const currentIndex = nextIndex++;
             const item = items[currentIndex];
             try {
@@ -850,7 +854,13 @@ const batchParallel = async (items, fn, concurrency = 3, signal = null) => {
                 results[currentIndex] = res;
             } catch (err) {
                 if (signal?.aborted || err.name === 'AbortError') throw err;
-                results[currentIndex] = { error: err.message || 'Unknown error' };
+                const msg = err?.message || '';
+                const isFatal = msg.includes('429') || msg.includes('quota') || msg.includes('billing') || msg.includes('Strict Model');
+                if (isFatal) {
+                    fatalError = err;
+                    throw err;
+                }
+                results[currentIndex] = { error: msg || 'Unknown error' };
             }
         }
     });

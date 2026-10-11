@@ -231,12 +231,17 @@
       if (!id) return false;
       try {
         if (novelDB) {
-          const novel = await novelDB.novels.get(id);
+          let novel = await novelDB.novels.get(id);
+          if (!novel) {
+            const all = await novelDB.novels.toArray();
+            novel = all.find(n => n.id === id || n.title === id || (n.title && n.title.trim().toLowerCase() === String(id).trim().toLowerCase()));
+          }
           if (!novel) return false;
           novel.deletedAt = Date.now();
+          const targetKey = novel.id || id;
           await novelDB.transaction('rw', novelDB.novels, novelDB.trash, async () => {
             await novelDB.trash.put(novel);
-            await novelDB.novels.delete(id);
+            await novelDB.novels.delete(targetKey);
           });
           notifyChange('moveToTrash', novel);
           return novel;

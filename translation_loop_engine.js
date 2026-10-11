@@ -172,6 +172,7 @@
     if (!items || items.length === 0) return [];
     const results = new Array(items.length);
     let nextIndex = 0;
+    let fatalError = null;
     const numWorkers = Math.max(1, Math.min(concurrency, items.length));
 
     const workers = Array.from({ length: numWorkers }, async (_, workerId) => {
@@ -184,6 +185,9 @@
           err.name = 'AbortError';
           throw err;
         }
+        if (fatalError) {
+          throw fatalError;
+        }
         const currentIndex = nextIndex++;
         const item = items[currentIndex];
         try {
@@ -191,7 +195,13 @@
           results[currentIndex] = res;
         } catch (err) {
           if (signal?.aborted || err.name === 'AbortError') throw err;
-          results[currentIndex] = { error: err.message || 'Unknown error' };
+          const msg = err?.message || '';
+          const isFatal = msg.includes('429') || msg.includes('quota') || msg.includes('billing') || msg.includes('Strict Model');
+          if (isFatal) {
+            fatalError = err;
+            throw err;
+          }
+          results[currentIndex] = { error: msg || 'Unknown error' };
         }
       }
     });
@@ -763,7 +773,7 @@
       callbacks.onProgressLabel(`Translating ${chapterItems.length} chapter(s) with ${Math.min(effectiveConcurrency, chapterItems.length)} parallel multi-key stream(s)${useContext ? ' (intra-chapter context)' : ''}...`);
     }
 
-    await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx, workerId = 0) => {
+    const batchResults = await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx, workerId = 0) => {
       const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
       const workerOpts = { ...opts, apiKey: workerKey, availableKeys, isParallelWorker: effectiveConcurrency > 1 };
       let title = ch?.title || '';
@@ -999,6 +1009,11 @@
       await saveState(chapterCtx, done, i + 1, 0, allParts, newChapters);
     }, effectiveConcurrency, opts.signal);
 
+    const failedChapterItems = (batchResults || []).filter(r => r && r.error);
+    if (failedChapterItems.length > 0 && opts?.strictModel) {
+      throw new Error(`Strict Model: ${failedChapterItems.length} chapter(s) encountered an issue ("${failedChapterItems[0].error || 'error'}"). Progress safely saved. Tap Resume to continue.`);
+    }
+
     // Title Healing Pass: Ensure zero chapters are left with raw untranslated CJK titles
     const hasCjkTitle = s => /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(s || '');
     const untranslatedTitles = newChapters
@@ -1084,6 +1099,7 @@
     return {
       translatedChapters: newChapters,
       assembledText: final,
+      allParts,
       lastUsageStats: stats,
       totalTokensUsed: totalToks
     };
@@ -1541,15 +1557,20 @@
       const { assembledText: result, lastUsageStats: stats } = res;
       if (params.setAssembledText) params.setAssembledText(result);
       if (params.setTranslatedChapters) params.setTranslatedChapters([{ title: 'Translated Document', content: result }]);
-      if (typeof localStorage !== 'undefined') {
-        try { localStorage.removeItem(jobId); } catch (_) {}
-      }
-      if (params.activeSessionRef) params.activeSessionRef.current = null;
-      if (params.setActiveSession) params.setActiveSession(null);
-      if (params.setSavedTranslationSession) params.setSavedTranslationSession(null);
-      if (params.setIsTranslationPaused) params.setIsTranslationPaused(false);
-      if (typeof window !== 'undefined' && window.GeminiNovelDB) {
-        window.GeminiNovelDB.deleteTranslationSession(jobId).catch(() => {});
+      const isTextComplete = Boolean(result && result.trim() && !result.includes('[Partial Parallel Completion]'));
+      if (isTextComplete) {
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.removeItem(jobId); } catch (_) {}
+        }
+        if (params.activeSessionRef) params.activeSessionRef.current = null;
+        if (params.setActiveSession) params.setActiveSession(null);
+        if (params.setSavedTranslationSession) params.setSavedTranslationSession(null);
+        if (params.setIsTranslationPaused) params.setIsTranslationPaused(false);
+        if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+          window.GeminiNovelDB.deleteTranslationSession(jobId).catch(() => {});
+        }
+      } else {
+        if (params.setIsTranslationPaused) params.setIsTranslationPaused(true);
       }
 
       if (params.setLastUsageStats) params.setLastUsageStats(stats);
@@ -1583,16 +1604,22 @@
         if (params.setError) params.setError(e.message);
         toast(e.message, 'error');
       } else {
-        if (params.setIsTranslationPaused) params.setIsTranslationPaused(true);
-        const session = (params.activeSessionRef && params.activeSessionRef.current) || params.activeSession;
-        if (session) {
-          if (params.setSavedTranslationSession) params.setSavedTranslationSession(session);
-        } else if (typeof window !== 'undefined' && window.GeminiNovelDB) {
-          window.GeminiNovelDB.getActiveTranslationSession().then(s => {
-            if (s && params.setSavedTranslationSession) params.setSavedTranslationSession(s);
-          }).catch(() => {});
-        }
         toast('Translation paused. Progress safely saved.', 'info');
+      }
+      if (params.setIsTranslationPaused) params.setIsTranslationPaused(true);
+      const session = (params.activeSessionRef && params.activeSessionRef.current) || params.activeSession;
+      if (session) {
+        if (params.setSavedTranslationSession) params.setSavedTranslationSession(session);
+        if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+          window.GeminiNovelDB.saveTranslationSession(session).catch(() => {});
+        }
+      } else if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+        window.GeminiNovelDB.getActiveTranslationSession().then(s => {
+          if (s) {
+            if (params.setSavedTranslationSession) params.setSavedTranslationSession(s);
+            if (params.setActiveSession) params.setActiveSession(s);
+          }
+        }).catch(() => {});
       }
     } finally {
       if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
@@ -1812,6 +1839,50 @@
         }
       }
 
+      const completedCount = (newChapters || []).filter(c => c && (c.content || c.text) && String(c.content || c.text).trim().length > 0).length;
+      const totalCount = (chapters && chapters.length > 0) ? chapters.length : (newChapters ? newChapters.length : 0);
+      const isFullyComplete = totalCount > 0 && completedCount >= totalCount;
+
+      if (!isFullyComplete) {
+        console.warn(`[TranslationLoopEngine] Incomplete translation: ${completedCount}/${totalCount} chapters finished. Preserving session for resume.`);
+        if (params.setIsTranslationPaused) params.setIsTranslationPaused(true);
+        const partialSession = {
+          ...(curSession || {}),
+          id: jobId,
+          type: 'ebook',
+          fileHash: currentFileHash,
+          fileName,
+          title: bookTitle,
+          cover: currentDocCover || (activeNovelRecord && activeNovelRecord.cover) || '',
+          chapters: (chapters && chapters.length > 0) ? chapters : (curSession?.chapters || []),
+          newChapters,
+          allParts: (res && res.allParts) || (newChapters || []).map(c => c ? `${c.title || ''}\n\n${c.content || c.text || ''}` : ''),
+          translatedChapters: newChapters,
+          isEpub,
+          originalZip,
+          srcLang: params.srcLang,
+          tgtLang: params.tgtLang,
+          completedCount,
+          totalCount,
+          updatedAt: Date.now()
+        };
+        if (params.activeSessionRef) params.activeSessionRef.current = partialSession;
+        if (params.setActiveSession) params.setActiveSession(partialSession);
+        if (params.setSavedTranslationSession) params.setSavedTranslationSession(partialSession);
+        if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+          window.GeminiNovelDB.saveTranslationSession(partialSession).catch(() => {});
+        }
+        toast(`Translation stopped at Ch. ${completedCount}/${totalCount}. Tap "Resume" to continue!`, 'info');
+        try {
+          if (typeof window !== 'undefined' && window.NativeBridge) {
+            window.NativeBridge.releaseWakeLock?.();
+            window.NativeBridge.clearProgressNotification?.(false);
+            window.NativeBridge.showCompletionNotification?.('Translation Paused ⏸', `Ch. ${completedCount}/${totalCount} translated. Tap to resume!`);
+          }
+        } catch (_) {}
+        return res;
+      }
+
       if (typeof localStorage !== 'undefined') {
         try { localStorage.removeItem(jobId); } catch (_) {}
       }
@@ -1843,16 +1914,22 @@
         if (params.setError) params.setError(e.message);
         toast(e.message, 'error');
       } else {
-        if (params.setIsTranslationPaused) params.setIsTranslationPaused(true);
-        const session = (params.activeSessionRef && params.activeSessionRef.current) || params.activeSession;
-        if (session) {
-          if (params.setSavedTranslationSession) params.setSavedTranslationSession(session);
-        } else if (typeof window !== 'undefined' && window.GeminiNovelDB) {
-          window.GeminiNovelDB.getActiveTranslationSession().then(s => {
-            if (s && params.setSavedTranslationSession) params.setSavedTranslationSession(s);
-          }).catch(() => {});
-        }
         toast('Translation paused. Progress safely saved to database.', 'info');
+      }
+      if (params.setIsTranslationPaused) params.setIsTranslationPaused(true);
+      const session = (params.activeSessionRef && params.activeSessionRef.current) || params.activeSession;
+      if (session) {
+        if (params.setSavedTranslationSession) params.setSavedTranslationSession(session);
+        if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+          window.GeminiNovelDB.saveTranslationSession(session).catch(() => {});
+        }
+      } else if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+        window.GeminiNovelDB.getActiveTranslationSession().then(s => {
+          if (s) {
+            if (params.setSavedTranslationSession) params.setSavedTranslationSession(s);
+            if (params.setActiveSession) params.setActiveSession(s);
+          }
+        }).catch(() => {});
       }
       const finalChapters = ((params.activeSessionRef && params.activeSessionRef.current) || params.activeSession)?.newChapters || [];
       if (finalChapters.length > 0 && params.setTranslatedChapters) params.setTranslatedChapters(finalChapters);

@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.31';
+    let VERSION = '8.21.32';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2567,6 +2567,7 @@
         handleSelectOngoingEpubFile, libTab, setLibTab, allCountLabel, filteredAudiobooks,
         savedSpaceCount, transCount, incCount, loadTrashCount, trashCount, trashList,
         savedAudiobooks, setSavedAudiobooks, confirmAction, audioPlayerState, setIsFullPlayerOpen,
+        deleteNovelFromHistory, setWebImportHistory,
         displayedBooks, handleClearSavedSpace, handleClearScopedBooks, handleCheckAllUpdates,
         isBatchChecking, checkingUpdates, downloadingUpdates, handleEmptyTrash, handleRestoreAllTrash,
         handleUpdateTranslateAndMakeEpub, handleDownloadNewChapters, handleCheckNovelUpdate,

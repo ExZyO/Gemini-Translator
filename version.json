@@ -1,9 +1,9 @@
 {
-  "version": "8.21.31",
-  "versionCode": 8442,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.31/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.31/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.31",
+  "version": "8.21.32",
+  "versionCode": 8443,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.32/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.32/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.32",
   "releaseDate": "2026-10-11",
-  "releaseNotes": "v8.21.31: Add Hameln honbun support to block detection, optimize crawl delay, and display downloaded chapter count on Send to Translator button."
+  "releaseNotes": "v8.21.32: Fix incomplete translation completion guard and library bulk delete handler."
 }

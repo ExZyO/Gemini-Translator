@@ -36,6 +36,8 @@
       savedAudiobooks,
       setSavedAudiobooks,
       confirmAction,
+      deleteNovelFromHistory,
+      setWebImportHistory,
       audioPlayerState,
       setIsFullPlayerOpen,
       handleStartPlayAudiobook,
@@ -112,11 +114,12 @@
     const [selectedBookIds, setSelectedBookIds] = (typeof React !== 'undefined' && React.useState) ? React.useState([]) : [[], () => {}];
 
     const toggleSelectBook = (id) => {
+      if (!id) return;
       setSelectedBookIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
     const selectAllBooks = () => {
-      setSelectedBookIds(displayedBooks.map(b => b.id).filter(Boolean));
+      setSelectedBookIds(displayedBooks.map(b => b.id || b.title).filter(Boolean));
     };
 
     const deselectAllBooks = () => {
@@ -125,19 +128,48 @@
 
     const deleteSelectedBooks = () => {
       if (selectedBookIds.length === 0) return;
-      confirmAction(`Move ${selectedBookIds.length} selected book(s) to Trash?`, async () => {
-        const count = selectedBookIds.length;
+      const count = selectedBookIds.length;
+      const doDelete = async () => {
+        const deleteFn = props.deleteNovelFromHistory || deleteNovelFromHistory;
+        const setHistoryFn = props.setWebImportHistory || setWebImportHistory;
         for (const id of selectedBookIds) {
-          if (props.deleteNovelFromHistory) {
-            await props.deleteNovelFromHistory(id);
-          } else if (window.LibraryEngine?.Controller?.moveToTrash) {
-            await window.LibraryEngine.Controller.moveToTrash(id, { setWebImportHistory: props.setWebImportHistory, loadTrashCount, toast });
+          try {
+            if (deleteFn) {
+              await deleteFn(id);
+            } else if (window.LibraryEngine?.Controller?.moveToTrash) {
+              await window.LibraryEngine.Controller.moveToTrash(id, {
+                setWebImportHistory: setHistoryFn,
+                loadTrashCount,
+                toast
+              });
+            }
+          } catch (delErr) {
+            console.warn('[LibraryTab] Error deleting book:', id, delErr);
           }
+        }
+        if (typeof setHistoryFn === 'function') {
+          setHistoryFn(prev => {
+            const list = Array.isArray(prev) ? prev : [];
+            return list.filter(item => !selectedBookIds.includes(item.id) && !selectedBookIds.includes(item.title));
+          });
         }
         setSelectedBookIds([]);
         setIsSelectMode(false);
+        if (typeof loadTrashCount === 'function') {
+          loadTrashCount();
+        }
         toast(`Moved ${count} book(s) to Trash.`, 'success');
-      });
+      };
+
+      if (typeof confirmAction === 'function') {
+        confirmAction(`Move ${count} selected book(s) to Trash?`, doDelete);
+      } else if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        if (window.confirm(`Move ${count} selected book(s) to Trash?`)) {
+          doDelete();
+        }
+      } else {
+        doDelete();
+      }
     };
 
     const timerRefs = (typeof React !== 'undefined' && React.useRef) ? React.useRef({}) : { current: {} };
@@ -166,7 +198,7 @@
         longPressTriggered.current[id] = true;
         lastLongPressTimeRef.current = Date.now();
         if (isSelectMode) {
-          toggleSelectBook(item.id);
+          toggleSelectBook(item.id || item.title);
         } else {
           setActiveBookMenuNovel(item);
         }
@@ -206,7 +238,7 @@
         return;
       }
       if (isSelectMode) {
-        toggleSelectBook(item.id);
+        toggleSelectBook(item.id || item.title);
       } else {
         openReaderForBook(item);
       }
@@ -380,7 +412,7 @@
             const pct = savedProg?.pct;
             const updateBadge = novelUpdateBadges[item.id];
             const unit = updateBadge?.isVolumeBased ? 'Vol' : 'Ch';
-            const isSelected = selectedBookIds.includes(item.id);
+            const isSelected = selectedBookIds.includes(item.id) || selectedBookIds.includes(item.title);
 
             return h('div', {
               key: item.id || idx,
