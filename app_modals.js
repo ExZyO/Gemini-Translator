@@ -2497,7 +2497,9 @@
           } else if (typeof props.handleOpenDiffModal === 'function') {
             props.handleOpenDiffModal(idx ?? props.readerChapterIdx);
           }
-        }
+        },
+        onTranslateChapter: props.handleTranslateSingleChapter,
+        onExportEpub: props.handleDownloadEPUB
       }),
 
       // 10. Library Novel Action Sheet

@@ -1,9 +1,9 @@
 {
-  "version": "8.21.37",
-  "versionCode": 8448,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.37/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.37/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.37",
+  "version": "8.21.38",
+  "versionCode": 8449,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.38/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.38/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.38",
   "releaseDate": "2026-10-11",
-  "releaseNotes": "v8.21.37: Clean readable formatting and smart auto-scroll for live diagnostics logs."
+  "releaseNotes": "v8.21.38: In-Reader chapter translation, EPUB saving, and strict chunk completion validation preventing dropped chunks."
 }

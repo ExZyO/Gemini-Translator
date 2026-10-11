@@ -212,7 +212,7 @@
   function ReaderTocDrawer(props) {
     const {
       showToc, setShowToc, tocSearch, setTocSearch, arcGroups, collapsedArcs,
-      toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter
+      toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter, onTranslateChapter
     } = props;
     if (!showToc) return null;
     return h('div', {
@@ -299,8 +299,22 @@
                         setShowToc(false);
                       }
                     },
-                      h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, c.title),
-                      isActive && h('span', { style: { fontSize: 10, padding: '2px 6px', background: 'var(--r-accent)', color: '#fff', borderRadius: 4 } }, 'Reading')
+                      h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 8 } }, c.title),
+                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 } },
+                        isActive && h('span', { style: { fontSize: 10, padding: '2px 6px', background: 'var(--r-accent)', color: '#fff', borderRadius: 4 } }, 'Reading'),
+                        typeof onTranslateChapter === 'function' && h('button', {
+                          type: 'button',
+                          className: 'mini-btn ghost',
+                          title: 'Translate this chapter',
+                          style: { padding: '2px 6px', fontSize: 11, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 3 },
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            changeChapter(c.idx);
+                            setShowToc(false);
+                            onTranslateChapter();
+                          }
+                        }, ic('Sparkles', 11), 'Translate')
+                      )
                     );
                   })
                 )

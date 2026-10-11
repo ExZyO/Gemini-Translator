@@ -227,6 +227,24 @@
     return text.replace(/\r\n|\r/g, '\n').replace(/[ \t]{2,}/g, ' ').trim();
   }
 
+  function isChapterCompleted(translatedChap, rawChap, tgtLang = 'English') {
+    if (!translatedChap) return false;
+    const content = (typeof translatedChap === 'object' ? (translatedChap.content || translatedChap.text || '') : String(translatedChap || '')).trim();
+    if (!content) return false;
+    if (content.startsWith('[Error:') || content.includes('\n[Error:')) return false;
+    if (typeof translatedChap === 'object' && translatedChap.isTranslated === false) return false;
+    const rawText = (typeof rawChap === 'string' ? rawChap : (rawChap?.text || rawChap?.content || '')).trim();
+    if (rawText && content === rawText) return false;
+    const isTargetNonCjk = !tgtLang || /^(en|english|fr|es|de|it|pt|ru)/i.test(tgtLang);
+    if (isTargetNonCjk && content.length > 60) {
+      const cjkChars = (content.match(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
+      if (cjkChars > 30 && (cjkChars / content.length) > 0.20) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   function getKeyPool() {
     return (typeof window !== 'undefined' && window.KeyPool) ||
            (typeof global !== 'undefined' && global.KeyPool) ||
@@ -710,7 +728,7 @@
     if (resume && newChapters.length > 0) {
       done = 0;
       newChapters.forEach((nc, idx) => {
-        if (nc && nc.content) {
+        if (nc && isChapterCompleted(nc, chapters[idx], opts.tgtLang || config.tgtLang)) {
           done += (chapterData[idx]?.chunks?.length || 1) + (chapterData[idx]?.title?.trim() ? 1 : 0);
         }
       });
@@ -749,7 +767,7 @@
 
     const chapterItems = chapterData.map((ch, idx) => ({ ch, idx })).filter(({ idx }) => {
       if (!resume) return true;
-      return !newChapters[idx] || !newChapters[idx].content;
+      return !isChapterCompleted(newChapters[idx], chapters[idx], opts.tgtLang || config.tgtLang);
     });
 
     if (chapterItems.length === 0) {
@@ -1005,7 +1023,7 @@
       }
 
       const origTitle = chapters[i]?.originalTitle || chapters[i]?.title || ch?.title || `Chapter ${i + 1}`;
-      newChapters[i] = { originalTitle: origTitle, title: title || origTitle, content, zipPath: ch?.zipPath, docHtml };
+      newChapters[i] = { originalTitle: origTitle, title: title || origTitle, content, zipPath: ch?.zipPath, docHtml, isTranslated: true };
       allParts[i] = `${title}\n\n${content}`;
       
       if (callbacks.onChapterComplete) {
@@ -1107,6 +1125,127 @@
       allParts,
       lastUsageStats: stats,
       totalTokensUsed: totalToks
+    };
+  }
+
+  /**
+   * Translates an individual chapter on demand using active Translator settings.
+   */
+  async function translateSingleChapter({
+    chapterIdx = 0,
+    rawTitle = '',
+    rawText = '',
+    opts = {},
+    config = {},
+    callbacks = {}
+  }) {
+    if (!rawText || !rawText.trim()) {
+      throw new Error('No chapter text provided for translation.');
+    }
+
+    const provider = config.provider || 'gemini';
+    const effectiveTerm = config.enableGlossary ? (config.terminology || '') : '';
+    const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+    let cleanSourceText = rawText;
+    if (typeof stripFn === 'function' && rawTitle) {
+      cleanSourceText = stripFn(cleanSourceText, rawTitle);
+    }
+
+    const chunks = splitChunks(cleanSourceText, effectiveTerm.length, config.smartGlossary !== false, config.chunkSizePreset);
+    if (chunks.length === 0) chunks.push(cleanSourceText);
+
+    const apiKeysByProvider = config.apiKeysByProvider || {};
+    const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
+    const workerOpts = { ...opts, availableKeys };
+
+    // 1. Translate Title (if CJK or non-English)
+    let finalTitle = rawTitle;
+    const hasCjk = /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(rawTitle);
+    if (hasCjk && rawTitle.trim()) {
+      try {
+        if (callbacks.onProgress) callbacks.onProgress(5, 'Translating chapter title…');
+        const titleWorkerOpts = {
+          ...workerOpts,
+          context: undefined,
+          needContextUpdate: false,
+          glossary: '',
+          smartGlossary: false,
+          instructions: 'Translate this novel chapter title accurately and concisely into English. Output ONLY the translated title, without quotes or markdown formatting.'
+        };
+        const tRes = await safeTranslateWithRotation(rawTitle, titleWorkerOpts);
+        const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
+        if (trans && trans.trim()) {
+          const cleanT = (typeof window !== 'undefined' && window.sanitizeChapterTitle) ? window.sanitizeChapterTitle(trans.trim()) : trans.trim();
+          finalTitle = cleanT;
+        }
+      } catch (tErr) {
+        console.warn('Single chapter title translation error:', tErr);
+      }
+    }
+
+    // 2. Translate Chunks
+    const parts = [];
+    let chapterCtx = '';
+    const useContext = Boolean(config.contextAware && (provider === 'gemini' || provider === 'deepseek'));
+
+    for (let j = 0; j < chunks.length; j++) {
+      const pct = Math.round(10 + ((j / chunks.length) * 85));
+      if (callbacks.onProgress) {
+        callbacks.onProgress(pct, `Translating chunk ${j + 1}/${chunks.length}${chunks.length > 1 ? ` (${pct}%)` : ''}…`);
+      }
+
+      const isLastChunk = j === chunks.length - 1;
+      const hasIncomingContext = Boolean(chapterCtx && chapterCtx.trim());
+      const shouldPassContext = useContext && (hasIncomingContext || j > 0);
+      const shouldRequestUpdate = useContext && !isLastChunk;
+
+      const translated = await safeTranslateWithRotation(chunks[j], {
+        ...workerOpts,
+        context: shouldPassContext ? chapterCtx : undefined,
+        needContextUpdate: shouldRequestUpdate
+      });
+
+      const translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
+      if (useContext && translated?.newContext) {
+        chapterCtx = translated.newContext;
+      }
+      parts.push(translatedText);
+    }
+
+    let content = safeCleanNovelProse(safeStripContextLeak(parts.join('\n\n')).replace(/\r\n/g, '\n')).trim();
+    if (typeof stripFn === 'function' && finalTitle) {
+      content = stripFn(content, finalTitle, rawTitle);
+    }
+
+    // Anti-MTL Quality Gate & Proofreader Check
+    if (config.antiMtlGateEnabled && typeof window !== 'undefined' && window.QAEngine && content) {
+      const refCheck = window.QAEngine.checkMtlRefusal(content);
+      const loopCheck = window.QAEngine.checkRepetitionLoop(content);
+      if (refCheck.hasRefusal && callbacks.onToast) {
+        callbacks.onToast(`Anti-MTL Gate: ${refCheck.patternName} detected in translation`, 'warning');
+      } else if (loopCheck.hasLoop && callbacks.onToast) {
+        callbacks.onToast(`QA Proofreader: Repetition loop detected`, 'warning');
+      }
+    }
+
+    // Translation Revision Snapshot
+    if (config.snapshotsEnabled && typeof window !== 'undefined' && window.TMDiffEngine && content) {
+      const novelKey = (config.activeNovelRecord && config.activeNovelRecord.id) || (config.fileName && config.fileName.trim()) || 'active_doc';
+      window.TMDiffEngine.Snapshots.createSnapshot({
+        novelId: novelKey,
+        chapterIdx,
+        chapterTitle: finalTitle || `Chapter ${chapterIdx + 1}`,
+        text: content,
+        model: workerOpts?.model || config.model || 'Gemini'
+      }).catch(e => console.warn('[Snapshots] Auto-save error:', e));
+    }
+
+    if (callbacks.onProgress) callbacks.onProgress(100, 'Chapter translated!');
+
+    return {
+      title: finalTitle,
+      content,
+      isTranslated: true
     };
   }
 
@@ -1765,11 +1904,30 @@
       }
 
       if (newChapters && newChapters.length > 0) {
-        const mappedTranslated = newChapters.map((nc, idx) => ({
-          title: nc?.title || (chapters && chapters[idx]?.title) || `Chapter ${idx + 1}`,
-          text: nc?.content || nc?.text || (chapters && (chapters[idx]?.text || chapters[idx]?.content)) || '',
-          content: nc?.content || nc?.text || (chapters && (chapters[idx]?.content || chapters[idx]?.text)) || ''
-        }));
+        const mappedTranslated = (chapters || []).map((orig, idx) => {
+          const nc = newChapters && newChapters[idx];
+          const isDone = isChapterCompleted(nc, orig, params.tgtLang);
+          if (isDone) {
+            return {
+              title: nc.title || orig?.title || `Chapter ${idx + 1}`,
+              text: nc.content || nc.text,
+              content: nc.content || nc.text,
+              isTranslated: true,
+              originalTitle: orig?.originalTitle || orig?.title || '',
+              docHtml: nc.docHtml,
+              zipPath: nc.zipPath
+            };
+          } else {
+            return {
+              title: orig?.title || `Chapter ${idx + 1}`,
+              text: '',
+              content: '',
+              isTranslated: false,
+              originalTitle: orig?.originalTitle || orig?.title || '',
+              rawText: typeof orig === 'string' ? orig : (orig?.text || orig?.content || '')
+            };
+          }
+        });
         const srcChaps = (chapters || []).map((c, idx) => ({
           title: c?.title || `Chapter ${idx + 1}`,
           text: typeof c === 'string' ? c : (c?.text || c?.content || ''),
@@ -1844,7 +2002,7 @@
         }
       }
 
-      const completedCount = (newChapters || []).filter(c => c && (c.content || c.text) && String(c.content || c.text).trim().length > 0).length;
+      const completedCount = (newChapters || []).filter((c, idx) => isChapterCompleted(c, chapters && chapters[idx], params.tgtLang)).length;
       const totalCount = (chapters && chapters.length > 0) ? chapters.length : (newChapters ? newChapters.length : 0);
       const isFullyComplete = totalCount > 0 && completedCount >= totalCount;
 
@@ -1965,6 +2123,7 @@
     saveTranslationToLibrarySpace,
     executeTranslateText,
     executeTranslateEbook,
+    translateSingleChapter,
     createTranslationDispatcher(ctx) {
       return {
         translateText: async (resume = false) => {
@@ -1981,6 +2140,16 @@
             isEpubParam,
             originalZipParam
           });
+        },
+        translateChapter: async (chapterIdx, rawTitle, rawText, callbacks) => {
+          return await (TranslationLoopEngine?.Controller || Controller).translateSingleChapter({
+            chapterIdx,
+            rawTitle,
+            rawText,
+            opts: typeof ctx.getTranslateOpts === 'function' ? ctx.getTranslateOpts() : {},
+            config: (TranslationLoopEngine?.Controller || Controller).buildTranslationConfig(ctx),
+            callbacks
+          });
         }
       };
     }
@@ -1991,6 +2160,8 @@
     extractTextNodes,
     translateText,
     translateEbook,
+    translateSingleChapter,
+    isChapterCompleted,
     splitChunks,
     batchParallel,
     generateJobId,

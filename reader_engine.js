@@ -166,7 +166,9 @@
     bookTitle: propBookTitle,
     onVerifyConsistency,
     onOpenHealthAudit,
-    onOpenDiff
+    onOpenDiff,
+    onTranslateChapter,
+    onExportEpub
   }) => {
     if (!open) return null;
     const bookTitle = novelTitle || propBookTitle || '';
@@ -436,6 +438,53 @@
         window.toast('Swapped He ↔ She pronouns across current chapter!', 'success');
       }
     }, [currentChapter, chapters, activeIdx]);
+
+    const [isTranslatingCurrentChapter, setIsTranslatingCurrentChapter] = useState(false);
+    const [chapterTranslateProgress, setChapterTranslateProgress] = useState({ pct: 0, msg: '' });
+
+    const handleTranslateActiveChapter = useCallback(async () => {
+      if (isTranslatingCurrentChapter) return;
+      if (typeof onTranslateChapter !== 'function') {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Translation handler not available in current mode.', 'error');
+        }
+        return;
+      }
+      setIsTranslatingCurrentChapter(true);
+      setChapterTranslateProgress({ pct: 5, msg: 'Preparing translation…' });
+      try {
+        const targetChap = currentChapter || safeChapters[activeIdx];
+        const res = await onTranslateChapter(activeIdx, targetChap, (pct, msg) => {
+          setChapterTranslateProgress({ pct, msg });
+        });
+        if (res && res.content) {
+          const newTitle = res.title || targetChap.title;
+          const newText = res.content;
+          currentChapter.title = newTitle;
+          currentChapter.text = newText;
+          currentChapter.content = newText;
+          currentChapter.isTranslated = true;
+          if (Array.isArray(chapters) && chapters[activeIdx]) {
+            chapters[activeIdx].title = newTitle;
+            chapters[activeIdx].text = newText;
+            chapters[activeIdx].content = newText;
+            chapters[activeIdx].isTranslated = true;
+          }
+          setRenderTick(t => t + 1);
+          setChapterTranslateProgress({ pct: 100, msg: 'Chapter translated successfully!' });
+          setTimeout(() => {
+            setIsTranslatingCurrentChapter(false);
+          }, 1800);
+        } else {
+          setIsTranslatingCurrentChapter(false);
+        }
+      } catch (err) {
+        setIsTranslatingCurrentChapter(false);
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast(err.message || 'Translation error occurred.', 'error');
+        }
+      }
+    }, [isTranslatingCurrentChapter, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters]);
 
     // ── Footnotes Extraction & Caching (§5.10) ──
     const [activeFootnote, setActiveFootnote] = useState(null);
@@ -1878,6 +1927,34 @@
         h('button', {
           type: 'button',
           className: 'reader-more-item',
+          style: { color: 'var(--r-accent)', fontWeight: 600 },
+          onClick: () => {
+            setShowMoreMenu(false);
+            handleTranslateActiveChapter();
+          }
+        },
+          ic('Sparkles', 15),
+          h('span', null, isTranslatingCurrentChapter ? 'Translating Chapter…' : 'Translate This Chapter')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          onClick: () => {
+            setShowMoreMenu(false);
+            if (typeof onExportEpub === 'function') {
+              onExportEpub();
+            } else if (typeof window !== 'undefined' && window.ExportEngine?.Controller?.export) {
+              window.ExportEngine.Controller.export('epub', { chaptersToExport: chapters }, { toast: (m, t) => window.toast?.(m, t) });
+            }
+          }
+        },
+          ic('Download', 15),
+          h('span', null, 'Save / Export EPUB')
+        ),
+        h('div', { className: 'reader-more-divider' }),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
           onClick: () => {
             setShowMoreMenu(false);
             if (typeof onOpenHealthAudit === 'function') onOpenHealthAudit();
@@ -2217,10 +2294,64 @@
         }, ic('X', 14))
       ),
 
+      // ── FLOATING IN-READER CHAPTER TRANSLATION DOCK ──
+      isTranslatingCurrentChapter && h('div', {
+        className: 'reader-translate-dock',
+        style: {
+          position: 'fixed',
+          top: 60,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 10002,
+          background: 'rgba(15, 23, 42, 0.94)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid var(--r-accent)',
+          borderRadius: 24,
+          padding: '8px 18px',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          color: '#f8fafc',
+          fontSize: 13,
+          maxWidth: '92%',
+          pointerEvents: 'auto'
+        }
+      },
+        ic('Sparkles', 16, 'animate-pulse shrink-0'),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 150 } },
+          h('span', { style: { fontWeight: 700, fontSize: 12.5, color: 'var(--r-accent)' } },
+            `Translating Ch. ${activeIdx + 1} (${chapterTranslateProgress.pct}%)`
+          ),
+          h('span', { style: { fontSize: 11, color: '#94a3b8' } },
+            chapterTranslateProgress.msg || 'Translating chunks…'
+          )
+        ),
+        h('div', {
+          style: {
+            width: 60,
+            height: 4,
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: 2,
+            overflow: 'hidden'
+          }
+        },
+          h('div', {
+            style: {
+              width: `${chapterTranslateProgress.pct}%`,
+              height: '100%',
+              background: 'var(--r-accent)',
+              transition: 'width 0.3s ease'
+            }
+          })
+        )
+      ),
+
       // ── HIERARCHICAL ARC & VOLUME TABLE OF CONTENTS DRAWER ──
       h(window.ReaderTocDrawer || (typeof ReaderTocDrawer !== 'undefined' ? ReaderTocDrawer : 'div'), {
         showToc, setShowToc, tocSearch, setTocSearch, arcGroups, collapsedArcs,
-        toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter
+        toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter,
+        onTranslateChapter: handleTranslateActiveChapter
       }),
 
       // ── TYPOGRAPHY & THEMES SETTINGS MODAL ──
