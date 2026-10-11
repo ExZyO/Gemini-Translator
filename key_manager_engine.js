@@ -410,11 +410,11 @@
   function formatDiagnosticsReport(options = {}) {
     const s = options.stats || options.overrideStats || null;
     const provider = options.provider || 'gemini';
-    const fallbackModel = provider === 'gemini'
-      ? (options.geminiModel || 'gemini-3.7-flash')
-      : (options.deepseekModel || 'deepseek-chat');
+    const activeModel = options.model || (provider === 'gemini'
+      ? (options.useCustomModel && options.customModel ? options.customModel : (options.geminiModel || 'gemini-3.7-flash'))
+      : (options.useCustomDeepseekModel && options.customDeepseekModel ? options.customDeepseekModel : (options.deepseekModel || 'deepseek-chat')));
 
-    const modelStr = s ? `Model: ${s.provider || ''} · ${s.model || ''}` : `Model: ${provider} · ${fallbackModel}`;
+    const modelStr = `Model: ${provider} · ${s?.model || activeModel}`;
 
     const isStreaming = s ? !!s.enableStreaming : !!options.enableStreaming;
     const isThinking = s ? !!s.enableThinking : !!options.enableThinking;

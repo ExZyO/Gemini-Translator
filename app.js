@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.35';
+    let VERSION = '8.21.36';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1310,7 +1310,7 @@
       const testSingleKey = (prov, keyStr, keyId) => window.KeyManagerEngine?.Controller?.testSingleKey(prov, keyStr, keyId, geminiModel, setKeyHealth);
       const handleTestAllKeys = (prov) => window.KeyManagerEngine?.Controller?.testAllKeys(prov, apiKeysByProvider, geminiModel, setTestingKeys, setKeyHealth, toast);
       const handleBulkImportKeys = () => window.KeyManagerEngine?.Controller?.bulkImport(bulkKeyText, provider, { apiKeysByProvider, activeKeyIds, setApiKeysByProvider, setActiveKeyIds, setBulkKeyText, setBulkKeyModalOpen, toast, genId });
-      const getReportSummaryText = (overrideStats = null) => window.KeyManagerEngine?.Controller?.formatReport({ stats: overrideStats || lastUsageStats, provider, geminiModel, deepseekModel, enableStreaming, enableThinking, strictModel, contextAware, concurrency, chunkSizePreset, smartGlossary, glossaryTermCount, assembledText, wordCount });
+      const getReportSummaryText = (overrideStats = null) => window.KeyManagerEngine?.Controller?.formatReport({ stats: overrideStats || (isTranslating ? null : lastUsageStats), provider, model, geminiModel, customModel, useCustomModel, deepseekModel, customDeepseekModel, useCustomDeepseekModel, enableStreaming, enableThinking, strictModel, contextAware, concurrency, chunkSizePreset, smartGlossary, glossaryTermCount, assembledText, wordCount });
       const copyDiagnosticsReport = () => window.KeyManagerEngine?.Controller?.copyReport(getReportSummaryText(), toast);
       const copyLogsWithReport = () => window.KeyManagerEngine?.Controller?.copyLogs(getReportSummaryText(), toast);
 
