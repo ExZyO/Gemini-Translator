@@ -384,7 +384,7 @@
                         setShowToc(false);
                       }
                     },
-                      h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, marginRight: 8 } }, c.title),
+                      h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, marginRight: 8 } }, (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(c.title) : c.title),
                       h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 } },
                         isActive && h('span', { style: { fontSize: 10, padding: '2px 6px', background: 'var(--r-accent)', color: '#fff', borderRadius: 4 } }, 'Reading'),
                         (typeof onTranslateChapter === 'function' || typeof onTranslateChapterTitle === 'function') && h('button', {
@@ -450,7 +450,7 @@
                 `Chapter ${actionMenuChap.idx + 1}`
               ),
               h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 } },
-                actionMenuChap.title
+                (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(actionMenuChap.title) : actionMenuChap.title
               ),
               h('button', {
                 type: 'button',

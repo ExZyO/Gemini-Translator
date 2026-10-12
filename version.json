@@ -1,9 +1,9 @@
 {
-  "version": "8.21.48",
-  "versionCode": 8459,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.48/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.48/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.48",
+  "version": "8.21.49",
+  "versionCode": 8460,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.49/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.49/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.49",
   "releaseDate": "2026-10-12",
-  "releaseNotes": "v8.21.48: Batch translate all chapter titles, untranslated TOC filter, whole-novel healing (save tokens), and 1-tap smart typography cover generator."
+  "releaseNotes": "v8.21.49: Fix chapter title translation, strip web publication timestamps and revision tags, resolve model fallbacks, and support string API keys."
 }

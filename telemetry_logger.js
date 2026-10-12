@@ -258,10 +258,11 @@
       if (!rawKeys || rawKeys.length === 0) return null;
       const seen = new Set();
       const keys = [];
-      for (const k of rawKeys) {
-        if (k?.key && k.key.trim() && !seen.has(k.key.trim())) {
-          seen.add(k.key.trim());
-          keys.push(k);
+      for (const item of rawKeys) {
+        const keyStr = typeof item === 'string' ? item.trim() : (item?.key ? String(item.key).trim() : '');
+        if (keyStr && !seen.has(keyStr)) {
+          seen.add(keyStr);
+          keys.push(typeof item === 'object' && item !== null ? item : { key: keyStr });
         }
       }
       if (keys.length === 0) return null;

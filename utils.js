@@ -480,16 +480,47 @@ function cleanNovelProse(text) {
     return t.trim();
 }
 
-function sanitizeChapterTitle(title) {
+function cleanRawChapterTitle(title) {
     if (!title || typeof title !== 'string') return '';
-    let t = title.trim();
-    t = t.replace(/\s*(?:\[\d+\])?\s*[-—–]+\s*FOOTNOTES?\s*[-—–]+[\s\S]*/i, '');
-    t = t.replace(/\s*\[\s*(?:TL|TN|Note|Translator'?s?\s*Note)[:\s][^\]]*\]\s*$/i, '');
-    t = t.replace(/\s*\[[0-9¹²³⁴⁵⁶⁷⁸⁹]+\]\s*$/g, '');
-    t = t.replace(/[¹²³⁴⁵⁶⁷⁸⁹]+$/g, '');
-    t = t.replace(/^["'“”‘’](.*)["'“”‘’]$/, '$1');
-    return t.trim() || title.trim();
+    let s = title.trim();
+
+    // 1. Strip trailing reader subtitle / word count / chapter count stats
+    s = s.replace(/\s*Chapter\s*\d+\s*of\s*\d+.*$/i, '');
+    s = s.replace(/\s*[·•\-]\s*~?[\d,]+\s*words.*$/i, '');
+
+    // 2. Strip brackets that contain publication dates, revision tags, or timestamps:
+    // e.g. (改：2026/10/05 06:01), （改稿：2026/02/01 12:00）, (2024/12/30), (改), （改稿）
+    s = s.replace(/\s*[\(（][^()（）]*(?:\d{4}[年\/\-]|改|改稿|Edited|Updated)[^()（）]*[\)）]\s*$/gi, '');
+
+    // 3. Strip trailing timestamp/date with optional revision tag (glued or space-separated):
+    // e.g. 逆ソクラテス2024/12/30 08:00 (改：2026/10/05 06:01)
+    s = s.replace(/([^\d\s])\s*\d{4}[年\/\-]\d{1,2}[月\/\-]\d{1,2}(?:日)?(?:\s*\d{1,2}:\d{2}(?::\d{2})?)?\s*(?:[\(（][^()（）]*[\)）])?.*$/i, '$1');
+
+    // 4. Strip standalone trailing dates
+    s = s.replace(/\s*\d{4}[年\/\-]\d{1,2}[月\/\-]\d{1,2}(?:日)?(?:\s*\d{1,2}:\d{2}(?::\d{2})?)?.*$/i, '');
+
+    // 5. Strip any leftover revision tags
+    s = s.replace(/\s*[\(（][^()（）]*(?:改|改稿|Edited|Updated)[^()（）]*[\)）]\s*$/gi, '');
+
+    // 6. Strip any trailing unbalanced opening bracket
+    s = s.replace(/\s*[\(（\[]\s*$/g, '');
+
+    // 7. Strip common footnote / translation notes
+    s = s.replace(/\s*(?:\[\d+\])?\s*[-—–]+\s*FOOTNOTES?\s*[-—–]+[\s\S]*/i, '');
+    s = s.replace(/\s*\[\s*(?:TL|TN|Note|Translator'?s?\s*Note)[:\s][^\]]*\]\s*$/i, '');
+    s = s.replace(/\s*\[[0-9¹²³⁴⁵⁶⁷⁸⁹]+\]\s*$/g, '');
+    s = s.replace(/[¹²³⁴⁵⁶⁷⁸⁹]+$/g, '');
+    s = s.replace(/^["'“”‘’](.*)["'“”‘’]$/, '$1');
+
+    return s.trim() || title.trim();
 }
+
+function sanitizeChapterTitle(title) {
+    return cleanRawChapterTitle(title);
+}
+
+window.cleanRawChapterTitle = cleanRawChapterTitle;
+window.sanitizeChapterTitle = sanitizeChapterTitle;
 
 // ═══════════════════════════════════════
 // GLOBAL CONSTANTS
@@ -1790,6 +1821,7 @@ if (typeof module !== 'undefined' && module.exports) {
         stripLeadingTitleFromContent,
         decodeHtmlEntities,
         cleanNovelProse,
+        cleanRawChapterTitle,
         sanitizeChapterTitle,
         DEFAULT_GEMINI_MODELS,
         DEFAULT_DEEPSEEK_MODELS,

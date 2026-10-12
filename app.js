@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.48';
+    let VERSION = '8.21.49';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2085,7 +2085,7 @@
       const handleResetSettings = () => {
         confirmAction('Restore all settings to recommended defaults? Your API keys and saved library will NOT be erased.', () => {
           setProvider('gemini');
-          setGeminiModel('gemini-2.5-flash');
+          setGeminiModel('gemini-3.7-flash');
           setDeepseekModel('deepseek-chat');
           setEnableStreaming(true);
           setEnableThinking(false);
@@ -2111,7 +2111,7 @@
           setEpubFixedFilename(true);
           try {
             localStorage.setItem('provider', 'gemini');
-            localStorage.setItem('geminiModel', 'gemini-2.5-flash');
+            localStorage.setItem('geminiModel', 'gemini-3.7-flash');
             localStorage.setItem('chunkSizePreset', 'turbo');
             localStorage.setItem('concurrency', '2');
             localStorage.setItem('enableStreaming', 'true');

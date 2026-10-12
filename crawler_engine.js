@@ -896,7 +896,7 @@
     chapters,
     provider = 'gemini',
     apiKey,
-    model = 'gemini-2.5-flash',
+    model = 'gemini-3.7-flash',
     customModel,
     useCustomModel,
     customDeepseekModel,
@@ -943,7 +943,7 @@
         const j = await r.json();
         jsonStr = j.choices?.[0]?.message?.content || '';
       } else {
-        const actualGeminiModel = (useCustomModel && customModel) ? customModel : (model || 'gemini-2.5-flash');
+        const actualGeminiModel = (useCustomModel && customModel) ? customModel : (model || (typeof localStorage !== 'undefined' ? localStorage.getItem('geminiModel') : null) || 'gemini-3.7-flash');
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${actualGeminiModel}:generateContent?key=${apiKey}`;
         const r = await fetchFn(url, {
           method: 'POST',

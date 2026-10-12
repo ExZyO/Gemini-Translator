@@ -179,7 +179,7 @@
     const safeChapters = useMemo(() => {
       let list = Array.isArray(chapters) && chapters.length > 0
         ? chapters.filter(c => c && typeof c === 'object').map(c => ({
-            title: decodeEntities(c.title || 'Chapter'),
+            title: (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(decodeEntities(c.title || 'Chapter')) : decodeEntities(c.title || 'Chapter'),
             text: c.content || c.text || '',
             content: c.content || c.text || '',
             originalTitle: c.originalTitle || '',
@@ -2105,7 +2105,7 @@
             title: 'Close Reader'
           }, ic('X', 18)),
           h('div', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, fontSize: 13.5 } },
-            currentChapter.title
+            (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(currentChapter.title) : currentChapter.title
           )
         ),
         h('div', { className: 'reader-top-btn-group' },
@@ -2391,7 +2391,7 @@
                     fontWeight: 700,
                     lineHeight: 1.3
                   }
-                }, currentChapter.title),
+                }, (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(currentChapter.title) : currentChapter.title),
                 h('div', {
                   style: {
                     fontSize: 11.5,
@@ -2429,7 +2429,7 @@
           // Chapter Title Header
           h('div', { style: { borderBottom: '1px solid var(--r-border)', paddingBottom: 16, marginBottom: 24 } },
             currentChapter.arc && h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--r-accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 } }, currentChapter.arc),
-            h('h2', { style: { margin: 0, fontSize: '1.4em', fontWeight: 700, lineHeight: 1.3 } }, currentChapter.title),
+            h('h2', { style: { margin: 0, fontSize: '1.4em', fontWeight: 700, lineHeight: 1.3 } }, (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(currentChapter.title) : currentChapter.title),
             h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)', marginTop: 6 } },
               `Chapter ${activeIdx + 1} of ${safeChapters.length} · ~${currentChapter.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words`
             )

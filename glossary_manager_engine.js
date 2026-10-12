@@ -362,7 +362,7 @@ FORMATTING & STRUCTURE RULES:
         const j = await r.json();
         return j.choices?.[0]?.message?.content || '';
       } else {
-        const model = (options.useCustomModel && options.customModel) ? options.customModel : (options.geminiModel || 'gemini-2.5-flash');
+        const model = (options.useCustomModel && options.customModel) ? options.customModel : (options.geminiModel || (typeof localStorage !== 'undefined' ? localStorage.getItem('geminiModel') : null) || 'gemini-3.7-flash');
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
         const r = await fetchFn(url, {
           method: 'POST',

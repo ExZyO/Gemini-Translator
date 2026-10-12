@@ -1149,7 +1149,21 @@
     callbacks = {}
   } = {}) {
     if (!rawTitle || !rawTitle.trim()) return '';
-    const storedProvider = (typeof localStorage !== 'undefined' ? localStorage.getItem('translation_provider') : null) || 'gemini';
+    const cleanFn = (typeof window !== 'undefined' && window.cleanRawChapterTitle)
+      ? window.cleanRawChapterTitle
+      : ((typeof cleanRawChapterTitle === 'function') ? cleanRawChapterTitle : (s => s ? s.trim() : ''));
+    const preCleaned = cleanFn(rawTitle) || rawTitle.trim();
+
+    const prefixMatch = preCleaned.match(/^((?:#\s*\d+|第\s*\d+\s*[話章回集節部]?|Chapter\s*\d+|Episode\s*\d+|Part\s*\d+|\d+[\.:])\s*[-–—:\s]*)/i);
+    const cleanPrefix = prefixMatch ? prefixMatch[1] : '';
+    const coreToTranslate = cleanPrefix ? preCleaned.slice(cleanPrefix.length).trim() : preCleaned;
+
+    const hasForeignChars = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af\u0400-\u04ff]/.test(coreToTranslate);
+    if (!hasForeignChars && coreToTranslate) {
+      return preCleaned;
+    }
+
+    const storedProvider = (typeof localStorage !== 'undefined' ? (localStorage.getItem('translation_provider') || localStorage.getItem('provider')) : null) || 'gemini';
     const provider = config.provider || opts.provider || storedProvider;
     let apiKeysByProvider = config.apiKeysByProvider;
     if (!apiKeysByProvider && typeof localStorage !== 'undefined') {
@@ -1159,16 +1173,21 @@
         apiKeysByProvider = {};
       }
     }
-    const availableKeys = ((apiKeysByProvider && apiKeysByProvider[provider]) || []).filter(k => k && (typeof k === 'string' ? k.trim() : (k.key && k.key.trim())));
+    const rawKeys = (apiKeysByProvider && apiKeysByProvider[provider]) || [];
+    const availableKeys = rawKeys.filter(k => k && (typeof k === 'string' ? k.trim() : (k.key && k.key.trim())));
     const activeKey = opts.apiKey ||
-      (provider === 'deepseek' ? opts.deepseekApiKey : opts.geminiApiKey) ||
+      (provider === 'deepseek'
+        ? (opts.deepseekApiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('deepseekApiKey') : null))
+        : (opts.geminiApiKey || (typeof localStorage !== 'undefined' ? (localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey')) : null))) ||
       (availableKeys.length > 0 ? (typeof availableKeys[0] === 'string' ? availableKeys[0] : availableKeys[0].key) : null);
 
+    const storedModel = (typeof localStorage !== 'undefined' ? (provider === 'deepseek' ? localStorage.getItem('deepseekModel') : localStorage.getItem('geminiModel')) : null);
     const activeModel = opts.model || (provider === 'deepseek'
-      ? (config.useCustomDeepseekModel && config.customDeepseekModel ? config.customDeepseekModel : (config.deepseekModel || 'deepseek-chat'))
-      : (config.useCustomModel && config.customModel ? config.customModel : (config.geminiModel || 'gemini-2.5-flash')));
+      ? (config.useCustomDeepseekModel && config.customDeepseekModel ? config.customDeepseekModel : (config.deepseekModel || storedModel || 'deepseek-chat'))
+      : (config.useCustomModel && config.customModel ? config.customModel : (config.geminiModel || storedModel || 'gemini-3.7-flash')));
 
     const targetLanguage = opts.tgtLang || config.tgtLang || 'English';
+    const textToTranslate = coreToTranslate || preCleaned;
 
     const workerOpts = {
       ...opts,
@@ -1184,10 +1203,25 @@
     };
     if (callbacks && typeof callbacks.onProgress === 'function') callbacks.onProgress(10, 'Translating chapter title…');
     try {
-      const tRes = await safeTranslateWithRotation(rawTitle, workerOpts);
+      const tRes = await safeTranslateWithRotation(textToTranslate, workerOpts);
       const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
-      if (trans && trans.trim()) {
-        const cleanT = (typeof window !== 'undefined' && window.sanitizeChapterTitle) ? window.sanitizeChapterTitle(trans.trim()) : trans.trim();
+      if (trans && trans.trim() && !trans.trim().startsWith('[Error:')) {
+        let cleanT = cleanFn(trans.trim());
+        if (typeof window !== 'undefined' && window.sanitizeChapterTitle) {
+          cleanT = window.sanitizeChapterTitle(cleanT);
+        }
+        if (cleanPrefix) {
+          let formattedPrefix = cleanPrefix;
+          const cjkChapMatch = cleanPrefix.match(/^第\s*(\d+)\s*[話章回集節部]?\s*[-–—:\s]*/);
+          if (cjkChapMatch && targetLanguage.toLowerCase().startsWith('eng')) {
+            formattedPrefix = `Chapter ${cjkChapMatch[1]}: `;
+          }
+          if (!cleanT.toLowerCase().startsWith(cleanPrefix.trim().toLowerCase()) &&
+              !cleanT.toLowerCase().startsWith('chapter') &&
+              !cleanT.toLowerCase().startsWith('#')) {
+            cleanT = `${formattedPrefix}${cleanT}`;
+          }
+        }
         if (callbacks && typeof callbacks.onProgress === 'function') callbacks.onProgress(100, 'Title translated!');
         return cleanT;
       }
@@ -1197,7 +1231,7 @@
         window.AppLogger.log('warn', 'Translator', `Chapter title translation failed for "${rawTitle}": ${err.message}`);
       }
     }
-    return rawTitle;
+    return preCleaned;
   }
 
   /**
@@ -1355,7 +1389,7 @@
       } else {
         model = (options.useCustomModel && options.customModel)
           ? options.customModel
-          : (options.geminiModel || 'gemini-2.5-flash');
+          : (options.geminiModel || (typeof localStorage !== 'undefined' ? localStorage.getItem('geminiModel') : null) || 'gemini-3.7-flash');
       }
     }
 
@@ -2327,7 +2361,7 @@
           config,
           callbacks: { onProgress }
         });
-        const finalTitle = transTitle || rawTitle;
+        const finalTitle = transTitle || ((typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(rawTitle) : (rawTitle ? rawTitle.trim() : ''));
 
         // 1. Update React state: readerChapters (Dedicated Reader anchor)
         if (typeof setReaderChapters === 'function') {

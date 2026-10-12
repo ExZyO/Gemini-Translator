@@ -31,7 +31,7 @@
       tgtLang = 'English',
       setTgtLang = function() {},
       provider = 'gemini',
-      geminiModel = 'gemini-2.5-flash',
+      geminiModel = 'gemini-3.7-flash',
       deepseekModel = 'deepseek-chat',
       customModel = '',
       useCustomModel = false,
