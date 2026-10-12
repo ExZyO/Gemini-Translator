@@ -124,6 +124,8 @@
       setReaderNovelId = function() {},
       setReaderNovelTitle = function() {},
       setReaderOpen = function() {},
+      readerChapters = [],
+      setReaderChapters = function() {},
       lastUsageStats = null,
       setLastUsageStats = function() {},
       showLiveLogs = false,
@@ -454,6 +456,10 @@
                         const docKey = currentDocTitle || fileName || 'translated_doc';
                         setReaderNovelId(docKey);
                         setReaderNovelTitle(currentDocTitle || fileName || 'Document');
+                        if (typeof setReaderChapters === 'function') {
+                          const exportChs = (typeof getExportChapters === 'function') ? getExportChapters() : ((translatedChapters && translatedChapters.length > 0) ? translatedChapters : chapters);
+                          if (Array.isArray(exportChs) && exportChs.length > 0) setReaderChapters(exportChs);
+                        }
                         const savedProg = window.getReadingProgress ? window.getReadingProgress(docKey) : null;
                         const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
                         setReaderChapterIdx(resumeIdx);
@@ -553,6 +559,10 @@
                         const docKey = currentDocTitle || fileName || 'translated_doc';
                         setReaderNovelId(docKey);
                         setReaderNovelTitle(currentDocTitle || fileName || 'Document');
+                        if (typeof setReaderChapters === 'function') {
+                          const exportChs = (typeof getExportChapters === 'function') ? getExportChapters() : ((translatedChapters && translatedChapters.length > 0) ? translatedChapters : chapters);
+                          if (Array.isArray(exportChs) && exportChs.length > 0) setReaderChapters(exportChs);
+                        }
                         const savedProg = window.getReadingProgress ? window.getReadingProgress(docKey) : null;
                         const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
                         setReaderChapterIdx(resumeIdx);
@@ -900,6 +910,10 @@
                         const docKey = currentDocTitle || fileName || 'translated_doc';
                         setReaderNovelId(docKey);
                         setReaderNovelTitle(currentDocTitle || fileName || 'Document');
+                        if (typeof setReaderChapters === 'function') {
+                          const exportChs = (typeof getExportChapters === 'function') ? getExportChapters() : ((translatedChapters && translatedChapters.length > 0) ? translatedChapters : chapters);
+                          if (Array.isArray(exportChs) && exportChs.length > 0) setReaderChapters(exportChs);
+                        }
                         const savedProg = window.getReadingProgress ? window.getReadingProgress(docKey) : null;
                         const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
                         setReaderChapterIdx(resumeIdx);

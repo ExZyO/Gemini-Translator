@@ -2192,6 +2192,8 @@
         readerNovelId,
         readerNovelTitle,
         chapters,
+        readerChapters,
+        setReaderChapters,
         translationCtx,
         getTranslateOpts,
         setTranslatedChapters,
@@ -2206,14 +2208,37 @@
 
       let novelRec = activeNovelRecord;
       const currentNovelId = readerNovelId || (novelRec && novelRec.id);
-      if ((!novelRec || !novelRec.rawChapters) && currentNovelId && typeof window !== 'undefined' && window.GeminiNovelDB) {
-        try {
-          novelRec = await window.GeminiNovelDB.getNovel(currentNovelId);
-        } catch (_) {}
+      if (!novelRec && typeof window !== 'undefined' && window.GeminiNovelDB) {
+        if (currentNovelId) {
+          try { novelRec = await window.GeminiNovelDB.getNovel(currentNovelId); } catch (_) {}
+        }
+        if (!novelRec && readerNovelTitle) {
+          try {
+            const all = await window.GeminiNovelDB.getAllNovels();
+            novelRec = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+          } catch (_) {}
+        }
+      }
+      if (novelRec && typeof setActiveNovelRecord === 'function') {
+        try { setActiveNovelRecord(novelRec); } catch (_) {}
       }
 
+      const candidateBase = (Array.isArray(readerChapters) && readerChapters.length > 0)
+        ? readerChapters
+        : ((Array.isArray(chapters) && chapters.length > 0)
+          ? chapters
+          : ((Array.isArray(novelRec?.translatedChapters) && novelRec.translatedChapters.length > 0)
+            ? novelRec.translatedChapters
+            : ((Array.isArray(novelRec?.chapters) && novelRec.chapters.length > 0)
+              ? novelRec.chapters
+              : ((Array.isArray(novelRec?.rawChapters) && novelRec.rawChapters.length > 0)
+                ? novelRec.rawChapters
+                : []))));
+
       let rawChap = null;
-      if (novelRec) {
+      if (candidateBase && candidateBase[targetChapterIdx]) {
+        rawChap = candidateBase[targetChapterIdx];
+      } else if (novelRec) {
         if (novelRec.rawChapters && novelRec.rawChapters[targetChapterIdx]) {
           rawChap = novelRec.rawChapters[targetChapterIdx];
         } else if (novelRec.originalChapters && novelRec.originalChapters[targetChapterIdx]) {
@@ -2245,40 +2270,34 @@
         });
         const finalTitle = transTitle || rawTitle;
 
-        // 1. Update React state: translatedChapters
+        // 1. Update React state: readerChapters (Dedicated Reader anchor)
+        if (typeof setReaderChapters === 'function') {
+          setReaderChapters(prev => {
+            const base = (Array.isArray(prev) && prev.length > 0) ? prev : candidateBase;
+            return base.map((c, i) => (i === targetChapterIdx ? { ...(c || {}), title: finalTitle, isTranslated: true } : c));
+          });
+        }
+
+        // 2. Update React state: translatedChapters
         if (typeof setTranslatedChapters === 'function') {
           setTranslatedChapters(prev => {
-            const next = Array.isArray(prev) ? [...prev] : [];
-            if (next[targetChapterIdx]) {
-              next[targetChapterIdx] = { ...next[targetChapterIdx], title: finalTitle };
-            } else if (rawChap) {
-              next[targetChapterIdx] = { ...rawChap, title: finalTitle };
-            } else {
-              next[targetChapterIdx] = { title: finalTitle, content: rawText, text: rawText };
-            }
-            return next;
+            const base = (Array.isArray(prev) && prev.length > 0) ? prev : candidateBase;
+            return base.map((c, i) => (i === targetChapterIdx ? { ...(c || {}), title: finalTitle, isTranslated: true } : c));
           });
         }
 
-        // 2. Update React state: chapters
+        // 3. Update React state: chapters
         if (typeof setChapters === 'function') {
           setChapters(prev => {
-            const next = Array.isArray(prev) ? [...prev] : [];
-            if (next[targetChapterIdx]) {
-              next[targetChapterIdx] = { ...next[targetChapterIdx], title: finalTitle };
-            } else if (rawChap) {
-              next[targetChapterIdx] = { ...rawChap, title: finalTitle };
-            } else {
-              next[targetChapterIdx] = { title: finalTitle, content: rawText, text: rawText };
-            }
-            return next;
+            const base = (Array.isArray(prev) && prev.length > 0) ? prev : candidateBase;
+            return base.map((c, i) => (i === targetChapterIdx ? { ...(c || {}), title: finalTitle, isTranslated: true } : c));
           });
         }
 
-        // 3. Update React state: assembledText
+        // 4. Update React state: assembledText (preserving all chapters!)
         if (typeof setAssembledText === 'function') {
           setAssembledText(prevText => {
-            const baseChs = (chapters && chapters.length > 0) ? chapters : [];
+            const baseChs = (candidateBase && candidateBase.length > 0) ? candidateBase : (chapters || []);
             if (baseChs.length > 0) {
               return baseChs.map((c, i) => {
                 const t = (i === targetChapterIdx) ? finalTitle : (c?.title || `Chapter ${i + 1}`);
@@ -2290,7 +2309,7 @@
           });
         }
 
-        // 4. Update in-memory original EPUB zip if present
+        // 5. Update in-memory original EPUB zip if present
         const targetZipPath = (rawChap && rawChap.zipPath) || (chapterData && chapterData.zipPath);
         if (currentOriginalZip && targetZipPath) {
           try {
@@ -2307,7 +2326,7 @@
               }
             }
             if (typeof window !== 'undefined' && typeof window.updateOriginalEpubNavigation === 'function') {
-              const chsForNav = (chapters && chapters.length > 0) ? [...chapters] : [];
+              const chsForNav = (candidateBase && candidateBase.length > 0) ? [...candidateBase] : ((chapters && chapters.length > 0) ? [...chapters] : []);
               if (chsForNav[targetChapterIdx]) chsForNav[targetChapterIdx] = { ...chsForNav[targetChapterIdx], title: finalTitle, zipPath: targetZipPath };
               window.updateOriginalEpubNavigation(currentOriginalZip, chsForNav);
             }
@@ -2316,28 +2335,49 @@
           }
         }
 
-        // 5. Update Database: GeminiNovelDB
-        if (currentNovelId && typeof window !== 'undefined' && window.GeminiNovelDB) {
+        // 6. Update Database: GeminiNovelDB
+        if (typeof window !== 'undefined' && window.GeminiNovelDB) {
           try {
-            const full = novelRec || (await window.GeminiNovelDB.getNovel(currentNovelId));
+            let full = novelRec;
+            if (!full && currentNovelId) {
+              full = await window.GeminiNovelDB.getNovel(currentNovelId);
+            }
+            if (!full && readerNovelTitle) {
+              const all = await window.GeminiNovelDB.getAllNovels();
+              full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+            }
             if (full) {
-              const updatedChs = [...(full.chapters || [])];
+              const baseList = (candidateBase && candidateBase.length > 0) ? candidateBase : (full.chapters || full.rawChapters || []);
+              const updatedChs = (full.chapters && full.chapters.length > 0) ? [...full.chapters] : [...baseList];
               if (updatedChs[targetChapterIdx]) {
-                updatedChs[targetChapterIdx] = { ...updatedChs[targetChapterIdx], title: finalTitle };
+                updatedChs[targetChapterIdx] = { ...updatedChs[targetChapterIdx], title: finalTitle, isTranslated: true };
+              } else if (baseList[targetChapterIdx]) {
+                updatedChs[targetChapterIdx] = { ...baseList[targetChapterIdx], title: finalTitle, isTranslated: true };
               }
-              const updatedTransChs = [...(full.translatedChapters || updatedChs)];
+              const updatedTransChs = (full.translatedChapters && full.translatedChapters.length > 0) ? [...full.translatedChapters] : [...updatedChs];
               if (updatedTransChs[targetChapterIdx]) {
-                updatedTransChs[targetChapterIdx] = { ...updatedTransChs[targetChapterIdx], title: finalTitle };
+                updatedTransChs[targetChapterIdx] = { ...updatedTransChs[targetChapterIdx], title: finalTitle, isTranslated: true };
+              } else if (baseList[targetChapterIdx]) {
+                updatedTransChs[targetChapterIdx] = { ...baseList[targetChapterIdx], title: finalTitle, isTranslated: true };
+              }
+              const updatedRawChs = (full.rawChapters && full.rawChapters.length > 0) ? [...full.rawChapters] : [...updatedChs];
+              if (updatedRawChs[targetChapterIdx]) {
+                updatedRawChs[targetChapterIdx] = { ...updatedRawChs[targetChapterIdx], title: finalTitle };
+              } else if (baseList[targetChapterIdx]) {
+                updatedRawChs[targetChapterIdx] = { ...baseList[targetChapterIdx], title: finalTitle };
               }
               const updatedNovel = {
                 ...full,
                 chapters: updatedChs,
                 translatedChapters: updatedTransChs,
+                rawChapters: updatedRawChs,
                 isEdited: true,
+                isTranslated: true,
                 epubBlob: undefined, // Invalidate stale cached pre-built blob so fresh EPUB exports use updated title!
                 updatedAt: Date.now()
               };
-              await window.GeminiNovelDB.updateNovel(currentNovelId, updatedNovel);
+              const saveId = full.id || currentNovelId;
+              await window.GeminiNovelDB.updateNovel(saveId, updatedNovel);
               if (typeof saveNovelToHistory === 'function') {
                 saveNovelToHistory(updatedNovel).catch(() => {});
               }
@@ -2377,42 +2417,55 @@
       const finalTitle = res.title || rawTitle;
       const targetZipPath = (rawChap && rawChap.zipPath) || (chapterData && chapterData.zipPath);
 
-      // 1. Update React state: translatedChapters
+      // 1. Update React state: readerChapters (Dedicated Reader anchor)
+      if (typeof setReaderChapters === 'function') {
+        setReaderChapters(prev => {
+          const base = (Array.isArray(prev) && prev.length > 0) ? prev : candidateBase;
+          return base.map((c, i) => (i === targetChapterIdx ? {
+            ...(c || {}),
+            title: finalTitle,
+            content: res.content,
+            text: res.content,
+            zipPath: targetZipPath,
+            isTranslated: true
+          } : c));
+        });
+      }
+
+      // 2. Update React state: translatedChapters
       if (typeof setTranslatedChapters === 'function') {
         setTranslatedChapters(prev => {
-          const next = Array.isArray(prev) ? [...prev] : [];
-          next[targetChapterIdx] = {
-            ...(next[targetChapterIdx] || rawChap || {}),
+          const base = (Array.isArray(prev) && prev.length > 0) ? prev : candidateBase;
+          return base.map((c, i) => (i === targetChapterIdx ? {
+            ...(c || {}),
             title: finalTitle,
             content: res.content,
             text: res.content,
             zipPath: targetZipPath,
             isTranslated: true
-          };
-          return next;
+          } : c));
         });
       }
 
-      // 2. Update React state: chapters
+      // 3. Update React state: chapters
       if (typeof setChapters === 'function') {
         setChapters(prev => {
-          const next = Array.isArray(prev) ? [...prev] : [];
-          next[targetChapterIdx] = {
-            ...(next[targetChapterIdx] || rawChap || {}),
+          const base = (Array.isArray(prev) && prev.length > 0) ? prev : candidateBase;
+          return base.map((c, i) => (i === targetChapterIdx ? {
+            ...(c || {}),
             title: finalTitle,
             content: res.content,
             text: res.content,
             zipPath: targetZipPath,
             isTranslated: true
-          };
-          return next;
+          } : c));
         });
       }
 
-      // 3. Update React state: assembledText
+      // 4. Update React state: assembledText (preserving all chapters!)
       if (typeof setAssembledText === 'function') {
         setAssembledText(prevText => {
-          const baseChs = (chapters && chapters.length > 0) ? chapters : [];
+          const baseChs = (candidateBase && candidateBase.length > 0) ? candidateBase : (chapters || []);
           if (baseChs.length > 0) {
             return baseChs.map((c, i) => {
               const t = (i === targetChapterIdx) ? finalTitle : (c?.title || `Chapter ${i + 1}`);
@@ -2424,7 +2477,7 @@
         });
       }
 
-      // 4. Update in-memory original EPUB zip if present
+      // 5. Update in-memory original EPUB zip if present
       if (currentOriginalZip && targetZipPath) {
         try {
           const fileInZip = currentOriginalZip.file(targetZipPath);
@@ -2450,7 +2503,7 @@
             }
           }
           if (typeof window !== 'undefined' && typeof window.updateOriginalEpubNavigation === 'function') {
-            const chsForNav = (chapters && chapters.length > 0) ? [...chapters] : [];
+            const chsForNav = (candidateBase && candidateBase.length > 0) ? [...candidateBase] : ((chapters && chapters.length > 0) ? [...chapters] : []);
             if (chsForNav[targetChapterIdx]) chsForNav[targetChapterIdx] = { ...chsForNav[targetChapterIdx], title: finalTitle, zipPath: targetZipPath };
             window.updateOriginalEpubNavigation(currentOriginalZip, chsForNav);
           }
@@ -2459,39 +2512,59 @@
         }
       }
 
-      // 5. Update Database: GeminiNovelDB
-      if (currentNovelId && typeof window !== 'undefined' && window.GeminiNovelDB) {
+      // 6. Update Database: GeminiNovelDB
+      if (typeof window !== 'undefined' && window.GeminiNovelDB) {
         try {
-          const full = novelRec || (await window.GeminiNovelDB.getNovel(currentNovelId));
+          let full = novelRec;
+          if (!full && currentNovelId) {
+            full = await window.GeminiNovelDB.getNovel(currentNovelId);
+          }
+          if (!full && readerNovelTitle) {
+            const all = await window.GeminiNovelDB.getAllNovels();
+            full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+          }
           if (full) {
-            const updatedChs = [...(full.chapters || [])];
+            const baseList = (candidateBase && candidateBase.length > 0) ? candidateBase : (full.chapters || full.rawChapters || []);
+            const updatedChs = (full.chapters && full.chapters.length > 0) ? [...full.chapters] : [...baseList];
             updatedChs[targetChapterIdx] = {
-              ...(updatedChs[targetChapterIdx] || {}),
+              ...(updatedChs[targetChapterIdx] || baseList[targetChapterIdx] || {}),
               title: finalTitle,
               content: res.content,
               text: res.content,
               zipPath: targetZipPath,
               isTranslated: true
             };
-            const updatedTransChs = [...(full.translatedChapters || updatedChs)];
+            const updatedTransChs = (full.translatedChapters && full.translatedChapters.length > 0) ? [...full.translatedChapters] : [...updatedChs];
             updatedTransChs[targetChapterIdx] = {
-              ...(updatedTransChs[targetChapterIdx] || {}),
+              ...(updatedTransChs[targetChapterIdx] || baseList[targetChapterIdx] || {}),
               title: finalTitle,
               content: res.content,
               text: res.content,
               zipPath: targetZipPath,
               isTranslated: true
             };
+            const updatedRawChs = (full.rawChapters && full.rawChapters.length > 0) ? [...full.rawChapters] : [...updatedChs];
+            if (updatedRawChs[targetChapterIdx]) {
+              updatedRawChs[targetChapterIdx] = {
+                ...updatedRawChs[targetChapterIdx],
+                title: finalTitle,
+                content: res.content,
+                text: res.content,
+                zipPath: targetZipPath
+              };
+            }
             const updatedNovel = {
               ...full,
               chapters: updatedChs,
               translatedChapters: updatedTransChs,
+              rawChapters: updatedRawChs,
               isTranslated: true,
               isEdited: true,
               epubBlob: undefined, // Invalidate stale cached pre-built blob so fresh EPUB exports use updated chapter!
               updatedAt: Date.now()
             };
-            await window.GeminiNovelDB.updateNovel(currentNovelId, updatedNovel);
+            const saveId = full.id || currentNovelId;
+            await window.GeminiNovelDB.updateNovel(saveId, updatedNovel);
             if (typeof saveNovelToHistory === 'function') {
               saveNovelToHistory(updatedNovel).catch(() => {});
             }

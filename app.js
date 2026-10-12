@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.44';
+    let VERSION = '8.21.45';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -822,6 +822,7 @@
       const [readerChapterIdx, setReaderChapterIdx] = useState(0);
       const [readerNovelId, setReaderNovelId] = useState(null);
       const [readerNovelTitle, setReaderNovelTitle] = useState(null);
+      const [readerChapters, setReaderChapters] = useState([]);
 
       // --- Session/Resume State ---
       const [activeSession, setActiveSession] = useState(null);
@@ -2275,6 +2276,8 @@
           readerNovelId,
           readerNovelTitle,
           chapters,
+          readerChapters,
+          setReaderChapters,
           translationCtx,
           getTranslateOpts,
           setTranslatedChapters,
@@ -2559,7 +2562,7 @@
         handleSaveTranslationToLibrarySpace, activeNovelRecord, activeCrawlSession,
         webImportData, webImportHistory, currentDocCover, setCurrentDocCover, currentDocTitle,
         fileName, handleLnoriDirectEpubDownload, setReaderChapterIdx, setReaderNovelId,
-        setReaderNovelTitle, setReaderOpen, lastUsageStats, setLastUsageStats,
+        setReaderNovelTitle, setReaderOpen, readerChapters, setReaderChapters, lastUsageStats, setLastUsageStats,
         showLiveLogs, setShowLiveLogs, liveLogs, logsContainerRef, copyDiagnosticsReport,
         copyLogsWithReport, setLogsModalOpen, handleStartTranslation, handleOpenCostEstimator,
         setSheetOpen, setActiveTab, setWebImportUrl, disabled, renderBoxResizeBar, switchRow,
@@ -2797,7 +2800,7 @@
           MoonReaderModal, readerOpen, setReaderOpen, assembledText, getExportChapters,
           readerChapterIdx, setReaderChapterIdx, readerTheme, setReaderTheme, readerFont,
           setReaderFont, readerFontSize, setFontSize: setReaderFontSize, tgtLang,
-          readerNovelId, readerNovelTitle, handleRunConsistencyCheck, handleOpenActiveQaModal, handleOpenDiffModal,
+          readerNovelId, readerNovelTitle, readerChapters, setReaderChapters, handleRunConsistencyCheck, handleOpenActiveQaModal, handleOpenDiffModal,
           handleTranslateSingleChapter, handleDownloadEPUB,
 
           // Library Novel Action Sheet

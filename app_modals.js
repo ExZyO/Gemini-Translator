@@ -2533,7 +2533,10 @@
         open: props.readerOpen,
         onClose: props.onCloseReader || (() => props.setReaderOpen?.(false)),
         text: props.assembledText,
-        chapters: typeof props.getExportChapters === 'function' ? props.getExportChapters() : (props.exportChapters || []),
+        chapters: (Array.isArray(props.readerChapters) && props.readerChapters.length > 0)
+          ? props.readerChapters
+          : (typeof props.getExportChapters === 'function' ? props.getExportChapters() : (props.exportChapters || [])),
+        onChaptersChange: props.setReaderChapters,
         currentIdx: props.readerChapterIdx,
         onChapterChange: props.setReaderChapterIdx,
         theme: props.readerTheme,

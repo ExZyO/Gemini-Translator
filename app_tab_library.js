@@ -69,6 +69,9 @@
       setReaderNovelTitle,
       setReaderChapterIdx,
       setReaderOpen,
+      readerChapters = [],
+      setReaderChapters = function() {},
+      setActiveNovelRecord = function() {},
       setAssembledText,
       setChapters,
       setInputText,
@@ -247,6 +250,9 @@
     const openReaderForBook = async (item) => {
       const full = await loadFullNovel(item);
       if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+      if (typeof setActiveNovelRecord === 'function') {
+        setActiveNovelRecord(full);
+      }
       let chs = (full.translatedChapters && full.translatedChapters.length > 0)
         ? full.translatedChapters
         : (full.rawChapters || full.chapters || []);
@@ -272,23 +278,32 @@
         return (typeof stripFn === 'function' && c?.title) ? stripFn(raw, c.title, c.originalTitle) : raw;
       };
       const isTrans = !!item.isTranslated || (item.title || '').includes('(Translated)');
-      const cleanedChs = chs.map(c => ({ title: c.title, content: cleanCh(c) }));
+      const cleanedChs = chs.map(c => ({
+        title: c.title,
+        content: cleanCh(c),
+        text: cleanCh(c),
+        originalTitle: c.originalTitle || c.title,
+        isTranslated: Boolean(c.isTranslated || isTrans)
+      }));
+      if (typeof setReaderChapters === 'function') {
+        setReaderChapters(cleanedChs);
+      }
       if (isTrans) {
-        setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+        setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n\n'));
         setTranslatedChapters(cleanedChs);
         if (full.originalChapters && full.originalChapters.length > 0) {
           const srcChs = full.originalChapters;
-          setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n'));
-          setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c) })));
+          setInputText(srcChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n\n'));
+          setChapters(srcChs.map(c => ({ title: c.title, content: cleanCh(c), text: cleanCh(c) })));
         } else {
           setInputText('');
-          setChapters([]);
+          setChapters(cleanedChs);
         }
       } else {
         setChapters(cleanedChs);
-        setInputText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
-        setAssembledText('');
-        setTranslatedChapters([]);
+        setInputText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n\n'));
+        setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n\n'));
+        setTranslatedChapters(cleanedChs);
       }
       const novelKey = item.id || item.title;
       setReaderNovelId(novelKey);
