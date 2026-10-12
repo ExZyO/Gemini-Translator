@@ -58,6 +58,7 @@
       testSingleKey,
       handleTestAllKeys,
       keyHealth,
+      setKeyHealth,
       testingKeys,
       setBulkKeyModalOpen,
       libreUrl,
@@ -557,6 +558,16 @@
                       disabled: testingKeys,
                       onClick: () => handleTestAllKeys(provider)
                     }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Zap', 12), testingKeys ? 'Testing…' : 'Test All Keys')),
+                    h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      title: 'Clear in-flight locks and cooldown timers across all keys',
+                      onClick: () => {
+                        window.KeyPool?.clearCooldowns?.();
+                        if (typeof setKeyHealth === 'function') setKeyHealth({});
+                        toast('Cleared all key cooldowns and locks!', 'success');
+                      }
+                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RotateCcw', 12), 'Clear Cooldowns')),
                     h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => setBulkKeyModalOpen(true) }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Clipboard', 12), 'Bulk Paste')),
                     h('button', { type: 'button', className: 'mini-btn', onClick: () => addApiKey(provider) }, '+ Add')
                   )
@@ -653,7 +664,9 @@
                         const statusType = hInfo?.status || (poolStatus?.isCooling ? 'cooling' : (poolStatus?.inFlight ? 'inflight' : 'idle'));
                         let msg = hInfo?.message;
                         if (!msg && poolStatus?.isCooling) {
-                          msg = `In-Flight Cooldown (${poolStatus.coolSecondsRemaining}s remaining)`;
+                          const rem = poolStatus.coolSecondsRemaining || 0;
+                          const remLabel = rem > 120 ? `${Math.round(rem / 60)}m` : `${rem}s`;
+                          msg = `In-Flight Cooldown (${remLabel} remaining)`;
                         } else if (!msg && poolStatus?.inFlight) {
                           msg = `In-Flight (Leased by active worker)`;
                         }

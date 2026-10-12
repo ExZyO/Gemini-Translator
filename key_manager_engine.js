@@ -219,6 +219,10 @@
         });
         const latency = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - start);
         if (r.ok) {
+          if (typeof window !== 'undefined' && window.KeyPool) {
+            window.KeyPool.coolingUntil?.delete(trimmedKey);
+            window.KeyPool.inUse?.delete(trimmedKey);
+          }
           return { status: 'ok', latency, message: `🟢 Healthy & Active (${latency}ms)` };
         }
         const body = await r.text().catch(() => '');
@@ -560,6 +564,7 @@
         return;
       }
       if (typeof setTestingKeys === 'function') setTestingKeys(true);
+      if (typeof window !== 'undefined' && window.KeyPool?.clearCooldowns) window.KeyPool.clearCooldowns();
       if (typeof toast === 'function') toast(`Testing ${provKeys.length} ${String(prov).toUpperCase()} keys against Google servers…`, 'info');
       await KeyManagerEngine.testAllKeys(prov, provKeys, geminiModel || 'gemini-3.8-flash', {
         onKeyTesting: (id) => {

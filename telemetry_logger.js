@@ -328,6 +328,12 @@
       }
     },
 
+    clearCooldowns() {
+      this.coolingUntil.clear();
+      this.inUse.clear();
+      window.AppLogger?.log('info', 'KeyPool', 'All key cooldowns and in-flight locks cleared.');
+    },
+
     getKeyStatus(key) {
       if (!key) return null;
       const inFlight = this.inUse.has(key);

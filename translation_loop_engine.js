@@ -1451,6 +1451,10 @@
       }
     }
 
+    if (typeof window !== 'undefined' && window.KeyPool?.clearCooldowns) {
+      window.KeyPool.clearCooldowns();
+    }
+
     if (typeof window !== 'undefined' && window.NativeBridge) {
       window.NativeBridge.clearProgressNotification?.(false);
       window.NativeBridge.showCompletionNotification?.('Translation Paused ⏸', 'Translation paused. Progress safely saved.');

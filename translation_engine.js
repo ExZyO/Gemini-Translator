@@ -1064,7 +1064,7 @@ const streamWithRotation = async (text, opts) => {
         if (isForbiddenOrDead) {
           if (allKeys.length > 1 && KeyPool) {
             if (currentOpts.apiKey) {
-              KeyPool.coolingUntil?.set(currentOpts.apiKey, Date.now() + 86400000);
+              KeyPool.coolingUntil?.set(currentOpts.apiKey, Date.now() + 600000);
             }
             const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
             if (freshKey && freshKey !== currentOpts.apiKey) {
@@ -1169,7 +1169,7 @@ const translateWithRotation = async (text, opts) => {
         if (isForbiddenOrDead) {
           if (allKeys.length > 1 && KeyPool) {
             if (currentOpts.apiKey) {
-              KeyPool.coolingUntil?.set(currentOpts.apiKey, Date.now() + 86400000);
+              KeyPool.coolingUntil?.set(currentOpts.apiKey, Date.now() + 600000);
             }
             const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
             if (freshKey && freshKey !== currentOpts.apiKey) {

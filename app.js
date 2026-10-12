@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.39';
+    let VERSION = '8.21.40';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2692,7 +2692,7 @@
         incognitoMode, setIncognitoMode, settingsCategory, setSettingsCategory,
         provider, setProvider, apiKeysByProvider, activeKeyIds, showKeys, setShowKeys,
         addApiKey, deleteApiKey, updateApiKey, setActiveKey, testSingleKey, handleTestAllKeys,
-        keyHealth, testingKeys, setBulkKeyModalOpen, libreUrl, setLibreUrl, geminiModel,
+        keyHealth, setKeyHealth, testingKeys, setBulkKeyModalOpen, libreUrl, setLibreUrl, geminiModel,
         setGeminiModel, deepseekModel, setDeepseekModel, customModel, setCustomModel,
         useCustomModel, setUseCustomModel, customDeepseekModel, setCustomDeepseekModel,
         useCustomDeepseekModel, setUseCustomDeepseekModel, enableStreaming, setEnableStreaming,
