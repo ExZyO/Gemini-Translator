@@ -1149,25 +1149,53 @@
     callbacks = {}
   } = {}) {
     if (!rawTitle || !rawTitle.trim()) return '';
-    const provider = config.provider || 'gemini';
-    const apiKeysByProvider = config.apiKeysByProvider || {};
-    const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
+    const storedProvider = (typeof localStorage !== 'undefined' ? localStorage.getItem('translation_provider') : null) || 'gemini';
+    const provider = config.provider || opts.provider || storedProvider;
+    let apiKeysByProvider = config.apiKeysByProvider;
+    if (!apiKeysByProvider && typeof localStorage !== 'undefined') {
+      try {
+        apiKeysByProvider = JSON.parse(localStorage.getItem('apiKeysByProvider') || '{}');
+      } catch (_) {
+        apiKeysByProvider = {};
+      }
+    }
+    const availableKeys = ((apiKeysByProvider && apiKeysByProvider[provider]) || []).filter(k => k && (typeof k === 'string' ? k.trim() : (k.key && k.key.trim())));
+    const activeKey = opts.apiKey ||
+      (provider === 'deepseek' ? opts.deepseekApiKey : opts.geminiApiKey) ||
+      (availableKeys.length > 0 ? (typeof availableKeys[0] === 'string' ? availableKeys[0] : availableKeys[0].key) : null);
+
+    const activeModel = opts.model || (provider === 'deepseek'
+      ? (config.useCustomDeepseekModel && config.customDeepseekModel ? config.customDeepseekModel : (config.deepseekModel || 'deepseek-chat'))
+      : (config.useCustomModel && config.customModel ? config.customModel : (config.geminiModel || 'gemini-2.5-flash')));
+
+    const targetLanguage = opts.tgtLang || config.tgtLang || 'English';
+
     const workerOpts = {
       ...opts,
+      provider,
+      apiKey: activeKey,
+      model: activeModel,
       availableKeys,
       context: undefined,
       needContextUpdate: false,
       glossary: '',
       smartGlossary: false,
-      instructions: 'Translate this novel chapter title accurately and concisely into English. Maintain formal title casing. Output ONLY the translated title, without quotes, markdown or notes.'
+      instructions: `Translate this novel chapter title accurately and concisely into ${targetLanguage}. Maintain formal title casing. Output ONLY the translated title, without quotes, markdown, brackets or notes.`
     };
     if (callbacks && typeof callbacks.onProgress === 'function') callbacks.onProgress(10, 'Translating chapter title…');
-    const tRes = await safeTranslateWithRotation(rawTitle, workerOpts);
-    const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
-    if (trans && trans.trim()) {
-      const cleanT = (typeof window !== 'undefined' && window.sanitizeChapterTitle) ? window.sanitizeChapterTitle(trans.trim()) : trans.trim();
-      if (callbacks && typeof callbacks.onProgress === 'function') callbacks.onProgress(100, 'Title translated!');
-      return cleanT;
+    try {
+      const tRes = await safeTranslateWithRotation(rawTitle, workerOpts);
+      const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
+      if (trans && trans.trim()) {
+        const cleanT = (typeof window !== 'undefined' && window.sanitizeChapterTitle) ? window.sanitizeChapterTitle(trans.trim()) : trans.trim();
+        if (callbacks && typeof callbacks.onProgress === 'function') callbacks.onProgress(100, 'Title translated!');
+        return cleanT;
+      }
+    } catch (err) {
+      console.warn('[translateChapterTitle] Translation call error:', err);
+      if (typeof window !== 'undefined' && window.AppLogger) {
+        window.AppLogger.log('warn', 'Translator', `Chapter title translation failed for "${rawTitle}": ${err.message}`);
+      }
     }
     return rawTitle;
   }
@@ -2252,7 +2280,37 @@
         rawChap = chapters[targetChapterIdx];
       }
 
-      const rawTitle = (rawChap && (rawChap.title || rawChap.originalTitle)) || (chapterData && (chapterData.originalTitle || chapterData.title)) || `Chapter ${targetChapterIdx + 1}`;
+      const hasForeignChars = (s) => typeof s === 'string' && /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\u0400-\u04ff]/.test(s);
+      const isGenericEnglish = (s) => typeof s === 'string' && /^(?:chapter|ch|volume|vol|part|ep|episode)\.?\s*\d+$/i.test(s.trim());
+
+      let candidateOriginalTitle = '';
+      if (novelRec?.rawChapters && novelRec.rawChapters[targetChapterIdx]) {
+        const rawT = novelRec.rawChapters[targetChapterIdx].title || novelRec.rawChapters[targetChapterIdx].originalTitle;
+        if (rawT && hasForeignChars(rawT)) candidateOriginalTitle = rawT;
+      } else if (novelRec?.originalChapters && novelRec.originalChapters[targetChapterIdx]) {
+        const rawT = novelRec.originalChapters[targetChapterIdx].title || novelRec.originalChapters[targetChapterIdx].originalTitle;
+        if (rawT && hasForeignChars(rawT)) candidateOriginalTitle = rawT;
+      }
+
+      let rawTitle = '';
+      if (candidateOriginalTitle) {
+        rawTitle = candidateOriginalTitle;
+      } else if (rawChap?.originalTitle && (hasForeignChars(rawChap.originalTitle) || isGenericEnglish(rawChap.title))) {
+        rawTitle = rawChap.originalTitle;
+      } else if (chapterData?.originalTitle && (hasForeignChars(chapterData.originalTitle) || isGenericEnglish(chapterData.title))) {
+        rawTitle = chapterData.originalTitle;
+      } else if (rawChap?.title) {
+        rawTitle = rawChap.title;
+      } else if (rawChap?.originalTitle) {
+        rawTitle = rawChap.originalTitle;
+      } else if (chapterData?.title) {
+        rawTitle = chapterData.title;
+      } else if (chapterData?.originalTitle) {
+        rawTitle = chapterData.originalTitle;
+      } else {
+        rawTitle = `Chapter ${targetChapterIdx + 1}`;
+      }
+
       const rawText = (rawChap && (rawChap.content || rawChap.text)) || (chapterData && (chapterData.text || chapterData.content)) || '';
 
       const ctrl = new AbortController();

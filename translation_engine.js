@@ -1057,7 +1057,9 @@ const KeyPool = window.KeyPool;
 const streamWithRotation = async (text, opts) => {
   let currentOpts = { ...opts };
   const allKeys = opts?.availableKeys || [];
-  if (allKeys.length > 1) {
+  if (!currentOpts.apiKey && allKeys.length > 0) {
+    currentOpts.apiKey = typeof allKeys[0] === 'string' ? allKeys[0] : (allKeys[0].key || '');
+  } else if (allKeys.length > 1) {
     const leased = await KeyPool.acquireKey(allKeys);
     if (leased) currentOpts.apiKey = leased;
   }
@@ -1130,7 +1132,9 @@ const streamWithRotation = async (text, opts) => {
 const translateWithRotation = async (text, opts) => {
   let currentOpts = { ...opts };
   const allKeys = opts?.availableKeys || [];
-  if (allKeys.length > 1) {
+  if (!currentOpts.apiKey && allKeys.length > 0) {
+    currentOpts.apiKey = typeof allKeys[0] === 'string' ? allKeys[0] : (allKeys[0].key || '');
+  } else if (allKeys.length > 1) {
     const leased = await KeyPool.acquireKey(allKeys);
     if (leased) currentOpts.apiKey = leased;
   }
