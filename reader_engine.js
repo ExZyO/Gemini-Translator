@@ -1996,7 +1996,7 @@
           onClick: () => {
             setShowMoreMenu(false);
             if (typeof onExportEpub === 'function') {
-              onExportEpub();
+              onExportEpub(chapters);
             } else if (typeof window !== 'undefined' && window.ExportEngine?.Controller?.export) {
               window.ExportEngine.Controller.export('epub', { chaptersToExport: chapters }, { toast: (m, t) => window.toast?.(m, t) });
             }

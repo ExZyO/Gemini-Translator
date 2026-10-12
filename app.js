@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.43';
+    let VERSION = '8.21.44';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2279,8 +2279,11 @@
           getTranslateOpts,
           setTranslatedChapters,
           setChapters,
+          setAssembledText,
           setActiveNovelRecord,
           saveNovelToHistory,
+          currentOriginalZip,
+          currentIsEpub,
           toast
         });
       };
@@ -2353,7 +2356,7 @@
       };
 
       const handleDownloadPDF = () => window.ExportEngine?.Controller?.export('pdf', { chaptersToExport: getExportChapters(), tgtLang, fileName }, { setDownloadingPdf, setError, toast });
-      const handleDownloadEPUB = () => window.ExportEngine?.Controller?.export('epub', { chaptersToExport: getExportChapters(), fileName, activeNovelRecord, currentDocTitle, webImportHistory, currentDocCover, activeCrawlSession, webImportData, tgtLang, currentIsEpub, currentOriginalZip }, { setDownloadingEpub, setEpubPackagingModal, setError, toast });
+      const handleDownloadEPUB = (overrideChapters) => window.ExportEngine?.Controller?.export('epub', { chaptersToExport: (Array.isArray(overrideChapters) && overrideChapters.length > 0) ? overrideChapters : getExportChapters(), fileName, activeNovelRecord, currentDocTitle, webImportHistory, currentDocCover, activeCrawlSession, webImportData, tgtLang, currentIsEpub, currentOriginalZip }, { setDownloadingEpub, setEpubPackagingModal, setError, toast });
       const handleDownloadDOCX = () => window.ExportEngine?.Controller?.export('docx', { chaptersToExport: getExportChapters(), tgtLang }, { setDownloadingDocx, setError, toast });
 
       const disabled = isTranslating || uploadingFile;

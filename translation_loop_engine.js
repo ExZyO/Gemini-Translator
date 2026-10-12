@@ -2198,6 +2198,9 @@
         setChapters,
         setActiveNovelRecord,
         saveNovelToHistory,
+        setAssembledText,
+        currentOriginalZip,
+        currentIsEpub,
         toast
       } = params;
 
@@ -2215,6 +2218,8 @@
           rawChap = novelRec.rawChapters[targetChapterIdx];
         } else if (novelRec.originalChapters && novelRec.originalChapters[targetChapterIdx]) {
           rawChap = novelRec.originalChapters[targetChapterIdx];
+        } else if (novelRec.chapters && novelRec.chapters[targetChapterIdx]) {
+          rawChap = novelRec.chapters[targetChapterIdx];
         }
       }
       if (!rawChap && chapters && chapters[targetChapterIdx]) {
@@ -2240,25 +2245,78 @@
         });
         const finalTitle = transTitle || rawTitle;
 
+        // 1. Update React state: translatedChapters
         if (typeof setTranslatedChapters === 'function') {
           setTranslatedChapters(prev => {
-            const next = [...(prev || [])];
+            const next = Array.isArray(prev) ? [...prev] : [];
             if (next[targetChapterIdx]) {
               next[targetChapterIdx] = { ...next[targetChapterIdx], title: finalTitle };
-            }
-            return next;
-          });
-        }
-        if (typeof setChapters === 'function') {
-          setChapters(prev => {
-            const next = [...(prev || [])];
-            if (next[targetChapterIdx]) {
-              next[targetChapterIdx] = { ...next[targetChapterIdx], title: finalTitle };
+            } else if (rawChap) {
+              next[targetChapterIdx] = { ...rawChap, title: finalTitle };
+            } else {
+              next[targetChapterIdx] = { title: finalTitle, content: rawText, text: rawText };
             }
             return next;
           });
         }
 
+        // 2. Update React state: chapters
+        if (typeof setChapters === 'function') {
+          setChapters(prev => {
+            const next = Array.isArray(prev) ? [...prev] : [];
+            if (next[targetChapterIdx]) {
+              next[targetChapterIdx] = { ...next[targetChapterIdx], title: finalTitle };
+            } else if (rawChap) {
+              next[targetChapterIdx] = { ...rawChap, title: finalTitle };
+            } else {
+              next[targetChapterIdx] = { title: finalTitle, content: rawText, text: rawText };
+            }
+            return next;
+          });
+        }
+
+        // 3. Update React state: assembledText
+        if (typeof setAssembledText === 'function') {
+          setAssembledText(prevText => {
+            const baseChs = (chapters && chapters.length > 0) ? chapters : [];
+            if (baseChs.length > 0) {
+              return baseChs.map((c, i) => {
+                const t = (i === targetChapterIdx) ? finalTitle : (c?.title || `Chapter ${i + 1}`);
+                const body = c?.content || c?.text || '';
+                return `# ${t}\n\n${body}`;
+              }).join('\n\n\n');
+            }
+            return prevText ? prevText.replace(new RegExp(`^#\\s*${escapeXml(rawTitle)}`, 'm'), `# ${finalTitle}`) : `# ${finalTitle}\n\n${rawText}`;
+          });
+        }
+
+        // 4. Update in-memory original EPUB zip if present
+        const targetZipPath = (rawChap && rawChap.zipPath) || (chapterData && chapterData.zipPath);
+        if (currentOriginalZip && targetZipPath) {
+          try {
+            const fileInZip = currentOriginalZip.file(targetZipPath);
+            if (fileInZip) {
+              const xhtml = await fileInZip.async('text');
+              if (xhtml && typeof DOMParser !== 'undefined') {
+                const doc = new DOMParser().parseFromString(xhtml, 'application/xhtml+xml');
+                const tEl = doc.querySelector('title');
+                if (tEl) tEl.textContent = finalTitle;
+                const hEl = doc.querySelector('h1, h2, h3');
+                if (hEl) hEl.textContent = finalTitle;
+                currentOriginalZip.file(targetZipPath, new XMLSerializer().serializeToString(doc));
+              }
+            }
+            if (typeof window !== 'undefined' && typeof window.updateOriginalEpubNavigation === 'function') {
+              const chsForNav = (chapters && chapters.length > 0) ? [...chapters] : [];
+              if (chsForNav[targetChapterIdx]) chsForNav[targetChapterIdx] = { ...chsForNav[targetChapterIdx], title: finalTitle, zipPath: targetZipPath };
+              window.updateOriginalEpubNavigation(currentOriginalZip, chsForNav);
+            }
+          } catch (zipErr) {
+            console.warn('[executeTranslateSingleChapter] Could not update title in originalZip:', zipErr);
+          }
+        }
+
+        // 5. Update Database: GeminiNovelDB
         if (currentNovelId && typeof window !== 'undefined' && window.GeminiNovelDB) {
           try {
             const full = novelRec || (await window.GeminiNovelDB.getNovel(currentNovelId));
@@ -2275,6 +2333,8 @@
                 ...full,
                 chapters: updatedChs,
                 translatedChapters: updatedTransChs,
+                isEdited: true,
+                epubBlob: undefined, // Invalidate stale cached pre-built blob so fresh EPUB exports use updated title!
                 updatedAt: Date.now()
               };
               await window.GeminiNovelDB.updateNovel(currentNovelId, updatedNovel);
@@ -2314,19 +2374,92 @@
         throw new Error('Translation produced empty text.');
       }
 
+      const finalTitle = res.title || rawTitle;
+      const targetZipPath = (rawChap && rawChap.zipPath) || (chapterData && chapterData.zipPath);
+
+      // 1. Update React state: translatedChapters
       if (typeof setTranslatedChapters === 'function') {
         setTranslatedChapters(prev => {
-          const next = [...(prev || [])];
+          const next = Array.isArray(prev) ? [...prev] : [];
           next[targetChapterIdx] = {
-            title: res.title,
+            ...(next[targetChapterIdx] || rawChap || {}),
+            title: finalTitle,
             content: res.content,
             text: res.content,
+            zipPath: targetZipPath,
             isTranslated: true
           };
           return next;
         });
       }
 
+      // 2. Update React state: chapters
+      if (typeof setChapters === 'function') {
+        setChapters(prev => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          next[targetChapterIdx] = {
+            ...(next[targetChapterIdx] || rawChap || {}),
+            title: finalTitle,
+            content: res.content,
+            text: res.content,
+            zipPath: targetZipPath,
+            isTranslated: true
+          };
+          return next;
+        });
+      }
+
+      // 3. Update React state: assembledText
+      if (typeof setAssembledText === 'function') {
+        setAssembledText(prevText => {
+          const baseChs = (chapters && chapters.length > 0) ? chapters : [];
+          if (baseChs.length > 0) {
+            return baseChs.map((c, i) => {
+              const t = (i === targetChapterIdx) ? finalTitle : (c?.title || `Chapter ${i + 1}`);
+              const body = (i === targetChapterIdx) ? res.content : (c?.content || c?.text || '');
+              return `# ${t}\n\n${body}`;
+            }).join('\n\n\n');
+          }
+          return `${prevText ? prevText + '\n\n\n' : ''}# ${finalTitle}\n\n${res.content}`;
+        });
+      }
+
+      // 4. Update in-memory original EPUB zip if present
+      if (currentOriginalZip && targetZipPath) {
+        try {
+          const fileInZip = currentOriginalZip.file(targetZipPath);
+          if (fileInZip) {
+            const xhtml = await fileInZip.async('text');
+            if (xhtml && typeof DOMParser !== 'undefined') {
+              const doc = new DOMParser().parseFromString(xhtml, 'application/xhtml+xml');
+              const titleHeading = (finalTitle && !isGenericTitle(finalTitle)) ? `<h2>${escapeXml(finalTitle)}</h2>\n` : '';
+              const lines = res.content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+              const fmtFn = (typeof window !== 'undefined' && window.smartFormat) ? window.smartFormat : escapeXml;
+              const bodyParagraphs = lines.map(line => {
+                if (/^(\*{3,}|\.{3,}|—{2,}|-{3,})$/.test(line)) {
+                  return `<p class="divider">${escapeXml(line)}</p>`;
+                }
+                return `<p>${fmtFn(line)}</p>`;
+              }).join('\n');
+              if (doc.body) {
+                doc.body.innerHTML = `${titleHeading}${bodyParagraphs}`;
+                const tEl = doc.querySelector('title');
+                if (tEl && finalTitle) tEl.textContent = finalTitle;
+                currentOriginalZip.file(targetZipPath, new XMLSerializer().serializeToString(doc));
+              }
+            }
+          }
+          if (typeof window !== 'undefined' && typeof window.updateOriginalEpubNavigation === 'function') {
+            const chsForNav = (chapters && chapters.length > 0) ? [...chapters] : [];
+            if (chsForNav[targetChapterIdx]) chsForNav[targetChapterIdx] = { ...chsForNav[targetChapterIdx], title: finalTitle, zipPath: targetZipPath };
+            window.updateOriginalEpubNavigation(currentOriginalZip, chsForNav);
+          }
+        } catch (zipErr) {
+          console.warn('[executeTranslateSingleChapter] Could not update XHTML in originalZip:', zipErr);
+        }
+      }
+
+      // 5. Update Database: GeminiNovelDB
       if (currentNovelId && typeof window !== 'undefined' && window.GeminiNovelDB) {
         try {
           const full = novelRec || (await window.GeminiNovelDB.getNovel(currentNovelId));
@@ -2334,17 +2467,19 @@
             const updatedChs = [...(full.chapters || [])];
             updatedChs[targetChapterIdx] = {
               ...(updatedChs[targetChapterIdx] || {}),
-              title: res.title,
+              title: finalTitle,
               content: res.content,
               text: res.content,
+              zipPath: targetZipPath,
               isTranslated: true
             };
             const updatedTransChs = [...(full.translatedChapters || updatedChs)];
             updatedTransChs[targetChapterIdx] = {
               ...(updatedTransChs[targetChapterIdx] || {}),
-              title: res.title,
+              title: finalTitle,
               content: res.content,
               text: res.content,
+              zipPath: targetZipPath,
               isTranslated: true
             };
             const updatedNovel = {
@@ -2352,6 +2487,8 @@
               chapters: updatedChs,
               translatedChapters: updatedTransChs,
               isTranslated: true,
+              isEdited: true,
+              epubBlob: undefined, // Invalidate stale cached pre-built blob so fresh EPUB exports use updated chapter!
               updatedAt: Date.now()
             };
             await window.GeminiNovelDB.updateNovel(currentNovelId, updatedNovel);

@@ -380,6 +380,50 @@
       const curText = assembledText && assembledText.trim();
       const knownTitles = (translatedChapters || []).map(c => c?.title || c?.originalTitle).filter(Boolean);
 
+      // Priority 0: Master book structure merge
+      // If we have a full chapter list (e.g. 46 chapters in chapters), merge translated chapters and titles onto it
+      // so no chapters are ever dropped and every translated title or chapter is guaranteed in the EPUB!
+      if (Array.isArray(chapters) && chapters.length > 0) {
+        const hasAnyTrans = (Array.isArray(translatedChapters) && translatedChapters.some(tc => tc && (tc.isTranslated || tc.content || tc.text || tc.title)));
+        if (hasAnyTrans) {
+          const merged = chapters.map((c, i) => {
+            const tc = translatedChapters && translatedChapters[i];
+            const isTcValid = tc && (tc.content || tc.text || tc.title) && !String(tc.content || tc.text || '').startsWith('[Error:');
+            if (isTcValid) {
+              return {
+                ...(c || {}),
+                ...tc,
+                title: tc.title || c?.title || `Chapter ${i + 1}`,
+                content: tc.content || tc.text || c?.content || c?.text || '',
+                text: tc.content || tc.text || c?.content || c?.text || '',
+                isTranslated: Boolean(tc.isTranslated || c?.isTranslated)
+              };
+            }
+            return {
+              ...(c || {}),
+              title: c?.title || `Chapter ${i + 1}`,
+              content: c?.text || c?.content || '',
+              text: c?.text || c?.content || '',
+              isTranslated: Boolean(c?.isTranslated)
+            };
+          });
+
+          if (curText && parseFn) {
+            const fallbackTitle = (translatedChapters && translatedChapters[0]?.title) || currentDocTitle || fileName || 'Chapter 1';
+            const parsed = parseFn(curText, fallbackTitle, knownTitles);
+            if (parsed && parsed.length === merged.length) {
+              return merged.map((m, i) => ({
+                ...m,
+                title: m.title || parsed[i]?.title || `Chapter ${i + 1}`,
+                content: m.content || parsed[i]?.content || parsed[i]?.text || '',
+                text: m.text || parsed[i]?.content || parsed[i]?.text || ''
+              }));
+            }
+          }
+          return merged;
+        }
+      }
+
       // Priority 1: Multi-chapter translation
       if (translatedChapters && translatedChapters.length > 1) {
         if (curText) {
@@ -388,16 +432,16 @@
           if (parsed.length === translatedChapters.length) {
             return parsed.map((p, i) => ({
               ...translatedChapters[i],
-              title: p.title || translatedChapters[i]?.title || `Chapter ${i + 1}`,
-              content: p.content || p.text || '',
-              text: p.content || p.text || ''
+              title: translatedChapters[i]?.title || p.title || `Chapter ${i + 1}`,
+              content: translatedChapters[i]?.content || p.content || p.text || '',
+              text: translatedChapters[i]?.text || p.content || p.text || ''
             }));
           } else if (parsed.length > 1) {
             return parsed.map((p, i) => ({
               ...(translatedChapters[i] || {}),
-              title: p.title || `Chapter ${i + 1}`,
-              content: p.content || p.text || '',
-              text: p.content || p.text || ''
+              title: translatedChapters[i]?.title || p.title || `Chapter ${i + 1}`,
+              content: translatedChapters[i]?.content || p.content || p.text || '',
+              text: translatedChapters[i]?.text || p.content || p.text || ''
             }));
           } else if (parsed.length === 1 && translatedChapters.length > 1) {
             if (partitionFn) {

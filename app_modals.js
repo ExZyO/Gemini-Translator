@@ -1550,6 +1550,23 @@
             if (setRenameModalNovel) setRenameModalNovel(item);
             if (setNewNovelTitleInput) setNewNovelTitleInput(item.customTitle || (getCustomTitle ? getCustomTitle(item) : '') || item.title || '');
           }),
+          menuRow('Download', 'Download / Export EPUB', 'Export novel as clean, packaged EPUB ebook with latest translations', async () => {
+            const full = loadFullNovel ? await loadFullNovel(item) : null;
+            if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+            const chs = (full.translatedChapters && full.translatedChapters.length > 0) ? full.translatedChapters : (full.chapters || []);
+            if (typeof props.onExportEpub === 'function') {
+              props.onExportEpub(chs);
+            } else if (typeof props.handleDownloadEPUB === 'function') {
+              props.handleDownloadEPUB(chs);
+            } else if (typeof window !== 'undefined' && window.ExportEngine?.Controller?.export) {
+              window.ExportEngine.Controller.export('epub', {
+                chaptersToExport: chs,
+                rawBaseTitle: full.title,
+                author: full.author,
+                resolvedCover: full.cover
+              }, { toast });
+            }
+          }),
           menuRow('BookOpen', 'Edit in Ebook Studio', 'Edit chapters, prose, covers, and table of contents', async () => {
             const full = loadFullNovel ? await loadFullNovel(item) : null;
             if (!full) { toast('Novel data not found in local store.', 'error'); return; }
@@ -2545,6 +2562,7 @@
       h(LibraryNovelActionSheet, {
         novel: props.activeBookMenuNovel,
         onClose: props.onCloseBookMenu || (() => props.setActiveBookMenuNovel?.(null)),
+        handleDownloadEPUB: props.handleDownloadEPUB,
         getNovelFolderOptions: props.getNovelFolderOptions,
         setRenameModalNovel: props.setRenameModalNovel,
         setNewNovelTitleInput: props.setNewNovelTitleInput,
