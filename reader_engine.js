@@ -442,7 +442,7 @@
     const [isTranslatingCurrentChapter, setIsTranslatingCurrentChapter] = useState(false);
     const [chapterTranslateProgress, setChapterTranslateProgress] = useState({ pct: 0, msg: '' });
 
-    const handleTranslateActiveChapter = useCallback(async () => {
+    const handleTranslateActiveChapter = useCallback(async (targetChapterIndex = null) => {
       if (isTranslatingCurrentChapter) return;
       if (typeof onTranslateChapter !== 'function') {
         if (typeof window !== 'undefined' && window.toast) {
@@ -450,25 +450,34 @@
         }
         return;
       }
+      const idx = (typeof targetChapterIndex === 'number') ? targetChapterIndex : activeIdx;
+      const targetChap = (chapters && chapters[idx]) || (safeChapters && safeChapters[idx]) || currentChapter;
       setIsTranslatingCurrentChapter(true);
       setChapterTranslateProgress({ pct: 5, msg: 'Preparing translation…' });
       try {
-        const targetChap = currentChapter || safeChapters[activeIdx];
-        const res = await onTranslateChapter(activeIdx, targetChap, (pct, msg) => {
+        const res = await onTranslateChapter(idx, targetChap, (pct, msg) => {
           setChapterTranslateProgress({ pct, msg });
         });
         if (res && res.content) {
-          const newTitle = res.title || targetChap.title;
+          const newTitle = res.title || (targetChap && targetChap.title);
           const newText = res.content;
-          currentChapter.title = newTitle;
-          currentChapter.text = newText;
-          currentChapter.content = newText;
-          currentChapter.isTranslated = true;
-          if (Array.isArray(chapters) && chapters[activeIdx]) {
-            chapters[activeIdx].title = newTitle;
-            chapters[activeIdx].text = newText;
-            chapters[activeIdx].content = newText;
-            chapters[activeIdx].isTranslated = true;
+          if (currentChapter && idx === activeIdx) {
+            currentChapter.title = newTitle;
+            currentChapter.text = newText;
+            currentChapter.content = newText;
+            currentChapter.isTranslated = true;
+          }
+          if (Array.isArray(chapters) && chapters[idx]) {
+            chapters[idx].title = newTitle;
+            chapters[idx].text = newText;
+            chapters[idx].content = newText;
+            chapters[idx].isTranslated = true;
+          }
+          if (Array.isArray(safeChapters) && safeChapters[idx]) {
+            safeChapters[idx].title = newTitle;
+            safeChapters[idx].text = newText;
+            safeChapters[idx].content = newText;
+            safeChapters[idx].isTranslated = true;
           }
           setRenderTick(t => t + 1);
           setChapterTranslateProgress({ pct: 100, msg: 'Chapter translated successfully!' });
@@ -485,6 +494,40 @@
         }
       }
     }, [isTranslatingCurrentChapter, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters]);
+
+    const handleTranslateActiveChapterTitleOnly = useCallback(async (targetChapterIndex = null) => {
+      if (typeof onTranslateChapter !== 'function') {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Translation handler not available in current mode.', 'error');
+        }
+        return;
+      }
+      const idx = (typeof targetChapterIndex === 'number') ? targetChapterIndex : activeIdx;
+      const targetChap = (chapters && chapters[idx]) || (safeChapters && safeChapters[idx]) || currentChapter;
+      if (!targetChap) return;
+      try {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast(`Translating Ch. ${idx + 1} title…`, 'info');
+        }
+        const res = await onTranslateChapter(idx, targetChap, null, true);
+        if (res && res.title) {
+          if (currentChapter && idx === activeIdx) {
+            currentChapter.title = res.title;
+          }
+          if (Array.isArray(chapters) && chapters[idx]) {
+            chapters[idx].title = res.title;
+          }
+          if (Array.isArray(safeChapters) && safeChapters[idx]) {
+            safeChapters[idx].title = res.title;
+          }
+          setRenderTick(t => t + 1);
+        }
+      } catch (err) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast(err.message || 'Title translation failed.', 'error');
+        }
+      }
+    }, [onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters]);
 
     // ── Footnotes Extraction & Caching (§5.10) ──
     const [activeFootnote, setActiveFootnote] = useState(null);
@@ -1941,6 +1984,17 @@
           className: 'reader-more-item',
           onClick: () => {
             setShowMoreMenu(false);
+            handleTranslateActiveChapterTitleOnly();
+          }
+        },
+          ic('Type', 15),
+          h('span', null, 'Translate Chapter Title Only')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          onClick: () => {
+            setShowMoreMenu(false);
             if (typeof onExportEpub === 'function') {
               onExportEpub();
             } else if (typeof window !== 'undefined' && window.ExportEngine?.Controller?.export) {
@@ -2351,7 +2405,8 @@
       h(window.ReaderTocDrawer || (typeof ReaderTocDrawer !== 'undefined' ? ReaderTocDrawer : 'div'), {
         showToc, setShowToc, tocSearch, setTocSearch, arcGroups, collapsedArcs,
         toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter,
-        onTranslateChapter: handleTranslateActiveChapter
+        onTranslateChapter: handleTranslateActiveChapter,
+        onTranslateChapterTitle: handleTranslateActiveChapterTitleOnly
       }),
 
       // ── TYPOGRAPHY & THEMES SETTINGS MODAL ──

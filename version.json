@@ -1,9 +1,9 @@
 {
-  "version": "8.21.42",
-  "versionCode": 8453,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.42/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.42/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.42",
+  "version": "8.21.43",
+  "versionCode": 8454,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.43/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.43/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.43",
   "releaseDate": "2026-10-12",
-  "releaseNotes": "v8.21.42: Ensure AppLogger always records in-memory events locally, enable 1-tap Copy Logs, and show View/Hide Logs toggle."
+  "releaseNotes": "v8.21.43: Add 1-tap Title Only translation in Reader & TOC, compact TOC chapter action button, and AI Novel Rename translator."
 }

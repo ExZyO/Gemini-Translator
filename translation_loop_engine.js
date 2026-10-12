@@ -1140,6 +1140,39 @@
   }
 
   /**
+   * Translates an individual novel or chapter title accurately into English.
+   */
+  async function translateChapterTitle({
+    rawTitle = '',
+    opts = {},
+    config = {},
+    callbacks = {}
+  } = {}) {
+    if (!rawTitle || !rawTitle.trim()) return '';
+    const provider = config.provider || 'gemini';
+    const apiKeysByProvider = config.apiKeysByProvider || {};
+    const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
+    const workerOpts = {
+      ...opts,
+      availableKeys,
+      context: undefined,
+      needContextUpdate: false,
+      glossary: '',
+      smartGlossary: false,
+      instructions: 'Translate this novel chapter title accurately and concisely into English. Maintain formal title casing. Output ONLY the translated title, without quotes, markdown or notes.'
+    };
+    if (callbacks && typeof callbacks.onProgress === 'function') callbacks.onProgress(10, 'Translating chapter title…');
+    const tRes = await safeTranslateWithRotation(rawTitle, workerOpts);
+    const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
+    if (trans && trans.trim()) {
+      const cleanT = (typeof window !== 'undefined' && window.sanitizeChapterTitle) ? window.sanitizeChapterTitle(trans.trim()) : trans.trim();
+      if (callbacks && typeof callbacks.onProgress === 'function') callbacks.onProgress(100, 'Title translated!');
+      return cleanT;
+    }
+    return rawTitle;
+  }
+
+  /**
    * Translates an individual chapter on demand using active Translator settings.
    */
   async function translateSingleChapter({
@@ -1148,8 +1181,19 @@
     rawText = '',
     opts = {},
     config = {},
-    callbacks = {}
+    callbacks = {},
+    titleOnly = false
   }) {
+    if (titleOnly) {
+      const translatedTitle = await translateChapterTitle({ rawTitle, opts, config, callbacks });
+      return {
+        title: translatedTitle || rawTitle,
+        content: rawText,
+        isTranslated: true,
+        titleOnly: true
+      };
+    }
+
     if (!rawText || !rawText.trim()) {
       throw new Error('No chapter text provided for translation.');
     }
@@ -2138,6 +2182,195 @@
     saveTranslationToLibrarySpace,
     executeTranslateText,
     executeTranslateEbook,
+    executeTranslateSingleChapter: async function(params) {
+      const {
+        targetChapterIdx,
+        chapterData,
+        onProgress,
+        titleOnly = false,
+        activeNovelRecord,
+        readerNovelId,
+        readerNovelTitle,
+        chapters,
+        translationCtx,
+        getTranslateOpts,
+        setTranslatedChapters,
+        setChapters,
+        setActiveNovelRecord,
+        saveNovelToHistory,
+        toast
+      } = params;
+
+      let novelRec = activeNovelRecord;
+      const currentNovelId = readerNovelId || (novelRec && novelRec.id);
+      if ((!novelRec || !novelRec.rawChapters) && currentNovelId && typeof window !== 'undefined' && window.GeminiNovelDB) {
+        try {
+          novelRec = await window.GeminiNovelDB.getNovel(currentNovelId);
+        } catch (_) {}
+      }
+
+      let rawChap = null;
+      if (novelRec) {
+        if (novelRec.rawChapters && novelRec.rawChapters[targetChapterIdx]) {
+          rawChap = novelRec.rawChapters[targetChapterIdx];
+        } else if (novelRec.originalChapters && novelRec.originalChapters[targetChapterIdx]) {
+          rawChap = novelRec.originalChapters[targetChapterIdx];
+        }
+      }
+      if (!rawChap && chapters && chapters[targetChapterIdx]) {
+        rawChap = chapters[targetChapterIdx];
+      }
+
+      const rawTitle = (rawChap && (rawChap.title || rawChap.originalTitle)) || (chapterData && (chapterData.originalTitle || chapterData.title)) || `Chapter ${targetChapterIdx + 1}`;
+      const rawText = (rawChap && (rawChap.content || rawChap.text)) || (chapterData && (chapterData.text || chapterData.content)) || '';
+
+      const ctrl = new AbortController();
+      const opts = typeof getTranslateOpts === 'function' ? getTranslateOpts(ctrl.signal) : {};
+      const config = Controller.buildTranslationConfig({
+        ...translationCtx,
+        bookTitle: readerNovelTitle || (novelRec && novelRec.title) || 'Translated Novel'
+      });
+
+      if (titleOnly) {
+        const transTitle = await translateChapterTitle({
+          rawTitle,
+          opts,
+          config,
+          callbacks: { onProgress }
+        });
+        const finalTitle = transTitle || rawTitle;
+
+        if (typeof setTranslatedChapters === 'function') {
+          setTranslatedChapters(prev => {
+            const next = [...(prev || [])];
+            if (next[targetChapterIdx]) {
+              next[targetChapterIdx] = { ...next[targetChapterIdx], title: finalTitle };
+            }
+            return next;
+          });
+        }
+        if (typeof setChapters === 'function') {
+          setChapters(prev => {
+            const next = [...(prev || [])];
+            if (next[targetChapterIdx]) {
+              next[targetChapterIdx] = { ...next[targetChapterIdx], title: finalTitle };
+            }
+            return next;
+          });
+        }
+
+        if (currentNovelId && typeof window !== 'undefined' && window.GeminiNovelDB) {
+          try {
+            const full = novelRec || (await window.GeminiNovelDB.getNovel(currentNovelId));
+            if (full) {
+              const updatedChs = [...(full.chapters || [])];
+              if (updatedChs[targetChapterIdx]) {
+                updatedChs[targetChapterIdx] = { ...updatedChs[targetChapterIdx], title: finalTitle };
+              }
+              const updatedTransChs = [...(full.translatedChapters || updatedChs)];
+              if (updatedTransChs[targetChapterIdx]) {
+                updatedTransChs[targetChapterIdx] = { ...updatedTransChs[targetChapterIdx], title: finalTitle };
+              }
+              const updatedNovel = {
+                ...full,
+                chapters: updatedChs,
+                translatedChapters: updatedTransChs,
+                updatedAt: Date.now()
+              };
+              await window.GeminiNovelDB.updateNovel(currentNovelId, updatedNovel);
+              if (typeof saveNovelToHistory === 'function') {
+                saveNovelToHistory(updatedNovel).catch(() => {});
+              }
+              if (typeof setActiveNovelRecord === 'function') setActiveNovelRecord(updatedNovel);
+            }
+          } catch (dbErr) {
+            console.warn('[Reader] Failed to update novel title in database:', dbErr);
+          }
+        }
+        if (typeof toast === 'function') {
+          toast(`Chapter ${targetChapterIdx + 1} title translated: ${finalTitle}`, 'success');
+        }
+        return { title: finalTitle, isTranslated: true };
+      }
+
+      if (!rawText || !rawText.trim()) {
+        if (typeof toast === 'function') toast('No source text found for this chapter.', 'error');
+        return null;
+      }
+
+      const res = await translateSingleChapter({
+        chapterIdx: targetChapterIdx,
+        rawTitle,
+        rawText,
+        opts,
+        config,
+        callbacks: {
+          onProgress,
+          onToast: (msg, type) => { if (typeof toast === 'function') toast(msg, type); }
+        }
+      });
+
+      if (!res || !res.content) {
+        throw new Error('Translation produced empty text.');
+      }
+
+      if (typeof setTranslatedChapters === 'function') {
+        setTranslatedChapters(prev => {
+          const next = [...(prev || [])];
+          next[targetChapterIdx] = {
+            title: res.title,
+            content: res.content,
+            text: res.content,
+            isTranslated: true
+          };
+          return next;
+        });
+      }
+
+      if (currentNovelId && typeof window !== 'undefined' && window.GeminiNovelDB) {
+        try {
+          const full = novelRec || (await window.GeminiNovelDB.getNovel(currentNovelId));
+          if (full) {
+            const updatedChs = [...(full.chapters || [])];
+            updatedChs[targetChapterIdx] = {
+              ...(updatedChs[targetChapterIdx] || {}),
+              title: res.title,
+              content: res.content,
+              text: res.content,
+              isTranslated: true
+            };
+            const updatedTransChs = [...(full.translatedChapters || updatedChs)];
+            updatedTransChs[targetChapterIdx] = {
+              ...(updatedTransChs[targetChapterIdx] || {}),
+              title: res.title,
+              content: res.content,
+              text: res.content,
+              isTranslated: true
+            };
+            const updatedNovel = {
+              ...full,
+              chapters: updatedChs,
+              translatedChapters: updatedTransChs,
+              isTranslated: true,
+              updatedAt: Date.now()
+            };
+            await window.GeminiNovelDB.updateNovel(currentNovelId, updatedNovel);
+            if (typeof saveNovelToHistory === 'function') {
+              saveNovelToHistory(updatedNovel).catch(() => {});
+            }
+            if (typeof setActiveNovelRecord === 'function') setActiveNovelRecord(updatedNovel);
+          }
+        } catch (dbErr) {
+          console.warn('[Reader] Failed to update novel in database:', dbErr);
+        }
+      }
+
+      if (typeof toast === 'function') {
+        toast(`Chapter ${targetChapterIdx + 1} translated and saved!`, 'success');
+      }
+      return res;
+    },
+    translateChapterTitle,
     translateSingleChapter,
     createTranslationDispatcher(ctx) {
       return {
@@ -2165,6 +2398,14 @@
             config: (TranslationLoopEngine?.Controller || Controller).buildTranslationConfig(ctx),
             callbacks
           });
+        },
+        translateTitle: async (rawTitle, callbacks) => {
+          return await (TranslationLoopEngine?.Controller || Controller).translateChapterTitle({
+            rawTitle,
+            opts: typeof ctx.getTranslateOpts === 'function' ? ctx.getTranslateOpts() : {},
+            config: (TranslationLoopEngine?.Controller || Controller).buildTranslationConfig(ctx),
+            callbacks
+          });
         }
       };
     }
@@ -2175,6 +2416,7 @@
     extractTextNodes,
     translateText,
     translateEbook,
+    translateChapterTitle,
     translateSingleChapter,
     isChapterCompleted,
     splitChunks,

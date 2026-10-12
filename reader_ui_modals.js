@@ -18,6 +18,7 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   const h = (typeof React !== 'undefined' && React.createElement) ? React.createElement : (window.React ? window.React.createElement : null);
+  const useState = (typeof React !== 'undefined' && React.useState) ? React.useState : (window.React ? window.React.useState : null);
   const ic = (name, size = 18, cls = 'shrink-0') => {
     if (typeof window !== 'undefined' && window.ic) return window.ic(name, size, cls);
     return h ? h('span', { className: cls }, '') : null;
@@ -212,15 +213,20 @@
   function ReaderTocDrawer(props) {
     const {
       showToc, setShowToc, tocSearch, setTocSearch, arcGroups, collapsedArcs,
-      toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter, onTranslateChapter
+      toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter,
+      onTranslateChapter, onTranslateChapterTitle
     } = props;
+    const [actionMenuChap, setActionMenuChap] = useState(null);
     if (!showToc) return null;
     return h('div', {
         style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex' },
-        onClick: () => setShowToc(false)
+        onClick: () => {
+          setActionMenuChap(null);
+          setShowToc(false);
+        }
       },
         h('div', {
-          style: { width: '85%', maxWidth: 380, height: '100%', background: 'var(--r-card)', color: 'var(--r-text)', display: 'flex', flexDirection: 'column', boxShadow: '4px 0 24px rgba(0,0,0,0.5)' },
+          style: { width: '88%', maxWidth: 420, height: '100%', background: 'var(--r-card)', color: 'var(--r-text)', display: 'flex', flexDirection: 'column', boxShadow: '4px 0 24px rgba(0,0,0,0.5)' },
           onClick: (e) => e.stopPropagation()
         },
           // Header & Search
@@ -299,27 +305,129 @@
                         setShowToc(false);
                       }
                     },
-                      h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 8 } }, c.title),
+                      h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, marginRight: 8 } }, c.title),
                       h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 } },
                         isActive && h('span', { style: { fontSize: 10, padding: '2px 6px', background: 'var(--r-accent)', color: '#fff', borderRadius: 4 } }, 'Reading'),
-                        typeof onTranslateChapter === 'function' && h('button', {
+                        (typeof onTranslateChapter === 'function' || typeof onTranslateChapterTitle === 'function') && h('button', {
                           type: 'button',
                           className: 'mini-btn ghost',
-                          title: 'Translate this chapter',
-                          style: { padding: '2px 6px', fontSize: 11, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 3 },
+                          title: 'Translate options',
+                          style: {
+                            padding: 0,
+                            width: 26,
+                            height: 26,
+                            borderRadius: 6,
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--r-accent)',
+                            flexShrink: 0
+                          },
                           onClick: (e) => {
                             e.stopPropagation();
-                            changeChapter(c.idx);
-                            setShowToc(false);
-                            onTranslateChapter();
+                            setActionMenuChap(c);
                           }
-                        }, ic('Sparkles', 11), 'Translate')
+                        }, ic('Sparkles', 12))
                       )
                     );
                   })
                 )
               );
             })
+          ),
+
+          // Floating Action Modal when tapping Sparkles
+          actionMenuChap && h('div', {
+            style: {
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10005,
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(3px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16
+            },
+            onClick: () => setActionMenuChap(null)
+          },
+            h('div', {
+              style: {
+                background: 'var(--r-card, #1e293b)',
+                border: '1px solid var(--r-border, rgba(255,255,255,0.1))',
+                borderRadius: 12,
+                padding: 18,
+                width: '100%',
+                maxWidth: 320,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10
+              },
+              onClick: e => e.stopPropagation()
+            },
+              h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--r-text)' } },
+                `Chapter ${actionMenuChap.idx + 1}`
+              ),
+              h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 } },
+                actionMenuChap.title
+              ),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: {
+                  background: 'var(--r-accent, #6366f1)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  fontSize: 12.5
+                },
+                onClick: () => {
+                  const chap = actionMenuChap;
+                  setActionMenuChap(null);
+                  changeChapter(chap.idx);
+                  setShowToc(false);
+                  if (typeof onTranslateChapter === 'function') {
+                    onTranslateChapter(chap.idx);
+                  }
+                }
+              }, ic('Sparkles', 13), 'Translate Full Chapter'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: {
+                  border: '1px solid var(--r-border, rgba(255,255,255,0.15))',
+                  color: 'var(--r-text)',
+                  fontWeight: 600,
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  fontSize: 12.5
+                },
+                onClick: () => {
+                  const chap = actionMenuChap;
+                  setActionMenuChap(null);
+                  if (typeof onTranslateChapterTitle === 'function') {
+                    onTranslateChapterTitle(chap.idx);
+                  }
+                }
+              }, ic('Type', 13), 'Translate Title Only'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { fontSize: 11.5, color: 'var(--r-muted)', marginTop: 2 },
+                onClick: () => setActionMenuChap(null)
+              }, 'Cancel')
+            )
           )
         )
       );

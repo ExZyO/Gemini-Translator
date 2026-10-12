@@ -1106,6 +1106,38 @@
     const { novel, onClose, value, setValue, onSave } = props;
     if (!novel) return null;
     const h = getH();
+    const [isTranslatingTitle, setIsTranslatingTitle] = (typeof React !== 'undefined' && React.useState) ? React.useState(false) : [false, () => {}];
+
+    const handleAiTranslateNovelTitle = async () => {
+      const src = novel.originalSourceTitle || novel.title || value;
+      if (!src || !src.trim()) return;
+      setIsTranslatingTitle(true);
+      try {
+        const engine = window.TranslationLoopEngine;
+        const fn = engine?.Controller?.translateChapterTitle || engine?.translateChapterTitle;
+        let trans = '';
+        if (typeof fn === 'function') {
+          trans = await fn({ rawTitle: src });
+        } else if (typeof engine?.safeTranslateWithRotation === 'function') {
+          const res = await engine.safeTranslateWithRotation(src, {
+            instructions: 'Translate this web novel title accurately into English. Maintain formal title casing. Output ONLY the translated title, without quotes or notes.'
+          });
+          trans = (res && typeof res === 'object') ? (res.text || '') : (typeof res === 'string' ? res : '');
+        }
+        if (trans && trans.trim()) {
+          setValue(trans.trim());
+          if (typeof window !== 'undefined' && window.toast) {
+            window.toast('Novel title translated!', 'success');
+          }
+        }
+      } catch (err) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast(`Title translation failed: ${err.message}`, 'error');
+        }
+      } finally {
+        setIsTranslatingTitle(false);
+      }
+    };
 
     return h('div', { className: 'modal-overlay', onClick: onClose },
       h('div', { className: 'modal-box', style: { maxWidth: 440 }, onClick: e => e.stopPropagation() },
@@ -1152,8 +1184,15 @@
               }
             })
           ),
-          novel.originalSourceTitle && novel.originalSourceTitle !== (value || '').trim() && h('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 } },
             h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              disabled: isTranslatingTitle,
+              style: { fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--accent, #6366f1)' },
+              onClick: handleAiTranslateNovelTitle
+            }, ic('Sparkles', 12), isTranslatingTitle ? 'Translating…' : 'Translate Title with AI'),
+            novel.originalSourceTitle && novel.originalSourceTitle !== (value || '').trim() && h('button', {
               type: 'button',
               className: 'mini-btn ghost',
               style: { fontSize: 11, padding: '2px 8px' },

@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.42';
+    let VERSION = '8.21.43';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2265,112 +2265,24 @@
       const handleTranslateText = async (resume = false) => translationDispatcher?.translateText(resume);
       const handleTranslateEbook = async (chapters, resume = false, isEpubParam = false, originalZipParam = null) => translationDispatcher?.translateEbook(chapters, resume, isEpubParam, originalZipParam);
 
-      const handleTranslateSingleChapter = async (targetChapterIdx, chapterData, onProgress) => {
-        let novelRec = activeNovelRecord;
-        const currentNovelId = readerNovelId || (novelRec && novelRec.id);
-        if ((!novelRec || !novelRec.rawChapters) && currentNovelId && window.GeminiNovelDB) {
-          try {
-            novelRec = await window.GeminiNovelDB.getNovel(currentNovelId);
-          } catch (_) {}
-        }
-
-        let rawChap = null;
-        if (novelRec) {
-          if (novelRec.rawChapters && novelRec.rawChapters[targetChapterIdx]) {
-            rawChap = novelRec.rawChapters[targetChapterIdx];
-          } else if (novelRec.originalChapters && novelRec.originalChapters[targetChapterIdx]) {
-            rawChap = novelRec.originalChapters[targetChapterIdx];
-          }
-        }
-        if (!rawChap && chapters && chapters[targetChapterIdx]) {
-          rawChap = chapters[targetChapterIdx];
-        }
-
-        const rawTitle = (rawChap && (rawChap.title || rawChap.originalTitle)) || (chapterData && (chapterData.originalTitle || chapterData.title)) || `Chapter ${targetChapterIdx + 1}`;
-        const rawText = (rawChap && (rawChap.content || rawChap.text)) || (chapterData && (chapterData.text || chapterData.content)) || '';
-
-        if (!rawText || !rawText.trim()) {
-          toast('No source text found for this chapter.', 'error');
-          return null;
-        }
-
-        const engine = window.TranslationLoopEngine || TranslationLoopEngine;
-        const ctrl = new AbortController();
-        const opts = typeof getTranslateOpts === 'function' ? getTranslateOpts(ctrl.signal) : {};
-        const config = engine?.Controller?.buildTranslationConfig?.({
-          ...translationCtx,
-          bookTitle: readerNovelTitle || (novelRec && novelRec.title) || 'Translated Novel'
-        }) || {};
-
-        const res = await (engine?.Controller?.translateSingleChapter || engine?.translateSingleChapter)({
-          chapterIdx: targetChapterIdx,
-          rawTitle,
-          rawText,
-          opts,
-          config,
-          callbacks: {
-            onProgress: (pct, msg) => {
-              if (typeof onProgress === 'function') onProgress(pct, msg);
-            },
-            onToast: (msg, type) => toast(msg, type)
-          }
+      const handleTranslateSingleChapter = async (targetChapterIdx, chapterData, onProgress, titleOnly = false) => {
+        return await (window.TranslationLoopEngine || TranslationLoopEngine)?.Controller?.executeTranslateSingleChapter({
+          targetChapterIdx,
+          chapterData,
+          onProgress,
+          titleOnly,
+          activeNovelRecord,
+          readerNovelId,
+          readerNovelTitle,
+          chapters,
+          translationCtx,
+          getTranslateOpts,
+          setTranslatedChapters,
+          setChapters,
+          setActiveNovelRecord,
+          saveNovelToHistory,
+          toast
         });
-
-        if (!res || !res.content) {
-          throw new Error('Translation produced empty text.');
-        }
-
-        setTranslatedChapters(prev => {
-          const next = [...(prev || [])];
-          next[targetChapterIdx] = {
-            title: res.title,
-            content: res.content,
-            text: res.content,
-            isTranslated: true
-          };
-          return next;
-        });
-
-        if (currentNovelId && window.GeminiNovelDB) {
-          try {
-            const full = novelRec || (await window.GeminiNovelDB.getNovel(currentNovelId));
-            if (full) {
-              const updatedChs = [...(full.chapters || [])];
-              updatedChs[targetChapterIdx] = {
-                ...(updatedChs[targetChapterIdx] || {}),
-                title: res.title,
-                content: res.content,
-                text: res.content,
-                isTranslated: true
-              };
-              const updatedTransChs = [...(full.translatedChapters || updatedChs)];
-              updatedTransChs[targetChapterIdx] = {
-                ...(updatedTransChs[targetChapterIdx] || {}),
-                title: res.title,
-                content: res.content,
-                text: res.content,
-                isTranslated: true
-              };
-              const updatedNovel = {
-                ...full,
-                chapters: updatedChs,
-                translatedChapters: updatedTransChs,
-                isTranslated: true,
-                updatedAt: Date.now()
-              };
-              await window.GeminiNovelDB.updateNovel(currentNovelId, updatedNovel);
-              if (typeof saveNovelToHistory === 'function') {
-                saveNovelToHistory(updatedNovel).catch(() => {});
-              }
-              if (setActiveNovelRecord) setActiveNovelRecord(updatedNovel);
-            }
-          } catch (dbErr) {
-            console.warn('[Reader] Failed to update novel in database:', dbErr);
-          }
-        }
-
-        toast(`Chapter ${targetChapterIdx + 1} translated and saved!`, 'success');
-        return res;
       };
 
       const handleStartTranslation = async (resume = false) => {
