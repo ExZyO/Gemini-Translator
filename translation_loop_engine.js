@@ -446,7 +446,8 @@
             throw new Error(`API Quota exhausted across keys. Switch model to Gemini 3.5 Flash Lite in Settings · Engine. Progress saved at chunk ${i + 1}/${chunks.length}.`);
           }
           if (opts?.strictModel) {
-            throw new Error(`Strict Model: Could not complete chunk ${i + 1}/${chunks.length} with ${opts.model || 'chosen model'}: ${err.message}. Progress safely preserved. Tap Resume to retry.`);
+            const cleanErr = (err.message || '').replace(/\.+$/, '');
+            throw new Error(`Strict Model: Could not complete chunk ${i + 1}/${chunks.length} with ${opts.model || 'chosen model'}: ${cleanErr}. Progress safely preserved. Tap Resume to retry.`);
           }
           let recText = '';
           try {
@@ -863,6 +864,9 @@
         if (callbacks.onProgressLabel) {
           callbacks.onProgressLabel(`Chapter ${i + 1}/${chapters.length}: chunk ${j + 1}/${chunks.length}${useContext ? ' (intra-context)' : ''}...`);
         }
+        if (typeof window !== 'undefined' && window.AppLogger) {
+          window.AppLogger.log('info', 'Translator', `Translating Chapter ${i + 1}/${chapters.length} · Chunk ${j + 1}/${chunks.length} (${chunks[j].text.length} chars)`);
+        }
         let translatedText = '';
         const isLastChunk = j === chunks.length - 1;
         const hasIncomingContext = Boolean(chapterCtx && chapterCtx.trim());
@@ -875,6 +879,9 @@
             needContextUpdate: shouldRequestUpdate
           });
           translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
+          if (typeof window !== 'undefined' && window.AppLogger) {
+            window.AppLogger.log('info', 'Translator', `Completed Chapter ${i + 1} Chunk ${j + 1}/${chunks.length} (${translatedText.length} chars output)`);
+          }
           if (useContext && translated?.newContext) {
             chapterCtx = translated.newContext;
           }
@@ -892,6 +899,9 @@
           }
         } catch (e) {
           if (e.name === 'AbortError' || opts?.signal?.aborted) throw e;
+          if (typeof window !== 'undefined' && window.AppLogger) {
+            window.AppLogger.log('error', 'Translator', `Chapter ${i + 1} Chunk ${j + 1}/${chunks.length} failed: ${e.message}`);
+          }
           const msg = e.message || '';
           const isFatalQuota = msg.includes('429') || msg.includes('quota') || msg.includes('billing');
           if (isFatalQuota) {
@@ -902,7 +912,8 @@
             throw new Error(`Gemini Key Denied (403): Google blocked access to this project/key ("Your project has been denied access"). Add a fresh key in Settings · Engine and tap Resume. Progress saved at chapter ${i + 1}.`);
           }
           if (opts?.strictModel) {
-            throw new Error(`Strict Model: Failed translating chunk ${j + 1}/${chunks.length} of "${title || `Chapter ${i + 1}`}": ${e.message}. Progress safely saved. Tap Resume to retry.`);
+            const cleanErr = (e.message || '').replace(/\.+$/, '');
+            throw new Error(`Strict Model: Failed translating chunk ${j + 1}/${chunks.length} of "${title || `Chapter ${i + 1}`}": ${cleanErr}. Progress safely saved. Tap Resume to retry.`);
           }
           // When strictModel is OFF, attempt one fresh-key fallback before writing error placeholder
           let recovered = false;

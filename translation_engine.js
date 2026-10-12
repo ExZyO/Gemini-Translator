@@ -565,8 +565,21 @@ const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, i
   } else if (isThinkingModel) {
     payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
   }
+  const apiStart = performance.now();
+  window.AppLogger?.log('info', 'GeminiAPI', `[Stream] Outbound request to ${model} (Key: ${maskKey ? maskKey(apiKey) : 'key'}, Chars: ${text.length}, Thinking: ${enableThinking ? 'ON' : 'OFF'}, Strict: ${strictModel ? 'ON' : 'OFF'})`);
   const reqHeaders = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
   let r = await fetchRetry(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(payload), signal });
+  if (!r.ok) {
+    const errBody = await r.clone().text().catch(() => '');
+    let errSnippet = '';
+    try {
+      const errJson = JSON.parse(errBody);
+      errSnippet = errJson?.error?.message || errBody.slice(0, 160);
+    } catch(e) { errSnippet = errBody.slice(0, 160); }
+    window.AppLogger?.log('warn', 'GeminiAPI', `[Stream] Response ${r.status} ${r.statusText} in ${Math.round(performance.now() - apiStart)}ms`, errSnippet);
+  } else {
+    window.AppLogger?.log('info', 'GeminiAPI', `[Stream] Response 200 OK connected in ${Math.round(performance.now() - apiStart)}ms`);
+  }
 
   // Automatic key rotation on HTTP 429 quota exhaustion in stream
   if (!r.ok && r.status === 429) {
@@ -1050,6 +1063,7 @@ const streamWithRotation = async (text, opts) => {
   }
   const maxAttempts = 60;
   let backoffDelay = 2000;
+  let lastErrorSnippet = '';
 
   try {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -1059,6 +1073,7 @@ const streamWithRotation = async (text, opts) => {
       } catch (err) {
         if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
         const errMsg = (err.message || '').toLowerCase();
+        lastErrorSnippet = err.message || '';
         const isForbiddenOrDead = errMsg.includes('403') || errMsg.includes('permission_denied') ||
           errMsg.includes('denied access') || errMsg.includes('api_key_invalid') || errMsg.includes('not valid');
         if (isForbiddenOrDead) {
@@ -1069,6 +1084,7 @@ const streamWithRotation = async (text, opts) => {
             const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
             if (freshKey && freshKey !== currentOpts.apiKey) {
               console.warn(`Key denied (403) → Auto-rotating to fresh key ${maskKey ? maskKey(freshKey) : 'freshKey'}...`);
+              window.AppLogger?.log('warn', 'KeyRotation', `Key ${maskKey ? maskKey(currentOpts.apiKey) : 'key'} denied (403). Auto-rotating to key ${maskKey ? maskKey(freshKey) : 'freshKey'}.`);
               currentOpts.apiKey = freshKey;
               await new Promise(r => setTimeout(r, 600));
               continue;
@@ -1086,8 +1102,9 @@ const streamWithRotation = async (text, opts) => {
           if (allKeys.length > 1) {
             const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
             if (freshKey && freshKey !== currentOpts.apiKey) {
-              const errBrief = (err.message || '').replace(/\s+/g, ' ').trim().slice(0, 75);
+              const errBrief = (err.message || '').replace(/\s+/g, ' ').trim().slice(0, 90);
               console.warn(`Retryable error (${errBrief}) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
+              window.AppLogger?.log('warn', 'KeyRotation', `Attempt ${attempt + 1}/${maxAttempts}: Key ${maskKey ? maskKey(currentOpts.apiKey) : 'key'} hit error (${errBrief}). Rotated to key ${maskKey ? maskKey(freshKey) : 'freshKey'}.`);
               currentOpts.apiKey = freshKey;
               await new Promise(r => setTimeout(r, 600));
               continue;
@@ -1103,7 +1120,8 @@ const streamWithRotation = async (text, opts) => {
         throw err;
       }
     }
-    throw new Error(`Model ${currentOpts.model || 'chosen'} stream busy/rate-limited after ${maxAttempts} patient attempts.`);
+    const cleanLastErr = lastErrorSnippet ? ` (${lastErrorSnippet.replace(/\.+$/, '').slice(0, 90)})` : '';
+    throw new Error(`Model ${currentOpts.model || 'chosen'} stream busy/rate-limited after ${maxAttempts} patient attempts${cleanLastErr}`);
   } finally {
     if (currentOpts.apiKey) KeyPool.releaseKey(currentOpts.apiKey);
   }
@@ -1141,6 +1159,7 @@ const translateWithRotation = async (text, opts) => {
     }
   }
 
+  let lastErrorSnippet = '';
   try {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
@@ -1164,6 +1183,7 @@ const translateWithRotation = async (text, opts) => {
       } catch (err) {
         if (err.name === 'AbortError' || opts?.signal?.aborted) throw err;
         const errMsg = (err.message || '').toLowerCase();
+        lastErrorSnippet = err.message || '';
         const isForbiddenOrDead = errMsg.includes('403') || errMsg.includes('permission_denied') ||
           errMsg.includes('denied access') || errMsg.includes('api_key_invalid') || errMsg.includes('not valid');
         if (isForbiddenOrDead) {
@@ -1174,6 +1194,7 @@ const translateWithRotation = async (text, opts) => {
             const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
             if (freshKey && freshKey !== currentOpts.apiKey) {
               console.warn(`Key denied (403) → Auto-rotating to fresh key ${maskKey ? maskKey(freshKey) : 'freshKey'}...`);
+              window.AppLogger?.log('warn', 'KeyRotation', `Key ${maskKey ? maskKey(currentOpts.apiKey) : 'key'} denied (403). Auto-rotating to key ${maskKey ? maskKey(freshKey) : 'freshKey'}.`);
               currentOpts.apiKey = freshKey;
               await new Promise(r => setTimeout(r, 600));
               continue;
@@ -1192,8 +1213,9 @@ const translateWithRotation = async (text, opts) => {
           if (allKeys.length > 1) {
             const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
             if (freshKey && freshKey !== currentOpts.apiKey) {
-              const errBrief = (err.message || '').replace(/\s+/g, ' ').trim().slice(0, 75);
+              const errBrief = (err.message || '').replace(/\s+/g, ' ').trim().slice(0, 90);
               console.warn(`Retryable error (${errBrief}) → Leased fresh idle key ${freshKey.substring(0, 8)}... (attempt ${attempt + 1}/${maxAttempts})`);
+              window.AppLogger?.log('warn', 'KeyRotation', `Attempt ${attempt + 1}/${maxAttempts}: Key ${maskKey ? maskKey(currentOpts.apiKey) : 'key'} hit error (${errBrief}). Rotated to key ${maskKey ? maskKey(freshKey) : 'freshKey'}.`);
               currentOpts.apiKey = freshKey;
               await new Promise(r => setTimeout(r, 600));
               continue;
@@ -1209,7 +1231,8 @@ const translateWithRotation = async (text, opts) => {
         throw err;
       }
     }
-    throw new Error(`Model ${currentOpts.model || 'chosen'} busy/rate-limited after ${maxAttempts} patient attempts.`);
+    const cleanLastErr = lastErrorSnippet ? ` (${lastErrorSnippet.replace(/\.+$/, '').slice(0, 90)})` : '';
+    throw new Error(`Model ${currentOpts.model || 'chosen'} busy/rate-limited after ${maxAttempts} patient attempts${cleanLastErr}`);
   } finally {
     if (currentOpts.apiKey) KeyPool.releaseKey(currentOpts.apiKey);
   }

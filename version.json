@@ -1,9 +1,9 @@
 {
-  "version": "8.21.40",
-  "versionCode": 8451,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.40/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.40/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.40",
+  "version": "8.21.41",
+  "versionCode": 8452,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.41/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.41/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.41",
   "releaseDate": "2026-10-12",
-  "releaseNotes": "v8.21.40: Manual cooldown flusher, auto-unlock on key health test, and sensible rotation timeouts."
+  "releaseNotes": "v8.21.41: Full streaming and key-rotation API telemetry logging, continuous diagnostic subscription, and error detail tracking."
 }

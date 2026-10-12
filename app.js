@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.40';
+    let VERSION = '8.21.41';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2456,7 +2456,7 @@
       useEffect(() => { localStorage.setItem('glossaryCardOpen', String(glossaryCardOpen)); }, [glossaryCardOpen]);
       useEffect(() => { localStorage.setItem('showLiveLogs', String(showLiveLogs)); }, [showLiveLogs]);
       useEffect(() => {
-        if ((!logsModalOpen && !showLiveLogs) || !window.AppLogger) return;
+        if (!window.AppLogger) return;
         setLiveLogs([...window.AppLogger.logs]);
         let rafId = null;
         let latestLogs = null;
@@ -2482,7 +2482,7 @@
           if (rafId) cancelAnimationFrame(rafId);
           if (unsub) unsub();
         };
-      }, [logsModalOpen, showLiveLogs]);
+      }, []);
 
       // Live Agent Telemetry & Debugging (Method 2 Wireless Wi-Fi)
       const [telemetryEnabled, setTelemetryEnabled] = useState(() => localStorage.getItem('telemetry_enabled') !== 'false');
