@@ -2582,6 +2582,11 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
       };
     };
 
+    function generateCoverDataUrl(title, author) {
+      const svg = generateDefaultCoverSvg(title, author);
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
     window.cleanBookTitle = cleanBookTitle;
     window.cleanBookAuthor = cleanBookAuthor;
     window.getEpubFileName = getEpubFileName;
@@ -2589,6 +2594,8 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
     window.updateOriginalEpubNavigation = updateOriginalEpubNavigation;
     window.generateEpubFromChapters = generateEpubFromChapters;
     window.appendChaptersToExistingEpub = appendChaptersToExistingEpub;
+    window.generateDefaultCoverSvg = generateDefaultCoverSvg;
+    window.generateCoverDataUrl = generateCoverDataUrl;
 
     const EpubEngine = {
       cleanBookTitle,
@@ -2600,7 +2607,9 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
       formatChapterBodyToHtml,
       generateEpubFromChapters,
       appendChaptersToExistingEpub,
-      updateOriginalEpubNavigation
+      updateOriginalEpubNavigation,
+      generateDefaultCoverSvg,
+      generateCoverDataUrl
     };
     window.EpubEngine = EpubEngine;
 

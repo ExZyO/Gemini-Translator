@@ -531,6 +531,182 @@
       }
     }, [onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
 
+    const [isTranslatingTitles, setIsTranslatingTitles] = useState(false);
+    const [titlesProgress, setTitlesProgress] = useState({ done: 0, total: 0 });
+
+    const handleTranslateAllChapterTitles = useCallback(async () => {
+      if (isTranslatingTitles) return;
+      if (typeof onTranslateChapter !== 'function') {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Translation handler not available in current mode.', 'error');
+        }
+        return;
+      }
+      const hasForeign = (s) => typeof s === 'string' && /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\u0400-\u04ff]/.test(s);
+      const isGeneric = (s) => typeof s === 'string' && /^(?:chapter|ch|volume|vol|part|ep|episode)\.?\s*\d+$/i.test(s.trim());
+
+      const targets = [];
+      safeChapters.forEach((ch, idx) => {
+        const needsTrans = hasForeign(ch.title) || hasForeign(ch.originalTitle) || (!ch.isTranslated && isGeneric(ch.title) && ch.originalTitle);
+        if (needsTrans) targets.push(idx);
+      });
+
+      if (targets.length === 0) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('All chapter titles are already translated!', 'info');
+        }
+        return;
+      }
+
+      setIsTranslatingTitles(true);
+      setTitlesProgress({ done: 0, total: targets.length });
+      if (typeof window !== 'undefined' && window.toast) {
+        window.toast(`Translating ${targets.length} chapter titles…`, 'info');
+      }
+
+      let completedCount = 0;
+      const batchFn = (typeof window !== 'undefined' && window.batchParallel) ? window.batchParallel : (typeof global !== 'undefined' && global.batchParallel ? global.batchParallel : null);
+
+      try {
+        if (batchFn) {
+          await batchFn(targets, async (chIdx) => {
+            const chap = safeChapters[chIdx];
+            try {
+              const res = await onTranslateChapter(chIdx, chap, null, true);
+              if (res && res.title) {
+                if (Array.isArray(chapters) && chapters[chIdx]) {
+                  chapters[chIdx] = { ...chapters[chIdx], title: res.title, isTranslated: true };
+                }
+                if (Array.isArray(safeChapters) && safeChapters[chIdx]) {
+                  safeChapters[chIdx] = { ...safeChapters[chIdx], title: res.title, isTranslated: true };
+                }
+                if (currentChapter && chIdx === activeIdx) {
+                  currentChapter.title = res.title;
+                  currentChapter.isTranslated = true;
+                }
+              }
+            } catch (_) {}
+            completedCount++;
+            setTitlesProgress({ done: completedCount, total: targets.length });
+            setRenderTick(t => t + 1);
+          }, 3);
+        } else {
+          for (const chIdx of targets) {
+            const chap = safeChapters[chIdx];
+            try {
+              const res = await onTranslateChapter(chIdx, chap, null, true);
+              if (res && res.title) {
+                if (Array.isArray(chapters) && chapters[chIdx]) {
+                  chapters[chIdx] = { ...chapters[chIdx], title: res.title, isTranslated: true };
+                }
+                if (Array.isArray(safeChapters) && safeChapters[chIdx]) {
+                  safeChapters[chIdx] = { ...safeChapters[chIdx], title: res.title, isTranslated: true };
+                }
+                if (currentChapter && chIdx === activeIdx) {
+                  currentChapter.title = res.title;
+                  currentChapter.isTranslated = true;
+                }
+              }
+            } catch (_) {}
+            completedCount++;
+            setTitlesProgress({ done: completedCount, total: targets.length });
+            setRenderTick(t => t + 1);
+          }
+        }
+
+        if (typeof onChaptersChange === 'function' && Array.isArray(safeChapters)) {
+          onChaptersChange([...safeChapters]);
+        }
+        setRenderTick(t => t + 1);
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast(`Successfully translated ${completedCount} chapter titles!`, 'success');
+        }
+      } catch (err) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Batch title translation stopped.', 'warning');
+        }
+      } finally {
+        setIsTranslatingTitles(false);
+      }
+    }, [isTranslatingTitles, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
+
+    const [isHealingAll, setIsHealingAll] = useState(false);
+    const [healAllProgress, setHealAllProgress] = useState({ done: 0, total: 0 });
+
+    const handleHealAllChapters = useCallback(async () => {
+      if (isHealingAll || isTranslatingTitles) return;
+      if (typeof onTranslateChapter !== 'function') {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Translation handler not available in current mode.', 'error');
+        }
+        return;
+      }
+      const hasCjkOrError = (p) => typeof p === 'string' && (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(p) || /\[Error:.*?\]/i.test(p));
+
+      const targets = [];
+      safeChapters.forEach((ch, idx) => {
+        const body = ch.content || ch.text || '';
+        if (hasCjkOrError(body)) targets.push(idx);
+      });
+
+      if (targets.length === 0) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('All chapters are already healthy! Zero untranslated lines found.', 'success');
+        }
+        return;
+      }
+
+      setIsHealingAll(true);
+      setHealAllProgress({ done: 0, total: targets.length });
+      if (typeof window !== 'undefined' && window.toast) {
+        window.toast(`Healing ${targets.length} chapter(s) with incomplete lines…`, 'info');
+      }
+
+      let completedCount = 0;
+      try {
+        for (let i = 0; i < targets.length; i++) {
+          const chIdx = targets[i];
+          const chap = safeChapters[chIdx];
+          try {
+            const res = await onTranslateChapter(chIdx, chap, null, 'heal');
+            if (res && res.content) {
+              const newTitle = res.title || chap.title;
+              const newText = res.content;
+              if (Array.isArray(chapters) && chapters[chIdx]) {
+                chapters[chIdx] = { ...chapters[chIdx], title: newTitle, text: newText, content: newText, isTranslated: true };
+              }
+              if (Array.isArray(safeChapters) && safeChapters[chIdx]) {
+                safeChapters[chIdx] = { ...safeChapters[chIdx], title: newTitle, text: newText, content: newText, isTranslated: true };
+              }
+              if (currentChapter && chIdx === activeIdx) {
+                currentChapter.title = newTitle;
+                currentChapter.text = newText;
+                currentChapter.content = newText;
+                currentChapter.isTranslated = true;
+              }
+              completedCount++;
+            }
+          } catch (_) {}
+          setHealAllProgress({ done: i + 1, total: targets.length });
+          setRenderTick(t => t + 1);
+        }
+
+        if (typeof onChaptersChange === 'function' && Array.isArray(safeChapters)) {
+          onChaptersChange([...safeChapters]);
+        }
+        setRenderTick(t => t + 1);
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast(`Successfully healed ${completedCount} chapter(s)! Zero wasted tokens.`, 'success');
+        }
+      } catch (err) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Whole-novel healing stopped.', 'warning');
+        }
+      } finally {
+        setIsHealingAll(false);
+      }
+    }, [isHealingAll, isTranslatingTitles, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
+
     const handleHealActiveChapterLines = useCallback(async (targetChapterIndex = null) => {
       if (isTranslatingCurrentChapter) return;
       if (typeof onTranslateChapter !== 'function') {
@@ -2460,7 +2636,11 @@
         toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter,
         onTranslateChapter: handleTranslateActiveChapter,
         onTranslateChapterTitle: handleTranslateActiveChapterTitleOnly,
-        onHealChapterLines: handleHealActiveChapterLines
+        onHealChapterLines: handleHealActiveChapterLines,
+        onTranslateAllTitles: handleTranslateAllChapterTitles,
+        isTranslatingTitles, titlesProgress,
+        onHealAllChapters: handleHealAllChapters,
+        isHealingAll, healAllProgress
       }),
 
       // ── TYPOGRAPHY & THEMES SETTINGS MODAL ──

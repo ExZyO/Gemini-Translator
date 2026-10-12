@@ -214,9 +214,16 @@
     const {
       showToc, setShowToc, tocSearch, setTocSearch, arcGroups, collapsedArcs,
       toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter,
-      onTranslateChapter, onTranslateChapterTitle, onHealChapterLines
+      onTranslateChapter, onTranslateChapterTitle, onHealChapterLines,
+      onTranslateAllTitles, isTranslatingTitles, titlesProgress,
+      onHealAllChapters, isHealingAll, healAllProgress
     } = props;
     const [actionMenuChap, setActionMenuChap] = useState(null);
+    const [filterUntranslatedOnly, setFilterUntranslatedOnly] = useState(false);
+
+    const hasForeignChars = (s) => typeof s === 'string' && /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\u0400-\u04ff]/.test(s);
+    const isChapUntranslated = (c) => !c.isTranslated || hasForeignChars(c.title) || hasForeignChars(c.originalTitle) || hasForeignChars(c.content || c.text);
+
     if (!showToc) return null;
     return h('div', {
         style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex' },
@@ -246,15 +253,87 @@
               value: tocSearch,
               onChange: (e) => setTocSearch(e.target.value),
               style: { width: '100%', padding: '8px 12px', background: 'var(--r-bg)', border: '1px solid var(--r-border)', color: 'inherit', borderRadius: 6, fontSize: 13 }
-            })
+            }),
+            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 10, flexWrap: 'wrap' } },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn' + (filterUntranslatedOnly ? ' active' : ' ghost'),
+                style: {
+                  fontSize: 11,
+                  padding: '5px 8px',
+                  borderRadius: 6,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  background: filterUntranslatedOnly ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,255,0.06)',
+                  color: filterUntranslatedOnly ? '#fff' : 'var(--r-muted)',
+                  border: '1px solid ' + (filterUntranslatedOnly ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,255,0.1)'),
+                  cursor: 'pointer'
+                },
+                onClick: () => setFilterUntranslatedOnly(!filterUntranslatedOnly)
+              }, ic('Filter', 11), filterUntranslatedOnly ? 'Untranslated' : 'All'),
+
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                typeof onHealAllChapters === 'function' && h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  disabled: isHealingAll || isTranslatingTitles,
+                  style: {
+                    fontSize: 11,
+                    padding: '5px 8px',
+                    borderRadius: 6,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    background: isHealingAll ? 'rgba(168, 85, 247, 0.4)' : 'rgba(168, 85, 247, 0.12)',
+                    color: '#c084fc',
+                    border: '1px solid rgba(168, 85, 247, 0.35)',
+                    cursor: (isHealingAll || isTranslatingTitles) ? 'not-allowed' : 'pointer'
+                  },
+                  onClick: onHealAllChapters
+                },
+                  ic('Sparkles', 11),
+                  isHealingAll
+                    ? `Healing (${healAllProgress?.done || 0}/${healAllProgress?.total || '…'})`
+                    : 'Heal All'
+                ),
+
+                typeof onTranslateAllTitles === 'function' && h('button', {
+                  type: 'button',
+                  className: 'mini-btn',
+                  disabled: isTranslatingTitles || isHealingAll,
+                  style: {
+                    fontSize: 11,
+                    padding: '5px 8px',
+                    borderRadius: 6,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    background: isTranslatingTitles ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.15)',
+                    color: 'var(--r-accent, #818cf8)',
+                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                    cursor: (isTranslatingTitles || isHealingAll) ? 'not-allowed' : 'pointer'
+                  },
+                  onClick: onTranslateAllTitles
+                },
+                  ic('Sparkles', 11),
+                  isTranslatingTitles
+                    ? `Titles (${titlesProgress?.done || 0}/${titlesProgress?.total || '…'})`
+                    : 'Titles'
+                )
+              )
+            )
           ),
 
           // Chapter List (Hierarchical per Arc)
           h('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 10px' } },
             arcGroups.map((group, gIdx) => {
-              const matchingChapters = group.chapters.filter(c =>
-                !tocSearch || c.title.toLowerCase().includes(tocSearch.toLowerCase()) || group.arc.toLowerCase().includes(tocSearch.toLowerCase())
-              );
+              const matchingChapters = group.chapters.filter(c => {
+                const matchesSearch = !tocSearch || c.title.toLowerCase().includes(tocSearch.toLowerCase()) || group.arc.toLowerCase().includes(tocSearch.toLowerCase());
+                if (!matchesSearch) return false;
+                if (filterUntranslatedOnly) return isChapUntranslated(c);
+                return true;
+              });
               if (matchingChapters.length === 0) return null;
 
               const isCollapsed = Boolean(collapsedArcs[group.arc]) && !tocSearch && !group.chapters.some(c => c.idx === activeIdx);

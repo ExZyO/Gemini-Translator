@@ -1451,7 +1451,9 @@
       handleSplitNovelIntoArcs,
       openSiteRecipeEditor,
       confirmAction,
-      deleteNovelFromHistory
+      deleteNovelFromHistory,
+      handleTranslateSingleChapter,
+      setWebImportHistory
     } = props;
     if (!novel) return null;
     const h = getH();
@@ -1549,6 +1551,95 @@
           menuRow('Edit', 'Rename Novel', 'Set a custom title for EPUB export, library, and future updates', () => {
             if (setRenameModalNovel) setRenameModalNovel(item);
             if (setNewNovelTitleInput) setNewNovelTitleInput(item.customTitle || (getCustomTitle ? getCustomTitle(item) : '') || item.title || '');
+          }),
+          menuRow('Sparkles', 'Heal All Chapters (Save Tokens)', 'Scan entire book for untranslated lines or errors and heal them without retranslating', async () => {
+            try {
+              const full = loadFullNovel ? await loadFullNovel(item) : null;
+              if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+              const chs = (full.translatedChapters && full.translatedChapters.length > 0) ? full.translatedChapters : (full.chapters || []);
+              if (!chs || chs.length === 0) { toast('No chapters found in this book.', 'warning'); return; }
+
+              const hasCjkOrError = (text) => typeof text === 'string' && (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(text) || /\[Error:.*?\]/i.test(text));
+              const targets = [];
+              chs.forEach((ch, idx) => {
+                const body = ch.content || ch.text || '';
+                if (hasCjkOrError(body) || (ch.originalTitle && hasCjkOrError(ch.title))) {
+                  targets.push(idx);
+                }
+              });
+
+              if (targets.length === 0) {
+                toast('Every chapter in this book is already 100% translated and healthy!', 'success');
+                return;
+              }
+
+              toast(`Found ${targets.length} chapter(s) with untranslated lines. Starting token-saving healing…`, 'info');
+
+              const singleChapterFn = handleTranslateSingleChapter || props.handleTranslateSingleChapter || (typeof window !== 'undefined' && window.TranslationLoopEngine?.Controller?.executeTranslateSingleChapter);
+              if (!singleChapterFn) {
+                toast('Translation loop engine not available.', 'error');
+                return;
+              }
+
+              let healedCount = 0;
+              for (let i = 0; i < targets.length; i++) {
+                const chIdx = targets[i];
+                const chap = chs[chIdx];
+                toast(`Healing chapter ${chIdx + 1} (${i + 1}/${targets.length})…`, 'info');
+                try {
+                  const res = await singleChapterFn(chIdx, chap, null, 'heal');
+                  if (res && res.content) {
+                    chs[chIdx] = { ...chs[chIdx], content: res.content, text: res.content, title: res.title || chs[chIdx].title, isTranslated: true };
+                    healedCount++;
+                  }
+                } catch (err) {
+                  console.warn(`[ActionSheet] Failed to heal chapter ${chIdx + 1}:`, err);
+                }
+              }
+
+              full.translatedChapters = chs;
+              full.epubBlob = undefined;
+              full.updatedAt = Date.now();
+              if (typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
+                await window.GeminiNovelDB.updateNovel(full);
+              }
+              toast(`Successfully healed ${healedCount} chapter(s)! Zero wasted tokens.`, 'success');
+            } catch (err) {
+              toast('Batch chapter healing stopped: ' + (err.message || err), 'warning');
+            }
+          }),
+          menuRow('Image', 'Generate Smart Cover', 'Generate a clean typography cover image and assign it to this book', async () => {
+            try {
+              const full = loadFullNovel ? await loadFullNovel(item) : null;
+              const bookTitle = (full && full.title) || item.title || 'Web Novel';
+              const bookAuthor = (full && full.author) || item.author || 'Author';
+              const genCoverFn = (typeof window !== 'undefined' && window.EpubEngine?.generateCoverDataUrl) || (typeof window !== 'undefined' && window.generateCoverDataUrl);
+              if (!genCoverFn) {
+                toast('Cover generator engine not ready.', 'warning');
+                return;
+              }
+              const newCover = genCoverFn(bookTitle, bookAuthor);
+              if (!newCover) {
+                toast('Could not generate cover image.', 'error');
+                return;
+              }
+              item.cover = newCover;
+              item.epubBlob = undefined;
+              if (full) {
+                full.cover = newCover;
+                full.epubBlob = undefined;
+                if (typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
+                  await window.GeminiNovelDB.updateNovel(full);
+                }
+              }
+              const setHist = setWebImportHistory || props.setWebImportHistory;
+              if (typeof setHist === 'function') {
+                setHist(prev => (prev || []).map(b => b.id === item.id ? { ...b, cover: newCover } : b));
+              }
+              toast(`Generated smart typography cover for "${bookTitle}"!`, 'success');
+            } catch (err) {
+              toast('Failed to generate cover: ' + (err.message || err), 'error');
+            }
           }),
           menuRow('Download', 'Download / Export EPUB', 'Export novel as clean, packaged EPUB ebook with latest translations', async () => {
             const full = loadFullNovel ? await loadFullNovel(item) : null;
@@ -2587,7 +2678,9 @@
         handleSplitNovelIntoArcs: props.handleSplitNovelIntoArcs,
         openSiteRecipeEditor: props.openSiteRecipeEditor,
         confirmAction: props.confirmAction,
-        deleteNovelFromHistory: props.deleteNovelFromHistory
+        deleteNovelFromHistory: props.deleteNovelFromHistory,
+        handleTranslateSingleChapter: props.handleTranslateSingleChapter,
+        setWebImportHistory: props.setWebImportHistory
       }),
 
       // 11. Ongoing EPUB Continuation Modal

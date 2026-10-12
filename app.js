@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.47';
+    let VERSION = '8.21.48';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2811,7 +2811,7 @@
           setNewNovelTitleInput, setAssignWebsiteModalNovel, setNewNovelWebsiteUrlInput, getCustomTitle, loadFullNovel, setActiveTab, setStudioSubTab,
           handleCheckNovelUpdate, handleOpenContinuationForNovel, handleOpenAutoGlossary,
           toggleNovelSavedSpace, handleSetNovelFolder, handleOpenNovelHealthModal,
-          handleEnrichNovelMetadata, handleUpgradeNovelIllustrations, handleSplitNovelIntoArcs, confirmAction, deleteNovelFromHistory,
+          handleEnrichNovelMetadata, handleUpgradeNovelIllustrations, handleSplitNovelIntoArcs, confirmAction, deleteNovelFromHistory, setWebImportHistory,
 
           // Ongoing EPUB Continuation Modal
           ongoingEpubModal, setOngoingEpubModal, updateNovelFolderRecord, handleScanContinuationToc,
