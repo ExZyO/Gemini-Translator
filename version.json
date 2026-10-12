@@ -1,9 +1,9 @@
 {
-  "version": "8.21.41",
-  "versionCode": 8452,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.41/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.41/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.41",
+  "version": "8.21.42",
+  "versionCode": 8453,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.42/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.42/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.42",
   "releaseDate": "2026-10-12",
-  "releaseNotes": "v8.21.41: Full streaming and key-rotation API telemetry logging, continuous diagnostic subscription, and error detail tracking."
+  "releaseNotes": "v8.21.42: Ensure AppLogger always records in-memory events locally, enable 1-tap Copy Logs, and show View/Hide Logs toggle."
 }

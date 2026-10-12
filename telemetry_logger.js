@@ -181,12 +181,10 @@
    * window.telemetryLog('CRAWLER', 'Scraped chapter 5', { novelId, length })
    */
   window.telemetryLog = function(category, action, details = null, level = 'info') {
-    // ZERO-COST BAILOUT: Instant return when logs are disabled
-    if (!_telemetryEnabled) return;
     try {
       window.AppLogger?.log(level, category, action, details);
     } catch(e) {
-      window.sendTelemetry(category, `[${level.toUpperCase()}] ${action}`, details);
+      if (_telemetryEnabled) window.sendTelemetry(category, `[${level.toUpperCase()}] ${action}`, details);
     }
   };
 
@@ -215,9 +213,6 @@
     maxLogs: 300,
     listeners: new Set(),
     log(level, tag, message, details = null) {
-      // ZERO-COST BAILOUT: If logs/telemetry are off, exit immediately
-      if (!_telemetryEnabled) return;
-
       const time = new Date().toLocaleTimeString('en-US', { hour12: false });
       const cleanDetails = details ? sanitizePayload(details) : null;
       const entry = { time, level, tag, message, details: cleanDetails };
@@ -232,7 +227,9 @@
       if (this.listeners.size > 0) {
         this.listeners.forEach(fn => { try { fn(this.logs); } catch(e) {} });
       }
-      window.sendTelemetry(tag, `[${level.toUpperCase()}] ${message}`, cleanDetails);
+      if (_telemetryEnabled) {
+        window.sendTelemetry(tag, `[${level.toUpperCase()}] ${message}`, cleanDetails);
+      }
     },
     subscribe(fn) {
       this.listeners.add(fn);

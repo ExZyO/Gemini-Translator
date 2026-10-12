@@ -984,7 +984,7 @@
                     h('span', { className: 'count', style: { fontSize: 10 } }, `${liveLogs.length} events`)
                   ),
                   h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                    showLiveLogs && h('button', {
+                    h('button', {
                       type: 'button',
                       className: 'chip-act',
                       title: 'Copy All Logs to Clipboard',
@@ -1006,7 +1006,7 @@
                       className: `chip-act ${showLiveLogs ? 'active' : ''}`,
                       onClick: () => setShowLiveLogs(v => !v),
                       style: showLiveLogs ? { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 } : {}
-                    }, showLiveLogs ? 'ON' : 'OFF')
+                    }, showLiveLogs ? 'Hide Logs' : 'View Logs')
                   )
                 ),
                 showLiveLogs && h('div', {
