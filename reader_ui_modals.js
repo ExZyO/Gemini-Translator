@@ -214,7 +214,7 @@
     const {
       showToc, setShowToc, tocSearch, setTocSearch, arcGroups, collapsedArcs,
       toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter,
-      onTranslateChapter, onTranslateChapterTitle
+      onTranslateChapter, onTranslateChapterTitle, onHealChapterLines
     } = props;
     const [actionMenuChap, setActionMenuChap] = useState(null);
     if (!showToc) return null;
@@ -398,6 +398,32 @@
                   }
                 }
               }, ic('Sparkles', 13), 'Translate Full Chapter'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: {
+                  border: '1px solid rgba(168, 85, 247, 0.45)',
+                  background: 'rgba(168, 85, 247, 0.08)',
+                  color: '#c084fc',
+                  fontWeight: 600,
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  fontSize: 12.5
+                },
+                onClick: () => {
+                  const chap = actionMenuChap;
+                  setActionMenuChap(null);
+                  changeChapter(chap.idx);
+                  setShowToc(false);
+                  if (typeof onHealChapterLines === 'function') {
+                    onHealChapterLines(chap.idx);
+                  }
+                }
+              }, ic('Sparkles', 13), 'Heal Untranslated Lines Only (Save Tokens)'),
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',

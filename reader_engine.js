@@ -529,6 +529,60 @@
       }
     }, [onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters]);
 
+    const handleHealActiveChapterLines = useCallback(async (targetChapterIndex = null) => {
+      if (isTranslatingCurrentChapter) return;
+      if (typeof onTranslateChapter !== 'function') {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Translation handler not available in current mode.', 'error');
+        }
+        return;
+      }
+      const idx = (typeof targetChapterIndex === 'number') ? targetChapterIndex : activeIdx;
+      const targetChap = (chapters && chapters[idx]) || (safeChapters && safeChapters[idx]) || currentChapter;
+      if (!targetChap) return;
+      setIsTranslatingCurrentChapter(true);
+      setChapterTranslateProgress({ pct: 15, msg: 'Scanning for untranslated lines…' });
+      try {
+        const res = await onTranslateChapter(idx, targetChap, (pct, msg) => {
+          setChapterTranslateProgress({ pct, msg });
+        }, 'heal');
+        if (res && res.content) {
+          const newTitle = res.title || (targetChap && targetChap.title);
+          const newText = res.content;
+          if (currentChapter && idx === activeIdx) {
+            currentChapter.title = newTitle;
+            currentChapter.text = newText;
+            currentChapter.content = newText;
+            currentChapter.isTranslated = true;
+          }
+          if (Array.isArray(chapters) && chapters[idx]) {
+            chapters[idx].title = newTitle;
+            chapters[idx].text = newText;
+            chapters[idx].content = newText;
+            chapters[idx].isTranslated = true;
+          }
+          if (Array.isArray(safeChapters) && safeChapters[idx]) {
+            safeChapters[idx].title = newTitle;
+            safeChapters[idx].text = newText;
+            safeChapters[idx].content = newText;
+            safeChapters[idx].isTranslated = true;
+          }
+          setRenderTick(t => t + 1);
+          setChapterTranslateProgress({ pct: 100, msg: 'Untranslated lines healed!' });
+          setTimeout(() => {
+            setIsTranslatingCurrentChapter(false);
+          }, 1500);
+        } else {
+          setIsTranslatingCurrentChapter(false);
+        }
+      } catch (err) {
+        setIsTranslatingCurrentChapter(false);
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast(err.message || 'Healing failed.', 'error');
+        }
+      }
+    }, [isTranslatingCurrentChapter, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters]);
+
     // ── Footnotes Extraction & Caching (§5.10) ──
     const [activeFootnote, setActiveFootnote] = useState(null);
     const [footnotesMap, chapterElements] = useMemo(() => {
@@ -2406,7 +2460,8 @@
         showToc, setShowToc, tocSearch, setTocSearch, arcGroups, collapsedArcs,
         toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter,
         onTranslateChapter: handleTranslateActiveChapter,
-        onTranslateChapterTitle: handleTranslateActiveChapterTitleOnly
+        onTranslateChapterTitle: handleTranslateActiveChapterTitleOnly,
+        onHealChapterLines: handleHealActiveChapterLines
       }),
 
       // ── TYPOGRAPHY & THEMES SETTINGS MODAL ──

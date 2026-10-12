@@ -2188,6 +2188,7 @@
         chapterData,
         onProgress,
         titleOnly = false,
+        healOnly = false,
         activeNovelRecord,
         readerNovelId,
         readerNovelTitle,
@@ -2391,6 +2392,173 @@
           toast(`Chapter ${targetChapterIdx + 1} title translated: ${finalTitle}`, 'success');
         }
         return { title: finalTitle, isTranslated: true };
+      }
+
+      if (healOnly) {
+        const curBody = (chapterData && (chapterData.content || chapterData.text)) ||
+                        (candidateBase && candidateBase[targetChapterIdx] && (candidateBase[targetChapterIdx].content || candidateBase[targetChapterIdx].text)) ||
+                        rawText || '';
+
+        if (!curBody || !curBody.trim()) {
+          if (typeof toast === 'function') toast('No text available to heal in this chapter.', 'warning');
+          return null;
+        }
+
+        const isDoubleBreak = /\r?\n\r?\n/.test(curBody);
+        const sep = isDoubleBreak ? '\n\n' : '\n';
+        const paragraphs = curBody.split(isDoubleBreak ? /\r?\n\r?\n/ : /\r?\n/);
+        const hasCjkOrError = (p) => /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(p) || /\[Error:.*?\]/i.test(p);
+
+        const blocks = [];
+        let curBlock = null;
+        paragraphs.forEach((p, idx) => {
+          if (hasCjkOrError(p)) {
+            if (!curBlock) {
+              curBlock = { startIdx: idx, endIdx: idx, texts: [p] };
+            } else {
+              curBlock.endIdx = idx;
+              curBlock.texts.push(p);
+            }
+          } else {
+            if (curBlock) {
+              blocks.push(curBlock);
+              curBlock = null;
+            }
+          }
+        });
+        if (curBlock) blocks.push(curBlock);
+
+        if (blocks.length === 0) {
+          if (typeof toast === 'function') toast(`Chapter ${targetChapterIdx + 1} has zero untranslated lines! Already clean.`, 'info');
+          return { content: curBody, title: rawTitle, noop: true };
+        }
+
+        const totalHealedSections = blocks.reduce((acc, b) => acc + (b.endIdx - b.startIdx + 1), 0);
+        if (typeof toast === 'function') {
+          toast(`Healing ${totalHealedSections} untranslated section(s) in Ch. ${targetChapterIdx + 1}…`, 'info');
+        }
+
+        for (let bIdx = 0; bIdx < blocks.length; bIdx++) {
+          const block = blocks[bIdx];
+          if (typeof onProgress === 'function') {
+            onProgress(Math.floor((bIdx / blocks.length) * 80) + 15, `Healing section ${bIdx + 1}/${blocks.length}…`);
+          }
+          const blockRawText = block.texts.join(sep);
+          const transBlock = await safeTranslateWithRotation(blockRawText, {
+            ...opts,
+            instructions: config.instructions || 'Translate accurately and fluently into English. Retain novel prose style and formatting.'
+          });
+          const translatedBlockText = (transBlock && typeof transBlock === 'object') ? (transBlock.text || '') : (typeof transBlock === 'string' ? transBlock : '');
+          if (translatedBlockText && translatedBlockText.trim()) {
+            const splitTranslated = translatedBlockText.trim().split(isDoubleBreak ? /\r?\n\r?\n/ : /\r?\n/);
+            if (splitTranslated.length === block.texts.length) {
+              for (let k = 0; k < block.texts.length; k++) {
+                paragraphs[block.startIdx + k] = splitTranslated[k].trim();
+              }
+            } else {
+              paragraphs.splice(block.startIdx, block.endIdx - block.startIdx + 1, translatedBlockText.trim());
+            }
+          }
+        }
+
+        const finalContent = paragraphs.join(sep);
+        const finalTitle = rawTitle;
+
+        if (typeof setReaderChapters === 'function') {
+          setReaderChapters(prev => {
+            const base = (Array.isArray(prev) && prev.length > 0) ? prev : candidateBase;
+            return base.map((c, i) => (i === targetChapterIdx ? { ...(c || {}), content: finalContent, text: finalContent, isTranslated: true } : c));
+          });
+        }
+
+        if (typeof setTranslatedChapters === 'function') {
+          setTranslatedChapters(prev => {
+            const base = (Array.isArray(prev) && prev.length > 0) ? prev : candidateBase;
+            return base.map((c, i) => (i === targetChapterIdx ? { ...(c || {}), content: finalContent, text: finalContent, isTranslated: true } : c));
+          });
+        }
+
+        if (typeof setChapters === 'function') {
+          setChapters(prev => {
+            const base = (Array.isArray(prev) && prev.length > 0) ? prev : candidateBase;
+            return base.map((c, i) => (i === targetChapterIdx ? { ...(c || {}), content: finalContent, text: finalContent, isTranslated: true } : c));
+          });
+        }
+
+        if (typeof setAssembledText === 'function') {
+          setAssembledText(prevText => {
+            const baseChs = (candidateBase && candidateBase.length > 0) ? candidateBase : (chapters || []);
+            if (baseChs.length > 0) {
+              return baseChs.map((c, i) => {
+                const t = c?.title || `Chapter ${i + 1}`;
+                const body = (i === targetChapterIdx) ? finalContent : (c?.content || c?.text || '');
+                return `# ${t}\n\n${body}`;
+              }).join('\n\n\n');
+            }
+            return `${prevText ? prevText + '\n\n\n' : ''}# ${finalTitle}\n\n${finalContent}`;
+          });
+        }
+
+        if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+          try {
+            let full = novelRec;
+            if (!full && currentNovelId) {
+              full = await window.GeminiNovelDB.getNovel(currentNovelId);
+            }
+            if (!full && readerNovelTitle) {
+              const all = await window.GeminiNovelDB.getAllNovels();
+              full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+            }
+            if (full) {
+              const baseList = (candidateBase && candidateBase.length > 0) ? candidateBase : (full.chapters || full.rawChapters || []);
+              const updatedChs = (full.chapters && full.chapters.length > 0) ? [...full.chapters] : [...baseList];
+              updatedChs[targetChapterIdx] = {
+                ...(updatedChs[targetChapterIdx] || baseList[targetChapterIdx] || {}),
+                content: finalContent,
+                text: finalContent,
+                isTranslated: true
+              };
+              const updatedTransChs = (full.translatedChapters && full.translatedChapters.length > 0) ? [...full.translatedChapters] : [...updatedChs];
+              updatedTransChs[targetChapterIdx] = {
+                ...(updatedTransChs[targetChapterIdx] || baseList[targetChapterIdx] || {}),
+                content: finalContent,
+                text: finalContent,
+                isTranslated: true
+              };
+              const updatedRawChs = (full.rawChapters && full.rawChapters.length > 0) ? [...full.rawChapters] : [...updatedChs];
+              if (updatedRawChs[targetChapterIdx]) {
+                updatedRawChs[targetChapterIdx] = {
+                  ...updatedRawChs[targetChapterIdx],
+                  content: finalContent,
+                  text: finalContent
+                };
+              }
+              const updatedNovel = {
+                ...full,
+                chapters: updatedChs,
+                translatedChapters: updatedTransChs,
+                rawChapters: updatedRawChs,
+                isTranslated: true,
+                isEdited: true,
+                epubBlob: undefined,
+                updatedAt: Date.now()
+              };
+              const saveId = full.id || currentNovelId;
+              await window.GeminiNovelDB.updateNovel(saveId, updatedNovel);
+              if (typeof saveNovelToHistory === 'function') {
+                saveNovelToHistory(updatedNovel).catch(() => {});
+              }
+              if (typeof setActiveNovelRecord === 'function') setActiveNovelRecord(updatedNovel);
+            }
+          } catch (dbErr) {
+            console.warn('[Reader] Failed to update healed novel in database:', dbErr);
+          }
+        }
+
+        if (typeof toast === 'function') {
+          toast(`Healed ${totalHealedSections} untranslated section(s)! Zero wasted tokens.`, 'success');
+        }
+        return { content: finalContent, title: finalTitle, isTranslated: true };
       }
 
       if (!rawText || !rawText.trim()) {

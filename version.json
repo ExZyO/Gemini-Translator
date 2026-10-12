@@ -1,9 +1,9 @@
 {
-  "version": "8.21.45",
-  "versionCode": 8456,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.45/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.45/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.45",
+  "version": "8.21.46",
+  "versionCode": 8457,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.46/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.46/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.46",
   "releaseDate": "2026-10-12",
-  "releaseNotes": "v8.21.45: Fix Reader table of contents and database preservation so translating a chapter title or chapter never loses other chapters and persists cleanly to library storage."
+  "releaseNotes": "v8.21.46: Add Heal Untranslated Lines Only feature to Reader Table of Contents, allowing one-tap repair of partially translated chapters with zero wasted tokens."
 }
