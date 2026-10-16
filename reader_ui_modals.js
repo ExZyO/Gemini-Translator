@@ -1592,6 +1592,7 @@
     const [useCustomModel, setUseCustomModel] = useState(() => Boolean(resolve('useCustomModel', appSettings.useCustomModel || false)));
     const [customModel, setCustomModel] = useState(() => resolve('customModel', appSettings.customModel || ''));
     const [tgtLang, setTgtLang] = useState(() => resolve('tgtLang', appSettings.tgtLang || 'English', 'gemini_tgt_lang'));
+    const [concurrency, setConcurrency] = useState(() => parseInt(resolve('concurrency', appSettings.concurrency || 3, 'gemini_concurrency'), 10) || 3);
     const [chunkSizePreset, setChunkSizePreset] = useState(() => {
       const v = resolve('chunkSizePreset', appSettings.chunkSizePreset || 'turbo', 'gemini_chunk_size');
       if (v === 'generous') return 'turbo';

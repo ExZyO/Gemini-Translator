@@ -1,9 +1,9 @@
 {
-  "version": "8.21.56",
-  "versionCode": 8467,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.56/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.56/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.56",
-  "releaseDate": "2026-10-16",
-  "releaseNotes": "v8.21.56: Moon+ Reader Pro integration: Add two-way .po reading position sync bridge and immersive bottom status bar with battery and live clock."
+  "version": "8.21.57",
+  "versionCode": 8468,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.57/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.57/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.57",
+  "releaseDate": "2026-10-17",
+  "releaseNotes": "v8.21.57: Fix concurrency reference error when expanding reader translator advanced settings."
 }
